@@ -1,791 +1,651 @@
-# ChessGuru - Complete Application Documentation
+# Thinking Simulator — Complete Product & Technical Specification
 
-**Version:** P2.8  
-**Last Updated:** March 3, 2026  
-**Status:** Production Ready
+> A hyper-personalized chess coaching platform that trains players to *think* like stronger players, not just memorize moves.
 
 ---
 
-## Table of Contents
+## 1. Product Vision
 
-1. [Product Overview](#product-overview)
-2. [User Journey](#user-journey)
-3. [System Architecture](#system-architecture)
-4. [The 5 Coaching Layers](#the-5-coaching-layers)
-5. [Core Services Deep Dive](#core-services-deep-dive)
-6. [API Reference](#api-reference)
-7. [Data Models](#data-models)
-8. [Frontend Components](#frontend-components)
-9. [Configuration & Environment](#configuration--environment)
-10. [Testing](#testing)
-11. [Deployment](#deployment)
+**The Problem:** Chess improvement tools (Lichess puzzles, Chess.com lessons, YouTube videos) teach *what* to play but never *how to think*. Players plateau at 1000–1400 because they lack a structured thinking process — they can't evaluate positions, form plans, or learn from their own mistakes in a personalized way.
 
----
+**The Solution:** The Thinking Simulator is a coaching AI that:
+1. **Coaches every single move** — not just mistakes, but explains *why* good moves are good and what the opponent's plan was
+2. **Teaches plans, not moves** — every explanation includes the strategic *why*, making knowledge transferable
+3. **Tracks behavioral patterns** — detects tilt, impulse moves, time management issues, and provides behavioral coaching
+4. **Provides deep opening theory** — 24 openings, 49 variations, 12–26 moves deep, with interactive step-by-step lessons
+5. **Adapts to the player** — remembers what concepts the player has acknowledged understanding, what mistakes recur, and adjusts coaching accordingly
 
-## Product Overview
-
-### What is ChessGuru?
-
-ChessGuru is a **hyper-personalized, data-driven chess coaching application** that goes beyond traditional engine analysis. Unlike Chess.com or Lichess which show what went wrong, ChessGuru shows **why it went wrong behaviorally** and **enforces habit change**.
-
-### Core Philosophy
-
-> "Not an analyzer. Not a mentor simulator. A **discipline system**."
-
-The coach feels like a calm, direct, Indian mentor who:
-- Detects behavioral patterns (not just tactical errors)
-- Remembers your history across games
-- Adapts teaching style to your maturity
-- Enforces specific rules through Focus Locks
-- Injects theory concepts when patterns repeat
-
-### What Makes It Different
-
-| Traditional Analysis | ChessGuru |
-|---------------------|-----------|
-| Shows engine best move | Shows why YOU made that choice |
-| Generic advice | Personalized to your rating & patterns |
-| Passive feedback | Active enforcement via Focus Lock |
-| One-time lesson | Tracks pattern across games |
-| Treats each game separately | Memory continuity across sessions |
+**Core Design Principle:** The LLM is a *language translator only*. All chess logic (evaluation, candidate moves, plans, consequences) comes from Stockfish + deterministic rule engines. The LLM converts structured coaching data into natural, engaging prose. This ensures correctness — no hallucinated chess analysis.
 
 ---
 
-## User Journey
+## 2. Architecture Overview
 
-### 1. Onboarding
 ```
-User → Links Chess.com account → Games sync automatically
+┌──────────────────────────────────────────────────────────────┐
+│                        FRONTEND (React)                       │
+│  Landing → Onboarding → Home → Lab → Play with Coach → ...   │
+│  Tailwind CSS + Shadcn/UI + react-chessboard                 │
+└──────────────────────┬───────────────────────────────────────┘
+                       │ HTTPS (via Kubernetes Ingress)
+                       │ All routes prefixed /api
+┌──────────────────────▼───────────────────────────────────────┐
+│                      BACKEND (FastAPI)                        │
+│                                                               │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐  │
+│  │  Routes (18) │  │ Services(50+)│  │  Coach Engine       │  │
+│  │  auth, coach │  │ V5 coaching  │  │  Opening plans      │  │
+│  │  games, lab  │  │ Habits engine│  │  Piece metrics      │  │
+│  │  openings    │  │ Opening tree │  │  Rule validator     │  │
+│  │  training    │  │ LLM narrator │  │  Teaching engine     │  │
+│  │  missions    │  │ Pattern mem  │  │  Wisdom library     │  │
+│  │  ...         │  │ ...          │  │  ...                │  │
+│  └──────┬──────┘  └──────┬───────┘  └─────────┬──────────┘  │
+│         │                │                      │             │
+│  ┌──────▼──────────────▼──────────────────────▼──────────┐  │
+│  │                   Core Analysis Layer                    │  │
+│  │  ┌────────────┐  ┌──────────────┐  ┌────────────────┐  │  │
+│  │  │ Stockfish   │  │ python-chess │  │ GPT-4o-mini    │  │  │
+│  │  │ Depth 18    │  │ Board logic  │  │ (via Emergent) │  │  │
+│  │  │ Multi-PV    │  │ FEN/PGN/SAN  │  │ Narrative only │  │  │
+│  │  └────────────┘  └──────────────┘  └────────────────┘  │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                              │                                │
+│  ┌───────────────────────────▼──────────────────────────────┐│
+│  │                    MongoDB (Motor async)                   ││
+│  │  users, games, coach_sessions, user_opening_progress,     ││
+│  │  feedback, notifications, missions, streaks, ...          ││
+│  └───────────────────────────────────────────────────────────┘│
+│                                                               │
+│  ┌───────────────────────────────────────────────────────────┐│
+│  │            Static Data (JSON/Python)                       ││
+│  │  opening_theory_tree.json (24 openings, 49 variations)    ││
+│  │  verified_opening_traps.py (curated trap database)        ││
+│  │  eco_openings.json, chess_theory.json                     ││
+│  └───────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────┘
 ```
-
-### 2. Game Analysis Flow
-```
-Game played → Queued for analysis → Stockfish + Behavioral tagging → 
-Coach commentary generated → Module trigger detected → Stored
-```
-
-### 3. Lab Page (Game Review)
-```
-User opens game → Sees "If You Fix Only One Thing" →
-Evidence (move + cp loss) → Rule to follow →
-Optional: Concept explanation, Coach's full take
-```
-
-### 4. Focus Lock Activation
-```
-3+ triggers of same pattern → Auto-lock activated →
-User must play 5 games following the rule →
-Compliance measured each game → Complete at 75%+ avg
-```
-
-### 5. Dashboard Hierarchy
-```
-Focus Lock Active? → Show Focus Lock Card (overrides everything)
-Else Breakthrough Signal? → Show Weekly Signal Card
-Else → Show normal dashboard
-```
-
----
-
-## System Architecture
 
 ### Tech Stack
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Frontend | React 18 + Tailwind CSS + Shadcn/UI | Single-page app, dark theme |
+| Backend | FastAPI (Python 3.11) | Async throughout, Motor for MongoDB |
+| Database | MongoDB | Document store, async via Motor |
+| Chess Engine | Stockfish (depth 18, multi-PV) | All position evaluation |
+| Chess Logic | python-chess | Board representation, move validation, FEN/PGN |
+| LLM | GPT-4o-mini via `emergentintegrations` | Narrative generation only — never for chess analysis |
+| Auth | Google OAuth (Emergent-managed) + session cookies | 7-day sessions |
+| Hosting | Kubernetes (Emergent Cloud) | Preview + production deployments |
+
+---
+
+## 3. User Flow & Pages
+
+### 3.1 Authentication & Onboarding
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/` | Landing | Marketing page, Google OAuth login |
+| `/onboarding` | Onboarding | Collect chess.com/lichess username, rating, playing style preferences |
+
+### 3.2 Core Experience (Main Navigation)
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/home` | HomePage | Dashboard hub — recent games, active missions, coaching tips, quick actions |
+| `/lab` | Dashboard | Game library — browse analyzed games, trigger analysis, see stats |
+| `/game/:gameId` | LabV2 | **The Lab** — deep move-by-move game analysis with V5 coaching engine |
+| `/play-with-coach` | CoachPlay | **Play with Coach** — play a game against the engine with real-time coaching on every move |
+| `/openings-overview` | OpeningsOverview | **Opening Theory Tree** — browse all 24 openings, variations, plans, and critical positions |
+| `/openings/:openingKey` | OpeningLesson | Individual opening lesson with interactive board |
+| `/training` | Training | Training hub — prescribed puzzles, drills, weakness-targeted exercises |
+| `/progress` | UnifiedProgress | Progress tracking — rating trajectory, weakness trends, concept mastery |
+| `/reflect` | Reflect | Post-game reflection — guided review of key moments, tagging, and self-assessment |
+
+### 3.3 Secondary Features
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/import` | ImportGames | Import games from chess.com/lichess via username |
+| `/training/prescribed` | PrescribedTraining | Weakness-targeted puzzle sets |
+| `/training/quiz/:openingKey` | OpeningQuizPage | Opening knowledge quiz |
+| `/mission/:missionId` | MissionRunner | Daily mission execution (positions to solve) |
+| `/recover/:gameId` | PostLossRecovery | Post-loss emotional recovery + lesson extraction |
+| `/plateau-breaker` | PlateauBreakerDashboard | Enforced learning mode for stuck players |
+| `/weaknesses` | WeaknessTracker | Detailed weakness breakdown |
+| `/settings` | Settings | Profile, linked accounts, email preferences |
+
+---
+
+## 4. Core Features — Deep Dive
+
+### 4.1 The Lab (Post-Game Analysis)
+
+**What it does:** Takes any completed game and produces a move-by-move "decryption" — explaining what happened, why, and what the player should have been thinking.
+
+**Pipeline:**
+```
+PGN/Game → Stockfish Multi-PV Analysis → V5 Coaching Layer → LLM Narrative → UI
+```
+
+**V5 Coaching Layer** (`shared_coaching_v5.py`):
+- `generate_move_coaching()` — Main entry point for every move
+- Produces structured coaching data for each move:
+  - **Eval delta** — How much the position changed
+  - **Move classification** — Brilliant / Best / Good / Inaccuracy / Mistake / Blunder
+  - **Candidate moves** — Top 3 alternatives from Stockfish multi-PV with eval scores
+  - **Consequence description** — What this move specifically enables (e.g., "allows Nf5 fork on e7 and g7")
+  - **Strategic plan** — What each side should be doing in this position
+  - **Concept tag** — The underlying chess principle (e.g., "piece activity", "pawn structure", "king safety")
+
+**LLM Narrator** (`v5_llm_narrator.py`):
+- Takes the structured V5 coaching data and converts it into natural language
+- Constrained prompt: "You are NOT analyzing chess. You are translating pre-computed analysis into engaging prose."
+- Output validated by `chess_verification_layer.py` to ensure no hallucinated moves/evaluations
+
+**Habits Report** (`player_habits_service.py`):
+- After analysis, generates a behavioral report detecting:
+  - **Impulse moves** — Moves made in < 3 seconds after opponent's move
+  - **Tilt detection** — Cascading errors after a blunder (error rate increase)
+  - **Overthinking** — Spending > 2 minutes on low-complexity positions
+  - **Time pressure patterns** — Quality degradation in last 30 seconds
+  - **Calculation depth** — Inferred from move timing patterns
+
+**API Endpoints:**
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/coach/decryption/v5/{game_id}` | Full V5 decryption with habits report |
+| POST | `/api/coach/decryption/acknowledge` | Mark a coaching concept as "understood" |
+| POST | `/api/coach/decryption/feedback` | Rate coaching quality |
+
+---
+
+### 4.2 Play with Coach (Live Coaching)
+
+**What it does:** The user plays a game against Stockfish while receiving real-time coaching on every move — both their own moves and the engine's responses.
+
+**Two-Moment Feedback Architecture:**
+```
+User plays move → MOMENT 1: Immediate feedback on user's move
+                 ↓
+Coach plays response → MOMENT 2: Explanation of coach's counter-move
+```
+
+**Phase 1 (User Move Feedback):**
+- Stockfish evaluates the user's move
+- V5 coaching layer generates structured analysis
+- If blunder detected: **Guardian Intervention** — inline warning with undo option
+- Behavioral coaching: "You spent 2s on this move. Was this calculated or reactive?"
+
+**Phase 2 (Coach Move Explanation):**
+- Coach selects a move (Stockfish-guided, difficulty-adaptive)
+- V5 coaching layer explains the coach's move and its plan
+- "I played Nf5 to target your weak e7 and g7 squares. This is a classic outpost maneuver."
+
+**Opening Teaching System (JSON-driven):**
+When an opening is detected during play, the system offers interactive lessons:
+1. **Detection** — `detect_opening_from_moves()` identifies the opening after 2-6 moves
+2. **Offer** — Shows teaching offer card with options: "Learn the {Variation}" or "Just play"
+3. **Lesson** — Step-by-step guided play through 12-26 deep theory moves
+   - Resumes from current board position (doesn't restart)
+   - Auto-plays coach's moves, waits for user's moves
+   - Critical position enrichment: explains key decisions at important junctures
+   - Wrong move feedback: "Not quite! c3 is passive here because... The correct move is e5."
+4. **Completion** — Updates user progress, offers to continue game or start fresh
+
+**Coaching Panel (Right Side):**
+- V5 coaching card with move classification, candidate moves, and plans
+- Behavioral coaching alerts (tilt, rushing, etc.)
+- Opening suggestion / lesson offer
+- Clickable candidate moves that preview on the board
+
+**API Endpoints:**
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/coach/play/v5/interactive-feedback` | Two-phase coaching (user_move / coach_move) |
+| POST | `/api/coach/play/teaching/start` | Start opening lesson |
+| POST | `/api/coach/play/teaching/move` | Process teaching move |
+| POST | `/api/coach/play/teaching/exit` | Exit lesson mode |
+| POST | `/api/coach/play/move/confirm` | Confirm a move after Guardian intervention |
+| GET | `/api/coach/play/state/{session_id}` | Get session state |
+| GET | `/api/coach/play/active` | Get active session |
+| POST | `/api/coach/play/end` | End session |
+
+---
+
+### 4.3 Opening Theory System
+
+**Architecture:**
+```
+opening_theory_tree.json (Single Source of Truth)
+         │
+         ├── opening_theory_json_service.py (Loader + Query API)
+         │
+         ├── opening_teaching_integration.py (Lesson flow for Play with Coach)
+         │      └── Resumes from board position, auto-plays, enriches instructions
+         │
+         ├── opening_mastery.py (Detection + Progress tracking)
+         │      ├── detect_opening_from_moves() — Hardcoded priority detection
+         │      ├── OPENING_DATABASE — Populated from JSON at startup
+         │      └── get_user_opening_progress() / update_user_opening_progress()
+         │
+         ├── verified_opening_traps.py (Curated trap database)
+         │      └── Used for trap lessons within Play with Coach
+         │
+         └── OpeningsOverview.jsx (Theory Tree Browser UI)
+                └── Expandable cards with plans, variations, critical positions
+```
+
+**Coverage:**
+| Opening | Variations | Max Depth |
+|---------|-----------|-----------|
+| Italian Game | Giuoco Piano, Two Knights | 15 moves |
+| French Defense | Advance, Classical, Winawer, Tarrasch, Exchange | 16 moves |
+| Queen's Gambit | QGD Orthodox, QGA, Slav | 18 moves |
+| Sicilian Najdorf | English Attack | 24 moves |
+| Ruy Lopez | Morphy Defense, Closed | 20 moves |
+| King's Indian | Classical, Samisch | 16 moves |
+| Grunfeld Defense | Exchange, Russian | 17 moves |
+| ... +17 more | Total: 49 variations | 12–26 moves |
+
+Each variation includes:
+- Full move sequence with `python-chess` validated legality
+- White plan / Black plan descriptions
+- Critical positions with best moves, mistake moves, and explanations
+- Common learnings (transferable principles)
+
+---
+
+### 4.4 Player Habits Engine
+
+**What it does:** Analyzes behavioral patterns beyond chess quality — time management, emotional state, calculation habits.
+
+**Detection Model** (`player_habits_service.py`):
+
+| Pattern | Detection Method | Trigger |
+|---------|-----------------|---------|
+| Impulse move | Move time < 3s after opponent | Time delta analysis |
+| Tilt cascade | 3+ errors in 5-move window after blunder | Error rate spike |
+| Overthinking | > 120s on position with eval delta < 0.3 | Time vs complexity |
+| Time trouble | Quality drops in final 30s of time control | Time pressure correlation |
+| Calculation depth | Inferred from avg think time on complex positions | Position complexity vs time |
+| Rushing after advantage | Speed increase when ahead | Eval + time correlation |
+
+**Integration Points:**
+- **Play with Coach** — Real-time behavioral alerts during the game
+- **The Lab** — Post-game habits report appended to V5 decryption
+- **Progress page** — Behavioral trend tracking over time
+
+---
+
+### 4.5 Training & Missions
+
+**Training Hub** (`/training`):
+- Prescribed puzzles based on detected weaknesses
+- Spaced repetition system for pattern recognition
+- Data-driven drill recommendations
+
+**Daily Missions** (`/mission/:missionId`):
+- Generated from the player's weakness profile
+- Position-based challenges: "Find the correct plan in 3 positions where you tend to miss knight outposts"
+- Completion tracking with streak system
+
+**Plateau Breaker** (`/plateau-breaker`):
+- Enforced learning mode for players stuck at a rating
+- Structured review → lesson → application cycle
+- Must demonstrate understanding before proceeding
+
+---
+
+### 4.6 Reflection System
+
+**What it does:** Guided post-game self-assessment that builds metacognitive skills.
+
+**Flow:**
+```
+Game completed → Key moments extracted → User tags each moment →
+User explains their thinking → System compares with engine evaluation →
+Learning points generated → Progress updated
+```
+
+**Why it matters:** Research shows that *self-assessment after performance* is the #1 factor in skill improvement. The reflection system forces players to actively engage with their decisions rather than passively consuming analysis.
+
+---
+
+## 5. Service Dependency Map
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        FRONTEND                              │
-│  React 18 + Vite + TailwindCSS + Shadcn/UI                  │
-│  Port: 3000                                                  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                        BACKEND                               │
-│  FastAPI + Python 3.11                                       │
-│  Port: 8001 (internal), /api/* (external)                   │
-└─────────────────────────────────────────────────────────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
-│    MongoDB       │ │   Stockfish  │ │  OpenAI GPT-4o   │
-│  (All data)      │ │  (Analysis)  │ │  (Commentary)    │
-└──────────────────┘ └──────────────┘ └──────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        REQUEST FLOW                              │
+│                                                                  │
+│  User clicks "Analyze"                                          │
+│    → routes/coach.py (decryption/v5/{game_id})                  │
+│      → game_decryption_v5_service.py                            │
+│        → stockfish_service.py (multi-PV analysis, depth 18)     │
+│        → shared_coaching_v5.py (V5 coaching for each move)      │
+│          → coach_engine/opening_plans.py (strategic plans)      │
+│          → services/pawn_structure_service.py                   │
+│          → services/game_phase_service.py                       │
+│        → v5_llm_narrator.py (GPT-4o-mini narrative)             │
+│        → player_habits_service.py (behavioral analysis)         │
+│      → MongoDB: store decryption result                         │
+│    ← Return full decryption with habits report                  │
+│                                                                  │
+│  User plays move in Coach                                        │
+│    → routes/coach_play.py (v5/interactive-feedback)             │
+│      → coach_play/coach_game_session.py (game state)            │
+│      → shared_coaching_v5.py (evaluate user's move)             │
+│      → coach_play/pre_move_guardian.py (blunder check)          │
+│      → player_habits_service.py (behavioral coaching)           │
+│      → opening_mastery.py (opening detection)                   │
+│        → opening_teaching_integration.py (lesson offers)        │
+│          → opening_theory_json_service.py (JSON theory data)    │
+│      → v5_llm_narrator.py (narrative)                           │
+│    ← Return phased feedback (user_move or coach_move)           │
+│                                                                  │
+│  User starts opening lesson                                      │
+│    → routes/coach_play.py (teaching/start)                      │
+│      → opening_teaching_integration.py                          │
+│        → opening_theory_json_service.py (load lesson data)      │
+│        → Match played moves, resume from current position       │
+│        → Auto-play coach moves, wait for user moves             │
+│      → MongoDB: update session teaching state                   │
+│    ← Return lesson with current_move_index and teaching_fen     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Directory Structure
+---
+
+## 6. Data Model (Key Collections)
+
+### `users`
+```json
+{
+  "user_id": "google_12345",
+  "email": "player@example.com",
+  "display_name": "ChessKnight",
+  "chess_com_username": "knight1200",
+  "lichess_username": null,
+  "rating": 1200,
+  "playing_style": "aggressive",
+  "created_at": "2025-03-01T...",
+  "onboarding_complete": true
+}
+```
+
+### `games`
+```json
+{
+  "game_id": "uuid-v4",
+  "user_id": "google_12345",
+  "platform": "chess.com",
+  "pgn": "1. e4 e5 2. Nf3 ...",
+  "white_username": "knight1200",
+  "black_username": "opponent",
+  "result": "1-0",
+  "user_color": "white",
+  "time_control": "600",
+  "opening_name": "Italian Game",
+  "analysis_status": "complete",
+  "stockfish_analysis": { ... },
+  "v5_decryption": { ... },
+  "habits_report": { ... },
+  "imported_at": "2025-03-15T..."
+}
+```
+
+### `coach_sessions` (Play with Coach)
+```json
+{
+  "session_id": "uuid-v4",
+  "user_id": "google_12345",
+  "user_color": "white",
+  "current_fen": "rnbqkb1r/pppp1ppp/...",
+  "move_history": [
+    {"move": "e4", "color": "white", "time_spent": 2.1, "eval": 0.3},
+    {"move": "e5", "color": "black", "time_spent": 1.5, "eval": 0.2}
+  ],
+  "behavior_events": [
+    {"type": "impulse_move", "move_number": 12, "time_spent": 1.2}
+  ],
+  "detected_opening": "italian_game",
+  "teaching_mode": "main_line",
+  "teaching_data": {
+    "variation_name": "Giuoco Piano",
+    "variation_key": "giuoco_piano",
+    "main_line_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "c3", ...],
+    "current_move_index": 7,
+    "critical_positions": { ... },
+    "user_plays_white": true,
+    "teaching_fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2P2N2/PP1P1PPP/..."
+  },
+  "status": "active",
+  "created_at": "2025-03-20T..."
+}
+```
+
+### `user_opening_progress`
+```json
+{
+  "user_id": "google_12345",
+  "opening_name": "French Defense",
+  "mastery_level": "learning",
+  "times_practiced": 5,
+  "traps_learned": ["Winawer Poisoned Pawn"],
+  "variations_learned": ["Advance Variation", "Classical"],
+  "last_practiced_at": "2025-03-20T..."
+}
+```
+
+### `user_concept_understanding`
+```json
+{
+  "user_id": "google_12345",
+  "concept_id": "piece_activity_outpost",
+  "concept_type": "strategic",
+  "concept_text": "Knights are strongest on outpost squares...",
+  "shown_count": 4,
+  "acknowledged": true,
+  "acknowledged_at": "2025-03-18T...",
+  "applied_correctly_count": 2,
+  "failed_to_apply_count": 1
+}
+```
+
+---
+
+## 7. External Integrations
+
+| Service | Purpose | Integration Method |
+|---------|---------|-------------------|
+| **Stockfish** | All chess position evaluation | Binary executed via subprocess, UCI protocol |
+| **python-chess** | Board representation, move validation, FEN/PGN parsing | Python library |
+| **GPT-4o-mini** | Narrative generation (coaching prose) | Via `emergentintegrations` library (Emergent Universal Key) |
+| **Chess.com API** | Game import, rating sync | REST API (public) |
+| **Lichess API** | Game import, rating sync | REST API (public) |
+| **Google OAuth** | Authentication | Emergent-managed OAuth flow |
+| **MongoDB** | Primary data store | Motor async driver |
+
+---
+
+## 8. Key Design Decisions
+
+### Why Stockfish + LLM (not pure LLM)?
+LLMs hallucinate chess analysis. GPT-4o frequently suggests illegal moves and miscalculates evaluations. Our approach: Stockfish computes all analysis (evals, candidate moves, consequences), and the LLM is *only* used to convert structured data into natural language. This gives us 100% accurate analysis with engaging presentation.
+
+### Why JSON-based opening theory (not a database)?
+- **Accuracy**: Opening theory must be verified move-by-move. A JSON file with `python-chess` validation ensures every line is legal.
+- **Expandability**: Adding a new opening is a JSON object, not a database migration.
+- **Performance**: Loaded once at startup, cached in memory. Zero DB queries for theory data.
+- **Portability**: The entire theory database is a single file that can be reviewed, versioned, and contributed to.
+
+### Why two-moment feedback (not immediate)?
+Players need time to process. Showing the coach's move explanation *simultaneously* with feedback on the user's move creates cognitive overload. The two-moment architecture (1: feedback on your move → pause → 2: explanation of coach's response) creates a dialogue rhythm that mimics a real coaching session.
+
+### Why behavioral coaching alongside tactical?
+A player who knows the right move but plays impulsively under time pressure doesn't need more tactics — they need behavioral awareness. The Habits Engine addresses the 50% of chess improvement that isn't chess knowledge: emotional regulation, time management, and calculation discipline.
+
+---
+
+## 9. Backend Service Inventory
+
+### Route Modules (18)
+| Module | Prefix | Endpoints | Purpose |
+|--------|--------|-----------|---------|
+| `auth.py` | `/auth` | 11 | Authentication, Google OAuth, session management |
+| `coach.py` | `/coach` | 14 | Lab decryption, V5 coaching, concept tracking, patterns |
+| `coach_play.py` | `/coach/play` | 18 | Live coaching game, teaching, Guardian, chat |
+| `openings.py` | `/openings` | 14 | Opening lessons, practice, traps, corrections |
+| `admin_openings.py` | `/admin/openings` | 4 | Opening theory tree API |
+| `games.py` | `/games` | 7 | Game library, analysis status, reanalysis |
+| `lab.py` | `/lab` | 5 | Deep game analysis, mistake context, strategy |
+| `training.py` | `/training` | 14 | Spaced repetition, puzzles, habits, weekly plan |
+| `missions.py` | `/missions` | 8 | Daily missions, focus mastery |
+| `journey.py` | `/journey` | 10 | Progress dashboard, weakness trends, intelligence |
+| `cognitive.py` | `/cognitive` | 14 | Cognitive gap analysis, TSI, focus system |
+| `behavioral.py` | `/behavioral` | 9 | Behavioral analysis, missions, reanalysis |
+| `reflect.py` | `/reflect` | 10 | Post-game reflection, moment tagging |
+| `feedback.py` | `/feedback` | 16 | Coaching quality feedback, tag system |
+| `notifications.py` | `/notifications` | 7 | Push notifications, read/dismiss |
+| `settings.py` | `/settings` | 6 | Profile, email prefs, account linking |
+| `streak.py` | `/streak` | 6 | Daily streak, focus types |
+| `server.py` (api_router) | Various | 30+ | Import, analysis, TTS, thinking score, etc. |
+
+### Core Services
+| Service | File | Purpose |
+|---------|------|---------|
+| V5 Coaching | `shared_coaching_v5.py` | Heart of all coaching — generates structured move analysis |
+| Game Decryption | `game_decryption_v5_service.py` | Full game analysis pipeline |
+| LLM Narrator | `v5_llm_narrator.py` | Converts structured coaching into natural prose |
+| Opening Theory | `opening_theory_json_service.py` | Loads and queries the JSON theory tree |
+| Opening Detection | `opening_mastery.py` | Identifies openings from move sequences |
+| Opening Teaching | `opening_teaching_integration.py` | Interactive lesson flow for Play with Coach |
+| Player Habits | `player_habits_service.py` | Behavioral pattern detection |
+| Stockfish | `stockfish_service.py` | Chess engine wrapper, multi-PV analysis |
+| LLM Service | `llm_service.py` | GPT-4o-mini via emergentintegrations |
+| Coach Game Session | `coach_play/coach_game_session.py` | Manages live coaching game state |
+| Pre-Move Guardian | `coach_play/pre_move_guardian.py` | Blunder detection before move confirmation |
+| Opening Traps | `verified_opening_traps.py` | Curated opening trap database |
+| Pattern Memory | `services/pattern_memory_service.py` | Long-term pattern tracking |
+| Learning Tracker | `services/v5_learning_tracker.py` | Concept understanding tracking |
+| Journey Service | `journey_service.py` | Progress dashboard data, background sync |
+| Rating Service | `rating_service.py` | Rating prediction, time analysis, training generation |
+| Player Profile | `player_profile_service.py` | Adaptive player modeling |
+| Reflect Service | `reflect_service.py` | Post-game reflection engine |
+| Coach Quality Score | `cqs_service.py` | Internal quality scoring for coaching output |
+| Chess Verification | `chess_verification_layer.py` | Validates LLM output against legal chess |
+
+---
+
+## 10. Frontend Component Architecture
+
+### Page Components (37)
+Core pages listed in Section 3 above. Each page is a standalone route component receiving the `user` object from `ProtectedRoute`.
+
+### Shared Components
+| Component | Purpose |
+|-----------|---------|
+| `Layout.jsx` | Sidebar navigation, responsive, dark theme |
+| `V5CoachingCard.jsx` | Reusable V5 coaching display (used in Lab + Coach Play) |
+| `GameDecryptionV5.jsx` | Full game decryption viewer with habits report |
+| `InteractiveChessBoard.jsx` | Chess board component with move highlighting |
+| `CoachBoard.jsx` | Board component for Play with Coach |
+| `OpeningTeachingPanel.jsx` | Opening lesson UI in coaching panel |
+| `NotificationBell.jsx` | Real-time notification component |
+| `Gamification.jsx` | Streaks, badges, progress indicators |
+
+### UI Component Library
+Shadcn/UI components at `/components/ui/`: Button, Card, Badge, Input, Dialog, DropdownMenu, Tabs, Tooltip, Toast (sonner), Calendar, etc.
+
+---
+
+## 11. File Structure Summary
 
 ```
 /app
-├── backend/
-│   ├── server.py                 # Main FastAPI app (~13k lines)
-│   ├── analysis_worker.py        # Background job processor
-│   ├── stockfish_service.py      # Stockfish integration
-│   ├── llm_service.py            # GPT integration via Emergent
-│   ├── config.py                 # Configuration
-│   │
-│   ├── coach_state/              # Core coaching engine
-│   │   ├── coach_narrative_engine.py    # Story generation
-│   │   ├── coach_memory_service.py      # Long-term memory
-│   │   ├── lesson_resolver.py           # Lesson selection
-│   │   ├── teaching_style_service.py    # Adaptive tone
-│   │   ├── breakthrough_service.py      # Phase detection
-│   │   ├── focus_lock_service.py        # Discipline enforcement
-│   │   ├── theory_modules.py            # 30 theory modules
-│   │   ├── module_trigger_service.py    # Pattern injection
-│   │   └── tests/                        # Unit tests
-│   │
-│   ├── analysis/                 # Intent recognition
-│   │   ├── intent_recognition_service.py
-│   │   └── intent_quality_calibrator.py
-│   │
-│   └── requirements.txt
-│
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js                # Routes & auth
-│   │   ├── pages/
-│   │   │   ├── Dashboard.jsx     # Main dashboard
-│   │   │   ├── Lab.jsx           # Game analysis (redesigned)
-│   │   │   ├── Games.jsx         # Game list
-│   │   │   ├── Training.jsx      # Drills
+│   │   ├── App.js                    # Routes, auth, protected routes
+│   │   ├── pages/                    # 37 page components
+│   │   │   ├── CoachPlay.jsx         # Play with Coach (3500+ lines)
+│   │   │   ├── Dashboard.jsx         # Game library + Lab entry
+│   │   │   ├── OpeningsOverview.jsx  # Theory tree browser
+│   │   │   ├── HomePage.jsx          # Dashboard hub
+│   │   │   ├── Landing.jsx           # Marketing + login
 │   │   │   └── ...
-│   │   │
 │   │   ├── components/
-│   │   │   ├── Home/
-│   │   │   │   ├── FocusLockCard.jsx      # Step 9
-│   │   │   │   ├── CoachWeeklySignalCard.jsx  # Step 8
-│   │   │   │   └── ...
-│   │   │   ├── Lab/
-│   │   │   │   ├── OneThingFix.jsx        # Step 10
-│   │   │   │   └── ConceptCard.jsx        # Step 10
-│   │   │   └── ui/               # Shadcn components
-│   │   │
-│   │   └── utils/
-│   │
+│   │   │   ├── Layout.jsx            # Navigation sidebar
+│   │   │   ├── GameDecryptionV5.jsx  # V5 decryption viewer
+│   │   │   ├── shared/
+│   │   │   │   └── V5CoachingCard.jsx
+│   │   │   ├── ui/                   # Shadcn components
+│   │   │   └── ...
+│   │   └── context/
+│   │       └── ThemeContext.jsx
 │   └── package.json
 │
+├── backend/
+│   ├── server.py                     # FastAPI app, 30+ inline endpoints
+│   ├── config.py                     # Centralized configuration
+│   ├── routes/                       # 18 route modules
+│   │   ├── coach_play.py             # Live coaching endpoints
+│   │   ├── coach.py                  # Lab + decryption endpoints
+│   │   ├── openings.py               # Opening system endpoints
+│   │   └── ...
+│   ├── services/                     # 50+ service modules
+│   │   ├── shared_coaching_v5.py     # Core V5 coaching engine
+│   │   ├── opening_theory_json_service.py  # JSON theory loader
+│   │   ├── opening_teaching_integration.py # Lesson flow
+│   │   ├── opening_mastery.py        # Detection + progress
+│   │   ├── player_habits_service.py  # Behavioral analysis
+│   │   ├── v5_llm_narrator.py        # LLM narrative layer
+│   │   └── ...
+│   ├── coach_engine/                 # Chess knowledge engine
+│   │   ├── opening_plans.py          # Strategic plans per opening
+│   │   ├── piece_metrics.py          # Piece activity scoring
+│   │   ├── teaching_engine.py        # Teaching logic
+│   │   └── ...
+│   ├── coach_play/                   # Live game services
+│   │   ├── coach_game_session.py     # Game session management
+│   │   ├── pre_move_guardian.py      # Blunder prevention
+│   │   └── ...
+│   ├── data/
+│   │   └── coaching/
+│   │       └── opening_theory_tree.json  # 24 openings, 49 variations
+│   ├── stockfish_service.py          # Engine wrapper
+│   ├── llm_service.py                # LLM integration
+│   └── requirements.txt
+│
 └── memory/
-    ├── PRD.md                    # Product requirements
-    ├── CHANGELOG.md              # Version history
-    └── app.md                    # This file
+    └── PRD.md                        # Product requirements doc
 ```
 
 ---
 
-## The 5 Coaching Layers
+## 12. What Makes This Different
 
-### Layer 1: Tactical Analysis (Steps 0-4)
-**What:** Stockfish-powered move evaluation  
-**Output:** Accuracy %, blunders, mistakes, best moves
-
-```python
-# stockfish_service.py
-analyze_game_with_stockfish(pgn, user_color, depth=18)
-# Returns: move_evaluations, accuracy, critical_moments
-```
-
-### Layer 2: Behavioral Memory (Step 5)
-**What:** Long-term pattern tracking across games  
-**Output:** Recurring weaknesses, improvement trends
-
-```python
-# coach_memory_service.py
-class CoachMemory:
-    lesson_history: List[LessonEvent]      # Last 50 lessons
-    recurring_patterns: Dict[str, int]     # Pattern frequencies
-    improvement_areas: List[str]           # Active focus areas
-    last_advice_given: Dict                # Prevents repetition
-```
-
-**Key Insight:** If user makes same mistake 3+ times, it becomes a "recurring pattern" and triggers stronger intervention.
-
-### Layer 3: Phase Awareness (Steps 6-8)
-**What:** Understanding player's current learning phase  
-**Output:** NORMAL, PLATEAU, BREAKTHROUGH, CONFIDENCE_ILLUSION, TILT_RISK
-
-```python
-# breakthrough_service.py
-def get_breakthrough_signal_for_user(analyses, memory) -> BreakthroughSignal:
-    # Analyzes 5/10/20 game windows
-    # Returns phase + confidence + recommended action
-```
-
-**Phase Definitions:**
-- **NORMAL:** Steady progress, no intervention needed
-- **PLATEAU:** Skill stagnant, needs new input
-- **BREAKTHROUGH:** Rapid improvement, reinforce good habits
-- **CONFIDENCE_ILLUSION:** Winning but with bad habits
-- **TILT_RISK:** Losing streak, needs recovery
-
-### Layer 4: Discipline Enforcement (Step 9)
-**What:** Focus Lock system that forces habit change  
-**Output:** Locked rule for N games, compliance tracking
-
-```python
-# focus_lock_service.py
-class FocusLock:
-    lesson_key: str           # FORCING_BLIND, etc.
-    state: LockState          # ACTIVE, EXTENDED, STRICT, COMPLETED, FAILED
-    games_required: int       # Usually 5
-    games_completed: int
-    compliance_scores: List[float]
-    strict_mode: bool
-    failed_cycles: int        # For escalation
-```
-
-**Compliance Calculation:**
-| Lesson | How It's Measured |
-|--------|-------------------|
-| FORCING_BLIND | Did user check forcing moves before deciding? |
-| STOPPED_CALCULATION_EARLY | Did user calculate deep enough at critical moments? |
-| THREAT_VERIFICATION | Did user verify opponent's threats? |
-
-**Lock Lifecycle:**
-```
-ACTIVE → (complete 5 games)
-  → compliance ≥ 75% → COMPLETED ✓
-  → compliance < 75% → EXTENDED (+3 games)
-    → still failing + declining → STRICT mode
-    → 2 failures → FAILED → Deep Session
-```
-
-### Layer 5: Pattern Injection (Step 10)
-**What:** Theory module detection and auto-lock  
-**Output:** Injected concept + potential auto-lock
-
-```python
-# theory_modules.py - 30 modules across 5 categories
-CATEGORIES:
-  A. Tactical Awareness (8): LPDO, Forcing Moves, Overloaded Defender...
-  B. Conversion (6): Simplify When Ahead, Avoid Counterplay...
-  C. Endgame (6): Square Rule, Opposition, Rook Behind Passer...
-  D. Positional (6): Good vs Bad Bishop, Knight Outposts...
-  E. Opening (4): Castle Before Attacking, Fight for Center...
-```
-
-**Auto-Lock Guardrails:**
-1. Must have 3+ triggers of same module in 10 games
-2. Must be high-confidence trigger (≥300cp swing)
-3. Must not have active lock already
+| Feature | Chess.com / Lichess | Typical AI Coach | Thinking Simulator |
+|---------|-------------------|-----------------|-------------------|
+| Move-by-move coaching | Basic eval bar | LLM-generated (hallucination risk) | Stockfish analysis + LLM narrative (verified) |
+| Opening lessons | Static video/text | Generic lines | 24 openings, 49 variations, 12-26 moves, interactive on-board |
+| Behavioral coaching | None | None | Real-time tilt/impulse/time detection |
+| Concept tracking | None | None | Tracks what user "understands" per concept |
+| Live coaching during play | None | Post-game only | Every move, both sides, with plans |
+| Lesson resume from position | N/A | N/A | Detects played moves, continues from board state |
+| Blunder prevention | None | None | Guardian system warns before confirming blunder |
+| Post-loss recovery | None | None | Guided emotional + tactical recovery session |
 
 ---
 
-## Core Services Deep Dive
+## 13. Current Status & Metrics
 
-### Analysis Worker (`analysis_worker.py`)
-
-Background job processor that handles game analysis.
-
-```python
-def process_job(db, job):
-    # Phase 1: Stockfish analysis
-    stockfish_result = analyze_game_with_stockfish(pgn, user_color, depth=18)
-    
-    # Phase 2: Intent recognition
-    for move in move_evaluations:
-        intent = recognize_intent(fen, san, best_move, user_color)
-        move["intent_type"] = intent.intent_type
-        move["intent_quality"] = calibrate_with_forcing_context(...)
-    
-    # Phase 3: Coach narrative generation
-    coach_summary = generate_game_coach_summary(analysis_data)
-    
-    # Phase 4: Focus Lock compliance update
-    update_focus_lock_compliance(db, user_id, move_evaluations)
-    
-    # Phase 5: Module trigger detection
-    detect_and_inject_module(db, user_id, game_id, user_rating)
-```
-
-### Focus Lock Service (`focus_lock_service.py`)
-
-Handles all discipline enforcement logic.
-
-```python
-# Create a new lock
-lock = create_focus_lock("FORCING_BLIND", games=5)
-
-# After each game
-compliance = calculate_compliance(lesson_key, move_evaluations)
-updated_lock = update_lock_after_game(lock, compliance, trend)
-
-# Check UI state
-ui_state = get_lock_ui_state(lock)  # Returns dict for frontend
-
-# Check deep session trigger
-if should_trigger_deep_session(lock):  # failed_cycles >= 2
-    trigger_deep_session(user_id)
-```
-
-### Module Trigger Service (`module_trigger_service.py`)
-
-Detects and injects theory modules.
-
-```python
-# Detect module for a game
-trigger = detect_module_for_game(game_analysis, user_rating, recent_injections)
-# Returns: ModuleTrigger with module_key, rule, evidence, confidence
-
-# Check auto-lock condition
-should_lock, count = check_auto_lock_condition(
-    module_key, confidence, recent_triggers, has_active_lock
-)
-# Returns: (True/False, trigger_count)
-
-# Map module to Focus Lock lesson
-lesson = get_focus_lock_lesson_for_module("SIMPLIFY_WHEN_AHEAD")
-# Returns: "STOPPED_CALCULATION_EARLY"
-```
+- **24 openings** with deep theory (12-26 moves per variation)
+- **49 opening variations** with critical position data
+- **18 route modules** with 200+ API endpoints
+- **50+ backend services**
+- **37 frontend pages**
+- **All opening theory `python-chess` validated** (zero illegal moves)
+- **Backend test suite**: 150+ test files
+- **LLM usage**: Narrative only — zero chess analysis via LLM (100% Stockfish)
 
 ---
 
-## API Reference
-
-### Authentication
-All endpoints require session cookie: `Cookie: session_token=<token>`
-
-### Game Analysis
-
-```http
-GET /api/games
-# List user's games with analysis status
-
-GET /api/games/{game_id}
-# Get single game with full analysis
-
-POST /api/games/{game_id}/reanalyze
-# Queue game for re-analysis
-
-GET /api/games/{game_id}/analysis-status
-# Check analysis status
-```
-
-### Coaching Endpoints
-
-```http
-GET /api/coach/focus-lock
-# Get current focus lock state
-Response: {
-  "active": true,
-  "lesson_key": "FORCING_BLIND",
-  "state": "ACTIVE",
-  "progress": {"completed": 2, "required": 5},
-  "compliance": {"average": 75, "color": "yellow"},
-  "strict_mode": false
-}
-
-POST /api/coach/focus-lock/activate
-Body: {"lesson_key": "FORCING_BLIND", "games": 5}
-# Activate new focus lock (with guardrails)
-
-POST /api/coach/focus-lock/deactivate
-# Force-deactivate (admin use)
-
-GET /api/coach/breakthrough-signal
-# Get weekly phase signal
-Response: {
-  "show_card": true,
-  "state": "PLATEAU",
-  "confidence": 0.8,
-  "headline": "...",
-  "message": "...",
-  "cta": {...}
-}
-
-GET /api/coach/module/{game_id}
-# Get theory module trigger for game
-Response: {
-  "triggered": true,
-  "module_key": "SIMPLIFY_WHEN_AHEAD",
-  "module_name": "Simplify When Ahead",
-  "rule": "Trade pieces, reduce counterplay.",
-  "evidence_move": 23,
-  "evidence_cp_loss": 388,
-  "confidence": "high"
-}
-
-GET /api/coach/modules/all
-# Get all 30 theory modules
-
-GET /api/coach/modules/stats
-# Get user's module injection stats
-```
-
-### Lab Data
-
-```http
-GET /api/lab/game/{game_id}
-# Get full lab data for a game
-Response: {
-  "core_lesson": {...},
-  "similar_games": [...],
-  "focus_module": {...},
-  "strategic_analysis": {...}
-}
-```
-
----
-
-## Data Models
-
-### MongoDB Collections
-
-#### `users`
-```javascript
-{
-  user_id: "user_xxx",
-  email: "user@example.com",
-  name: "Mohit",
-  chess_com_username: "killerknightroyalrook",
-  created_at: ISODate(),
-  rating_history: [...]
-}
-```
-
-#### `games`
-```javascript
-{
-  game_id: "uuid",
-  user_id: "user_xxx",
-  pgn: "1. e4 e5...",
-  platform: "chess.com",
-  result: "win",
-  user_color: "white",
-  white_rating: 1200,
-  black_rating: 1250,
-  played_at: ISODate()
-}
-```
-
-#### `game_analyses`
-```javascript
-{
-  game_id: "uuid",
-  user_id: "user_xxx",
-  stockfish_analysis: {
-    move_evaluations: [...],
-    accuracy: 78.5,
-    critical_moments: [...]
-  },
-  game_coach_summary: {
-    lesson_key: "FORCING_BLIND",
-    core_lesson: {...},
-    summary_p1: "...",
-    summary_p2: "..."
-  },
-  module_trigger: {
-    triggered: true,
-    module_key: "SIMPLIFY_WHEN_AHEAD",
-    confidence: "high",
-    ...
-  },
-  analyzed_at: ISODate()
-}
-```
-
-#### `coach_states`
-```javascript
-{
-  user_id: "user_xxx",
-  focus_lock: {
-    lesson_key: "FORCING_BLIND",
-    state: "ACTIVE",
-    games_required: 5,
-    games_completed: 2,
-    compliance_scores: [0.8, 0.75],
-    strict_mode: false,
-    failed_cycles: 0,
-    ...
-  },
-  memory: {
-    lesson_history: [...],
-    recurring_patterns: {...}
-  }
-}
-```
-
-#### `module_injections`
-```javascript
-{
-  user_id: "user_xxx",
-  game_id: "uuid",
-  module_key: "SIMPLIFY_WHEN_AHEAD",
-  confidence: "high",
-  cp_loss: 388,
-  injected_at: ISODate(),
-  auto_locked: false
-}
-```
-
-#### `focus_lock_analytics`
-```javascript
-{
-  user_id: "user_xxx",
-  lock_started_at: ISODate(),
-  lesson_key: "FORCING_BLIND",
-  games_required: 5,
-  games_completed: 5,
-  final_compliance: 78.5,
-  failed_cycles: 0,
-  strict_mode_triggered: false,
-  deep_session_triggered: false,
-  completed_successfully: true,
-  lock_ended_at: ISODate(),
-  outcome: "completed"  // completed | extended | failed | quit_mid_lock
-}
-```
-
----
-
-## Frontend Components
-
-### Key Pages
-
-| Page | Path | Purpose |
-|------|------|---------|
-| Dashboard | `/dashboard` | Main hub, shows Focus Lock or Weekly Signal |
-| Lab | `/game/:gameId` | Game analysis with "One Thing Fix" |
-| Games | `/games` | Game list with filters |
-| Training | `/training` | Drill modules |
-| Progress | `/progress` | Rating & improvement charts |
-
-### Component Hierarchy (Lab Page)
-
-```
-Lab.jsx
-├── Header
-│   ├── Game info (opponent, result, accuracy)
-│   ├── Coach/Engine mode toggle
-│   └── Focus Lock badge (if active)
-│
-├── Board Section
-│   ├── Chessboard
-│   ├── Move list
-│   └── Navigation controls
-│
-└── Right Panel (Tabs)
-    ├── Summary Tab
-    │   ├── OneThingFix         ← Step 10 anchor
-    │   ├── ConceptCard         ← Theory module
-    │   ├── Focus Lock status   ← Step 9
-    │   └── Coach's Full Take   ← Collapsed
-    │
-    ├── Strategy Tab
-    │   └── Opening/Phase analysis
-    │
-    └── Milestones Tab
-        └── Brilliant moves, mistakes
-```
-
-### Dashboard Card Priority
-
-```javascript
-// Dashboard.jsx - Card display logic
-{focusLock?.active ? (
-  <FocusLockCard />           // Highest priority - overrides all
-) : breakthroughSignal?.show_card ? (
-  <CoachWeeklySignalCard />   // Second priority
-) : (
-  <DailyMissionCard />        // Default
-)}
-```
-
----
-
-## Configuration & Environment
-
-### Backend `.env`
-```bash
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=chessguru
-STOCKFISH_PATH=/usr/bin/stockfish
-EMERGENT_LLM_KEY=<key>
-```
-
-### Frontend `.env`
-```bash
-REACT_APP_BACKEND_URL=https://thinking-sim.preview.emergentagent.com
-```
-
-### Key Constants
-
-```python
-# focus_lock_service.py
-DEFAULT_LOCK_GAMES = 5
-EXTENSION_GAMES = 3
-COMPLETION_COMPLIANCE_THRESHOLD = 0.75
-MAX_LOCK_FAILURES = 2
-STRONG_COMPLIANCE = 0.80
-PARTIAL_COMPLIANCE = 0.60
-
-# module_trigger_service.py
-AUTO_LOCK_TRIGGER_THRESHOLD = 3
-AUTO_LOCK_WINDOW_GAMES = 10
-HIGH_CONFIDENCE_CP_SWING = 300
-INJECTION_COOLDOWN_GAMES = 10
-```
-
----
-
-## Testing
-
-### Backend Tests
-
-```bash
-# Run all focus lock tests
-cd /app/backend
-python -m pytest coach_state/tests/test_focus_lock_service.py -v
-
-# Test theory modules
-python -c "from coach_state.theory_modules import ALL_MODULES; print(len(ALL_MODULES))"
-```
-
-### API Testing
-
-```bash
-# Get focus lock state
-curl -s "$API/coach/focus-lock" -H "Cookie: session_token=<token>"
-
-# Activate focus lock
-curl -X POST "$API/coach/focus-lock/activate" \
-  -H "Content-Type: application/json" \
-  -H "Cookie: session_token=<token>" \
-  -d '{"lesson_key": "FORCING_BLIND"}'
-
-# Get module for game
-curl -s "$API/coach/module/<game_id>" -H "Cookie: session_token=<token>"
-```
-
-### Frontend Testing
-
-```bash
-# Playwright tests in /app/tests/e2e/
-npx playwright test
-```
-
----
-
-## Deployment
-
-### Services (Supervisor)
-
-```bash
-# Check status
-sudo supervisorctl status
-
-# Restart services
-sudo supervisorctl restart backend
-sudo supervisorctl restart analysis_worker
-sudo supervisorctl restart frontend
-```
-
-### Logs
-
-```bash
-# Backend logs
-tail -f /var/log/supervisor/backend.err.log
-
-# Analysis worker logs
-tail -f /var/log/supervisor/analysis_worker.err.log
-
-# Frontend logs
-tail -f /var/log/supervisor/frontend.err.log
-```
-
-### Health Checks
-
-```bash
-# Backend health
-curl $API/health
-
-# Check analysis queue
-curl $API/admin/queue-status
-```
-
----
-
-## Metrics to Monitor
-
-### Focus Lock Analytics
-```javascript
-// Query focus_lock_analytics collection
-db.focus_lock_analytics.aggregate([
-  { $group: {
-    _id: "$outcome",
-    count: { $sum: 1 },
-    avg_compliance: { $avg: "$final_compliance" }
-  }}
-])
-```
-
-**Key Metrics:**
-- Completion rate (target: ≥70%)
-- Extension rate (target: 30-40%)
-- Strict mode frequency (target: 10-20%)
-- Quit mid-lock rate (red flag if >25%)
-
-### Module Injection Stats
-```javascript
-// Most common triggers
-db.module_injections.aggregate([
-  { $group: { _id: "$module_key", count: { $sum: 1 } }},
-  { $sort: { count: -1 }}
-])
-```
-
----
-
-## Version History
-
-| Version | Date | Major Features |
-|---------|------|----------------|
-| P2.8 | Mar 3, 2026 | Pattern Injection Engine, Lab redesign |
-| P2.7 | Mar 3, 2026 | Focus Lock Mode, Micro reinforcement |
-| P2.6 | Feb 2026 | Breakthrough Detection, Weekly Signal |
-| P2.5 | Feb 2026 | Adaptive Teaching Style |
-| P2.4 | Feb 2026 | Intent Recognition |
-| P2.3 | Feb 2026 | Memory Continuity |
-| P2.0-2.2 | Jan 2026 | CoachState Foundation |
-
----
-
-## Quick Reference
-
-### Adding a New Theory Module
-
-1. Add to `theory_modules.py`:
-```python
-NEW_MODULE = TheoryModule(
-    key="NEW_MODULE",
-    name="Human Readable Name",
-    category=ModuleCategory.TACTICAL,
-    trigger_pattern="When this happens",
-    rule="The one rule to follow",
-    explanation="Short explanation",
-    detection_keys=["LESSON_KEY_1", "LESSON_KEY_2"],
-    min_rating=0,
-    max_rating=2000,
-)
-```
-
-2. Add to `ALL_MODULES` dict
-
-3. Update `get_focus_lock_lesson_for_module()` if needed
-
-### Adding a New Focus Lock Lesson
-
-1. Add compliance calculator in `focus_lock_service.py`
-2. Add to `RULE_DESCRIPTIONS`
-3. Update `calculate_compliance()` dispatcher
-4. Add UI copy in `get_lock_copy()`
-
----
-
-## Contact
-
-For questions about this codebase:
-- Architecture decisions → Review PRD.md
-- Recent changes → Check CHANGELOG.md
-- API behavior → Check server.py endpoints
-- Coaching logic → Check coach_state/ directory
+*Document generated March 2025. For questions: refer to `/app/memory/PRD.md` for product requirements and `/app/backend/DATA_MODEL.md` for extended data model documentation.*
