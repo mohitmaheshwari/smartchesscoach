@@ -12,7 +12,8 @@ import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
-import Training from "@/pages/TrainingNew";  // NEW interactive training
+import Training from "@/pages/TrainingNew";  // Legacy training
+import ThinkingTraining from "@/pages/ThinkingTraining";  // NEW: Thinking-focused training
 import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles based on weaknesses
 import OpeningQuizPage from "@/pages/OpeningQuizPage";  // Opening mastery quiz
 import OpeningRepertoire from "@/pages/OpeningRepertoire";  // Opening Training Lab
@@ -243,6 +244,11 @@ function AppRouter() {
         </ProtectedRoute>
       } />
       <Route path="/training" element={
+        <ProtectedRoute>
+          {({ user }) => <ThinkingTraining user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/training/legacy" element={
         <ProtectedRoute>
           {({ user }) => <Training user={user} />}
         </ProtectedRoute>
