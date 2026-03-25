@@ -46,11 +46,35 @@ const Layout = ({ children, user }) => {
   
   // Coach Pulse state
   const [coachPulse, setCoachPulse] = useState(null);
+  
+  // Loss streak state for Plateau Breaker
+  const [lossStreak, setLossStreak] = useState({ show: false, count: 0 });
 
-  // Fetch coach pulse status
+  // Fetch coach pulse status and loss streak
   useEffect(() => {
     const fetchCoachPulse = async () => {
       try {
+        // Check loss streak first (highest priority)
+        const streakRes = await fetch(`${API}/loss-streak-status`, { credentials: 'include' });
+        if (streakRes.ok) {
+          const streakData = await streakRes.json();
+          setLossStreak({ 
+            show: streakData.show_plateau_breaker, 
+            count: streakData.consecutive_losses,
+            message: streakData.message
+          });
+          
+          // If on losing streak, that becomes the coach pulse
+          if (streakData.show_plateau_breaker) {
+            setCoachPulse({ 
+              type: "losing_streak", 
+              count: streakData.consecutive_losses, 
+              label: `${streakData.consecutive_losses} losses in a row` 
+            });
+            return;
+          }
+        }
+        
         const reflectRes = await fetch(`${API}/reflect/pending/count`, { credentials: 'include' });
         if (reflectRes.ok) {
           const data = await reflectRes.json();
@@ -81,7 +105,9 @@ const Layout = ({ children, user }) => {
   }, []);
 
   const handleCoachPulseClick = () => {
-    if (coachPulse?.type === "loss" && coachPulse?.game_id) {
+    if (coachPulse?.type === "losing_streak") {
+      navigate("/plateau-breaker");
+    } else if (coachPulse?.type === "loss" && coachPulse?.game_id) {
       navigate(`/recover/${coachPulse.game_id}`);
     } else {
       // Navigate to Lab (game review list) instead of Reflect
@@ -259,25 +285,29 @@ const Layout = ({ children, user }) => {
             </Link>
           </div>
 
-          {/* Plateau Breaker - V1 Training Mode */}
-          <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
-            <Link to="/plateau-breaker">
-              <Button
-                variant="outline"
-                className={`w-full gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-400 ${
-                  sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                }`}
-                data-testid="nav-plateau-breaker"
-                title={sidebarCollapsed ? "Plateau Breaker" : undefined}
-              >
-                <Zap className="w-4 h-4 flex-shrink-0" />
-                {!sidebarCollapsed && <span className="text-sm">Plateau Breaker</span>}
-              </Button>
-            </Link>
-          </div>
+          {/* Plateau Breaker - Only show when on losing streak (3+ losses) */}
+          {lossStreak.show && (
+            <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
+              <Link to="/plateau-breaker">
+                <Button
+                  variant="outline"
+                  className={`w-full gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-400 animate-pulse ${
+                    sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
+                  }`}
+                  data-testid="nav-plateau-breaker"
+                  title={sidebarCollapsed ? `${lossStreak.count} losses - Fix this now` : undefined}
+                >
+                  <Zap className="w-4 h-4 flex-shrink-0" />
+                  {!sidebarCollapsed && (
+                    <span className="text-sm">{lossStreak.count} losses - Fix Now</span>
+                  )}
+                </Button>
+              </Link>
+            </div>
+          )}
 
-          {/* Coach Pulse */}
-          {coachPulse && (
+          {/* Coach Pulse (but not for losing streak - that has its own button above) */}
+          {coachPulse && coachPulse.type !== "losing_streak" && (
             <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
               <Button
                 variant="outline"
@@ -496,14 +526,16 @@ const Layout = ({ children, user }) => {
                   </Button>
                 </Link>
 
-                <Link to="/plateau-breaker" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full justify-start gap-3 border-red-500/50 text-red-500">
-                    <Zap className="w-4 h-4" />
-                    Plateau Breaker
-                  </Button>
-                </Link>
+                {lossStreak.show && (
+                  <Link to="/plateau-breaker" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" className="w-full justify-start gap-3 border-red-500/50 text-red-500 animate-pulse">
+                      <Zap className="w-4 h-4" />
+                      {lossStreak.count} losses - Fix Now
+                    </Button>
+                  </Link>
+                )}
 
-                {coachPulse && (
+                {coachPulse && coachPulse.type !== "losing_streak" && (
                   <Button
                     variant="outline"
                     onClick={() => { handleCoachPulseClick(); setMobileMenuOpen(false); }}

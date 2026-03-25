@@ -5828,6 +5828,96 @@ async def analyze_user_plan_endpoint(
         }
 
 
+# ─── LOSS STREAK / PLATEAU BREAKER TRIGGER ──────────────────────────────────
+
+@api_router.get("/loss-streak-status")
+async def get_loss_streak_status(user: User = Depends(get_current_user)):
+    """
+    Check if user is on a losing streak and should be shown the Plateau Breaker.
+    
+    Trigger conditions:
+    - 3+ consecutive losses
+    
+    Returns:
+    - show_plateau_breaker: bool
+    - consecutive_losses: int
+    - last_games: summary of recent results
+    """
+    try:
+        # Get last 10 games sorted by date (most recent first)
+        games = await db.games.find(
+            {"user_id": user.user_id},
+            {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "played_at": 1}
+        ).sort("played_at", -1).to_list(10)
+        
+        if not games:
+            return {
+                "show_plateau_breaker": False,
+                "consecutive_losses": 0,
+                "message": "No games found",
+                "last_games": []
+            }
+        
+        # Count consecutive losses from most recent
+        consecutive_losses = 0
+        last_games_summary = []
+        
+        for game in games:
+            result = game.get("result", "")
+            user_color = game.get("user_color", "white")
+            
+            # Determine if user won, lost, or drew
+            is_white_win = result == "1-0"
+            is_black_win = result == "0-1"
+            is_draw = result == "1/2-1/2"
+            
+            user_won = (user_color == "white" and is_white_win) or (user_color == "black" and is_black_win)
+            user_lost = (user_color == "white" and is_black_win) or (user_color == "black" and is_white_win)
+            
+            game_summary = {
+                "game_id": game.get("game_id"),
+                "result": "win" if user_won else "loss" if user_lost else "draw"
+            }
+            last_games_summary.append(game_summary)
+            
+            # Count streak (only consecutive losses from the start)
+            if len(last_games_summary) <= 5:  # Only check last 5 for streak
+                if user_lost and consecutive_losses == len(last_games_summary) - 1:
+                    consecutive_losses += 1
+                elif not user_lost and consecutive_losses == len(last_games_summary) - 1:
+                    # Streak broken - stop counting
+                    pass
+        
+        # Trigger Plateau Breaker after 3+ consecutive losses
+        show_plateau_breaker = consecutive_losses >= 3
+        
+        # Build message
+        if consecutive_losses >= 3:
+            message = f"You've lost {consecutive_losses} games in a row. Time to identify what's going wrong."
+        elif consecutive_losses == 2:
+            message = "Two losses in a row. One more and we need to talk."
+        elif consecutive_losses == 1:
+            message = "Shake off that last loss."
+        else:
+            message = "You're doing fine. Keep playing!"
+        
+        return {
+            "show_plateau_breaker": show_plateau_breaker,
+            "consecutive_losses": consecutive_losses,
+            "message": message,
+            "last_games": last_games_summary[:5]
+        }
+        
+    except Exception as e:
+        logger.error(f"Loss streak check failed: {e}")
+        return {
+            "show_plateau_breaker": False,
+            "consecutive_losses": 0,
+            "message": "Could not check loss streak",
+            "last_games": []
+        }
+
+
 @api_router.get("/blind-spots")
 async def get_blind_spots(user: User = Depends(get_current_user)):
     """
