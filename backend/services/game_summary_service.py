@@ -13,7 +13,7 @@ Example outputs:
 """
 
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import logging
 
 logger = logging.getLogger(__name__)
@@ -58,6 +58,10 @@ class GameSummary:
     
     # Tags for filtering
     tags: List[str]  # ["tactical", "opening_theory", "time_trouble", etc.]
+    
+    # Opponent mistakes (opportunities)
+    opportunities: List[Dict] = field(default_factory=list)  # Opponent blunders/mistakes
+    total_opp_mistakes: int = 0
 
 
 def extract_game_summary(game_id: str, v5_data: List[Dict]) -> GameSummary:
@@ -69,6 +73,7 @@ def extract_game_summary(game_id: str, v5_data: List[Dict]) -> GameSummary:
     2. Opening theory violations
     3. Endgame technique failures
     4. Positional mistakes with clear lessons
+    5. Opponent blunders (opportunities missed or taken)
     """
     if not v5_data:
         return GameSummary(
@@ -82,29 +87,33 @@ def extract_game_summary(game_id: str, v5_data: List[Dict]) -> GameSummary:
             tags=[]
         )
     
-    # Collect all user mistakes
+    # Collect all user mistakes AND opponent blunders
     blunders = []
     mistakes = []
     inaccuracies = []
+    opp_blunders = []  # Opportunities!
     phase_issues = {"opening": 0, "middlegame": 0, "endgame": 0}
     tags = set()
     
     for move_data in v5_data:
-        if not move_data.get("is_user_move"):
-            continue
-            
         severity = move_data.get("severity", "good")
         phase = move_data.get("phase", "middlegame")
         
-        if severity == "blunder":
-            blunders.append(move_data)
-            phase_issues[phase] += 3  # Weight blunders heavily
-        elif severity == "mistake":
-            mistakes.append(move_data)
-            phase_issues[phase] += 2
-        elif severity == "inaccuracy":
-            inaccuracies.append(move_data)
-            phase_issues[phase] += 1
+        if move_data.get("is_user_move"):
+            # User mistakes
+            if severity == "blunder":
+                blunders.append(move_data)
+                phase_issues[phase] += 3
+            elif severity == "mistake":
+                mistakes.append(move_data)
+                phase_issues[phase] += 2
+            elif severity == "inaccuracy":
+                inaccuracies.append(move_data)
+                phase_issues[phase] += 1
+        else:
+            # Opponent mistakes = your opportunities!
+            if severity in ("opp_blunder", "opp_mistake"):
+                opp_blunders.append(move_data)
     
     # Extract key mistakes (prioritize blunders, then mistakes)
     key_mistakes = []
@@ -129,6 +138,27 @@ def extract_game_summary(game_id: str, v5_data: List[Dict]) -> GameSummary:
                 elif "discovery" in summary.concept_id or "discovered" in summary.concept_id:
                     tags.add("tactics_discovery")
     
+    # Extract opponent blunders as opportunities
+    opportunities = []
+    for opp_move in opp_blunders[:2]:  # Top 2 opportunities
+        move_num = opp_move.get("move_number", 0)
+        move_san = opp_move.get("move_san", "")
+        cp_loss = opp_move.get("cp_loss", 0)
+        severity = opp_move.get("severity", "")
+        
+        if severity == "opp_blunder":
+            desc = f"Opponent blundered with {move_san} (move {move_num})"
+        else:
+            desc = f"Opponent slipped with {move_san} (move {move_num})"
+        
+        opportunities.append({
+            "move_number": move_num,
+            "move_san": move_san,
+            "cp_swing": cp_loss,
+            "description": desc
+        })
+        tags.add("had_opportunities")
+    
     # Determine problem phase
     problem_phase = None
     if phase_issues:
@@ -151,7 +181,9 @@ def extract_game_summary(game_id: str, v5_data: List[Dict]) -> GameSummary:
         total_inaccuracies=len(inaccuracies),
         problem_phase=problem_phase,
         primary_lesson=primary_lesson,
-        tags=list(tags)
+        tags=list(tags),
+        opportunities=opportunities,  # NEW: opponent mistakes
+        total_opp_mistakes=len(opp_blunders)
     )
 
 

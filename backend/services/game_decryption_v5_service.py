@@ -1681,6 +1681,7 @@ async def generate_game_decryption_v5(
         decryption_data = []
         board = chess.Board()
         prev_move = None
+        prev_user_eval_after = None  # Track eval after user's last move
         
         for idx, move in enumerate(moves):
             move_san = board.san(move)
@@ -1688,16 +1689,51 @@ async def generate_game_decryption_v5(
             is_white = (idx % 2 == 0)
             is_user = (user_color == "white" and is_white) or (user_color == "black" and not is_white)
             
-            # Get eval data
+            # Get eval data - for user moves, from current position; for opponent, we'll use next position
             fen_key = " ".join(board.fen().split()[:4])
             eval_data = eval_lookup.get(fen_key, {})
             cp_loss = abs(eval_data.get("cp_loss", 0)) if is_user else 0
             
+            # For opponent moves, calculate eval swing using:
+            # - eval BEFORE opponent move = eval AFTER user's last move (prev_user_eval_after)
+            # - eval AFTER opponent move = eval BEFORE user's next move (look ahead)
+            opp_eval_before = None
+            opp_eval_after = None
+            opp_cp_loss = 0
+            if not is_user:
+                opp_eval_before = prev_user_eval_after
+                # Look ahead to get eval after opponent's move
+                if idx + 1 < len(moves):
+                    # Simulate opponent's move to get the FEN that will be user's turn
+                    sim_board = board.copy()
+                    sim_board.push(move)
+                    next_fen_key = " ".join(sim_board.fen().split()[:4])
+                    next_eval_data = eval_lookup.get(next_fen_key, {})
+                    opp_eval_after = next_eval_data.get("eval_before")  # This is the eval at user's next turn
+                
+                # Calculate opponent's cp_loss (from opponent's perspective, positive = bad for them)
+                if opp_eval_before is not None and opp_eval_after is not None:
+                    if user_color == "white":
+                        # User is white, opponent is black
+                        # If eval went from -100 to +50, opponent blundered (swing of 150 in user's favor)
+                        opp_cp_loss = opp_eval_after - opp_eval_before
+                    else:
+                        # User is black, opponent is white
+                        # If eval went from +100 to -50, opponent blundered (swing of 150 in user's favor)
+                        opp_cp_loss = opp_eval_before - opp_eval_after
+            
             phase = detect_phase(board, full_move_number)
             
-            # Determine severity
+            # Determine severity for opponent moves too
             if not is_user:
-                severity = "context"
+                if opp_cp_loss >= 250:
+                    severity = "opp_blunder"
+                elif opp_cp_loss >= 100:
+                    severity = "opp_mistake"
+                elif opp_cp_loss >= 50:
+                    severity = "opp_inaccuracy"
+                else:
+                    severity = "context"
             elif cp_loss < 30:
                 severity = "good"
             elif cp_loss < 100:
@@ -1736,18 +1772,28 @@ async def generate_game_decryption_v5(
             concept_applied = None
             
             if not is_user:
-                # OPPONENT MOVE - Analyze from user's POV
+                # OPPONENT MOVE - Analyze from user's POV with proper eval data
                 narrative, your_plan_now, highlight_squares = analyze_opponent_move(
                     board, move,
-                    eval_data.get("eval_before"),
-                    eval_data.get("eval_after"),
+                    opp_eval_before,  # Use calculated opponent eval
+                    opp_eval_after,   # Use calculated opponent eval
                     pv_after_played,
                     user_color
                 )
                 future_moves = pv_after_played[:3] if pv_after_played else []
                 
+                # Override narrative for opponent blunders/mistakes
+                if severity == "opp_blunder":
+                    narrative = f"Blunder! {move_san} is a serious mistake by your opponent. This is your chance!"
+                    your_plan_now = "Look for tactics! Your opponent just gave you an opportunity."
+                elif severity == "opp_mistake":
+                    narrative = f"Inaccurate! {move_san} gives you an advantage. Find the best response."
+                    your_plan_now = "You're better now. Press your advantage!"
+                elif severity == "opp_inaccuracy":
+                    narrative = f"Slight slip with {move_san}. You can improve your position here."
+                
                 # Add opening introduction for early moves
-                if idx < 10 and phase == "opening":
+                if idx < 10 and phase == "opening" and severity == "context":
                     intro = get_opening_introduction(eco_code, opening_name, move_san, user_color)
                     if intro:
                         intro_name = intro.get("name")
@@ -1823,6 +1869,10 @@ async def generate_game_decryption_v5(
             prev_move = move
             board.push(move)
             
+            # Track user's eval_after for opponent blunder detection
+            if is_user:
+                prev_user_eval_after = eval_data.get("eval_after")
+            
             move_output = {
                 "move_number": full_move_number,
                 "move_san": move_san,
@@ -1833,13 +1883,13 @@ async def generate_game_decryption_v5(
                 "phase": phase,
                 "opening_name": opening_name,
                 
-                # Evaluation
-                "cp_loss": cp_loss,
-                "eval_before": eval_data.get("eval_before"),
-                "eval_after": eval_data.get("eval_after"),
+                # Evaluation - include opponent eval data too
+                "cp_loss": cp_loss if is_user else opp_cp_loss,
+                "eval_before": eval_data.get("eval_before") if is_user else opp_eval_before,
+                "eval_after": eval_data.get("eval_after") if is_user else opp_eval_after,
                 "best_move_san": best_move,
                 "severity": severity,
-                "is_mistake": severity in ("mistake", "blunder"),
+                "is_mistake": severity in ("mistake", "blunder", "opp_blunder", "opp_mistake"),
                 
                 # V5 Coaching
                 "narrative": narrative,
