@@ -236,7 +236,7 @@ async def start_opening_lesson(
         opening_name = opening.name
         use_legacy = True
     else:
-        opening_name = effective_feedback.get("name")
+        opening_name = effective_feedback.get("name") or opening_key.replace("_", " ").title()
         use_legacy = False
     
     # Get user's color - critical for knowing which moves are user's vs coach's
@@ -366,17 +366,34 @@ async def start_opening_lesson(
             plans_white = var.plans_for_white
             plans_black = var.plans_for_black
         else:
-            # Use effective feedback (admin data)
+            # Use effective feedback (admin data), fallback to legacy if empty
             main_line_data = effective_feedback.get("main_line", [])
             if not main_line_data:
-                return {"error": "No main line available"}
-            
-            # Extract moves from main_line structure
-            main_line_moves = [move_obj.get("move") for move_obj in main_line_data if move_obj.get("move")]
-            variation_name = "Main Line"
-            key_ideas = effective_feedback.get("key_ideas", [])
-            plans_white = []  # Can be added to admin schema later
-            plans_black = []
+                # Fallback to legacy OPENING_DATABASE
+                try:
+                    from services.opening_mastery import OPENING_DATABASE
+                    legacy_opening = OPENING_DATABASE.get(opening_key)
+                    if legacy_opening and legacy_opening.variations:
+                        var = legacy_opening.variations[0]
+                        main_line_override = await get_main_line_override(db, opening_key, var.name)
+                        main_line_moves = main_line_override.get("corrected_moves") if main_line_override and main_line_override.get("corrected_moves") else var.moves
+                        variation_name = main_line_override.get("corrected_name") if main_line_override and main_line_override.get("corrected_name") else var.name
+                        explanation_override = main_line_override.get("corrected_explanation") if main_line_override else None
+                        key_ideas = [explanation_override] if explanation_override else var.key_ideas
+                        plans_white = var.plans_for_white
+                        plans_black = var.plans_for_black
+                    else:
+                        return {"error": "No main line available for this opening"}
+                except Exception as e:
+                    logger.error(f"Legacy fallback failed: {e}")
+                    return {"error": "No main line available"}
+            else:
+                # Extract moves from main_line structure
+                main_line_moves = [move_obj.get("move") for move_obj in main_line_data if move_obj.get("move")]
+                variation_name = "Main Line"
+                key_ideas = effective_feedback.get("key_ideas", [])
+                plans_white = []
+                plans_black = []
 
         teaching_data = {
             "variation_name": variation_name,
