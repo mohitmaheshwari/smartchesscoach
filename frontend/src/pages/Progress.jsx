@@ -1,8 +1,11 @@
 /**
- * PROGRESS PAGE - Human Coach Style
+ * PROGRESS PAGE - Simplified, Actionable
  * 
- * Not a dashboard. A coaching session.
- * Shows your journey with celebration, trends, and specific examples.
+ * 3 focused sections:
+ * 1. Thinking Score (primary metric)
+ * 2. Biggest Problem (one issue + Fix This)
+ * 3. Improvement Signals (max 3 metrics)
+ * + Optional: Opening Insight (bottom, max 2 items)
  */
 
 import { useState, useEffect } from "react";
@@ -12,27 +15,18 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress as ProgressBar } from "@/components/ui/progress";
 import { 
   Loader2, 
   TrendingUp,
   TrendingDown,
+  Minus,
   Target,
-  Zap,
-  CheckCircle2,
-  RefreshCw,
-  Flame,
-  Trophy,
-  ArrowRight,
-  Sparkles,
-  Brain,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Eye,
-  Calendar
+  ArrowRight,
+  Brain,
+  BookOpen,
+  RefreshCw
 } from "lucide-react";
-import TrainingDashboard from "@/components/coach/TrainingDashboard";
 
 const Progress = ({ user }) => {
   const navigate = useNavigate();
@@ -40,7 +34,6 @@ const Progress = ({ user }) => {
   const [data, setData] = useState(null);
   const [homeData, setHomeData] = useState(null);
   const [syncing, setSyncing] = useState(false);
-  const [expandedSection, setExpandedSection] = useState(null);
 
   useEffect(() => {
     fetchAll();
@@ -83,119 +76,112 @@ const Progress = ({ user }) => {
     );
   }
 
+  // Extract data
+  const thinkingScore = homeData?.development_phase?.score || 0;
+  const previousScore = data?.accuracy?.previous ? Math.round(data.accuracy.previous / 4) : thinkingScore;
+  const scoreDelta = Math.round(thinkingScore - previousScore);
+  
   const patterns = homeData?.specific_patterns;
-  const dominantPattern = patterns?.dominant_pattern;
-  const patternCount = patterns?.pattern_count || 0;
+  const biggestProblem = patterns?.dominant_pattern;
+  const problemCount = patterns?.pattern_count || 0;
+  const problemDescription = patterns?.pattern_description;
+  
   const accuracy = data?.accuracy || {};
-  const habits = data?.habits || [];
-  const gamesAnalyzed = data?.valid_analysis_count || 0;
+  const blunders = data?.blunders || {};
+  const progressTrend = homeData?.progress_trend;
+  
+  const gamesAnalyzed = homeData?.games_analyzed || data?.valid_analysis_count || 0;
 
-  // Calculate improvement percentage
-  const accuracyImproved = accuracy.current > accuracy.previous;
-  const accuracyDelta = accuracy.current - (accuracy.previous || accuracy.current);
-
-  // Get greeting based on performance
-  const getCoachGreeting = () => {
-    if (accuracyDelta >= 5) return { text: "You're on fire!", icon: Flame, color: "text-orange-500" };
-    if (accuracyDelta >= 2) return { text: "Nice progress this week", icon: TrendingUp, color: "text-emerald-500" };
-    if (accuracyDelta <= -3) return { text: "Let's get back on track", icon: Target, color: "text-amber-500" };
-    return { text: "Steady progress", icon: Sparkles, color: "text-primary" };
+  // Get status message based on score
+  const getStatusMessage = () => {
+    if (scoreDelta >= 3) return "You're improving fast!";
+    if (scoreDelta > 0) return "Moving in the right direction";
+    if (scoreDelta === 0) return "Holding steady";
+    if (scoreDelta >= -2) return "Slight dip - stay focused";
+    return "Time to refocus";
   };
 
-  const greeting = getCoachGreeting();
-  const GreetingIcon = greeting.icon;
+  // Get trend arrow component
+  const TrendArrow = ({ value, size = "sm" }) => {
+    const iconSize = size === "lg" ? "w-5 h-5" : "w-4 h-4";
+    if (value > 0) return <TrendingUp className={`${iconSize} text-emerald-500`} />;
+    if (value < 0) return <TrendingDown className={`${iconSize} text-red-500`} />;
+    return <Minus className={`${iconSize} text-zinc-500`} />;
+  };
 
   return (
     <Layout user={user}>
-      <div className="max-w-2xl mx-auto space-y-6" data-testid="progress-page">
+      <div className="max-w-lg mx-auto space-y-6 px-4" data-testid="progress-page">
         
-        {/* Coach Greeting - Human touch */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-6"
-        >
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 mb-4`}>
-            <GreetingIcon className={`w-5 h-5 ${greeting.color}`} />
-            <span className="font-medium">{greeting.text}</span>
-          </div>
-          <h1 className="text-3xl font-heading font-bold mb-2">Your Progress</h1>
-          <p className="text-muted-foreground">Based on {gamesAnalyzed} games analyzed</p>
-        </motion.div>
-
-        {/* Main Metric - Accuracy with trend */}
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 1: THINKING SCORE (Primary, Large)
+        ═══════════════════════════════════════════════════════════════ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
         >
-          <Card className="overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Move Accuracy</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold">{accuracy.current?.toFixed(1)}%</span>
-                    {accuracyDelta !== 0 && (
-                      <span className={`flex items-center text-sm ${accuracyImproved ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {accuracyImproved ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
-                        {accuracyDelta > 0 ? '+' : ''}{accuracyDelta.toFixed(1)}%
-                      </span>
-                    )}
+          <Card className="overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800">
+            <CardContent className="p-6 text-center">
+              <p className="text-sm text-zinc-500 mb-2">Your Thinking Score</p>
+              
+              {/* Big Score */}
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <span className="text-6xl font-bold text-white">{Math.round(thinkingScore)}</span>
+                {scoreDelta !== 0 && (
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
+                    scoreDelta > 0 
+                      ? 'bg-emerald-500/20 text-emerald-400' 
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    <TrendArrow value={scoreDelta} />
+                    {scoreDelta > 0 ? '+' : ''}{scoreDelta}
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Last week</p>
-                  <p className="text-lg text-muted-foreground">{accuracy.previous?.toFixed(1) || '--'}%</p>
-                </div>
+                )}
               </div>
               
-              {/* Visual progress bar */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Beginner</span>
-                  <span>Expert</span>
-                </div>
-                <ProgressBar value={accuracy.current || 0} className="h-3" />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>40%</span>
-                  <span>60%</span>
-                  <span>80%</span>
-                  <span>95%</span>
-                </div>
-              </div>
+              {/* Status Line */}
+              <p className="text-zinc-400 text-sm">{getStatusMessage()}</p>
+              
+              {/* Games count */}
+              <p className="text-xs text-zinc-600 mt-4">Based on {gamesAnalyzed} games</p>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Your Main Weakness - With action */}
-        {dominantPattern && (
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 2: BIGGEST PROBLEM (One Issue + Fix This CTA)
+        ═══════════════════════════════════════════════════════════════ */}
+        {biggestProblem && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.1 }}
           >
-            <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+            <Card className="border-amber-500/30 bg-amber-500/5">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                    <AlertTriangle className="w-6 h-6 text-amber-500" />
+                  <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold mb-1">Your Main Leak</h3>
-                    <p className="text-2xl font-bold text-amber-500 mb-1">
-                      {patternCount}x {dominantPattern.replace(/_/g, " ")}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-amber-500/80 font-medium uppercase tracking-wide mb-1">
+                      Biggest Problem
                     </p>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      This is costing you the most rating points. Fix this first.
+                    <h3 className="text-lg font-semibold text-white mb-1 capitalize">
+                      {biggestProblem.replace(/_/g, " ")}
+                    </h3>
+                    <p className="text-sm text-zinc-400 mb-3">
+                      {problemCount}x in recent games • {problemDescription || "This is costing you points"}
                     </p>
                     <Button 
-                      onClick={() => navigate(`/training/prescribed?weakness=${dominantPattern}`)}
-                      className="bg-amber-500 hover:bg-amber-600 text-black"
-                      data-testid="train-weakness-btn"
+                      onClick={() => navigate(`/training/prescribed?weakness=${biggestProblem}`)}
+                      className="bg-amber-500 hover:bg-amber-600 text-black font-medium"
+                      size="sm"
+                      data-testid="fix-this-btn"
                     >
                       <Target className="w-4 h-4 mr-2" />
-                      Train This Now
+                      Fix This
+                      <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </div>
                 </div>
@@ -204,141 +190,105 @@ const Progress = ({ user }) => {
           </motion.div>
         )}
 
-        {/* Training Dashboard - Weekly Curriculum & Coach Memory */}
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 3: IMPROVEMENT SIGNALS (Max 3 metrics, simple arrows)
+        ═══════════════════════════════════════════════════════════════ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-        >
-          <TrainingDashboard 
-            onStartTraining={() => navigate('/play-with-coach')}
-          />
-        </motion.div>
-
-        {/* Blunder Stats - Coach perspective */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.2 }}
         >
           <Card>
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-red-500" />
-                  Blunder Control
-                </h3>
-                <span className={`text-xs px-2 py-1 rounded ${
-                  data?.blunders?.trend === 'improving' 
-                    ? 'bg-emerald-500/10 text-emerald-500' 
-                    : data?.blunders?.trend === 'worsening'
-                    ? 'bg-red-500/10 text-red-500'
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  {data?.blunders?.trend === 'improving' ? 'Improving' : 
-                   data?.blunders?.trend === 'worsening' ? 'Needs work' : 'Stable'}
-                </span>
-              </div>
+              <h3 className="text-sm font-medium text-zinc-400 mb-4">Improvement Signals</h3>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg bg-muted/30">
-                  <p className="text-3xl font-bold">{data?.blunders?.avg_per_game?.toFixed(1) || '--'}</p>
-                  <p className="text-sm text-muted-foreground">blunders per game</p>
+              <div className="space-y-4">
+                {/* Accuracy */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                      <Brain className="w-4 h-4 text-zinc-400" />
+                    </div>
+                    <span className="text-sm text-zinc-300">Move Accuracy</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{accuracy.current?.toFixed(0) || '--'}%</span>
+                    <TrendArrow value={
+                      accuracy.trend === 'improving' ? 1 : 
+                      accuracy.trend === 'declining' ? -1 : 0
+                    } />
+                  </div>
                 </div>
-                <div className="p-4 rounded-lg bg-muted/30">
-                  <p className="text-3xl font-bold">{data?.blunders?.total || 0}</p>
-                  <p className="text-sm text-muted-foreground">total this week</p>
+                
+                {/* Blunders */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                      <AlertTriangle className="w-4 h-4 text-zinc-400" />
+                    </div>
+                    <span className="text-sm text-zinc-300">Blunders/Game</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{blunders.avg_per_game?.toFixed(1) || '--'}</span>
+                    {/* For blunders, improving means LESS, so invert the arrow */}
+                    <TrendArrow value={
+                      blunders.trend === 'improving' ? 1 : 
+                      blunders.trend === 'worsening' ? -1 : 0
+                    } />
+                  </div>
                 </div>
+                
+                {/* Time Trouble */}
+                {homeData?.stats?.time_trouble_rate !== undefined && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                        <Target className="w-4 h-4 text-zinc-400" />
+                      </div>
+                      <span className="text-sm text-zinc-300">Time Trouble Rate</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{Math.round(homeData.stats.time_trouble_rate)}%</span>
+                      <TrendArrow value={homeData.stats.time_trouble_rate > 50 ? -1 : 1} />
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <p className="mt-4 text-sm text-muted-foreground">
-                {data?.blunders?.avg_per_game <= 1 
-                  ? "Excellent control! You're keeping blunders rare."
-                  : data?.blunders?.avg_per_game <= 2
-                  ? "Good. Most games have 1-2 critical moments to fix."
-                  : "Focus on slowing down. Check for threats before each move."}
-              </p>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Active Habits - What you're working on */}
-        {habits.length > 0 && (
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 4: OPENING INSIGHT (Optional, bottom, max 2 items)
+        ═══════════════════════════════════════════════════════════════ */}
+        {homeData?.active_advice?.primary && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.3 }}
           >
-            <Card>
-              <CardContent className="p-5">
-                <h3 className="font-semibold flex items-center gap-2 mb-4">
-                  <Brain className="w-4 h-4 text-purple-500" />
-                  Habits You're Building
-                </h3>
-                
-                <div className="space-y-3">
-                  {habits.filter(h => h.is_active).slice(0, 3).map((habit, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          habit.trend === 'improving' ? 'bg-emerald-500/20' : 'bg-muted'
-                        }`}>
-                          {habit.trend === 'improving' 
-                            ? <TrendingUp className="w-4 h-4 text-emerald-500" />
-                            : <Target className="w-4 h-4 text-muted-foreground" />
-                          }
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{habit.name}</p>
-                          <p className="text-xs text-muted-foreground capitalize">{habit.category}</p>
-                        </div>
-                      </div>
-                      <span className={`text-xs ${
-                        habit.trend === 'improving' ? 'text-emerald-500' : 'text-muted-foreground'
-                      }`}>
-                        {habit.occurrences_recent} this week
-                      </span>
-                    </div>
-                  ))}
+            <Card className="border-zinc-800 bg-zinc-900/50">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <BookOpen className="w-4 h-4 text-zinc-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-1">Coach's Focus</p>
+                    <p className="text-sm text-zinc-300">{homeData.active_advice.primary}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </motion.div>
         )}
 
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="grid grid-cols-2 gap-3"
-        >
-          <Button 
-            variant="outline" 
-            className="h-auto py-4 flex-col gap-2"
-            onClick={() => navigate('/reflect')}
-          >
-            <Eye className="w-5 h-5" />
-            <span className="text-xs">Reflect on Games</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            className="h-auto py-4 flex-col gap-2"
-            onClick={() => navigate('/journey')}
-          >
-            <TrendingUp className="w-5 h-5" />
-            <span className="text-xs">Full Journey</span>
-          </Button>
-        </motion.div>
-
         {/* Sync footer */}
-        <div className="flex justify-center pt-4">
+        <div className="flex justify-center pt-2 pb-6">
           <Button
             variant="ghost"
             size="sm"
             onClick={syncNow}
             disabled={syncing}
-            className="text-muted-foreground"
+            className="text-zinc-600 hover:text-zinc-400"
           >
             {syncing ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
