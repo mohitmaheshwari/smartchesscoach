@@ -4,8 +4,8 @@
  * 
  * Guide the user, don't make them think.
  * 
- * - Group: "Worth reviewing" vs "Clean games"
- * - Show: Type of mistake, not just count
+ * - Group: "Start here" vs "Worth reviewing" vs "Clean games"
+ * - Show: SPECIFIC mistake type from V5 analysis
  * - Highlight: Most educational game
  */
 
@@ -26,6 +26,10 @@ import {
   Zap,
   Clock,
   TrendingDown,
+  Swords,
+  Crown,
+  Shield,
+  RefreshCw,
 } from "lucide-react";
 
 const Dashboard = ({ user }) => {
@@ -33,6 +37,7 @@ const Dashboard = ({ user }) => {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showClean, setShowClean] = useState(false);
+  const [migrating, setMigrating] = useState(false);
 
   useEffect(() => {
     fetchGames();
@@ -53,6 +58,25 @@ const Dashboard = ({ user }) => {
     }
   };
 
+  // Migrate existing games to get rich summaries
+  const handleMigrate = async () => {
+    setMigrating(true);
+    try {
+      const res = await fetch(`${API}/migrate-game-summaries`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        // Refresh the list
+        await fetchGames();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   // Determine result
   const getResult = (game) => {
     const result = game.result;
@@ -66,82 +90,126 @@ const Dashboard = ({ user }) => {
     return { label: "Draw", color: "text-amber-400", bg: "bg-amber-500" };
   };
 
-  // Categorize mistake type based on blunders/mistakes/accuracy
-  const getMistakeType = (game) => {
+  // Get icon for mistake type
+  const getMistakeIcon = (game) => {
+    const tags = game.tags || [];
+    const phase = game.problem_phase;
+    
+    // Tactical icons
+    if (tags.some(t => t.includes("fork"))) return Swords;
+    if (tags.some(t => t.includes("back_rank"))) return Shield;
+    if (tags.some(t => t.includes("pin"))) return Target;
+    
+    // Phase icons
+    if (phase === "opening") return Crown;
+    if (phase === "endgame") return Clock;
+    
+    // Severity icons
+    const blunders = game.blunders || 0;
+    if (blunders >= 2) return Zap;
+    if (blunders === 1) return AlertTriangle;
+    
+    return Target;
+  };
+
+  // Get the display info for a game
+  const getGameDisplay = (game) => {
+    const summary = game.summary || {};
+    const keyMistakes = game.key_mistakes || [];
     const blunders = game.blunders || 0;
     const mistakes = game.mistakes || 0;
-    const accuracy = game.accuracy || 0;
     const result = getResult(game);
     
+    // If we have rich summary data, use it
+    if (summary.headline && summary.headline !== "Clean game") {
+      return {
+        headline: summary.headline,
+        subtext: summary.subtext,
+        color: blunders > 0 ? "text-red-400" : "text-amber-400",
+        icon: getMistakeIcon(game),
+        learningValue: "high",
+        priority: blunders * 3 + mistakes,
+      };
+    }
+    
+    // Fallback to basic stats (for games without V5 summaries)
     if (blunders >= 2) {
-      return { 
-        type: "Multiple blunders", 
-        icon: Zap, 
+      return {
+        headline: `${blunders} blunders`,
+        subtext: keyMistakes[0]?.short_description || null,
         color: "text-red-400",
+        icon: Zap,
+        learningValue: "high",
         priority: 1,
-        learningValue: "high"
       };
     }
     if (blunders === 1) {
-      return { 
-        type: "Critical blunder", 
-        icon: AlertTriangle, 
+      return {
+        headline: keyMistakes[0]?.short_description || "Critical blunder",
+        subtext: keyMistakes[1]?.short_description || null,
         color: "text-amber-400",
+        icon: AlertTriangle,
+        learningValue: "high",
         priority: 2,
-        learningValue: "high"
       };
     }
     if (result.label === "Lost" && mistakes > 0) {
-      return { 
-        type: "Mistakes cost the game", 
-        icon: TrendingDown, 
+      return {
+        headline: keyMistakes[0]?.short_description || "Mistakes cost the game",
+        subtext: null,
         color: "text-red-400",
+        icon: TrendingDown,
+        learningValue: "medium",
         priority: 3,
-        learningValue: "medium"
       };
     }
     if (mistakes >= 2) {
-      return { 
-        type: "Several mistakes", 
-        icon: Target, 
+      return {
+        headline: keyMistakes[0]?.short_description || `${mistakes} mistakes`,
+        subtext: keyMistakes[1]?.short_description || null,
         color: "text-amber-400",
+        icon: Target,
+        learningValue: "medium",
         priority: 4,
-        learningValue: "medium"
       };
     }
     if (mistakes === 1) {
-      return { 
-        type: "Minor mistake", 
-        icon: Clock, 
+      return {
+        headline: keyMistakes[0]?.short_description || "Minor mistake",
+        subtext: null,
         color: "text-zinc-400",
+        icon: Clock,
+        learningValue: "low",
         priority: 5,
-        learningValue: "low"
       };
     }
-    if (accuracy < 60) {
-      return { 
-        type: "Low accuracy", 
-        icon: Target, 
-        color: "text-amber-400",
-        priority: 4,
-        learningValue: "medium"
-      };
-    }
-    return { 
-      type: "Clean game", 
-      icon: CheckCircle2, 
+    
+    return {
+      headline: "Clean game",
+      subtext: null,
       color: "text-emerald-400",
+      icon: CheckCircle2,
+      learningValue: "none",
       priority: 10,
-      learningValue: "none"
     };
   };
 
   // Split games into groups
-  const worthReviewing = games
-    .filter(g => getMistakeType(g).learningValue !== "none")
-    .sort((a, b) => getMistakeType(a).priority - getMistakeType(b).priority);
+  const categorizedGames = games.map(g => ({
+    ...g,
+    display: getGameDisplay(g),
+  }));
+
+  const worthReviewing = categorizedGames
+    .filter(g => g.display.learningValue !== "none")
+    .sort((a, b) => a.display.priority - b.display.priority);
   
-  const cleanGames = games.filter(g => getMistakeType(g).learningValue === "none");
+  const cleanGames = categorizedGames.filter(g => g.display.learningValue === "none");
+
+  // Check if any games need migration (have blunders but no summary)
+  const needsMigration = games.some(g => 
+    (g.blunders > 0 || g.mistakes > 0) && !g.summary?.headline
+  );
 
   // Get the #1 game to review
   const topGame = worthReviewing[0];
@@ -166,15 +234,33 @@ const Dashboard = ({ user }) => {
             <h1 className="text-xl font-bold text-white">Review</h1>
             <p className="text-sm text-zinc-500">{games.length} games analyzed</p>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate("/import")}
-            className="text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-          >
-            <Import className="w-3 h-3 mr-1.5" />
-            Import
-          </Button>
+          <div className="flex items-center gap-2">
+            {needsMigration && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleMigrate}
+                disabled={migrating}
+                className="text-xs text-zinc-400 hover:text-white"
+                title="Load detailed insights for older games"
+              >
+                {migrating ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate("/import")}
+              className="text-xs border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            >
+              <Import className="w-3 h-3 mr-1.5" />
+              Import
+            </Button>
+          </div>
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -195,8 +281,8 @@ const Dashboard = ({ user }) => {
                   Start here
                 </p>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-medium">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium truncate">
                       vs {topGame.opponent || topGame.white_player || topGame.black_player}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
@@ -204,12 +290,17 @@ const Dashboard = ({ user }) => {
                         {getResult(topGame).label}
                       </span>
                       <span className="text-zinc-600">·</span>
-                      <span className={`text-sm ${getMistakeType(topGame).color}`}>
-                        {getMistakeType(topGame).type}
+                      <span className={`text-sm ${topGame.display.color}`}>
+                        {topGame.display.headline}
                       </span>
                     </div>
+                    {topGame.display.subtext && (
+                      <p className="text-xs text-zinc-500 mt-1 truncate">
+                        Also: {topGame.display.subtext}
+                      </p>
+                    )}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-amber-500" />
+                  <ChevronRight className="w-5 h-5 text-amber-500 flex-shrink-0 ml-2" />
                 </div>
               </CardContent>
             </Card>
@@ -232,8 +323,8 @@ const Dashboard = ({ user }) => {
             <div className="space-y-2">
               {worthReviewing.slice(1, 8).map((game, i) => {
                 const result = getResult(game);
-                const mistake = getMistakeType(game);
-                const MistakeIcon = mistake.icon;
+                const display = game.display;
+                const MistakeIcon = display.icon;
                 
                 return (
                   <motion.div
@@ -248,24 +339,29 @@ const Dashboard = ({ user }) => {
                     >
                       <CardContent className="p-3 flex items-center gap-3">
                         {/* Result indicator */}
-                        <div className={`w-1 h-10 rounded-full ${result.bg}`} />
+                        <div className={`w-1 h-12 rounded-full ${result.bg}`} />
                         
                         {/* Game info */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white truncate">
                             vs {game.opponent || game.white_player || game.black_player}
                           </p>
-                          <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2 text-xs mt-0.5">
                             <span className={result.color}>{result.label}</span>
                             <span className="text-zinc-600">·</span>
-                            <span className={mistake.color}>{mistake.type}</span>
+                            <span className={`${display.color} truncate`}>{display.headline}</span>
                           </div>
+                          {display.subtext && (
+                            <p className="text-xs text-zinc-600 mt-0.5 truncate">
+                              + {display.subtext}
+                            </p>
+                          )}
                         </div>
                         
                         {/* Mistake icon */}
-                        <MistakeIcon className={`w-4 h-4 ${mistake.color}`} />
+                        <MistakeIcon className={`w-4 h-4 ${display.color} flex-shrink-0`} />
                         
-                        <ChevronRight className="w-4 h-4 text-zinc-600" />
+                        <ChevronRight className="w-4 h-4 text-zinc-600 flex-shrink-0" />
                       </CardContent>
                     </Card>
                   </motion.div>

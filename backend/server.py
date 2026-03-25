@@ -5599,7 +5599,8 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
             analysis = await db.game_analyses.find_one(
                 {"game_id": game_id, "user_id": user.user_id},
                 {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.move_evaluations": 1,
-                 "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1}
+                 "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1,
+                 "game_summary": 1}
             )
             if analysis:
                 sf = analysis.get("stockfish_analysis", {})
@@ -5608,6 +5609,14 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
                 game["accuracy"] = accuracy
                 game["blunders"] = sf.get("blunders", 0)
                 game["mistakes"] = sf.get("mistakes", 0)
+                
+                # Include rich game summary if available
+                game_summary = analysis.get("game_summary")
+                if game_summary:
+                    game["summary"] = game_summary.get("display", {})
+                    game["key_mistakes"] = game_summary.get("key_mistakes", [])[:2]  # Top 2 for list
+                    game["problem_phase"] = game_summary.get("problem_phase")
+                    game["tags"] = game_summary.get("tags", [])
                 
                 # Set opponent name for display
                 user_color = game.get("user_color", "white")
@@ -5693,6 +5702,25 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         }
     
     return response
+
+
+@api_router.post("/migrate-game-summaries")
+async def migrate_game_summaries(user: User = Depends(get_current_user)):
+    """
+    Migrate existing games to include rich summaries.
+    Call this once to backfill summaries for games that have V5 data.
+    """
+    try:
+        from services.game_summary_service import migrate_existing_summaries
+        stats = await migrate_existing_summaries(db, user.user_id, limit=50)
+        return {
+            "success": True,
+            "message": f"Migrated {stats['updated']} games",
+            "stats": stats
+        }
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+        return {"success": False, "error": str(e)}
 
 
 @api_router.get("/blind-spots")

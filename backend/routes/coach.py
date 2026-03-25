@@ -801,6 +801,13 @@ async def get_game_decryption_v5(
                             }}
                         )
                         logger.info(f"[DECRYPTION V5] Background generation complete for {game_id}")
+                        
+                        # Compute and store game summary for Lab list
+                        try:
+                            from services.game_summary_service import compute_and_store_summary
+                            await compute_and_store_summary(db, game_id, user.user_id)
+                        except Exception as summary_err:
+                            logger.warning(f"[GAME SUMMARY] Failed to compute summary: {summary_err}")
                     else:
                         await db.game_analyses.update_one(
                             {"game_id": game_id},
