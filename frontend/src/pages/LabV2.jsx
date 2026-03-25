@@ -233,7 +233,7 @@ const LabV2 = ({ user }) => {
   const [activeTab, setActiveTab] = useState("summary");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState(null);
-  const [viewMode, setViewMode] = useState("coach"); // "coach" (current) or "decrypt" (step-by-step)
+  const [viewMode, setViewMode] = useState("decrypt"); // "decrypt" (primary) or "coach" (overview)
   
   // Derived data
   const userColor = game?.user_color || "white";
