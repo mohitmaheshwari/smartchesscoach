@@ -113,6 +113,16 @@ class CoachGameSession:
     suggested_trap: Optional[Dict] = field(default_factory=dict)  # Trap suggestion for this opening
     available_traps: List[Dict] = field(default_factory=list)  # All traps available in this opening
     
+    # Pedagogical Opponent State (P0 Feature)
+    pedagogical_mode_active: bool = False  # Whether we're in pedagogical mode
+    last_pedagogical_move_index: int = -10  # Move index of last pedagogical move (-10 = never)
+    pending_opportunity: Optional[Dict] = field(default_factory=dict)  # Current opportunity awaiting user response
+    # {type, expected_moves, target_squares, reason, fen_after_coach_move, hide_eval}
+    opportunity_history: List[Dict] = field(default_factory=list)  # Record of all opportunities created
+    # [{created_at_move, type, found, user_move, expected_move, eval_change}]
+    opportunities_found: int = 0  # How many opportunities user has exploited
+    opportunities_missed: int = 0  # How many opportunities user has missed
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
@@ -213,7 +223,8 @@ async def start_coach_session(
         fen_history=[initial_fen],
         current_fen=initial_fen,
         user_rating=user_rating,
-        coach_skill_level=skill_level
+        coach_skill_level=skill_level,
+        pedagogical_mode_active=True  # Enable pedagogical opponent by default
     )
     
     # Add practice mode metadata
@@ -312,6 +323,55 @@ async def make_player_move(
     # Add new behavior events to session
     session.behavior_events.extend(behavior_events)
     
+    # === CONSEQUENCE TRACKING: Check if user responded to a pedagogical move ===
+    consequence_feedback = None
+    if session.pending_opportunity and session.pending_opportunity.get("hide_eval"):
+        try:
+            from services.pedagogical_opportunity_service import PedagogicalOpportunityService, OpportunityType
+            
+            ped_service = PedagogicalOpportunityService(db, session.user_id)
+            
+            # Get the board state from before this move
+            board_before = chess.Board(fen_before)
+            
+            # Evaluate user's response
+            opportunity_type = OpportunityType(session.pending_opportunity.get("type", "general"))
+            expected_moves = session.pending_opportunity.get("expected_moves", [])
+            
+            consequence = await ped_service.evaluate_user_response(
+                board_after_coach=board_before,
+                user_move=move,
+                opportunity_type=opportunity_type,
+                expected_exploit_moves=expected_moves
+            )
+            
+            consequence_feedback = consequence
+            
+            # Update opportunity stats
+            if consequence.get("found_opportunity"):
+                session.opportunities_found += 1
+            else:
+                session.opportunities_missed += 1
+            
+            # Record in opportunity history
+            session.opportunity_history.append({
+                "created_at_move": session.pending_opportunity.get("created_at_move_index"),
+                "type": session.pending_opportunity.get("type"),
+                "found": consequence.get("found_opportunity", False),
+                "user_move": move_san,
+                "expected_move": expected_moves[0] if expected_moves else None,
+                "eval_change": consequence.get("eval_change", 0)
+            })
+            
+            # Clear the pending opportunity
+            session.pending_opportunity = {}
+            
+            logger.info(f"[PedagogicalOpponent] User {'found' if consequence.get('found_opportunity') else 'missed'} opportunity")
+            
+        except Exception as e:
+            logger.warning(f"Consequence tracking failed: {e}")
+            session.pending_opportunity = {}
+    
     session.move_history.append({
         "move": move_san,
         "uci": move.uci(),
@@ -377,6 +437,15 @@ async def make_player_move(
         "evaluation": {
             "score": eval_score,
             "mate_in": mate_in
+        },
+        # Consequence feedback from pedagogical move
+        "consequence_feedback": consequence_feedback,
+        # Current pedagogical state (for next move)
+        "pedagogical": {
+            "pending_opportunity": session.pending_opportunity if session.pending_opportunity else None,
+            "hide_eval": session.pending_opportunity.get("hide_eval", False) if session.pending_opportunity else False,
+            "opportunities_found": session.opportunities_found,
+            "opportunities_missed": session.opportunities_missed
         }
     }
 
@@ -464,7 +533,14 @@ async def get_session_state(
             "score": eval_score,  # From white's perspective
             "mate_in": mate_in    # None or number of moves to mate
         },
-        "opening_teaching": opening_guidance
+        "opening_teaching": opening_guidance,
+        # Pedagogical Opponent State
+        "pedagogical": {
+            "pending_opportunity": session.pending_opportunity if session.pending_opportunity else None,
+            "hide_eval": session.pending_opportunity.get("hide_eval", False) if session.pending_opportunity else False,
+            "opportunities_found": session.opportunities_found,
+            "opportunities_missed": session.opportunities_missed
+        }
     }
 
 
@@ -561,43 +637,118 @@ async def _make_coach_move(
     session: CoachGameSession
 ) -> CoachGameSession:
     """
-    Coach makes a move using Stockfish.
+    Coach makes a move - either best move or pedagogical move.
     
-    Uses skill level matched to user's rating.
+    The Pedagogical Opponent feature:
+    - In openings: Always play correct theory (teach accuracy)
+    - In middle/endgame: Sometimes play "good but not best" moves to create
+      learning opportunities based on user's known weaknesses
+    - Track whether user exploits the opportunity for consequence-based feedback
     """
     from .coach_opponent import CoachOpponent
+    from services.pedagogical_opportunity_service import PedagogicalOpportunityService
+    from services.game_phase_service import get_game_phase
     
-    # Create opponent with user's rating for difficulty matching
+    board = chess.Board(session.current_fen)
+    
+    # Determine game phase
+    phase_info = get_game_phase(session.current_fen)
+    game_phase = phase_info.get("phase_label", "middlegame")
+    
+    # Calculate moves since last pedagogical move
+    current_move_index = len(session.move_history)
+    moves_since_pedagogical = current_move_index - session.last_pedagogical_move_index
+    
+    # Get current evaluation from coach's perspective
+    coach_color = "black" if session.user_color == "white" else "white"
     opponent = CoachOpponent(user_rating=session.user_rating)
-    coach_move = await opponent.get_move(session.current_fen)
+    eval_score, _ = await opponent.get_evaluation(session.current_fen)
+    # Convert to coach's perspective
+    coach_eval = eval_score if coach_color == "white" else -eval_score
+    
+    # === PEDAGOGICAL DECISION ===
+    coach_move = None
+    is_pedagogical = False
+    pending_opportunity = None
+    
+    try:
+        # Try pedagogical move in middle/endgame (not opening)
+        # Phase labels can be: opening, early_middlegame, middlegame, late_middlegame, early_endgame, endgame, deep_endgame
+        non_opening_phases = ("early_middlegame", "middlegame", "late_middlegame", "early_endgame", "endgame", "deep_endgame")
+        if game_phase in non_opening_phases and session.pedagogical_mode_active:
+            ped_service = PedagogicalOpportunityService(db, session.user_id)
+            decision = await ped_service.should_create_opportunity(
+                board=board,
+                game_phase=game_phase,
+                user_rating=session.user_rating,
+                moves_since_last_pedagogical=moves_since_pedagogical,
+                coach_eval_advantage=coach_eval
+            )
+            
+            if decision.create_opportunity and decision.pedagogical_move:
+                coach_move = decision.pedagogical_move
+                is_pedagogical = True
+                
+                # Store pending opportunity for consequence tracking
+                pending_opportunity = {
+                    "type": decision.opportunity_type.value if decision.opportunity_type else "general",
+                    "expected_moves": decision.expected_exploit_moves,
+                    "target_squares": decision.target_squares,
+                    "reason": decision.reason,
+                    "skill_explanation": decision.skill_explanation,
+                    "eval_sacrifice": decision.eval_sacrifice,
+                    "created_at_move_index": current_move_index,
+                    "hide_eval": True  # Hide eval bar until user responds
+                }
+                
+                logger.info(f"[PedagogicalOpponent] Playing {coach_move} - {decision.reason}")
+            elif decision.best_move:
+                coach_move = decision.best_move
+    except Exception as e:
+        logger.warning(f"Pedagogical decision failed: {e}")
+    
+    # Fallback to regular opponent if no pedagogical move
+    if not coach_move:
+        coach_move = await opponent.get_move(session.current_fen)
     
     if not coach_move:
-        # Fallback: if no move found, game might be over
+        # No legal moves - game might be over
         return session
     
     # Apply the move
-    board = chess.Board(session.current_fen)
     try:
         move = board.parse_san(coach_move)
         fen_before = session.current_fen
         board.push(move)
         new_fen = board.fen()
         
-        session.move_history.append({
+        move_record = {
             "move": coach_move,
             "uci": move.uci(),
             "by": "coach",
             "fen_before": fen_before,
             "fen_after": new_fen,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "time_spent": 0  # Coach doesn't spend "real" time
-        })
+            "time_spent": 0,
+            "is_pedagogical": is_pedagogical
+        }
+        
+        session.move_history.append(move_record)
         session.fen_history.append(new_fen)
         session.current_fen = new_fen
         session.last_move_at = datetime.now(timezone.utc)
         
+        # Update pedagogical state
+        if is_pedagogical:
+            session.last_pedagogical_move_index = current_move_index
+            session.pending_opportunity = pending_opportunity
+        else:
+            # Clear any pending opportunity if playing best move
+            if session.pending_opportunity and session.pending_opportunity.get("hide_eval"):
+                session.pending_opportunity = {}
+        
     except Exception as e:
-        print(f"Error making coach move: {e}")
+        logger.error(f"Error making coach move: {e}")
     
     return session
 

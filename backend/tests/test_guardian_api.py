@@ -12,7 +12,7 @@ import pytest
 import uuid
 import time
 
-BASE_URL = "https://thinking-sim.preview.emergentagent.com"
+BASE_URL = "https://thinking-simulator-1.preview.emergentagent.com"
 
 
 class TestGuardianEvaluate:

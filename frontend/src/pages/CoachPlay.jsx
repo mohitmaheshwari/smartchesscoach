@@ -74,7 +74,9 @@ import {
   CoachInsightCard,
   TrapAlert,
   AskCoach,
-  MoveHistorySection
+  MoveHistorySection,
+  // Pedagogical Opponent
+  ConsequenceFeedback
 } from "@/components/coach-play";
 
 // V5 Coaching Component
@@ -186,6 +188,12 @@ const CoachPlay = ({ user }) => {
   const [developedPieces, setDevelopedPieces] = useState(0);
   const [playerWeaknesses, setPlayerWeaknesses] = useState([]);
   const [showChecklist, setShowChecklist] = useState(true);
+  
+  // Pedagogical Opponent State
+  const [hideEvalBar, setHideEvalBar] = useState(false);
+  const [consequenceFeedback, setConsequenceFeedback] = useState(null);
+  const [opportunitiesFound, setOpportunitiesFound] = useState(0);
+  const [opportunitiesMissed, setOpportunitiesMissed] = useState(0);
   
   // NEW: Streak integration state (Plateau Breaker)
   const [streakData, setStreakData] = useState(null);
@@ -1375,6 +1383,21 @@ const CoachPlay = ({ user }) => {
 
       const data = await response.json();
       
+      // Handle consequence feedback from pedagogical opponent
+      if (data.consequence_feedback) {
+        setConsequenceFeedback(data.consequence_feedback);
+        // Unhide eval bar now that user has responded
+        setHideEvalBar(false);
+      }
+      
+      // Handle pedagogical state update
+      if (data.pedagogical) {
+        const ped = data.pedagogical;
+        setHideEvalBar(ped.hide_eval || false);
+        setOpportunitiesFound(ped.opportunities_found || 0);
+        setOpportunitiesMissed(ped.opportunities_missed || 0);
+      }
+      
       // Update board with user's move immediately - only if we have valid FEN
       if (data.current_fen) {
         setCurrentFen(data.current_fen);
@@ -1458,6 +1481,14 @@ const CoachPlay = ({ user }) => {
             // Update evaluation
             if (data.evaluation) {
               setEvaluation(data.evaluation);
+            }
+            
+            // Handle pedagogical opponent state
+            if (data.pedagogical) {
+              const ped = data.pedagogical;
+              setHideEvalBar(ped.hide_eval || false);
+              setOpportunitiesFound(ped.opportunities_found || 0);
+              setOpportunitiesMissed(ped.opportunities_missed || 0);
             }
             
             // Update opening guidance
@@ -2421,6 +2452,7 @@ const CoachPlay = ({ user }) => {
                   evaluation={evaluation} 
                   userColor={selectedColor}
                   gameOver={gameOver}
+                  hidden={hideEvalBar}
                 />
               </div>
               
@@ -2442,6 +2474,16 @@ const CoachPlay = ({ user }) => {
                   viewOnly={!(isInTeachingMode && activeLesson && lessonInstruction?.is_user_move) && (!isPlayerTurn || gameOver)}
                   showDests={true}
                 />
+                
+                {/* Pedagogical Opportunity Hint Overlay */}
+                {hideEvalBar && isPlayerTurn && !gameOver && (
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
+                    <div className="px-3 py-1.5 rounded-full bg-amber-500/90 text-white text-xs font-medium shadow-lg animate-pulse">
+                      <Lightbulb className="w-3 h-3 inline mr-1" />
+                      Find the opportunity!
+                    </div>
+                  </div>
+                )}
                 
                 {/* Lesson Complete Overlay - only this stays on board */}
                 {lessonComplete && (
@@ -2906,6 +2948,14 @@ const CoachPlay = ({ user }) => {
                       </div>
                     )}
                   </div>
+                )}
+                
+                {/* === CONSEQUENCE FEEDBACK (Pedagogical Opponent) === */}
+                {consequenceFeedback && (
+                  <ConsequenceFeedback 
+                    consequence={consequenceFeedback}
+                    onDismiss={() => setConsequenceFeedback(null)}
+                  />
                 )}
                 
                 {/* === USER'S MOVE FEEDBACK (Same V5CoachingCard as Lab!) === */}

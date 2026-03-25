@@ -10,7 +10,7 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
-const BASE_URL = 'https://thinking-sim.preview.emergentagent.com';
+const BASE_URL = 'https://thinking-simulator-1.preview.emergentagent.com';
 
 async function devLogin(page: Page) {
   await page.goto('/api/auth/dev-login', { waitUntil: 'domcontentloaded' });

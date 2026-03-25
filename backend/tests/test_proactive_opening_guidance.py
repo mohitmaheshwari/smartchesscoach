@@ -16,7 +16,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-sim.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-simulator-1.preview.emergentagent.com')
 
 
 class TestProactiveOpeningGuidanceSessionStart:

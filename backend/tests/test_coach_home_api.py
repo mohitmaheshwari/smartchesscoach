@@ -7,7 +7,7 @@ import requests
 import os
 from datetime import datetime, timezone
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-sim.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-simulator-1.preview.emergentagent.com').rstrip('/')
 
 
 class TestHomeIntelligenceAPI:

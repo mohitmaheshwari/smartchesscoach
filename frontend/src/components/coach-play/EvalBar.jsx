@@ -3,10 +3,28 @@
  * 
  * A vertical bar that fills its container height:
  * - Score displayed in the CENTER of the bar for readability
+ * - Can be hidden during pedagogical opponent moves (hide_eval mode)
  */
 
-const EvalBar = ({ evaluation, userColor }) => {
+const EvalBar = ({ evaluation, userColor, hidden = false }) => {
   const { score, mate_in } = evaluation || { score: 0, mate_in: null };
+  
+  // If hidden, show a mystery bar
+  if (hidden) {
+    return (
+      <div 
+        className="w-full h-full flex flex-col rounded overflow-hidden border border-zinc-700 relative select-none bg-gradient-to-b from-zinc-800 via-zinc-700 to-zinc-800"
+        data-testid="eval-bar"
+        title="Evaluation hidden - find the opportunity!"
+      >
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="px-2 py-1.5 rounded text-xs font-bold leading-none whitespace-nowrap shadow-md bg-amber-500 text-white animate-pulse">
+            ?
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // Calculate percentage for the bar (50% = equal, >50% = white advantage)
   const getBarPercentage = () => {

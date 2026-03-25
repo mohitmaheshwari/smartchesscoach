@@ -18,3 +18,6 @@ export { default as CoachInsightCard } from './CoachInsightCard';
 export { default as TrapAlert } from './TrapAlert';
 export { default as AskCoach } from './AskCoach';
 export { MoveHistory, MoveHistorySection } from './MoveHistoryCompact';
+
+// Pedagogical Opponent Components
+export { default as ConsequenceFeedback } from './ConsequenceFeedback';
