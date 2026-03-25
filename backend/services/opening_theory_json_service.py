@@ -47,13 +47,19 @@ def get_all_opening_keys() -> List[str]:
 def get_opening_theory(opening_key: str) -> Optional[Dict]:
     """Get full theory data for an opening."""
     _load_theory()
-    return _THEORY_DATA.get(opening_key)
+    # Normalize: try as-is, then with underscores, then with hyphens
+    result = _THEORY_DATA.get(opening_key)
+    if not result:
+        result = _THEORY_DATA.get(opening_key.replace("-", "_"))
+    if not result:
+        result = _THEORY_DATA.get(opening_key.replace("_", "-"))
+    return result
 
 
 def get_available_variations(opening_key: str) -> List[Dict]:
     """Get list of available variations for an opening."""
     _load_theory()
-    opening = _THEORY_DATA.get(opening_key)
+    opening = _THEORY_DATA.get(opening_key) or _THEORY_DATA.get(opening_key.replace("-", "_"))
     if not opening:
         return []
 
@@ -89,7 +95,7 @@ def get_variation_lesson_moves(opening_key: str, variation_key: Optional[str] = 
         - critical_positions: Teaching data keyed by move index
     """
     _load_theory()
-    opening = _THEORY_DATA.get(opening_key)
+    opening = _THEORY_DATA.get(opening_key) or _THEORY_DATA.get(opening_key.replace("-", "_"))
     if not opening:
         return None
 
