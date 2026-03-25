@@ -1414,11 +1414,15 @@ def recognize_good_move(
     cp_loss: int,
     phase: str,
     opening_data: dict,
-    pv_after_best: List[str] = None
+    pv_after_best: List[str] = None,
+    eval_before: float = None,
+    eval_after: float = None
 ) -> Tuple[str, Optional[str], bool]:
     """
     Recognize when user plays a good move - use FUN, MEMORABLE language!
     Returns: (narrative, concept_applied, is_best_move)
+    
+    NOW HANDLES: Critical situations like mate threats!
     """
     move_san = board.san(move)
     is_best = best_move and move_san.lower().replace("+", "").replace("#", "") == best_move.lower().replace("+", "").replace("#", "")
@@ -1428,7 +1432,42 @@ def recognize_good_move(
     concept_applied = None
     narrative = ""
     
-    # Check if this matches opening theory
+    # ─── CRITICAL: Handle mate situations FIRST ───
+    # Mate detected when eval_after is very high (10000) or very low (-10000)
+    # Or when there's a big eval swing indicating critical position
+    
+    board_after = board.copy()
+    board_after.push(move)
+    
+    # Check if WE just gave checkmate
+    if board_after.is_checkmate():
+        return f"CHECKMATE! {move_san} ends it! Game over!", "checkmate_delivery", True
+    
+    # Check for mate threats (eval indicates forced mate)
+    if eval_after is not None:
+        # We're getting mated (eval around -100 for mate scores)
+        if eval_after <= -50:  # Very bad - likely getting mated
+            if is_best:
+                return f"{move_san} — the only move! You're facing a forced mate, but this puts up the best fight.", "defensive_critical", True
+            else:
+                return f"{move_san} keeps playing, but the position is critical. Mate is coming unless opponent blunders.", "defensive_critical", False
+        
+        # Check if eval just dropped significantly (opponent has mate threat we didn't stop)
+        if eval_before is not None and eval_before > -10 and eval_after <= -20:
+            # Went from okay to getting mated
+            if is_best:
+                return f"{move_san} — sadly, the best option in a lost position. The damage was done earlier.", "best_in_lost", True
+            else:
+                return f"{move_san} — but you're in deep trouble here. The position collapsed.", "desperate_defense", False
+        
+        # We have a winning attack (high positive eval)
+        if eval_after >= 50:  # We're winning with mate threat
+            if is_best:
+                return f"Crushing! {move_san} maintains the winning attack. Mate is in sight!", "winning_attack", True
+            else:
+                return f"{move_san} — you're winning big! Keep finding the accurate moves to finish.", "winning_attack", False
+    
+    # ─── Check if this matches opening theory ───
     typical_ideas = opening_data.get("typical_ideas", {})
     if move_san in typical_ideas:
         concept_applied = f"opening_{move_san.lower()}"
@@ -1717,7 +1756,9 @@ async def generate_game_decryption_v5(
             elif severity == "good":
                 # GOOD USER MOVE - Recognize and track
                 narrative, concept_applied, is_best_move = recognize_good_move(
-                    board, move, best_move, cp_loss, phase, opening_data
+                    board, move, best_move, cp_loss, phase, opening_data,
+                    eval_before=eval_data.get("eval_before"),
+                    eval_after=eval_data.get("eval_after")
                 )
                 
             elif is_forced_recapture:
