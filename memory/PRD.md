@@ -15,6 +15,75 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 6. **Show the future** (next 1-2 moves in the variation)
 7. **SPECIFIC consequences** - Never generic "position weakens", always explain WHAT gets weak and WHY
 
+### UX Mental Model
+- **Home** = Decision (what to do next)
+- **Play** = Experience (learn by doing, with pedagogical opponent)
+- **Review (Lab)** = Understand (deep analysis, "Show my plan", cognitive gap)
+- **Train** = Cure (community positions + own mistakes)
+- **Progress** = Confidence
+
+---
+
+## Community Intelligence Training — NEW (March 2025)
+
+### Concept
+Every user's mistake is another user's training material. Training positions are sourced from:
+1. **Your own games** — positions where you made significant mistakes
+2. **Community** — positions from similar-rated players' games
+
+### How It Works
+- When a game is analyzed (V5 decryption), positions with cp_loss >= 150 are auto-extracted into `community_training_positions` collection
+- Training feed serves ~40% own positions + ~60% community positions from players within ±200 rating
+- Each position shows source attribution: "From a game by **Ravi**, 1180"
+- After attempting, shows solve rate and community miss rate at user's level
+- Pattern-level tracking: fork 3/5, pin 2/4, etc.
+
+### Backend
+- **Service**: `/app/backend/services/community_training_service.py`
+  - `extract_training_positions()` — Extracts from V5 decrypted games
+  - `get_training_feed()` — Mixed feed of own + community positions
+  - `record_solve_attempt()` — Records attempt, returns correct/incorrect + stats
+  - `get_user_pattern_stats()` — Pattern-level solve rates
+
+### API Endpoints
+- `GET /api/training/community-feed` — Get training positions (mixed feed)
+- `POST /api/training/solve-attempt` — Record solve attempt
+- `GET /api/training/pattern-stats` — Get user's pattern stats
+- `GET /api/training/community-count` — Total positions in pool
+- `POST /api/training/extract-positions/{game_id}` — Manual extraction trigger
+
+### Data Model: `community_training_positions`
+```javascript
+{
+  position_id: String,        // "game_id_m{move_number}"
+  fen: String,
+  best_move_san: String,
+  best_move_uci: String,
+  user_move_san: String,
+  cp_loss: Number,
+  pattern_type: String,       // fork, pin, hanging_piece, checkmate_pattern, positional, etc.
+  difficulty: String,         // easy (500+ cp_loss), medium (200-499), hard (<200)
+  source_game_id: String,
+  source_user_id: String,
+  source_user_name: String,   // First name only
+  source_user_rating: Number,
+  user_color: String,
+  attempts: Number,
+  solves: Number,
+  solve_rate: Number,
+  created_at: String,
+}
+```
+
+### Frontend: `ThinkingTraining.jsx`
+- Interactive LichessBoard (Chessground)
+- "Find the Best Move" prompt with pattern/difficulty badges
+- Source attribution: "From a game by **Name**, rating"
+- Correct/Incorrect feedback with community stats
+- "Your Patterns" sidebar with solve rate bars
+- Session progress tracking (solved X of Y)
+- Auto-extraction hook in V5 decryption pipeline
+
 ---
 
 ## V5 Implementation Status: COMPLETE
@@ -24,135 +93,30 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 #### 1. Shared Coaching Layer (`shared_coaching_v5.py`)
 - Single source of truth for V5 coaching used by BOTH Lab and Play with Coach
 - `generate_move_coaching()` - Main entry point for all V5 coaching
-- `get_stockfish_candidates()` - Multi-PV for real candidate moves
-- `describe_consequence()` - Specific consequences (not generic)
-- `detect_fork_in_pv()` - Detects actual forked pieces
 
-#### 2. Shared Frontend Component (`V5CoachingCard.jsx`)
-- Unified UI component used by both Lab and Play with Coach
-- Clickable candidate moves from Stockfish
-- "I understand" button for concept tracking
-- Color-coded move types
-
-#### 3. Play with Coach V5 Integration
+#### 2. Play with Coach V5 Integration
 - Two-part coaching: user move feedback + coach move explanation
 - Behavioral coaching (habits engine) integrated
-- Interactive Coaching Panel in right-hand panel
 
-#### 4. Player Habits Engine (`player_habits_service.py`)
+#### 3. Player Habits Engine (`player_habits_service.py`)
 - Detects behavioral patterns: impulse moves, tilt, overthinking
-- Integrated into both Play with Coach and Lab
-- Provides behavioral coaching alongside tactical feedback
 
-#### 5. Opening Theory System - CONSOLIDATED (March 2025)
-- **Single source of truth**: `/data/coaching/opening_theory_tree.json`
-- **24 openings, 49 variations, all 12-26 moves deep** - zero stubs remaining
-- **JSON loader service**: `opening_theory_json_service.py`
-- **Legacy hardcoded data removed**: `opening_mastery.py` now loads from JSON
-- **Critical position enrichment**: Lesson instructions include context-aware explanations
-- Full opening coverage: Italian, French, Queen's Gambit, London, Sicilian (General/Dragon/Najdorf), Caro-Kann, Ruy Lopez, Philidor, Vienna, Scotch, Petrov, King's Indian, Grunfeld, Nimzo-Indian, Queen's Indian, Slav, QGD, Benoni, Budapest, Dutch, Scandinavian, Nimzowitsch
+#### 4. Opening Theory System - CONSOLIDATED
+- **24 openings, 49 variations, all 12-26 moves deep**
+- Single source: `/data/coaching/opening_theory_tree.json`
 
-#### 6. Pedagogical Opponent Engine - NEW (March 2025)
-- **Purpose**: Transform the coach from a "perfect engine" into an active teaching partner
-- **Core Logic**: `/app/backend/services/pedagogical_opportunity_service.py`
-  - `PedagogicalOpportunityService` - Main decision engine
-  - `should_create_opportunity()` - Decides whether to play best move or pedagogical move
-  - `evaluate_user_response()` - Analyzes if user found the opportunity
-- **How It Works**:
-  - **Opening Phase**: Always play correct theory (teach accuracy)
-  - **Middlegame/Endgame**: ~25% chance to play "good but not best" move
-  - **Targeted Learning**: Opportunities match user's known weaknesses
-  - **Consequence-Based Feedback**: Eval bar hidden, revealed after user responds
-- **Eval Sacrifice Ranges by Rating**:
-  - Beginner (<1000): 0.5-2.5 pawns (easier to spot)
-  - Intermediate (1000-1400): 0.3-1.5 pawns
-  - Club (1400-1800): 0.2-1.0 pawns
-  - Advanced (1800+): 0.15-0.8 pawns (very subtle)
-- **Opportunity Types Detected**: Fork, Pin, Skewer, Hanging Piece, Back Rank, Passed Pawn, King Safety, Piece Activity, Outpost, Pawn Structure, Endgame Technique, General
-- **Session State Tracking**:
-  - `pedagogical_mode_active`: Boolean (default: true)
-  - `pending_opportunity`: Current opportunity awaiting response
-  - `opportunities_found` / `opportunities_missed`: Running counts
-- **Frontend Integration**:
-  - `EvalBar` component: `hidden` prop shows "?" with amber pulsing animation
-  - `ConsequenceFeedback` component: Shows found/missed feedback with eval change
-  - Hint overlay: "Find the opportunity!" when eval hidden
+#### 5. Pedagogical Opponent Engine
+- Creates targeted opportunities based on user weaknesses
+- Phase-based probability (0% opening, 25% middlegame, 30% endgame)
 
----
+#### 6. Rich Game Summaries
+- Extracts specific mistake contexts for Lab Dashboard
 
-## Data Models
+#### 7. "Show My Plan" Cognitive Analysis
+- Stockfish evaluates user's intended line to find calculation divergence
 
-### user_concept_understanding
-```javascript
-{
-  user_id: String,
-  concept_id: String,
-  concept_type: String,
-  concept_text: String,
-  shown_count: Number,
-  acknowledged: Boolean,
-  acknowledged_at: Date,
-  applied_correctly_count: Number,
-  failed_to_apply_count: Number
-}
-```
-
-### coach_sessions
-```javascript
-{
-  session_id: String,
-  user_id: String,
-  user_color: String,
-  detected_opening: String,
-  teaching_mode: String,  // "main_line" | "trap" | null
-  teaching_data: {
-    variation_name: String,
-    variation_key: String,
-    main_line_moves: [String],  // 12-24 moves deep from JSON
-    current_move_index: Number,
-    critical_positions: Object,
-    key_ideas: [String],
-    user_plays_white: Boolean,
-    teaching_fen: String,
-  },
-  move_history: [Object],
-  behavior_events: [Object],
-  habits_report: Object,
-  // Pedagogical Opponent State (NEW)
-  pedagogical_mode_active: Boolean,  // Default: true
-  last_pedagogical_move_index: Number,  // -10 if never
-  pending_opportunity: {
-    type: String,  // "fork", "pin", "hanging_piece", etc.
-    expected_moves: [String],  // Moves that exploit the opportunity
-    target_squares: [String],  // Squares involved
-    reason: String,  // Why this was chosen
-    skill_explanation: String,  // What concept this tests
-    eval_sacrifice: Number,  // How much eval given up
-    hide_eval: Boolean,  // Whether to hide eval bar
-  },
-  opportunity_history: [Object],
-  opportunities_found: Number,
-  opportunities_missed: Number,
-}
-```
-
----
-
-## API Endpoints
-
-### V5 Decryption
-- `GET /api/coach/decryption/v5/{game_id}` - Get V5 coaching for a game
-- `POST /api/coach/decryption/acknowledge` - Mark concept as understood
-
-### Play with Coach
-- `POST /api/coach/play/v5/interactive-feedback` - Two-part coaching
-- `POST /api/coach/play/teaching/start` - Start opening lesson (now 12-24 moves deep!)
-- `POST /api/coach/play/teaching/move` - Process teaching move
-- `POST /api/coach/play/teaching/exit` - Exit teaching mode
-
-### Learning Progress
-- `GET /api/coach/concepts/acknowledged` - Get user's acknowledged concepts
-- `GET /api/coach/concepts/learning-progress` - Get learning summary
+#### 8. Dynamic Plateau Breaker
+- Hidden unless 3+ consecutive losses
 
 ---
 
@@ -161,22 +125,6 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 - **Backend**: FastAPI, MongoDB (Motor async driver)
 - **Chess**: python-chess, Stockfish
 - **LLM**: GPT-4.1-mini via emergentintegrations (Emergent LLM Key)
-
----
-
-## Files of Reference
-- `/app/backend/services/pedagogical_opportunity_service.py` (Pedagogical Opponent - NEW)
-- `/app/backend/coach_play/coach_game_session.py` (Session management - UPDATED for pedagogical state)
-- `/app/backend/services/opening_theory_json_service.py` (JSON theory loader)
-- `/app/backend/data/coaching/opening_theory_tree.json` (Single source of truth for openings)
-- `/app/backend/services/opening_teaching_integration.py` (Lesson system - REWRITTEN)
-- `/app/backend/services/opening_mastery.py` (Now loads from JSON, detection + progress tracking)
-- `/app/backend/services/shared_coaching_v5.py` (Shared V5 coaching logic)
-- `/app/backend/services/player_habits_service.py` (Behavioral coaching)
-- `/app/frontend/src/pages/CoachPlay.jsx` (Play with Coach page - UPDATED for pedagogical UI)
-- `/app/frontend/src/components/coach-play/EvalBar.jsx` (Hidden state support - UPDATED)
-- `/app/frontend/src/components/coach-play/ConsequenceFeedback.jsx` (NEW)
-- `/app/backend/routes/coach_play.py` (Play with Coach API endpoints)
 
 ---
 
@@ -192,7 +140,10 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 - [ ] Admin UI for theory database management
 - [ ] Endgame theory tree (similar structure to openings)
 - [ ] Habits Trend Dashboard (show improvement over time)
-- [ ] Opening Proficiency in Coach Panel (show mastery, suggest variations)
+- [ ] Opening Proficiency in Coach Panel
+- [ ] Community position opt-in/opt-out
+- [ ] "Did you find it?" stats — "73% of players at your level missed this"
+- [ ] Pattern clustering — group community positions by theme
 
 ### P3 - Nice to Have
 - [ ] Voice coaching mode
@@ -203,12 +154,9 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 ---
 
 ## Testing Status
+- **Community Training (March 2025)**: Backend 10/10 tests passed, Frontend 100% verified
 - **Pedagogical Opponent (March 2025)**: Backend 15/15 tests passed, Frontend 100% verified
 - **Opening Theory Consolidation (March 2025)**: Backend 21/21 tests passed, Frontend 100% verified
-- **Expanded Opening Theory (March 2025)**: 16 new openings added, Backend 28/28 tests passed, Frontend 100%
-- **Player Habits Engine (March 2025)**: Backend 7/9, Frontend 100%
-- **Two-Moment Coaching Flow (March 2025)**: Backend 9/9, Frontend 100%
-- **V5 Pipeline Unified (March 2025)**: Backend 10/10, Frontend 100%
 
 ---
 
