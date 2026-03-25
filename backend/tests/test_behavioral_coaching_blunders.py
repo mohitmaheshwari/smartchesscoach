@@ -24,7 +24,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Use the public URL from frontend/.env
-BASE_URL = "https://thinking-simulator-1.preview.emergentagent.com"
+BASE_URL = "https://progress-track-61.preview.emergentagent.com"
 
 
 class TestBehavioralCoachingBlunders:

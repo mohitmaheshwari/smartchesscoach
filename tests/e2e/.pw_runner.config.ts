@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: '/root/.emergent/automation_output/20260320_001203/results.json' }],
   ],
   use: {
-    baseURL: 'https://thinking-simulator-1.preview.emergentagent.com',
+    baseURL: 'https://progress-track-61.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,
