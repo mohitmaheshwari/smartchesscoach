@@ -148,21 +148,55 @@ async def match_opening_to_library_endpoint(opening_name: str, eco: str = None):
 @router.get("/openings/{opening_key}")
 async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_user)):
     """
-    Get full opening lesson with main line, traps, and user's mistakes.
-    Uses effective feedback (static code + admin overrides).
+    Get full opening lesson data from the JSON theory tree.
     """
-    from services.opening_feedback_admin_service import (
-        get_effective_opening_feedback,
-        feedback_to_opening_lesson_shape
-    )
+    from services.opening_theory_json_service import get_opening_theory, get_available_variations, get_variation_lesson_moves
+    from services.verified_opening_traps import get_verified_traps_for_opening
     
-    # Get effective feedback (merges static code + admin override)
-    feedback = await get_effective_opening_feedback(db, opening_key)
-    if not feedback:
-        raise HTTPException(status_code=404, detail="Opening not found in library")
+    theory = get_opening_theory(opening_key)
+    if not theory:
+        raise HTTPException(status_code=404, detail="Opening not found in theory database")
     
-    # Convert to lesson shape expected by frontend
-    lesson_data = feedback_to_opening_lesson_shape(feedback)
+    variations = get_available_variations(opening_key)
+    traps = get_verified_traps_for_opening(opening_key)
+    
+    # Build main line with move explanations
+    first_lesson = get_variation_lesson_moves(opening_key, variations[0]["key"]) if variations else None
+    main_line = []
+    if first_lesson:
+        for i, move in enumerate(first_lesson["moves"]):
+            main_line.append({"move": move, "explanation": ""})
+    
+    # Build trap details
+    trap_details = []
+    for trap in traps:
+        trap_details.append({
+            "name": trap.name,
+            "description": trap.explanation,
+            "setup_moves": trap.setup_moves,
+            "trap_line": [{"move": m, "explanation": trap.explanation if m == trap.trap_move else ""} for m in trap.full_line],
+            "difficulty": trap.difficulty,
+            "result_type": "verified_trap",
+        })
+    
+    lesson_data = {
+        "name": theory.get("name", opening_key.replace("_", " ").title()),
+        "eco": ", ".join(theory.get("eco_prefix", [])),
+        "description": theory.get("white_plan", "") + " / " + theory.get("black_plan", ""),
+        "color": "black" if "defense" in theory.get("name", "").lower() or "indian" in theory.get("name", "").lower() else "white",
+        "first_moves": theory.get("main_line", [])[:5],
+        "main_line": main_line,
+        "key_ideas": theory.get("common_learnings", []),
+        "common_mistakes": [],
+        "traps": trap_details,
+        "what_if": [],
+        "identity": "open" if any(m in theory.get("main_line", []) for m in ["e4", "e5"]) else "closed",
+        "variations": [{
+            "key": v["key"],
+            "name": v["name"],
+            "total_moves": v["total_moves"],
+        } for v in variations],
+    }
     
     # Add user-specific progress data
     progress_doc = await db.user_opening_progress.find_one({
@@ -179,22 +213,11 @@ async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_
             "last_practiced": progress_doc.get("last_practiced")
         }
     
-    # Add user's mistakes from past games in this opening
-    mistakes = await db.opening_mistakes.find({
-        "user_id": user.user_id,
-        "opening_key": opening_key
-    }).to_list(50)
-    
-    user_mistakes = []
-    if mistakes:
-        user_mistakes = mistakes
-    
-    # Return in format expected by frontend (opening nested under 'opening' key)
     return {
-        "opening": lesson_data,  # Frontend expects: lesson.opening.name
+        "opening": lesson_data,
         "user_progress": user_progress,
-        "user_mistakes": user_mistakes,
-        "learning_progress": user_progress  # Alias for compatibility
+        "user_mistakes": [],
+        "learning_progress": user_progress,
     }
 
 
