@@ -172,25 +172,27 @@ const HomePage = ({ user }) => {
           transition={{ delay: 0.15 }}
           className="grid grid-cols-2 gap-3 mb-6"
         >
-          {/* Train weakness */}
-          {problem && (
-            <Card 
-              className="bg-zinc-900 border-zinc-800 cursor-pointer hover:border-zinc-700 transition-all group"
-              onClick={() => navigate(`/training/prescribed?weakness=${problem}`)}
-              data-testid="train-card"
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                    <Target className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <span className="text-xs text-zinc-500 uppercase tracking-wide">Train</span>
+          {/* Train - Community Intelligence */}
+          <Card 
+            className="bg-zinc-900 border-zinc-800 cursor-pointer hover:border-zinc-700 transition-all group"
+            onClick={() => navigate("/training")}
+            data-testid="train-card"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                  <Target className="w-4 h-4 text-amber-400" />
                 </div>
-                <p className="text-white font-medium capitalize text-sm">{problemFormatted}</p>
-                <p className="text-xs text-zinc-500 mt-1">{problemCount}x recently</p>
-              </CardContent>
-            </Card>
-          )}
+                <span className="text-xs text-zinc-500 uppercase tracking-wide">Train</span>
+              </div>
+              <p className="text-white font-medium text-sm">
+                {problem ? <span className="capitalize">{problemFormatted}</span> : "Positions to solve"}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">
+                {problem ? `${problemCount}x recently` : "Your games + community"}
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Study openings */}
           <Card 

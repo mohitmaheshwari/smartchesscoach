@@ -1,0 +1,472 @@
+"""
+Community Training Service
+===========================
+
+The core insight: Every user's mistake is another user's training material.
+
+This service:
+1. Extracts training-worthy positions from V5 decrypted games
+2. Stores them in `community_training_positions` with source player info
+3. Serves a mix of user's own positions + community positions from similar-rated players
+4. Tracks solve attempts and stats per position
+
+Data flow:
+- Game gets V5 decrypted → positions auto-extracted → stored in DB
+- Training page → fetch mix of own + community positions → user solves → stats updated
+"""
+
+import chess
+import logging
+from typing import Dict, List, Optional
+from datetime import datetime, timezone
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+logger = logging.getLogger(__name__)
+
+# Minimum cp_loss to qualify as a training position
+MIN_CP_LOSS = 150
+
+# Rating range for "similar" players (e.g., +/- 200)
+RATING_RANGE = 200
+
+
+def classify_pattern_type(issue_type: str, critical_detail: str = "") -> str:
+    """Map issue types to human-readable pattern types."""
+    mapping = {
+        "allows_mate_in_1": "checkmate_pattern",
+        "allows_mate_in_2": "checkmate_pattern",
+        "misses_mate_in_1": "checkmate_pattern",
+        "misses_mate_in_2": "checkmate_pattern",
+        "hangs_queen": "hanging_piece",
+        "hangs_rook": "hanging_piece",
+        "hangs_piece": "hanging_piece",
+        "walks_into_fork": "fork",
+        "walks_into_pin": "pin",
+        "misses_fork": "fork",
+        "misses_pin": "pin",
+        "misses_skewer": "skewer",
+        "back_rank_weakness": "back_rank",
+        "positional_error": "positional",
+    }
+    result = mapping.get(issue_type, "tactical")
+    
+    # Refine from critical_detail if available
+    detail_lower = (critical_detail or "").lower()
+    if "fork" in detail_lower:
+        result = "fork"
+    elif "pin" in detail_lower:
+        result = "pin"
+    elif "back rank" in detail_lower:
+        result = "back_rank"
+    elif "skewer" in detail_lower:
+        result = "skewer"
+    elif "hanging" in detail_lower or "undefended" in detail_lower:
+        result = "hanging_piece"
+    
+    return result
+
+
+def classify_difficulty(cp_loss: int) -> str:
+    """Higher cp_loss = easier to spot."""
+    if cp_loss >= 500:
+        return "easy"
+    elif cp_loss >= 200:
+        return "medium"
+    return "hard"
+
+
+def format_pattern_name(key: str) -> str:
+    """Format pattern key for display."""
+    return key.replace("_", " ").title()
+
+
+async def extract_training_positions(
+    db: AsyncIOMotorDatabase,
+    game_id: str,
+    user_id: str
+) -> List[Dict]:
+    """
+    Extract training-worthy positions from a V5 decrypted game.
+    Stores them in community_training_positions collection.
+    
+    Returns list of extracted positions.
+    """
+    # Get the game analysis
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user_id},
+        {"_id": 0}
+    )
+    if not analysis:
+        logger.info(f"No analysis found for game {game_id}")
+        return []
+    
+    # Get game info
+    game = await db.games.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        logger.info(f"Game not found: {game_id}")
+        return []
+    
+    # Get user info for source attribution
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "name": 1})
+    user_name = (user.get("name", "Anonymous") if user else "Anonymous").split()[0]  # First name only
+    
+    # Get user rating
+    profile = await db.player_profiles.find_one(
+        {"user_id": user_id}, 
+        {"_id": 0, "estimated_rating": 1, "current_rating": 1}
+    )
+    user_rating = 1200
+    if profile:
+        user_rating = profile.get("current_rating") or profile.get("estimated_rating") or 1200
+    
+    user_color = game.get("user_color", "white")
+    opening_name = game.get("opening")
+    
+    # Parse V5 data or stockfish analysis
+    sf_analysis = analysis.get("stockfish_analysis", {})
+    moves = sf_analysis.get("move_evaluations", [])
+    
+    extracted = []
+    
+    for move_data in moves:
+        cp_loss = move_data.get("cp_loss", 0)
+        
+        # Only extract positions with significant mistakes
+        if cp_loss < MIN_CP_LOSS:
+            continue
+        
+        fen = move_data.get("fen_before")
+        user_move = move_data.get("move")
+        best_move = move_data.get("best_move")
+        move_number = move_data.get("move_number")
+        
+        if not all([fen, user_move, best_move]):
+            continue
+        
+        # Validate position and moves
+        best_move_uci = None
+        user_move_uci = None
+        try:
+            board = chess.Board(fen)
+            best_move_obj = board.parse_san(best_move)
+            best_move_uci = best_move_obj.uci()
+            user_move_obj = board.parse_san(user_move)
+            user_move_uci = user_move_obj.uci()
+        except Exception:
+            continue
+        
+        # Determine pattern type
+        issue_type = move_data.get("classification", "tactical_mistake")
+        critical_detail = move_data.get("explanation", "")
+        pattern_type = classify_pattern_type(issue_type, critical_detail)
+        
+        position_id = f"{game_id}_m{move_number}"
+        
+        # Check if this position already exists
+        existing = await db.community_training_positions.find_one(
+            {"position_id": position_id}
+        )
+        if existing:
+            continue
+        
+        position = {
+            "position_id": position_id,
+            "fen": fen,
+            "best_move_san": best_move,
+            "best_move_uci": best_move_uci,
+            "user_move_san": user_move,
+            "user_move_uci": user_move_uci,
+            "cp_loss": cp_loss,
+            "pattern_type": pattern_type,
+            "difficulty": classify_difficulty(cp_loss),
+            "move_number": move_number,
+            "opening_name": opening_name,
+            
+            # Source attribution
+            "source_game_id": game_id,
+            "source_user_id": user_id,
+            "source_user_name": user_name,
+            "source_user_rating": user_rating,
+            "user_color": user_color,
+            
+            # Stats
+            "attempts": 0,
+            "solves": 0,
+            "solve_rate": 0.0,
+            
+            # Metadata
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        
+        extracted.append(position)
+    
+    # Bulk insert
+    if extracted:
+        await db.community_training_positions.insert_many(extracted)
+        logger.info(f"Extracted {len(extracted)} training positions from game {game_id}")
+    
+    return extracted
+
+
+async def get_training_feed(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    limit: int = 10
+) -> Dict:
+    """
+    Get a mixed training feed: user's own positions + community positions.
+    
+    Mix ratio: ~40% own, ~60% community (from similar-rated players).
+    Excludes positions the user has already solved.
+    """
+    # Get user rating for matching
+    profile = await db.player_profiles.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "estimated_rating": 1, "current_rating": 1}
+    )
+    user_rating = 1200
+    if profile:
+        user_rating = profile.get("current_rating") or profile.get("estimated_rating") or 1200
+    
+    # Get positions user already solved
+    solved_ids = set()
+    solved_attempts = await db.training_solve_attempts.find(
+        {"user_id": user_id, "solved": True},
+        {"position_id": 1, "_id": 0}
+    ).to_list(500)
+    solved_ids = {a["position_id"] for a in solved_attempts}
+    
+    own_limit = max(2, limit * 2 // 5)  # ~40%
+    community_limit = limit - own_limit
+    
+    # 1. Fetch user's own positions (most recent first)
+    own_query = {"source_user_id": user_id}
+    if solved_ids:
+        own_query["position_id"] = {"$nin": list(solved_ids)}
+    
+    own_positions = await db.community_training_positions.find(
+        own_query,
+        {"_id": 0}
+    ).sort("created_at", -1).limit(own_limit).to_list(own_limit)
+    
+    # Tag them
+    for pos in own_positions:
+        pos["source_type"] = "your_game"
+    
+    # 2. Fetch community positions from similar-rated players
+    rating_low = user_rating - RATING_RANGE
+    rating_high = user_rating + RATING_RANGE
+    
+    community_query = {
+        "source_user_id": {"$ne": user_id},
+        "source_user_rating": {"$gte": rating_low, "$lte": rating_high},
+    }
+    if solved_ids:
+        community_query["position_id"] = {"$nin": list(solved_ids)}
+    
+    community_positions = await db.community_training_positions.find(
+        community_query,
+        {"_id": 0}
+    ).sort("created_at", -1).limit(community_limit).to_list(community_limit)
+    
+    # If not enough community positions in rating range, widen the search
+    if len(community_positions) < community_limit:
+        remaining = community_limit - len(community_positions)
+        existing_ids = [p["position_id"] for p in community_positions]
+        
+        wider_query = {
+            "source_user_id": {"$ne": user_id},
+            "position_id": {"$nin": list(solved_ids) + existing_ids},
+        }
+        
+        wider_positions = await db.community_training_positions.find(
+            wider_query,
+            {"_id": 0}
+        ).sort("created_at", -1).limit(remaining).to_list(remaining)
+        community_positions.extend(wider_positions)
+    
+    # Tag them
+    for pos in community_positions:
+        pos["source_type"] = "community"
+    
+    # Combine: own first, then community
+    all_positions = own_positions + community_positions
+    
+    # Get pattern stats for user
+    pattern_stats = await get_user_pattern_stats(db, user_id)
+    
+    return {
+        "positions": all_positions,
+        "total": len(all_positions),
+        "own_count": len(own_positions),
+        "community_count": len(community_positions),
+        "user_rating": user_rating,
+        "pattern_stats": pattern_stats,
+    }
+
+
+async def record_solve_attempt(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    position_id: str,
+    user_move: str,
+    time_taken_seconds: int = 0
+) -> Dict:
+    """Record a solve attempt and update position stats."""
+    
+    # Get the position
+    position = await db.community_training_positions.find_one(
+        {"position_id": position_id},
+        {"_id": 0}
+    )
+    if not position:
+        return {"error": "Position not found"}
+    
+    # Check if move is correct
+    best_move_san = position["best_move_san"]
+    best_move_uci = position["best_move_uci"]
+    fen = position["fen"]
+    
+    solved = False
+    user_move_uci = None
+    
+    try:
+        board = chess.Board(fen)
+        # Try parsing as SAN first
+        try:
+            move_obj = board.parse_san(user_move)
+            user_move_uci = move_obj.uci()
+        except chess.InvalidMoveError:
+            # Try as UCI
+            try:
+                move_obj = chess.Move.from_uci(user_move)
+                if move_obj in board.legal_moves:
+                    user_move_uci = user_move
+            except Exception:
+                pass
+        
+        # Check if correct (compare both SAN and UCI)
+        if user_move_uci:
+            solved = (user_move_uci == best_move_uci) or (user_move == best_move_san)
+    except Exception as e:
+        logger.warning(f"Error checking move: {e}")
+    
+    # Record the attempt
+    attempt = {
+        "user_id": user_id,
+        "position_id": position_id,
+        "user_move": user_move,
+        "user_move_uci": user_move_uci,
+        "solved": solved,
+        "time_taken_seconds": time_taken_seconds,
+        "pattern_type": position.get("pattern_type", "tactical"),
+        "attempted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.training_solve_attempts.insert_one(attempt)
+    
+    # Update position stats
+    new_attempts = position.get("attempts", 0) + 1
+    new_solves = position.get("solves", 0) + (1 if solved else 0)
+    new_solve_rate = round(new_solves / new_attempts * 100, 1) if new_attempts > 0 else 0
+    
+    await db.community_training_positions.update_one(
+        {"position_id": position_id},
+        {"$set": {
+            "attempts": new_attempts,
+            "solves": new_solves,
+            "solve_rate": new_solve_rate,
+        }}
+    )
+    
+    # Get solve rate for similar-rated players
+    user_profile = await db.player_profiles.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "estimated_rating": 1, "current_rating": 1}
+    )
+    user_rating = 1200
+    if user_profile:
+        user_rating = user_profile.get("current_rating") or user_profile.get("estimated_rating") or 1200
+    
+    # Count how many similar-rated players missed this
+    rating_low = user_rating - RATING_RANGE
+    rating_high = user_rating + RATING_RANGE
+    
+    # Get all attempts from similar-rated players for this position
+    pipeline = [
+        {"$match": {"position_id": position_id}},
+        {"$lookup": {
+            "from": "player_profiles",
+            "localField": "user_id",
+            "foreignField": "user_id",
+            "as": "profile"
+        }},
+        {"$unwind": {"path": "$profile", "preserveNullAndEmptyArrays": True}},
+        {"$match": {
+            "$or": [
+                {"profile.current_rating": {"$gte": rating_low, "$lte": rating_high}},
+                {"profile.estimated_rating": {"$gte": rating_low, "$lte": rating_high}},
+                {"profile": {"$exists": False}}
+            ]
+        }},
+        {"$group": {
+            "_id": None,
+            "total": {"$sum": 1},
+            "missed": {"$sum": {"$cond": [{"$eq": ["$solved", False]}, 1, 0]}}
+        }}
+    ]
+    
+    miss_rate_at_level = None
+    try:
+        agg_result = await db.training_solve_attempts.aggregate(pipeline).to_list(1)
+        if agg_result and agg_result[0].get("total", 0) > 1:
+            total = agg_result[0]["total"]
+            missed = agg_result[0]["missed"]
+            miss_rate_at_level = round(missed / total * 100)
+    except Exception as e:
+        logger.warning(f"Error computing miss rate: {e}")
+    
+    return {
+        "solved": solved,
+        "correct_move": best_move_san,
+        "correct_move_uci": best_move_uci,
+        "position_solve_rate": new_solve_rate,
+        "miss_rate_at_your_level": miss_rate_at_level,
+        "pattern_type": position.get("pattern_type", "tactical"),
+    }
+
+
+async def get_user_pattern_stats(
+    db: AsyncIOMotorDatabase,
+    user_id: str
+) -> List[Dict]:
+    """Get user's pattern-level solve stats."""
+    pipeline = [
+        {"$match": {"user_id": user_id}},
+        {"$group": {
+            "_id": "$pattern_type",
+            "total_attempts": {"$sum": 1},
+            "total_solved": {"$sum": {"$cond": [{"$eq": ["$solved", True]}, 1, 0]}},
+        }},
+        {"$project": {
+            "pattern": "$_id",
+            "total_attempts": 1,
+            "total_solved": 1,
+            "solve_rate": {
+                "$cond": [
+                    {"$gt": ["$total_attempts", 0]},
+                    {"$round": [{"$multiply": [{"$divide": ["$total_solved", "$total_attempts"]}, 100]}, 0]},
+                    0
+                ]
+            },
+            "_id": 0
+        }},
+        {"$sort": {"total_attempts": -1}}
+    ]
+    
+    stats = await db.training_solve_attempts.aggregate(pipeline).to_list(20)
+    return stats
+
+
+async def get_community_position_count(db: AsyncIOMotorDatabase) -> int:
+    """Get total number of community training positions."""
+    return await db.community_training_positions.count_documents({})

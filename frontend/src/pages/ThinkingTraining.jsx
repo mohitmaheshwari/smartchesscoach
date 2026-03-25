@@ -1,15 +1,13 @@
 /**
- * TRAINING PAGE → Rewire Your Thinking
+ * TRAINING PAGE → Community Intelligence
  * 
- * Not a puzzle app. A thinking simulator.
+ * Every user's mistake is another user's training material.
  * 
- * The Flow:
- * 1. CONFRONT - Show user's actual mistake from their game
- * 2. DIAGNOSE - "What were you thinking?" + cognitive gap
- * 3. PATTERN LOCK - Show this is a recurring pattern
- * 4. TEST - Similar position to practice recognition
+ * Two sources:
+ * 1. YOUR PATTERNS — positions from your own games
+ * 2. FROM PLAYERS LIKE YOU — community positions from similar-rated players
  * 
- * One pattern. Deep understanding. Lasting change.
+ * Each position: interactive board → find the best move → feedback + community stats
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -21,7 +19,6 @@ import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -30,49 +27,43 @@ import {
   Brain,
   CheckCircle2,
   XCircle,
-  Lightbulb,
   ChevronRight,
-  AlertTriangle,
-  Eye,
+  ChevronLeft,
   Target,
   Zap,
   RotateCcw,
-  Trophy,
+  Users,
+  User as UserIcon,
+  TrendingUp,
+  Swords,
 } from "lucide-react";
 
-// Steps in the training flow
-const STEPS = {
-  CONFRONT: "confront",
-  PATTERN: "pattern",
-  TEST: "test",
-  COMPLETE: "complete"
+const formatPattern = (key) => {
+  if (!key) return "Unknown";
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
 const ThinkingTraining = ({ user }) => {
   const navigate = useNavigate();
-  
-  // Core state
-  const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState(STEPS.CONFRONT);
-  const [puzzle, setPuzzle] = useState(null);
-  const [pattern, setPattern] = useState(null);
-  const [similarPositions, setSimilarPositions] = useState([]);
-  
-  // Board state
-  const [boardFen, setBoardFen] = useState("start");
-  const [boardOrientation, setBoardOrientation] = useState("white");
-  const [lastMove, setLastMove] = useState(null);
-  const [arrows, setArrows] = useState([]);
-  
-  // Test step state
-  const [testPuzzle, setTestPuzzle] = useState(null);
-  const [testState, setTestState] = useState("thinking"); // thinking, correct, incorrect
-  const [testAttempts, setTestAttempts] = useState(0);
-  
-  // Session state
-  const [sessionStats, setSessionStats] = useState({ completed: 0, patterns: [] });
 
-  // Fetch initial data
+  // Data state
+  const [loading, setLoading] = useState(true);
+  const [positions, setPositions] = useState([]);
+  const [patternStats, setPatternStats] = useState([]);
+  const [communityCount, setCommunityCount] = useState(0);
+  const [feedMeta, setFeedMeta] = useState({ own_count: 0, community_count: 0 });
+
+  // Current position state
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [solveState, setSolveState] = useState("ready"); // ready | correct | incorrect
+  const [solveResult, setSolveResult] = useState(null);
+  const [sessionSolved, setSessionSolved] = useState(0);
+  const [sessionTotal, setSessionTotal] = useState(0);
+
+  // Board
+  const [arrows, setArrows] = useState([]);
+  const [lastMove, setLastMove] = useState(null);
+
   useEffect(() => {
     fetchTrainingData();
   }, []);
@@ -80,477 +71,485 @@ const ThinkingTraining = ({ user }) => {
   const fetchTrainingData = async () => {
     setLoading(true);
     try {
-      // Get user's cognitive patterns (their recurring weaknesses)
-      const [patternsRes, puzzlesRes] = await Promise.all([
-        fetch(`${API}/cognitive/patterns`, { credentials: "include" }),
-        fetch(`${API}/training/puzzles?limit=5`, { credentials: "include" })
+      const [feedRes, countRes] = await Promise.all([
+        fetch(`${API}/training/community-feed?limit=12`, { credentials: "include" }),
+        fetch(`${API}/training/community-count`, { credentials: "include" }),
       ]);
-      
-      if (patternsRes.ok) {
-        const patternData = await patternsRes.json();
-        // Find the worst pattern (highest weighted score)
-        const patterns = patternData.patterns || {};
-        const sorted = Object.entries(patterns)
-          .map(([key, val]) => ({ key, ...val }))
-          .sort((a, b) => b.weighted_score - a.weighted_score);
-        
-        if (sorted.length > 0) {
-          setPattern(sorted[0]);
-        }
+
+      if (feedRes.ok) {
+        const data = await feedRes.json();
+        setPositions(data.positions || []);
+        setPatternStats(data.pattern_stats || []);
+        setFeedMeta({
+          own_count: data.own_count || 0,
+          community_count: data.community_count || 0,
+        });
       }
-      
-      if (puzzlesRes.ok) {
-        const puzzleData = await puzzlesRes.json();
-        const puzzles = puzzleData.puzzles || [];
-        
-        if (puzzles.length > 0) {
-          // Pick the first puzzle (highest priority)
-          const firstPuzzle = puzzles[0];
-          setPuzzle(firstPuzzle);
-          setBoardFen(firstPuzzle.fen);
-          setBoardOrientation(firstPuzzle.user_color || "white");
-          
-          // Set up similar positions for testing
-          if (puzzles.length > 1) {
-            setSimilarPositions(puzzles.slice(1, 3));
-            setTestPuzzle(puzzles[1]);
-          }
-        }
+      if (countRes.ok) {
+        const data = await countRes.json();
+        setCommunityCount(data.count || 0);
       }
     } catch (e) {
-      console.error("Failed to load training data:", e);
-      toast.error("Could not load training");
+      console.error("Failed to load training:", e);
+      toast.error("Could not load training data");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle test move
-  const handleTestMove = useCallback((from, to, promotion) => {
-    if (!testPuzzle || testState !== "thinking") return false;
-    
-    const chess = new Chess(testPuzzle.fen);
-    
-    try {
-      const move = chess.move({ from, to, promotion: promotion || 'q' });
-      if (!move) return false;
-      
-      const isCorrect = move.san === testPuzzle.correct_move || 
-                        `${from}${to}` === testPuzzle.best_move_uci;
-      
-      setTestAttempts(prev => prev + 1);
-      
-      if (isCorrect) {
-        setTestState("correct");
-        setBoardFen(chess.fen());
-        setLastMove([from, to]);
-        
-        // Show the winning arrow
-        setArrows([{ 
-          orig: from, 
-          dest: to, 
-          brush: 'green' 
-        }]);
-        
-        // Update session stats
-        setSessionStats(prev => ({
-          ...prev,
-          completed: prev.completed + 1,
-          patterns: [...prev.patterns, pattern?.key]
-        }));
-        
-        return true;
-      } else {
-        setTestState("incorrect");
-        
-        // Show what they played vs what was correct
-        const correctFrom = testPuzzle.best_move_uci?.slice(0, 2);
-        const correctTo = testPuzzle.best_move_uci?.slice(2, 4);
-        
-        setArrows([
-          { orig: from, dest: to, brush: 'red' },
-          { orig: correctFrom, dest: correctTo, brush: 'green' }
-        ]);
-        
-        return true;
-      }
-    } catch (e) {
-      return false;
-    }
-  }, [testPuzzle, testState, pattern]);
+  const currentPosition = positions[currentIndex] || null;
 
-  // Move to next step
-  const nextStep = () => {
-    switch (step) {
-      case STEPS.CONFRONT:
-        setStep(STEPS.PATTERN);
-        break;
-      case STEPS.PATTERN:
-        if (testPuzzle) {
-          setStep(STEPS.TEST);
-          setBoardFen(testPuzzle.fen);
-          setBoardOrientation(testPuzzle.user_color || "white");
-          setArrows([]);
-          setLastMove(null);
-        } else {
-          setStep(STEPS.COMPLETE);
-        }
-        break;
-      case STEPS.TEST:
-        setStep(STEPS.COMPLETE);
-        break;
-      default:
-        break;
+  const handleMove = useCallback(
+    (from, to, promotion) => {
+      if (!currentPosition || solveState !== "ready") return false;
+
+      const chess = new Chess(currentPosition.fen);
+      try {
+        const move = chess.move({ from, to, promotion: promotion || "q" });
+        if (!move) return false;
+
+        const userMoveUci = `${from}${to}${promotion || ""}`;
+        setSessionTotal((p) => p + 1);
+
+        // Submit to backend
+        fetch(`${API}/training/solve-attempt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            position_id: currentPosition.position_id,
+            user_move: userMoveUci,
+            time_taken_seconds: 0,
+          }),
+        })
+          .then((r) => r.json())
+          .then((result) => {
+            setSolveResult(result);
+            if (result.solved) {
+              setSolveState("correct");
+              setSessionSolved((p) => p + 1);
+              setLastMove([from, to]);
+              setArrows([{ orig: from, dest: to, brush: "green" }]);
+            } else {
+              setSolveState("incorrect");
+              // Show what was correct
+              const correctFrom = currentPosition.best_move_uci?.slice(0, 2);
+              const correctTo = currentPosition.best_move_uci?.slice(2, 4);
+              setArrows([
+                { orig: from, dest: to, brush: "red" },
+                ...(correctFrom && correctTo
+                  ? [{ orig: correctFrom, dest: correctTo, brush: "green" }]
+                  : []),
+              ]);
+            }
+          })
+          .catch(() => {
+            // Fallback: local check
+            const isCorrect =
+              userMoveUci === currentPosition.best_move_uci ||
+              move.san === currentPosition.best_move_san;
+            if (isCorrect) {
+              setSolveState("correct");
+              setSessionSolved((p) => p + 1);
+              setArrows([{ orig: from, dest: to, brush: "green" }]);
+            } else {
+              setSolveState("incorrect");
+              const correctFrom = currentPosition.best_move_uci?.slice(0, 2);
+              const correctTo = currentPosition.best_move_uci?.slice(2, 4);
+              setArrows([
+                { orig: from, dest: to, brush: "red" },
+                ...(correctFrom && correctTo
+                  ? [{ orig: correctFrom, dest: correctTo, brush: "green" }]
+                  : []),
+              ]);
+            }
+          });
+
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
+    [currentPosition, solveState]
+  );
+
+  const goToNext = () => {
+    if (currentIndex < positions.length - 1) {
+      setCurrentIndex((i) => i + 1);
+      setSolveState("ready");
+      setSolveResult(null);
+      setArrows([]);
+      setLastMove(null);
     }
   };
 
-  // Reset for another round
-  const startAgain = () => {
-    setStep(STEPS.CONFRONT);
-    setTestState("thinking");
-    setTestAttempts(0);
+  const retryPosition = () => {
+    setSolveState("ready");
+    setSolveResult(null);
     setArrows([]);
+    setLastMove(null);
+  };
+
+  const refreshFeed = () => {
+    setCurrentIndex(0);
+    setSolveState("ready");
+    setSolveResult(null);
+    setArrows([]);
+    setLastMove(null);
+    setSessionSolved(0);
+    setSessionTotal(0);
     fetchTrainingData();
   };
 
-  // Format pattern name for display
-  const formatPatternName = (key) => {
-    if (!key) return "Unknown Pattern";
-    return key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  };
-
-  // Loading state
+  // Loading
   if (loading) {
     return (
       <Layout user={user}>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4" data-testid="training-loading">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-zinc-400">Finding your patterns...</p>
+          <p className="text-muted-foreground">Finding positions for you...</p>
         </div>
       </Layout>
     );
   }
 
-  // No puzzles available
-  if (!puzzle) {
+  // Empty state
+  if (positions.length === 0) {
     return (
       <Layout user={user}>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <Brain className="w-12 h-12 text-zinc-600" />
-          <h2 className="text-xl font-semibold">No Training Available</h2>
-          <p className="text-zinc-400 text-center max-w-md">
-            Play some games and analyze them first. We'll find your patterns and create personalized training.
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4" data-testid="training-empty">
+          <Brain className="w-12 h-12 text-muted-foreground" />
+          <h2 className="text-xl font-semibold">No Training Positions Yet</h2>
+          <p className="text-muted-foreground text-center max-w-md">
+            Play some games and analyze them. Your mistakes (and other players' mistakes) will become training material.
           </p>
-          <Button onClick={() => navigate("/play-with-coach")}>
-            Play a Game
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={() => navigate("/play-with-coach")} data-testid="play-btn">
+              <Swords className="w-4 h-4 mr-2" />
+              Play a Game
+            </Button>
+          </div>
+          {communityCount > 0 && (
+            <p className="text-xs text-muted-foreground mt-4">
+              {communityCount} positions in the community pool
+            </p>
+          )}
         </div>
       </Layout>
     );
   }
+
+  const isOwn = currentPosition?.source_type === "your_game";
+  const hasNext = currentIndex < positions.length - 1;
+  const isFinished = currentIndex === positions.length - 1 && solveState !== "ready";
 
   return (
     <Layout user={user}>
-      <div className="max-w-5xl mx-auto py-6 px-4" data-testid="thinking-training">
-        
-        {/* Progress indicator */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between text-xs text-zinc-500 mb-2">
-            <span>Training Progress</span>
-            <span>{step === STEPS.COMPLETE ? "Complete!" : `Step ${Object.values(STEPS).indexOf(step) + 1} of 3`}</span>
+      <div className="max-w-5xl mx-auto py-4 px-4" data-testid="thinking-training">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">Train</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {feedMeta.own_count > 0 && `${feedMeta.own_count} from your games`}
+              {feedMeta.own_count > 0 && feedMeta.community_count > 0 && " · "}
+              {feedMeta.community_count > 0 && `${feedMeta.community_count} from the community`}
+            </p>
           </div>
-          <Progress 
-            value={(Object.values(STEPS).indexOf(step) + 1) * 33.33} 
-            className="h-1"
-          />
+          <div className="flex items-center gap-3">
+            {sessionTotal > 0 && (
+              <div className="text-right">
+                <p className="text-sm font-medium">
+                  {sessionSolved}/{sessionTotal}
+                </p>
+                <p className="text-xs text-muted-foreground">solved</p>
+              </div>
+            )}
+            <Badge variant="outline" className="text-xs" data-testid="position-counter">
+              {currentIndex + 1} / {positions.length}
+            </Badge>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* LEFT: Board */}
-          <div className="space-y-4">
-            <div className="aspect-square max-w-[500px] mx-auto">
+        {/* Progress bar */}
+        <Progress
+          value={((currentIndex + (solveState !== "ready" ? 1 : 0)) / positions.length) * 100}
+          className="h-1 mb-5"
+          data-testid="training-progress"
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          {/* LEFT: Board (3 cols) */}
+          <div className="lg:col-span-3 space-y-3">
+            <div className="aspect-square max-w-[500px] mx-auto" data-testid="training-board">
               <LichessBoard
-                fen={boardFen}
-                orientation={boardOrientation}
-                viewOnly={step !== STEPS.TEST || testState !== "thinking"}
-                onMove={step === STEPS.TEST ? handleTestMove : undefined}
+                fen={currentPosition.fen}
+                orientation={currentPosition.user_color || "white"}
+                viewOnly={solveState !== "ready"}
+                onMove={solveState === "ready" ? handleMove : undefined}
                 lastMove={lastMove}
                 arrows={arrows}
               />
             </div>
-            
-            {/* Context below board */}
-            {puzzle && step !== STEPS.TEST && step !== STEPS.COMPLETE && (
-              <div className="text-center text-sm text-zinc-500">
-                <p>vs {puzzle.opponent} · Move {puzzle.move_number}</p>
-                <p className="text-xs">You played <span className="font-mono text-red-400">{puzzle.user_move}</span></p>
-              </div>
-            )}
-            
-            {testPuzzle && step === STEPS.TEST && (
-              <div className="text-center text-sm text-zinc-500">
-                <p>Similar position · Find the best move</p>
-              </div>
-            )}
+
+            {/* Source attribution */}
+            <div className="text-center" data-testid="position-source">
+              {isOwn ? (
+                <p className="text-xs text-muted-foreground">
+                  <UserIcon className="w-3 h-3 inline mr-1" />
+                  From your game · Move {currentPosition.move_number}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  <Users className="w-3 h-3 inline mr-1" />
+                  From a game by{" "}
+                  <span className="font-medium text-foreground">
+                    {currentPosition.source_user_name}
+                  </span>
+                  , {currentPosition.source_user_rating}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* RIGHT: Training Content */}
-          <div className="space-y-4">
+          {/* RIGHT: Context + Actions (2 cols) */}
+          <div className="lg:col-span-2 space-y-4">
             <AnimatePresence mode="wait">
-              
-              {/* ═══════════════════════════════════════════════════════════
-                  STEP 1: CONFRONT
-              ═══════════════════════════════════════════════════════════ */}
-              {step === STEPS.CONFRONT && (
+              {/* READY STATE */}
+              {solveState === "ready" && (
                 <motion.div
-                  key="confront"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
+                  key="ready"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
                 >
-                  <Card className="bg-zinc-900/50 border-zinc-800">
-                    <CardContent className="p-6 space-y-4">
+                  <Card className="bg-card border-border" data-testid="solve-prompt">
+                    <CardContent className="p-5 space-y-4">
                       <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-amber-500" />
-                        <h2 className="text-lg font-semibold">Confront</h2>
+                        <Target className="w-5 h-5 text-amber-500" />
+                        <h2 className="font-semibold">Find the Best Move</h2>
                       </div>
-                      
-                      <p className="text-zinc-300">
-                        This is a position from your recent game. You played{" "}
-                        <span className="font-mono text-red-400">{puzzle.user_move}</span>, 
-                        but the best move was{" "}
-                        <span className="font-mono text-emerald-400">{puzzle.correct_move}</span>.
+
+                      <p className="text-sm text-muted-foreground">
+                        {isOwn
+                          ? "You made a mistake here. Can you find the right move now?"
+                          : `A ${currentPosition.source_user_rating}-rated player missed this. Can you find it?`}
                       </p>
-                      
-                      {puzzle.cp_loss && (
-                        <div className="p-3 rounded bg-red-500/10 border border-red-500/20">
-                          <p className="text-sm text-red-300">
-                            This cost you{" "}
-                            <span className="font-bold">{(puzzle.cp_loss / 100).toFixed(1)} pawns</span>{" "}
-                            worth of advantage.
-                          </p>
-                        </div>
-                      )}
-                      
-                      {pattern && (
-                        <div className="p-3 rounded bg-amber-500/10 border border-amber-500/20">
-                          <p className="text-xs text-amber-400 mb-1">Your recurring pattern</p>
-                          <p className="text-sm font-medium text-amber-200">
-                            {formatPatternName(pattern.key)}
-                          </p>
-                          <p className="text-xs text-zinc-500 mt-1">
-                            {pattern.frequency} occurrences · {pattern.trend}
-                          </p>
-                        </div>
-                      )}
-                      
-                      <Button onClick={nextStep} className="w-full">
-                        Understand Why
-                        <ChevronRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
 
-              {/* ═══════════════════════════════════════════════════════════
-                  STEP 2: PATTERN LOCK
-              ═══════════════════════════════════════════════════════════ */}
-              {step === STEPS.PATTERN && (
-                <motion.div
-                  key="pattern"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                >
-                  <Card className="bg-zinc-900/50 border-zinc-800">
-                    <CardContent className="p-6 space-y-4">
                       <div className="flex items-center gap-2">
-                        <Target className="w-5 h-5 text-cyan-500" />
-                        <h2 className="text-lg font-semibold">Pattern Lock</h2>
+                        <Badge
+                          variant="secondary"
+                          className="text-xs"
+                          data-testid="pattern-badge"
+                        >
+                          {formatPattern(currentPosition.pattern_type)}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            currentPosition.difficulty === "easy"
+                              ? "border-emerald-500/50 text-emerald-500"
+                              : currentPosition.difficulty === "hard"
+                              ? "border-red-500/50 text-red-500"
+                              : "border-amber-500/50 text-amber-500"
+                          }`}
+                        >
+                          {currentPosition.difficulty}
+                        </Badge>
                       </div>
-                      
-                      <p className="text-zinc-300">
-                        This isn't a one-time mistake. It's a{" "}
-                        <span className="text-cyan-400 font-medium">pattern</span>{" "}
-                        in how you think.
-                      </p>
-                      
-                      {pattern && (
-                        <div className="p-4 rounded bg-cyan-500/10 border border-cyan-500/20">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="font-medium text-cyan-300">
-                              {formatPatternName(pattern.key)}
-                            </p>
-                            <Badge variant="outline" className="text-xs border-cyan-500/50 text-cyan-400">
-                              {pattern.frequency}x
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-zinc-400">
-                            You've made this type of error {pattern.frequency} times.
-                            {pattern.trend === "worsening" && " It's getting worse."}
-                            {pattern.trend === "improving" && " You're improving!"}
-                          </p>
-                        </div>
-                      )}
-                      
-                      <div className="p-4 rounded bg-amber-500/5 border border-amber-500/20">
-                        <div className="flex items-start gap-2">
-                          <Lightbulb className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-xs text-amber-400 mb-1">The Cure</p>
-                            <p className="text-sm text-amber-200">
-                              {diagnosisResult?.lesson || puzzle.thinking_habit || 
-                               "Before every move, pause and ask: What is my opponent's threat?"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {testPuzzle ? (
-                        <Button onClick={nextStep} className="w-full bg-cyan-600 hover:bg-cyan-700">
-                          <Zap className="w-4 h-4 mr-2" />
-                          Test My Understanding
-                        </Button>
-                      ) : (
-                        <Button onClick={() => setStep(STEPS.COMPLETE)} className="w-full">
-                          Complete Training
-                        </Button>
+
+                      {currentPosition.solve_rate > 0 && currentPosition.attempts > 2 && (
+                        <p className="text-xs text-muted-foreground">
+                          {Math.round(currentPosition.solve_rate)}% solve rate
+                        </p>
                       )}
                     </CardContent>
                   </Card>
                 </motion.div>
               )}
 
-              {/* ═══════════════════════════════════════════════════════════
-                  STEP 4: TEST
-              ═══════════════════════════════════════════════════════════ */}
-              {step === STEPS.TEST && (
+              {/* CORRECT */}
+              {solveState === "correct" && (
                 <motion.div
-                  key="test"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                >
-                  <Card className="bg-zinc-900/50 border-zinc-800">
-                    <CardContent className="p-6 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-yellow-500" />
-                        <h2 className="text-lg font-semibold">Test</h2>
-                      </div>
-                      
-                      {testState === "thinking" && (
-                        <>
-                          <p className="text-zinc-300">
-                            Here's a similar position. Apply what you just learned.
-                          </p>
-                          <p className="text-sm text-zinc-500">
-                            Find the best move. Make it on the board.
-                          </p>
-                          
-                          <div className="p-3 rounded bg-zinc-800/50 text-sm">
-                            <p className="text-zinc-400">
-                              Remember: {diagnosisResult?.principle?.quick_tip || puzzle.thinking_habit}
-                            </p>
-                          </div>
-                        </>
-                      )}
-                      
-                      {testState === "correct" && (
-                        <>
-                          <div className="p-4 rounded bg-emerald-500/10 border border-emerald-500/20 text-center">
-                            <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                            <p className="font-medium text-emerald-300">You got it!</p>
-                            <p className="text-sm text-zinc-400 mt-1">
-                              The pattern is locking in.
-                            </p>
-                          </div>
-                          
-                          <Button onClick={nextStep} className="w-full">
-                            Complete Training
-                            <ChevronRight className="w-4 h-4 ml-2" />
-                          </Button>
-                        </>
-                      )}
-                      
-                      {testState === "incorrect" && (
-                        <>
-                          <div className="p-4 rounded bg-red-500/10 border border-red-500/20 text-center">
-                            <XCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                            <p className="font-medium text-red-300">Not quite</p>
-                            <p className="text-sm text-zinc-400 mt-1">
-                              The best move was{" "}
-                              <span className="font-mono text-emerald-400">{testPuzzle.correct_move}</span>
-                            </p>
-                          </div>
-                          
-                          <Button 
-                            onClick={() => {
-                              setTestState("thinking");
-                              setBoardFen(testPuzzle.fen);
-                              setArrows([]);
-                            }} 
-                            variant="outline"
-                            className="w-full"
-                          >
-                            <RotateCcw className="w-4 h-4 mr-2" />
-                            Try Again
-                          </Button>
-                          
-                          <Button onClick={nextStep} variant="ghost" className="w-full text-zinc-500">
-                            Continue anyway
-                          </Button>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-              {/* ═══════════════════════════════════════════════════════════
-                  COMPLETE
-              ═══════════════════════════════════════════════════════════ */}
-              {step === STEPS.COMPLETE && (
-                <motion.div
-                  key="complete"
+                  key="correct"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                 >
-                  <Card className="bg-gradient-to-b from-emerald-500/10 to-transparent border-emerald-500/30">
-                    <CardContent className="p-6 space-y-4 text-center">
-                      <Trophy className="w-12 h-12 text-emerald-500 mx-auto" />
-                      
-                      <h2 className="text-xl font-semibold">Training Complete</h2>
-                      
-                      <p className="text-zinc-300">
-                        You've worked on your{" "}
-                        <span className="text-cyan-400">{formatPatternName(pattern?.key)}</span>{" "}
-                        pattern.
-                      </p>
-                      
-                      <div className="p-4 rounded bg-zinc-800/50 text-left">
-                        <p className="text-xs text-zinc-500 mb-2">Key takeaway</p>
-                        <p className="text-sm text-zinc-200">
-                          {diagnosisResult?.lesson || puzzle.thinking_habit}
-                        </p>
+                  <Card
+                    className="bg-emerald-500/5 border-emerald-500/30"
+                    data-testid="solve-correct"
+                  >
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                        <h2 className="font-semibold text-emerald-400">You Found It</h2>
                       </div>
-                      
-                      <div className="flex gap-2 pt-2">
-                        <Button onClick={startAgain} className="flex-1">
-                          <Zap className="w-4 h-4 mr-2" />
-                          Train Again
-                        </Button>
-                        <Button onClick={() => navigate("/home")} variant="outline" className="flex-1">
-                          Done
-                        </Button>
+
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-mono text-emerald-400">
+                          {solveResult?.correct_move || currentPosition.best_move_san}
+                        </span>{" "}
+                        was the right move.
+                      </p>
+
+                      {solveResult?.miss_rate_at_your_level != null && (
+                        <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                          <p className="text-xs text-muted-foreground">
+                            <Users className="w-3 h-3 inline mr-1" />
+                            {solveResult.miss_rate_at_your_level}% of players at your level
+                            missed this
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        {hasNext && (
+                          <Button
+                            onClick={goToNext}
+                            className="flex-1"
+                            data-testid="next-position-btn"
+                          >
+                            Next
+                            <ChevronRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        )}
+                        {!hasNext && (
+                          <Button onClick={refreshFeed} className="flex-1" data-testid="refresh-btn">
+                            <RotateCcw className="w-4 h-4 mr-2" />
+                            More Positions
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
                 </motion.div>
               )}
-              
+
+              {/* INCORRECT */}
+              {solveState === "incorrect" && (
+                <motion.div
+                  key="incorrect"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                >
+                  <Card
+                    className="bg-red-500/5 border-red-500/30"
+                    data-testid="solve-incorrect"
+                  >
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="w-5 h-5 text-red-500" />
+                        <h2 className="font-semibold text-red-400">Not Quite</h2>
+                      </div>
+
+                      <p className="text-sm text-muted-foreground">
+                        The best move was{" "}
+                        <span className="font-mono text-emerald-400">
+                          {solveResult?.correct_move || currentPosition.best_move_san}
+                        </span>
+                      </p>
+
+                      {solveResult?.miss_rate_at_your_level != null && (
+                        <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                          <p className="text-xs text-muted-foreground">
+                            <Users className="w-3 h-3 inline mr-1" />
+                            {solveResult.miss_rate_at_your_level}% of players at your level
+                            also missed this
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={retryPosition}
+                          variant="outline"
+                          className="flex-1"
+                          data-testid="retry-btn"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Retry
+                        </Button>
+                        {hasNext ? (
+                          <Button
+                            onClick={goToNext}
+                            variant="ghost"
+                            className="flex-1 text-muted-foreground"
+                            data-testid="skip-btn"
+                          >
+                            Next
+                            <ChevronRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={refreshFeed}
+                            variant="ghost"
+                            className="flex-1 text-muted-foreground"
+                            data-testid="refresh-btn-alt"
+                          >
+                            More
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
             </AnimatePresence>
+
+            {/* Pattern Stats */}
+            {patternStats.length > 0 && (
+              <Card className="bg-card border-border" data-testid="pattern-stats">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                    <h3 className="text-sm font-medium">Your Patterns</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {patternStats.slice(0, 4).map((stat) => (
+                      <div
+                        key={stat.pattern}
+                        className="flex items-center justify-between text-xs"
+                        data-testid={`pattern-stat-${stat.pattern}`}
+                      >
+                        <span className="text-muted-foreground">
+                          {formatPattern(stat.pattern)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {stat.total_solved}/{stat.total_attempts}
+                          </span>
+                          <div className="w-12 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary transition-all"
+                              style={{ width: `${stat.solve_rate || 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Session complete state */}
+            {isFinished && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <Card className="bg-card border-border" data-testid="session-complete">
+                  <CardContent className="p-4 text-center space-y-3">
+                    <Zap className="w-8 h-8 text-primary mx-auto" />
+                    <p className="font-medium">Session Complete</p>
+                    <p className="text-xs text-muted-foreground">
+                      Solved {sessionSolved} of {sessionTotal}
+                    </p>
+                    <Button onClick={refreshFeed} className="w-full" data-testid="new-session-btn">
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      New Session
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </div>
         </div>
       </div>

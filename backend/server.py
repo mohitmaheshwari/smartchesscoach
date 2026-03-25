@@ -2118,6 +2118,16 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         except Exception as card_err:
             logger.warning(f"Mistake card extraction failed (non-critical): {card_err}")
         
+        # ============ COMMUNITY TRAINING POSITIONS ============
+        # Auto-extract training-worthy positions for the community pool
+        try:
+            from services.community_training_service import extract_training_positions
+            background_tasks.add_task(
+                extract_training_positions, db, req.game_id, user.user_id
+            )
+        except Exception as extract_err:
+            logger.warning(f"Community position extraction failed (non-critical): {extract_err}")
+        
         # Step 5: UPDATE PLAYER PROFILE (CRITICAL - happens after every game)
         logger.info(f"Updating PlayerProfile for user {user.user_id}")
         background_tasks.add_task(
@@ -8515,6 +8525,71 @@ async def get_my_contributions_endpoint(request: Request, user: User = Depends(g
     from community_learning_service import get_user_contributions
     contributions = await get_user_contributions(db, user.user_id)
     return contributions
+
+
+# ============================================================================
+# COMMUNITY INTELLIGENCE TRAINING
+# ============================================================================
+
+@api_router.post("/training/extract-positions/{game_id}")
+async def extract_training_positions_endpoint(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Extract training-worthy positions from a V5 decrypted game."""
+    from services.community_training_service import extract_training_positions
+    positions = await extract_training_positions(db, game_id, user.user_id)
+    return {
+        "extracted": len(positions),
+        "game_id": game_id,
+        "positions": [{"position_id": p["position_id"], "pattern_type": p["pattern_type"], "cp_loss": p["cp_loss"]} for p in positions]
+    }
+
+
+@api_router.get("/training/community-feed")
+async def get_training_feed_endpoint(
+    limit: int = 10,
+    user: User = Depends(get_current_user)
+):
+    """Get mixed training feed: own positions + community positions."""
+    from services.community_training_service import get_training_feed
+    return await get_training_feed(db, user.user_id, limit)
+
+
+class SolveAttemptRequest(BaseModel):
+    position_id: str
+    user_move: str
+    time_taken_seconds: int = 0
+
+
+@api_router.post("/training/solve-attempt")
+async def record_solve_attempt_endpoint(
+    data: SolveAttemptRequest,
+    user: User = Depends(get_current_user)
+):
+    """Record a training position solve attempt."""
+    from services.community_training_service import record_solve_attempt
+    return await record_solve_attempt(
+        db, user.user_id, data.position_id, data.user_move, data.time_taken_seconds
+    )
+
+
+@api_router.get("/training/pattern-stats")
+async def get_pattern_stats_endpoint(
+    user: User = Depends(get_current_user)
+):
+    """Get user's pattern-level solve stats."""
+    from services.community_training_service import get_user_pattern_stats
+    stats = await get_user_pattern_stats(db, user.user_id)
+    return {"patterns": stats}
+
+
+@api_router.get("/training/community-count")
+async def get_community_count_endpoint():
+    """Get total community training positions count."""
+    from services.community_training_service import get_community_position_count
+    count = await get_community_position_count(db)
+    return {"count": count}
 
 
 # ============================================================================
