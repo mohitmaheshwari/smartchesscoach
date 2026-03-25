@@ -52,6 +52,32 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 - **Critical position enrichment**: Lesson instructions include context-aware explanations
 - Full opening coverage: Italian, French, Queen's Gambit, London, Sicilian (General/Dragon/Najdorf), Caro-Kann, Ruy Lopez, Philidor, Vienna, Scotch, Petrov, King's Indian, Grunfeld, Nimzo-Indian, Queen's Indian, Slav, QGD, Benoni, Budapest, Dutch, Scandinavian, Nimzowitsch
 
+#### 6. Pedagogical Opponent Engine - NEW (March 2025)
+- **Purpose**: Transform the coach from a "perfect engine" into an active teaching partner
+- **Core Logic**: `/app/backend/services/pedagogical_opportunity_service.py`
+  - `PedagogicalOpportunityService` - Main decision engine
+  - `should_create_opportunity()` - Decides whether to play best move or pedagogical move
+  - `evaluate_user_response()` - Analyzes if user found the opportunity
+- **How It Works**:
+  - **Opening Phase**: Always play correct theory (teach accuracy)
+  - **Middlegame/Endgame**: ~25% chance to play "good but not best" move
+  - **Targeted Learning**: Opportunities match user's known weaknesses
+  - **Consequence-Based Feedback**: Eval bar hidden, revealed after user responds
+- **Eval Sacrifice Ranges by Rating**:
+  - Beginner (<1000): 0.5-2.5 pawns (easier to spot)
+  - Intermediate (1000-1400): 0.3-1.5 pawns
+  - Club (1400-1800): 0.2-1.0 pawns
+  - Advanced (1800+): 0.15-0.8 pawns (very subtle)
+- **Opportunity Types Detected**: Fork, Pin, Skewer, Hanging Piece, Back Rank, Passed Pawn, King Safety, Piece Activity, Outpost, Pawn Structure, Endgame Technique, General
+- **Session State Tracking**:
+  - `pedagogical_mode_active`: Boolean (default: true)
+  - `pending_opportunity`: Current opportunity awaiting response
+  - `opportunities_found` / `opportunities_missed`: Running counts
+- **Frontend Integration**:
+  - `EvalBar` component: `hidden` prop shows "?" with amber pulsing animation
+  - `ConsequenceFeedback` component: Shows found/missed feedback with eval change
+  - Hint overlay: "Find the opportunity!" when eval hidden
+
 ---
 
 ## Data Models
@@ -92,6 +118,21 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
   move_history: [Object],
   behavior_events: [Object],
   habits_report: Object,
+  // Pedagogical Opponent State (NEW)
+  pedagogical_mode_active: Boolean,  // Default: true
+  last_pedagogical_move_index: Number,  // -10 if never
+  pending_opportunity: {
+    type: String,  // "fork", "pin", "hanging_piece", etc.
+    expected_moves: [String],  // Moves that exploit the opportunity
+    target_squares: [String],  // Squares involved
+    reason: String,  // Why this was chosen
+    skill_explanation: String,  // What concept this tests
+    eval_sacrifice: Number,  // How much eval given up
+    hide_eval: Boolean,  // Whether to hide eval bar
+  },
+  opportunity_history: [Object],
+  opportunities_found: Number,
+  opportunities_missed: Number,
 }
 ```
 
@@ -124,13 +165,17 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 ---
 
 ## Files of Reference
-- `/app/backend/services/opening_theory_json_service.py` (JSON theory loader - NEW)
+- `/app/backend/services/pedagogical_opportunity_service.py` (Pedagogical Opponent - NEW)
+- `/app/backend/coach_play/coach_game_session.py` (Session management - UPDATED for pedagogical state)
+- `/app/backend/services/opening_theory_json_service.py` (JSON theory loader)
 - `/app/backend/data/coaching/opening_theory_tree.json` (Single source of truth for openings)
 - `/app/backend/services/opening_teaching_integration.py` (Lesson system - REWRITTEN)
 - `/app/backend/services/opening_mastery.py` (Now loads from JSON, detection + progress tracking)
 - `/app/backend/services/shared_coaching_v5.py` (Shared V5 coaching logic)
 - `/app/backend/services/player_habits_service.py` (Behavioral coaching)
-- `/app/frontend/src/pages/CoachPlay.jsx` (Play with Coach page)
+- `/app/frontend/src/pages/CoachPlay.jsx` (Play with Coach page - UPDATED for pedagogical UI)
+- `/app/frontend/src/components/coach-play/EvalBar.jsx` (Hidden state support - UPDATED)
+- `/app/frontend/src/components/coach-play/ConsequenceFeedback.jsx` (NEW)
 - `/app/backend/routes/coach_play.py` (Play with Coach API endpoints)
 
 ---
@@ -138,7 +183,8 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 ## Future Enhancements (Backlog)
 
 ### P1 - High Priority
-- [ ] Opening Proficiency in Coach Panel (show mastery, suggest variations)
+- [ ] Interactive Board in Opening Explorer (clickable chessboard to step through lines)
+- [ ] Variation Selector for Lessons (choose French: Advance vs Classical)
 - [ ] Pattern Memory Injection ("You've made this mistake 3 times...")
 - [ ] Refactor `GameDecryptionV5.jsx` to use shared `V5CoachingCard.jsx`
 
@@ -146,6 +192,7 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 - [ ] Admin UI for theory database management
 - [ ] Endgame theory tree (similar structure to openings)
 - [ ] Habits Trend Dashboard (show improvement over time)
+- [ ] Opening Proficiency in Coach Panel (show mastery, suggest variations)
 
 ### P3 - Nice to Have
 - [ ] Voice coaching mode
@@ -156,6 +203,7 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 ---
 
 ## Testing Status
+- **Pedagogical Opponent (March 2025)**: Backend 15/15 tests passed, Frontend 100% verified
 - **Opening Theory Consolidation (March 2025)**: Backend 21/21 tests passed, Frontend 100% verified
 - **Expanded Opening Theory (March 2025)**: 16 new openings added, Backend 28/28 tests passed, Frontend 100%
 - **Player Habits Engine (March 2025)**: Backend 7/9, Frontend 100%
