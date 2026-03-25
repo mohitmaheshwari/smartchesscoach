@@ -1433,7 +1433,7 @@ def recognize_good_move(
     narrative = ""
     
     # ─── CRITICAL: Handle mate situations FIRST ───
-    # Mate detected when eval_after is very high (10000) or very low (-10000)
+    # Mate detected when eval_after is very high (±9000+) indicating forced mate
     # Or when there's a big eval swing indicating critical position
     
     board_after = board.copy()
@@ -1443,29 +1443,37 @@ def recognize_good_move(
     if board_after.is_checkmate():
         return f"CHECKMATE! {move_san} ends it! Game over!", "checkmate_delivery", True
     
-    # Check for mate threats (eval indicates forced mate)
+    # Check for mate threats (eval indicates forced mate - values near ±10000)
     if eval_after is not None:
-        # We're getting mated (eval around -100 for mate scores)
-        if eval_after <= -50:  # Very bad - likely getting mated
+        # We're getting mated (eval around -9000 to -10000 for mate scores)
+        if eval_after <= -5000:  # Forced mate against us
             if is_best:
                 return f"{move_san} — the only move! You're facing a forced mate, but this puts up the best fight.", "defensive_critical", True
             else:
-                return f"{move_san} keeps playing, but the position is critical. Mate is coming unless opponent blunders.", "defensive_critical", False
+                return f"{move_san} delays it, but mate is coming. The position was already lost.", "defensive_critical", False
         
-        # Check if eval just dropped significantly (opponent has mate threat we didn't stop)
-        if eval_before is not None and eval_before > -10 and eval_after <= -20:
-            # Went from okay to getting mated
-            if is_best:
-                return f"{move_san} — sadly, the best option in a lost position. The damage was done earlier.", "best_in_lost", True
-            else:
-                return f"{move_san} — but you're in deep trouble here. The position collapsed.", "desperate_defense", False
-        
-        # We have a winning attack (high positive eval)
-        if eval_after >= 50:  # We're winning with mate threat
+        # We're winning with mate (eval around +9000 to +10000)
+        if eval_after >= 5000:
             if is_best:
                 return f"Crushing! {move_san} maintains the winning attack. Mate is in sight!", "winning_attack", True
             else:
-                return f"{move_san} — you're winning big! Keep finding the accurate moves to finish.", "winning_attack", False
+                return f"{move_san} — you're winning! Keep finding accurate moves to finish.", "winning_attack", False
+        
+        # Check if eval dropped significantly (position collapsed from okay to lost)
+        if eval_before is not None:
+            # Went from reasonable to getting mated
+            if eval_before > -1000 and eval_after <= -5000:
+                if is_best:
+                    return f"{move_san} — sadly, the best option in a lost position. The damage was done earlier.", "best_in_lost", True
+                else:
+                    return f"{move_san} — but the position collapsed. This was a critical moment.", "desperate_defense", False
+            
+            # Went from reasonable to significantly worse (but not mate)
+            if eval_before > -200 and eval_after <= -500:
+                if is_best:
+                    return f"{move_san} — best in a difficult position. You're under pressure.", "best_under_pressure", True
+                else:
+                    return f"{move_san} — things are getting tough here. Time to dig deep.", "under_pressure", False
     
     # ─── Check if this matches opening theory ───
     typical_ideas = opening_data.get("typical_ideas", {})
