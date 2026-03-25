@@ -1218,7 +1218,13 @@ def analyze_opponent_move(
     user_color: str
 ) -> Tuple[str, Optional[str], List[str]]:
     """
-    Analyze opponent's move from USER's perspective.
+    Analyze opponent's move from USER's perspective with EDUCATIONAL depth.
+    
+    When opponent makes a mistake, we explain:
+    1. WHAT they weakened (specific squares, diagonals, pieces)
+    2. HOW to punish it (best move and why)
+    3. THE PATTERN to remember
+    
     Returns: (narrative, your_plan_now, highlight_squares)
     """
     move_san = board.san(move)
@@ -1226,7 +1232,6 @@ def analyze_opponent_move(
     # Calculate eval swing from user's perspective
     eval_swing = 0
     if eval_before is not None and eval_after is not None:
-        # Positive means good for user
         if user_color == "white":
             eval_swing = eval_after - eval_before
         else:
@@ -1235,47 +1240,477 @@ def analyze_opponent_move(
     highlight_squares = []
     your_plan_now = None
     
-    # Opponent blundered
-    if eval_swing > 150:
-        # Find what they weakened
-        sim = board.copy()
-        sim.push(move)
-        
-        weak_squares = []
-        # Check for weakened king
-        opp_king = sim.king(not (user_color == "white"))
-        if opp_king:
-            king_attackers = sim.attackers(user_color == "white", opp_king)
-            if king_attackers:
-                weak_squares.append(chess.square_name(opp_king))
-        
-        # Check for hanging pieces
-        for sq, p in sim.piece_map().items():
-            if p.color != (user_color == "white"):
-                attackers = sim.attackers(user_color == "white", sq)
-                defenders = sim.attackers(not (user_color == "white"), sq)
-                if len(attackers) > len(defenders):
-                    weak_squares.append(chess.square_name(sq))
-        
-        highlight_squares = weak_squares[:3]
-        
-        if weak_squares:
-            your_plan_now = f"Target the weak squares: {', '.join(weak_squares[:2])}"
-            narrative = f"Your opponent's {move_san} creates a weakness. Look for ways to exploit it."
-        else:
-            your_plan_now = "Your opponent made an error. Look for forcing moves."
-            narrative = f"This {move_san} is a mistake. Find the best response."
+    # Simulate the position after opponent's move
+    sim = board.copy()
+    sim.push(move)
+    user_is_white = (user_color == "white")
     
-    # Opponent played a normal move - THIS IS WHERE WE NEED TO BE SMART
+    # Get the best response from PV
+    best_response = pv_after[0] if pv_after else None
+    
+    # Opponent made a significant mistake (100+ centipawns swing)
+    if eval_swing >= 100:
+        narrative, your_plan_now, highlight_squares = _analyze_opponent_mistake(
+            board, move, sim, eval_swing, best_response, user_is_white, pv_after
+        )
+    
+    # Opponent played a normal move
     elif abs(eval_swing) < 50:
         narrative, your_plan_now = _explain_opponent_move_with_context(board, move, user_color, pv_after)
     
-    # Opponent made a small inaccuracy
+    # Small inaccuracy (50-100 cp)
     else:
-        narrative = f"Opponent's {move_san} is slightly inaccurate."
-        your_plan_now = "Look for ways to take advantage."
+        narrative, your_plan_now, highlight_squares = _analyze_opponent_slip(
+            board, move, sim, eval_swing, best_response, user_is_white
+        )
     
     return narrative, your_plan_now, highlight_squares
+
+
+def _analyze_opponent_mistake(
+    board_before: chess.Board,
+    move: chess.Move,
+    board_after: chess.Board,
+    eval_swing: int,
+    best_response: Optional[str],
+    user_is_white: bool,
+    pv_after: List[str]
+) -> Tuple[str, str, List[str]]:
+    """
+    Deeply analyze opponent's mistake to create educational content.
+    
+    Looks for:
+    - Weakened squares (especially around their king)
+    - Hanging pieces
+    - Tactical vulnerabilities (pins, forks, discoveries)
+    - Pawn structure damage
+    """
+    move_san = board_before.san(move)
+    highlight_squares = []
+    
+    # What type of mistake was this?
+    piece_moved = board_before.piece_at(move.from_square)
+    is_pawn_move = piece_moved and piece_moved.piece_type == chess.PAWN
+    to_sq = move.to_square
+    to_file = chess.square_file(to_sq)
+    to_rank = chess.square_rank(to_sq)
+    
+    # ─── 1. CHECK FOR HANGING PIECES ───
+    hanging_pieces = _find_hanging_pieces(board_after, not user_is_white)
+    if hanging_pieces:
+        piece_info = hanging_pieces[0]
+        highlight_squares = [piece_info["square"]]
+        
+        if best_response:
+            narrative = f"{move_san} leaves their {piece_info['name']} on {piece_info['square']} undefended! {best_response} wins it."
+            your_plan_now = f"Capture the hanging {piece_info['name']} with {best_response}!"
+        else:
+            narrative = f"{move_san} leaves their {piece_info['name']} on {piece_info['square']} hanging!"
+            your_plan_now = f"Take the free {piece_info['name']}!"
+        
+        return narrative, your_plan_now, highlight_squares
+    
+    # ─── 2. CHECK FOR WEAKENED KING POSITION ───
+    opp_king_sq = board_after.king(not user_is_white)
+    if opp_king_sq and is_pawn_move:
+        king_file = chess.square_file(opp_king_sq)
+        king_rank = chess.square_rank(opp_king_sq)
+        
+        # Did they weaken squares near their king?
+        if abs(to_file - king_file) <= 2 and abs(to_rank - king_rank) <= 2:
+            weakened = _find_weakened_squares_near_king(board_before, board_after, opp_king_sq, user_is_white)
+            if weakened:
+                highlight_squares = weakened[:3]
+                sq_names = ", ".join(weakened[:2])
+                
+                if best_response:
+                    # Try to explain what best_response does
+                    response_explanation = _explain_response_idea(board_after, best_response, user_is_white, weakened)
+                    narrative = f"{move_san} weakens the squares {sq_names} around their king. {response_explanation}"
+                    your_plan_now = f"Target {sq_names} — their king's defenses are compromised!"
+                else:
+                    narrative = f"{move_san} creates holes on {sq_names}. Their king is exposed!"
+                    your_plan_now = f"Attack the weak squares: {sq_names}"
+                
+                return narrative, your_plan_now, highlight_squares
+    
+    # ─── 3. CHECK FOR TACTICAL VULNERABILITIES ───
+    # Look for pins, forks, discoveries that are now possible
+    tactics = _find_tactical_opportunities(board_after, user_is_white)
+    if tactics:
+        tactic = tactics[0]
+        highlight_squares = tactic.get("squares", [])
+        
+        if best_response:
+            narrative = f"{move_san} allows {tactic['type']}! {best_response} {tactic['description']}"
+        else:
+            narrative = f"{move_san} allows a {tactic['type']}! {tactic['description']}"
+        your_plan_now = tactic.get("plan", "Look for the tactic!")
+        
+        return narrative, your_plan_now, highlight_squares
+    
+    # ─── 4. CHECK FOR PIECE ACTIVITY LOSS ───
+    if piece_moved:
+        activity_issue = _check_piece_activity_loss(board_before, board_after, move, not user_is_white)
+        if activity_issue:
+            if best_response:
+                narrative = f"{move_san} {activity_issue['problem']}. {best_response} takes advantage — {activity_issue['exploitation']}."
+            else:
+                narrative = f"{move_san} {activity_issue['problem']}."
+            your_plan_now = activity_issue.get("plan", "Exploit their passive piece!")
+            return narrative, your_plan_now, highlight_squares
+    
+    # ─── 5. FALLBACK: Explain based on best response ───
+    if best_response:
+        response_idea = _explain_response_idea(board_after, best_response, user_is_white, [])
+        if response_idea and "Unknown" not in response_idea:
+            narrative = f"{move_san} is a mistake. {response_idea}"
+            your_plan_now = f"Play {best_response}!"
+            return narrative, your_plan_now, highlight_squares
+    
+    # Last resort - at least mention the eval swing
+    pawn_swing = eval_swing / 100
+    narrative = f"{move_san} loses about {pawn_swing:.1f} pawns worth of advantage."
+    your_plan_now = f"Look for the best continuation — you're winning here!"
+    
+    return narrative, your_plan_now, highlight_squares
+
+
+def _analyze_opponent_slip(
+    board_before: chess.Board,
+    move: chess.Move,
+    board_after: chess.Board,
+    eval_swing: int,
+    best_response: Optional[str],
+    user_is_white: bool
+) -> Tuple[str, str, List[str]]:
+    """Analyze a small opponent inaccuracy (50-100 cp)."""
+    move_san = board_before.san(move)
+    highlight_squares = []
+    
+    if best_response:
+        response_idea = _explain_response_idea(board_after, best_response, user_is_white, [])
+        if response_idea and "Unknown" not in response_idea:
+            narrative = f"{move_san} is slightly passive. {response_idea}"
+            your_plan_now = f"{best_response} improves your position."
+            return narrative, your_plan_now, highlight_squares
+    
+    pawn_swing = eval_swing / 100
+    narrative = f"{move_san} gives you a small edge (+{pawn_swing:.1f})."
+    your_plan_now = "You're slightly better — keep up the pressure!"
+    
+    return narrative, your_plan_now, highlight_squares
+
+
+def _find_hanging_pieces(board: chess.Board, color: bool) -> List[Dict]:
+    """Find pieces that are attacked but not defended."""
+    hanging = []
+    
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece and piece.color == color and piece.piece_type != chess.KING:
+            attackers = list(board.attackers(not color, sq))
+            defenders = list(board.attackers(color, sq))
+            
+            if attackers and not defenders:
+                hanging.append({
+                    "square": chess.square_name(sq),
+                    "name": get_piece_name(piece),
+                    "value": _piece_value(piece)
+                })
+    
+    # Sort by value (most valuable first)
+    hanging.sort(key=lambda x: x["value"], reverse=True)
+    return hanging
+
+
+def _find_weakened_squares_near_king(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    king_sq: int,
+    user_is_white: bool
+) -> List[str]:
+    """Find squares near the king that became weaker after the move."""
+    weakened = []
+    king_file = chess.square_file(king_sq)
+    king_rank = chess.square_rank(king_sq)
+    
+    # Check squares in the king's vicinity
+    for df in [-1, 0, 1]:
+        for dr in [-1, 0, 1]:
+            if df == 0 and dr == 0:
+                continue
+            
+            f = king_file + df
+            r = king_rank + dr
+            if 0 <= f <= 7 and 0 <= r <= 7:
+                sq = chess.square(f, r)
+                
+                # Check if this square was defended before but not after
+                defenders_before = len(list(board_before.attackers(not user_is_white, sq)))
+                defenders_after = len(list(board_after.attackers(not user_is_white, sq)))
+                
+                # Also check if we can now attack it
+                our_attackers = len(list(board_after.attackers(user_is_white, sq)))
+                
+                if defenders_after < defenders_before or (our_attackers > 0 and defenders_after == 0):
+                    weakened.append(chess.square_name(sq))
+    
+    return weakened
+
+
+def _find_tactical_opportunities(board: chess.Board, user_is_white: bool) -> List[Dict]:
+    """Find tactical opportunities (forks, pins, etc.) in the position."""
+    tactics = []
+    
+    # Check for knight fork opportunities
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece and piece.color == user_is_white and piece.piece_type == chess.KNIGHT:
+            for target_sq in board.attacks(sq):
+                target = board.piece_at(target_sq)
+                if target and target.color != user_is_white:
+                    # Check if moving the knight here creates a fork
+                    for knight_move in board.legal_moves:
+                        if knight_move.from_square == sq:
+                            sim = board.copy()
+                            sim.push(knight_move)
+                            attacked = []
+                            for attacked_sq in sim.attacks(knight_move.to_square):
+                                attacked_piece = sim.piece_at(attacked_sq)
+                                if attacked_piece and attacked_piece.color != user_is_white:
+                                    if attacked_piece.piece_type in [chess.QUEEN, chess.ROOK, chess.KING]:
+                                        attacked.append(attacked_piece)
+                            
+                            if len(attacked) >= 2:
+                                tactics.append({
+                                    "type": "knight fork",
+                                    "squares": [chess.square_name(knight_move.to_square)],
+                                    "description": "the knight can attack multiple pieces!",
+                                    "plan": f"Look for {board.san(knight_move)}!"
+                                })
+                                return tactics
+    
+    return tactics
+
+
+def _check_piece_activity_loss(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    move: chess.Move,
+    piece_color: bool
+) -> Optional[Dict]:
+    """Check if the move made a piece less active."""
+    piece = board_before.piece_at(move.from_square)
+    if not piece:
+        return None
+    
+    # Count controlled squares before and after
+    attacks_before = len(list(board_before.attacks(move.from_square)))
+    attacks_after = len(list(board_after.attacks(move.to_square)))
+    
+    if attacks_after < attacks_before - 2:
+        piece_name = get_piece_name(piece)
+        return {
+            "problem": f"puts their {piece_name} on a passive square",
+            "exploitation": "your pieces have more freedom now",
+            "plan": "Take control of the center and active squares!"
+        }
+    
+    # Check if piece is now blocked
+    if piece.piece_type == chess.BISHOP:
+        # Check if bishop's diagonals are blocked by own pawns
+        blocked_by_pawns = 0
+        for diag_sq in board_after.attacks(move.to_square):
+            blocker = board_after.piece_at(diag_sq)
+            if blocker and blocker.color == piece_color and blocker.piece_type == chess.PAWN:
+                blocked_by_pawns += 1
+        
+        if blocked_by_pawns >= 2:
+            return {
+                "problem": "blocks their own bishop behind pawns",
+                "exploitation": "their bishop is a 'tall pawn' now",
+                "plan": "Your pieces are more active — use them!"
+            }
+    
+    return None
+
+
+def _explain_response_idea(
+    board: chess.Board,
+    response_san: str,
+    user_is_white: bool,
+    weak_squares: List[str]
+) -> str:
+    """
+    Explain what the best response achieves - EDUCATIONAL version.
+    
+    Goes beyond just naming the move - explains the IDEA.
+    """
+    try:
+        move = board.parse_san(response_san)
+    except:
+        return f"Unknown response."
+    
+    piece = board.piece_at(move.from_square)
+    if not piece:
+        return f"Unknown response."
+    
+    sim = board.copy()
+    is_capture = board.is_capture(move)
+    sim.push(move)
+    
+    piece_name = get_piece_name(piece)
+    to_sq = move.to_square
+    to_file = chess.square_file(to_sq)
+    to_rank = chess.square_rank(to_sq)
+    from_sq = move.from_square
+    
+    # ─── PAWN MOVES - Often the most instructive ───
+    if piece.piece_type == chess.PAWN:
+        # Pawn break - check if this pawn attacks enemy pawns/pieces
+        attacked_by_pawn = list(sim.attacks(to_sq))
+        enemy_pieces_attacked = [sq for sq in attacked_by_pawn 
+                                  if sim.piece_at(sq) and sim.piece_at(sq).color != user_is_white]
+        
+        # Central pawn break (d5, e5, d4, e4 type moves)
+        if to_sq in [chess.D5, chess.E5, chess.D4, chess.E4, chess.E6, chess.D6]:
+            sq_name = chess.square_name(to_sq)
+            # Check what it opens
+            if sim.is_check():
+                return f"{response_san} breaks through with check! The center is torn open."
+            
+            # Check if it attacks pieces
+            for attacked_sq in attacked_by_pawn:
+                attacked = sim.piece_at(attacked_sq)
+                if attacked and attacked.color != user_is_white and attacked.piece_type != chess.PAWN:
+                    return f"{response_san} breaks in the center, attacking their {get_piece_name(attacked)}! This blows open the position."
+            
+            return f"{response_san} is a powerful pawn break! It opens lines and creates threats. h6 weakened this possibility."
+        
+        # Attacking pawn
+        if enemy_pieces_attacked:
+            attacked = sim.piece_at(enemy_pieces_attacked[0])
+            if attacked:
+                return f"{response_san} attacks their {get_piece_name(attacked)}."
+        
+        # Passed pawn creation
+        # Check if there are no enemy pawns in front
+        is_passed = True
+        for r in range(to_rank + 1, 8) if user_is_white else range(0, to_rank):
+            for f in [to_file - 1, to_file, to_file + 1]:
+                if 0 <= f <= 7:
+                    sq = chess.square(f, r)
+                    p = sim.piece_at(sq)
+                    if p and p.piece_type == chess.PAWN and p.color != user_is_white:
+                        is_passed = False
+                        break
+        
+        if is_passed:
+            return f"{response_san} creates a dangerous passed pawn!"
+    
+    # ─── CAPTURES ───
+    if is_capture:
+        captured = board.piece_at(to_sq)
+        if captured:
+            captured_name = get_piece_name(captured)
+            attacker_value = _piece_value(piece)
+            captured_value = _piece_value(captured)
+            
+            if captured_value > attacker_value:
+                return f"{response_san} wins the {captured_name}! Free material."
+            elif captured_value == attacker_value:
+                # Check if recapture is problematic
+                defenders = list(sim.attackers(not user_is_white, to_sq))
+                if not defenders:
+                    return f"{response_san} takes the {captured_name} for free — no recapture!"
+                return f"{response_san} trades off the {captured_name}."
+            else:
+                return f"{response_san} wins the {captured_name}."
+    
+    # ─── CHECKS ───
+    if sim.is_check():
+        # Analyze what kind of check
+        # Is it a discovered check?
+        if piece.piece_type not in [chess.QUEEN, chess.ROOK, chess.BISHOP]:
+            # The checking piece might be different
+            opp_king = sim.king(not user_is_white)
+            checkers = list(sim.attackers(user_is_white, opp_king))
+            for checker_sq in checkers:
+                checker = sim.piece_at(checker_sq)
+                if checker and checker_sq != to_sq:
+                    return f"{response_san} unleashes a discovered check! Devastating."
+        
+        return f"{response_san} gives check, forcing their king to move."
+    
+    # ─── ATTACKS ON VALUABLE PIECES ───
+    for attacked_sq in sim.attacks(to_sq):
+        attacked = sim.piece_at(attacked_sq)
+        if attacked and attacked.color != user_is_white:
+            if attacked.piece_type == chess.QUEEN:
+                return f"{response_san} attacks their Queen!"
+            if attacked.piece_type == chess.ROOK:
+                return f"{response_san} attacks their Rook."
+    
+    # ─── KNIGHT MOVES ───
+    if piece.piece_type == chess.KNIGHT:
+        if to_sq in [chess.D5, chess.E5, chess.D4, chess.E4]:
+            return f"{response_san} plants the knight powerfully in the center — hard to kick out!"
+        
+        # Outpost?
+        # Check if the square can be attacked by enemy pawns
+        can_be_attacked = False
+        for f in [to_file - 1, to_file + 1]:
+            if 0 <= f <= 7:
+                for r in range(8):
+                    sq = chess.square(f, r)
+                    p = board.piece_at(sq)
+                    if p and p.piece_type == chess.PAWN and p.color != user_is_white:
+                        # Could this pawn ever attack our square?
+                        if (user_is_white and r < to_rank) or (not user_is_white and r > to_rank):
+                            can_be_attacked = True
+                            break
+        
+        if not can_be_attacked:
+            return f"{response_san} establishes a permanent outpost — no pawns can challenge it!"
+    
+    # ─── BISHOP MOVES ───
+    if piece.piece_type == chess.BISHOP:
+        # Long diagonal?
+        diag_length = len(list(sim.attacks(to_sq)))
+        if diag_length >= 7:
+            return f"{response_san} activates the bishop on a long diagonal."
+    
+    # ─── ROOK MOVES ───
+    if piece.piece_type == chess.ROOK:
+        # Open file?
+        pawns_on_file = sum(1 for r in range(8) 
+                           if board.piece_at(chess.square(to_file, r)) 
+                           and board.piece_at(chess.square(to_file, r)).piece_type == chess.PAWN)
+        if pawns_on_file == 0:
+            return f"{response_san} seizes the open file — Rooks love open files!"
+        
+        # Seventh rank?
+        if (user_is_white and to_rank == 6) or (not user_is_white and to_rank == 1):
+            return f"{response_san} invades the seventh rank — threatens their pawns and cramps their king!"
+    
+    # ─── QUEEN MOVES ───
+    if piece.piece_type == chess.QUEEN:
+        # Check what it attacks
+        attacked = list(sim.attacks(to_sq))
+        valuable_targets = [sq for sq in attacked 
+                           if sim.piece_at(sq) and sim.piece_at(sq).color != user_is_white 
+                           and sim.piece_at(sq).piece_type in [chess.ROOK, chess.KNIGHT, chess.BISHOP]]
+        if len(valuable_targets) >= 2:
+            return f"{response_san} creates multiple threats — their position is crumbling!"
+    
+    # ─── LANDING ON WEAK SQUARES ───
+    to_sq_name = chess.square_name(to_sq)
+    if to_sq_name in weak_squares:
+        return f"{response_san} exploits the weak {to_sq_name} square that they created."
+    
+    # ─── FALLBACK ───
+    return f"{response_san} improves your position."
 
 
 def _explain_opponent_move_with_context(
@@ -1773,26 +2208,28 @@ async def generate_game_decryption_v5(
             
             if not is_user:
                 # OPPONENT MOVE - Analyze from user's POV with proper eval data
+                # Get the user's best response from the NEXT position's eval data
+                user_best_response = None
+                if idx + 1 < len(moves):
+                    sim_board = board.copy()
+                    sim_board.push(move)
+                    next_fen_key = " ".join(sim_board.fen().split()[:4])
+                    next_eval_data = eval_lookup.get(next_fen_key, {})
+                    user_best_response = next_eval_data.get("best_move")
+                
+                # Use the best response in PV if available
+                pv_for_analysis = [user_best_response] if user_best_response else pv_after_played
+                
                 narrative, your_plan_now, highlight_squares = analyze_opponent_move(
                     board, move,
-                    opp_eval_before,  # Use calculated opponent eval
-                    opp_eval_after,   # Use calculated opponent eval
-                    pv_after_played,
+                    opp_eval_before,
+                    opp_eval_after,
+                    pv_for_analysis,
                     user_color
                 )
                 future_moves = pv_after_played[:3] if pv_after_played else []
                 
-                # Override narrative for opponent blunders/mistakes
-                if severity == "opp_blunder":
-                    narrative = f"Blunder! {move_san} is a serious mistake by your opponent. This is your chance!"
-                    your_plan_now = "Look for tactics! Your opponent just gave you an opportunity."
-                elif severity == "opp_mistake":
-                    narrative = f"Inaccurate! {move_san} gives you an advantage. Find the best response."
-                    your_plan_now = "You're better now. Press your advantage!"
-                elif severity == "opp_inaccuracy":
-                    narrative = f"Slight slip with {move_san}. You can improve your position here."
-                
-                # Add opening introduction for early moves
+                # Add opening introduction for early moves (only if it's a normal move)
                 if idx < 10 and phase == "opening" and severity == "context":
                     intro = get_opening_introduction(eco_code, opening_name, move_san, user_color)
                     if intro:
