@@ -54,20 +54,42 @@ def generate_behavioral_coaching(
     
     coaching = None
     
-    # ─── IMPULSE MOVE: Fast + Bad ───
-    if time_spent < 2.0 and move_quality in ("mistake", "blunder"):
-        position_type = _estimate_position_complexity(move_history, current_move_index)
-        if move_quality == "blunder":
+    # ─── BLUNDER/MISTAKE: Always give behavioral coaching ───
+    if move_quality == "blunder":
+        if time_spent < 3.0:
             coaching = {
                 "type": "time_management",
                 "severity": "high",
                 "icon": "clock",
-                "message": f"Whoa — {move_san} in {time_spent:.0f}s? That was a {position_type} position. "
-                           f"You need to slow down and calculate here. Quick moves in complex spots = blunders.",
+                "message": f"Whoa — {move_san} in {time_spent:.0f}s? You didn't calculate at all. "
+                           f"Quick moves in complex spots = blunders.",
                 "habit": "impulse_move",
-                "actionable_tip": "Before moving, ask yourself: 'What does my opponent want to do next?'"
+                "actionable_tip": "Before moving, ask yourself: 'What can my opponent capture or attack after this?'"
+            }
+        elif time_spent < 10.0:
+            coaching = {
+                "type": "calculation",
+                "severity": "high",
+                "icon": "brain",
+                "message": f"You spent {time_spent:.0f}s on {move_san} but missed the danger. "
+                           f"Your calculation needs to go deeper — check captures, checks, and threats before committing.",
+                "habit": "calculation_miss",
+                "actionable_tip": "Use the 'CCT' method: Checks, Captures, Threats. Scan all three before every move."
             }
         else:
+            coaching = {
+                "type": "calculation",
+                "severity": "high",
+                "icon": "brain",
+                "message": f"You took {time_spent:.0f}s but still missed it. "
+                           f"The issue isn't time — it's how you're calculating. "
+                           f"Try to look at your opponent's best response to your move.",
+                "habit": "calculation_depth",
+                "actionable_tip": "After deciding on a move, pause and ask: 'If I play this, what's the BEST thing my opponent can do?'"
+            }
+    
+    elif move_quality == "mistake":
+        if time_spent < 3.0:
             coaching = {
                 "type": "time_management",
                 "severity": "medium",
@@ -77,9 +99,41 @@ def generate_behavioral_coaching(
                 "habit": "impulse_move",
                 "actionable_tip": "Try the 5-second rule: even if a move looks obvious, count to 5 before playing."
             }
+        elif time_spent < 10.0:
+            coaching = {
+                "type": "calculation",
+                "severity": "medium",
+                "icon": "brain",
+                "message": f"You spent {time_spent:.0f}s but there was a better option. "
+                           f"Your instinct was off here — calculation would have found the right move.",
+                "habit": "calculation_miss",
+                "actionable_tip": "When you have 2-3 candidate moves, calculate each one at least 2 moves deep."
+            }
+        else:
+            coaching = {
+                "type": "calculation",
+                "severity": "medium",
+                "icon": "brain",
+                "message": f"You thought for {time_spent:.0f}s but chose the wrong plan. "
+                           f"The thinking time was good — now work on what to think ABOUT.",
+                "habit": "calculation_direction",
+                "actionable_tip": "Focus your calculation on the most forcing moves first: checks, captures, then quiet moves."
+            }
     
-    # ─── TILT DETECTION: String of fast bad moves ───
-    elif _detect_tilt(recent_player_moves):
+    elif move_quality == "inaccuracy":
+        if time_spent < 3.0:
+            coaching = {
+                "type": "time_management",
+                "severity": "low",
+                "icon": "clock",
+                "message": f"{move_san} was okay but not the best — and you moved quite fast ({time_spent:.0f}s). "
+                           f"A few more seconds of thought could have found the stronger option.",
+                "habit": "impulse_move",
+                "actionable_tip": "Small inaccuracies add up. Give each move at least 5 seconds of focused thought."
+            }
+    
+    # ─── TILT DETECTION: String of fast bad moves (overrides above) ───
+    if _detect_tilt(recent_player_moves):
         streak_count = _count_rapid_streak(recent_player_moves)
         coaching = {
             "type": "emotional",
@@ -92,7 +146,7 @@ def generate_behavioral_coaching(
         }
     
     # ─── GOOD PATIENCE: Took time + Good move ───
-    elif time_spent > 15.0 and move_quality in ("good", "best", "great"):
+    if not coaching and time_spent > 15.0 and move_quality in ("good", "best", "great"):
         coaching = {
             "type": "positive",
             "severity": "low",
@@ -104,7 +158,7 @@ def generate_behavioral_coaching(
         }
     
     # ─── OVERTHINKING: Took too long on a simple position ───
-    elif time_spent > 45.0 and move_quality in ("good", "best"):
+    if not coaching and time_spent > 45.0 and move_quality in ("good", "best"):
         coaching = {
             "type": "time_management",
             "severity": "low",
@@ -113,18 +167,6 @@ def generate_behavioral_coaching(
                        f"the position wasn't that complex. Trust your instincts more on straightforward positions.",
             "habit": "overthinking",
             "actionable_tip": "In simple positions, aim for 10-15 seconds. Save your time for critical moments."
-        }
-    
-    # ─── CALCULATION MISS: Complex position, quick move, missed tactic ───
-    elif time_spent < 5.0 and move_quality in ("mistake", "blunder") and game_phase == "middlegame":
-        coaching = {
-            "type": "calculation",
-            "severity": "high",
-            "icon": "brain",
-            "message": f"There was a tactic here and you moved in {time_spent:.0f}s. "
-                       f"In the middlegame, always scan for tactics before committing to a move.",
-            "habit": "calculation_miss",
-            "actionable_tip": "Before every middlegame move, check: captures, checks, threats. In that order."
         }
     
     # ─── REPEATED PATTERN: Same type of mistake again ───

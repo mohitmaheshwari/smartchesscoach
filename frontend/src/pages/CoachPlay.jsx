@@ -2671,6 +2671,83 @@ const CoachPlay = ({ user }) => {
               
               {/* Main Content - Scrollable */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Guardian Intervention - Inline in coach panel (not overlay) */}
+                {guardianIntervention && pendingMove && (
+                  <div 
+                    data-testid="guardian-intervention-inline"
+                    className={`p-4 rounded-lg border-2 ${
+                      guardianIntervention.risk_level === "critical" ? "border-red-500 bg-red-500/10" :
+                      guardianIntervention.risk_level === "high" ? "border-orange-500 bg-orange-500/10" :
+                      "border-yellow-500 bg-yellow-500/10"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertTriangle className={`w-6 h-6 ${
+                        guardianIntervention.risk_level === "critical" ? "text-red-500" :
+                        guardianIntervention.risk_level === "high" ? "text-orange-500" :
+                        "text-yellow-500"
+                      }`} />
+                      <h4 className="font-bold text-white">
+                        {guardianIntervention.intervention_type === "block" ? "Wait!" : "Think Again"}
+                      </h4>
+                    </div>
+                    
+                    <p className="text-sm font-medium text-white mb-2">{guardianIntervention.message}</p>
+                    <p className="text-xs text-muted-foreground mb-3">{guardianIntervention.explanation}</p>
+                    
+                    {guardianIntervention.alternative_moves?.length > 0 && (
+                      <div className="p-2 rounded bg-zinc-800/50 mb-3">
+                        <p className="text-xs font-medium text-zinc-300 mb-1.5 flex items-center gap-1">
+                          <Lightbulb className="w-3 h-3 text-primary" />
+                          Better alternatives:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {guardianIntervention.alternative_moves.map((move, i) => (
+                            <Badge 
+                              key={i} variant="outline"
+                              className="font-mono cursor-pointer hover:bg-primary/20 text-xs"
+                              onClick={() => {
+                                const squares = move.match(/[a-h][1-8]/g);
+                                if (squares?.length > 0) {
+                                  toast.info(`Move ${move}: ${squares.join(' → ')}`);
+                                }
+                              }}
+                            >
+                              {move}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Your move: <span className="font-mono font-medium text-white">{pendingMove.moveSan}</span>
+                    </p>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={cancelRiskyMove}
+                        data-testid="guardian-cancel-btn"
+                      >
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        Different Move
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={guardianIntervention.risk_level === "critical" ? "destructive" : "default"}
+                        className="flex-1"
+                        onClick={confirmRiskyMove}
+                        data-testid="guardian-confirm-btn"
+                      >
+                        Play Anyway
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Trap Alert - Temporary, dismissible */}
                 {activeTrapAlert && (
                   <TrapAlert
@@ -3421,121 +3498,6 @@ const CoachPlay = ({ user }) => {
         </div>
       </div>
 
-      {/* Guardian Intervention Modal - Standard Warning */}
-      {guardianIntervention && pendingMove && !guardianIntervention.enforcement?.requires_checkbox && (
-        <div 
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-          data-testid="guardian-intervention-modal"
-        >
-          <Card className={`max-w-md w-full border-2 ${
-            guardianIntervention.risk_level === "critical" ? "border-red-500" :
-            guardianIntervention.risk_level === "high" ? "border-orange-500" :
-            "border-yellow-500"
-          }`}>
-            <CardHeader className={`pb-3 ${
-              guardianIntervention.risk_level === "critical" ? "bg-red-500/10" :
-              guardianIntervention.risk_level === "high" ? "bg-orange-500/10" :
-              "bg-yellow-500/10"
-            }`}>
-              <div className="flex items-center gap-3">
-                <AlertTriangle className={`w-8 h-8 ${
-                  guardianIntervention.risk_level === "critical" ? "text-red-500" :
-                  guardianIntervention.risk_level === "high" ? "text-orange-500" :
-                  "text-yellow-500"
-                }`} />
-                <div>
-                  <CardTitle className="text-lg">
-                    {guardianIntervention.intervention_type === "block" ? "Wait!" : "Think Again"}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Coach Guardian detected a potential mistake
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              {/* Warning Message */}
-              <div className="text-base font-medium">
-                {guardianIntervention.message}
-              </div>
-              
-              {/* Explanation */}
-              <p className="text-sm text-muted-foreground">
-                {guardianIntervention.explanation}
-              </p>
-              
-              {/* Alternative Moves with Visual Hints */}
-              {guardianIntervention.alternative_moves?.length > 0 && (
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 mb-2 text-sm font-medium">
-                    <Lightbulb className="w-4 h-4 text-primary" />
-                    Better alternatives (click to see on board):
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {guardianIntervention.alternative_moves.map((move, i) => (
-                      <Badge 
-                        key={i} 
-                        variant="outline" 
-                        className="font-mono cursor-pointer hover:bg-primary/20 hover:border-primary transition-colors"
-                        onClick={() => {
-                          // Extract squares from SAN move (e.g., "Nf3" -> "f3")
-                          const squares = move.match(/[a-h][1-8]/g);
-                          if (squares && squares.length > 0) {
-                            toast.info(`Move ${move}: ${squares.join(' → ')}`, {
-                              duration: 3000,
-                              icon: <Lightbulb className="w-4 h-4 text-primary" />
-                            });
-                          }
-                        }}
-                      >
-                        <Target className="w-3 h-3 mr-1 text-primary" />
-                        {move}
-                      </Badge>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    These moves maintain or improve your position.
-                  </p>
-                </div>
-              )}
-              
-              {/* Pending Move */}
-              <div className="text-sm text-muted-foreground">
-                Your move: <span className="font-mono font-medium text-foreground">{pendingMove.moveSan}</span>
-              </div>
-              
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={cancelRiskyMove}
-                  data-testid="guardian-cancel-btn"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Choose Different Move
-                </Button>
-                <Button
-                  variant={guardianIntervention.risk_level === "critical" ? "destructive" : "default"}
-                  className="flex-1"
-                  onClick={confirmRiskyMove}
-                  data-testid="guardian-confirm-btn"
-                >
-                  Play Anyway
-                </Button>
-              </div>
-              
-              {/* Interventions remaining */}
-              <p className="text-xs text-center text-muted-foreground pt-2">
-                {remainingInterventions > 1 
-                  ? `${remainingInterventions - 1} intervention${remainingInterventions - 1 !== 1 ? "s" : ""} remaining after this`
-                  : "This is your last intervention warning"}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-      
       {/* Level 3 Enforcement: Checkbox Modal - Cannot be dismissed */}
       {guardianIntervention && pendingMove && guardianIntervention.enforcement?.requires_checkbox && (
         <EnforcementCheckboxModal
