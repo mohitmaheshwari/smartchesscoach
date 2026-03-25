@@ -384,27 +384,32 @@ def _build_opening_database():
     
     qg_variations = [
         OpeningVariation(
-            name="Queen's Gambit Declined",
+            name="Queen's Gambit Declined (Orthodox)",
             eco="D30-D69",
-            moves=["d4", "d5", "c4", "e6"],
+            moves=["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Be7", "e3", "O-O", "Nf3", "Nbd7", "Rc1", "c6"],
             key_ideas=[
-                "Black solidly defends d5",
-                "Develops the dark-squared bishop",
-                "Aims for a solid, positional game"
+                "Black solidly defends d5 with e6, creating a strong pawn chain",
+                "The Bg5 pin pressures f6 — Black plays Be7 to break the pin",
+                "Black's c6 supports d5 and prepares Qc7/dxc4",
+                "This is one of the most classical, well-tested positions in chess",
+                "White aims for the minority attack (b4-b5) on the queenside"
             ],
             plans_for_white=[
-                "Build a strong center",
-                "Develop pieces harmoniously",
-                "Minority attack on the queenside"
+                "Minority attack: a3, b4, b5 to create weaknesses on c6",
+                "Control the c-file with Rc1",
+                "Exchange the dark bishops after Bxf6 if it suits the position",
+                "Play for a small but lasting positional advantage"
             ],
             plans_for_black=[
-                "Challenge the center with c5 or e5",
-                "Develop the light-squared bishop",
-                "Keep a solid structure"
+                "Play c5 to challenge the center when the time is right",
+                "Develop the light bishop: either Bd7-e8-g6 or b6-Bb7",
+                "Keep the position solid and look for active piece play",
+                "Counterattack if White overextends on the queenside"
             ],
             common_mistakes=[
-                "White: Premature attacks",
-                "Black: Passive play without counterplay"
+                "White: Premature attacks without completing development",
+                "Black: Passive play without any counterplay plan",
+                "Black: Capturing on c4 too early without a follow-up"
             ],
             traps=qg_traps,
             model_games=[]
@@ -412,25 +417,62 @@ def _build_opening_database():
         OpeningVariation(
             name="Queen's Gambit Accepted",
             eco="D20-D29",
-            moves=["d4", "d5", "c4", "dxc4"],
+            moves=["d4", "d5", "c4", "dxc4", "Nf3", "Nf6", "e3", "e6", "Bxc4", "c5", "O-O", "a6", "Qe2", "b5", "Bd3"],
             key_ideas=[
-                "Black accepts the gambit but should not hold the pawn",
-                "Black aims to develop quickly",
-                "The center becomes fluid"
+                "Black accepts the pawn but should NOT try to hold it",
+                "The plan is: take the pawn, develop fast, then strike with c5",
+                "White gets a strong center with e3-e4, but Black gets active pieces",
+                "The position becomes open and dynamic — tactical skills matter",
+                "a6-b5 expands on the queenside and kicks the bishop"
             ],
             plans_for_white=[
-                "Recapture the pawn with e3 and Bxc4",
-                "Build a strong pawn center",
-                "Develop rapidly"
+                "Recapture with Bxc4 and aim for e4",
+                "Build a powerful pawn center: d4 + e4",
+                "Develop rapidly: Nc3, Rd1, and attack",
+                "Use the open c-file and central majority"
             ],
             plans_for_black=[
-                "Give back the pawn for development",
-                "Challenge the center with e5 or c5",
-                "Avoid holding the c4 pawn"
+                "Give back the pawn for rapid development",
+                "Strike with c5 to challenge the center",
+                "Play a6-b5 for queenside space",
+                "Develop Bb7 for powerful diagonal control",
+                "Never try to hold the c4 pawn — it costs too much time"
             ],
             common_mistakes=[
-                "Black: Trying to hold the c4 pawn",
-                "White: Rushing to recapture"
+                "Black: Trying to hold the c4 pawn with b5-a6 too greedily",
+                "White: Rushing to recapture before developing",
+                "Black: Not playing c5 — the key counter-break"
+            ],
+            traps=[],
+            model_games=[]
+        ),
+        OpeningVariation(
+            name="Slav Defense",
+            eco="D10-D19",
+            moves=["d4", "d5", "c4", "c6", "Nf3", "Nf6", "Nc3", "dxc4", "a4", "Bf5", "e3", "e6", "Bxc4", "Bb4"],
+            key_ideas=[
+                "Black supports d5 with c6 instead of e6, keeping the light bishop free!",
+                "The key move Bf5 develops the bishop BEFORE playing e6",
+                "This solves the 'bad bishop' problem that plagues the QGD",
+                "a4 prevents Black from holding the c4 pawn with b5",
+                "Leads to rich, strategic positions with many plans"
+            ],
+            plans_for_white=[
+                "Play e3 and Bxc4 to recover the pawn",
+                "Push e4 to build a strong center",
+                "Minority attack with b4-b5 if structure allows",
+                "Use the a4 outpost for the knight"
+            ],
+            plans_for_black=[
+                "Develop the bishop to f5 before playing e6",
+                "Keep the structure solid with c6-d5",
+                "Play e6 only after the bishop is out",
+                "Aim for Nbd7, Bd6, O-O for a harmonious setup"
+            ],
+            common_mistakes=[
+                "Black: Playing e6 before Bf5, blocking the bishop",
+                "White: Forgetting a4 and allowing Black to hold c4",
+                "Black: Neglecting development to hold material"
             ],
             traps=[],
             model_games=[]
@@ -482,30 +524,67 @@ def _build_opening_database():
     
     london_variations = [
         OpeningVariation(
-            name="London System",
+            name="London System Main Line",
             eco="D00",
-            moves=["d4", "d5", "Bf4"],
+            moves=["d4", "d5", "Bf4", "Nf6", "e3", "e6", "Nf3", "c5", "c3", "Nc6", "Nbd2", "Bd6", "Bg3", "O-O", "Bd3"],
             key_ideas=[
-                "Solid, easy to learn setup",
-                "Bishop develops before e3 locks it in",
-                "Flexible - works against almost anything"
+                "Bf4 BEFORE e3 — this is the whole point of the London!",
+                "The pawn triangle c3-d4-e3 creates a rock-solid center",
+                "White's plan is simple: develop everything, castle, then push e4",
+                "The bishop on g3 is safe and controls key diagonal",
+                "Works against almost anything Black plays"
             ],
             plans_for_white=[
-                "Develop: Bf4, e3, Nf3, Bd3, c3",
-                "Castle kingside",
-                "Push e4 when ready"
+                "Develop: Bf4, e3, Nf3, Bd3, Nbd2, c3, O-O",
+                "Push e4 when ready to open the position",
+                "If Black plays Bd6, exchange bishops with Bxd6",
+                "Ne5 is a powerful outpost — aim for it",
+                "After castling, build up with Re1 and then e4"
             ],
             plans_for_black=[
-                "Challenge the bishop with Bd6 or c5",
-                "Fight for the center",
-                "Don't let White play e4 for free"
+                "Challenge the bishop with Bd6 (forces Bg3 or exchange)",
+                "Play c5 to target the d4 pawn",
+                "Develop with Nc6, Qb6 to attack b2",
+                "Don't let White play e4 for free",
+                "If the bishop goes to g3, trade it with Bxg3 hxg3"
             ],
             common_mistakes=[
-                "White: Playing e3 before Bf4",
-                "White: Pushing pawns without development",
-                "Black: Not challenging the center"
+                "White: Playing e3 BEFORE Bf4 — bishop gets stuck",
+                "White: Pushing pawns before finishing development",
+                "Black: Not challenging the center with c5"
             ],
             traps=london_traps,
+            model_games=[]
+        ),
+        OpeningVariation(
+            name="London vs King's Indian Setup",
+            eco="D00",
+            moves=["d4", "Nf6", "Bf4", "g6", "e3", "Bg7", "Nf3", "O-O", "Be2", "d6", "h3", "Nbd7", "O-O", "c5"],
+            key_ideas=[
+                "When Black plays g6/Bg7, the London adapts with Be2 instead of Bd3",
+                "h3 prevents Bg4 pin and prepares a safe king position",
+                "The fianchettoed bishop on g7 faces the solid d4-e3 wall",
+                "White keeps things simple: develop, castle, then choose a plan",
+                "Black's KID-style play is less effective against the London than e4"
+            ],
+            plans_for_white=[
+                "Play Be2 (not Bd3 which faces g6 pawn chain)",
+                "Castle kingside and play c3 for flexibility",
+                "Push c4 or e4 depending on the position",
+                "Keep the position closed where the London bishop is strong"
+            ],
+            plans_for_black=[
+                "Fianchetto and prepare e5 break",
+                "Play c5 to challenge d4",
+                "Re-route knight Nd7-e5 or f8-e6",
+                "Use the g7 bishop's diagonal for counterplay"
+            ],
+            common_mistakes=[
+                "White: Playing Bd3 against a fianchetto setup (g6 blocks it)",
+                "Black: Playing passively without any central break",
+                "White: Forgetting h3 and getting pinned with Bg4"
+            ],
+            traps=[],
             model_games=[]
         ),
     ]
@@ -611,33 +690,176 @@ def _build_opening_database():
             victim_color="white",
             difficulty="advanced"
         ),
+        OpeningTrap(
+            name="French Advance Milner-Barry Gambit",
+            moves=["e4", "e6", "d4", "d5", "e5", "c5", "c3", "Nc6", "Nf3", "Qb6", "Bd3", "cxd4", "cxd4", "Bd7", "O-O", "Nxd4", "Nxd4", "Qxd4", "Nc3"],
+            trap_move="Nc3",
+            explanation="White sacrifices the d4 pawn for rapid development and a fierce attack on the Black king.",
+            refutation="Black should be careful about grabbing the pawn. Develop instead with Nge7.",
+            fen_before_trap="r3kbnr/pp1b1ppp/1qn1p3/3pP3/3P4/2NB1N2/PP3PPP/R1BQ1RK1 b kq - 0 9",
+            fen_after_trap="r3kbnr/pp1b1ppp/1qn1p3/3pP3/3q4/2NB4/PP3PPP/R1BQ1RK1 w kq - 0 10",
+            victim_color="black",
+            difficulty="intermediate"
+        ),
     ]
     
     french_variations = [
         OpeningVariation(
-            name="French Defense Classical",
+            name="French Classical (Steinitz Variation)",
             eco="C11",
-            moves=["e4", "e6", "d4", "d5"],
+            moves=["e4", "e6", "d4", "d5", "Nc3", "Nf6", "e5", "Nfd7", "f4", "c5", "Nf3", "Nc6", "Be3", "cxd4", "Nxd4"],
             key_ideas=[
-                "Black creates a solid pawn chain",
-                "The light-squared bishop is blocked (French bishop problem)",
-                "Black counterattacks White's center with c5"
+                "Black creates a solid pawn chain with e6-d5",
+                "White pushes e5 to gain kingside space and restrict Black's knight",
+                "Black counterattacks with c5 to challenge the d4 pawn",
+                "The f4 pawn supports the e5 advance and prepares kingside play",
+                "Black aims to break with f6 to undermine the e5 pawn"
             ],
             plans_for_white=[
-                "Push e5 to gain space",
+                "Push e5 to cramp Black and gain space",
                 "Attack the kingside with f4-f5",
-                "Target the weak d6 square"
+                "Develop Bd3 and castle kingside for a direct attack",
+                "Use the knight on d4 as a strong outpost"
             ],
             plans_for_black=[
-                "Play c5 to challenge the center",
-                "Develop the knight to c6, then e7-f5",
-                "Solve the bishop problem with Bd7-e8-g6 or b6-Ba6"
+                "Play c5 to challenge White's center immediately",
+                "Develop Nc6 to increase pressure on d4",
+                "Plan f6 break to undermine e5",
+                "Solve the light-squared bishop problem with Bd7-e8-g6 or b6-Ba6",
+                "Castle queenside and play for a central counterattack"
             ],
             common_mistakes=[
-                "Black: Leaving the bad bishop passive",
-                "White: Overextending the e-pawn"
+                "Black: Leaving the bad bishop passive on c8 too long",
+                "White: Overextending with f5 too early without support",
+                "Black: Playing f6 prematurely before completing development"
+            ],
+            traps=[],
+            model_games=[]
+        ),
+        OpeningVariation(
+            name="French Winawer Variation",
+            eco="C15",
+            moves=["e4", "e6", "d4", "d5", "Nc3", "Bb4", "e5", "c5", "a3", "Bxc3+", "bxc3", "Ne7", "Nf3", "Nbc6", "Be2"],
+            key_ideas=[
+                "Black pins the knight with Bb4, the most aggressive French line",
+                "After e5 Bxc3+, White gets doubled pawns but a strong center",
+                "Black's plan revolves around attacking the c3/d4 structure",
+                "White gets a powerful bishop pair and central space advantage",
+                "This leads to very sharp, unbalanced positions"
+            ],
+            plans_for_white=[
+                "Use the bishop pair in an open position",
+                "Attack on the kingside with Qg4 and f4",
+                "Maintain the strong e5 pawn as a space advantage",
+                "Play a4 to prevent Black's queenside expansion"
+            ],
+            plans_for_black=[
+                "Immediately play c5 to attack the center",
+                "Knight maneuver Ne7-f5 to pressure d4 and e3",
+                "Break with f6 to challenge e5",
+                "Develop Bd7 and castle queenside for counterplay",
+                "Target the weak c3 pawn with Qa5"
+            ],
+            common_mistakes=[
+                "Black: Capturing on d4 too early, releasing the tension",
+                "White: Neglecting the weak c3 pawn",
+                "Black: Forgetting about the bishop pair in the endgame"
             ],
             traps=french_traps,
+            model_games=[]
+        ),
+        OpeningVariation(
+            name="French Advance Variation",
+            eco="C02",
+            moves=["e4", "e6", "d4", "d5", "e5", "c5", "c3", "Nc6", "Nf3", "Qb6", "a3", "Nh6", "b4", "cxd4", "cxd4"],
+            key_ideas=[
+                "White pushes e5 immediately, locking the center",
+                "Black attacks the base of the chain with c5",
+                "The c3 pawn supports d4 — this is a pawn chain battle",
+                "Black's pieces aim to break through on the queenside",
+                "Nh6-f5 is a key knight maneuver to pressure d4"
+            ],
+            plans_for_white=[
+                "Support the d4-e5 chain with c3 and Be2",
+                "Kingside attack with f4 followed by g4",
+                "Keep the center locked and play on the flanks",
+                "Use Bd3 + Bc2 battery against the Black king"
+            ],
+            plans_for_black=[
+                "Attack the base with c5 and pressure d4",
+                "Play Qb6 hitting d4 and b2",
+                "Knight to h6-f5 to pressure d4 and e3",
+                "Play f6 to break open the center when ready",
+                "Bishop development: Bd7 then Be7 or Bb5 exchange"
+            ],
+            common_mistakes=[
+                "White: Playing dxc5 which relieves Black's pressure",
+                "Black: Forgetting the f6 break as a key plan",
+                "White: Moving the f-pawn too early before castling"
+            ],
+            traps=[],
+            model_games=[]
+        ),
+        OpeningVariation(
+            name="French Tarrasch Variation",
+            eco="C03",
+            moves=["e4", "e6", "d4", "d5", "Nd2", "Nf6", "e5", "Nfd7", "Bd3", "c5", "c3", "Nc6", "Ne2", "cxd4", "cxd4"],
+            key_ideas=[
+                "White plays Nd2 instead of Nc3, avoiding the Winawer pin",
+                "The knight on d2 supports e5 and heads to f3",
+                "This is a quieter, more positional approach",
+                "Black still counters with c5 but faces a more solid structure",
+                "White's Bd3 targets h7, preparing kingside play"
+            ],
+            plans_for_white=[
+                "Play Bd3 + Qg4 for kingside pressure",
+                "Castle kingside and push f4 to support the center",
+                "Knight maneuver Nd2-f3-g5 or e2-f4",
+                "Control the d4 square and prevent Black's breaks"
+            ],
+            plans_for_black=[
+                "Counter with c5 to challenge the center",
+                "Play f6 to break the e5 pawn",
+                "Develop Nc6 and aim for the d4 break",
+                "Solve the bishop problem with Qb6 forcing concessions"
+            ],
+            common_mistakes=[
+                "White: Not developing the f1 bishop to d3 early enough",
+                "Black: Being too passive and not challenging the center",
+                "White: Getting the knight stuck on d2"
+            ],
+            traps=[],
+            model_games=[]
+        ),
+        OpeningVariation(
+            name="French Exchange Variation",
+            eco="C01",
+            moves=["e4", "e6", "d4", "d5", "exd5", "exd5", "Nc3", "Nf6", "Bg5", "Be7", "Bd3", "O-O", "Nge2", "c6"],
+            key_ideas=[
+                "White exchanges on d5, creating a symmetrical pawn structure",
+                "This is the quietest French line but has hidden venom",
+                "White plays for a minority attack on the queenside",
+                "Black's light-squared bishop is free (no French bishop problem!)",
+                "Both sides castle kingside in a positional battle"
+            ],
+            plans_for_white=[
+                "Minority attack with b4-b5 on the queenside",
+                "Pressure along the e-file after O-O and Re1",
+                "Pin with Bg5 and play for isolated d-pawn",
+                "Target weaknesses on c6 and d5"
+            ],
+            plans_for_black=[
+                "Use the freed light-squared bishop actively (Bf5 or Bg4)",
+                "Play for central control and piece activity",
+                "Counterattack any queenside advance with c5",
+                "Keep the position balanced — draw is Black's minimum"
+            ],
+            common_mistakes=[
+                "White: Playing too passively after the exchange",
+                "Black: Forgetting this is still a real game (not an easy draw)",
+                "White: Missing that Black's bishop is actually good here"
+            ],
+            traps=[],
             model_games=[]
         ),
     ]
