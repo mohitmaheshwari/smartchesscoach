@@ -1896,6 +1896,7 @@ async def get_interactive_coaching(
             
             coaching_dict = coaching.to_dict()
             coaching_dict["move_san"] = move_san
+            coaching_dict["fen_before"] = fen_before  # Needed for board preview of alternatives
             result["user_move_coaching"] = coaching_dict
             
             # === BEHAVIORAL COACHING (Smart Coach) ===

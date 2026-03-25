@@ -1154,18 +1154,42 @@ const CoachPlay = ({ user }) => {
 
   // Show alternative move on board (for clickable candidate moves)
   const showAlternativeMove = (moveSan) => {
-    if (!session?.current_fen) return;
+    // Get the fen_before from the user move coaching data
+    const fenBefore = v5Coaching?.fen_before || interactiveCoaching?.userMoveCoaching?.fen_before;
+    
+    if (!fenBefore) {
+      console.warn("No fen_before available for alternative move preview");
+      return;
+    }
     
     try {
-      // We'll use the chess.js library to parse and show the move
-      // For now, just log it - the board integration needs more work
-      console.log("Show alternative move:", moveSan, "from", session.current_fen);
+      const chess = new Chess(fenBefore);
+      const result = chess.move(moveSan);
       
-      // TODO: Implement board preview for alternative moves
-      // This would involve:
-      // 1. Creating a temporary board state
-      // 2. Playing the move
-      // 3. Showing arrows on the board
+      if (!result) {
+        console.error("Invalid move:", moveSan, "from FEN:", fenBefore);
+        return;
+      }
+      
+      // Show the alternative position on the board
+      setCurrentFen(chess.fen());
+      setLastMove([result.from, result.to]);
+      
+      // Draw arrow on the board if possible
+      if (boardRef.current?.drawArrows) {
+        boardRef.current.drawArrows([[result.from, result.to, "blue"]]);
+      }
+      
+      // Auto-revert back to the real position after 3 seconds
+      setTimeout(() => {
+        if (session?.current_fen) {
+          setCurrentFen(session.current_fen);
+          setLastMove(null);
+          if (boardRef.current?.clearArrows) {
+            boardRef.current.clearArrows();
+          }
+        }
+      }, 3000);
     } catch (error) {
       console.error("Error showing alternative move:", error);
     }
