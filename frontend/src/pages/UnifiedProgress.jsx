@@ -5,10 +5,9 @@
  * Real data. Real comparison. Real confidence.
  * 
  * - Score now vs before
- * - One improving stat (actual data)
+ * - Recent form (real game results)
+ * - One improving stat
  * - One encouraging line
- * 
- * No fake charts. No vague messages. No CTAs.
  */
 
 import { useState, useEffect } from "react";
@@ -22,6 +21,7 @@ const UnifiedProgress = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [progressData, setProgressData] = useState(null);
   const [homeData, setHomeData] = useState(null);
+  const [recentGames, setRecentGames] = useState([]);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
@@ -30,12 +30,18 @@ const UnifiedProgress = ({ user }) => {
 
   const fetchAll = async () => {
     try {
-      const [progressRes, homeRes] = await Promise.all([
+      const [progressRes, homeRes, gamesRes] = await Promise.all([
         fetch(`${API}/progress`, { credentials: "include" }),
-        fetch(`${API}/coach/home-intelligence`, { credentials: "include" })
+        fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
+        fetch(`${API}/games`, { credentials: "include" })
       ]);
       if (progressRes.ok) setProgressData(await progressRes.json());
       if (homeRes.ok) setHomeData(await homeRes.json());
+      if (gamesRes.ok) {
+        const games = await gamesRes.json();
+        // Get last 10 games for recent form
+        setRecentGames(Array.isArray(games) ? games.slice(0, 10) : []);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -71,22 +77,37 @@ const UnifiedProgress = ({ user }) => {
   const blunders = progressData?.blunders || {};
   const gamesAnalyzed = homeData?.games_analyzed || 0;
   
-  // Calculate score change (using accuracy as proxy if no historical score)
+  // Calculate score change
   const accuracyNow = accuracy.current || 0;
   const accuracyBefore = accuracy.previous || accuracyNow;
   const accuracyDelta = accuracyNow - accuracyBefore;
   
-  // Derive score before from accuracy change (rough approximation)
   const scoreBefore = Math.max(0, Math.round(scoreNow - (accuracyDelta / 3)));
   const scoreDelta = scoreNow - scoreBefore;
   
-  // Find the ONE improving stat (prioritize what's actually improving)
+  // Process recent games for the form chart
+  const getGameResult = (game) => {
+    const result = game.result;
+    const userColor = game.user_color || (game.white_player === user?.lichess_username ? 'white' : 'black');
+    
+    if (result === '1-0') return userColor === 'white' ? 'win' : 'loss';
+    if (result === '0-1') return userColor === 'black' ? 'win' : 'loss';
+    if (result === '1/2-1/2') return 'draw';
+    return 'unknown';
+  };
+  
+  const recentForm = recentGames.map(g => getGameResult(g)).reverse(); // Oldest first
+  const wins = recentForm.filter(r => r === 'win').length;
+  const losses = recentForm.filter(r => r === 'loss').length;
+  const draws = recentForm.filter(r => r === 'draw').length;
+  
+  // Find the ONE improving stat
   const getImprovingStat = () => {
     if (accuracy.trend === 'improving') {
       return {
         label: "Accuracy",
         now: `${accuracyNow.toFixed(0)}%`,
-        delta: `+${Math.abs(accuracyDelta).toFixed(0)}%`,
+        delta: accuracyDelta > 0 ? `+${Math.abs(accuracyDelta).toFixed(0)}%` : null,
         isImproving: true
       };
     }
@@ -99,7 +120,6 @@ const UnifiedProgress = ({ user }) => {
         isImproving: true
       };
     }
-    // Fallback: show accuracy even if stable
     return {
       label: "Accuracy",
       now: `${accuracyNow.toFixed(0)}%`,
@@ -110,10 +130,12 @@ const UnifiedProgress = ({ user }) => {
   
   const improvingStat = getImprovingStat();
   
-  // Get one honest encouraging line
+  // Get encouragement based on real data
   const getEncouragement = () => {
+    if (wins > losses && scoreDelta > 0) return "Strong form. Keep it up.";
     if (scoreDelta > 5) return "Real progress. Keep going.";
     if (scoreDelta > 0) return "Moving forward.";
+    if (wins > losses) return "Winning more than losing.";
     if (improvingStat.isImproving) return "The work is showing.";
     if (gamesAnalyzed >= 10) return "Consistency builds strength.";
     return "Keep playing. Data builds over time.";
@@ -121,7 +143,7 @@ const UnifiedProgress = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-md mx-auto px-4 py-12 min-h-[60vh]" data-testid="progress-page">
+      <div className="max-w-md mx-auto px-4 py-10 min-h-[60vh]" data-testid="progress-page">
         
         {/* ═══════════════════════════════════════════════════════════════
             SCORE: NOW vs BEFORE
@@ -129,7 +151,7 @@ const UnifiedProgress = ({ user }) => {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-10"
         >
           <p className="text-xs text-zinc-500 uppercase tracking-widest mb-6">Thinking Score</p>
           
@@ -171,13 +193,54 @@ const UnifiedProgress = ({ user }) => {
         </motion.div>
 
         {/* ═══════════════════════════════════════════════════════════════
+            RECENT FORM - Real game results
+        ═══════════════════════════════════════════════════════════════ */}
+        {recentForm.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-10"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-zinc-500 uppercase tracking-wide">Recent Form</p>
+              <p className="text-xs text-zinc-600">
+                {wins}W {draws > 0 ? `${draws}D ` : ''}{losses}L
+              </p>
+            </div>
+            
+            {/* Game result bars */}
+            <div className="flex items-end gap-1.5 h-12">
+              {recentForm.map((result, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ height: 0 }}
+                  animate={{ height: result === 'win' ? '100%' : result === 'draw' ? '50%' : '30%' }}
+                  transition={{ delay: 0.1 + i * 0.05, duration: 0.3 }}
+                  className={`flex-1 rounded-sm ${
+                    result === 'win' ? 'bg-emerald-500' : 
+                    result === 'draw' ? 'bg-zinc-500' : 
+                    'bg-red-500/70'
+                  }`}
+                  title={`Game ${i + 1}: ${result}`}
+                />
+              ))}
+            </div>
+            
+            <p className="text-xs text-zinc-600 mt-2 text-center">
+              Last {recentForm.length} games
+            </p>
+          </motion.div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
             ONE IMPROVING STAT
         ═══════════════════════════════════════════════════════════════ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="text-center mb-12"
+          transition={{ delay: 0.15 }}
+          className="text-center mb-10"
         >
           <div className="inline-block px-6 py-4 rounded-2xl bg-zinc-900 border border-zinc-800">
             <p className="text-xs text-zinc-500 uppercase tracking-wide mb-2">{improvingStat.label}</p>
@@ -203,12 +266,12 @@ const UnifiedProgress = ({ user }) => {
           <p className="text-zinc-600 text-sm mt-2">{gamesAnalyzed} games analyzed</p>
         </motion.div>
 
-        {/* Sync - minimal */}
+        {/* Sync */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="flex justify-center mt-12"
+          transition={{ delay: 0.25 }}
+          className="flex justify-center mt-10"
         >
           <Button
             variant="ghost"
