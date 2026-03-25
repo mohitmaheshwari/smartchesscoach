@@ -113,19 +113,15 @@ async def check_opening_and_offer_teaching(
             "description": "Interactive trap lesson - I'll show you the moves"
         })
 
-    # Show available variations from JSON
+    # Show available variations from JSON (only if deep theory exists)
     variations = get_available_variations(opening_key)
-    if variations:
+    has_deep_theory = len(variations) > 0
+    
+    if has_deep_theory:
         first_var = variations[0]
         options.append({
             "id": "learn_main_line",
             "label": f"Learn the {first_var['name']} ({first_var['total_moves']} moves deep)",
-            "description": "Step-by-step opening theory"
-        })
-    else:
-        options.append({
-            "id": "learn_main_line",
-            "label": "Learn the main line",
             "description": "Step-by-step opening theory"
         })
 
@@ -190,6 +186,10 @@ async def start_opening_lesson(
     if lesson_type == "learn_trap":
         return await _start_trap_lesson(db, session_id, session_doc, opening_key, opening_name, user_plays_white, progress)
     else:
+        # Check if deep theory exists before starting
+        variations = get_available_variations(opening_key)
+        if not variations:
+            return {"error": f"No deep theory available yet for the {opening_name}. We're adding more openings soon! Try playing and the coach will guide you."}
         return await _start_main_line_lesson(db, session_id, session_doc, opening_key, opening_name, user_plays_white, progress)
 
 
