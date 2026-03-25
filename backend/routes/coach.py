@@ -718,7 +718,8 @@ async def get_game_decryption_v5(
                 "decryption_data": analysis.get("decryption_v5_data", []),
                 "status": "complete",
                 "generated_at": analysis.get("decryption_v5_generated_at"),
-                "concepts_to_acknowledge": concepts_to_acknowledge
+                "concepts_to_acknowledge": concepts_to_acknowledge,
+                "habits_report": analysis.get("habits_report")
             }
         
         # Check if generation is in progress
@@ -760,12 +761,43 @@ async def get_game_decryption_v5(
                     )
                     
                     if decryption_data:
+                        # Generate habits analysis for the game
+                        habits_report = None
+                        try:
+                            from services.player_habits_service import analyze_game_habits, update_player_profile
+                            
+                            # Build move_history from decryption data for habits analysis
+                            move_history_for_habits = []
+                            for md in decryption_data:
+                                if md.get("is_user_move"):
+                                    move_history_for_habits.append({
+                                        "by": "player",
+                                        "move": md.get("move_san"),
+                                        "time_spent": md.get("time_spent", 0),
+                                        "evaluation": md.get("severity", "good"),
+                                        "fen_before": md.get("fen_before")
+                                    })
+                            
+                            habits_report = analyze_game_habits(
+                                move_history=move_history_for_habits,
+                                evaluations=move_evaluations,
+                                behavior_events=[],
+                                user_color=user_color
+                            )
+                            
+                            # Update aggregate player profile
+                            if habits_report:
+                                await update_player_profile(db, user.user_id, habits_report)
+                        except Exception as e:
+                            logger.warning(f"Habits analysis failed (non-critical): {e}")
+                        
                         await db.game_analyses.update_one(
                             {"game_id": game_id},
                             {"$set": {
                                 "decryption_v5_data": decryption_data,
                                 "decryption_v5_generated_at": datetime.now(timezone.utc).isoformat(),
-                                "decryption_v5_generating": False
+                                "decryption_v5_generating": False,
+                                "habits_report": habits_report
                             }}
                         )
                         logger.info(f"[DECRYPTION V5] Background generation complete for {game_id}")

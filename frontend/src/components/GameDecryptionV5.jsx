@@ -58,6 +58,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
   const [feedbackText, setFeedbackText] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
+  const [habitsReport, setHabitsReport] = useState(null);
   const [showingFutureMoves, setShowingFutureMoves] = useState(false);
   const [futureMoveIndex, setFutureMoveIndex] = useState(0);
   const [highlights, setHighlights] = useState([]);
@@ -103,6 +104,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
       }
       
       setDecryptionData(data.decryption_data);
+      
+      // Store habits report if available
+      if (data.habits_report) {
+        setHabitsReport(data.habits_report);
+      }
       
       // Pre-load acknowledged concepts
       if (data.decryption_data) {
@@ -380,7 +386,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
       {/* RIGHT: Coaching */}
       <div className="lg:w-1/2 space-y-4">
         {currentMoveIndex === -1 ? (
-          <GameStartCard decryptionData={decryptionData} />
+          <GameStartCard decryptionData={decryptionData} habitsReport={habitsReport} />
         ) : (
           <MoveCoachingCardV5 
             move={currentMove}
@@ -414,7 +420,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
 
 // ─── GAME START CARD ────────────────────────────────────────────────
 
-const GameStartCard = ({ decryptionData }) => {
+const GameStartCard = ({ decryptionData, habitsReport }) => {
   if (!decryptionData?.length) return null;
   
   // Calculate stats
@@ -453,6 +459,80 @@ const GameStartCard = ({ decryptionData }) => {
             <p className="text-xs text-zinc-500">Mistakes</p>
           </div>
         </div>
+        
+        {/* Player Habits Report */}
+        {habitsReport && (
+          <div className="space-y-3" data-testid="habits-report">
+            <div className="flex items-center gap-2">
+              <Brain className="w-4 h-4 text-violet-400" />
+              <h4 className="text-sm font-semibold text-violet-400">Your Habits This Game</h4>
+              <span className="ml-auto text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
+                Score: {habitsReport.overall_habits_score}/100
+              </span>
+            </div>
+            
+            {/* Time Management */}
+            {habitsReport.time_management && (
+              <div className="bg-zinc-800/40 rounded-lg p-3 border border-zinc-700/50">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-zinc-400 font-medium">Time Management</span>
+                  <span className={`text-xs font-bold ${
+                    habitsReport.time_management.score >= 70 ? "text-emerald-400" :
+                    habitsReport.time_management.score >= 50 ? "text-amber-400" : "text-red-400"
+                  }`}>{habitsReport.time_management.score}/100</span>
+                </div>
+                <p className="text-xs text-zinc-300">{habitsReport.time_management.insight}</p>
+                <div className="flex gap-4 mt-2 text-xs text-zinc-500">
+                  <span>Avg: {habitsReport.time_management.avg_move_time}s</span>
+                  <span>Fast: {habitsReport.time_management.fast_moves}</span>
+                  <span>Slow: {habitsReport.time_management.slow_moves}</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Phase Performance */}
+            {habitsReport.phase_performance && (
+              <div className="bg-zinc-800/40 rounded-lg p-3 border border-zinc-700/50">
+                <span className="text-xs text-zinc-400 font-medium block mb-2">Phase Accuracy</span>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {["opening", "middlegame", "endgame"].map(phase => {
+                    const data = habitsReport.phase_performance[phase];
+                    if (!data || !data.moves) return null;
+                    const isWeakest = habitsReport.phase_performance.weakest_phase === phase;
+                    return (
+                      <div key={phase} className={`rounded p-2 ${isWeakest ? "bg-red-500/10 border border-red-500/20" : "bg-zinc-700/30"}`}>
+                        <p className={`text-lg font-bold ${
+                          data.accuracy >= 70 ? "text-emerald-400" :
+                          data.accuracy >= 50 ? "text-amber-400" : "text-red-400"
+                        }`}>{data.accuracy}%</p>
+                        <p className="text-xs text-zinc-500 capitalize">{phase}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-zinc-300 mt-2">{habitsReport.phase_performance.insight}</p>
+              </div>
+            )}
+            
+            {/* Recommendations */}
+            {habitsReport.recommendations?.length > 0 && (
+              <div className="bg-violet-500/10 rounded-lg p-3 border border-violet-500/20">
+                <span className="text-xs text-violet-400 font-medium block mb-2">Recommendations</span>
+                {habitsReport.recommendations.map((rec, i) => (
+                  <div key={i} className="flex items-start gap-2 mb-2 last:mb-0">
+                    <span className="text-xs mt-0.5 shrink-0">
+                      {rec.priority === 1 ? "🔴" : "🟡"}
+                    </span>
+                    <div>
+                      <span className="text-xs font-medium text-white">{rec.area}: </span>
+                      <span className="text-xs text-zinc-300">{rec.message}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="bg-zinc-800/30 rounded-lg p-4">
           <p className="text-zinc-300 text-sm">

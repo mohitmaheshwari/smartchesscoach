@@ -1793,6 +1793,7 @@ async def get_interactive_coaching(
         raise HTTPException(status_code=500, detail="Database not initialized")
     
     from services.shared_coaching_v5 import generate_move_coaching, generate_coach_move_explanation, CoachingContext, quick_stockfish_eval
+    from services.player_habits_service import generate_behavioral_coaching, get_player_profile
     
     session_id = request.get("session_id")
     phase = request.get("phase")  # "user_move", "coach_move", or None (both)
@@ -1813,6 +1814,7 @@ async def get_interactive_coaching(
     result = {
         "user_move_coaching": None,
         "coach_move_coaching": None,
+        "behavioral_coaching": None,
         "is_user_turn": True
     }
     
@@ -1895,6 +1897,26 @@ async def get_interactive_coaching(
             coaching_dict = coaching.to_dict()
             coaching_dict["move_san"] = move_san
             result["user_move_coaching"] = coaching_dict
+            
+            # === BEHAVIORAL COACHING (Smart Coach) ===
+            try:
+                behavior_events = session_doc.get("behavior_events", [])
+                player_profile = await get_player_profile(db, user.user_id)
+                
+                behavioral = generate_behavioral_coaching(
+                    move_san=move_san,
+                    time_spent=last_user_move.get("time_spent", 0),
+                    move_quality=coaching.severity,
+                    game_phase=phase_str,
+                    behavior_events=behavior_events,
+                    move_history=move_history,
+                    player_profile=player_profile
+                )
+                
+                if behavioral:
+                    result["behavioral_coaching"] = behavioral
+            except Exception as e:
+                logger.warning(f"Behavioral coaching failed (non-critical): {e}")
             
         except Exception as e:
             logger.error(f"Error generating V5 user move coaching: {e}")

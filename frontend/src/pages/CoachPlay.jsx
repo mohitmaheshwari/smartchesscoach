@@ -171,6 +171,9 @@ const CoachPlay = ({ user }) => {
     coachMoveCoaching: null
   });
   
+  // Behavioral Coaching State - Smart Coach habits feedback
+  const [behavioralCoaching, setBehavioralCoaching] = useState(null);
+  
   // NEW: Clean UX State - One insight at a time
   const [currentInsight, setCurrentInsight] = useState(null);
   const [isCoachThinking, setIsCoachThinking] = useState(false);
@@ -928,6 +931,9 @@ const CoachPlay = ({ user }) => {
             userMoveCoaching: data.user_move_coaching
           }));
         }
+        
+        // Behavioral coaching (Smart Coach)
+        setBehavioralCoaching(data.behavioral_coaching || null);
       }
     } catch (error) {
       console.error("Error fetching user move coaching:", error);
@@ -1825,6 +1831,7 @@ const CoachPlay = ({ user }) => {
     setMoveFeedback(null);
     setV5Coaching(null);  // Reset V5 coaching
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
+    setBehavioralCoaching(null);
     setChatMessages([]);
     // Reset pre-move checklist state
     setHasCastled(false);
@@ -2810,6 +2817,47 @@ const CoachPlay = ({ user }) => {
                     isAcknowledged={acknowledgedConcepts.has(v5Coaching.concept_id)}
                     showAcknowledgeButton={true}
                   />
+                )}
+                
+                {/* Behavioral Coaching - Smart Coach habits feedback */}
+                {behavioralCoaching && (
+                  <div 
+                    data-testid="behavioral-coaching"
+                    className={`p-3 rounded-lg border ${
+                      behavioralCoaching.severity === "high" 
+                        ? "bg-red-500/10 border-red-500/30" 
+                        : behavioralCoaching.type === "positive"
+                          ? "bg-emerald-500/10 border-emerald-500/30"
+                          : "bg-orange-500/10 border-orange-500/30"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg shrink-0">
+                        {behavioralCoaching.type === "positive" ? "⭐" :
+                         behavioralCoaching.type === "emotional" ? "🧠" :
+                         behavioralCoaching.type === "calculation" ? "🧮" :
+                         behavioralCoaching.type === "pattern" ? "🔄" : "⏱️"}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium mb-1 ${
+                          behavioralCoaching.type === "positive" ? "text-emerald-300" :
+                          behavioralCoaching.severity === "high" ? "text-red-300" : "text-orange-300"
+                        }`}>
+                          {behavioralCoaching.type === "time_management" ? "Time Check" :
+                           behavioralCoaching.type === "emotional" ? "Mental Check" :
+                           behavioralCoaching.type === "calculation" ? "Calculation" :
+                           behavioralCoaching.type === "pattern" ? "Pattern Alert" :
+                           behavioralCoaching.type === "positive" ? "Nice!" : "Habit"}
+                        </p>
+                        <p className="text-sm text-white/90">{behavioralCoaching.message}</p>
+                        {behavioralCoaching.actionable_tip && (
+                          <p className="text-xs text-muted-foreground mt-2 italic">
+                            Tip: {behavioralCoaching.actionable_tip}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 )}
                 
                 {/* Teaching Mode Instruction - if active */}
