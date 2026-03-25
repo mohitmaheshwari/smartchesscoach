@@ -46,19 +46,11 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 
 #### 5. Opening Theory System - CONSOLIDATED (March 2025)
 - **Single source of truth**: `/data/coaching/opening_theory_tree.json`
-- **8 openings with deep theory** (12-24 moves per variation):
-  - Italian Game (Giuoco Piano, Two Knights: 15 moves each)
-  - French Defense (Advance 12, Classical 16, Winawer 16, Tarrasch 16, Exchange 16)
-  - Queen's Gambit (QGD Orthodox 18, QGA 16, Slav 16)
-  - London System (Main Line 17, vs Early c5 13)
-  - Sicilian Dragon (Yugoslav Attack 22)
-  - Caro-Kann (Classical 19, Advance 14)
-  - Sicilian Najdorf (English Attack 24)
-  - Ruy Lopez (Morphy Defense 20)
+- **24 openings, 49 variations, all 12-26 moves deep** - zero stubs remaining
 - **JSON loader service**: `opening_theory_json_service.py`
 - **Legacy hardcoded data removed**: `opening_mastery.py` now loads from JSON
 - **Critical position enrichment**: Lesson instructions include context-aware explanations
-- **16 stub openings** for detection compatibility (no deep theory yet)
+- Full opening coverage: Italian, French, Queen's Gambit, London, Sicilian (General/Dragon/Najdorf), Caro-Kann, Ruy Lopez, Philidor, Vienna, Scotch, Petrov, King's Indian, Grunfeld, Nimzo-Indian, Queen's Indian, Slav, QGD, Benoni, Budapest, Dutch, Scandinavian, Nimzowitsch
 
 ---
 
@@ -149,7 +141,6 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 - [ ] Opening Proficiency in Coach Panel (show mastery, suggest variations)
 - [ ] Pattern Memory Injection ("You've made this mistake 3 times...")
 - [ ] Refactor `GameDecryptionV5.jsx` to use shared `V5CoachingCard.jsx`
-- [ ] Add deep theory for remaining 16 stub openings
 
 ### P2 - Medium Priority
 - [ ] Admin UI for theory database management
@@ -166,6 +157,7 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 
 ## Testing Status
 - **Opening Theory Consolidation (March 2025)**: Backend 21/21 tests passed, Frontend 100% verified
+- **Expanded Opening Theory (March 2025)**: 16 new openings added, Backend 28/28 tests passed, Frontend 100%
 - **Player Habits Engine (March 2025)**: Backend 7/9, Frontend 100%
 - **Two-Moment Coaching Flow (March 2025)**: Backend 9/9, Frontend 100%
 - **V5 Pipeline Unified (March 2025)**: Backend 10/10, Frontend 100%
