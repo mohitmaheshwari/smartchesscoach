@@ -194,7 +194,11 @@ async def start_opening_lesson(
 
 
 async def _start_main_line_lesson(db, session_id, session_doc, opening_key, opening_name, user_plays_white, progress):
-    """Start a main line lesson using the JSON theory data."""
+    """Start a main line lesson using the JSON theory data.
+    
+    Resumes from the current board position — matches moves already played
+    against the lesson line and picks up from there.
+    """
     import chess
 
     # Get available variations from JSON
@@ -215,22 +219,47 @@ async def _start_main_line_lesson(db, session_id, session_doc, opening_key, open
     common_learnings = lesson.get("common_learnings", [])
     critical_positions = lesson.get("critical_positions", {})
 
-    logger.info(f"Starting main line lesson: {variation_name} with {len(main_line_moves)} moves")
+    # --- Match moves already played on the board against the lesson line ---
+    move_history = session_doc.get("move_history", [])
+    played_sans = [m.get("move", "") or m.get("san", "") for m in move_history if m.get("move") or m.get("san")]
+
+    def normalize(m):
+        return m.replace("+", "").replace("#", "").replace("!", "").replace("?", "").strip().lower()
+
+    resume_index = 0
+    for i, lesson_move in enumerate(main_line_moves):
+        if i < len(played_sans) and normalize(played_sans[i]) == normalize(lesson_move):
+            resume_index = i + 1
+        else:
+            break
+
+    # Build the FEN at the resume point by replaying lesson moves up to resume_index
+    board = chess.Board()
+    for i in range(resume_index):
+        try:
+            board.push_san(main_line_moves[i])
+        except Exception as e:
+            logger.error(f"Error replaying lesson move {i} ({main_line_moves[i]}): {e}")
+            resume_index = i
+            break
+
+    current_fen = board.fen()
+    logger.info(f"Starting main line lesson: {variation_name} with {len(main_line_moves)} moves, resuming from move {resume_index}")
 
     teaching_data = {
         "variation_name": variation_name,
         "variation_key": var_key,
         "main_line_moves": main_line_moves,
-        "current_move_index": 0,
+        "current_move_index": resume_index,
         "key_ideas": common_learnings[:5],
         "plans_white": [white_plan] if white_plan else [],
         "plans_black": [black_plan] if black_plan else [],
         "critical_positions": {str(k): v for k, v in critical_positions.items()},
         "user_plays_white": user_plays_white,
-        "teaching_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "teaching_fen": current_fen,
         "lesson_start_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         "original_fen": session_doc.get("current_fen"),
-        "original_move_history": session_doc.get("move_history", []),
+        "original_move_history": move_history,
     }
 
     mode = "main_line"
@@ -241,10 +270,12 @@ async def _start_main_line_lesson(db, session_id, session_doc, opening_key, open
             "teaching_mode": mode,
             "teaching_opening": opening_key,
             "teaching_data": teaching_data,
+            "current_fen": current_fen,
         }}
     )
 
-    first_instruction = _get_teaching_instruction(teaching_data, mode, 0)
+    remaining = len(main_line_moves) - resume_index
+    first_instruction = _get_teaching_instruction(teaching_data, mode, resume_index)
 
     result = {
         "success": True,
@@ -252,21 +283,23 @@ async def _start_main_line_lesson(db, session_id, session_doc, opening_key, open
         "opening_name": opening_name,
         "lesson_name": variation_name,
         "total_moves": len(main_line_moves),
-        "current_move_index": 0,
+        "current_move_index": resume_index,
+        "moves_already_played": resume_index,
+        "remaining_moves": remaining,
         "instruction": first_instruction,
-        "teaching_fen": teaching_data["teaching_fen"],
+        "teaching_fen": current_fen,
         "key_ideas": teaching_data.get("key_ideas", []),
         "user_plays_white": user_plays_white,
     }
 
-    # Auto-play if first move is coach's
+    # Auto-play if next move is coach's (not user's turn)
     if not first_instruction.get("is_user_move") and not first_instruction.get("complete"):
-        auto_result = await _auto_play_teaching_move(db, session_id, teaching_data, mode, 0)
+        auto_result = await _auto_play_teaching_move(db, session_id, teaching_data, mode, resume_index)
         if auto_result.get("auto_played"):
             result["auto_played_move"] = auto_result.get("move_played")
             result["instruction"] = auto_result.get("next_instruction")
             result["teaching_fen"] = auto_result.get("teaching_fen")
-            result["current_move_index"] = auto_result.get("new_move_index", 1)
+            result["current_move_index"] = auto_result.get("new_move_index", resume_index + 1)
 
     return result
 
