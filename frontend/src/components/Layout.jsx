@@ -28,7 +28,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Zap
+  Zap,
+  BookOpen
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { API } from "@/App";
@@ -164,6 +165,7 @@ const Layout = ({ children, user }) => {
     { name: 'Home', href: '/home', icon: Home },
     { name: 'Analyze', href: '/lab', icon: FlaskConical },
     { name: 'Train', href: '/training', icon: Target },
+    { name: 'Openings', href: '/openings-overview', icon: BookOpen },
     { name: 'Progress', href: '/progress', icon: TrendingUp },
     { name: 'Reflect', href: '/reflect', icon: Brain },
   ];
