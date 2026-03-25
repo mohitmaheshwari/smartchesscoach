@@ -13,7 +13,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-simulator.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-sim.preview.emergentagent.com')
 
 # Test user credentials
 DEV_USER_COOKIE = {"dev_user_id": "user_62852a1b64e7"}

@@ -6,7 +6,7 @@ import requests
 import os
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-simulator.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-sim.preview.emergentagent.com').rstrip('/')
 TEST_GAME_ID = "2d46940d-dfce-4534-9935-9b1ba3829c92"
 
 

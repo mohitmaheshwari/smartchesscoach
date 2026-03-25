@@ -12,7 +12,7 @@ Tests:
 import pytest
 import uuid
 
-BASE_URL = "https://thinking-simulator.preview.emergentagent.com"
+BASE_URL = "https://thinking-sim.preview.emergentagent.com"
 
 
 class TestCoachPlayStart:
