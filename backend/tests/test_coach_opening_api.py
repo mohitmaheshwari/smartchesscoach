@@ -18,7 +18,7 @@ import time
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://progress-track-61.preview.emergentagent.com"
+    BASE_URL = "https://plateau-breaker-2.preview.emergentagent.com"
 
 
 def get_messages_list(msg_response_json):

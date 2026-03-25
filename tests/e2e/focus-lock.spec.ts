@@ -11,7 +11,7 @@ import { devLogin, dismissToasts, hideEmergentBadge } from '../fixtures/helpers'
  * - CTA buttons work
  */
 
-const BASE_URL = process.env.BASE_URL || 'https://progress-track-61.preview.emergentagent.com';
+const BASE_URL = process.env.BASE_URL || 'https://plateau-breaker-2.preview.emergentagent.com';
 
 test.describe('Focus Lock Dashboard Integration', () => {
   test.beforeEach(async ({ page }) => {

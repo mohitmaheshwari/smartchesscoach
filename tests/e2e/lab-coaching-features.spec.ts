@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts } from '../fixtures/helpers';
 
-const BASE_URL = 'https://progress-track-61.preview.emergentagent.com';
+const BASE_URL = 'https://plateau-breaker-2.preview.emergentagent.com';
 
 /**
  * Lab Page Coaching Features Tests

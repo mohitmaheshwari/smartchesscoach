@@ -12,7 +12,7 @@ import pytest
 import uuid
 import time
 
-BASE_URL = "https://progress-track-61.preview.emergentagent.com"
+BASE_URL = "https://plateau-breaker-2.preview.emergentagent.com"
 
 
 class TestGuardianEvaluate:

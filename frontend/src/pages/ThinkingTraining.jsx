@@ -43,7 +43,6 @@ import {
 // Steps in the training flow
 const STEPS = {
   CONFRONT: "confront",
-  DIAGNOSE: "diagnose", 
   PATTERN: "pattern",
   TEST: "test",
   COMPLETE: "complete"
@@ -64,11 +63,6 @@ const ThinkingTraining = ({ user }) => {
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [lastMove, setLastMove] = useState(null);
   const [arrows, setArrows] = useState([]);
-  
-  // Diagnose step state
-  const [userThought, setUserThought] = useState("");
-  const [diagnosisResult, setDiagnosisResult] = useState(null);
-  const [diagnosing, setDiagnosing] = useState(false);
   
   // Test step state
   const [testPuzzle, setTestPuzzle] = useState(null);
@@ -131,58 +125,6 @@ const ThinkingTraining = ({ user }) => {
     }
   };
 
-  // Handle diagnosis submission
-  const handleDiagnose = async () => {
-    if (!userThought.trim() || !puzzle) return;
-    
-    setDiagnosing(true);
-    try {
-      // Analyze the user's plan
-      const res = await fetch(`${API}/analyze-plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          fen: puzzle.fen,
-          user_move: puzzle.user_move,
-          plan_moves: [], // User didn't play out moves, just explained
-          plan_reasoning: userThought
-        })
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setDiagnosisResult({
-          gap_type: data.analysis?.gap_type || puzzle.issue_type,
-          explanation: data.analysis?.explanation || puzzle.critical_detail,
-          lesson: data.analysis?.lesson || puzzle.thinking_habit,
-          correct_move: puzzle.correct_move,
-          principle: puzzle.principle
-        });
-      } else {
-        // Fallback to puzzle data
-        setDiagnosisResult({
-          gap_type: puzzle.issue_type,
-          explanation: puzzle.critical_detail,
-          lesson: puzzle.thinking_habit,
-          correct_move: puzzle.correct_move,
-          principle: puzzle.principle
-        });
-      }
-    } catch (e) {
-      // Fallback
-      setDiagnosisResult({
-        gap_type: puzzle.issue_type,
-        explanation: puzzle.critical_detail,
-        lesson: puzzle.thinking_habit,
-        correct_move: puzzle.correct_move,
-        principle: puzzle.principle
-      });
-    } finally {
-      setDiagnosing(false);
-    }
-  };
-
   // Handle test move
   const handleTestMove = useCallback((from, to, promotion) => {
     if (!testPuzzle || testState !== "thinking") return false;
@@ -241,12 +183,7 @@ const ThinkingTraining = ({ user }) => {
   const nextStep = () => {
     switch (step) {
       case STEPS.CONFRONT:
-        setStep(STEPS.DIAGNOSE);
-        break;
-      case STEPS.DIAGNOSE:
-        if (diagnosisResult) {
-          setStep(STEPS.PATTERN);
-        }
+        setStep(STEPS.PATTERN);
         break;
       case STEPS.PATTERN:
         if (testPuzzle) {
@@ -270,8 +207,6 @@ const ThinkingTraining = ({ user }) => {
   // Reset for another round
   const startAgain = () => {
     setStep(STEPS.CONFRONT);
-    setUserThought("");
-    setDiagnosisResult(null);
     setTestState("thinking");
     setTestAttempts(0);
     setArrows([]);
@@ -322,10 +257,10 @@ const ThinkingTraining = ({ user }) => {
         <div className="mb-6">
           <div className="flex items-center justify-between text-xs text-zinc-500 mb-2">
             <span>Training Progress</span>
-            <span>{step === STEPS.COMPLETE ? "Complete!" : `Step ${Object.values(STEPS).indexOf(step) + 1} of 4`}</span>
+            <span>{step === STEPS.COMPLETE ? "Complete!" : `Step ${Object.values(STEPS).indexOf(step) + 1} of 3`}</span>
           </div>
           <Progress 
-            value={(Object.values(STEPS).indexOf(step) + 1) * 25} 
+            value={(Object.values(STEPS).indexOf(step) + 1) * 33.33} 
             className="h-1"
           />
         </div>
@@ -420,92 +355,7 @@ const ThinkingTraining = ({ user }) => {
               )}
 
               {/* ═══════════════════════════════════════════════════════════
-                  STEP 2: DIAGNOSE
-              ═══════════════════════════════════════════════════════════ */}
-              {step === STEPS.DIAGNOSE && (
-                <motion.div
-                  key="diagnose"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                >
-                  <Card className="bg-zinc-900/50 border-zinc-800">
-                    <CardContent className="p-6 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Eye className="w-5 h-5 text-violet-500" />
-                        <h2 className="text-lg font-semibold">Diagnose</h2>
-                      </div>
-                      
-                      {!diagnosisResult ? (
-                        <>
-                          <p className="text-zinc-300">
-                            What were you thinking when you played{" "}
-                            <span className="font-mono">{puzzle.user_move}</span>?
-                          </p>
-                          
-                          <Textarea
-                            value={userThought}
-                            onChange={(e) => setUserThought(e.target.value)}
-                            placeholder="e.g., I wanted to attack their king... / I thought I was winning material..."
-                            className="min-h-[100px] bg-zinc-800/50 border-zinc-700"
-                          />
-                          
-                          <Button 
-                            onClick={handleDiagnose} 
-                            disabled={!userThought.trim() || diagnosing}
-                            className="w-full"
-                          >
-                            {diagnosing ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                Analyzing...
-                              </>
-                            ) : (
-                              <>
-                                <Brain className="w-4 h-4 mr-2" />
-                                Analyze My Thinking
-                              </>
-                            )}
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <div className="p-3 rounded bg-violet-500/10 border border-violet-500/20">
-                            <p className="text-xs text-violet-400 mb-1">Your thinking</p>
-                            <p className="text-sm text-zinc-300 italic">"{userThought}"</p>
-                          </div>
-                          
-                          <div className="p-4 rounded bg-zinc-800/50 space-y-3">
-                            <div>
-                              <p className="text-xs text-zinc-500 mb-1">The Problem</p>
-                              <p className="text-sm text-zinc-200">{diagnosisResult.explanation}</p>
-                            </div>
-                            
-                            {diagnosisResult.principle && (
-                              <div className="pt-3 border-t border-zinc-700">
-                                <p className="text-xs text-emerald-400 mb-1">
-                                  {diagnosisResult.principle.name}
-                                </p>
-                                <p className="text-sm text-zinc-300">
-                                  {diagnosisResult.principle.quick_tip}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <Button onClick={nextStep} className="w-full">
-                            See the Pattern
-                            <ChevronRight className="w-4 h-4 ml-2" />
-                          </Button>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-              {/* ═══════════════════════════════════════════════════════════
-                  STEP 3: PATTERN LOCK
+                  STEP 2: PATTERN LOCK
               ═══════════════════════════════════════════════════════════ */}
               {step === STEPS.PATTERN && (
                 <motion.div

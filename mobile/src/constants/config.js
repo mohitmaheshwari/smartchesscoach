@@ -1,5 +1,5 @@
 // API Configuration
-export const API_URL = 'https://progress-track-61.preview.emergentagent.com/api';
+export const API_URL = 'https://plateau-breaker-2.preview.emergentagent.com/api';
 
 // Google OAuth
 export const GOOGLE_CLIENT_ID = ''; // Will be configured for mobile

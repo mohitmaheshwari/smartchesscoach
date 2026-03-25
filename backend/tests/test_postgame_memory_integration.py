@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 import uuid
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://progress-track-61.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://plateau-breaker-2.preview.emergentagent.com')
 
 
 class TestPostGameAnalysisMemory:
