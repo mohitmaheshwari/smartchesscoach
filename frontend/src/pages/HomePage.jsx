@@ -13,6 +13,7 @@ import {
   Swords,
   Flame,
   Trophy,
+  ChevronRight,
 } from "lucide-react";
 
 const HomePage = ({ user }) => {
@@ -37,6 +38,7 @@ const HomePage = ({ user }) => {
 
   const weakness = getTopWeakness(dashboardData);
   const progress = getProgress(dashboardData);
+  const lastGame = getLastGame(dashboardData);
 
   if (loading) {
     return (
@@ -176,6 +178,26 @@ const HomePage = ({ user }) => {
             </div>
           </div>
         </motion.div>
+
+        {/* Small "Review last game" link */}
+        {lastGame && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.22 }}
+          >
+            <button
+              onClick={() => navigate(`/game/${lastGame.gameId}`)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700 transition-colors group"
+              data-testid="review-last-game-link"
+            >
+              <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">
+                Review last game vs <span className="text-zinc-200 font-medium">{lastGame.opponent}</span>
+              </span>
+              <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+            </button>
+          </motion.div>
+        )}
       </div>
     </Layout>
   );
@@ -218,6 +240,15 @@ function getTopWeakness(data) {
   };
 
   return info;
+}
+
+function getLastGame(data) {
+  const games = data?.analyzed_list || [];
+  if (!games.length) return null;
+  const g = games[0];
+  const userColor = g.user_color || "white";
+  const opponent = userColor === "white" ? (g.black_player || "Opponent") : (g.white_player || "Opponent");
+  return { gameId: g.game_id, opponent };
 }
 
 function getProgress(data) {
