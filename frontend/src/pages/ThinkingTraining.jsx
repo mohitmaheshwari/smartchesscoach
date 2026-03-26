@@ -10,7 +10,7 @@
  * Each position: interactive board → find the best move → feedback + community stats
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
@@ -52,6 +52,7 @@ const ThinkingTraining = ({ user }) => {
   const [patternStats, setPatternStats] = useState([]);
   const [communityCount, setCommunityCount] = useState(0);
   const [feedMeta, setFeedMeta] = useState({ own_count: 0, community_count: 0 });
+  const [activeFilter, setActiveFilter] = useState("all"); // "all" or pattern_type
 
   // Current position state
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -99,11 +100,25 @@ const ThinkingTraining = ({ user }) => {
 
   const currentPosition = positions[currentIndex] || null;
 
+  // Get unique pattern types for filter tabs
+  const patternTypes = useMemo(() => {
+    const types = new Set(positions.map((p) => p.pattern_type));
+    return Array.from(types);
+  }, [positions]);
+
+  // Filtered positions based on active filter
+  const filteredPositions = useMemo(() => {
+    if (activeFilter === "all") return positions;
+    return positions.filter((p) => p.pattern_type === activeFilter);
+  }, [positions, activeFilter]);
+
+  const currentFiltered = filteredPositions[currentIndex] || null;
+
   const handleMove = useCallback(
     (from, to, promotion) => {
-      if (!currentPosition || solveState !== "ready") return false;
+      if (!currentFiltered || solveState !== "ready") return false;
 
-      const chess = new Chess(currentPosition.fen);
+      const chess = new Chess(currentFiltered.fen);
       try {
         const move = chess.move({ from, to, promotion: promotion || "q" });
         if (!move) return false;
@@ -117,7 +132,7 @@ const ThinkingTraining = ({ user }) => {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            position_id: currentPosition.position_id,
+            position_id: currentFiltered.position_id,
             user_move: userMoveUci,
             time_taken_seconds: 0,
           }),
@@ -133,8 +148,8 @@ const ThinkingTraining = ({ user }) => {
             } else {
               setSolveState("incorrect");
               // Show what was correct
-              const correctFrom = currentPosition.best_move_uci?.slice(0, 2);
-              const correctTo = currentPosition.best_move_uci?.slice(2, 4);
+              const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
+              const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
               setArrows([
                 { orig: from, dest: to, brush: "red" },
                 ...(correctFrom && correctTo
@@ -146,16 +161,16 @@ const ThinkingTraining = ({ user }) => {
           .catch(() => {
             // Fallback: local check
             const isCorrect =
-              userMoveUci === currentPosition.best_move_uci ||
-              move.san === currentPosition.best_move_san;
+              userMoveUci === currentFiltered.best_move_uci ||
+              move.san === currentFiltered.best_move_san;
             if (isCorrect) {
               setSolveState("correct");
               setSessionSolved((p) => p + 1);
               setArrows([{ orig: from, dest: to, brush: "green" }]);
             } else {
               setSolveState("incorrect");
-              const correctFrom = currentPosition.best_move_uci?.slice(0, 2);
-              const correctTo = currentPosition.best_move_uci?.slice(2, 4);
+              const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
+              const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
               setArrows([
                 { orig: from, dest: to, brush: "red" },
                 ...(correctFrom && correctTo
@@ -170,11 +185,11 @@ const ThinkingTraining = ({ user }) => {
         return false;
       }
     },
-    [currentPosition, solveState]
+    [currentFiltered, solveState]
   );
 
   const goToNext = () => {
-    if (currentIndex < positions.length - 1) {
+    if (currentIndex < filteredPositions.length - 1) {
       setCurrentIndex((i) => i + 1);
       setSolveState("ready");
       setSolveResult(null);
@@ -198,7 +213,17 @@ const ThinkingTraining = ({ user }) => {
     setLastMove(null);
     setSessionSolved(0);
     setSessionTotal(0);
+    setActiveFilter("all");
     fetchTrainingData();
+  };
+
+  const handleFilterChange = (filter) => {
+    setActiveFilter(filter);
+    setCurrentIndex(0);
+    setSolveState("ready");
+    setSolveResult(null);
+    setArrows([]);
+    setLastMove(null);
   };
 
   // Loading
@@ -239,9 +264,9 @@ const ThinkingTraining = ({ user }) => {
     );
   }
 
-  const isOwn = currentPosition?.source_type === "your_game";
-  const hasNext = currentIndex < positions.length - 1;
-  const isFinished = currentIndex === positions.length - 1 && solveState !== "ready";
+  const isOwn = currentFiltered?.source_type === "your_game";
+  const hasNext = currentIndex < filteredPositions.length - 1;
+  const isFinished = currentIndex === filteredPositions.length - 1 && solveState !== "ready";
 
   return (
     <Layout user={user}>
@@ -266,14 +291,45 @@ const ThinkingTraining = ({ user }) => {
               </div>
             )}
             <Badge variant="outline" className="text-xs" data-testid="position-counter">
-              {currentIndex + 1} / {positions.length}
+              {currentIndex + 1} / {filteredPositions.length}
             </Badge>
           </div>
         </div>
 
+        {/* Pattern filter tabs */}
+        {patternTypes.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 mb-3" data-testid="pattern-filter">
+            <button
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                activeFilter === "all"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+              }`}
+              onClick={() => handleFilterChange("all")}
+              data-testid="filter-all"
+            >
+              All ({positions.length})
+            </button>
+            {patternTypes.map((pt) => (
+              <button
+                key={pt}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  activeFilter === pt
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                }`}
+                onClick={() => handleFilterChange(pt)}
+                data-testid={`filter-${pt}`}
+              >
+                {formatPattern(pt)} ({positions.filter((p) => p.pattern_type === pt).length})
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Progress bar */}
         <Progress
-          value={((currentIndex + (solveState !== "ready" ? 1 : 0)) / positions.length) * 100}
+          value={((currentIndex + (solveState !== "ready" ? 1 : 0)) / filteredPositions.length) * 100}
           className="h-1 mb-5"
           data-testid="training-progress"
         />
@@ -283,8 +339,8 @@ const ThinkingTraining = ({ user }) => {
           <div className="lg:col-span-3 space-y-3">
             <div className="aspect-square max-w-[500px] mx-auto" data-testid="training-board">
               <LichessBoard
-                fen={currentPosition.fen}
-                orientation={currentPosition.user_color || "white"}
+                fen={currentFiltered.fen}
+                orientation={currentFiltered.user_color || "white"}
                 viewOnly={solveState !== "ready"}
                 onMove={solveState === "ready" ? handleMove : undefined}
                 lastMove={lastMove}
@@ -297,16 +353,16 @@ const ThinkingTraining = ({ user }) => {
               {isOwn ? (
                 <p className="text-xs text-muted-foreground">
                   <UserIcon className="w-3 h-3 inline mr-1" />
-                  From your game · Move {currentPosition.move_number}
+                  From your game · Move {currentFiltered.move_number}
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
                   <Users className="w-3 h-3 inline mr-1" />
                   From a game by{" "}
                   <span className="font-medium text-foreground">
-                    {currentPosition.source_user_name}
+                    {currentFiltered.source_user_name}
                   </span>
-                  , {currentPosition.source_user_rating}
+                  , {currentFiltered.source_user_rating}
                 </p>
               )}
             </div>
@@ -333,7 +389,7 @@ const ThinkingTraining = ({ user }) => {
                       <p className="text-sm text-muted-foreground">
                         {isOwn
                           ? "You made a mistake here. Can you find the right move now?"
-                          : `A ${currentPosition.source_user_rating}-rated player missed this. Can you find it?`}
+                          : `A ${currentFiltered.source_user_rating}-rated player missed this. Can you find it?`}
                       </p>
 
                       <div className="flex items-center gap-2">
@@ -342,25 +398,25 @@ const ThinkingTraining = ({ user }) => {
                           className="text-xs"
                           data-testid="pattern-badge"
                         >
-                          {formatPattern(currentPosition.pattern_type)}
+                          {formatPattern(currentFiltered.pattern_type)}
                         </Badge>
                         <Badge
                           variant="outline"
                           className={`text-xs ${
-                            currentPosition.difficulty === "easy"
+                            currentFiltered.difficulty === "easy"
                               ? "border-emerald-500/50 text-emerald-500"
-                              : currentPosition.difficulty === "hard"
+                              : currentFiltered.difficulty === "hard"
                               ? "border-red-500/50 text-red-500"
                               : "border-amber-500/50 text-amber-500"
                           }`}
                         >
-                          {currentPosition.difficulty}
+                          {currentFiltered.difficulty}
                         </Badge>
                       </div>
 
-                      {currentPosition.solve_rate > 0 && currentPosition.attempts > 2 && (
+                      {currentFiltered.solve_rate > 0 && currentFiltered.attempts > 2 && (
                         <p className="text-xs text-muted-foreground">
-                          {Math.round(currentPosition.solve_rate)}% solve rate
+                          {Math.round(currentFiltered.solve_rate)}% solve rate
                         </p>
                       )}
                     </CardContent>
@@ -387,19 +443,25 @@ const ThinkingTraining = ({ user }) => {
 
                       <p className="text-sm text-muted-foreground">
                         <span className="font-mono text-emerald-400">
-                          {solveResult?.correct_move || currentPosition.best_move_san}
+                          {solveResult?.correct_move || currentFiltered.best_move_san}
                         </span>{" "}
                         was the right move.
                       </p>
 
                       {solveResult?.miss_rate_at_your_level != null && (
                         <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                          <p className="text-xs text-muted-foreground">
-                            <Users className="w-3 h-3 inline mr-1" />
-                            {solveResult.miss_rate_at_your_level}% of players at your level
-                            missed this
+                          <p className="text-sm text-muted-foreground">
+                            <Users className="w-3.5 h-3.5 inline mr-1.5" />
+                            <span className="text-emerald-400 font-medium">{solveResult.miss_rate_at_your_level}%</span>{" "}
+                            of players at your level missed this
                           </p>
                         </div>
+                      )}
+
+                      {solveResult?.position_solve_rate != null && solveResult.position_solve_rate > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Overall solve rate: {solveResult.position_solve_rate}%
+                        </p>
                       )}
 
                       <div className="flex gap-2">
@@ -445,16 +507,16 @@ const ThinkingTraining = ({ user }) => {
                       <p className="text-sm text-muted-foreground">
                         The best move was{" "}
                         <span className="font-mono text-emerald-400">
-                          {solveResult?.correct_move || currentPosition.best_move_san}
+                          {solveResult?.correct_move || currentFiltered.best_move_san}
                         </span>
                       </p>
 
                       {solveResult?.miss_rate_at_your_level != null && (
                         <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                          <p className="text-xs text-muted-foreground">
-                            <Users className="w-3 h-3 inline mr-1" />
-                            {solveResult.miss_rate_at_your_level}% of players at your level
-                            also missed this
+                          <p className="text-sm text-muted-foreground">
+                            <Users className="w-3.5 h-3.5 inline mr-1.5" />
+                            <span className="text-amber-400 font-medium">{solveResult.miss_rate_at_your_level}%</span>{" "}
+                            of players at your level also missed this
                           </p>
                         </div>
                       )}

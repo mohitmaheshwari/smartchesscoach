@@ -27,7 +27,8 @@ import {
   Minus,
   Swords,
   BookOpen,
-  AlertTriangle
+  AlertTriangle,
+  Brain
 } from "lucide-react";
 
 const HomePage = ({ user }) => {
@@ -266,6 +267,51 @@ const HomePage = ({ user }) => {
         {/* ═══════════════════════════════════════════════════════════════
             RECENT GAME (if exists)
         ═══════════════════════════════════════════════════════════════ */}
+        {/* Habit Insight — quiet improvement signals */}
+        {stats?.habits?.length > 0 && (() => {
+          const activeHabits = stats.habits.filter(h => h.is_active);
+          const improvingHabits = stats.habits.filter(h => h.trend === "improving");
+          const resolvedCount = stats.resolved_habits?.length || 0;
+          
+          if (activeHabits.length === 0 && improvingHabits.length === 0 && resolvedCount === 0) return null;
+          
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+            >
+              <Card className="bg-zinc-900/50 border-zinc-800/50" data-testid="habit-insight-card">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="w-4 h-4 text-purple-400" />
+                    <span className="text-xs text-purple-400 uppercase tracking-wide font-medium">Habits</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {improvingHabits.length > 0 && (
+                      <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                        <TrendingUp className="w-3 h-3" />
+                        {improvingHabits[0].name} is improving
+                      </p>
+                    )}
+                    {activeHabits.length > 0 && !improvingHabits.length && (
+                      <p className="text-xs text-amber-400 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3 h-3" />
+                        Watch: {activeHabits[0].name} ({activeHabits[0].occurrences_recent}x recently)
+                      </p>
+                    )}
+                    {resolvedCount > 0 && (
+                      <p className="text-xs text-zinc-500">
+                        {resolvedCount} habit{resolvedCount !== 1 ? 's' : ''} resolved
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })()}
+
         {lastGame && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
