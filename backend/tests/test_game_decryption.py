@@ -16,7 +16,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://plateau-breaker-2.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://opening-portrait.preview.emergentagent.com').rstrip('/')
 TEST_GAME_ID = "0da0f930-b9b5-4940-be50-a1c2ea6e5e62"
 
 

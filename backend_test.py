@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Test configuration
-BACKEND_URL = "https://plateau-breaker-2.preview.emergentagent.com/api"
+BACKEND_URL = "https://opening-portrait.preview.emergentagent.com/api"
 TEST_USER_ID = "user_4dad2b14e380"
 SESSION_TOKEN = None  # Will be obtained via dev login
 
