@@ -8644,6 +8644,44 @@ async def get_community_count_endpoint():
 
 
 # ============================================================================
+# ENDGAME LESSONS
+# ============================================================================
+
+@api_router.get("/endgames/categories")
+async def get_endgame_categories():
+    """Return all endgame categories and lessons."""
+    from services.endgame_theory_service import get_all_categories
+    return {"categories": get_all_categories()}
+
+
+@api_router.get("/endgames/lesson/{category_key}/{lesson_key}")
+async def get_endgame_lesson(category_key: str, lesson_key: str):
+    """Return a specific endgame lesson with positions (no answers)."""
+    from services.endgame_theory_service import get_lesson
+    lesson = get_lesson(category_key, lesson_key)
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return lesson
+
+
+class EndgameCheckMoveRequest(BaseModel):
+    category_key: str
+    lesson_key: str
+    position_index: int
+    user_move_uci: str
+
+
+@api_router.post("/endgames/check-move")
+async def check_endgame_move(req: EndgameCheckMoveRequest):
+    """Check if the user's move is correct for the given endgame position."""
+    from services.endgame_theory_service import check_move
+    result = check_move(req.category_key, req.lesson_key, req.position_index, req.user_move_uci)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+# ============================================================================
 # LICHESS OPENING EXPLORER INTEGRATION
 # ============================================================================
 

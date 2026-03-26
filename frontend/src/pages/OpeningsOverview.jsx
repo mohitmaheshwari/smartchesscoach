@@ -1,17 +1,18 @@
 /**
- * OpeningsOverview.jsx → "Your Opening World"
+ * OpeningsOverview.jsx → "Study" page with Openings | Endgames tabs
  *
  * Personal opening portrait with inline interactive board preview.
- * Click any opening to expand and step through the theory line.
+ * Endgame lesson categories with direct links to interactive lessons.
  *
  * Uses existing endpoints:
  * - GET /api/openings/repertoire
  * - GET /api/training/opening-progress
  * - GET /api/openings/{key} (for inline board data)
+ * - GET /api/endgames/categories (endgame lessons)
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import { API } from "@/App";
@@ -39,6 +40,8 @@ import {
   RotateCcw,
   Expand,
   X,
+  Castle,
+  Lightbulb,
 } from "lucide-react";
 
 const masteryColors = {
@@ -61,14 +64,29 @@ const masteryLabels = {
 
 const OpeningsOverview = ({ user }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "openings");
   const [loading, setLoading] = useState(true);
   const [repertoire, setRepertoire] = useState(null);
   const [progress, setProgress] = useState([]);
   const [expandedKey, setExpandedKey] = useState(null);
+  const [endgameCategories, setEndgameCategories] = useState([]);
+  const [endgameLoading, setEndgameLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "endgames" && endgameCategories.length === 0) {
+      fetchEndgames();
+    }
+  }, [activeTab]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSearchParams(tab === "openings" ? {} : { tab });
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -86,6 +104,21 @@ const OpeningsOverview = ({ user }) => {
       console.error("Failed to load openings:", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEndgames = async () => {
+    setEndgameLoading(true);
+    try {
+      const res = await fetch(`${API}/endgames/categories`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setEndgameCategories(data.categories || []);
+      }
+    } catch (e) {
+      console.error("Failed to load endgames:", e);
+    } finally {
+      setEndgameLoading(false);
     }
   };
 
@@ -119,29 +152,12 @@ const OpeningsOverview = ({ user }) => {
     []
   );
 
-  if (loading) {
+  if (loading && activeTab === "openings") {
     return (
       <Layout user={user}>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4" data-testid="openings-loading">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading your opening world...</p>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (totalGames === 0 && coachTaught.length === 0) {
-    return (
-      <Layout user={user}>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4" data-testid="openings-empty">
-          <BookOpen className="w-12 h-12 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">No Openings Yet</h2>
-          <p className="text-muted-foreground text-center max-w-md">
-            Play some games and your opening portrait will build itself.
-          </p>
-          <Button onClick={() => navigate("/play-with-coach")} data-testid="play-btn">
-            <Swords className="w-4 h-4 mr-2" /> Play a Game
-          </Button>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </Layout>
     );
@@ -150,13 +166,85 @@ const OpeningsOverview = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="max-w-4xl mx-auto py-4 px-4 space-y-6" data-testid="openings-overview">
+        {/* Header + Tabs */}
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Your Openings</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {totalGames} games analyzed
-            {coachTaught.length > 0 && ` · ${coachTaught.length} taught by coach`}
-          </p>
+          <h1 className="text-xl font-bold tracking-tight">Study</h1>
+          <div className="flex gap-1 mt-3 bg-zinc-900 rounded-lg p-1 w-fit" data-testid="study-tabs">
+            <button
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "openings"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+              onClick={() => handleTabChange("openings")}
+              data-testid="tab-openings"
+            >
+              Openings
+            </button>
+            <button
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "endgames"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+              onClick={() => handleTabChange("endgames")}
+              data-testid="tab-endgames"
+            >
+              Endgames
+            </button>
+          </div>
         </div>
+
+        {/* Tab Content */}
+        {activeTab === "openings" ? (
+          <OpeningsTab
+            totalGames={totalGames}
+            coachTaught={coachTaught}
+            focusOpening={focusOpening}
+            allWhite={allWhite}
+            allBlack={allBlack}
+            progress={progress}
+            expandedKey={expandedKey}
+            handleToggleExpand={handleToggleExpand}
+            navigate={navigate}
+          />
+        ) : (
+          <EndgamesTab
+            categories={endgameCategories}
+            loading={endgameLoading}
+            navigate={navigate}
+          />
+        )}
+      </div>
+    </Layout>
+  );
+};
+
+/* ============================================================
+ * OPENINGS TAB — existing openings content
+ * ============================================================ */
+const OpeningsTab = ({ totalGames, coachTaught, focusOpening, allWhite, allBlack, progress, expandedKey, handleToggleExpand, navigate }) => {
+  if (totalGames === 0 && coachTaught.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4" data-testid="openings-empty">
+        <BookOpen className="w-12 h-12 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">No Openings Yet</h2>
+        <p className="text-muted-foreground text-center max-w-md">
+          Play some games and your opening portrait will build itself.
+        </p>
+        <Button onClick={() => navigate("/play-with-coach")} data-testid="play-btn">
+          <Swords className="w-4 h-4 mr-2" /> Play a Game
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6" data-testid="openings-tab-content">
+      <p className="text-xs text-muted-foreground">
+        {totalGames} games analyzed
+        {coachTaught.length > 0 && ` · ${coachTaught.length} taught by coach`}
+      </p>
 
         {focusOpening && (
           <FocusCard
@@ -192,8 +280,79 @@ const OpeningsOverview = ({ user }) => {
         )}
 
         {coachTaught.length > 0 && <CoachProgress items={coachTaught} navigate={navigate} />}
+    </div>
+  );
+};
+
+/* ============================================================
+ * ENDGAMES TAB — category listing
+ * ============================================================ */
+const categoryIcons = {
+  king_and_pawn: <Crown className="w-5 h-5 text-amber-400" />,
+  rook_endgames: <Castle className="w-5 h-5 text-blue-400" />,
+  queen_vs_pawn: <Zap className="w-5 h-5 text-purple-400" />,
+};
+
+const EndgamesTab = ({ categories, loading, navigate }) => {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]" data-testid="endgames-loading">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
-    </Layout>
+    );
+  }
+
+  if (!categories.length) {
+    return (
+      <div className="text-center py-12 text-muted-foreground" data-testid="endgames-empty">
+        <p>No endgame lessons available yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6" data-testid="endgames-tab-content">
+      <p className="text-xs text-muted-foreground">
+        {categories.reduce((sum, c) => sum + c.lessons.length, 0)} lessons across {categories.length} categories
+      </p>
+
+      {categories.map((cat) => (
+        <div key={cat.key} data-testid={`endgame-category-${cat.key}`}>
+          <div className="flex items-center gap-2 mb-3">
+            {categoryIcons[cat.key] || <Lightbulb className="w-5 h-5 text-zinc-400" />}
+            <h2 className="text-sm font-semibold">{cat.name}</h2>
+            <span className="text-xs text-muted-foreground">
+              {cat.lessons.length} lesson{cat.lessons.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {cat.lessons.map((lesson) => (
+              <motion.div
+                key={lesson.key}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="rounded-lg border border-border/50 p-3 cursor-pointer hover:border-primary/40 transition-all"
+                onClick={() => navigate(`/endgames/${cat.key}/${lesson.key}`)}
+                data-testid={`endgame-lesson-${lesson.key}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium">{lesson.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{lesson.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    <Badge variant="outline" className="text-xs text-zinc-400 border-zinc-700">
+                      {lesson.position_count} positions
+                    </Badge>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 };
 

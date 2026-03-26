@@ -32,6 +32,7 @@ import PostLossRecovery from "@/pages/PostLossRecovery";
 import CoachPlay from "@/pages/CoachPlay";
 import AdminOpenings from "@/pages/AdminOpenings";
 import OpeningsOverview from "@/pages/OpeningsOverview";
+import EndgameLesson from "@/pages/EndgameLesson";
 
 // V1 Plateau Breaker Mode (Enforced Learning)
 import PlateauBreakerDashboard from "@/pages/PlateauBreakerDashboard";
@@ -281,6 +282,11 @@ function AppRouter() {
       <Route path="/openings-overview" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <OpeningsOverview user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/endgames/:categoryKey/:lessonKey" element={
+        <ProtectedRoute>
+          {({ user }) => <EndgameLesson user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/challenge" element={

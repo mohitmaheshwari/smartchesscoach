@@ -215,8 +215,8 @@ const HomePage = ({ user }) => {
                 </div>
                 <span className="text-xs text-zinc-500 uppercase tracking-wide">Study</span>
               </div>
-              <p className="text-white font-medium text-sm">Your Openings</p>
-              <p className="text-xs text-zinc-500 mt-1">Personal portrait</p>
+              <p className="text-white font-medium text-sm">Openings & Endgames</p>
+              <p className="text-xs text-zinc-500 mt-1">Your repertoire + endgame lessons</p>
             </CardContent>
           </Card>
         </motion.div>
