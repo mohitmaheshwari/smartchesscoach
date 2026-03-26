@@ -92,6 +92,7 @@ class V5Coaching:
     best_move: Optional[str] = None
     your_plan_now: Optional[str] = None  # For opponent moves - what should user do?
     pattern_memory: Optional[str] = None  # "You've missed this pattern 3 times this week"
+    theory_applied: Optional[str] = None  # "You played the book move in the Italian Game"
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON response."""

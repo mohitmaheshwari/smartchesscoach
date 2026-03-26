@@ -557,6 +557,11 @@ const CoachProgress = ({ items, navigate }) => (
             <p className="text-sm font-medium">{item.opening_name}</p>
             <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
               <span>{item.times_practiced}x practiced</span>
+              {item.times_applied_in_games > 0 && (
+                <span className="text-emerald-400">
+                  Applied {item.correct_applications || item.times_applied_in_games}x in games
+                </span>
+              )}
               {item.real_games > 0 ? (
                 <span className={item.real_win_rate >= 50 ? "text-emerald-400" : "text-red-400"}>
                   {item.real_win_rate.toFixed(0)}% win in {item.real_games} game{item.real_games !== 1 ? "s" : ""}

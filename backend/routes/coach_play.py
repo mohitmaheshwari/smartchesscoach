@@ -1913,6 +1913,39 @@ async def get_interactive_coaching(
                 except Exception as pm_err:
                     logger.warning(f"Pattern memory injection failed (non-critical): {pm_err}")
             
+            # === THEORY APPLIED TRACKING ===
+            # Check if this move matches an opening theory the user was taught
+            if len(move_history) <= 24 and coaching.severity in ("good", "excellent", "book"):
+                try:
+                    from services.opening_mastery import detect_opening_from_moves, get_user_opening_progress, update_user_opening_progress
+                    from services.opening_theory_json_service import get_opening_theory
+                    
+                    moves_san = [m.get("move", "") for m in move_history if m.get("move")]
+                    opening_info = detect_opening_from_moves(moves_san)
+                    
+                    if opening_info:
+                        opening_key = opening_info["opening_key"]
+                        theory = get_opening_theory(opening_key)
+                        
+                        if theory:
+                            opening_name = theory.get("name", opening_key)
+                            progress = await get_user_opening_progress(db, user.user_id, opening_name)
+                            
+                            # Only if user was previously taught this opening
+                            if progress and progress.times_practiced > 0:
+                                main_line = theory.get("main_line", [])
+                                move_idx = len(moves_san) - 1
+                                
+                                # Check if current move matches theory
+                                if move_idx < len(main_line) and move_san == main_line[move_idx]:
+                                    progress.times_applied_in_games += 1
+                                    progress.correct_applications += 1
+                                    await update_user_opening_progress(db, progress)
+                                    
+                                    coaching_dict["theory_applied"] = f"You played the book move in the {opening_name}. The theory is sticking."
+                except Exception as ta_err:
+                    logger.warning(f"Theory applied tracking failed (non-critical): {ta_err}")
+            
             result["user_move_coaching"] = coaching_dict
             
             # === BEHAVIORAL COACHING (Smart Coach) ===

@@ -214,6 +214,21 @@ const V5CoachingCard = ({
                 </p>
               </div>
             )}
+            
+            {/* Theory Applied — "You played the book move" */}
+            {coaching.theory_applied && (
+              <div
+                className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20"
+                data-testid="theory-applied-note"
+              >
+                <p className="text-xs text-emerald-300 font-medium flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {coaching.theory_applied}
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

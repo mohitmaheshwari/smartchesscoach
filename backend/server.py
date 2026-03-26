@@ -7961,6 +7961,8 @@ async def get_opening_progress(user: User = Depends(get_current_user)):
             "opening_name": opening_name,
             "mastery_level": progress.get("mastery_level", "unknown"),
             "times_practiced": progress.get("times_practiced", 0),
+            "times_applied_in_games": progress.get("times_applied_in_games", 0),  # Theory applied tracking
+            "correct_applications": progress.get("correct_applications", 0),
             "last_practiced": progress.get("last_practiced_at"),
             "last_quiz_score": progress.get("last_quiz_score"),
             "coach_taught": True,
@@ -8525,6 +8527,55 @@ async def get_my_contributions_endpoint(request: Request, user: User = Depends(g
     from community_learning_service import get_user_contributions
     contributions = await get_user_contributions(db, user.user_id)
     return contributions
+
+
+# ============================================================================
+# HOME: PATTERN PRESCRIPTION
+# ============================================================================
+
+@api_router.get("/home/pattern-prescription")
+async def get_pattern_prescription(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the user's top recurring patterns with matching training position counts.
+    For the Home page: "You've missed forks 4 times → 3 fork positions waiting in Training"
+    """
+    from services.pattern_memory_service import get_top_patterns
+    from services.community_training_service import get_community_position_count
+    
+    patterns = await get_top_patterns(db, user.user_id, limit=3)
+    
+    # For each pattern, count available training positions
+    prescriptions = []
+    for p in patterns:
+        pattern_type = p["pattern_type"]
+        
+        # Count unsolved positions of this pattern type for the user
+        solved_ids = set()
+        solved = await db.training_solve_attempts.find(
+            {"user_id": user.user_id, "pattern_type": pattern_type, "solved": True},
+            {"position_id": 1, "_id": 0}
+        ).to_list(100)
+        solved_ids = {s["position_id"] for s in solved}
+        
+        # Count available unsolved positions
+        query = {"pattern_type": pattern_type}
+        if solved_ids:
+            query["position_id"] = {"$nin": list(solved_ids)}
+        
+        available = await db.community_training_positions.count_documents(query)
+        
+        prescriptions.append({
+            "pattern_type": pattern_type,
+            "label": p["label"],
+            "recent_count": p["recent_count"],
+            "total_count": p["total_count"],
+            "severity": p["severity"],
+            "training_positions_available": available,
+        })
+    
+    return {"prescriptions": prescriptions}
 
 
 # ============================================================================

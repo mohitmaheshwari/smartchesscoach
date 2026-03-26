@@ -26,7 +26,8 @@ import {
   TrendingDown,
   Minus,
   Swords,
-  BookOpen
+  BookOpen,
+  AlertTriangle
 } from "lucide-react";
 
 const HomePage = ({ user }) => {
@@ -34,16 +35,22 @@ const HomePage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [stats, setStats] = useState(null);
+  const [prescriptions, setPrescriptions] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [homeRes, statsRes] = await Promise.all([
+        const [homeRes, statsRes, rxRes] = await Promise.all([
           fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
-          fetch(`${API}/progress`, { credentials: "include" })
+          fetch(`${API}/progress`, { credentials: "include" }),
+          fetch(`${API}/home/pattern-prescription`, { credentials: "include" }),
         ]);
         if (homeRes.ok) setData(await homeRes.json());
         if (statsRes.ok) setStats(await statsRes.json());
+        if (rxRes.ok) {
+          const rxData = await rxRes.json();
+          setPrescriptions(rxData.prescriptions || []);
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -197,7 +204,7 @@ const HomePage = ({ user }) => {
           {/* Study openings */}
           <Card 
             className="bg-zinc-900 border-zinc-800 cursor-pointer hover:border-zinc-700 transition-all group"
-            onClick={() => navigate("/openings")}
+            onClick={() => navigate("/openings-overview")}
             data-testid="openings-card"
           >
             <CardContent className="p-4">
@@ -207,11 +214,54 @@ const HomePage = ({ user }) => {
                 </div>
                 <span className="text-xs text-zinc-500 uppercase tracking-wide">Study</span>
               </div>
-              <p className="text-white font-medium text-sm">Openings</p>
-              <p className="text-xs text-zinc-500 mt-1">Build repertoire</p>
+              <p className="text-white font-medium text-sm">Your Openings</p>
+              <p className="text-xs text-zinc-500 mt-1">Personal portrait</p>
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            PATTERN PRESCRIPTION — "Your forks need work → 3 positions waiting"
+        ═══════════════════════════════════════════════════════════════ */}
+        {prescriptions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mt-3"
+          >
+            <Card 
+              className="bg-zinc-900 border-amber-500/20 cursor-pointer hover:border-amber-500/30 transition-all"
+              onClick={() => navigate("/training")}
+              data-testid="pattern-prescription-card"
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs text-amber-400 uppercase tracking-wide font-medium">Patterns to Fix</span>
+                </div>
+                <div className="space-y-2">
+                  {prescriptions.map((rx) => (
+                    <div key={rx.pattern_type} className="flex items-center justify-between" data-testid={`prescription-${rx.pattern_type}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          rx.severity === 'critical' ? 'bg-red-400' : rx.severity === 'concerning' ? 'bg-amber-400' : 'bg-zinc-400'
+                        }`} />
+                        <span className="text-sm text-zinc-300">{rx.label}</span>
+                        <span className="text-xs text-zinc-500">{rx.recent_count}x recently</span>
+                      </div>
+                      {rx.training_positions_available > 0 && (
+                        <span className="text-xs text-amber-400">
+                          {rx.training_positions_available} position{rx.training_positions_available !== 1 ? 's' : ''} waiting
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════════
             RECENT GAME (if exists)
