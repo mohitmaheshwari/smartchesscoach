@@ -32,6 +32,7 @@ import {
   Swords,
   Eye
 } from "lucide-react";
+import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
 
 // Severity colors and icons
 const SEVERITY_CONFIG = {
@@ -68,7 +69,10 @@ const V5CoachingCard = ({
   onAcknowledge,               // Callback when user clicks "I understand"
   isAcknowledged = false,      // Whether concept is already acknowledged
   showAcknowledgeButton = true, // Whether to show "I understand" button
-  compact = false              // Compact mode for live coaching
+  compact = false,             // Compact mode for live coaching
+  gameId = null,               // Game ID for feedback
+  sessionId = null,            // Session ID for feedback (coach mode)
+  source = "lab",              // "lab" or "coach" for feedback source
 }) => {
   const [acknowledging, setAcknowledging] = useState(false);
   
@@ -127,6 +131,15 @@ const V5CoachingCard = ({
               Best: <span className="text-emerald-400 font-mono">{coaching.best_move}</span>
             </span>
           )}
+          <FlagMoveButton
+            source={source}
+            gameId={gameId}
+            sessionId={sessionId}
+            moveNumber={moveNumber}
+            fen={coaching.fen_before || ""}
+            moveSan={moveSan}
+            coachingText={coaching.narrative}
+          />
         </div>
       </div>
       

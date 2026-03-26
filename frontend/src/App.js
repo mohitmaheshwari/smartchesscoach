@@ -31,6 +31,7 @@ import MissionRunner from "@/pages/MissionRunner";
 import PostLossRecovery from "@/pages/PostLossRecovery";
 import CoachPlay from "@/pages/CoachPlay";
 import AdminOpenings from "@/pages/AdminOpenings";
+import AdminDashboard from "@/pages/AdminDashboard";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import EndgameLesson from "@/pages/EndgameLesson";
 
@@ -277,6 +278,11 @@ function AppRouter() {
       <Route path="/admin/openings" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminOpenings user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/admin" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminDashboard user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/openings-overview" element={

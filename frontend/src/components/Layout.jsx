@@ -193,9 +193,12 @@ const Layout = ({ children, user }) => {
     { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
 
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+
   const isActive = (href) => location.pathname === href || 
     (href === '/lab' && location.pathname.startsWith('/game/')) ||
-    (href === '/lab' && location.pathname.startsWith('/lab/'));
+    (href === '/lab' && location.pathname.startsWith('/lab/')) ||
+    (href === '/admin' && location.pathname.startsWith('/admin'));
 
   const handleLogout = async () => {
     try {
@@ -328,6 +331,25 @@ const Layout = ({ children, user }) => {
                   </span>
                 )}
               </Button>
+            </div>
+          )}
+
+          {/* Admin Dashboard - Only for admin/super_admin */}
+          {isAdmin && (
+            <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
+              <Link to="/admin">
+                <Button
+                  variant={isActive('/admin') ? "secondary" : "ghost"}
+                  className={`w-full gap-2 ${
+                    sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
+                  } ${isActive('/admin') ? 'bg-amber-500/10 text-amber-400' : 'text-muted-foreground hover:text-foreground'}`}
+                  data-testid="nav-admin"
+                  title={sidebarCollapsed ? "Admin Dashboard" : undefined}
+                >
+                  <Settings className="w-4 h-4 flex-shrink-0" />
+                  {!sidebarCollapsed && <span className="text-sm">Admin</span>}
+                </Button>
+              </Link>
             </div>
           )}
         </nav>

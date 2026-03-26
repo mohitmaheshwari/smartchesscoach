@@ -45,6 +45,7 @@ import {
   ArrowRight,
   Check
 } from "lucide-react";
+import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -570,6 +571,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
         ) : (
           <MoveCoachingCardV5 
             move={currentMove}
+            gameId={gameId}
             acknowledgedConcepts={acknowledgedConcepts}
             onAcknowledge={acknowledgeConceptHandler}
             onShowFutureMoves={showFutureMoves}
@@ -756,6 +758,7 @@ const GameStartCard = ({ decryptionData, habitsReport }) => {
 
 const MoveCoachingCardV5 = ({ 
   move, 
+  gameId,
   acknowledgedConcepts, 
   onAcknowledge, 
   onShowFutureMoves, 
@@ -843,6 +846,14 @@ const MoveCoachingCardV5 = ({
             )}
           </div>
           <Badge variant="outline" className="text-xs text-zinc-400">{move.phase}</Badge>
+          <FlagMoveButton
+            source="lab"
+            gameId={gameId}
+            moveNumber={move.move_number}
+            fen={move.fen || ""}
+            moveSan={move.move_san}
+            coachingText={move.narrative}
+          />
         </div>
 
         {/* ─── NARRATIVE ────────────────────────────────────── */}

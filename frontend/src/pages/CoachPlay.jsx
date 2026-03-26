@@ -63,6 +63,7 @@ import {
 } from "@/components/coach/OpeningTeachingPanel";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
 import PreMoveChecklist from "@/components/coach/PreMoveChecklist";
+import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 import { 
   EvalBar, 
@@ -2922,6 +2923,14 @@ const CoachPlay = ({ user }) => {
                       <span className="font-mono text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded text-sm">
                         {interactiveCoaching.coachMoveCoaching.move_san}
                       </span>
+                      <FlagMoveButton
+                        source="coach"
+                        sessionId={session?.session_id}
+                        fen={game?.fen() || ""}
+                        moveSan={interactiveCoaching.coachMoveCoaching.move_san}
+                        coachingText={interactiveCoaching.coachMoveCoaching.explanation}
+                        className="ml-auto"
+                      />
                     </div>
                     
                     {interactiveCoaching.coachMoveCoaching.explanation && (
@@ -2967,6 +2976,8 @@ const CoachPlay = ({ user }) => {
                     onAcknowledge={handleAcknowledgeConcept}
                     isAcknowledged={acknowledgedConcepts.has(v5Coaching.concept_id)}
                     showAcknowledgeButton={true}
+                    sessionId={session?.session_id}
+                    source="coach"
                   />
                 )}
                 

@@ -46,6 +46,7 @@ class User(BaseModel):
     created_at: Optional[datetime] = None
     chess_com_username: Optional[str] = None
     lichess_username: Optional[str] = None
+    role: Optional[str] = "user"
     
     class Config:
         extra = "ignore"
@@ -59,7 +60,8 @@ class User(BaseModel):
             "picture": self.picture,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "chess_com_username": self.chess_com_username,
-            "lichess_username": self.lichess_username
+            "lichess_username": self.lichess_username,
+            "role": self.role or "user"
         }
 
 class MobileAuthRequest(BaseModel):
