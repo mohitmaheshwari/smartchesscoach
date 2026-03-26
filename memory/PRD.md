@@ -10,29 +10,42 @@ NOT a "move explanation system" but a "Thinking Simulator" that trains the user'
 
 ## What's Been Implemented
 
-### Community Intelligence Training (March 2025) - NEW
-Every user's mistake is another user's training material.
-- **Backend**: `community_training_service.py` — auto-extracts training positions from V5 decrypted games (cp_loss >= 150), stores in `community_training_positions` collection
-- **API**: `GET /api/training/community-feed`, `POST /api/training/solve-attempt`, `GET /api/training/pattern-stats`, `GET /api/training/community-count`
-- **Frontend**: `ThinkingTraining.jsx` — interactive board, source attribution ("From a game by Ravi, 1180"), pattern badges, solve feedback, "Your Patterns" progress tracker
-- **Auto-extraction hook**: When game gets V5 decrypted, positions auto-extracted for community pool
-- **Testing**: 100% backend (10/10), 100% frontend
+### Interactive Board on Opening Portrait (March 2025) - NEW
+- Click any opening row on `/openings-overview` to expand an inline board preview
+- Step through theory main line with forward/back/reset buttons + clickable move list
+- Shows variation count, "Full Lesson" button navigates to the lesson page
+- Uses existing `/api/openings/{key}` endpoint
 
-### Personalized Opening Portrait (March 2025) - NEW
-Replaced generic encyclopedia with "Your Opening World" personal portrait.
-- **Frontend**: `OpeningsOverview.jsx` rewritten — shows user's openings by color, win rates, weakest opening as "Focus" card, Coach Taught section, mastery badges
-- **Backend fix**: `opening_theory_json_service.py` — normalized hyphen/underscore key lookup so `/openings/italian-game` and `/openings/italian_game` both work
-- **Uses existing endpoints**: `/api/openings/repertoire`, `/api/training/opening-progress`
-- **Testing**: 100% backend (12/12), 100% frontend
+### Variation Selector for Lessons (March 2025) - NEW
+- Pill buttons above lesson content to switch between variations (e.g., French: Advance vs Classical vs Winawer)
+- Backend: Added `?variation=key` query parameter to `GET /api/openings/{key}` endpoint
+- Frontend: `selectedVariation` state in OpeningLesson.jsx, resets board on variation change
+- French Defense: 5 variations (12-18 moves each), Italian Game: 2 variations
+
+### Pattern Memory Injection (March 2025) - NEW
+- During Play with Coach, when user makes a mistake (cp_loss >= 100), checks for recurring patterns
+- Surfaces "You've had tactical misses X times in your last Y games" in coaching card
+- Backend: Hooked `pattern_memory_service.py` → `coach_play.py` in the V5 coaching pipeline
+- Frontend: `V5CoachingCard.jsx` renders `pattern_memory` in an amber warning box
+- Also added `pattern_memory` field to `V5Coaching` dataclass
+
+### Community Intelligence Training (March 2025)
+- Every user's mistake becomes training for similar-rated players
+- Backend: `community_training_service.py` with 4 API endpoints
+- Frontend: `ThinkingTraining.jsx` — interactive board, source attribution, pattern tracking
+- Auto-extraction hook in V5 decryption pipeline
+
+### Personalized Opening Portrait (March 2025)
+- `OpeningsOverview.jsx` → "Your Opening World" personal portrait
+- Shows repertoire by color, win rates, Focus card for weakest opening, Coach Taught section
+- Fixed hyphen/underscore key normalization in `opening_theory_json_service.py`
 
 ### Previous Completions
-- Rich Game Summaries (`game_summary_service.py`)
-- Educational Opponent Blunder Detection
+- Rich Game Summaries, Educational Opponent Blunder Detection
 - Game Review UX Simplification (step-by-step V5 Decrypt default)
-- "Show My Plan" Interactive Cognitive Analysis (`plan_analysis_service.py`)
+- "Show My Plan" Interactive Cognitive Analysis
 - Dynamic Plateau Breaker (hidden unless 3+ consecutive losses)
-- V5 Decryption Engine with opponent move evaluation
-- Pedagogical Opponent Engine
+- V5 Decryption Engine, Pedagogical Opponent Engine
 - Opening Theory System (24 openings, 49 variations)
 - Player Habits Engine
 
@@ -43,31 +56,32 @@ Replaced generic encyclopedia with "Your Opening World" personal portrait.
 /app
 ├── backend/
 │   ├── routes/
-│   │   ├── openings.py          # Opening endpoints
-│   │   ├── coach.py, reflect.py, etc.
+│   │   ├── openings.py              # UPDATED: ?variation= parameter
+│   │   ├── coach_play.py            # UPDATED: Pattern memory injection
 │   ├── services/
-│   │   ├── community_training_service.py   # NEW: Community training positions
-│   │   ├── game_decryption_v5_service.py   # V5 coaching engine
-│   │   ├── game_summary_service.py         # Rich dashboard summaries
-│   │   ├── plan_analysis_service.py        # Cognitive gap analysis
-│   │   ├── opening_theory_json_service.py  # FIXED: Key normalization
-│   │   ├── opening_library_service.py      # Repertoire matching
+│   │   ├── community_training_service.py
+│   │   ├── pattern_memory_service.py  # Existing, now wired into live coaching
+│   │   ├── shared_coaching_v5.py      # UPDATED: pattern_memory field
+│   │   ├── opening_theory_json_service.py  # UPDATED: Key normalization
+│   │   ├── game_decryption_v5_service.py
+│   │   ├── plan_analysis_service.py
 │   ├── server.py
 └── frontend/src/
     ├── pages/
-    │   ├── ThinkingTraining.jsx    # NEW: Community Intelligence Training
-    │   ├── OpeningsOverview.jsx    # NEW: Personal Opening Portrait
-    │   ├── Dashboard.jsx, LabV2.jsx, HomePage.jsx
+    │   ├── OpeningsOverview.jsx       # UPDATED: InlineBoardPreview
+    │   ├── OpeningLesson.jsx          # UPDATED: Variation selector
+    │   ├── ThinkingTraining.jsx
+    │   ├── HomePage.jsx, Dashboard.jsx, LabV2.jsx
     ├── components/
+    │   ├── shared/V5CoachingCard.jsx  # UPDATED: pattern_memory display
     │   ├── Layout.jsx, GameDecryptionV5.jsx, LichessBoard.jsx
 ```
 
 ---
 
 ## Tech Stack
-- Frontend: React, Tailwind CSS, Shadcn/UI
-- Backend: FastAPI, MongoDB (Motor async)
-- Chess: python-chess, Stockfish
+- Frontend: React, Tailwind CSS, Shadcn/UI, chess.js, Chessground
+- Backend: FastAPI, MongoDB (Motor async), python-chess, Stockfish
 - LLM: GPT-4.1-mini via emergentintegrations (Emergent LLM Key)
 
 ---
@@ -75,19 +89,18 @@ Replaced generic encyclopedia with "Your Opening World" personal portrait.
 ## Backlog
 
 ### P1 - High Priority
-- [ ] Interactive Board on Opening Portrait (step through YOUR lines vs theory)
-- [ ] Variation Selector for Lessons (choose specific variation to study)
-- [ ] Pattern Memory Injection ("You've made this mistake 3 times..." during games)
 - [ ] Refactor `GameDecryptionV5.jsx` to use shared `V5CoachingCard.jsx`
+- [ ] Cross-screen progress tracking (opening taught by coach → applied in real game = milestone)
 
 ### P2 - Medium Priority
 - [ ] Admin UI for theory database management
 - [ ] Community position opt-in/opt-out
 - [ ] "Did you find it?" stats ("73% of players at your level missed this")
-- [ ] Pattern clustering by theme (forks, pins, back rank)
+- [ ] Pattern clustering by theme
 - [ ] Endgame theory tree
 - [ ] Habits Trend Dashboard
 - [ ] Opening Proficiency in Coach Panel
+- [ ] "Theory Applied" celebration during games
 
 ### P3 - Nice to Have
 - [ ] Voice coaching mode
@@ -97,10 +110,16 @@ Replaced generic encyclopedia with "Your Opening World" personal portrait.
 
 ---
 
+## Testing Status (All Passed)
+- Community Training: Backend 10/10, Frontend 100%
+- Opening Portrait: Backend 12/12, Frontend 100%
+- Interactive Board + Variation Selector + Pattern Memory: Backend 15/15, Frontend 100%
+
 ## Critical Notes for Future Agents
 - **Never generic LLM text**: Prompts must demand specific explanations
-- **Clear V5 cache**: If tweaking V5 coaching logic, clear `game_analyses` cache for that game
-- **DB_NAME**: `test_database` (from .env), NOT `chess_coach`
-- **Key normalization**: Opening keys can be hyphenated or underscored — `opening_theory_json_service.py` handles both
+- **Clear V5 cache**: If tweaking coaching logic, clear `game_analyses` for that game
+- **DB_NAME**: `test_database` (from .env)
+- **Key normalization**: Opening keys can be hyphenated or underscored — handled in `opening_theory_json_service.py`
+- **Pattern Memory**: Only triggers for cp_loss >= 100 and severity in (mistake, blunder, inaccuracy)
 
 *Last Updated: March 2025*
