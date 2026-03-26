@@ -91,6 +91,7 @@ class V5Coaching:
     is_user_move: bool = True
     best_move: Optional[str] = None
     your_plan_now: Optional[str] = None  # For opponent moves - what should user do?
+    pattern_memory: Optional[str] = None  # "You've missed this pattern 3 times this week"
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON response."""

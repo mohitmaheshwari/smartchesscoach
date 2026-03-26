@@ -63,17 +63,22 @@ const OpeningLesson = () => {
   // Trap practice state
   const [selectedTrap, setSelectedTrap] = useState(null);
   const [trapPracticeMode, setTrapPracticeMode] = useState(false);
+  const [selectedVariation, setSelectedVariation] = useState(null);
   
   // Fetch lesson data
   useEffect(() => {
     const fetchLesson = async () => {
       try {
-        const res = await fetch(`${API}/openings/${openingKey}`, {
+        const variationParam = selectedVariation ? `?variation=${selectedVariation}` : "";
+        const res = await fetch(`${API}/openings/${openingKey}${variationParam}`, {
           credentials: "include"
         });
         if (res.ok) {
           const data = await res.json();
           setLesson(data);
+          // Reset board state when variation changes
+          setCurrentMoveIndex(-1);
+          chessRef.current.reset();
         } else {
           toast.error("Opening not found");
           navigate("/openings");
@@ -86,7 +91,7 @@ const OpeningLesson = () => {
       }
     };
     fetchLesson();
-  }, [openingKey, navigate]);
+  }, [openingKey, navigate, selectedVariation]);
   
   // Initialize board
   useEffect(() => {
@@ -375,6 +380,30 @@ const OpeningLesson = () => {
       
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Variation Selector */}
+        {opening.variations?.length > 1 && (
+          <div className="mb-4" data-testid="variation-selector">
+            <p className="text-xs text-muted-foreground mb-2">Variation</p>
+            <div className="flex flex-wrap gap-2">
+              {opening.variations.map((v) => (
+                <button
+                  key={v.key}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    (selectedVariation || opening.active_variation) === v.key
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                  }`}
+                  onClick={() => setSelectedVariation(v.key)}
+                  data-testid={`variation-btn-${v.key}`}
+                >
+                  {v.name}
+                  <span className="text-zinc-600 ml-1">({v.total_moves})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tab Navigation - Full Width */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-4">

@@ -199,6 +199,21 @@ const V5CoachingCard = ({
                 showButton={showAcknowledgeButton && !isAcknowledged}
               />
             )}
+            
+            {/* Pattern Memory — "You've missed this 3 times" */}
+            {coaching.pattern_memory && (
+              <div
+                className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20"
+                data-testid="pattern-memory-note"
+              >
+                <p className="text-xs text-amber-300 font-medium flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  {coaching.pattern_memory}
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

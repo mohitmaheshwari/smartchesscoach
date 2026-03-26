@@ -1897,6 +1897,22 @@ async def get_interactive_coaching(
             coaching_dict = coaching.to_dict()
             coaching_dict["move_san"] = move_san
             coaching_dict["fen_before"] = fen_before  # Needed for board preview of alternatives
+            
+            # === PATTERN MEMORY INJECTION ===
+            # "You've missed forks 3 times this week" — makes the coach feel like it remembers
+            if coaching.severity in ("mistake", "blunder", "inaccuracy") and cp_loss >= 100:
+                try:
+                    from services.pattern_memory_service import get_pattern_for_mistake, normalize_pattern
+                    
+                    # Map coaching concept_id or severity to a cognitive gap
+                    cognitive_gap = coaching.concept_id or coaching.severity
+                    pattern_data = await get_pattern_for_mistake(db, user.user_id, cognitive_gap)
+                    
+                    if pattern_data and pattern_data.get("confrontation_message"):
+                        coaching_dict["pattern_memory"] = pattern_data["confrontation_message"]
+                except Exception as pm_err:
+                    logger.warning(f"Pattern memory injection failed (non-critical): {pm_err}")
+            
             result["user_move_coaching"] = coaching_dict
             
             # === BEHAVIORAL COACHING (Smart Coach) ===

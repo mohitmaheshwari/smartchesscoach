@@ -146,9 +146,14 @@ async def match_opening_to_library_endpoint(opening_name: str, eco: str = None):
 
 
 @router.get("/openings/{opening_key}")
-async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_user)):
+async def get_opening_lesson(
+    opening_key: str, 
+    variation: str = None,
+    user: User = Depends(get_current_user)
+):
     """
     Get full opening lesson data from the JSON theory tree.
+    Optional: ?variation=french_advance to get a specific variation.
     """
     from services.opening_theory_json_service import get_opening_theory, get_available_variations, get_variation_lesson_moves
     from services.verified_opening_traps import get_verified_traps_for_opening
@@ -160,11 +165,12 @@ async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_
     variations = get_available_variations(opening_key)
     traps = get_verified_traps_for_opening(opening_key)
     
-    # Build main line with move explanations
-    first_lesson = get_variation_lesson_moves(opening_key, variations[0]["key"]) if variations else None
+    # Pick the requested variation or default to first
+    target_variation_key = variation or (variations[0]["key"] if variations else None)
+    lesson = get_variation_lesson_moves(opening_key, target_variation_key) if target_variation_key else None
     main_line = []
-    if first_lesson:
-        for i, move in enumerate(first_lesson["moves"]):
+    if lesson:
+        for i, move in enumerate(lesson["moves"]):
             main_line.append({"move": move, "explanation": ""})
     
     # Build trap details
@@ -196,6 +202,7 @@ async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_
             "name": v["name"],
             "total_moves": v["total_moves"],
         } for v in variations],
+        "active_variation": target_variation_key,
     }
     
     # Add user-specific progress data
