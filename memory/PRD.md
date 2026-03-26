@@ -4,50 +4,58 @@
 Build a hyper-personalized chess coaching application "Thinking Simulator" focusing on deep, insightful coaching for every move. Core features: "Play with Coach" and "The Lab" for post-game analysis. UX principle: "One screen = one job" — Home = Decision, Play = Experience, Review = Understand, Train = Cure, Progress = Confidence.
 
 ## Vision
-NOT a "move explanation system" but a "Thinking Simulator" that trains the user's thinking process. Never generic coaching — always specific (naming exact pieces, diagonals, pawn breaks). We are NOT Chess.com or Duolingo.
+NOT a "move explanation system" but a "Thinking Simulator" that trains the user's thinking process. Never generic coaching — always specific. We are NOT Chess.com or Duolingo.
 
 ---
 
-## What's Been Implemented
+## What's Been Implemented (Session: March 2025)
 
-### Interactive Board on Opening Portrait (March 2025) - NEW
-- Click any opening row on `/openings-overview` to expand an inline board preview
-- Step through theory main line with forward/back/reset buttons + clickable move list
-- Shows variation count, "Full Lesson" button navigates to the lesson page
-- Uses existing `/api/openings/{key}` endpoint
+### Pattern Prescription on Home Page - NEW
+- Home page shows "Patterns to Fix" card with top 3 recurring patterns
+- Shows pattern label + "Xx recently" + severity indicator (critical/concerning)
+- Shows "X positions waiting" when matching training positions exist
+- Clicking navigates to `/training`
+- API: `GET /api/home/pattern-prescription`
 
-### Variation Selector for Lessons (March 2025) - NEW
-- Pill buttons above lesson content to switch between variations (e.g., French: Advance vs Classical vs Winawer)
-- Backend: Added `?variation=key` query parameter to `GET /api/openings/{key}` endpoint
-- Frontend: `selectedVariation` state in OpeningLesson.jsx, resets board on variation change
-- French Defense: 5 variations (12-18 moves each), Italian Game: 2 variations
+### Cross-Screen Progress Tracking - NEW
+- During Play with Coach, when user plays a book move in a taught opening, records it as "theory applied"
+- Increments `times_applied_in_games` and `correct_applications` in `UserOpeningProgress`
+- Opening Portrait Coach Progress shows "Applied Xx in games" when > 0
+- Wired in `coach_play.py` → `opening_mastery.py` → `opening_teaching_integration.py`
 
-### Pattern Memory Injection (March 2025) - NEW
-- During Play with Coach, when user makes a mistake (cp_loss >= 100), checks for recurring patterns
-- Surfaces "You've had tactical misses X times in your last Y games" in coaching card
-- Backend: Hooked `pattern_memory_service.py` → `coach_play.py` in the V5 coaching pipeline
-- Frontend: `V5CoachingCard.jsx` renders `pattern_memory` in an amber warning box
-- Also added `pattern_memory` field to `V5Coaching` dataclass
+### "Theory Applied" Moment - NEW
+- When user plays the book move in a taught opening during live play, coaching card shows green note
+- "You played the book move in the Italian Game. The theory is sticking."
+- Subtle, not patronizing. Just a quiet acknowledgment.
+- Frontend: V5CoachingCard renders `theory_applied` in emerald green box
 
-### Community Intelligence Training (March 2025)
+### Interactive Board on Opening Portrait
+- Click any opening row to expand inline board preview
+- Step through theory main line with forward/back/reset + clickable move list
+- Shows variation count, "Full Lesson" button
+
+### Variation Selector for Lessons
+- Pill buttons above lesson content to switch between variations
+- Backend `?variation=key` parameter on `GET /api/openings/{key}`
+- French Defense: 5 variations, Italian Game: 2 variations
+
+### Pattern Memory Injection
+- During Play with Coach, surfaces "You've had tactical misses X times" for recurring mistakes
+- Backend: `pattern_memory_service.py` → `coach_play.py` → `V5CoachingCard.jsx`
+
+### Community Intelligence Training
 - Every user's mistake becomes training for similar-rated players
 - Backend: `community_training_service.py` with 4 API endpoints
-- Frontend: `ThinkingTraining.jsx` — interactive board, source attribution, pattern tracking
 - Auto-extraction hook in V5 decryption pipeline
 
-### Personalized Opening Portrait (March 2025)
-- `OpeningsOverview.jsx` → "Your Opening World" personal portrait
-- Shows repertoire by color, win rates, Focus card for weakest opening, Coach Taught section
-- Fixed hyphen/underscore key normalization in `opening_theory_json_service.py`
+### Personalized Opening Portrait
+- "Your Opening World" — shows repertoire by color, Focus card, Coach Taught section
+- Fixed key normalization (hyphen/underscore)
 
 ### Previous Completions
-- Rich Game Summaries, Educational Opponent Blunder Detection
-- Game Review UX Simplification (step-by-step V5 Decrypt default)
-- "Show My Plan" Interactive Cognitive Analysis
-- Dynamic Plateau Breaker (hidden unless 3+ consecutive losses)
-- V5 Decryption Engine, Pedagogical Opponent Engine
-- Opening Theory System (24 openings, 49 variations)
-- Player Habits Engine
+- Rich Game Summaries, V5 Decryption Engine, Pedagogical Opponent
+- "Show My Plan" Cognitive Analysis, Dynamic Plateau Breaker
+- Opening Theory System (24 openings, 49 variations), Player Habits Engine
 
 ---
 
@@ -56,25 +64,22 @@ NOT a "move explanation system" but a "Thinking Simulator" that trains the user'
 /app
 ├── backend/
 │   ├── routes/
-│   │   ├── openings.py              # UPDATED: ?variation= parameter
-│   │   ├── coach_play.py            # UPDATED: Pattern memory injection
+│   │   ├── openings.py              # Variation parameter
+│   │   ├── coach_play.py            # Pattern memory + Theory applied
 │   ├── services/
 │   │   ├── community_training_service.py
-│   │   ├── pattern_memory_service.py  # Existing, now wired into live coaching
-│   │   ├── shared_coaching_v5.py      # UPDATED: pattern_memory field
-│   │   ├── opening_theory_json_service.py  # UPDATED: Key normalization
-│   │   ├── game_decryption_v5_service.py
-│   │   ├── plan_analysis_service.py
-│   ├── server.py
+│   │   ├── pattern_memory_service.py
+│   │   ├── shared_coaching_v5.py      # pattern_memory + theory_applied fields
+│   │   ├── opening_theory_json_service.py  # Key normalization
+│   ├── server.py                      # Pattern prescription endpoint
 └── frontend/src/
     ├── pages/
-    │   ├── OpeningsOverview.jsx       # UPDATED: InlineBoardPreview
-    │   ├── OpeningLesson.jsx          # UPDATED: Variation selector
-    │   ├── ThinkingTraining.jsx
-    │   ├── HomePage.jsx, Dashboard.jsx, LabV2.jsx
+    │   ├── HomePage.jsx               # Pattern Prescription card
+    │   ├── OpeningsOverview.jsx       # InlineBoardPreview + Coach Progress
+    │   ├── OpeningLesson.jsx          # Variation selector
+    │   ├── ThinkingTraining.jsx       # Community Intelligence
     ├── components/
-    │   ├── shared/V5CoachingCard.jsx  # UPDATED: pattern_memory display
-    │   ├── Layout.jsx, GameDecryptionV5.jsx, LichessBoard.jsx
+    │   ├── shared/V5CoachingCard.jsx  # pattern_memory + theory_applied
 ```
 
 ---
@@ -90,17 +95,15 @@ NOT a "move explanation system" but a "Thinking Simulator" that trains the user'
 
 ### P1 - High Priority
 - [ ] Refactor `GameDecryptionV5.jsx` to use shared `V5CoachingCard.jsx`
-- [ ] Cross-screen progress tracking (opening taught by coach → applied in real game = milestone)
 
 ### P2 - Medium Priority
 - [ ] Admin UI for theory database management
 - [ ] Community position opt-in/opt-out
-- [ ] "Did you find it?" stats ("73% of players at your level missed this")
+- [ ] "Did you find it?" aggregate stats ("73% missed this")
 - [ ] Pattern clustering by theme
 - [ ] Endgame theory tree
 - [ ] Habits Trend Dashboard
 - [ ] Opening Proficiency in Coach Panel
-- [ ] "Theory Applied" celebration during games
 
 ### P3 - Nice to Have
 - [ ] Voice coaching mode
@@ -111,15 +114,17 @@ NOT a "move explanation system" but a "Thinking Simulator" that trains the user'
 ---
 
 ## Testing Status (All Passed)
-- Community Training: Backend 10/10, Frontend 100%
-- Opening Portrait: Backend 12/12, Frontend 100%
-- Interactive Board + Variation Selector + Pattern Memory: Backend 15/15, Frontend 100%
+- Iteration 155: Community Training — Backend 10/10, Frontend 100%
+- Iteration 156: Opening Portrait — Backend 12/12, Frontend 100%
+- Iteration 157: Interactive Board + Variations + Pattern Memory — Backend 15/15, Frontend 100%
+- Iteration 158: Pattern Prescription + Theory Applied + Cross-screen — Backend 14/14, Frontend 100%
 
 ## Critical Notes for Future Agents
 - **Never generic LLM text**: Prompts must demand specific explanations
 - **Clear V5 cache**: If tweaking coaching logic, clear `game_analyses` for that game
 - **DB_NAME**: `test_database` (from .env)
-- **Key normalization**: Opening keys can be hyphenated or underscored — handled in `opening_theory_json_service.py`
-- **Pattern Memory**: Only triggers for cp_loss >= 100 and severity in (mistake, blunder, inaccuracy)
+- **Key normalization**: Opening keys handled in `opening_theory_json_service.py`
+- **Pattern Memory**: Triggers for cp_loss >= 100 and severity in (mistake, blunder, inaccuracy)
+- **Theory Applied**: Only triggers in first 24 moves, severity in (good, excellent, book)
 
 *Last Updated: March 2025*
