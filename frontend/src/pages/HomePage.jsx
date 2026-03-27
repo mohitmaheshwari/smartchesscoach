@@ -1,12 +1,8 @@
 /**
- * HOME PAGE → Decision
- * "What should I do right now?"
+ * HOME PAGE — Reimagined
  * 
- * Focused but warm - like a coach greeting you
- * - Context (how you're doing)
- * - Clear primary action (Play)
- * - One focus area
- * - Quick pulse of your recent form
+ * Not a dashboard. A mirror.
+ * Shows: Your last battle, who you are, what to fix, what to do next.
  */
 
 import { useState, useEffect } from "react";
@@ -14,46 +10,24 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { 
-  Loader2, 
-  Play, 
-  ChevronRight,
-  Flame,
-  Target,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Swords,
-  BookOpen,
-  AlertTriangle,
-  Brain
-} from "lucide-react";
+import LichessBoard from "@/components/LichessBoard";
+import { ChevronRight, Swords, Target, ArrowRight } from "lucide-react";
+
+const WINE = "#722F37";
+const GOLD = "#CBA135";
 
 const HomePage = ({ user }) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [prescriptions, setPrescriptions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [homeRes, statsRes, rxRes] = await Promise.all([
-          fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
-          fetch(`${API}/progress`, { credentials: "include" }),
-          fetch(`${API}/home/pattern-prescription`, { credentials: "include" }),
-        ]);
-        if (homeRes.ok) setData(await homeRes.json());
-        if (statsRes.ok) setStats(await statsRes.json());
-        if (rxRes.ok) {
-          const rxData = await rxRes.json();
-          setPrescriptions(rxData.prescriptions || []);
-        }
+        const res = await fetch(`${API}/home/dashboard-v2`, { credentials: "include" });
+        if (res.ok) setData(await res.json());
       } catch (e) {
-        console.error(e);
+        console.error("Home fetch error:", e);
       } finally {
         setLoading(false);
       }
@@ -64,211 +38,220 @@ const HomePage = ({ user }) => {
   if (loading) {
     return (
       <Layout user={user}>
-        <div className="flex items-center justify-center min-h-[70vh]">
-          <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="w-5 h-5 border border-gray-700 border-t-white animate-spin" />
         </div>
       </Layout>
     );
   }
 
-  // Extract data
-  const score = data?.development_phase?.score || 0;
+  const battle = data?.last_battle;
+  const dna = data?.chess_dna;
+  const fix = data?.one_thing_to_fix;
+  const action = data?.context_action;
+  const accuracy = data?.accuracy || 0;
   const gamesAnalyzed = data?.games_analyzed || 0;
-  const problem = data?.specific_patterns?.dominant_pattern;
-  const problemFormatted = problem?.replace(/_/g, " ");
-  const problemCount = data?.specific_patterns?.pattern_count || 0;
-  const accuracy = stats?.accuracy?.current || 0;
-  const trend = stats?.accuracy?.trend;
-  const lastGame = data?.last_game;
-  
-  // Get greeting based on time
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  };
 
-  // Get motivation based on trend
-  const getMotivation = () => {
-    if (trend === 'improving') return "You're on a roll!";
-    if (trend === 'declining') return "Let's get back on track";
-    return "Ready to play?";
-  };
-
-  const TrendIcon = trend === 'improving' ? TrendingUp : trend === 'declining' ? TrendingDown : Minus;
+  // Greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <Layout user={user}>
-      <div className="max-w-xl mx-auto px-4 py-8" data-testid="home-page">
-        
-        {/* Greeting */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-          <h1 className="text-3xl text-white tracking-tight mb-1" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{getGreeting()}</h1>
-          <p className="text-sm text-gray-500 font-light">{getMotivation()}</p>
+      <div className="max-w-2xl mx-auto px-4 py-6" data-testid="home-page">
+
+        {/* ── GREETING ── */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
+          <p className="text-sm text-gray-600 font-light">{greeting}</p>
         </motion.div>
 
-        {/* Quick Pulse */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
-          <div className="flex items-center gap-0" style={{ border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div className="flex-1 text-center py-4" style={{ borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-              <p className="text-2xl font-light text-white" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{Math.round(score)}</p>
-              <p className="text-[10px] tracking-[0.15em] uppercase text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Score</p>
-            </div>
-            <div className="flex-1 text-center py-4" style={{ borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-              <p className="text-2xl font-light text-white" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{accuracy.toFixed(0)}%</p>
-              <p className="text-[10px] tracking-[0.15em] uppercase text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Accuracy</p>
-            </div>
-            <div className="flex-1 text-center py-4">
-              <TrendIcon className={`w-5 h-5 mx-auto ${trend === 'improving' ? 'text-emerald-500' : trend === 'declining' ? 'text-red-400' : 'text-gray-600'}`} strokeWidth={1.5} />
-              <p className="text-[10px] tracking-[0.15em] uppercase text-gray-600 mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Trend</p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Play with Coach */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-4">
-          <div
-            className="p-5 cursor-pointer transition-all duration-200 hover:opacity-90 group"
-            style={{ background: "#722F37" }}
-            onClick={() => navigate("/play-with-coach")}
-            data-testid="play-card"
+        {/* ── LAST BATTLE: The Board ── */}
+        {battle && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-8"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 flex items-center justify-center" style={{ background: "rgba(255,255,255,0.15)" }}>
-                <Play className="w-6 h-6 text-white fill-white" />
-              </div>
-              <div className="flex-1">
-                <h2 className="text-lg text-white font-light" style={{ fontFamily: "'Cormorant Garamond', serif" }}>Play with Coach</h2>
-                <p className="text-sm text-white/50 font-light">Get feedback on every move</p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-white/40" strokeWidth={1.5} />
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Train & Study */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="grid grid-cols-2 gap-3 mb-6">
-          <div
-            className="p-4 cursor-pointer transition-all duration-200 hover:bg-white/[0.03]"
-            style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}
-            onClick={() => navigate(problem ? `/training?focus=${problem}` : "/training")}
-            data-testid="train-card"
-          >
-            <p className="text-[10px] tracking-[0.15em] uppercase mb-3" style={{ color: "#CBA135", fontFamily: "'JetBrains Mono', monospace" }}>Train</p>
-            <p className="text-sm text-white font-light">
-              {problem ? <span className="capitalize">{problemFormatted}</span> : "Positions to solve"}
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
+              Your Last Battle
             </p>
-            <p className="text-xs text-gray-600 mt-1">{problem ? `${problemCount}x recently` : "Your games + community"}</p>
-          </div>
-
-          <div
-            className="p-4 cursor-pointer transition-all duration-200 hover:bg-white/[0.03]"
-            style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}
-            onClick={() => navigate("/openings-overview")}
-            data-testid="openings-card"
-          >
-            <p className="text-[10px] tracking-[0.15em] uppercase mb-3" style={{ color: "#CBA135", fontFamily: "'JetBrains Mono', monospace" }}>Study</p>
-            <p className="text-sm text-white font-light">Openings & Endgames</p>
-            <p className="text-xs text-gray-600 mt-1">Your repertoire + endgame lessons</p>
-          </div>
-        </motion.div>
-
-        {/* Patterns to Fix */}
-        {prescriptions.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="mb-4">
-            <div style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }} data-testid="pattern-prescription-card">
-              <div className="p-4">
-                <p className="text-[10px] tracking-[0.15em] uppercase mb-4" style={{ color: "#CBA135", fontFamily: "'JetBrains Mono', monospace" }}>Patterns to Fix</p>
-                <div className="space-y-0">
-                  {prescriptions.map((rx) => (
-                    <div
-                      key={rx.pattern_type}
-                      className="flex items-center justify-between py-2.5 cursor-pointer hover:bg-white/[0.02] transition-colors -mx-4 px-4"
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
-                      data-testid={`prescription-${rx.pattern_type}`}
-                      onClick={() => navigate(`/training?focus=${rx.pattern_type}`)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: rx.severity === 'critical' ? '#722F37' : '#CBA135' }} />
-                        <span className="text-sm text-gray-300 font-light">{rx.label}</span>
-                        <span className="text-xs text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{rx.recent_count}x</span>
-                      </div>
-                      {rx.training_positions_available > 0 && (
-                        <span className="text-xs" style={{ color: "#CBA135", fontFamily: "'JetBrains Mono', monospace" }}>
-                          {rx.training_positions_available} waiting
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Habits */}
-        {stats?.habits?.length > 0 && (() => {
-          const activeHabits = stats.habits.filter(h => h.is_active);
-          const improvingHabits = stats.habits.filter(h => h.trend === "improving");
-          const resolvedCount = stats.resolved_habits?.length || 0;
-          if (activeHabits.length === 0 && improvingHabits.length === 0 && resolvedCount === 0) return null;
-          return (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-4">
-              <div className="p-4" style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }} data-testid="habit-insight-card">
-                <p className="text-[10px] tracking-[0.15em] uppercase mb-3" style={{ color: "#CBA135", fontFamily: "'JetBrains Mono', monospace" }}>Habits</p>
-                <div className="space-y-1.5">
-                  {improvingHabits.length > 0 && (
-                    <p className="text-xs text-emerald-500 flex items-center gap-1.5 font-light">
-                      <TrendingUp className="w-3 h-3" strokeWidth={1.5} />
-                      {improvingHabits[0].name} is improving
-                    </p>
-                  )}
-                  {activeHabits.length > 0 && !improvingHabits.length && (
-                    <p className="text-xs flex items-center gap-1.5 font-light" style={{ color: "#722F37" }}>
-                      <AlertTriangle className="w-3 h-3" strokeWidth={1.5} />
-                      Watch: {activeHabits[0].name} ({activeHabits[0].occurrences_recent}x recently)
-                    </p>
-                  )}
-                  {resolvedCount > 0 && (
-                    <p className="text-xs text-gray-600 font-light">{resolvedCount} habit{resolvedCount !== 1 ? 's' : ''} resolved</p>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          );
-        })()}
-
-        {/* Last Game */}
-        {lastGame && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="mb-4">
             <div
-              className="p-4 cursor-pointer transition-all duration-200 hover:bg-white/[0.02]"
+              className="cursor-pointer transition-all duration-200 hover:border-white/10"
               style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}
-              onClick={() => navigate(`/game/${lastGame.game_id}`)}
-              data-testid="last-game-card"
+              onClick={() => navigate(`/game/${battle.game_id}`)}
+              data-testid="last-battle-card"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Swords className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
+              <div className="flex">
+                {/* Board */}
+                <div className="w-[220px] h-[220px] flex-shrink-0">
+                  <LichessBoard
+                    fen={battle.fen}
+                    orientation={battle.user_color}
+                    viewOnly={true}
+                    arrows={battle.best_move ? [] : []}
+                    lastMove={null}
+                  />
+                </div>
+                {/* Info */}
+                <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
                   <div>
-                    <p className="text-sm text-gray-300 font-light">Last game vs {lastGame.opponent || 'Opponent'}</p>
-                    <p className="text-xs text-gray-600">
-                      {lastGame.result === '1-0' ? 'Won' : lastGame.result === '0-1' ? 'Lost' : 'Draw'}
-                      {lastGame.blunders > 0 && ` · ${lastGame.blunders} blunder${lastGame.blunders > 1 ? 's' : ''}`}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm text-gray-400 font-light">vs {battle.opponent}</span>
+                      <span className="text-xs px-2 py-0.5" style={{
+                        background: battle.result === "1-0" && battle.user_color === "white" || battle.result === "0-1" && battle.user_color === "black"
+                          ? "rgba(39,111,75,0.3)" : "rgba(114,47,55,0.3)",
+                        color: battle.result === "1-0" && battle.user_color === "white" || battle.result === "0-1" && battle.user_color === "black"
+                          ? "#4ade80" : "#f87171",
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}>
+                        {battle.result === "1-0" && battle.user_color === "white" || battle.result === "0-1" && battle.user_color === "black" ? "WON" : "LOST"}
+                      </span>
+                    </div>
+                    <p className="text-white text-base leading-relaxed font-light" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                      {dna?.root_cause || "Review this game"}
                     </p>
                   </div>
+                  <div className="flex items-center gap-3 mt-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Move {battle.move_number}</span>
+                      <span className="text-xs font-mono text-red-400">{battle.your_move}</span>
+                      <ArrowRight className="w-3 h-3 text-gray-700" />
+                      <span className="text-xs font-mono text-emerald-400">{battle.best_move}</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-600">Review →</span>
               </div>
             </div>
           </motion.div>
         )}
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
-          className="text-center text-xs text-gray-700 mt-10" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-          {gamesAnalyzed} games analyzed
-        </motion.p>
+        {/* ── CHESS DNA: Identity Card ── */}
+        {dna && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mb-8"
+          >
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
+              Your Chess DNA
+            </p>
+            <div style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl text-white tracking-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                    {dna.archetype}
+                  </h2>
+                  <span className="text-[10px] tracking-[0.15em] uppercase px-2 py-1" style={{
+                    border: `1px solid rgba(114,47,55,0.4)`,
+                    color: WINE,
+                    fontFamily: "'JetBrains Mono', monospace"
+                  }}>
+                    {dna.diagnosis?.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500 font-light">{dna.before_line}</p>
+                  <p className="text-sm text-white font-light">{dna.after_line}</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── ONE THING TO FIX ── */}
+        {fix && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mb-8"
+          >
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
+              Fix This One Thing
+            </p>
+            <div
+              className="cursor-pointer transition-all duration-200 hover:border-white/10"
+              style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}
+              onClick={() => navigate("/training?focus=calculation_depth")}
+              data-testid="one-thing-to-fix"
+            >
+              <div className="p-5 space-y-3">
+                <p className="text-sm text-gray-400 font-light">{fix.stat_line}</p>
+                <p className="text-base text-white font-light" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                  {fix.fix_line}
+                </p>
+                {fix.diff_line && (
+                  <p className="text-lg font-light" style={{ color: "#4ade80", fontFamily: "'Cormorant Garamond', serif" }}>
+                    {fix.diff_line}
+                  </p>
+                )}
+                <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+                  <span className="text-xs px-2 py-0.5" style={{
+                    background: fix.severity === "CRITICAL" ? "rgba(114,47,55,0.2)" : "rgba(203,161,53,0.15)",
+                    color: fix.severity === "CRITICAL" ? WINE : GOLD,
+                    fontFamily: "'JetBrains Mono', monospace"
+                  }}>
+                    {fix.severity}
+                  </span>
+                  <span className="text-xs text-gray-600 flex items-center gap-1">
+                    Train this <ChevronRight className="w-3 h-3" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── CONTEXTUAL ACTION ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mb-6"
+        >
+          <div className="flex gap-3">
+            {/* Primary action */}
+            {action && (
+              <div
+                className="flex-1 p-4 cursor-pointer transition-all duration-200 hover:opacity-90 flex items-center gap-3"
+                style={{ background: action.type === "review_loss" ? WINE : "#0a0a0a", border: action.type === "review_loss" ? "none" : `1px solid rgba(255,255,255,0.05)` }}
+                onClick={() => navigate(action.href)}
+                data-testid="context-action"
+              >
+                {action.type === "review_loss" ? (
+                  <Target className="w-5 h-5 text-white/70 flex-shrink-0" strokeWidth={1.5} />
+                ) : (
+                  <Swords className="w-5 h-5 text-gray-500 flex-shrink-0" strokeWidth={1.5} />
+                )}
+                <div className="flex-1">
+                  <p className="text-sm text-white font-light">{action.label}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/40 flex-shrink-0" strokeWidth={1.5} />
+              </div>
+            )}
+            {/* Play */}
+            {action?.type !== "play" && (
+              <div
+                className="p-4 cursor-pointer transition-all duration-200 hover:opacity-90 flex items-center gap-3"
+                style={{ background: GOLD, color: "#050505" }}
+                onClick={() => navigate("/play-with-coach")}
+                data-testid="play-btn"
+              >
+                <Swords className="w-5 h-5 flex-shrink-0" strokeWidth={1.5} />
+                <span className="text-sm font-medium whitespace-nowrap">Play</span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* ── FOOTER ── */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+          className="flex items-center justify-between text-gray-700 mt-10 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+          <span className="text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{gamesAnalyzed} games</span>
+          <span className="text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{accuracy.toFixed(0)}% accuracy</span>
+        </motion.div>
       </div>
     </Layout>
   );

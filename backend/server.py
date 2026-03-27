@@ -8536,6 +8536,121 @@ async def get_my_contributions_endpoint(request: Request, user: User = Depends(g
 # HOME: PATTERN PRESCRIPTION
 # ============================================================================
 
+
+@api_router.get("/home/dashboard-v2")
+async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
+    """
+    V2 Home Dashboard — everything the reimagined home page needs in one call.
+    Returns: last battle (critical position + FEN), chess DNA, #1 pattern to fix, contextual action.
+    """
+    from services.game_coach_summary import compute_game_summary, compute_game_memory
+
+    result = {
+        "last_battle": None,
+        "chess_dna": None,
+        "one_thing_to_fix": None,
+        "context_action": None,
+        "accuracy": 0,
+        "games_analyzed": 0,
+    }
+
+    try:
+        # Get last analyzed game
+        last_game = await db.games.find_one(
+            {"user_id": user.user_id, "is_analyzed": True},
+            {"_id": 0}
+        , sort=[("imported_at", -1)])
+
+        if not last_game:
+            result["context_action"] = {"type": "import", "label": "Import your first game", "href": "/import"}
+            return result
+
+        game_id = last_game.get("game_id")
+        user_color = last_game.get("user_color", "white")
+        game_result = last_game.get("result", "")
+        import re
+        pgn = last_game.get("pgn", "")
+        elo_tag = "WhiteElo" if user_color == "white" else "BlackElo"
+        m = re.search(rf'\[{elo_tag} "(\d+)"\]', pgn)
+        user_rating = int(m.group(1)) if m else 0
+
+        # Get analysis
+        analysis = await db.game_analyses.find_one(
+            {"game_id": game_id, "user_id": user.user_id},
+            {"_id": 0, "stockfish_analysis.move_evaluations": 1}
+        )
+
+        if analysis:
+            evals = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+
+            # Find the critical moment (worst user move)
+            if evals:
+                user_is_white = user_color == "white"
+                user_moves = []
+                for i, ev in enumerate(evals):
+                    is_user = (i % 2 == 0 and user_is_white) or (i % 2 == 1 and not user_is_white)
+                    if is_user and ev.get("cp_loss", 0) >= 100:
+                        user_moves.append(ev)
+
+                if user_moves:
+                    worst = max(user_moves, key=lambda x: x.get("cp_loss", 0))
+                    result["last_battle"] = {
+                        "game_id": game_id,
+                        "opponent": last_game.get("opponent_name") or (last_game.get("white_player") if user_color == "black" else last_game.get("black_player")),
+                        "result": game_result,
+                        "user_color": user_color,
+                        "fen": worst.get("fen_before", ""),
+                        "your_move": worst.get("move", ""),
+                        "best_move": worst.get("best_move", ""),
+                        "cp_loss": worst.get("cp_loss", 0),
+                        "move_number": worst.get("move_number", 0),
+                    }
+
+                # Compute summary + memory
+                summary = compute_game_summary(evals, game_result, user_color, last_game.get("opening", ""))
+                memory = await compute_game_memory(db, user.user_id, summary, user_rating)
+
+                result["chess_dna"] = {
+                    "archetype": memory.get("identity", {}).get("archetype", "Developing"),
+                    "before_line": memory.get("identity", {}).get("before_line", ""),
+                    "after_line": memory.get("identity", {}).get("after_line", ""),
+                    "diagnosis": summary.get("diagnosis", ""),
+                    "root_cause": summary.get("root_cause", ""),
+                }
+
+                # Impact projection as the "one thing to fix"
+                impact = memory.get("impact", {})
+                if impact.get("estimated_rating_gain", 0) > 0:
+                    result["one_thing_to_fix"] = {
+                        "pattern": impact.get("pattern_name", ""),
+                        "stat_line": impact.get("stat_line", ""),
+                        "fix_line": impact.get("fix_line", ""),
+                        "diff_line": impact.get("diff_line", ""),
+                        "severity": impact.get("severity", ""),
+                        "rating_gain": impact.get("estimated_rating_gain", 0),
+                    }
+
+        # Accuracy from profile
+        profile = await db.player_profiles.find_one({"user_id": user.user_id}, {"_id": 0})
+        if profile:
+            result["accuracy"] = profile.get("average_accuracy", 0)
+
+        # Games count
+        result["games_analyzed"] = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
+
+        # Contextual action
+        user_won = (game_result == "1-0" and user_color == "white") or (game_result == "0-1" and user_color == "black")
+        if not user_won and "1/2" not in game_result:
+            result["context_action"] = {"type": "review_loss", "label": "Review this loss", "href": f"/game/{game_id}"}
+        else:
+            result["context_action"] = {"type": "play", "label": "Play another game", "href": "/play-with-coach"}
+
+    except Exception as e:
+        logger.error(f"Home dashboard V2 error: {e}")
+
+    return result
+
+
 @api_router.get("/home/pattern-prescription")
 async def get_pattern_prescription(
     user: User = Depends(get_current_user)
