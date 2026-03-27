@@ -13,6 +13,25 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+# Common opening family keywords — used to group variations
+_FAMILY_SUFFIXES = {"Defense", "Opening", "Game", "Gambit", "Attack", "System", "Variation", "Indian"}
+
+
+def _get_opening_family(name: str) -> str:
+    """Extract the base opening family from a full variation name.
+    e.g. 'Scandinavian Defense Mieses Kotrc Variation 3.Nc3' -> 'Scandinavian Defense'
+    e.g. 'Italian Game Two Knights Modern' -> 'Italian Game'
+    """
+    if not name or name in ("Unknown", "Undefined"):
+        return "Other"
+    parts = name.split()
+    # Find the first "family keyword" and take everything up to and including it
+    for i, word in enumerate(parts):
+        if word in _FAMILY_SUFFIXES and i > 0:
+            return " ".join(parts[:i + 1])
+    # If no keyword found, take first 2 words
+    return " ".join(parts[:min(2, len(parts))])
+
 
 async def get_player_profile(db, user_id: str):
     """
@@ -94,6 +113,17 @@ async def _gather_profile_data(db, user_id: str) -> dict:
 
     top_openings = sorted(openings.items(), key=lambda x: -x[1])[:3]
 
+    # --- Opening families (group by base name, not specific variation) ---
+    opening_families = {}
+    for op_name, count in openings.items():
+        # Extract base family: take first 2-3 meaningful words before "Variation"/"Defense"/"Game" details
+        family = _get_opening_family(op_name)
+        opening_families[family] = opening_families.get(family, 0) + count
+    unique_families = len(opening_families)
+    top_families = sorted(opening_families.items(), key=lambda x: -x[1])[:4]
+    most_played_family = top_families[0] if top_families else ("Unknown", 0)
+    most_played_family_pct = round(most_played_family[1] / max(total, 1) * 100) if total > 0 else 0
+
     # --- Where games are decided (phase analysis from game summaries) ---
     phase_mistakes = {"opening": 0, "middlegame": 0, "endgame": 0}
     blunder_count = 0
@@ -167,9 +197,10 @@ async def _gather_profile_data(db, user_id: str) -> dict:
         "draws": draws,
         "win_rate": round(wins / max(total, 1) * 100),
         "top_openings": [{"name": o[0], "count": o[1]} for o in top_openings],
-        "unique_openings": unique_openings,
-        "most_played_opening": most_played[0],
-        "most_played_opening_pct": most_played_pct,
+        "unique_openings": unique_families,
+        "top_opening_families": [{"name": f[0], "count": f[1]} for f in top_families],
+        "most_played_opening": most_played_family[0],
+        "most_played_opening_pct": most_played_family_pct,
         "phase_mistakes": phase_mistakes,
         "worst_phase": worst_phase,
         "blunder_count": blunder_count,
@@ -194,31 +225,30 @@ async def _generate_narrative(data: dict) -> str:
         prompt = f"""Look at this player's data and tell them who they are as a chess player right now. Talk to them like their personal coach — someone who's watched all their games and knows their patterns.
 
 RULES:
-- Talk like a real coach talks. Short sentences. Direct. Like you're sitting across from them.
-- Say what you actually see in the data. Name specific openings, specific phases, specific patterns.
+- Talk like a real Indian coach/mentor. Simple words. Straight talk. No dramatic language.
+- Say what you actually see in the data. Name specific openings, specific phases.
 - Do NOT give advice. Don't say "you should" or "you need to." Just tell them what you see.
-- 2-3 short sentences. That's it. No essays.
-- Don't be formal. Don't be flowery. Be real.
+- 2-3 short sentences. No essays, no fancy vocabulary.
+- Use natural English the way an Indian person would speak — not American slang, not British formal.
 
-BAD example (too formal, too wordy):
-"Your reliance on offbeat lines reveals a taste for unconventional play, yet tactical oversights dominate your losses, reflecting a struggle to balance complexity with accuracy."
+BAD (too dramatic, too Western):
+"You jump around openings like you're sampling a buffet — that's killing your start. Your tactical errors scream that something is off."
 
-GOOD example (how a coach actually talks):
-"You play a different opening almost every game — {data['unique_openings']} different ones in your last {data['total_games']}. Most of your games go wrong in the opening itself, before you even get to the middlegame. You're a scrappy fighter though — {data['win_rate']}% wins says you find ways to win even from messy positions."
+GOOD (how an Indian coach actually talks):
+"You're playing too many different openings — {data['unique_openings']} families in {data['total_games']} games. That's a lot. Most of your trouble is happening early, in the opening itself, before you even reach the middlegame."
 
 PLAYER DATA:
-- Name: {data['name']}
 - Last {data['total_games']} games: {data['wins']}W / {data['losses']}L / {data['draws']}D ({data['win_rate']}% wins)
-- Most played opening: {data['most_played_opening']} ({data['most_played_opening_pct']}% of games)
-- Opening diversity: {data['unique_openings']} different openings in {data['total_games']} games
-- Top openings: {', '.join(f"{o['name']} ({o['count']}x)" for o in data['top_openings']) or 'varied'}
-- Where things go wrong: {data['worst_phase']} (opening: {data['phase_mistakes']['opening']}, middlegame: {data['phase_mistakes']['middlegame']}, endgame: {data['phase_mistakes']['endgame']})
+- Opening families played: {data['unique_openings']} different families
+- Top openings: {', '.join(f"{o['name']} ({o['count']}x)" for o in data['top_opening_families']) or 'varied'}
+- Most played: {data['most_played_opening']} ({data['most_played_opening_pct']}% of games)
+- Where things go wrong most: {data['worst_phase']} (opening: {data['phase_mistakes']['opening']}, middlegame: {data['phase_mistakes']['middlegame']}, endgame: {data['phase_mistakes']['endgame']})
 - Blunders: {data['blunder_count']}
 - Common mistake types: {', '.join(f"{t['type']} ({t['count']}x)" for t in data['top_mistake_types']) or 'varied'}
 
-Now write the profile. 2-3 short sentences. Talk like a coach, not a textbook."""
+Now write the profile. 2-3 short sentences. Simple language. Like a coach talking, not writing."""
 
-        system_msg = "You are a chess coach who talks straight. No academic language. No fancy vocabulary. You talk like a real person who's been watching this player's games and knows them well. Short, punchy, specific."
+        system_msg = "You are a chess coach in India. You talk simply and directly. No dramatic language, no metaphors, no Western slang. Just honest, clear observations about the player. Like talking to your student after watching their games."
 
         chat_instance = LlmChat(
             api_key=api_key,
@@ -260,8 +290,8 @@ def _fallback_narrative(data: dict) -> str:
 
     # Opening identity
     if data["most_played_opening_pct"] > 30:
-        parts.append(f"You lean heavily on the {data['most_played_opening']}.")
+        parts.append(f"You lean towards the {data['most_played_opening']} mostly.")
     elif data["unique_openings"] > 8:
-        parts.append(f"You play a wide variety of openings — {data['unique_openings']} different ones recently.")
+        parts.append(f"You play quite a few different openings — {data['unique_openings']} families recently.")
 
     return " ".join(parts[:3])
