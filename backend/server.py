@@ -8688,6 +8688,14 @@ async def check_endgame_move(req: EndgameCheckMoveRequest):
 # ADMIN & FEEDBACK SYSTEM
 # ============================================================================
 
+@api_router.get("/progress/player-profile")
+async def get_player_profile_endpoint(user: User = Depends(get_current_user)):
+    """Get player's coaching narrative profile."""
+    from services.player_profile_service import get_player_profile
+    profile = await get_player_profile(db, user.user_id)
+    return profile
+
+
 async def require_admin(user: User = Depends(get_current_user)):
     """Dependency that requires super_admin or admin role."""
     if user.role not in ("super_admin", "admin"):

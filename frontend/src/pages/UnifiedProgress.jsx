@@ -16,7 +16,7 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Loader2, RefreshCw, TrendingUp, TrendingDown, Minus, Quote } from "lucide-react";
 
 const UnifiedProgress = ({ user }) => {
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,7 @@ const UnifiedProgress = ({ user }) => {
   const [homeData, setHomeData] = useState(null);
   const [games, setGames] = useState([]);
   const [syncing, setSyncing] = useState(false);
+  const [playerProfile, setPlayerProfile] = useState(null);
 
   useEffect(() => {
     fetchAll();
@@ -31,10 +32,11 @@ const UnifiedProgress = ({ user }) => {
 
   const fetchAll = async () => {
     try {
-      const [progressRes, homeRes, gamesRes] = await Promise.all([
+      const [progressRes, homeRes, gamesRes, profileRes] = await Promise.all([
         fetch(`${API}/progress`, { credentials: "include" }),
         fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
-        fetch(`${API}/games`, { credentials: "include" })
+        fetch(`${API}/games`, { credentials: "include" }),
+        fetch(`${API}/progress/player-profile`, { credentials: "include" }),
       ]);
       if (progressRes.ok) setProgressData(await progressRes.json());
       if (homeRes.ok) setHomeData(await homeRes.json());
@@ -42,6 +44,7 @@ const UnifiedProgress = ({ user }) => {
         const g = await gamesRes.json();
         setGames(Array.isArray(g) ? g : []);
       }
+      if (profileRes.ok) setPlayerProfile(await profileRes.json());
     } catch (e) {
       console.error(e);
     } finally {
@@ -171,6 +174,30 @@ const UnifiedProgress = ({ user }) => {
             <span className="text-zinc-400">{gamesAnalyzed}</span> of {totalGames} games analyzed
           </p>
         </motion.div>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            PLAYER PROFILE — Coaching Narrative
+        ═══════════════════════════════════════════════════════════════ */}
+        {playerProfile?.narrative && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.03 }}
+            className="mb-6 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800"
+            data-testid="player-profile-card"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Quote className="w-4 h-4 text-zinc-600" />
+              <p className="text-xs text-zinc-500 uppercase tracking-wide">Your Player Profile</p>
+            </div>
+            <p className="text-sm text-zinc-300 leading-relaxed" data-testid="player-profile-narrative">
+              {playerProfile.narrative}
+            </p>
+            <p className="text-xs text-zinc-600 mt-3">
+              Based on your last {playerProfile.games_at_generation || playerProfile.current_game_count} games
+            </p>
+          </motion.div>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════════
             SCORE BREAKDOWN
