@@ -1,167 +1,124 @@
 {
-  "identity": {
-    "name": "E1",
-    "role": "Creative Designer",
-    "principles": [
-      "Fusion over Imitation",
-      "Emotion First",
-      "Content is King",
-      "Zoom In",
-      "Negative Space",
-      "Contrast"
-    ]
+  "theme": "dark",
+  "archetype": "Archetype 5: Jewel & Luxury",
+  "mood": "Intense, Elite, Authoritative, Premium, Cinematic",
+  "colors": {
+    "background": "#050505",
+    "surface": "#0a0a0c",
+    "surface_glass": "rgba(10, 10, 12, 0.6)",
+    "primary": "#722F37",
+    "primary_hover": "#8B3A44",
+    "accent": "#CBA135",
+    "text_primary": "#F3F4F6",
+    "text_secondary": "#9CA3AF",
+    "border": "rgba(255,255,255,0.08)"
   },
-  "project": {
-    "name": "AI Chess Coach",
-    "description": "A calm, strict, experienced chess coach app that understands context and trains mistakes like a human.",
-    "persona": "The Grandmaster Mentor - Firm, supportive, wise, disciplined.",
-    "target_audience": "Beginners to Intermediate players, Parents, Serious Hobbyists."
-  },
-  "design_system": {
-    "theme_strategy": "Dynamic (Dark-first, Light secondary)",
-    "typography": {
-      "headings": {
-        "font_family": "Outfit, sans-serif",
-        "weights": ["500", "600", "700"],
-        "usage": "Use for all H1-H6. Tight tracking (-0.02em).",
-        "install_command": "yarn add @fontsource/outfit"
-      },
-      "body": {
-        "font_family": "Manrope, sans-serif",
-        "weights": ["400", "500"],
-        "usage": "Use for all paragraphs and UI text. Relaxed leading."
-      },
-      "mono": {
-        "font_family": "JetBrains Mono, monospace",
-        "usage": "Use for chess notation (e.g., 1. e4 e5), stats, and code snippets."
-      },
-      "rules": [
-        "Never use Inter for headings.",
-        "Uppercase labels (12px, tracking-widest, font-medium) for section headers.",
-        "High contrast text always."
-      ]
+  "typography": {
+    "headings": {
+      "family": "'Cormorant Garamond', serif",
+      "weights": ["300", "400", "600"],
+      "tracking": "tracking-tighter"
     },
-    "colors": {
-      "palette": {
-        "dark": {
-          "background": "#0A0A0A",
-          "surface": "#121212",
-          "surface_highlight": "#1E1E1E",
-          "border": "#27272A",
-          "text_primary": "#FFFFFF",
-          "text_secondary": "#A1A1AA"
-        },
-        "light": {
-          "background": "#F5F5F7",
-          "surface": "#FFFFFF",
-          "surface_highlight": "#F0F0F0",
-          "border": "#E4E4E7",
-          "text_primary": "#18181B",
-          "text_secondary": "#71717A"
-        },
-        "accents": {
-          "primary": "#FFFFFF",
-          "primary_foreground": "#000000",
-          "focus": "#F59E0B",
-          "growth": "#10B981",
-          "neutral": "#71717A"
-        },
-        "chess_semantics": {
-          "blunder": "#EF4444",
-          "mistake": "#F97316",
-          "inaccuracy": "#EAB308",
-          "good": "#3B82F6",
-          "excellent": "#10B981",
-          "brilliant": "#14B8A6"
-        }
-      },
-      "rules": [
-        "NO Gradients.",
-        "NO Glassmorphism.",
-        "Use solid colors with subtle borders.",
-        "Dark mode is default."
-      ]
+    "body": {
+      "family": "'Outfit', sans-serif",
+      "weights": ["300", "400", "500"]
     },
-    "layout": {
-      "grid_system": "Bento Grid (Mode B for Dashboard)",
-      "spacing": {
-        "base": "4px",
-        "container_padding": "p-6 md:p-8 lg:p-12",
-        "gap": "gap-4 md:gap-6"
-      },
-      "radius": {
-        "default": "rounded-md",
-        "card": "rounded-lg",
-        "button": "rounded-md"
-      },
-      "rules": [
-        "Use 'subgrid' where possible for alignment.",
-        "Always use 'container' class with max-width.",
-        "Mobile-first: grid-cols-1 -> md:grid-cols-3."
-      ]
+    "mono": {
+      "family": "'JetBrains Mono', monospace",
+      "usage": "Overlines, labels, small stats"
     },
-    "components": {
-      "buttons": {
-        "style": "Solid, slightly rounded (rounded-md). High contrast.",
-        "hover": "Scale 1.02, no shadow change."
-      },
-      "cards": {
-        "style": "Flat, 1px border (border-white/10 in dark), no shadow.",
-        "hover": "Border color lighten, no lift."
-      },
-      "progress": {
-        "style": "Apple Fitness Rings (Circular).",
-        "library": "Custom SVG or Recharts RadialBar."
-      },
-      "icons": {
-        "library": "Phosphor Icons (Duotone)",
-        "install_command": "yarn add @phosphor-icons/react"
-      }
-    },
-    "motion": {
-      "library": "framer-motion",
-      "principles": [
-        "Smooth, damped springs (stiffness: 100, damping: 20).",
-        "Staggered entrance for lists.",
-        "Micro-interactions on hover (scale, color shift).",
-        "NO flashy transitions."
-      ]
-    },
-    "assets": {
-      "images": [
-        {
-          "category": "Coach Avatar",
-          "url": "https://images.unsplash.com/photo-1649433658557-54cf58577c68?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NjV8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBtYW4lMjBwb3J0cmFpdCUyMHByb2Zlc3Npb25hbHxlbnwwfHx8fDE3NzAxMTE1Mjd8MA&ixlib=rb-4.1.0&q=85",
-          "description": "Professional Indian man portrait for the AI Coach persona."
-        },
-        {
-          "category": "Chess Board",
-          "url": "https://images.unsplash.com/photo-1536743939714-23ec5ac2dbae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzN8MHwxfHNlYXJjaHwxfHxjaGVzcyUyMHBpZWNlcyUyMGNsb3NlJTIwdXB8ZW58MHx8fHwxNzcwMTExNTUwfDA&ixlib=rb-4.1.0&q=85",
-          "description": "Minimalist white chess pieces for hero or background."
-        },
-        {
-          "category": "Study Atmosphere",
-          "url": "https://images.unsplash.com/photo-1702726001096-096efcf640b8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxjYWxtJTIwZm9jdXNlZCUyMHN0dWR5JTIwcm9vbSUyMGludGVyaW9yJTIwZGFyayUyMG1vZGV8ZW58MHx8fHwxNzcwMTExNTExfDA&ixlib=rb-4.1.0&q=85",
-          "description": "Dark, focused study room for dashboard background or mood."
-        }
-      ]
+    "scales": {
+      "h1": "text-5xl sm:text-6xl+ tracking-tighter leading-none",
+      "h2": "text-4xl sm:text-5xl tracking-tight",
+      "h3": "text-2xl sm:text-3xl",
+      "body": "text-base sm:text-lg leading-relaxed text-gray-300",
+      "overline": "text-xs tracking-[0.2em] uppercase text-gray-400"
     }
   },
+  "layout_and_spacing": {
+    "strategy": "The Tetris Grid (Bento Grid Mode A) and Swiss asymmetry.",
+    "spacing_scale": "p-6, p-8, p-12, p-24, p-32 (Generous padding)",
+    "container_max": "max-w-7xl mx-auto"
+  },
+  "components": {
+    "hero": {
+      "structure": "Relative container with hero image as background. Text must NOT be centered. Left-aligned heavy typography. Call to Action stands out.",
+      "image_overlay": "bg-gradient-to-r from-black/90 via-black/60 to-transparent",
+      "instructions": "Use the hero_chess_king image. Provide a massive H1. Add a dev login toggle and a Google auth button."
+    },
+    "bento_features": {
+      "style": "Glassmorphism & Neumorphism blend. 1px inner stroke border-white/10. bg-black/40 backdrop-blur-xl.",
+      "grid": "grid-cols-1 md:grid-cols-12 gap-8",
+      "items": [
+        "Chess DNA (col-span-8 row-span-2)",
+        "Adaptive Decryption (col-span-4 row-span-1)",
+        "Pattern Memory (col-span-4 row-span-1)"
+      ]
+    },
+    "coach_persona": {
+      "style": "Cinematic. Use the coach_eyes portrait. Deep emotional connection.",
+      "quote_style": "Massive serif quote text. text-4xl sm:text-5xl italic text-gray-200.",
+      "instructions": "Place the coach eyes image on the right or background with heavy black fade. Add brutal quote: 'You didn't lose over many mistakes. You lost in one moment of inattention.'"
+    },
+    "buttons": {
+      "primary": "bg-[#722F37] hover:bg-[#8B3A44] text-white px-8 py-4 rounded-none border border-[#722F37] transition-all",
+      "secondary": "bg-transparent border border-white/20 hover:border-white/50 text-white px-8 py-4 rounded-none backdrop-blur-md transition-all"
+    }
+  },
+  "media": {
+    "images": [
+      {
+        "id": "hero_chess_king",
+        "url": "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/c9263ac5c3e6cf8ed2eaf315c1308e2fe6cb6feafe328f091610d7fae02abf30.png",
+        "category": "hero_background",
+        "description": "Ultra-realistic macro photography of a black chess king piece. Use as full hero background with left-to-right dark gradient overlay."
+      },
+      {
+        "id": "coach_eyes",
+        "url": "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/c88d28423f6c01a8e6fe222c26163e3840080d26944deba24ae81b4d029001ed.png",
+        "category": "persona_section",
+        "description": "Intense piercing eyes of the Indian AI coach. Use in the 'Meet the Coach' section with heavy black fading."
+      },
+      {
+        "id": "bg_wine_texture",
+        "url": "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/d7c061453f7782ee85190ad5328b89d3d498bd026d789180f54299ac5a0a4304.png",
+        "category": "bento_card_background",
+        "description": "Deep wine red and obsidian black fluid texture. Use as a subtle background for the 'Chess DNA' feature card."
+      },
+      {
+        "id": "chess_board_game",
+        "url": "https://images.unsplash.com/photo-1764105720662-8022d9569ba0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwyfHxjaGVzcyUyMGdyYW5kbWFzdGVyJTIwZGFya3xlbnwwfHx8fDE3NzQ2MTg2MDZ8MA&ixlib=rb-4.1.0&q=85",
+        "category": "feature_image",
+        "description": "Chess board with pieces set up. Use in 'The Lab' or 'Community Training' feature blocks."
+      },
+      {
+        "id": "luxury_gold_abstract",
+        "url": "https://images.unsplash.com/photo-1761437855598-011cf89b2ad4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBibGFjayUyMGFic3RyYWN0JTIwdGV4dHVyZXxlbnwwfHx8fDE3NzQ2MTg2MDd8MA&ixlib=rb-4.1.0&q=85",
+        "category": "decorative_background",
+        "description": "Abstract golden curves on black. Use as a subtle section divider or accent image behind stats."
+      }
+    ]
+  },
+  "motion_and_effects": {
+    "libraries": [
+      "framer-motion",
+      "lucide-react"
+    ],
+    "scroll": "MANDATORY use of smooth scrolling if setting up the layout. Use Framer Motion for scroll-triggered fades and translations.",
+    "interactions": "Buttons MUST have a sharp scaling effect or inner border glow on hover. Cards must have a 1px border shimmer or slight translateY hover state."
+  },
+  "accessibility": {
+    "contrast": "Ensure white/off-white text over dark backgrounds meets APCA standards. Use overlays and text-shadow if placed over images.",
+    "testing": "All interactive elements, buttons, links, and forms must have 'data-testid' attributes (e.g., 'data-testid=\"google-auth-button\"')."
+  },
   "instructions_to_main_agent": [
-    "1. INSTALL DEPENDENCIES: Run `yarn add @phosphor-icons/react @fontsource/outfit framer-motion clsx tailwind-merge`.",
-    "2. UPDATE TAILWIND: Configure `tailwind.config.js` with the new color palette and font families.",
-    "3. CREATE LAYOUT: Build a `DashboardLayout` component that supports the 'Bento' grid and sidebar navigation.",
-    "4. IMPLEMENT TYPOGRAPHY: Update `index.css` to use Outfit for headings and Manrope for body.",
-    "5. BUILD COMPONENTS: Create `ProgressRing`, `StatCard`, and `CoachMessage` components using the design rules.",
-    "6. PHASE 1: Focus on the Journey Dashboard and Daily Summary.",
-    "7. CRITICAL: Do NOT use gradients or glassmorphism. Stick to the 'Linear/Stripe' flat aesthetic."
-  ],
-  "universal_guidelines": [
-    "Avoid 'AI slop' - no generic centered layouts.",
-    "Use z-index hierarchy for depth.",
-    "No 'transition: all'.",
-    "No text-align: center on app container.",
-    "Use 'sonner' for toasts.",
-    "All interactive elements must have `data-testid`."
+    "Build a premium dark-mode landing page focusing on the brutally honest 'Indian AI Coach' persona.",
+    "Use custom pure HTML/Tailwind for the layout instead of generic Shadcn cards to break standard SaaS grids.",
+    "Apply 'Cormorant Garamond' (serif) for headings to evoke luxury and history, and 'Outfit' (sans) for crisp UI text.",
+    "Must include a fixed/sticky navigation with a 'Crystal Glass' blur effect (backdrop-blur-xl bg-black/60 border-b border-white/10).",
+    "Include standard auth components: Google Auth login, Dev Login toggle, Theme toggle.",
+    "Section 1: Hero using 'hero_chess_king'. Section 2: 'Meet the Coach' using 'coach_eyes' and the brutal truth quote. Section 3: 'The Lab & DNA' Bento Grid using 'bg_wine_texture' and 'chess_board_game'. Section 4: Social Proof / Stats in huge typography.",
+    "Keep borders sharp (rounded-none or max rounded-sm). No playful bubbles. This is high-stakes chess coaching.",
+    "Do NOT use 'Inter', teal, or standard SaaS blue. Rely on #050505 (Void Black), #722F37 (Wine Red), and #CBA135 (Gold)."
   ]
 }
