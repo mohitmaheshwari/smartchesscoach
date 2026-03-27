@@ -67,9 +67,12 @@ const Landing = () => {
       <header className="fixed top-0 left-0 right-0 z-50 border-b" style={{ borderColor: "rgba(0,0,0,0.06)", background: "rgba(245,243,240,0.7)", backdropFilter: "blur(24px)" }}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <span className="text-lg font-semibold tracking-tight text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Chess Coach
-            </span>
+            <div className="flex items-center gap-2">
+              <img src="/chessguru-logo.svg" alt="ChessGuru" className="w-7 h-7" />
+              <span className="text-lg font-semibold tracking-tight text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+                ChessGuru
+              </span>
+            </div>
             <div className="flex items-center gap-3">
               <button onClick={toggleTheme} className="p-2 text-gray-500 hover:text-gray-900 transition-colors" data-testid="theme-toggle">
                 {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -366,9 +369,10 @@ const Landing = () => {
       {/* ═══ FOOTER ═══ */}
       <footer className="py-8 border-t" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between">
-          <span className="text-sm text-gray-500" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Chess Coach
-          </span>
+          <div className="flex items-center gap-2">
+            <img src="/chessguru-logo.svg" alt="" className="w-5 h-5" />
+            <span className="text-sm text-gray-500" style={{ fontFamily: "'Playfair Display', serif" }}>ChessGuru</span>
+          </div>
           <p className="text-xs text-gray-500">
             Built with AI. Made for chess players.
           </p>

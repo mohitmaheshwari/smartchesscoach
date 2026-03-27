@@ -125,10 +125,10 @@ const Layout = ({ children, user }) => {
   // Show browser notification
   const showBrowserNotification = (notif) => {
     if (Notification.permission === "granted") {
-      const notification = new Notification(notif.title || "Chess Coach", {
+      const notification = new Notification(notif.title || "ChessGuru", {
         body: notif.message,
         icon: "/logo192.png",
-        tag: "chess-coach-" + (notif.id || Date.now())
+        tag: "chessguru-" + (notif.id || Date.now())
       });
       
       notification.onclick = () => {
@@ -228,10 +228,13 @@ const Layout = ({ children, user }) => {
       >
         {/* Logo */}
         <div className={`flex items-center h-14 px-3 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`} style={{ borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
-          <Link to="/home" className="flex items-center gap-2.5 group">
-            <span className="text-gray-900 font-semibold text-base tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-              {sidebarCollapsed ? "C" : "Chess Coach"}
-            </span>
+          <Link to="/home" className="flex items-center gap-2 group">
+            <img src="/chessguru-logo.svg" alt="ChessGuru" className="w-7 h-7 flex-shrink-0" />
+            {!sidebarCollapsed && (
+              <span className="text-gray-900 font-semibold text-base tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+                ChessGuru
+              </span>
+            )}
           </Link>
           {!sidebarCollapsed && (
             <button
@@ -408,7 +411,7 @@ const Layout = ({ children, user }) => {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-heading font-bold text-sm">CC</span>
             </div>
-            <span className="font-heading font-semibold text-sm">Chess Coach</span>
+            <span className="font-heading font-semibold text-sm">ChessGuru</span>
           </Link>
 
           <div className="flex items-center gap-2">

@@ -63,7 +63,7 @@ const HomePage = ({ user }) => {
       <Layout user={user}>
         <div className="max-w-xl mx-auto px-4 py-16 text-center" data-testid="home-page">
           <h1 className="text-3xl text-gray-900 tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Welcome to Chess Coach
+            Welcome to ChessGuru
           </h1>
           <p className="text-gray-500 mb-8 font-light">Import your games to get started. After 5 games, your coach will know your strengths. After 15, it'll know your weaknesses by name.</p>
           <div className="flex gap-3 justify-center">
