@@ -276,12 +276,13 @@ def compute_game_habits(
 
     habits = []
 
-    # 1. Checked opponent threats
-    missed_tactics = [m for m in user_moves if m["cp_loss"] >= 200]
+    # 1. Checked opponent threats (mate-level blunders = missed threats)
     missed_mate = any(m["cp_loss"] >= 5000 for m in user_moves)
+    # For threat checking, only count blunders that aren't just general inaccuracy
+    missed_tactics = [m for m in user_moves if m["cp_loss"] >= 200]
     habits.append({
         "name": "Checked opponent threats before moving",
-        "passed": len(missed_tactics) == 0,
+        "passed": not missed_mate and len(missed_tactics) == 0,
         "evidence": "Missed mate in 1" if missed_mate else
                     f"Missed {len(missed_tactics)} tactical threat{'s' if len(missed_tactics) > 1 else ''}" if missed_tactics else
                     "No threats missed",
@@ -290,9 +291,9 @@ def compute_game_habits(
                   None,
     })
 
-    # 2. Followed opening theory
+    # 2. Followed opening theory (threshold: 100cp = real mistake, not just inaccuracy)
     opening_moves = [m for m in user_moves if m["phase"] == "opening"]
-    opening_blunders = [m for m in opening_moves if m["cp_loss"] >= 50]
+    opening_blunders = [m for m in opening_moves if m["cp_loss"] >= 100]
     habits.append({
         "name": "Followed opening principles",
         "passed": len(opening_blunders) == 0,
@@ -301,8 +302,8 @@ def compute_game_habits(
         "impact": f"Lost {sum(m['cp_loss'] for m in opening_blunders)} centipawns in opening" if opening_blunders else None,
     })
 
-    # 3. No hanging pieces
-    hanging = [m for m in user_moves if m["cp_loss"] >= 250 and m["phase"] != "opening"]
+    # 3. No hanging pieces (exclude mate-level blunders — those are threat misses, not hung pieces)
+    hanging = [m for m in user_moves if 250 <= m["cp_loss"] < 5000 and m["phase"] != "opening"]
     habits.append({
         "name": "Avoided hanging pieces",
         "passed": len(hanging) == 0,
@@ -311,29 +312,33 @@ def compute_game_habits(
         "impact": f"Lost {sum(m['cp_loss'] for m in hanging)} centipawns from hanging material" if hanging else None,
     })
 
-    # 4. Played with a plan (consecutive non-aimless moves)
+    # 4. Played with a plan (consecutive moves with cp_loss >= 50 = truly aimless)
+    # Exclude mate-level blunders — a single catastrophic miss isn't "aimlessness"
     aimless_count = 0
     for j in range(1, len(user_moves)):
-        if user_moves[j]["cp_loss"] >= 30 and user_moves[j-1]["cp_loss"] >= 30:
+        cp_j = user_moves[j]["cp_loss"] if user_moves[j]["cp_loss"] < 5000 else 0
+        cp_prev = user_moves[j-1]["cp_loss"] if user_moves[j-1]["cp_loss"] < 5000 else 0
+        if cp_j >= 50 and cp_prev >= 50:
             aimless_count += 1
     habits.append({
         "name": "Played with a plan",
         "passed": aimless_count <= 2,
         "evidence": f"{aimless_count} stretches of inaccurate play" if aimless_count > 2 else
                     "Moves showed consistent direction",
-        "impact": "Multiple small inaccuracies suggest no clear plan" if aimless_count > 2 else None,
+        "impact": "Multiple inaccuracies suggest no clear plan" if aimless_count > 2 else None,
     })
 
-    # 5. Maintained focus in critical moments
+    # 5. Maintained focus in critical moments (exclude mate blunders — already in #1)
     critical_moments = [m for m in user_moves if abs(m["eval_before"]) >= 200]
-    critical_blunders = [m for m in critical_moments if m["cp_loss"] >= 100]
+    critical_blunders = [m for m in critical_moments if 100 <= m["cp_loss"] < 5000]
     habits.append({
         "name": "Maintained focus in critical moments",
-        "passed": len(critical_blunders) == 0,
-        "evidence": f"Blundered in {len(critical_blunders)} critical position{'s' if len(critical_blunders) > 1 else ''}" if critical_blunders else
+        "passed": len(critical_blunders) <= 1,
+        "evidence": f"Blundered in {len(critical_blunders)} critical position{'s' if len(critical_blunders) > 1 else ''}" if len(critical_blunders) > 1 else
+                    "1 slip in a critical position" if len(critical_blunders) == 1 else
                     "Handled pressure well",
         "impact": "Converted advantage to loss" if any(m["eval_before"] >= 200 and m["cp_loss"] >= 200 for m in critical_blunders) else
-                  "Lost concentration when it mattered" if critical_blunders else None,
+                  "Lost concentration when it mattered" if len(critical_blunders) > 1 else None,
     })
 
     # 6. Endgame technique (if game reached endgame)
