@@ -8768,6 +8768,43 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
         else:
             result["context_action"] = {"type": "play", "label": "Play another game", "href": "/play-with-coach"}
 
+        # ── STREAK ──
+        recent_games = await db.games.find(
+            {"user_id": user.user_id, "is_analyzed": True},
+            {"_id": 0, "result": 1, "user_color": 1}
+        ).sort("imported_at", -1).limit(20).to_list(20)
+
+        streak_type = None
+        streak_count = 0
+        for g in recent_games:
+            res = g.get("result", "")
+            uc = g.get("user_color", "white")
+            won = (res == "1-0" and uc == "white") or (res == "0-1" and uc == "black")
+            draw = "1/2" in res
+            r = "W" if won else ("D" if draw else "L")
+            if streak_type is None:
+                streak_type = r
+            if r == streak_type:
+                streak_count += 1
+            else:
+                break
+
+        result["streak"] = {"type": streak_type or "none", "count": streak_count}
+
+        # ── PATTERNS (top 3 with trend) ──
+        from services.pattern_memory_service import get_top_patterns
+        patterns = await get_top_patterns(db, user.user_id, limit=3)
+        result["patterns"] = [
+            {
+                "label": p.get("label", ""),
+                "pattern_type": p.get("pattern_type", ""),
+                "recent_count": p.get("recent_count", 0),
+                "total_count": p.get("total_count", 0),
+                "severity": p.get("severity", ""),
+            }
+            for p in patterns
+        ]
+
     except Exception as e:
         logger.error(f"Home dashboard V2 error: {e}")
 
