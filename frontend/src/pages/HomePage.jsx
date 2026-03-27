@@ -78,7 +78,7 @@ const HomePage = ({ user }) => {
             </p>
             <div
               className="cursor-pointer transition-all duration-200 hover:border-white/10"
-              style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ background: "#0F2219", border: "1px solid rgba(255,255,255,0.05)" }}
               onClick={() => navigate(`/game/${battle.game_id}`)}
               data-testid="last-battle-card"
             >
@@ -173,7 +173,7 @@ const HomePage = ({ user }) => {
             </p>
             <div
               className="cursor-pointer transition-all duration-200 hover:border-white/10"
-              style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ background: "#0F2219", border: "1px solid rgba(255,255,255,0.05)" }}
               onClick={() => navigate("/training?focus=calculation_depth")}
               data-testid="one-thing-to-fix"
             >

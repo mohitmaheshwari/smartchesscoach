@@ -127,7 +127,7 @@ const Dashboard = ({ user }) => {
         {/* ── VERDICT STRIP ── */}
         {verdict && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <div className="p-5" style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="p-5" style={{ background: "#0F2219", border: "1px solid rgba(255,255,255,0.05)" }}>
               <div className="flex items-center gap-4 mb-3">
                 <div className="flex items-center gap-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   <span className="text-lg text-emerald-400">{verdict.wins}W</span>
