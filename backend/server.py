@@ -4856,6 +4856,129 @@ async def get_coach_today(user: User = Depends(get_current_user)):
 
 # NOTE: /training/session, /training/due-cards, /training/attempt, /training/progress, /training/set-habit, /training/habits moved to routes/training.py
 
+
+@api_router.get("/progress/journey")
+async def get_progress_journey(user: User = Depends(get_current_user)):
+    """
+    Progress V2 — trajectory data for the reimagined progress page.
+    Returns: accuracy journey (per-game), biggest shift, still leaking area, win rate trend.
+    """
+    # Get per-game accuracy + blunders chronologically
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.accuracy": 1, "stockfish_analysis.blunders": 1,
+         "stockfish_analysis.mistakes": 1, "created_at": 1}
+    ).sort("created_at", 1).to_list(100)
+
+    games = await db.games.find(
+        {"user_id": user.user_id, "is_analyzed": True},
+        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "opponent_name": 1,
+         "white_player": 1, "black_player": 1, "imported_at": 1}
+    ).sort("imported_at", 1).to_list(100)
+
+    game_lookup = {g["game_id"]: g for g in games}
+
+    # Build journey points
+    journey = []
+    for a in analyses:
+        gid = a.get("game_id", "")
+        sf = a.get("stockfish_analysis", {})
+        acc = sf.get("accuracy")
+        if acc is None:
+            continue
+        g = game_lookup.get(gid, {})
+        user_color = g.get("user_color", "white")
+        result = g.get("result", "")
+        user_won = (result == "1-0" and user_color == "white") or (result == "0-1" and user_color == "black")
+        is_draw = "1/2" in result
+
+        opp = g.get("opponent_name") or (g.get("white_player") if user_color == "black" else g.get("black_player")) or ""
+        journey.append({
+            "game_id": gid,
+            "accuracy": round(acc, 1),
+            "blunders": sf.get("blunders", 0),
+            "mistakes": sf.get("mistakes", 0),
+            "result": "W" if user_won else ("D" if is_draw else "L"),
+            "opponent": opp[:12],
+        })
+
+    # Thinking score history from thinking_scores
+    scores = await db.thinking_scores.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "habit_scores": 1, "calculated_at": 1}
+    ).sort("calculated_at", 1).to_list(100)
+
+    # Build dimension trends (from thinking_scores habit_scores)
+    dimensions = {}  # {dimension: [scores over time]}
+    for s in scores:
+        hs = s.get("habit_scores", {})
+        for dim, data in hs.items():
+            if isinstance(data, dict) and "score" in data:
+                if dim not in dimensions:
+                    dimensions[dim] = []
+                dimensions[dim].append(data["score"])
+
+    # Find biggest shift (most improved dimension in last 10 vs prev 10)
+    biggest_shift = None
+    still_leaking = None
+    best_delta = 0
+    worst_stagnant = None
+
+    for dim, vals in dimensions.items():
+        if len(vals) < 5:
+            continue
+        recent = vals[-min(10, len(vals)):]
+        older = vals[:-len(recent)] if len(vals) > len(recent) else vals[:len(vals)//2]
+        if not older:
+            continue
+        recent_avg = sum(recent) / len(recent)
+        older_avg = sum(older) / len(older)
+        delta = recent_avg - older_avg
+        pct = (delta / max(older_avg, 1)) * 100
+
+        readable = dim.replace("_", " ").title()
+        if delta > best_delta:
+            best_delta = delta
+            biggest_shift = {
+                "dimension": readable,
+                "from_score": round(older_avg, 1),
+                "to_score": round(recent_avg, 1),
+                "delta_pct": round(pct),
+            }
+        if abs(delta) < 3 and recent_avg < 50:
+            if worst_stagnant is None or recent_avg < worst_stagnant["score"]:
+                worst_stagnant = {"dimension": readable, "score": round(recent_avg, 1), "games_stuck": len(vals)}
+
+    still_leaking = worst_stagnant
+
+    # Win rate trend (last 10 vs prev 10)
+    recent_games = journey[-10:] if len(journey) >= 10 else journey
+    prev_games = journey[-20:-10] if len(journey) >= 20 else journey[:max(len(journey)//2, 1)]
+    recent_wins = sum(1 for g in recent_games if g["result"] == "W")
+    recent_losses = sum(1 for g in recent_games if g["result"] == "L")
+    prev_wins = sum(1 for g in prev_games if g["result"] == "W")
+    prev_losses = sum(1 for g in prev_games if g["result"] == "L")
+
+    win_trend = {
+        "recent": {"wins": recent_wins, "losses": recent_losses, "total": len(recent_games)},
+        "previous": {"wins": prev_wins, "losses": prev_losses, "total": len(prev_games)},
+        "improving": recent_wins > prev_wins,
+    }
+
+    # Current accuracy
+    recent_acc = [g["accuracy"] for g in journey[-10:]] if journey else []
+    current_accuracy = round(sum(recent_acc) / len(recent_acc), 1) if recent_acc else 0
+
+    return {
+        "journey": journey,
+        "current_accuracy": current_accuracy,
+        "games_analyzed": len(journey),
+        "biggest_shift": biggest_shift,
+        "still_leaking": still_leaking,
+        "win_trend": win_trend,
+    }
+
+
 @api_router.get("/progress")
 async def get_progress_metrics(user: User = Depends(get_current_user)):
     """

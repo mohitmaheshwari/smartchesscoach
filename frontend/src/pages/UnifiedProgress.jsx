@@ -1,368 +1,325 @@
 /**
- * PROGRESS PAGE → Confidence
- * "Am I getting better?"
+ * PROGRESS PAGE — Reimagined
  * 
- * Real data. Real breakdown. Two journeys.
- * 
- * - Score breakdown (what makes up the score)
- * - Games analyzed vs total
- * - Long journey (older half vs newer half)
- * - Short journey (last 5 vs previous 5)
- * - Recent form
+ * Not a report card. A trajectory.
+ * Shows: Are you getting better? At what? What's stuck?
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, TrendingUp, TrendingDown, Minus, Quote } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
+
+const WINE = "#722F37";
+const GOLD = "#CBA135";
 
 const UnifiedProgress = ({ user }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [progressData, setProgressData] = useState(null);
-  const [homeData, setHomeData] = useState(null);
-  const [games, setGames] = useState([]);
-  const [syncing, setSyncing] = useState(false);
-  const [playerProfile, setPlayerProfile] = useState(null);
+  const [data, setData] = useState(null);
 
   useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
-    try {
-      const [progressRes, homeRes, gamesRes, profileRes] = await Promise.all([
-        fetch(`${API}/progress`, { credentials: "include" }),
-        fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
-        fetch(`${API}/games`, { credentials: "include" }),
-        fetch(`${API}/progress/player-profile`, { credentials: "include" }),
-      ]);
-      if (progressRes.ok) setProgressData(await progressRes.json());
-      if (homeRes.ok) setHomeData(await homeRes.json());
-      if (gamesRes.ok) {
-        const g = await gamesRes.json();
-        setGames(Array.isArray(g) ? g : []);
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`${API}/progress/journey`, { credentials: "include" });
+        if (res.ok) setData(await res.json());
+      } catch (e) {
+        console.error("Progress fetch error:", e);
+      } finally {
+        setLoading(false);
       }
-      if (profileRes.ok) setPlayerProfile(await profileRes.json());
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const syncNow = async () => {
-    setSyncing(true);
-    try {
-      await fetch(`${API}/journey/sync-now`, { method: "POST", credentials: "include" });
-      setTimeout(fetchAll, 3000);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSyncing(false);
-    }
-  };
+    };
+    fetchData();
+  }, []);
 
   if (loading) {
     return (
       <Layout user={user}>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="w-5 h-5 border border-gray-700 border-t-white animate-spin" />
         </div>
       </Layout>
     );
   }
 
-  // Score data
-  const devPhase = homeData?.development_phase || {};
-  const scoreNow = devPhase.score || 0;
-  const allScores = devPhase.all_scores || {};
-  const accuracy = progressData?.accuracy || {};
-  const gamesAnalyzed = homeData?.games_analyzed || progressData?.valid_analysis_count || 0;
-  const totalGames = games.length;
-  
-  // Score components
-  const scoreComponents = [
-    { key: 'tactical_discipline', label: 'Tactics', score: allScores.tactical_discipline || 0 },
-    { key: 'calculation_depth', label: 'Calculation', score: allScores.calculation_depth || 0 },
-    { key: 'time_mastery', label: 'Time', score: allScores.time_mastery || 0 },
-    { key: 'positional_sense', label: 'Position', score: allScores.positional_sense || 0 },
-    { key: 'pattern_control', label: 'Patterns', score: allScores.pattern_control || 0 },
-  ].sort((a, b) => b.score - a.score);
-  
-  const strongest = scoreComponents[0];
-  const weakest = scoreComponents.filter(c => c.score > 0).pop() || scoreComponents[scoreComponents.length - 1];
-  
-  // Calculate journeys from game results
-  const getGameResult = (game) => {
-    const result = game.result;
-    const userColor = game.user_color || (game.white_player === user?.lichess_username ? 'white' : 'black');
-    if (result === '1-0') return userColor === 'white' ? 1 : 0; // 1 = win, 0 = loss
-    if (result === '0-1') return userColor === 'black' ? 1 : 0;
-    if (result === '1/2-1/2') return 0.5;
-    return null;
-  };
-  
-  // Recent form (last 10)
-  const recentGames = games.slice(0, 10);
-  const recentForm = recentGames.map(g => {
-    const r = getGameResult(g);
-    return r === 1 ? 'win' : r === 0 ? 'loss' : r === 0.5 ? 'draw' : 'unknown';
-  }).reverse();
-  
-  const wins = recentForm.filter(r => r === 'win').length;
-  const losses = recentForm.filter(r => r === 'loss').length;
-  
-  // Long journey: First half vs Second half of all games
-  const calculateJourney = (older, newer) => {
-    const olderWinRate = older.reduce((sum, g) => {
-      const r = getGameResult(g);
-      return sum + (r !== null ? r : 0);
-    }, 0) / Math.max(older.length, 1);
-    
-    const newerWinRate = newer.reduce((sum, g) => {
-      const r = getGameResult(g);
-      return sum + (r !== null ? r : 0);
-    }, 0) / Math.max(newer.length, 1);
-    
-    return {
-      older: Math.round(olderWinRate * 100),
-      newer: Math.round(newerWinRate * 100),
-      delta: Math.round((newerWinRate - olderWinRate) * 100)
-    };
-  };
-  
-  // Long journey: older half vs newer half
-  const midpoint = Math.floor(games.length / 2);
-  const longJourney = games.length >= 10 ? calculateJourney(
-    games.slice(midpoint), // older half
-    games.slice(0, midpoint) // newer half
-  ) : null;
-  
-  // Short journey: games 5-10 vs games 0-5
-  const shortJourney = games.length >= 10 ? calculateJourney(
-    games.slice(5, 10), // previous 5
-    games.slice(0, 5)   // recent 5
-  ) : null;
+  const journey = data?.journey || [];
+  const winTrend = data?.win_trend;
+  const biggestShift = data?.biggest_shift;
+  const stillLeaking = data?.still_leaking;
+  const currentAccuracy = data?.current_accuracy || 0;
+  const gamesAnalyzed = data?.games_analyzed || 0;
 
-  // TrendIndicator component
-  const TrendIndicator = ({ delta, size = "sm" }) => {
-    const iconClass = size === "lg" ? "w-5 h-5" : "w-4 h-4";
-    if (delta > 0) return <TrendingUp className={`${iconClass} text-emerald-500`} />;
-    if (delta < 0) return <TrendingDown className={`${iconClass} text-red-500`} />;
-    return <Minus className={`${iconClass} text-zinc-500`} />;
-  };
+  // Compute accuracy trend
+  const recentAcc = journey.slice(-10).map(g => g.accuracy);
+  const olderAcc = journey.slice(-20, -10).map(g => g.accuracy);
+  const recentAvg = recentAcc.length ? recentAcc.reduce((a, b) => a + b, 0) / recentAcc.length : 0;
+  const olderAvg = olderAcc.length ? olderAcc.reduce((a, b) => a + b, 0) / olderAcc.length : 0;
+  const accDelta = recentAvg - olderAvg;
+  const accImproving = accDelta > 2;
+  const accDeclining = accDelta < -2;
 
   return (
     <Layout user={user}>
-      <div className="max-w-md mx-auto px-4 py-8 min-h-[60vh]" data-testid="progress-page">
-        
-        {/* ═══════════════════════════════════════════════════════════════
-            THINKING SCORE
-        ═══════════════════════════════════════════════════════════════ */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-6"
-        >
-          <p className="text-xs text-zinc-500 uppercase tracking-widest mb-3">Thinking Score</p>
-          <p className="text-7xl font-bold text-white mb-2">{Math.round(scoreNow)}</p>
-          
-          {/* Games analyzed vs total */}
-          <p className="text-sm text-zinc-500">
-            <span className="text-zinc-400">{gamesAnalyzed}</span> of {totalGames} games analyzed
+      <div className="max-w-3xl mx-auto px-4 py-8" data-testid="progress-page">
+
+        {/* ── HEADER ── */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-10">
+          <h1 className="text-3xl text-white tracking-tight mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+            Progress
+          </h1>
+          <p className="text-sm text-gray-600 font-light" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            {gamesAnalyzed} games analyzed
           </p>
         </motion.div>
 
-        {/* ═══════════════════════════════════════════════════════════════
-            PLAYER PROFILE — Coaching Narrative
-        ═══════════════════════════════════════════════════════════════ */}
-        {playerProfile?.narrative && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.03 }}
-            className="mb-6 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800"
-            data-testid="player-profile-card"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <Quote className="w-4 h-4 text-zinc-600" />
-              <p className="text-xs text-zinc-500 uppercase tracking-wide">Your Player Profile</p>
+        {/* ── ACCURACY JOURNEY LINE ── */}
+        {journey.length > 3 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-10">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
+                Your Accuracy Journey
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  {currentAccuracy.toFixed(0)}%
+                </span>
+                {accImproving && <TrendingUp className="w-4 h-4 text-emerald-400" strokeWidth={1.5} />}
+                {accDeclining && <TrendingDown className="w-4 h-4 text-red-400" strokeWidth={1.5} />}
+              </div>
             </div>
-            <p className="text-sm text-zinc-300 leading-relaxed" data-testid="player-profile-narrative">
-              {playerProfile.narrative}
-            </p>
-            <p className="text-xs text-zinc-600 mt-3">
-              Based on your last {playerProfile.games_at_generation || playerProfile.current_game_count} games
-            </p>
+            <JourneyChart journey={journey} onGameClick={(g) => navigate(`/game/${g.game_id}`)} />
+            {olderAcc.length > 0 && (
+              <p className="text-xs text-gray-600 mt-2 font-light">
+                {accImproving
+                  ? `Improving: ${olderAvg.toFixed(0)}% → ${recentAvg.toFixed(0)}% in last 10 games`
+                  : accDeclining
+                    ? `Slipping: ${olderAvg.toFixed(0)}% → ${recentAvg.toFixed(0)}% — time to slow down and review`
+                    : `Steady at ~${recentAvg.toFixed(0)}% over recent games`
+                }
+              </p>
+            )}
           </motion.div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════════
-            SCORE BREAKDOWN
-        ═══════════════════════════════════════════════════════════════ */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="mb-6 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800"
-        >
-          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-4">What makes up your score</p>
-          
-          <div className="space-y-2.5">
-            {scoreComponents.map((component, i) => (
-              <div key={component.key} className="flex items-center gap-3">
-                <div className="w-20 text-xs text-zinc-500">{component.label}</div>
-                <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(100, component.score * 2)}%` }}
-                    transition={{ delay: 0.1 + i * 0.05, duration: 0.4 }}
-                    className={`h-full rounded-full ${
-                      component.score >= 20 ? 'bg-emerald-500' :
-                      component.score >= 10 ? 'bg-blue-500' :
-                      component.score > 0 ? 'bg-amber-500' : 'bg-zinc-700'
-                    }`}
-                  />
+        {/* ── WIN RATE TREND ── */}
+        {winTrend && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
+              Win Rate
+            </p>
+            <div style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div className="p-5">
+                <div className="flex items-center gap-6">
+                  {/* Previous */}
+                  <div className="text-center flex-1">
+                    <p className="text-[10px] tracking-[0.1em] uppercase text-gray-600 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Previous 10</p>
+                    <p className="text-xl text-gray-400 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      <span className="text-emerald-400">{winTrend.previous.wins}W</span>{" "}
+                      <span className="text-red-400">{winTrend.previous.losses}L</span>
+                    </p>
+                  </div>
+                  {/* Arrow */}
+                  <ArrowRight className="w-5 h-5 text-gray-700 flex-shrink-0" strokeWidth={1.5} />
+                  {/* Recent */}
+                  <div className="text-center flex-1">
+                    <p className="text-[10px] tracking-[0.1em] uppercase text-gray-600 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Last 10</p>
+                    <p className="text-xl text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      <span className="text-emerald-400">{winTrend.recent.wins}W</span>{" "}
+                      <span className="text-red-400">{winTrend.recent.losses}L</span>
+                    </p>
+                  </div>
                 </div>
-                <div className="w-6 text-right text-sm text-zinc-400">{Math.round(component.score)}</div>
-              </div>
-            ))}
-          </div>
-          
-          <p className="text-xs text-zinc-500 mt-3 pt-3 border-t border-zinc-800">
-            <span className="text-emerald-400">{strongest.label}</span> strongest
-            {weakest.score < strongest.score && (
-              <> · <span className="text-amber-400">{weakest.label}</span> needs work</>
-            )}
-          </p>
-        </motion.div>
-
-        {/* ═══════════════════════════════════════════════════════════════
-            TWO JOURNEYS: Long-term & Short-term
-        ═══════════════════════════════════════════════════════════════ */}
-        {(longJourney || shortJourney) && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mb-6 grid grid-cols-2 gap-3"
-          >
-            {/* Long Journey */}
-            {longJourney && (
-              <div className="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800">
-                <p className="text-xs text-zinc-500 uppercase tracking-wide mb-3">Long Journey</p>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-zinc-600 text-sm">Older</span>
-                  <span className="text-zinc-600 text-sm">Recent</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg text-zinc-400">{longJourney.older}%</span>
-                  <TrendIndicator delta={longJourney.delta} />
-                  <span className="text-lg text-white font-medium">{longJourney.newer}%</span>
-                </div>
-                <p className="text-xs text-zinc-600 mt-2">
-                  {longJourney.delta > 0 ? `+${longJourney.delta}%` : `${longJourney.delta}%`} win rate
+                <p className="text-xs text-gray-500 mt-3 text-center font-light">
+                  {winTrend.improving
+                    ? "You're turning the corner."
+                    : winTrend.recent.wins === winTrend.previous.wins
+                      ? "Holding steady."
+                      : "Rough patch. Focus on reviewing losses, not playing more."
+                  }
                 </p>
               </div>
-            )}
-            
-            {/* Short Journey */}
-            {shortJourney && (
-              <div className="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800">
-                <p className="text-xs text-zinc-500 uppercase tracking-wide mb-3">Recent Form</p>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-zinc-600 text-sm">Prev 5</span>
-                  <span className="text-zinc-600 text-sm">Last 5</span>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── BIGGEST SHIFT ── */}
+        {biggestShift && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-8">
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
+              Biggest Improvement
+            </p>
+            <div style={{ background: "#241A14", border: "1px solid rgba(39,111,75,0.2)", borderLeft: "3px solid #276F4B" }}>
+              <div className="p-5">
+                <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  {biggestShift.dimension}
+                </p>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-sm text-gray-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{biggestShift.from_score}</span>
+                  <ArrowRight className="w-4 h-4 text-emerald-400" strokeWidth={1.5} />
+                  <span className="text-sm text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{biggestShift.to_score}</span>
+                  <span className="text-xs text-emerald-400/60">+{biggestShift.delta_pct}%</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg text-zinc-400">{shortJourney.older}%</span>
-                  <TrendIndicator delta={shortJourney.delta} />
-                  <span className="text-lg text-white font-medium">{shortJourney.newer}%</span>
-                </div>
-                <p className="text-xs text-zinc-600 mt-2">
-                  {shortJourney.delta > 0 ? `+${shortJourney.delta}%` : `${shortJourney.delta}%`} win rate
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── STILL LEAKING ── */}
+        {stillLeaking && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-8">
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
+              Still Leaking
+            </p>
+            <div style={{ background: "#241A14", border: "1px solid rgba(114,47,55,0.2)", borderLeft: `3px solid ${WINE}` }}>
+              <div className="p-5">
+                <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  {stillLeaking.dimension}
+                </p>
+                <p className="text-sm text-gray-500 mt-1 font-light">
+                  Stuck at {stillLeaking.score} for {stillLeaking.games_stuck} games. Needs focused attention.
                 </p>
               </div>
-            )}
-          </motion.div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════════════
-            RECENT FORM BAR CHART
-        ═══════════════════════════════════════════════════════════════ */}
-        {recentForm.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="mb-6"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-zinc-500 uppercase tracking-wide">Last {recentForm.length} Games</p>
-              <p className="text-xs text-zinc-600">{wins}W {losses}L</p>
-            </div>
-            
-            <div className="flex items-end gap-1.5 h-8">
-              {recentForm.map((result, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ height: 0 }}
-                  animate={{ height: result === 'win' ? '100%' : result === 'draw' ? '50%' : '30%' }}
-                  transition={{ delay: 0.2 + i * 0.03, duration: 0.3 }}
-                  className={`flex-1 rounded-sm ${
-                    result === 'win' ? 'bg-emerald-500' : 
-                    result === 'draw' ? 'bg-zinc-500' : 
-                    'bg-red-500/70'
-                  }`}
-                />
-              ))}
             </div>
           </motion.div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════════
-            ENCOURAGEMENT
-        ═══════════════════════════════════════════════════════════════ */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-center"
-        >
-          <p className="text-zinc-400">
-            {longJourney?.delta > 0 && shortJourney?.delta > 0 
-              ? "Improving across the board."
-              : longJourney?.delta > 0 
-                ? "Long-term growth is there."
-                : shortJourney?.delta > 0
-                  ? "Recent momentum is positive."
-                  : "Keep playing. Growth takes time."}
-          </p>
-        </motion.div>
+        {/* ── NO SHIFT/LEAK DATA ── */}
+        {!biggestShift && !stillLeaking && journey.length > 5 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-8">
+            <div className="p-5" style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <p className="text-sm text-gray-500 font-light text-center">
+                Keep playing — your dimension trends will appear after more games.
+              </p>
+            </div>
+          </motion.div>
+        )}
 
-        {/* Sync */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }}
-          className="flex justify-center mt-8"
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={syncNow}
-            disabled={syncing}
-            className="text-zinc-600 hover:text-zinc-400"
-          >
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-            Sync
-          </Button>
-        </motion.div>
+        {/* ── BLUNDER TREND ── */}
+        {journey.length > 5 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8">
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
+              Blunder Rate
+            </p>
+            <BlunderTrend journey={journey} />
+          </motion.div>
+        )}
+
       </div>
     </Layout>
   );
 };
+
+
+// ── ACCURACY JOURNEY CHART ──
+const JourneyChart = ({ journey, onGameClick }) => {
+  if (journey.length < 3) return null;
+
+  const HEIGHT = 160;
+  const PAD_Y = 25;
+  const PAD_X = 10;
+  const usableH = HEIGHT - PAD_Y * 2;
+
+  const accs = journey.map(g => g.accuracy);
+  const minA = Math.max(Math.min(...accs) - 10, 0);
+  const maxA = Math.min(Math.max(...accs) + 10, 100);
+  const range = maxA - minA || 1;
+
+  const W = Math.max(journey.length * 28, 500);
+  const getX = (i) => PAD_X + (i / Math.max(journey.length - 1, 1)) * (W - PAD_X * 2);
+  const getY = (acc) => PAD_Y + usableH - ((acc - minA) / range) * usableH;
+
+  // Build smooth-ish path
+  let pathD = "";
+  journey.forEach((g, i) => {
+    const x = getX(i);
+    const y = getY(g.accuracy);
+    if (i === 0) pathD += `M ${x} ${y}`;
+    else pathD += ` L ${x} ${y}`;
+  });
+
+  // Area fill
+  const areaD = pathD + ` L ${getX(journey.length - 1)} ${HEIGHT - PAD_Y} L ${getX(0)} ${HEIGHT - PAD_Y} Z`;
+
+  return (
+    <div className="overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+      <svg width={W} height={HEIGHT} className="block" data-testid="journey-chart">
+        {/* Area fill */}
+        <path d={areaD} fill="url(#areaGrad)" opacity={0.3} />
+        <defs>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={GOLD} stopOpacity={0.4} />
+            <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+
+        {/* Line */}
+        <path d={pathD} fill="none" stroke={GOLD} strokeWidth={1.5} opacity={0.7} />
+
+        {/* Dots */}
+        {journey.map((g, i) => {
+          const x = getX(i);
+          const y = getY(g.accuracy);
+          const fill = g.result === "W" ? "#276F4B" : g.result === "L" ? WINE : "#555";
+          return (
+            <g key={g.game_id} className="cursor-pointer" onClick={() => onGameClick(g)}>
+              <circle cx={x} cy={y} r={4} fill={fill} stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+              {/* Show accuracy on every 5th game */}
+              {i % 5 === 0 && (
+                <text x={x} y={y - 10} textAnchor="middle" fill="#666" fontSize={9} fontFamily="'JetBrains Mono', monospace">
+                  {g.accuracy.toFixed(0)}%
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
+
+
+// ── BLUNDER TREND ──
+const BlunderTrend = ({ journey }) => {
+  const recent = journey.slice(-10);
+  const prev = journey.slice(-20, -10);
+  const recentBlunders = recent.reduce((sum, g) => sum + (g.blunders || 0), 0);
+  const prevBlunders = prev.reduce((sum, g) => sum + (g.blunders || 0), 0);
+  const recentAvg = recent.length ? (recentBlunders / recent.length).toFixed(1) : 0;
+  const prevAvg = prev.length ? (prevBlunders / prev.length).toFixed(1) : 0;
+  const improving = parseFloat(recentAvg) < parseFloat(prevAvg);
+
+  return (
+    <div style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}>
+      <div className="p-5">
+        <div className="flex items-center gap-6">
+          <div className="text-center flex-1">
+            <p className="text-[10px] tracking-[0.1em] uppercase text-gray-600 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Prev 10 avg</p>
+            <p className="text-xl text-gray-400 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+              {prevAvg}<span className="text-sm text-gray-600">/game</span>
+            </p>
+          </div>
+          <ArrowRight className={`w-5 h-5 flex-shrink-0 ${improving ? 'text-emerald-400' : 'text-red-400'}`} strokeWidth={1.5} />
+          <div className="text-center flex-1">
+            <p className="text-[10px] tracking-[0.1em] uppercase text-gray-600 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Last 10 avg</p>
+            <p className={`text-xl font-light ${improving ? 'text-emerald-400' : 'text-white'}`} style={{ fontFamily: "'Playfair Display', serif" }}>
+              {recentAvg}<span className="text-sm text-gray-600">/game</span>
+            </p>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mt-3 text-center font-light">
+          {improving
+            ? "Blunders dropping. Your awareness is improving."
+            : parseFloat(recentAvg) === parseFloat(prevAvg)
+              ? "Blunder rate unchanged. Awareness drills could help."
+              : "Blunders increasing. Slow down — check threats before every move."
+          }
+        </p>
+      </div>
+    </div>
+  );
+};
+
 
 export default UnifiedProgress;
