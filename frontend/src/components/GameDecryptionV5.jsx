@@ -486,15 +486,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-96" data-testid="decryption-loading">
       <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-      <span className="mt-3 text-zinc-400">Your coach is analyzing every move...</span>
-      <span className="mt-1 text-zinc-600 text-sm">This takes about 45 seconds for V5 analysis</span>
+      <span className="mt-3 text-gray-500">Your coach is analyzing every move...</span>
+      <span className="mt-1 text-gray-400 text-sm">This takes about 45 seconds for V5 analysis</span>
     </div>
   );
 
   if (error) return (
     <div className="flex flex-col items-center justify-center h-96 text-center" data-testid="decryption-error">
       <AlertTriangle className="w-12 h-12 text-amber-400 mb-4" />
-      <p className="text-zinc-300 mb-2">{error}</p>
+      <p className="text-gray-600 mb-2">{error}</p>
       <Button variant="outline" onClick={() => fetchDecryptionData()} className="mt-4">Try Again</Button>
     </div>
   );
@@ -517,7 +517,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
           
           {/* Plan mode indicator */}
           {planMode && (
-            <div className="absolute top-2 left-2 bg-cyan-500/90 text-white text-xs px-2 py-1 rounded flex items-center gap-1 animate-pulse">
+            <div className="absolute top-2 left-2 bg-cyan-500/90 text-gray-900 text-xs px-2 py-1 rounded flex items-center gap-1 animate-pulse">
               <Swords className="w-3 h-3" />
               Play your intended moves
             </div>
@@ -525,7 +525,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
           
           {/* Future moves indicator */}
           {showingFutureMoves && !planMode && (
-            <div className="absolute top-2 left-2 bg-emerald-500/90 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+            <div className="absolute top-2 left-2 bg-emerald-500/90 text-gray-900 text-xs px-2 py-1 rounded flex items-center gap-1">
               <Eye className="w-3 h-3" />
               Showing future line
               <button 
@@ -545,7 +545,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
           <Button variant="outline" size="icon" onClick={goBackward} disabled={currentMoveIndex === -1} data-testid="btn-go-back">
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <span className="px-4 text-sm text-zinc-400 min-w-[100px] text-center">
+          <span className="px-4 text-sm text-gray-500 min-w-[100px] text-center">
             {currentMoveIndex === -1 ? "Start" : `Move ${currentMove?.move_number || ""}`}
             {currentMove && !currentMove.is_user_move && " (opp)"}
           </span>
@@ -611,7 +611,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
           />
         )}
         
-        <div className="text-xs text-zinc-600 text-center">
+        <div className="text-xs text-gray-400 text-center">
           Arrow keys: left/right navigate • Click moves in explanation to see on board
         </div>
       </div>
@@ -633,32 +633,32 @@ const GameStartCard = ({ decryptionData, habitsReport }) => {
   const openingName = decryptionData[0]?.opening_name;
   
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800" data-testid="game-start-card">
+    <Card className="bg-white border-gray-200" data-testid="game-start-card">
       <CardContent className="p-5 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <BookOpen className="w-5 h-5 text-emerald-400" />
-          <h3 className="font-semibold text-white">Game Overview</h3>
+          <h3 className="font-semibold text-gray-900">Game Overview</h3>
         </div>
         
         {openingName && (
           <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20">
             <p className="text-xs text-emerald-400 mb-1">Opening</p>
-            <p className="text-white font-medium">{openingName}</p>
+            <p className="text-gray-900 font-medium">{openingName}</p>
           </div>
         )}
         
         <div className="grid grid-cols-3 gap-3 text-center">
-          <div className="bg-zinc-800/50 rounded-lg p-3">
-            <p className="text-2xl font-bold text-white">{userMoves.length}</p>
-            <p className="text-xs text-zinc-500">Your Moves</p>
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-2xl font-bold text-gray-900">{userMoves.length}</p>
+            <p className="text-xs text-gray-500">Your Moves</p>
           </div>
-          <div className="bg-zinc-800/50 rounded-lg p-3">
+          <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-2xl font-bold text-emerald-400">{bestMoves}</p>
-            <p className="text-xs text-zinc-500">Best Moves</p>
+            <p className="text-xs text-gray-500">Best Moves</p>
           </div>
-          <div className="bg-zinc-800/50 rounded-lg p-3">
+          <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-2xl font-bold text-red-400">{mistakes}</p>
-            <p className="text-xs text-zinc-500">Mistakes</p>
+            <p className="text-xs text-gray-500">Mistakes</p>
           </div>
         </div>
         
@@ -675,16 +675,16 @@ const GameStartCard = ({ decryptionData, habitsReport }) => {
             
             {/* Time Management */}
             {habitsReport.time_management && (
-              <div className="bg-zinc-800/40 rounded-lg p-3 border border-zinc-700/50">
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-zinc-400 font-medium">Time Management</span>
+                  <span className="text-xs text-gray-500 font-medium">Time Management</span>
                   <span className={`text-xs font-bold ${
                     habitsReport.time_management.score >= 70 ? "text-emerald-400" :
                     habitsReport.time_management.score >= 50 ? "text-amber-400" : "text-red-400"
                   }`}>{habitsReport.time_management.score}/100</span>
                 </div>
-                <p className="text-xs text-zinc-300">{habitsReport.time_management.insight}</p>
-                <div className="flex gap-4 mt-2 text-xs text-zinc-500">
+                <p className="text-xs text-gray-600">{habitsReport.time_management.insight}</p>
+                <div className="flex gap-4 mt-2 text-xs text-gray-500">
                   <span>Avg: {habitsReport.time_management.avg_move_time}s</span>
                   <span>Fast: {habitsReport.time_management.fast_moves}</span>
                   <span>Slow: {habitsReport.time_management.slow_moves}</span>
@@ -694,8 +694,8 @@ const GameStartCard = ({ decryptionData, habitsReport }) => {
             
             {/* Phase Performance */}
             {habitsReport.phase_performance && (
-              <div className="bg-zinc-800/40 rounded-lg p-3 border border-zinc-700/50">
-                <span className="text-xs text-zinc-400 font-medium block mb-2">Phase Accuracy</span>
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <span className="text-xs text-gray-500 font-medium block mb-2">Phase Accuracy</span>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {["opening", "middlegame", "endgame"].map(phase => {
                     const data = habitsReport.phase_performance[phase];
@@ -707,12 +707,12 @@ const GameStartCard = ({ decryptionData, habitsReport }) => {
                           data.accuracy >= 70 ? "text-emerald-400" :
                           data.accuracy >= 50 ? "text-amber-400" : "text-red-400"
                         }`}>{data.accuracy}%</p>
-                        <p className="text-xs text-zinc-500 capitalize">{phase}</p>
+                        <p className="text-xs text-gray-500 capitalize">{phase}</p>
                       </div>
                     );
                   })}
                 </div>
-                <p className="text-xs text-zinc-300 mt-2">{habitsReport.phase_performance.insight}</p>
+                <p className="text-xs text-gray-600 mt-2">{habitsReport.phase_performance.insight}</p>
               </div>
             )}
             
@@ -726,8 +726,8 @@ const GameStartCard = ({ decryptionData, habitsReport }) => {
                       {rec.priority === 1 ? "🔴" : "🟡"}
                     </span>
                     <div>
-                      <span className="text-xs font-medium text-white">{rec.area}: </span>
-                      <span className="text-xs text-zinc-300">{rec.message}</span>
+                      <span className="text-xs font-medium text-gray-900">{rec.area}: </span>
+                      <span className="text-xs text-gray-600">{rec.message}</span>
                     </div>
                   </div>
                 ))}
@@ -736,14 +736,14 @@ const GameStartCard = ({ decryptionData, habitsReport }) => {
           </div>
         )}
         
-        <div className="bg-zinc-800/30 rounded-lg p-4">
-          <p className="text-zinc-300 text-sm">
+        <div className="bg-gray-50 rounded-lg p-4">
+          <p className="text-gray-600 text-sm">
             This analysis coaches you on <strong>every move</strong> — yours and your opponent's.
             Look for the <span className="text-amber-400">"I understand"</span> buttons to track your learning.
           </p>
         </div>
         
-        <div className="pt-2 border-t border-zinc-800">
+        <div className="pt-2 border-t border-gray-200">
           <p className="text-sm text-emerald-400 flex items-center gap-2">
             <ChevronRight className="w-4 h-4" /> Press right arrow to begin
           </p>
@@ -801,25 +801,25 @@ const MoveCoachingCardV5 = ({
   const hasThought = userThought?.saved;
 
   // Determine card style based on move type
-  let borderClass = 'border-zinc-800 bg-zinc-900/50';
+  let borderClass = 'border-gray-200 bg-white';
   let headerIcon = <Brain className="w-5 h-5 text-blue-400" />;
   
   if (!isUser) {
-    borderClass = 'border-indigo-500/30 bg-indigo-950/10';
+    borderClass = 'border-indigo-500/30 bg-indigo-50';
     headerIcon = <Target className="w-5 h-5 text-indigo-400" />;
   } else if (severity === 'blunder' || severity === 'mistake') {
-    borderClass = 'border-red-500/30 bg-red-950/10';
+    borderClass = 'border-red-500/30 bg-red-50';
     headerIcon = <AlertTriangle className="w-5 h-5 text-red-400" />;
   } else if (severity === 'inaccuracy') {
     borderClass = weaknessMatch 
       ? 'border-amber-500/40 bg-amber-950/15 ring-1 ring-amber-500/20'
-      : 'border-orange-500/30 bg-orange-950/10';
+      : 'border-orange-500/30 bg-orange-50';
     headerIcon = <Lightbulb className="w-5 h-5 text-orange-400" />;
   } else if (move.is_best_move) {
-    borderClass = 'border-emerald-500/30 bg-emerald-950/10';
+    borderClass = 'border-emerald-500/30 bg-emerald-50';
     headerIcon = <Trophy className="w-5 h-5 text-emerald-400" />;
   } else if (severity === 'good') {
-    borderClass = 'border-emerald-500/20 bg-emerald-950/5';
+    borderClass = 'border-emerald-500/20 bg-emerald-50/50';
     headerIcon = <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
   }
 
@@ -852,7 +852,7 @@ const MoveCoachingCardV5 = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {headerIcon}
-            <span className="font-bold text-white text-lg">{move.move_san}</span>
+            <span className="font-bold text-gray-900 text-lg">{move.move_san}</span>
             <Badge variant={isUser ? "default" : "secondary"} className="text-xs">
               {isUser ? "Your move" : "Opponent"}
             </Badge>
@@ -876,13 +876,13 @@ const MoveCoachingCardV5 = ({
               </Badge>
             )}
           </div>
-          <Badge variant="outline" className="text-xs text-zinc-400">{move.phase}</Badge>
+          <Badge variant="outline" className="text-xs text-gray-500">{move.phase}</Badge>
         </div>
 
         {/* ─── NARRATIVE ────────────────────────────────────── */}
         {move.narrative && (
           <div className="leading-relaxed group" data-testid="move-narrative">
-            <p className="text-sm text-zinc-200 inline">{move.narrative}</p>
+            <p className="text-sm text-gray-700 inline">{move.narrative}</p>
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
           </div>
         )}
@@ -893,7 +893,7 @@ const MoveCoachingCardV5 = ({
             <p className="text-xs text-indigo-400 mb-1 flex items-center gap-1">
               <Swords className="w-3 h-3" /> What's your plan now?
             </p>
-            <p className="text-white text-sm inline">{move.your_plan_now}</p>
+            <p className="text-gray-900 text-sm inline">{move.your_plan_now}</p>
             <InlineFlag section="your_plan_now" flaggedText={move.your_plan_now} context={flagCtx} />
           </div>
         )}
@@ -920,7 +920,7 @@ const MoveCoachingCardV5 = ({
             {move.plan.better_approach && (
               <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20 group" data-testid="plan-better">
                 <p className="text-xs text-emerald-400 mb-1">Better approach</p>
-                <p className="text-white text-sm inline">{move.plan.better_approach}</p>
+                <p className="text-gray-900 text-sm inline">{move.plan.better_approach}</p>
                 <InlineFlag section="better_approach" flaggedText={move.plan.better_approach} context={flagCtx} />
               </div>
             )}
@@ -937,8 +937,8 @@ const MoveCoachingCardV5 = ({
                       key={idx}
                       className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-all hover:scale-[1.01] ${
                         candidate.is_best 
-                          ? 'bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20' 
-                          : 'bg-zinc-800/50 hover:bg-zinc-700/50'
+                          ? 'bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-100' 
+                          : 'bg-gray-50 hover:bg-gray-100'
                       }`}
                       onClick={() => onShowAlternativeMove(candidate.move)}
                       title={`Click to see ${candidate.move} on the board`}
@@ -957,7 +957,7 @@ const MoveCoachingCardV5 = ({
                         {candidate.move}
                       </button>
                       <div className="flex-1 group">
-                        <p className="text-sm text-zinc-200 inline">{candidate.idea}</p>
+                        <p className="text-sm text-gray-700 inline">{candidate.idea}</p>
                         <InlineFlag section={`candidate_move_${candidate.move}`} flaggedText={`${candidate.move}: ${candidate.idea}`} context={flagCtx} />
                         <Badge 
                           variant="outline" 
@@ -967,7 +967,7 @@ const MoveCoachingCardV5 = ({
                             candidate.type === 'development' ? 'text-blue-400 border-blue-500/30' :
                             candidate.type === 'central' ? 'text-yellow-400 border-yellow-500/30' :
                             candidate.type === 'tactical' ? 'text-red-400 border-red-500/30' :
-                            'text-zinc-400 border-zinc-500/30'
+                            'text-gray-500 border-zinc-500/30'
                           }`}
                         >
                           {candidate.type?.replace('_', ' ')}
@@ -989,13 +989,13 @@ const MoveCoachingCardV5 = ({
                   <GraduationCap className="w-4 h-4 text-amber-400" />
                   <p className="text-xs font-semibold text-amber-400">Learning</p>
                 </div>
-                <p className="text-white text-sm font-medium inline">{move.plan.transferable_learning}</p>
+                <p className="text-gray-900 text-sm font-medium inline">{move.plan.transferable_learning}</p>
                 <InlineFlag section="transferable_learning" flaggedText={move.plan.transferable_learning} context={flagCtx} />
                 
                 {/* I Understand button */}
                 {needsAck && (
                   <div className="mt-3 pt-3 border-t border-amber-500/20">
-                    <p className="text-xs text-zinc-400 mb-2">{move.acknowledgment_prompt || "Click when this concept is clear to you."}</p>
+                    <p className="text-xs text-gray-500 mb-2">{move.acknowledgment_prompt || "Click when this concept is clear to you."}</p>
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -1024,20 +1024,20 @@ const MoveCoachingCardV5 = ({
             <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1">
               <Sparkles className="w-3 h-3" /> You demonstrated
             </p>
-            <p className="text-white text-sm">{move.concept_applied.replace(/_/g, ' ')}</p>
+            <p className="text-gray-900 text-sm">{move.concept_applied.replace(/_/g, ' ')}</p>
           </div>
         )}
 
         {/* ─── FUTURE MOVES (clickable) ───────────────────────── */}
         {move.future_moves?.length > 0 && !hasPlan && (
-          <div className="bg-zinc-800/50 rounded-lg p-3">
-            <p className="text-xs text-zinc-400 mb-2">The line continues:</p>
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500 mb-2">The line continues:</p>
             <div className="flex flex-wrap gap-1">
               {move.future_moves.slice(0, 4).map((m, i) => (
                 <button
                   key={i}
                   onClick={() => onShowFutureMoves(move.future_moves, i)}
-                  className="font-mono text-sm bg-zinc-700/50 hover:bg-emerald-500/20 px-2 py-1 rounded text-white transition-colors"
+                  className="font-mono text-sm bg-gray-100 hover:bg-emerald-100 px-2 py-1 rounded text-gray-900 transition-colors"
                   title={`Click to see position after ${m}`}
                 >
                   {m}
@@ -1057,7 +1057,7 @@ const MoveCoachingCardV5 = ({
                   <Eye className="w-4 h-4 text-violet-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-xs text-violet-400 mb-1">Your thinking</p>
-                    <p className="text-sm text-zinc-300 italic">"{userThought.text}"</p>
+                    <p className="text-sm text-gray-600 italic">"{userThought.text}"</p>
                   </div>
                 </div>
                 {/* Show my plan button */}
@@ -1081,7 +1081,7 @@ const MoveCoachingCardV5 = ({
                   value={userThought?.text || ""}
                   onChange={(e) => onThoughtChange(move.move_number, e.target.value)}
                   placeholder="e.g., I thought I was winning the exchange... / I didn't see the threat..."
-                  className="min-h-[60px] text-sm bg-zinc-800/50 border-zinc-700 resize-none"
+                  className="min-h-[60px] text-sm bg-gray-50 border-gray-200 resize-none"
                   data-testid="thought-input"
                 />
                 <div className="flex gap-2">
@@ -1102,7 +1102,7 @@ const MoveCoachingCardV5 = ({
                     size="sm"
                     variant="ghost"
                     onClick={() => onToggleThoughtInput(move.move_number)}
-                    className="text-xs text-zinc-400"
+                    className="text-xs text-gray-500"
                   >
                     Cancel
                   </Button>
@@ -1136,22 +1136,22 @@ const MoveCoachingCardV5 = ({
                 size="sm"
                 variant="ghost"
                 onClick={onCancelPlan}
-                className="h-6 w-6 p-0 text-zinc-400 hover:text-white"
+                className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700"
               >
                 <X className="w-3 h-3" />
               </Button>
             </div>
             
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-gray-500">
               Play the moves you intended. What did you think would happen?
             </p>
             
             {/* Current plan moves */}
             {planMoves.length > 0 && (
-              <div className="bg-zinc-800/50 rounded p-2">
-                <p className="text-xs text-zinc-500 mb-1">Your line:</p>
+              <div className="bg-gray-50 rounded p-2">
+                <p className="text-xs text-gray-500 mb-1">Your line:</p>
                 <div className="flex flex-wrap items-center gap-1">
-                  <span className="font-mono text-sm text-white">{move.move_san}</span>
+                  <span className="font-mono text-sm text-gray-900">{move.move_san}</span>
                   {planMoves.map((m, i) => (
                     <span key={i} className="font-mono text-sm text-cyan-300">{m}</span>
                   ))}
@@ -1165,7 +1165,7 @@ const MoveCoachingCardV5 = ({
                 size="sm"
                 variant="ghost"
                 onClick={onUndoPlanMove}
-                className="text-xs text-zinc-400"
+                className="text-xs text-gray-500"
               >
                 ← Undo last move
               </Button>
@@ -1177,7 +1177,7 @@ const MoveCoachingCardV5 = ({
                 value={planReasoning}
                 onChange={(e) => onPlanReasoningChange(e.target.value)}
                 placeholder="Why did you think this would work? (optional)"
-                className="min-h-[50px] text-sm bg-zinc-800/50 border-zinc-700 resize-none"
+                className="min-h-[50px] text-sm bg-gray-50 border-gray-200 resize-none"
               />
               <Button
                 size="sm"
@@ -1199,7 +1199,7 @@ const MoveCoachingCardV5 = ({
               </Button>
             </div>
             
-            <p className="text-xs text-zinc-600 text-center">
+            <p className="text-xs text-gray-400 text-center">
               Make moves on the board to show your intended line
             </p>
           </div>
@@ -1210,7 +1210,7 @@ const MoveCoachingCardV5 = ({
           <div className="bg-gradient-to-b from-cyan-500/10 to-transparent rounded-lg p-4 border border-cyan-500/30 space-y-4" data-testid="plan-analysis">
             <div className="flex items-center gap-2">
               <Brain className="w-5 h-5 text-cyan-400" />
-              <span className="text-sm font-medium text-white">Calculation Analysis</span>
+              <span className="text-sm font-medium text-gray-900">Calculation Analysis</span>
               {planAnalysis.gap_severity === "critical" && (
                 <Badge className="bg-red-500/20 text-red-400 text-xs">Critical Gap</Badge>
               )}
@@ -1220,9 +1220,9 @@ const MoveCoachingCardV5 = ({
             </div>
             
             {/* Gap type */}
-            <div className="p-3 rounded bg-zinc-800/50">
-              <p className="text-xs text-zinc-500 mb-1">What went wrong</p>
-              <p className="text-sm text-white font-medium">
+            <div className="p-3 rounded bg-gray-50">
+              <p className="text-xs text-gray-500 mb-1">What went wrong</p>
+              <p className="text-sm text-gray-900 font-medium">
                 {planAnalysis.gap_type === "missed_tactic" && "Missed Tactic"}
                 {planAnalysis.gap_type === "calculation_depth" && "Calculation Too Shallow"}
                 {planAnalysis.gap_type === "correct_plan" && "Your plan was actually reasonable!"}
@@ -1230,14 +1230,14 @@ const MoveCoachingCardV5 = ({
             </div>
             
             {/* Explanation */}
-            <p className="text-sm text-zinc-300">{planAnalysis.explanation}</p>
+            <p className="text-sm text-gray-600">{planAnalysis.explanation}</p>
             
             {/* Divergence point */}
             {planAnalysis.divergence_move_number > 0 && (
               <div className="p-3 rounded bg-red-500/10 border border-red-500/20">
                 <p className="text-xs text-red-400 mb-1">The critical moment (move {planAnalysis.divergence_move_number})</p>
                 <p className="text-sm">
-                  You expected <span className="font-mono text-zinc-400">{planAnalysis.user_expected_move}</span>
+                  You expected <span className="font-mono text-gray-500">{planAnalysis.user_expected_move}</span>
                   {" "}but <span className="font-mono text-emerald-400">{planAnalysis.actual_best_move}</span> changes everything
                 </p>
                 {planAnalysis.missed_tactic_type && (
@@ -1250,7 +1250,7 @@ const MoveCoachingCardV5 = ({
             
             {/* Eval swing */}
             {planAnalysis.eval_swing > 0 && (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-gray-500">
                 Evaluation swing: <span className="text-red-400">{planAnalysis.eval_swing.toFixed(1)} pawns</span>
               </p>
             )}
@@ -1278,12 +1278,12 @@ const MoveCoachingCardV5 = ({
         )}
 
         {/* ─── FEEDBACK ──────────────────────────────────────── */}
-        <div className="flex items-center justify-end pt-2 border-t border-zinc-800/50">
+        <div className="flex items-center justify-end pt-2 border-t border-gray-200/50">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={onFeedbackClick} 
-            className="text-xs text-zinc-500 hover:text-red-400" 
+            className="text-xs text-gray-500 hover:text-red-400" 
             data-testid="btn-not-helpful"
           >
             <ThumbsDown className="w-3 h-3 mr-1" /> Not helpful
@@ -1299,7 +1299,7 @@ const MoveCoachingCardV5 = ({
 
 const ClickableMoves = ({ text, moves, onMoveClick }) => {
   if (!moves?.length || !text) {
-    return <p className="text-white text-sm">{text}</p>;
+    return <p className="text-gray-900 text-sm">{text}</p>;
   }
   
   // Parse text and make moves clickable
@@ -1334,7 +1334,7 @@ const ClickableMoves = ({ text, moves, onMoveClick }) => {
   }
   
   return (
-    <p className="text-white text-sm">
+    <p className="text-gray-900 text-sm">
       {parts.map((part, i) => {
         if (part.type === 'move') {
           return (
@@ -1349,7 +1349,7 @@ const ClickableMoves = ({ text, moves, onMoveClick }) => {
           );
         }
         if (part.type === 'move-inactive') {
-          return <span key={i} className="font-mono font-semibold text-zinc-300">{part.content}</span>;
+          return <span key={i} className="font-mono font-semibold text-gray-600">{part.content}</span>;
         }
         return <span key={i}>{part.content}</span>;
       })}
@@ -1361,10 +1361,10 @@ const ClickableMoves = ({ text, moves, onMoveClick }) => {
 // ─── FEEDBACK PANEL ─────────────────────────────────────────────────
 
 const FeedbackPanel = ({ move, feedbackText, setFeedbackText, onSubmit, onCancel, submitting }) => (
-  <Card className="bg-zinc-900 border-zinc-700" data-testid="feedback-panel">
+  <Card className="bg-white border-gray-200" data-testid="feedback-panel">
     <CardContent className="p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-white">What should the explanation say?</p>
+        <p className="text-sm font-medium text-gray-900">What should the explanation say?</p>
         <Button variant="ghost" size="icon" onClick={onCancel} className="h-6 w-6">
           <X className="w-4 h-4" />
         </Button>
@@ -1373,7 +1373,7 @@ const FeedbackPanel = ({ move, feedbackText, setFeedbackText, onSubmit, onCancel
         value={feedbackText} 
         onChange={(e) => setFeedbackText(e.target.value)}
         placeholder="Write a better explanation..." 
-        className="min-h-[100px] bg-zinc-800 border-zinc-700 text-white" 
+        className="min-h-[100px] bg-gray-100 border-gray-200 text-gray-900" 
         data-testid="feedback-textarea" 
       />
       <div className="flex justify-end gap-2">
@@ -1404,15 +1404,15 @@ const MoveListV5 = ({ decryptionData, currentMoveIndex, onMoveClick }) => {
   }
   
   const moveClass = (m, idx) => {
-    if (currentMoveIndex === idx) return 'bg-emerald-500/30 text-white ring-1 ring-emerald-500/50';
+    if (currentMoveIndex === idx) return 'bg-emerald-500/30 text-gray-900 ring-1 ring-emerald-500/50';
     
     const severity = m.severity || 'good';
     if (severity === 'blunder') return 'text-red-400 bg-red-500/10 hover:bg-red-500/20';
     if (severity === 'mistake') return 'text-red-400 hover:bg-red-500/10';
     if (severity === 'inaccuracy') return 'text-orange-400 hover:bg-orange-500/10';
     if (m.is_best_move) return 'text-emerald-400 hover:bg-emerald-500/10';
-    if (!m.is_user_move) return 'text-zinc-500 hover:bg-zinc-800';
-    return 'text-zinc-300 hover:bg-zinc-800';
+    if (!m.is_user_move) return 'text-gray-500 hover:bg-gray-100';
+    return 'text-gray-600 hover:bg-gray-100';
   };
   
   const indicator = (m) => {
@@ -1425,11 +1425,11 @@ const MoveListV5 = ({ decryptionData, currentMoveIndex, onMoveClick }) => {
   };
 
   return (
-    <ScrollArea className="h-[180px] rounded-lg border border-zinc-800 bg-zinc-900/30">
+    <ScrollArea className="h-[180px] rounded-lg border border-gray-200 bg-gray-50">
       <div className="p-2 space-y-1">
         {pairs.map(p => (
           <div key={p.num} className="flex items-center gap-1 text-sm">
-            <span className="w-8 text-zinc-500 text-right shrink-0">{p.num}.</span>
+            <span className="w-8 text-gray-500 text-right shrink-0">{p.num}.</span>
             <button 
               onClick={() => onMoveClick(p.wi)} 
               className={`px-2 py-0.5 rounded font-mono transition-colors ${moveClass(p.w, p.wi)}`}

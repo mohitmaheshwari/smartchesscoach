@@ -861,7 +861,7 @@ const LabV2 = ({ user }) => {
             </Button>
             
             <div className="flex items-center gap-3">
-              <h1 className="text-lg text-white tracking-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>Game Review</h1>
+              <h1 className="text-lg text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Game Review</h1>
               <span className="text-gray-500 text-sm font-light">
                 vs {game?.opponent_name || "Opponent"}
               </span>

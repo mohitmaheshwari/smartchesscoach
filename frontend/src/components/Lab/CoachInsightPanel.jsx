@@ -22,24 +22,24 @@ import {
 // ─── DIAGNOSIS COLORS & ICONS ────────────────────────────────────
 
 const DIAGNOSIS_CONFIG = {
-  THROW:              { color: "text-red-400",    bg: "bg-red-500/10",    border: "border-red-500/20",    label: "Thrown Game" },
+  THROW:              { color: "text-red-600",    bg: "bg-red-500/10",    border: "border-red-500/20",    label: "Thrown Game" },
   MATE_BLIND:         { color: "text-red-500",    bg: "bg-red-500/15",    border: "border-red-500/30",    label: "Missed Mate" },
-  SLOW_BLEED:         { color: "text-amber-400",  bg: "bg-amber-500/10",  border: "border-amber-500/20",  label: "Outplayed" },
+  SLOW_BLEED:         { color: "text-amber-600",  bg: "bg-amber-500/10",  border: "border-amber-500/20",  label: "Outplayed" },
   OPENING_COLLAPSE:   { color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", label: "Opening Failure" },
   PIECE_GIVEAWAY:     { color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", label: "Hung Piece" },
-  TACTICAL_MISS:      { color: "text-amber-400",  bg: "bg-amber-500/10",  border: "border-amber-500/20",  label: "Tactical Miss" },
+  TACTICAL_MISS:      { color: "text-amber-600",  bg: "bg-amber-500/10",  border: "border-amber-500/20",  label: "Tactical Miss" },
   TIME_COLLAPSE:      { color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", label: "Time Trouble" },
-  WON_CLEAN:          { color: "text-emerald-400",bg: "bg-emerald-500/10",border: "border-emerald-500/20",label: "Clean Win" },
-  WON_OPPONENT_BLUNDER:{ color: "text-emerald-400",bg: "bg-yellow-500/10",border: "border-yellow-500/20",label: "Lucky Win" },
-  DRAW:               { color: "text-zinc-400",   bg: "bg-zinc-500/10",   border: "border-zinc-500/20",   label: "Draw" },
-  UNKNOWN:            { color: "text-zinc-400",   bg: "bg-zinc-500/10",   border: "border-zinc-500/20",   label: "Unknown" },
+  WON_CLEAN:          { color: "text-emerald-600",bg: "bg-emerald-500/10",border: "border-emerald-500/20",label: "Clean Win" },
+  WON_OPPONENT_BLUNDER:{ color: "text-emerald-600",bg: "bg-yellow-500/10",border: "border-yellow-500/20",label: "Lucky Win" },
+  DRAW:               { color: "text-gray-500",   bg: "bg-zinc-500/10",   border: "border-zinc-500/20",   label: "Draw" },
+  UNKNOWN:            { color: "text-gray-500",   bg: "bg-zinc-500/10",   border: "border-zinc-500/20",   label: "Unknown" },
 };
 
 const SEVERITY_COLORS = {
-  CRITICAL: "text-red-400 bg-red-500/15 border-red-500/30",
+  CRITICAL: "text-red-600 bg-red-500/15 border-red-500/30",
   HIGH:     "text-orange-400 bg-orange-500/15 border-orange-500/30",
-  MEDIUM:   "text-amber-400 bg-amber-500/15 border-amber-500/30",
-  LOW:      "text-zinc-400 bg-zinc-500/15 border-zinc-500/30",
+  MEDIUM:   "text-amber-600 bg-amber-500/15 border-amber-500/30",
+  LOW:      "text-gray-500 bg-zinc-500/15 border-zinc-500/30",
 };
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────
@@ -90,7 +90,7 @@ const CoachInsightPanel = ({ gameId, onMoveClick }) => {
   return (
     <div data-testid="coach-insight-panel">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full bg-zinc-800/50 mb-4">
+        <TabsList className="w-full bg-gray-50 mb-4">
           <TabsTrigger value="summary" className="flex-1 text-xs" data-testid="tab-summary">
             <Crosshair className="w-3 h-3 mr-1.5" />
             Summary
@@ -153,20 +153,20 @@ const SummaryTab = ({ summary, onMoveClick }) => {
       {/* Critical moment */}
       {critical && (
         <div 
-          className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700/50 cursor-pointer hover:border-zinc-600 transition-colors"
+          className="bg-gray-50 rounded-lg p-3 border border-gray-200 cursor-pointer hover:border-gray-300 transition-colors"
           onClick={() => onMoveClick?.(critical.move_number)}
           data-testid="critical-moment"
         >
-          <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Critical Moment</div>
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Critical Moment</div>
           <div className="flex items-center gap-3">
-            <span className="font-mono font-bold text-lg text-white">{critical.san}</span>
-            <div className="text-xs text-zinc-400">
+            <span className="font-mono font-bold text-lg text-gray-900">{critical.san}</span>
+            <div className="text-xs text-gray-500">
               Move {critical.move_number} &middot; Lost {(critical.cp_loss / 100).toFixed(1)} pawns
             </div>
             {critical.best_move && (
               <div className="text-xs">
-                <span className="text-zinc-500">Best: </span>
-                <span className="text-emerald-400 font-mono">{critical.best_move}</span>
+                <span className="text-gray-500">Best: </span>
+                <span className="text-emerald-600 font-mono">{critical.best_move}</span>
               </div>
             )}
           </div>
@@ -177,8 +177,8 @@ const SummaryTab = ({ summary, onMoveClick }) => {
       {summary.context?.length > 0 && (
         <div className="space-y-1.5 pl-1">
           {summary.context.map((line, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm text-zinc-400">
-              <ArrowRight className="w-3 h-3 mt-1 flex-shrink-0 text-zinc-600" />
+            <div key={i} className="flex items-start gap-2 text-sm text-gray-500">
+              <ArrowRight className="w-3 h-3 mt-1 flex-shrink-0 text-gray-400" />
               <span>{line}</span>
             </div>
           ))}
@@ -188,7 +188,7 @@ const SummaryTab = ({ summary, onMoveClick }) => {
       {/* Coach note */}
       {summary.coach_note && (
         <div className="bg-blue-500/8 rounded-lg p-3 border border-blue-500/15" data-testid="coach-note">
-          <p className="text-sm text-blue-300 leading-relaxed">{summary.coach_note}</p>
+          <p className="text-sm text-blue-700 leading-relaxed">{summary.coach_note}</p>
         </div>
       )}
     </div>
@@ -205,11 +205,11 @@ const HabitsTab = ({ habits }) => {
     <div className="space-y-4" data-testid="habits-tab">
       {/* Score */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-zinc-400">Habits Score</span>
+        <span className="text-gray-500">Habits Score</span>
         <span className={`font-bold ${
-          habits.passed_count === habits.total_count ? 'text-emerald-400' :
-          habits.passed_count >= habits.total_count / 2 ? 'text-amber-400' :
-          'text-red-400'
+          habits.passed_count === habits.total_count ? 'text-emerald-600' :
+          habits.passed_count >= habits.total_count / 2 ? 'text-amber-600' :
+          'text-red-600'
         }`}>
           {habits.passed_count}/{habits.total_count} passed
         </span>
@@ -229,22 +229,22 @@ const HabitsTab = ({ habits }) => {
           >
             <div className="flex items-start gap-2.5">
               {habit.passed ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
               ) : (
-                <XCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                <XCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${habit.passed ? 'text-emerald-300' : 'text-red-300'}`}>
+                <p className={`text-sm font-medium ${habit.passed ? 'text-emerald-600' : 'text-red-600'}`}>
                   {habit.name}
                 </p>
-                <p className="text-xs text-zinc-500 mt-0.5">{habit.evidence}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{habit.evidence}</p>
                 {habit.impact && !habit.passed && (
-                  <p className="text-xs text-red-400/70 mt-0.5">{habit.impact}</p>
+                  <p className="text-xs text-red-600/70 mt-0.5">{habit.impact}</p>
                 )}
               </div>
               <Badge 
                 variant="outline" 
-                className={`text-[10px] flex-shrink-0 ${habit.passed ? 'text-emerald-400 border-emerald-500/30' : 'text-red-400 border-red-500/30'}`}
+                className={`text-[10px] flex-shrink-0 ${habit.passed ? 'text-emerald-600 border-emerald-500/30' : 'text-red-600 border-red-500/30'}`}
               >
                 {habit.passed ? "PASSED" : "FAILED"}
               </Badge>
@@ -257,13 +257,13 @@ const HabitsTab = ({ habits }) => {
       {habits.focus_habit && (
         <div className="bg-red-500/10 rounded-lg p-4 border border-red-500/20" data-testid="focus-habit">
           <div className="flex items-center gap-2 mb-2">
-            <Zap className="w-4 h-4 text-red-400" />
-            <span className="text-xs text-red-400 uppercase tracking-wider font-semibold">Focus Habit</span>
+            <Zap className="w-4 h-4 text-red-600" />
+            <span className="text-xs text-red-600 uppercase tracking-wider font-semibold">Focus Habit</span>
           </div>
-          <p className="text-sm font-medium text-white">{habits.focus_habit.name}</p>
-          <p className="text-xs text-red-300/70 mt-1">{habits.focus_habit.evidence}</p>
+          <p className="text-sm font-medium text-gray-900">{habits.focus_habit.name}</p>
+          <p className="text-xs text-red-600/70 mt-1">{habits.focus_habit.evidence}</p>
           {habits.focus_habit.impact && (
-            <p className="text-xs text-red-400 mt-1 font-medium">{habits.focus_habit.impact}</p>
+            <p className="text-xs text-red-600 mt-1 font-medium">{habits.focus_habit.impact}</p>
           )}
         </div>
       )}
@@ -281,14 +281,14 @@ const MemoryTab = ({ memory }) => {
   return (
     <div className="space-y-4" data-testid="memory-tab">
       {/* YOUR CHESS DNA — Identity Snapshot */}
-      <div className="bg-zinc-800/30 rounded-lg p-4 border border-zinc-700/30">
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4 text-blue-400" />
-            <span className="text-xs text-blue-400 uppercase tracking-wider font-semibold">Your Chess DNA</span>
+            <Brain className="w-4 h-4 text-blue-600" />
+            <span className="text-xs text-blue-600 uppercase tracking-wider font-semibold">Your Chess DNA</span>
           </div>
           {identity.archetype && (
-            <Badge variant="outline" className="text-[10px] text-blue-300 border-blue-500/30">
+            <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-500/30">
               {identity.archetype}
             </Badge>
           )}
@@ -298,20 +298,20 @@ const MemoryTab = ({ memory }) => {
         <div className="space-y-3">
           {identity.before_line && (
             <div className="flex items-start gap-2.5">
-              <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-14 flex-shrink-0 pt-0.5">Before</span>
-              <p className="text-sm text-zinc-400 leading-relaxed">{identity.before_line}</p>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider w-14 flex-shrink-0 pt-0.5">Before</span>
+              <p className="text-sm text-gray-500 leading-relaxed">{identity.before_line}</p>
             </div>
           )}
           {identity.after_line && (
             <div className="flex items-start gap-2.5">
-              <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-14 flex-shrink-0 pt-0.5">After</span>
-              <p className="text-sm text-white font-medium leading-relaxed">{identity.after_line}</p>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider w-14 flex-shrink-0 pt-0.5">After</span>
+              <p className="text-sm text-gray-900 font-medium leading-relaxed">{identity.after_line}</p>
             </div>
           )}
         </div>
 
         {identity.this_game_confirms && (
-          <p className="text-xs text-zinc-500 mt-3 border-l-2 border-blue-500/30 pl-3 italic">
+          <p className="text-xs text-gray-500 mt-3 border-l-2 border-blue-500/30 pl-3 italic">
             {identity.this_game_confirms}
           </p>
         )}
@@ -333,22 +333,22 @@ const MemoryTab = ({ memory }) => {
           {/* The 3-line punch */}
           <div className="space-y-2.5">
             {impact.stat_line && (
-              <p className="text-sm text-zinc-300">{impact.stat_line}</p>
+              <p className="text-sm text-gray-700">{impact.stat_line}</p>
             )}
             {impact.fix_line && (
-              <p className="text-sm text-white font-semibold">{impact.fix_line}</p>
+              <p className="text-sm text-gray-900 font-semibold">{impact.fix_line}</p>
             )}
             {impact.diff_line && (
-              <p className="text-base font-bold text-emerald-400">{impact.diff_line}</p>
+              <p className="text-base font-bold text-emerald-600">{impact.diff_line}</p>
             )}
           </div>
 
           {/* Rating projection bar */}
           {impact.projected_rating && impact.current_rating > 0 && (
-            <div className="bg-black/20 rounded p-2.5 flex items-center justify-center gap-3 mt-4">
-              <span className="text-sm text-zinc-400">{impact.current_rating}</span>
-              <ArrowRight className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm font-bold text-emerald-400">~{impact.projected_rating}</span>
+            <div className="bg-gray-50 rounded p-2.5 flex items-center justify-center gap-3 mt-4">
+              <span className="text-sm text-gray-500">{impact.current_rating}</span>
+              <ArrowRight className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-bold text-emerald-600">~{impact.projected_rating}</span>
             </div>
           )}
         </div>
@@ -356,8 +356,8 @@ const MemoryTab = ({ memory }) => {
 
       {/* No significant pattern */}
       {impact && impact.estimated_rating_gain === 0 && (
-        <div className="bg-zinc-800/20 rounded-lg p-4 border border-zinc-700/20 text-center">
-          <p className="text-sm text-zinc-500">No dominant pattern yet. Keep playing — your identity is forming.</p>
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
+          <p className="text-sm text-gray-500">No dominant pattern yet. Keep playing — your identity is forming.</p>
         </div>
       )}
     </div>
