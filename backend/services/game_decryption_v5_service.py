@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 4  # v4: adaptive decryption (rating-based filtering + weakness matching)
+V5_COACHING_VERSION = 5  # v5: PV-based consequence analysis (captures > static piece checks)
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -495,8 +495,10 @@ def _describe_consequence(pv: List[str], board: chess.Board) -> str:
     """
     Describe what SPECIFICALLY happens in the PV.
     
-    CRITICAL: Check for checkmate first! If the PV delivers mate,
-    say "Checkmate" — don't analyze undefended pawns.
+    Priority:
+    1. Checkmate in PV → "Checkmate"
+    2. Material loss in PV (walk the moves, find captures) → "Your knight gets taken"
+    3. Static analysis (undefended pieces) → fallback
     """
     if not pv:
         return "Something's not right here!"
@@ -505,118 +507,122 @@ def _describe_consequence(pv: List[str], board: chess.Board) -> str:
     user_color = not board.turn  # User just moved, so opponent is to move
     first_move_san = pv[0]
     
-    # ─── CHECKMATE CHECK ──────────────────────────────────
-    # If the first PV move delivers checkmate, that's the consequence. Period.
+    # ─── 1. CHECKMATE CHECK ──────────────────────────────
     if "#" in first_move_san:
         return f"After {first_move_san}, it's checkmate. Game over."
     
     try:
         first_move = sim.parse_san(first_move_san)
         sim.push(first_move)
-        
-        # Check if this position is checkmate
         if sim.is_checkmate():
             return f"After {first_move_san}, it's checkmate. Game over."
         
-        # Check if mate is coming within the PV (mate in 2-3)
-        mate_in_pv = False
+        # Check mate in PV (2-3 moves)
         sim2 = sim.copy()
-        for pv_move_san in pv[1:4]:
+        for pv_san in pv[1:4]:
             try:
-                if "#" in pv_move_san:
-                    mate_in_pv = True
-                    break
-                pm = sim2.parse_san(pv_move_san)
+                if "#" in pv_san:
+                    return f"After {first_move_san}, forced checkmate follows within a few moves."
+                pm = sim2.parse_san(pv_san)
                 sim2.push(pm)
                 if sim2.is_checkmate():
-                    mate_in_pv = True
-                    break
+                    return f"After {first_move_san}, forced checkmate follows within a few moves."
             except Exception:
                 break
-        
-        if mate_in_pv:
-            return f"After {first_move_san}, forced checkmate follows within a few moves."
     except Exception:
         pass
     
-    # ─── NORMAL CONSEQUENCE ANALYSIS ──────────────────────
+    # ─── 2. WALK THE PV — find material loss (most accurate) ───
+    sim = board.copy()
+    for i, san in enumerate(pv[:5]):
+        try:
+            move = sim.parse_san(san)
+            
+            if sim.is_capture(move):
+                captured = sim.piece_at(move.to_square)
+                if captured:
+                    captured_name = _get_fun_piece_name(captured)
+                    sq_name = chess.square_name(move.to_square)
+                    
+                    if captured.color == user_color and captured.piece_type != chess.PAWN:
+                        # User loses a piece — this is the key consequence
+                        # Explain the forcing sequence
+                        if i == 0:
+                            return f"After {san}, your {captured_name} on {sq_name} gets captured!"
+                        elif i >= 2:
+                            # There's a forcing sequence leading to this
+                            sequence = " ".join(pv[:i+1])
+                            # Check if there was a check forcing the defense
+                            check_move = None
+                            for j in range(i):
+                                if "+" in pv[j]:
+                                    check_move = pv[j]
+                                    break
+                            if check_move:
+                                return f"After {check_move}, you're forced to deal with the check, and then {san} wins your {captured_name}!"
+                            else:
+                                return f"After {sequence}, your {captured_name} on {sq_name} gets taken!"
+                        else:
+                            return f"After {pv[0]}, your {captured_name} on {sq_name} gets captured!"
+                    
+                    elif captured.color == user_color and captured.piece_type == chess.PAWN:
+                        # Pawn loss — note but keep looking for bigger losses
+                        pass
+            
+            sim.push(move)
+        except Exception:
+            break
+    
+    # ─── 3. STATIC ANALYSIS — undefended pieces (fallback) ───
     sim = board.copy()
     problems = []
-    move_parsed = False
     
     try:
         first_move = sim.parse_san(first_move_san)
-        move_parsed = True
         sim.push(first_move)
         
-        # Check ALL user pieces for new attacks
-        for sq in chess.SQUARES:
-            piece = sim.piece_at(sq)
-            if piece and piece.color == user_color:
-                attackers = list(sim.attackers(not user_color, sq))
-                defenders = list(sim.attackers(user_color, sq))
-                
-                if attackers:
-                    piece_name = _get_fun_piece_name(piece)
-                    sq_name = chess.square_name(sq)
-                    
-                    # Attacked more than defended = problem!
-                    if len(attackers) > len(defenders):
-                        if piece.piece_type == chess.PAWN:
-                            if len(defenders) == 0:
-                                problems.append(f"your pawn on {sq_name} is totally undefended with {len(attackers)} pieces eyeing it!")
-                            else:
-                                problems.append(f"your pawn on {sq_name} is outnumbered - {len(attackers)} attackers vs {len(defenders)} defender!")
-                        else:
-                            if len(defenders) == 0:
-                                problems.append(f"your {piece_name} on {sq_name} is hanging with no defenders!")
-                            else:
-                                problems.append(f"your {piece_name} on {sq_name} is outnumbered - {len(attackers)} vs {len(defenders)}!")
-                    # Attacked and not defended at all
-                    elif not defenders and piece.piece_type != chess.KING:
-                        problems.append(f"your {piece_name} on {sq_name} is naked! Nobody defending!")
-                
-                if problems:
-                    break
-        
-        # Check for checks
+        # Check for checks first
         if sim.is_check():
             problems.append("your King gets checked! Gotta deal with that first!")
         
+        # Check user pieces for new attacks
+        for sq in chess.SQUARES:
+            piece = sim.piece_at(sq)
+            if piece and piece.color == user_color and piece.piece_type != chess.PAWN:
+                attackers = list(sim.attackers(not user_color, sq))
+                defenders = list(sim.attackers(user_color, sq))
+                
+                if attackers and not defenders:
+                    piece_name = _get_fun_piece_name(piece)
+                    sq_name = chess.square_name(sq)
+                    problems.append(f"your {piece_name} on {sq_name} is hanging with no defenders!")
+                    break
+                elif attackers and len(attackers) > len(defenders):
+                    piece_name = _get_fun_piece_name(piece)
+                    sq_name = chess.square_name(sq)
+                    problems.append(f"your {piece_name} on {sq_name} is outnumbered - {len(attackers)} vs {len(defenders)}!")
+                    break
+        
+        # If no piece issues, check pawns
+        if not problems:
+            for sq in chess.SQUARES:
+                piece = sim.piece_at(sq)
+                if piece and piece.color == user_color and piece.piece_type == chess.PAWN:
+                    attackers = list(sim.attackers(not user_color, sq))
+                    defenders = list(sim.attackers(user_color, sq))
+                    if attackers and not defenders:
+                        sq_name = chess.square_name(sq)
+                        problems.append(f"your pawn on {sq_name} is undefended!")
+                        break
     except Exception:
-        # Move couldn't be parsed - analyze position directly instead
         pass
     
-    # Continue through the line if no problems found yet
-    if not problems and move_parsed:
-        sim = board.copy()
-        for i, san in enumerate(pv[:4]):
-            try:
-                move = sim.parse_san(san)
-                
-                # Check for material loss
-                if sim.is_capture(move):
-                    captured = sim.piece_at(move.to_square)
-                    if captured and captured.color == user_color:
-                        captured_name = _get_fun_piece_name(captured)
-                        sq_name = chess.square_name(move.to_square)
-                        problems.append(f"your {captured_name} on {sq_name} gets chomped!")
-                        break
-                
-                sim.push(move)
-                
-            except Exception:
-                break
-    
-    # If still no problems found, do positional analysis
     if not problems:
         problems = _analyze_positional_weakness(board, user_color)
     
-    # Build the consequence message
     if problems:
         return f"After {first_move_san}, {problems[0]}"
     
-    # Absolute last resort - describe what the opponent's move threatens
     return f"After {first_move_san}, your opponent gains space and activity. You'll need to defend!"
 
 
