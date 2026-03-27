@@ -62,12 +62,12 @@ const Landing = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "#0B1A14", fontFamily: "'Outfit', sans-serif" }}>
+    <div className="min-h-screen" style={{ background: "#1C1410", fontFamily: "'DM Sans', sans-serif" }}>
       {/* ═══ NAVBAR ═══ */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b" style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(11,26,20,0.7)", backdropFilter: "blur(24px)" }}>
+      <header className="fixed top-0 left-0 right-0 z-50 border-b" style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(28,20,16,0.7)", backdropFilter: "blur(24px)" }}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <span className="text-lg font-semibold tracking-tight text-white" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+            <span className="text-lg font-semibold tracking-tight text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
               Chess Coach
             </span>
             <div className="flex items-center gap-3">
@@ -102,8 +102,8 @@ const Landing = () => {
       <section className="relative min-h-screen flex items-center overflow-hidden pt-16">
         <div className="absolute inset-0 z-0">
           <img src={HERO_IMG} alt="" className="w-full h-full object-cover object-center" />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to right, #0B1A14 0%, #0B1A14 35%, rgba(11,26,20,0.6) 65%, transparent 100%)" }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #0B1A14 0%, transparent 40%)" }} />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to right, #1C1410 0%, #1C1410 35%, rgba(28,20,16,0.6) 65%, transparent 100%)" }} />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #1C1410 0%, transparent 40%)" }} />
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-24 w-full">
@@ -123,7 +123,7 @@ const Landing = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
               className="text-5xl sm:text-6xl lg:text-7xl font-light tracking-tighter leading-[0.9] text-white mb-8"
-              style={{ fontFamily: "'Cormorant Garamond', serif" }}
+              style={{ fontFamily: "'Playfair Display', serif" }}
             >
               Your coach
               <br />
@@ -174,8 +174,8 @@ const Landing = () => {
       <section id="coach-section" className="relative py-32 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img src={COACH_EYES} alt="" className="w-full h-full object-cover object-top opacity-30" />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, #0B1A14, rgba(11,26,20,0.3) 40%, #0B1A14)" }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to right, #0B1A14 20%, transparent 60%, #0B1A14 100%)" }} />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, #1C1410, rgba(28,20,16,0.3) 40%, #1C1410)" }} />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to right, #1C1410 20%, transparent 60%, #1C1410 100%)" }} />
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto px-6 lg:px-8 text-center">
@@ -187,7 +187,7 @@ const Landing = () => {
           <FadeIn delay={0.2}>
             <blockquote
               className="text-3xl sm:text-4xl lg:text-5xl italic text-gray-200 leading-tight mb-10"
-              style={{ fontFamily: "'Cormorant Garamond', serif" }}
+              style={{ fontFamily: "'Playfair Display', serif" }}
             >
               "You didn't lose over many mistakes.
               <br />
@@ -212,7 +212,7 @@ const Landing = () => {
             <p className="text-xs tracking-[0.25em] uppercase mb-4" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
               What Makes This Different
             </p>
-            <h2 className="text-4xl sm:text-5xl tracking-tighter text-white mb-16" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+            <h2 className="text-4xl sm:text-5xl tracking-tighter text-white mb-16" style={{ fontFamily: "'Playfair Display', serif" }}>
               Built around <span style={{ color: WINE }}>you</span>, not the engine.
             </h2>
           </FadeIn>
@@ -220,14 +220,14 @@ const Landing = () => {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             {/* Chess DNA — Large card */}
             <FadeIn className="md:col-span-8 md:row-span-2" delay={0.1}>
-              <div className="relative h-full min-h-[320px] overflow-hidden border" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(15,34,25,0.6)", backdropFilter: "blur(16px)" }}>
+              <div className="relative h-full min-h-[320px] overflow-hidden border" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(36,26,20,0.6)", backdropFilter: "blur(16px)" }}>
                 <div className="absolute inset-0 z-0 opacity-20">
                   <img src={WINE_TEXTURE} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between">
                   <div>
                     <p className="text-xs tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>Your Chess DNA</p>
-                    <h3 className="text-2xl sm:text-3xl text-white tracking-tight mb-4" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                    <h3 className="text-2xl sm:text-3xl text-white tracking-tight mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
                       Know who you are as a player.
                     </h3>
                     <p className="text-gray-400 text-sm leading-relaxed max-w-lg">
@@ -249,10 +249,10 @@ const Landing = () => {
 
             {/* Adaptive Decryption */}
             <FadeIn className="md:col-span-4" delay={0.2}>
-              <div className="h-full min-h-[150px] border p-6 lg:p-8 flex flex-col justify-between" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(15,34,25,0.6)", backdropFilter: "blur(16px)" }}>
+              <div className="h-full min-h-[150px] border p-6 lg:p-8 flex flex-col justify-between" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(36,26,20,0.6)", backdropFilter: "blur(16px)" }}>
                 <div>
                   <p className="text-xs tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>Adaptive Decryption</p>
-                  <h3 className="text-xl text-white tracking-tight mb-3" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                  <h3 className="text-xl text-white tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
                     Only what matters.
                   </h3>
                 </div>
@@ -265,10 +265,10 @@ const Landing = () => {
 
             {/* Pattern Memory */}
             <FadeIn className="md:col-span-4" delay={0.3}>
-              <div className="h-full min-h-[150px] border p-6 lg:p-8 flex flex-col justify-between" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(15,34,25,0.6)", backdropFilter: "blur(16px)" }}>
+              <div className="h-full min-h-[150px] border p-6 lg:p-8 flex flex-col justify-between" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(36,26,20,0.6)", backdropFilter: "blur(16px)" }}>
                 <div>
                   <p className="text-xs tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>Pattern Memory</p>
-                  <h3 className="text-xl text-white tracking-tight mb-3" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                  <h3 className="text-xl text-white tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
                     "This is the 5th time."
                   </h3>
                 </div>
@@ -281,9 +281,9 @@ const Landing = () => {
 
             {/* Community Training */}
             <FadeIn className="md:col-span-6" delay={0.4}>
-              <div className="h-full min-h-[150px] border p-6 lg:p-8" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(15,34,25,0.6)", backdropFilter: "blur(16px)" }}>
+              <div className="h-full min-h-[150px] border p-6 lg:p-8" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(36,26,20,0.6)", backdropFilter: "blur(16px)" }}>
                 <p className="text-xs tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>Community Training</p>
-                <h3 className="text-xl text-white tracking-tight mb-3" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                <h3 className="text-xl text-white tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
                   Train on real mistakes.
                 </h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
@@ -295,9 +295,9 @@ const Landing = () => {
 
             {/* Live Coach */}
             <FadeIn className="md:col-span-6" delay={0.5}>
-              <div className="h-full min-h-[150px] border p-6 lg:p-8" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(15,34,25,0.6)", backdropFilter: "blur(16px)" }}>
+              <div className="h-full min-h-[150px] border p-6 lg:p-8" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(36,26,20,0.6)", backdropFilter: "blur(16px)" }}>
                 <p className="text-xs tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>Play With Coach</p>
-                <h3 className="text-xl text-white tracking-tight mb-3" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                <h3 className="text-xl text-white tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
                   Feedback on every move.
                 </h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
@@ -321,7 +321,7 @@ const Landing = () => {
               { value: "Free", label: "To start" },
             ].map((stat, i) => (
               <FadeIn key={stat.label} delay={i * 0.1} className="text-center">
-                <p className="text-4xl sm:text-5xl font-light tracking-tighter text-white mb-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                <p className="text-4xl sm:text-5xl font-light tracking-tighter text-white mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {stat.value}
                 </p>
                 <p className="text-xs tracking-[0.15em] uppercase text-gray-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
@@ -337,7 +337,7 @@ const Landing = () => {
       <section className="py-32">
         <div className="max-w-3xl mx-auto px-6 lg:px-8 text-center">
           <FadeIn>
-            <h2 className="text-4xl sm:text-5xl tracking-tighter text-white mb-6" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+            <h2 className="text-4xl sm:text-5xl tracking-tighter text-white mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>
               Stop guessing.
               <br />
               <span style={{ color: WINE }}>Start knowing.</span>
@@ -366,7 +366,7 @@ const Landing = () => {
       {/* ═══ FOOTER ═══ */}
       <footer className="py-8 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between">
-          <span className="text-sm text-gray-600" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+          <span className="text-sm text-gray-600" style={{ fontFamily: "'Playfair Display', serif" }}>
             Chess Coach
           </span>
           <p className="text-xs text-gray-600">

@@ -103,7 +103,7 @@ const Dashboard = ({ user }) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl text-white tracking-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>Lab</h1>
+            <h1 className="text-3xl text-white tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Lab</h1>
             <p className="text-xs text-gray-600 mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{games.length} games analyzed</p>
           </div>
           <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ const Dashboard = ({ user }) => {
         {/* ── VERDICT STRIP ── */}
         {verdict && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <div className="p-5" style={{ background: "#0F2219", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="p-5" style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}>
               <div className="flex items-center gap-4 mb-3">
                 <div className="flex items-center gap-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   <span className="text-lg text-emerald-400">{verdict.wins}W</span>
@@ -167,7 +167,7 @@ const Dashboard = ({ user }) => {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-base text-white font-light" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                  <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                     vs {featuredGame.opponent || featuredGame.white_player || featuredGame.black_player}
                   </p>
                   <div className="flex items-center gap-2 mt-1">

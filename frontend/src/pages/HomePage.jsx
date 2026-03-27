@@ -78,7 +78,7 @@ const HomePage = ({ user }) => {
             </p>
             <div
               className="cursor-pointer transition-all duration-200 hover:border-white/10"
-              style={{ background: "#0F2219", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}
               onClick={() => navigate(`/game/${battle.game_id}`)}
               data-testid="last-battle-card"
             >
@@ -108,7 +108,7 @@ const HomePage = ({ user }) => {
                         {battle.result === "1-0" && battle.user_color === "white" || battle.result === "0-1" && battle.user_color === "black" ? "WON" : "LOST"}
                       </span>
                     </div>
-                    <p className="text-white text-base leading-relaxed font-light" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                    <p className="text-white text-base leading-relaxed font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                       {dna?.root_cause || "Review this game"}
                     </p>
                   </div>
@@ -140,7 +140,7 @@ const HomePage = ({ user }) => {
             <div style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}>
               <div className="p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl text-white tracking-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                  <h2 className="text-2xl text-white tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
                     {dna.archetype}
                   </h2>
                   <span className="text-[10px] tracking-[0.15em] uppercase px-2 py-1" style={{
@@ -173,17 +173,17 @@ const HomePage = ({ user }) => {
             </p>
             <div
               className="cursor-pointer transition-all duration-200 hover:border-white/10"
-              style={{ background: "#0F2219", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}
               onClick={() => navigate("/training?focus=calculation_depth")}
               data-testid="one-thing-to-fix"
             >
               <div className="p-5 space-y-3">
                 <p className="text-sm text-gray-400 font-light">{fix.stat_line}</p>
-                <p className="text-base text-white font-light" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {fix.fix_line}
                 </p>
                 {fix.diff_line && (
-                  <p className="text-lg font-light" style={{ color: "#4ade80", fontFamily: "'Cormorant Garamond', serif" }}>
+                  <p className="text-lg font-light" style={{ color: "#4ade80", fontFamily: "'Playfair Display', serif" }}>
                     {fix.diff_line}
                   </p>
                 )}
