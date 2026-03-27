@@ -286,7 +286,7 @@ async def get_training_feed(
     solved_ids = {a["position_id"] for a in solved_attempts}
     
     own_limit = max(2, limit * 2 // 5)  # ~40%
-    community_limit = limit - own_limit
+    community_limit = max(0, limit - own_limit)
     
     # 1. Fetch user's own positions (most recent first)
     own_query = {"source_user_id": user_id}
@@ -480,13 +480,66 @@ async def record_solve_attempt(
     except Exception as e:
         logger.warning(f"Error computing miss rate: {e}")
     
+    # Generate candidate moves analysis for rich feedback
+    candidates = []
+    try:
+        board = chess.Board(fen)
+        from services.game_decryption_v5_service import _get_stockfish_candidates, _analyze_candidate_moves
+
+        sf_candidates = await _get_stockfish_candidates(board, num_moves=3, depth=14)
+        
+        # Analyze each candidate with explanation
+        if sf_candidates:
+            user_color_bool = board.turn  # whose turn it is = user
+            played_move_obj = None
+            if user_move_uci:
+                try:
+                    chess.Move.from_uci(user_move_uci)
+                except Exception:
+                    pass
+            
+            for sf in sf_candidates:
+                move_san = sf.get("move", "")
+                eval_cp = sf.get("eval_cp", 0)
+                pv = sf.get("pv", [])
+                is_best = sf.get("is_best", False)
+                
+                # Explain the idea behind this move
+                idea = ""
+                move_type = "engine_choice"
+                try:
+                    from services.game_decryption_v5_service import _explain_move_idea
+                    idea_data = _explain_move_idea(board, move_san, user_color_bool)
+                    if idea_data:
+                        idea = idea_data.get("explanation", "")
+                        move_type = idea_data.get("type", "engine_choice")
+                except Exception:
+                    pass
+                
+                if not idea:
+                    idea = f"{move_san} is a strong move in this position"
+                
+                candidates.append({
+                    "move": move_san,
+                    "eval_cp": eval_cp,
+                    "idea": idea,
+                    "type": move_type,
+                    "is_best": is_best,
+                    "pv": pv[:3],
+                })
+    except Exception as e:
+        logger.warning(f"Could not generate candidates: {e}")
+
     return {
         "solved": solved,
         "correct_move": best_move_san,
         "correct_move_uci": best_move_uci,
+        "user_move_san": user_move,
+        "original_player_move": position.get("user_move_san", ""),
         "position_solve_rate": new_solve_rate,
         "miss_rate_at_your_level": miss_rate_at_level,
         "pattern_type": position.get("pattern_type", "tactical"),
+        "candidates": candidates,
     }
 
 

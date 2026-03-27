@@ -451,7 +451,13 @@ const ThinkingTraining = ({ user }) => {
                           {solveResult?.correct_move || currentFiltered.best_move_san}
                         </span>{" "}
                         was the right move.
+                        {solveResult?.original_player_move && (
+                          <span className="text-zinc-500"> The original player played <span className="font-mono text-red-400">{solveResult.original_player_move}</span>.</span>
+                        )}
                       </p>
+
+                      {/* Candidate Moves */}
+                      <CandidateMoves candidates={solveResult?.candidates} />
 
                       {solveResult?.miss_rate_at_your_level != null && (
                         <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
@@ -461,12 +467,6 @@ const ThinkingTraining = ({ user }) => {
                             of players at your level missed this
                           </p>
                         </div>
-                      )}
-
-                      {solveResult?.position_solve_rate != null && solveResult.position_solve_rate > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Overall solve rate: {solveResult.position_solve_rate}%
-                        </p>
                       )}
 
                       <div className="flex gap-2">
@@ -514,7 +514,13 @@ const ThinkingTraining = ({ user }) => {
                         <span className="font-mono text-emerald-400">
                           {solveResult?.correct_move || currentFiltered.best_move_san}
                         </span>
+                        {solveResult?.original_player_move && (
+                          <span className="text-zinc-500">. The original player also missed it — they played <span className="font-mono text-red-400">{solveResult.original_player_move}</span>.</span>
+                        )}
                       </p>
+
+                      {/* Candidate Moves — show what was possible */}
+                      <CandidateMoves candidates={solveResult?.candidates} />
 
                       {solveResult?.miss_rate_at_your_level != null && (
                         <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
@@ -623,5 +629,45 @@ const ThinkingTraining = ({ user }) => {
     </Layout>
   );
 };
+
+// Candidate Moves display — shows the top engine moves with explanations
+const CandidateMoves = ({ candidates }) => {
+  if (!candidates || candidates.length === 0) return null;
+
+  return (
+    <div className="space-y-2" data-testid="candidate-moves">
+      <p className="text-xs text-zinc-500 uppercase tracking-wide">Ideas in this position</p>
+      {candidates.map((c, i) => (
+        <div
+          key={i}
+          className={`flex items-start gap-3 p-2.5 rounded-lg border transition-colors ${
+            c.is_best
+              ? "bg-emerald-500/5 border-emerald-500/20"
+              : "bg-zinc-800/30 border-zinc-700/30"
+          }`}
+          data-testid={`candidate-${i}`}
+        >
+          <Badge
+            variant="outline"
+            className={`text-xs font-mono flex-shrink-0 mt-0.5 ${
+              c.is_best ? "text-emerald-400 border-emerald-500/30" : "text-zinc-400 border-zinc-600"
+            }`}
+          >
+            {c.move}
+          </Badge>
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm leading-relaxed ${c.is_best ? "text-emerald-300" : "text-zinc-400"}`}>
+              {c.idea}
+            </p>
+            {c.type && c.type !== "engine_choice" && (
+              <span className="text-[10px] text-zinc-600 capitalize">{c.type.replace(/_/g, " ")}</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 
 export default ThinkingTraining;
