@@ -1,124 +1,88 @@
 {
-  "theme": "dark",
-  "archetype": "Archetype 5: Jewel & Luxury",
-  "mood": "Intense, Elite, Authoritative, Premium, Cinematic",
+  "theme": "Dark",
+  "archetype": "5 (Jewel & Luxury)",
   "colors": {
     "background": "#050505",
-    "surface": "#0a0a0c",
-    "surface_glass": "rgba(10, 10, 12, 0.6)",
+    "surface": "#0a0a0a",
+    "surface_hover": "#111111",
+    "border": "rgba(255, 255, 255, 0.05)",
+    "border_active": "rgba(114, 47, 55, 0.5)",
     "primary": "#722F37",
-    "primary_hover": "#8B3A44",
+    "primary_hover": "#8C3A44",
     "accent": "#CBA135",
-    "text_primary": "#F3F4F6",
-    "text_secondary": "#9CA3AF",
-    "border": "rgba(255,255,255,0.08)"
+    "accent_hover": "#DCC170",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#A1A1AA",
+    "text_accent": "#CBA135",
+    "success": "#276F4B",
+    "error": "#722F37"
   },
   "typography": {
     "headings": {
-      "family": "'Cormorant Garamond', serif",
-      "weights": ["300", "400", "600"],
-      "tracking": "tracking-tighter"
+      "family": "Cormorant Garamond, serif",
+      "weight": "font-normal",
+      "style": "tracking-tight leading-none"
     },
     "body": {
-      "family": "'Outfit', sans-serif",
-      "weights": ["300", "400", "500"]
+      "family": "Outfit, sans-serif",
+      "weight": "font-light",
+      "style": "tracking-normal leading-relaxed"
     },
     "mono": {
-      "family": "'JetBrains Mono', monospace",
-      "usage": "Overlines, labels, small stats"
-    },
-    "scales": {
-      "h1": "text-5xl sm:text-6xl+ tracking-tighter leading-none",
-      "h2": "text-4xl sm:text-5xl tracking-tight",
-      "h3": "text-2xl sm:text-3xl",
-      "body": "text-base sm:text-lg leading-relaxed text-gray-300",
-      "overline": "text-xs tracking-[0.2em] uppercase text-gray-400"
+      "family": "JetBrains Mono, monospace",
+      "weight": "font-normal",
+      "style": "tracking-[0.1em] uppercase text-xs"
     }
   },
-  "layout_and_spacing": {
-    "strategy": "The Tetris Grid (Bento Grid Mode A) and Swiss asymmetry.",
-    "spacing_scale": "p-6, p-8, p-12, p-24, p-32 (Generous padding)",
-    "container_max": "max-w-7xl mx-auto"
-  },
-  "components": {
-    "hero": {
-      "structure": "Relative container with hero image as background. Text must NOT be centered. Left-aligned heavy typography. Call to Action stands out.",
-      "image_overlay": "bg-gradient-to-r from-black/90 via-black/60 to-transparent",
-      "instructions": "Use the hero_chess_king image. Provide a massive H1. Add a dev login toggle and a Google auth button."
+  "layout_strategies": {
+    "spacing": "Generous spacing philosophy (p-6, p-8, p-12). Containers with borders must have internal padding. Grid items must be direct children.",
+    "home_dashboard": {
+      "grid": "Control Room Grid layout. Use grid-cols-1 md:grid-cols-3 lg:grid-cols-4 with gap-6.",
+      "cards": "Flat solid surfaces with sharp edges (rounded-none). 1px solid stroke (border-white/5), no soft shadows. Hover brings slight translation (-translate-y-1) and subtle Wine Red border glow."
     },
-    "bento_features": {
-      "style": "Glassmorphism & Neumorphism blend. 1px inner stroke border-white/10. bg-black/40 backdrop-blur-xl.",
-      "grid": "grid-cols-1 md:grid-cols-12 gap-8",
-      "items": [
-        "Chess DNA (col-span-8 row-span-2)",
-        "Adaptive Decryption (col-span-4 row-span-1)",
-        "Pattern Memory (col-span-4 row-span-1)"
-      ]
+    "lab_page": {
+      "list_layout": "Dense row-based list for games instead of full tables. This allows narrative control. Hover state on row: bg-white/5 or bg-[#722F37]/10.",
+      "priority_game": "Col-span-full layout for 'Start here' game, utilizing 'Tracing Beam' inspired border (gold or wine red highlight on the edge) to draw focus.",
+      "clean_games": "Collapsible section using Shadcn Accordion, customized to have no background, just top/bottom subtle borders."
     },
-    "coach_persona": {
-      "style": "Cinematic. Use the coach_eyes portrait. Deep emotional connection.",
-      "quote_style": "Massive serif quote text. text-4xl sm:text-5xl italic text-gray-200.",
-      "instructions": "Place the coach eyes image on the right or background with heavy black fade. Add brutal quote: 'You didn't lose over many mistakes. You lost in one moment of inattention.'"
+    "game_review": {
+      "split_view": "55% left (board), 45% right (coaching panel). Left-align dense text in the panel.",
+      "board_area": "Dark monochrome board design. No wooden textures—keep it digital, sleek, and premium. Use Wine Red for last move highlight, Gold for suggested move/coach annotations.",
+      "coaching_panel": "Uses customized Shadcn tabs. Solid background, no glassmorphism to ensure data clarity. High contrast metrics in JetBrains Mono."
     },
-    "buttons": {
-      "primary": "bg-[#722F37] hover:bg-[#8B3A44] text-white px-8 py-4 rounded-none border border-[#722F37] transition-all",
-      "secondary": "bg-transparent border border-white/20 hover:border-white/50 text-white px-8 py-4 rounded-none backdrop-blur-md transition-all"
+    "sidebar": {
+      "layout": "Fixed on desktop, highly constrained grid. Dark luxury feel.",
+      "active_state": "Left border highlight (border-l-2 border-[#CBA135]), bg-white/5, text-white. No full block background colors.",
+      "play_with_coach_cta": "Solid Gold (#CBA135) text-black to stand out as the premium upsell, placed prominently in the sidebar."
     }
+  },
+  "component_rules": {
+    "cards": "DO NOT use standard Shadcn Card default styles. Use raw divs or customize extensively: `bg-[#0a0a0a] border border-white/5 rounded-none`. Go cardless/sharp.",
+    "buttons": "Primary buttons: `bg-[#722F37] hover:bg-[#8C3A44] text-white rounded-none`. Premium CTA: `bg-[#CBA135] text-black hover:bg-[#DCC170] rounded-none`. Ghost buttons: `hover:bg-white/5 text-white`.",
+    "tabs": "Override Shadcn tabs. Use `h-auto` to prevent cutoff. Active tab: `border-b-2 border-[#CBA135] text-white rounded-none bg-transparent`. Inactive tab: `text-[#A1A1AA] border-transparent bg-transparent`.",
+    "lists": "Use crisp dividers (`border-b border-white/5`) for all lists.",
+    "data_display": "Use JetBrains Mono for all chess notation (e4, Nf3) and raw numbers/percentages."
+  },
+  "accessibility_and_testing": {
+    "test_ids": "All interactive elements MUST have `data-testid` attributes (e.g., `play-coach-btn`, `lab-import-btn`, `game-review-next-move`).",
+    "contrast": "Text over backgrounds must meet APCA ratios. Never use `#A1A1AA` text on anything lighter than `#111111`."
   },
   "media": {
-    "images": [
-      {
-        "id": "hero_chess_king",
-        "url": "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/c9263ac5c3e6cf8ed2eaf315c1308e2fe6cb6feafe328f091610d7fae02abf30.png",
-        "category": "hero_background",
-        "description": "Ultra-realistic macro photography of a black chess king piece. Use as full hero background with left-to-right dark gradient overlay."
-      },
-      {
-        "id": "coach_eyes",
-        "url": "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/c88d28423f6c01a8e6fe222c26163e3840080d26944deba24ae81b4d029001ed.png",
-        "category": "persona_section",
-        "description": "Intense piercing eyes of the Indian AI coach. Use in the 'Meet the Coach' section with heavy black fading."
-      },
-      {
-        "id": "bg_wine_texture",
-        "url": "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/d7c061453f7782ee85190ad5328b89d3d498bd026d789180f54299ac5a0a4304.png",
-        "category": "bento_card_background",
-        "description": "Deep wine red and obsidian black fluid texture. Use as a subtle background for the 'Chess DNA' feature card."
-      },
-      {
-        "id": "chess_board_game",
-        "url": "https://images.unsplash.com/photo-1764105720662-8022d9569ba0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwyfHxjaGVzcyUyMGdyYW5kbWFzdGVyJTIwZGFya3xlbnwwfHx8fDE3NzQ2MTg2MDZ8MA&ixlib=rb-4.1.0&q=85",
-        "category": "feature_image",
-        "description": "Chess board with pieces set up. Use in 'The Lab' or 'Community Training' feature blocks."
-      },
-      {
-        "id": "luxury_gold_abstract",
-        "url": "https://images.unsplash.com/photo-1761437855598-011cf89b2ad4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBibGFjayUyMGFic3RyYWN0JTIwdGV4dHVyZXxlbnwwfHx8fDE3NzQ2MTg2MDd8MA&ixlib=rb-4.1.0&q=85",
-        "category": "decorative_background",
-        "description": "Abstract golden curves on black. Use as a subtle section divider or accent image behind stats."
-      }
-    ]
+    "avatar_placeholder": {
+      "url": "https://images.unsplash.com/photo-1670837521721-f41418689d19?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBjaGVzcyUyMHBsYXllciUyMHBvcnRyYWl0JTIwZGFya3xlbnwwfHx8fDE3NzQ2MTkxMTJ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Professional chess player portrait to be used for user avatar and coach profile pictures."
+    },
+    "dashboard_texture_overlay": {
+      "url": "https://images.unsplash.com/photo-1771226281605-f1e505ade901?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHwyfHxkYXJrJTIwbHV4dXJ5JTIwYWJzdHJhY3QlMjB0ZXh0dXJlfGVufDB8fHx8MTc3NDYxOTExM3ww&ixlib=rb-4.1.0&q=85",
+      "description": "Dark abstract geometric pattern with golden accents, used sparingly with extremely low opacity (e.g., 5%) to texture the background."
+    }
   },
-  "motion_and_effects": {
-    "libraries": [
-      "framer-motion",
-      "lucide-react"
-    ],
-    "scroll": "MANDATORY use of smooth scrolling if setting up the layout. Use Framer Motion for scroll-triggered fades and translations.",
-    "interactions": "Buttons MUST have a sharp scaling effect or inner border glow on hover. Cards must have a 1px border shimmer or slight translateY hover state."
+  "animations": {
+    "interactions": "Hover states must transition smoothly: `transition-all duration-200 ease-in-out`.",
+    "page_load": "Staggered fade-up entrance for Lab game lists and Home dashboard cards."
   },
-  "accessibility": {
-    "contrast": "Ensure white/off-white text over dark backgrounds meets APCA standards. Use overlays and text-shadow if placed over images.",
-    "testing": "All interactive elements, buttons, links, and forms must have 'data-testid' attributes (e.g., 'data-testid=\"google-auth-button\"')."
-  },
-  "instructions_to_main_agent": [
-    "Build a premium dark-mode landing page focusing on the brutally honest 'Indian AI Coach' persona.",
-    "Use custom pure HTML/Tailwind for the layout instead of generic Shadcn cards to break standard SaaS grids.",
-    "Apply 'Cormorant Garamond' (serif) for headings to evoke luxury and history, and 'Outfit' (sans) for crisp UI text.",
-    "Must include a fixed/sticky navigation with a 'Crystal Glass' blur effect (backdrop-blur-xl bg-black/60 border-b border-white/10).",
-    "Include standard auth components: Google Auth login, Dev Login toggle, Theme toggle.",
-    "Section 1: Hero using 'hero_chess_king'. Section 2: 'Meet the Coach' using 'coach_eyes' and the brutal truth quote. Section 3: 'The Lab & DNA' Bento Grid using 'bg_wine_texture' and 'chess_board_game'. Section 4: Social Proof / Stats in huge typography.",
-    "Keep borders sharp (rounded-none or max rounded-sm). No playful bubbles. This is high-stakes chess coaching.",
-    "Do NOT use 'Inter', teal, or standard SaaS blue. Rely on #050505 (Void Black), #722F37 (Wine Red), and #CBA135 (Gold)."
-  ]
+  "icons_library": {
+    "name": "lucide-react",
+    "instructions": "Use Lucide React icons with strokeWidth={1} to match the elegant, thin typography of Cormorant Garamond."
+  }
 }
