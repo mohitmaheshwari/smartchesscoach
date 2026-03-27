@@ -109,7 +109,7 @@ const UnifiedProgress = ({ user }) => {
             <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
               Win Rate
             </p>
-            <div style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}>
               <div className="p-5">
                 <div className="flex items-center gap-6">
                   {/* Previous */}
@@ -150,7 +150,7 @@ const UnifiedProgress = ({ user }) => {
             <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
               Biggest Improvement
             </p>
-            <div style={{ background: "#241A14", border: "1px solid rgba(39,111,75,0.2)", borderLeft: "3px solid #276F4B" }}>
+            <div style={{ background: "#262421", border: "1px solid rgba(39,111,75,0.2)", borderLeft: "3px solid #276F4B" }}>
               <div className="p-5">
                 <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {biggestShift.dimension}
@@ -172,7 +172,7 @@ const UnifiedProgress = ({ user }) => {
             <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
               Still Leaking
             </p>
-            <div style={{ background: "#241A14", border: "1px solid rgba(114,47,55,0.2)", borderLeft: `3px solid ${WINE}` }}>
+            <div style={{ background: "#262421", border: "1px solid rgba(114,47,55,0.2)", borderLeft: `3px solid ${WINE}` }}>
               <div className="p-5">
                 <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {stillLeaking.dimension}
@@ -188,7 +188,7 @@ const UnifiedProgress = ({ user }) => {
         {/* ── NO SHIFT/LEAK DATA ── */}
         {!biggestShift && !stillLeaking && journey.length > 5 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-8">
-            <div className="p-5" style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="p-5" style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}>
               <p className="text-sm text-gray-500 font-light text-center">
                 Keep playing — your dimension trends will appear after more games.
               </p>
@@ -291,7 +291,7 @@ const BlunderTrend = ({ journey }) => {
   const improving = parseFloat(recentAvg) < parseFloat(prevAvg);
 
   return (
-    <div style={{ background: "#241A14", border: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}>
       <div className="p-5">
         <div className="flex items-center gap-6">
           <div className="text-center flex-1">

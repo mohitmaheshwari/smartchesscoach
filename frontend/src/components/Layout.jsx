@@ -218,13 +218,13 @@ const Layout = ({ children, user }) => {
   const userInitial = userName.charAt(0);
 
   return (
-    <div className="min-h-screen flex" style={{ background: "#1C1410", fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen flex" style={{ background: "#161512", fontFamily: "'DM Sans', sans-serif" }}>
       {/* Desktop Sidebar */}
       <aside 
         className={`hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 ${
           sidebarCollapsed ? 'w-16' : 'w-56'
         }`}
-        style={{ background: "#241A14", borderRight: "1px solid rgba(255,255,255,0.05)" }}
+        style={{ background: "#262421", borderRight: "1px solid rgba(255,255,255,0.05)" }}
       >
         {/* Logo */}
         <div className={`flex items-center h-14 px-3 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
@@ -538,7 +538,7 @@ const Layout = ({ children, user }) => {
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'} pt-14 md:pt-0`} style={{ background: "#1C1410" }}>
+      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'} pt-14 md:pt-0`} style={{ background: "#161512" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
