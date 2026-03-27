@@ -218,24 +218,24 @@ const Layout = ({ children, user }) => {
   const userInitial = userName.charAt(0);
 
   return (
-    <div className="min-h-screen flex" style={{ background: "#161512", fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen flex" style={{ background: "#F5F3F0", fontFamily: "'DM Sans', sans-serif" }}>
       {/* Desktop Sidebar */}
       <aside 
         className={`hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 ${
           sidebarCollapsed ? 'w-16' : 'w-56'
         }`}
-        style={{ background: "#262421", borderRight: "1px solid rgba(255,255,255,0.05)" }}
+        style={{ background: "#FFFFFF", borderRight: "1px solid rgba(0,0,0,0.08)" }}
       >
         {/* Logo */}
-        <div className={`flex items-center h-14 px-3 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className={`flex items-center h-14 px-3 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`} style={{ borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
           <Link to="/home" className="flex items-center gap-2.5 group">
-            <span className="text-white font-semibold text-base tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <span className="text-gray-900 font-semibold text-base tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
               {sidebarCollapsed ? "C" : "Chess Coach"}
             </span>
           </Link>
           {!sidebarCollapsed && (
             <button
-              className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-white transition-colors"
+              className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors"
               onClick={() => setSidebarCollapsed(true)}
             >
               <ChevronLeft className="w-4 h-4" strokeWidth={1} />
@@ -253,8 +253,8 @@ const Layout = ({ children, user }) => {
                 <div
                   className={`w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${active ? 'text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.03]'}`}
-                  style={active ? { borderLeft: "2px solid #CBA135", background: "rgba(255,255,255,0.03)" } : { borderLeft: "2px solid transparent" }}
+                  } ${active ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700 hover:bg-black/[0.03]'}`}
+                  style={active ? { borderLeft: "2px solid #CBA135", background: "rgba(0,0,0,0.04)" } : { borderLeft: "2px solid transparent" }}
                   data-testid={`nav-${item.name.toLowerCase()}`}
                   title={sidebarCollapsed ? item.name : undefined}
                 >
@@ -307,7 +307,7 @@ const Layout = ({ children, user }) => {
                 <div
                   className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${isActive('/admin') ? 'text-white' : 'text-gray-600 hover:text-gray-300'}`}
+                  } ${isActive('/admin') ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                   data-testid="nav-admin"
                 >
                   <Settings className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
@@ -322,7 +322,7 @@ const Layout = ({ children, user }) => {
         {sidebarCollapsed && (
           <div className="px-2 pb-2">
             <button
-              className="w-full h-8 flex items-center justify-center text-gray-600 hover:text-white transition-colors"
+              className="w-full h-8 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors"
               onClick={() => setSidebarCollapsed(false)}
             >
               <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
@@ -331,10 +331,10 @@ const Layout = ({ children, user }) => {
         )}
 
         {/* Bottom section */}
-        <div className="p-2 space-y-0.5" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className="p-2 space-y-0.5" style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
           <button
             onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-gray-500 hover:text-white transition-colors ${
+            className={`w-full flex items-center gap-3 px-3 py-2 text-gray-500 hover:text-gray-900 transition-colors ${
               sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
             }`}
             data-testid="sidebar-theme-toggle"
@@ -345,7 +345,7 @@ const Layout = ({ children, user }) => {
 
           <Link to="/settings">
             <div
-              className={`w-full flex items-center gap-3 px-3 py-2 text-gray-500 hover:text-white transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2 text-gray-500 hover:text-gray-900 transition-colors ${
                 sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
               }`}
               data-testid="nav-settings"
@@ -538,7 +538,7 @@ const Layout = ({ children, user }) => {
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'} pt-14 md:pt-0`} style={{ background: "#161512" }}>
+      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'} pt-14 md:pt-0`} style={{ background: "#F5F3F0" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
           <motion.div
             initial={{ opacity: 0, y: 8 }}

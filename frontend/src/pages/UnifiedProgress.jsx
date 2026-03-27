@@ -66,10 +66,10 @@ const UnifiedProgress = ({ user }) => {
 
         {/* ── HEADER ── */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-10">
-          <h1 className="text-3xl text-white tracking-tight mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-3xl text-gray-900 tracking-tight mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
             Progress
           </h1>
-          <p className="text-sm text-gray-600 font-light" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          <p className="text-sm text-gray-500 font-light" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
             {gamesAnalyzed} games analyzed
           </p>
         </motion.div>
@@ -82,16 +82,16 @@ const UnifiedProgress = ({ user }) => {
                 Your Accuracy Journey
               </p>
               <div className="flex items-center gap-2">
-                <span className="text-2xl text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <span className="text-2xl text-gray-900 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {currentAccuracy.toFixed(0)}%
                 </span>
-                {accImproving && <TrendingUp className="w-4 h-4 text-emerald-400" strokeWidth={1.5} />}
-                {accDeclining && <TrendingDown className="w-4 h-4 text-red-400" strokeWidth={1.5} />}
+                {accImproving && <TrendingUp className="w-4 h-4 text-emerald-600" strokeWidth={1.5} />}
+                {accDeclining && <TrendingDown className="w-4 h-4 text-red-600" strokeWidth={1.5} />}
               </div>
             </div>
             <JourneyChart journey={journey} onGameClick={(g) => navigate(`/game/${g.game_id}`)} />
             {olderAcc.length > 0 && (
-              <p className="text-xs text-gray-600 mt-2 font-light">
+              <p className="text-xs text-gray-500 mt-2 font-light">
                 {accImproving
                   ? `Improving: ${olderAvg.toFixed(0)}% → ${recentAvg.toFixed(0)}% in last 10 games`
                   : accDeclining
@@ -109,25 +109,25 @@ const UnifiedProgress = ({ user }) => {
             <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
               Win Rate
             </p>
-            <div style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)" }}>
               <div className="p-5">
                 <div className="flex items-center gap-6">
                   {/* Previous */}
                   <div className="text-center flex-1">
-                    <p className="text-[10px] tracking-[0.1em] uppercase text-gray-600 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Previous 10</p>
-                    <p className="text-xl text-gray-400 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
-                      <span className="text-emerald-400">{winTrend.previous.wins}W</span>{" "}
-                      <span className="text-red-400">{winTrend.previous.losses}L</span>
+                    <p className="text-[10px] tracking-[0.1em] uppercase text-gray-500 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Previous 10</p>
+                    <p className="text-xl text-gray-500 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      <span className="text-emerald-600">{winTrend.previous.wins}W</span>{" "}
+                      <span className="text-red-600">{winTrend.previous.losses}L</span>
                     </p>
                   </div>
                   {/* Arrow */}
-                  <ArrowRight className="w-5 h-5 text-gray-700 flex-shrink-0" strokeWidth={1.5} />
+                  <ArrowRight className="w-5 h-5 text-gray-300 flex-shrink-0" strokeWidth={1.5} />
                   {/* Recent */}
                   <div className="text-center flex-1">
-                    <p className="text-[10px] tracking-[0.1em] uppercase text-gray-600 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Last 10</p>
-                    <p className="text-xl text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
-                      <span className="text-emerald-400">{winTrend.recent.wins}W</span>{" "}
-                      <span className="text-red-400">{winTrend.recent.losses}L</span>
+                    <p className="text-[10px] tracking-[0.1em] uppercase text-gray-500 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Last 10</p>
+                    <p className="text-xl text-gray-900 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      <span className="text-emerald-600">{winTrend.recent.wins}W</span>{" "}
+                      <span className="text-red-600">{winTrend.recent.losses}L</span>
                     </p>
                   </div>
                 </div>
@@ -150,16 +150,16 @@ const UnifiedProgress = ({ user }) => {
             <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
               Biggest Improvement
             </p>
-            <div style={{ background: "#262421", border: "1px solid rgba(39,111,75,0.2)", borderLeft: "3px solid #276F4B" }}>
+            <div style={{ background: "#FFFFFF", border: "1px solid rgba(39,111,75,0.2)", borderLeft: "3px solid #276F4B" }}>
               <div className="p-5">
-                <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <p className="text-base text-gray-900 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {biggestShift.dimension}
                 </p>
                 <div className="flex items-center gap-3 mt-2">
                   <span className="text-sm text-gray-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{biggestShift.from_score}</span>
-                  <ArrowRight className="w-4 h-4 text-emerald-400" strokeWidth={1.5} />
-                  <span className="text-sm text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{biggestShift.to_score}</span>
-                  <span className="text-xs text-emerald-400/60">+{biggestShift.delta_pct}%</span>
+                  <ArrowRight className="w-4 h-4 text-emerald-600" strokeWidth={1.5} />
+                  <span className="text-sm text-emerald-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{biggestShift.to_score}</span>
+                  <span className="text-xs text-emerald-600/60">+{biggestShift.delta_pct}%</span>
                 </div>
               </div>
             </div>
@@ -172,9 +172,9 @@ const UnifiedProgress = ({ user }) => {
             <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
               Still Leaking
             </p>
-            <div style={{ background: "#262421", border: "1px solid rgba(114,47,55,0.2)", borderLeft: `3px solid ${WINE}` }}>
+            <div style={{ background: "#FFFFFF", border: "1px solid rgba(114,47,55,0.2)", borderLeft: `3px solid ${WINE}` }}>
               <div className="p-5">
-                <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <p className="text-base text-gray-900 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {stillLeaking.dimension}
                 </p>
                 <p className="text-sm text-gray-500 mt-1 font-light">
@@ -188,7 +188,7 @@ const UnifiedProgress = ({ user }) => {
         {/* ── NO SHIFT/LEAK DATA ── */}
         {!biggestShift && !stillLeaking && journey.length > 5 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-8">
-            <div className="p-5" style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="p-5" style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)" }}>
               <p className="text-sm text-gray-500 font-light text-center">
                 Keep playing — your dimension trends will appear after more games.
               </p>
@@ -243,7 +243,7 @@ const JourneyChart = ({ journey, onGameClick }) => {
   const areaD = pathD + ` L ${getX(journey.length - 1)} ${HEIGHT - PAD_Y} L ${getX(0)} ${HEIGHT - PAD_Y} Z`;
 
   return (
-    <div className="overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+    <div className="overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,0,0,0.08) transparent" }}>
       <svg width={W} height={HEIGHT} className="block" data-testid="journey-chart">
         {/* Area fill */}
         <path d={areaD} fill="url(#areaGrad)" opacity={0.3} />
@@ -264,10 +264,10 @@ const JourneyChart = ({ journey, onGameClick }) => {
           const fill = g.result === "W" ? "#276F4B" : g.result === "L" ? WINE : "#555";
           return (
             <g key={g.game_id} className="cursor-pointer" onClick={() => onGameClick(g)}>
-              <circle cx={x} cy={y} r={4} fill={fill} stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+              <circle cx={x} cy={y} r={4} fill={fill} stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
               {/* Show accuracy on every 5th game */}
               {i % 5 === 0 && (
-                <text x={x} y={y - 10} textAnchor="middle" fill="#666" fontSize={9} fontFamily="'JetBrains Mono', monospace">
+                <text x={x} y={y - 10} textAnchor="middle" fill="#888" fontSize={9} fontFamily="'JetBrains Mono', monospace">
                   {g.accuracy.toFixed(0)}%
                 </text>
               )}
@@ -291,20 +291,20 @@ const BlunderTrend = ({ journey }) => {
   const improving = parseFloat(recentAvg) < parseFloat(prevAvg);
 
   return (
-    <div style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)" }}>
       <div className="p-5">
         <div className="flex items-center gap-6">
           <div className="text-center flex-1">
-            <p className="text-[10px] tracking-[0.1em] uppercase text-gray-600 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Prev 10 avg</p>
-            <p className="text-xl text-gray-400 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
-              {prevAvg}<span className="text-sm text-gray-600">/game</span>
+            <p className="text-[10px] tracking-[0.1em] uppercase text-gray-500 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Prev 10 avg</p>
+            <p className="text-xl text-gray-500 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+              {prevAvg}<span className="text-sm text-gray-500">/game</span>
             </p>
           </div>
-          <ArrowRight className={`w-5 h-5 flex-shrink-0 ${improving ? 'text-emerald-400' : 'text-red-400'}`} strokeWidth={1.5} />
+          <ArrowRight className={`w-5 h-5 flex-shrink-0 ${improving ? 'text-emerald-600' : 'text-red-600'}`} strokeWidth={1.5} />
           <div className="text-center flex-1">
-            <p className="text-[10px] tracking-[0.1em] uppercase text-gray-600 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Last 10 avg</p>
-            <p className={`text-xl font-light ${improving ? 'text-emerald-400' : 'text-white'}`} style={{ fontFamily: "'Playfair Display', serif" }}>
-              {recentAvg}<span className="text-sm text-gray-600">/game</span>
+            <p className="text-[10px] tracking-[0.1em] uppercase text-gray-500 mb-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Last 10 avg</p>
+            <p className={`text-xl font-light ${improving ? 'text-emerald-600' : 'text-gray-900'}`} style={{ fontFamily: "'Playfair Display', serif" }}>
+              {recentAvg}<span className="text-sm text-gray-500">/game</span>
             </p>
           </div>
         </div>

@@ -103,19 +103,19 @@ const Dashboard = ({ user }) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl text-white tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Lab</h1>
-            <p className="text-xs text-gray-600 mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{games.length} games analyzed</p>
+            <h1 className="text-3xl text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Lab</h1>
+            <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{games.length} games analyzed</p>
           </div>
           <div className="flex items-center gap-2">
             {needsMigration && (
-              <button onClick={handleMigrate} disabled={migrating} className="p-2 text-gray-600 hover:text-white transition-colors">
+              <button onClick={handleMigrate} disabled={migrating} className="p-2 text-gray-500 hover:text-gray-900 transition-colors">
                 {migrating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" strokeWidth={1.5} />}
               </button>
             )}
             <button
               onClick={() => navigate("/import")}
               className="flex items-center gap-1.5 px-4 py-2 text-sm transition-all"
-              style={{ border: "1px solid rgba(255,255,255,0.1)", color: GOLD }}
+              style={{ border: "1px solid rgba(0,0,0,0.08)", color: GOLD }}
               data-testid="lab-import-btn"
             >
               <Import className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -127,16 +127,16 @@ const Dashboard = ({ user }) => {
         {/* ── VERDICT STRIP ── */}
         {verdict && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <div className="p-5" style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="p-5" style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)" }}>
               <div className="flex items-center gap-4 mb-3">
                 <div className="flex items-center gap-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  <span className="text-lg text-emerald-400">{verdict.wins}W</span>
-                  <span className="text-lg text-red-400">{verdict.losses}L</span>
+                  <span className="text-lg text-emerald-600">{verdict.wins}W</span>
+                  <span className="text-lg text-red-600">{verdict.losses}L</span>
                   {verdict.draws > 0 && <span className="text-lg text-gray-500">{verdict.draws}D</span>}
                 </div>
-                <span className="text-xs text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>last {verdict.total} games</span>
+                <span className="text-xs text-gray-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>last {verdict.total} games</span>
               </div>
-              <p className="text-sm text-gray-400 font-light">{verdict.insight}</p>
+              <p className="text-sm text-gray-500 font-light">{verdict.insight}</p>
             </div>
           </motion.div>
         )}
@@ -161,35 +161,35 @@ const Dashboard = ({ user }) => {
             </p>
             <div
               className="p-5 cursor-pointer transition-all duration-200 hover:border-white/10"
-              style={{ background: "#0a0a0a", border: "1px solid rgba(203,161,53,0.2)", borderLeft: "3px solid #CBA135" }}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(203,161,53,0.2)", borderLeft: "3px solid #CBA135" }}
               onClick={() => navigate(`/game/${featuredGame.game_id}`)}
               data-testid="featured-game"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  <p className="text-base text-gray-900 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                     vs {featuredGame.opponent || featuredGame.white_player || featuredGame.black_player}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`text-xs ${featuredGame.userWon ? 'text-emerald-400' : featuredGame.userLost ? 'text-red-400' : 'text-gray-500'}`}
+                    <span className={`text-xs ${featuredGame.userWon ? 'text-emerald-600' : featuredGame.userLost ? 'text-red-600' : 'text-gray-500'}`}
                       style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       {featuredGame.userWon ? "WON" : featuredGame.userLost ? "LOST" : "DRAW"}
                     </span>
                     {featuredGame.summary?.headline && (
                       <>
-                        <span className="text-gray-700">·</span>
-                        <span className="text-sm text-gray-400 font-light">{featuredGame.summary.headline}</span>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-sm text-gray-500 font-light">{featuredGame.summary.headline}</span>
                       </>
                     )}
                     {!featuredGame.summary?.headline && (featuredGame.blunders || 0) > 0 && (
                       <>
-                        <span className="text-gray-700">·</span>
-                        <span className="text-sm text-gray-400 font-light">{featuredGame.blunders} blunder{featuredGame.blunders > 1 ? 's' : ''}</span>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-sm text-gray-500 font-light">{featuredGame.blunders} blunder{featuredGame.blunders > 1 ? 's' : ''}</span>
                       </>
                     )}
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
+                <ChevronRight className="w-5 h-5 text-gray-500" strokeWidth={1.5} />
               </div>
             </div>
           </motion.div>
@@ -204,36 +204,36 @@ const Dashboard = ({ user }) => {
             {enrichedGames.map((game, i) => (
               <div
                 key={game.game_id}
-                className="flex items-center gap-3 py-3 cursor-pointer transition-all duration-200 hover:bg-white/[0.02]"
-                style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+                className="flex items-center gap-3 py-3 cursor-pointer transition-all duration-200 hover:bg-black/[0.03]"
+                style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}
                 onClick={() => navigate(`/game/${game.game_id}`)}
                 data-testid={`game-row-${i}`}
               >
                 <div className="w-1 h-8 flex-shrink-0" style={{
-                  background: game.userWon ? "#276F4B" : game.userLost ? WINE : "rgba(255,255,255,0.1)"
+                  background: game.userWon ? "#276F4B" : game.userLost ? WINE : "rgba(0,0,0,0.08)"
                 }} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white font-light truncate">vs {game.opponent || game.white_player || game.black_player}</p>
+                  <p className="text-sm text-gray-900 font-light truncate">vs {game.opponent || game.white_player || game.black_player}</p>
                   <div className="flex items-center gap-2 text-xs mt-0.5">
-                    <span className={game.userWon ? 'text-emerald-400' : game.userLost ? 'text-red-400' : 'text-gray-500'}
+                    <span className={game.userWon ? 'text-emerald-600' : game.userLost ? 'text-red-600' : 'text-gray-500'}
                       style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       {game.userWon ? "W" : game.userLost ? "L" : "D"}
                     </span>
                     {game.opening && (
                       <>
-                        <span className="text-gray-700">·</span>
-                        <span className="text-gray-600 truncate font-light">{game.opening}</span>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-gray-500 truncate font-light">{game.opening}</span>
                       </>
                     )}
                     {(game.blunders || 0) > 0 && (
                       <>
-                        <span className="text-gray-700">·</span>
-                        <span className="text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{game.blunders}B</span>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-gray-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{game.blunders}B</span>
                       </>
                     )}
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-800 flex-shrink-0" strokeWidth={1.5} />
+                <ChevronRight className="w-4 h-4 text-gray-200 flex-shrink-0" strokeWidth={1.5} />
               </div>
             ))}
           </div>
@@ -292,13 +292,13 @@ const TimelineChart = ({ games, onGameClick, featuredId }) => {
   });
 
   return (
-    <div className="overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+    <div className="overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,0,0,0.08) transparent" }}>
       <svg width={totalW} height={HEIGHT} className="block">
         {/* Zero line */}
-        <line x1={20} y1={getY(0)} x2={totalW - 20} y2={getY(0)} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+        <line x1={20} y1={getY(0)} x2={totalW - 20} y2={getY(0)} stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
 
         {/* Path line */}
-        <path d={pathD} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1.5} />
+        <path d={pathD} fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth={1.5} />
 
         {/* Dots */}
         {points.map((p, i) => {
@@ -312,10 +312,10 @@ const TimelineChart = ({ games, onGameClick, featuredId }) => {
               {isFeatured && (
                 <circle cx={x} cy={y} r={DOT_R + 4} fill="none" stroke={GOLD} strokeWidth={1} opacity={0.6} />
               )}
-              <circle cx={x} cy={y} r={DOT_R} fill={fill} stroke={isFeatured ? GOLD : "rgba(255,255,255,0.1)"} strokeWidth={1} />
+              <circle cx={x} cy={y} r={DOT_R} fill={fill} stroke={isFeatured ? GOLD : "rgba(0,0,0,0.08)"} strokeWidth={1} />
               {/* Opponent name on hover — show for every 3rd game or featured */}
               {(i % 3 === 0 || isFeatured) && (
-                <text x={x} y={y - 12} textAnchor="middle" fill="#555" fontSize={9} fontFamily="'JetBrains Mono', monospace">
+                <text x={x} y={y - 12} textAnchor="middle" fill="#888" fontSize={9} fontFamily="'JetBrains Mono', monospace">
                   {(p.opponent || p.white_player || "")?.slice(0, 8)}
                 </text>
               )}

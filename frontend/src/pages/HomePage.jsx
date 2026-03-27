@@ -62,7 +62,7 @@ const HomePage = ({ user }) => {
 
         {/* ── GREETING ── */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
-          <p className="text-sm text-gray-600 font-light">{greeting}</p>
+          <p className="text-sm text-gray-500 font-light">{greeting}</p>
         </motion.div>
 
         {/* ── LAST BATTLE: The Board ── */}
@@ -78,7 +78,7 @@ const HomePage = ({ user }) => {
             </p>
             <div
               className="cursor-pointer transition-all duration-200 hover:border-white/10"
-              style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)" }}
               onClick={() => navigate(`/game/${battle.game_id}`)}
               data-testid="last-battle-card"
             >
@@ -97,7 +97,7 @@ const HomePage = ({ user }) => {
                 <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm text-gray-400 font-light">vs {battle.opponent}</span>
+                      <span className="text-sm text-gray-500 font-light">vs {battle.opponent}</span>
                       <span className="text-xs px-2 py-0.5" style={{
                         background: battle.result === "1-0" && battle.user_color === "white" || battle.result === "0-1" && battle.user_color === "black"
                           ? "rgba(39,111,75,0.3)" : "rgba(114,47,55,0.3)",
@@ -108,16 +108,16 @@ const HomePage = ({ user }) => {
                         {battle.result === "1-0" && battle.user_color === "white" || battle.result === "0-1" && battle.user_color === "black" ? "WON" : "LOST"}
                       </span>
                     </div>
-                    <p className="text-white text-base leading-relaxed font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    <p className="text-gray-900 text-base leading-relaxed font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                       {dna?.root_cause || "Review this game"}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 mt-3">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Move {battle.move_number}</span>
-                      <span className="text-xs font-mono text-red-400">{battle.your_move}</span>
-                      <ArrowRight className="w-3 h-3 text-gray-700" />
-                      <span className="text-xs font-mono text-emerald-400">{battle.best_move}</span>
+                      <span className="text-xs text-gray-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Move {battle.move_number}</span>
+                      <span className="text-xs font-mono text-red-600">{battle.your_move}</span>
+                      <ArrowRight className="w-3 h-3 text-gray-300" />
+                      <span className="text-xs font-mono text-emerald-600">{battle.best_move}</span>
                     </div>
                   </div>
                 </div>
@@ -137,10 +137,10 @@ const HomePage = ({ user }) => {
             <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: GOLD, fontFamily: "'JetBrains Mono', monospace" }}>
               Your Chess DNA
             </p>
-            <div style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)" }}>
               <div className="p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl text-white tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  <h2 className="text-2xl text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
                     {dna.archetype}
                   </h2>
                   <span className="text-[10px] tracking-[0.15em] uppercase px-2 py-1" style={{
@@ -153,7 +153,7 @@ const HomePage = ({ user }) => {
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-gray-500 font-light">{dna.before_line}</p>
-                  <p className="text-sm text-white font-light">{dna.after_line}</p>
+                  <p className="text-sm text-gray-900 font-light">{dna.after_line}</p>
                 </div>
               </div>
             </div>
@@ -173,13 +173,13 @@ const HomePage = ({ user }) => {
             </p>
             <div
               className="cursor-pointer transition-all duration-200 hover:border-white/10"
-              style={{ background: "#262421", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)" }}
               onClick={() => navigate("/training?focus=calculation_depth")}
               data-testid="one-thing-to-fix"
             >
               <div className="p-5 space-y-3">
-                <p className="text-sm text-gray-400 font-light">{fix.stat_line}</p>
-                <p className="text-base text-white font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <p className="text-sm text-gray-500 font-light">{fix.stat_line}</p>
+                <p className="text-base text-gray-900 font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {fix.fix_line}
                 </p>
                 {fix.diff_line && (
@@ -187,7 +187,7 @@ const HomePage = ({ user }) => {
                     {fix.diff_line}
                   </p>
                 )}
-                <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+                <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
                   <span className="text-xs px-2 py-0.5" style={{
                     background: fix.severity === "CRITICAL" ? "rgba(114,47,55,0.2)" : "rgba(203,161,53,0.15)",
                     color: fix.severity === "CRITICAL" ? WINE : GOLD,
@@ -195,7 +195,7 @@ const HomePage = ({ user }) => {
                   }}>
                     {fix.severity}
                   </span>
-                  <span className="text-xs text-gray-600 flex items-center gap-1">
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
                     Train this <ChevronRight className="w-3 h-3" />
                   </span>
                 </div>
@@ -216,26 +216,26 @@ const HomePage = ({ user }) => {
             {action && (
               <div
                 className="flex-1 p-4 cursor-pointer transition-all duration-200 hover:opacity-90 flex items-center gap-3"
-                style={{ background: action.type === "review_loss" ? WINE : "#0a0a0a", border: action.type === "review_loss" ? "none" : `1px solid rgba(255,255,255,0.05)` }}
+                style={{ background: action.type === "review_loss" ? WINE : "#FFFFFF", border: action.type === "review_loss" ? "none" : `1px solid rgba(0,0,0,0.08)` }}
                 onClick={() => navigate(action.href)}
                 data-testid="context-action"
               >
                 {action.type === "review_loss" ? (
-                  <Target className="w-5 h-5 text-white/70 flex-shrink-0" strokeWidth={1.5} />
+                  <Target className="w-5 h-5 text-gray-900/70 flex-shrink-0" strokeWidth={1.5} />
                 ) : (
                   <Swords className="w-5 h-5 text-gray-500 flex-shrink-0" strokeWidth={1.5} />
                 )}
                 <div className="flex-1">
-                  <p className="text-sm text-white font-light">{action.label}</p>
+                  <p className="text-sm text-gray-900 font-light">{action.label}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-white/40 flex-shrink-0" strokeWidth={1.5} />
+                <ChevronRight className="w-4 h-4 text-gray-900/40 flex-shrink-0" strokeWidth={1.5} />
               </div>
             )}
             {/* Play */}
             {action?.type !== "play" && (
               <div
                 className="p-4 cursor-pointer transition-all duration-200 hover:opacity-90 flex items-center gap-3"
-                style={{ background: GOLD, color: "#050505" }}
+                style={{ background: GOLD, color: "#F5F3F0" }}
                 onClick={() => navigate("/play-with-coach")}
                 data-testid="play-btn"
               >
@@ -248,7 +248,7 @@ const HomePage = ({ user }) => {
 
         {/* ── FOOTER ── */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="flex items-center justify-between text-gray-700 mt-10 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+          className="flex items-center justify-between text-gray-300 mt-10 pt-4" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
           <span className="text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{gamesAnalyzed} games</span>
           <span className="text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{accuracy.toFixed(0)}% accuracy</span>
         </motion.div>

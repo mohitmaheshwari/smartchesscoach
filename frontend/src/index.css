@@ -43,25 +43,25 @@
   }
 
   .dark {
-    /* Lichess-inspired warm dark */
-    --background: 45 10% 8%;
-    --foreground: 40 10% 88%;
-    --card: 36 7% 14%;
-    --card-foreground: 40 10% 88%;
-    --popover: 36 7% 14%;
-    --popover-foreground: 40 10% 88%;
+    /* Chess.com inspired warm light */
+    --background: 37 16% 96%;
+    --foreground: 30 7% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 30 7% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 7% 18%;
     --primary: 353 42% 32%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 36 6% 18%;
-    --secondary-foreground: 40 10% 88%;
-    --muted: 40 5% 18%;
-    --muted-foreground: 40 6% 50%;
+    --secondary: 37 12% 92%;
+    --secondary-foreground: 30 7% 18%;
+    --muted: 37 10% 92%;
+    --muted-foreground: 30 5% 45%;
     --accent: 43 59% 50%;
-    --accent-foreground: 45 10% 8%;
-    --destructive: 353 42% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 353 50% 45%;
     --destructive-foreground: 0 0% 100%;
-    --border: 36 5% 20%;
-    --input: 36 5% 20%;
+    --border: 35 10% 87%;
+    --input: 35 10% 87%;
     --ring: 43 59% 50%;
     
     /* Semantic colors */
