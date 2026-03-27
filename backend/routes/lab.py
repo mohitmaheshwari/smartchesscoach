@@ -686,6 +686,64 @@ async def explain_mistake(req: MistakeExplanationRequest, user: User = Depends(g
         }
 
 
+
+@router.get("/lab/{game_id}/coach-insight")
+async def get_coach_insight(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Coach Insight: Summary + Habits + Memory for a game.
+    
+    Deterministic — no LLM. Pure data analysis.
+    """
+    global db
+    from services.game_coach_summary import compute_game_summary, compute_game_habits, compute_game_memory
+
+    # Get game + analysis
+    game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    sf = analysis.get("stockfish_analysis", {})
+    evals = sf.get("move_evaluations", [])
+
+    user_color = game.get("user_color", "white")
+    game_result = game.get("result", "")
+    opening = game.get("opening", "")
+    # Resolve rating: try DB fields first, then parse from PGN
+    user_rating = 0
+    if user_color == "white":
+        user_rating = game.get("white_rating") or game.get("user_rating") or 0
+    else:
+        user_rating = game.get("black_rating") or game.get("user_rating") or 0
+    if not user_rating:
+        import re
+        pgn = game.get("pgn", "")
+        elo_tag = "WhiteElo" if user_color == "white" else "BlackElo"
+        m = re.search(rf'\[{elo_tag} "(\d+)"\]', pgn)
+        if m:
+            user_rating = int(m.group(1))
+
+    # 1. Summary
+    summary = compute_game_summary(evals, game_result, user_color, opening)
+
+    # 2. Habits
+    habits_report = analysis.get("habits_report")
+    habits = compute_game_habits(evals, user_color, habits_report, summary)
+
+    # 3. Memory (async — needs DB for identity + pattern counting)
+    memory = await compute_game_memory(db, user.user_id, summary, user_rating)
+
+    return {
+        "summary": summary,
+        "habits": habits,
+        "memory": memory,
+    }
+
+
+
 @router.get("/lab/{game_id}/deep-strategy")
 async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_current_user)):
     """

@@ -890,7 +890,7 @@ Interactive guided walkthroughs with auto-playing moves, coach narration, and "W
 
 ## Contact & Links
 
-- **Live Demo**: https://coach-play-fix.preview.emergentagent.com
+- **Live Demo**: https://identity-tracker-19.preview.emergentagent.com
 - **API Documentation**: /api/docs (FastAPI auto-generated)
 
 ---

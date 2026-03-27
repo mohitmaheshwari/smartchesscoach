@@ -19,7 +19,7 @@ import { waitForAppReady, dismissToasts } from '../fixtures/helpers';
  * - API returns difficulty and engine_version fields
  */
 
-const BASE_URL = 'https://coach-play-fix.preview.emergentagent.com';
+const BASE_URL = 'https://identity-tracker-19.preview.emergentagent.com';
 
 test.describe('BehavioralInsightCard', () => {
   test.beforeEach(async ({ page }) => {

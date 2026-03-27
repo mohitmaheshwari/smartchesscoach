@@ -13,7 +13,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coach-play-fix.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://identity-tracker-19.preview.emergentagent.com')
 
 # Test user credentials
 DEV_USER_COOKIE = {"dev_user_id": "user_62852a1b64e7"}

@@ -15,8 +15,9 @@ import GameDecryptionV5 from "@/components/GameDecryptionV5";
 import LabClassic from "@/pages/LabClassic";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, BookOpen, Brain, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, BookOpen, Brain, Loader2, RefreshCw, Target } from "lucide-react";
 import { toast } from "sonner";
+import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -203,23 +204,29 @@ const Lab = ({ user }) => {
                 }`}
                 data-testid="classic-view-btn"
               >
-                <Brain className="w-3 h-3 inline mr-1" />
-                Classic View
+                <Target className="w-3 h-3 inline mr-1" />
+                Coach
               </button>
               </div>
             </div>
           </div>
         </div>
         
-        {/* Main Content: Game Decryption */}
+        {/* Main Content: Toggle between Decrypt and Coach */}
         <div className="flex-1 overflow-auto">
-          <GameDecryptionV5
-            gameId={gameId}
-            analysis={analysis}
-            pgn={game?.pgn}
-            userColor={userColor}
-            onBack={() => navigate(-1)}
-          />
+          {viewMode === "decryption" ? (
+            <GameDecryptionV5
+              gameId={gameId}
+              analysis={analysis}
+              pgn={game?.pgn}
+              userColor={userColor}
+              onBack={() => navigate(-1)}
+            />
+          ) : (
+            <div className="max-w-2xl mx-auto py-6 px-4">
+              <CoachInsightPanel gameId={gameId} />
+            </div>
+          )}
         </div>
       </div>
     </Layout>

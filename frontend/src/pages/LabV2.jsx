@@ -58,6 +58,7 @@ import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 // Feedback modal (reused from Lab.jsx)
 import FeedbackModal from "@/components/FeedbackModal";
 import GameDecryptionV5 from "@/components/GameDecryptionV5";
+import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -1041,152 +1042,14 @@ const LabV2 = ({ user }) => {
             </div>
           </div>
           
-          {/* Right: Coach Analysis */}
+          {/* Right: Coach Insight Panel — 3 tabs: Summary, Habits, Memory */}
           <div className="w-[45%] flex flex-col overflow-hidden">
-            {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid w-full grid-cols-5 rounded-none border-b shrink-0">
-                <TabsTrigger value="summary" className="gap-1.5 text-xs">
-                  <BookOpen className="w-3.5 h-3.5" />
-                  Summary
-                </TabsTrigger>
-                <TabsTrigger value="moments" className="gap-1.5 text-xs">
-                  <Target className="w-3.5 h-3.5" />
-                  Moments
-                </TabsTrigger>
-                <TabsTrigger value="ideas" className="gap-1.5 text-xs">
-                  <Brain className="w-3.5 h-3.5" />
-                  Ideas
-                </TabsTrigger>
-                <TabsTrigger value="habits" className="gap-1.5 text-xs">
-                  <Zap className="w-3.5 h-3.5" />
-                  Habits
-                </TabsTrigger>
-                <TabsTrigger value="memory" className="gap-1.5 text-xs">
-                  <History className="w-3.5 h-3.5" />
-                  Memory
-                </TabsTrigger>
-              </TabsList>
-              
-              {/* Tab content - scrollable */}
-              <div className="flex-1 overflow-y-auto">
-                {/* Summary Tab */}
-                <TabsContent value="summary" className="p-4 m-0">
-                  {loadingDeepStrategy ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                  ) : (
-                    <GameSummary
-                      game={game}
-                      labData={labData}
-                      analysis={analysis}
-                      userColor={userColor}
-                      result={result}
-                      accuracy={accuracy}
-                      deepStrategy={deepStrategy}
-                      patternContext={labData?.pattern_context}
-                      onNavigateToMove={navigateToMoveNumber}
-                    />
-                  )}
-                </TabsContent>
-                
-                {/* Critical Moments Tab */}
-                <TabsContent value="moments" className="p-4 m-0">
-                  {loadingDeepStrategy ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                  ) : (
-                    <CriticalMoments
-                      moments={deepStrategy?.critical_moments || []}
-                      userColor={userColor}
-                      onNavigateToMove={navigateToMoveNumber}
-                      onFeedback={handleFeedback}
-                      onPlayBestLine={playBestLine}
-                      onStartInteractive={startInteractiveMoment}
-                      onClearInteractive={clearInteractiveMoment}
-                      onTryAgain={handleTryAgain}
-                      userAttemptResult={userAttemptResult}
-                      gameId={gameId}
-                      playerLevel={deepStrategy?.player_level}
-                      playerLevelDisplay={deepStrategy?.player_level_display}
-                      playerLevelEmoji={deepStrategy?.player_level_emoji}
-                      coachingVoice={deepStrategy?.coaching_voice}
-                      chessUnderstanding={deepStrategy?.chess_understanding}
-                    />
-                  )}
-                </TabsContent>
-                
-                {/* Ideas Tab (Strategic Themes + Missed Tactics + Opening Opportunities) */}
-                <TabsContent value="ideas" className="p-4 m-0 space-y-6">
-                  {loadingDeepStrategy ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                  ) : (
-                    <>
-                      <StrategicThemes
-                        deepStrategy={deepStrategy}
-                        labData={labData}
-                        game={game}
-                        playerRating={game?.user_rating || labData?.player_rating}
-                        onNavigateToMove={(moveNum, yourMove, bestMove) => {
-                          navigateToMoveNumber(moveNum, yourMove, bestMove);
-                        }}
-                      />
-                      
-                      <MissedTactics
-                        deepStrategy={deepStrategy}
-                        labData={labData}
-                        onNavigateToMove={(moveNum, yourMove, bestMove) => {
-                          // Switch to summary tab to see the board
-                          setActiveTab("summary");
-                          // Navigate to the position with arrows showing the moves
-                          navigateToMoveNumber(moveNum, yourMove, bestMove);
-                        }}
-                      />
-                      
-                      {/* Opening Opportunities - TrapAnalysis moved here */}
-                      {deepStrategy?.trap_analysis && (
-                        <div className="pt-2">
-                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                            Opening Opportunities
-                          </h3>
-                          <TrapAnalysis trapAnalysis={deepStrategy.trap_analysis} />
-                        </div>
-                      )}
-                    </>
-                  )}
-                </TabsContent>
-                
-                {/* Habits Tab */}
-                <TabsContent value="habits" className="p-4 m-0 space-y-4">
-                  {/* Opening Fundamentals Analysis */}
-                  <OpeningFundamentals gameId={game?.game_id} />
-                  
-                  {/* Existing Habits Component */}
-                  <HabitsToImprove
-                    patternContext={labData?.pattern_context}
-                    focusModule={focusModule}
-                    labData={labData}
-                    deepStrategy={deepStrategy}
-                    onStartTraining={() => navigate("/training/prescribed")}
-                    onNavigateToMove={navigateToMoveNumber}
-                  />
-                </TabsContent>
-                
-                {/* Memory Tab - Deep Coach Memory Profile */}
-                <TabsContent value="memory" className="p-4 m-0">
-                  <div className="space-y-4">
-                    <div className="text-sm text-muted-foreground mb-4">
-                      Your coach's memory of your playing patterns, style, and areas for improvement.
-                    </div>
-                    <DeepMemoryPanel compact={false} />
-                  </div>
-                </TabsContent>
-              </div>
-            </Tabs>
+            <div className="flex-1 overflow-y-auto p-4">
+              <CoachInsightPanel 
+                gameId={gameId} 
+                onMoveClick={(moveNum) => navigateToMoveNumber(moveNum)}
+              />
+            </div>
           </div>
         </div>
         )}
