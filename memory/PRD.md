@@ -7,6 +7,16 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 
 ## What's Been Implemented
 
+### Coach Insight Panel — March 2026 (The Lab 3-Tab Pivot)
+- Replaced old 5-tab analysis (Summary/Moments/Ideas/Habits/Memory) with 3-tab Coach Insight
+- **Summary Tab**: One brutal truth diagnosis (THROW, MATE_BLIND, SLOW_BLEED, etc.), critical move, context bullets, coach note
+- **Habits Tab**: Pass/fail checklist (6 habits: threat check, opening principles, hanging pieces, plan, critical moments, endgame). Focus habit highlight.
+- **Memory Tab**: 
+  - "Your Chess DNA": Before/after identity lines, archetype label (The Blind Spot, The Thrower, etc.)
+  - "If You Fixed This One Thing": 3-line impact punch (stat → fix → rating difference), rating projection bar
+- Backend: `/api/lab/{game_id}/coach-insight` — fully deterministic, no LLM
+- Files: `services/game_coach_summary.py`, `components/Lab/CoachInsightPanel.jsx`, integrated into `LabV2.jsx` coach view
+
 ### Inline Flagging System - March 2026
 - Every coaching text element has its own inline flag icon (appears on hover)
 - Sections flagged: narrative, your_plan_now, consequence, better_approach, candidate_moves, transferable_learning, pattern_memory, theory_applied
@@ -51,19 +61,25 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
   services/
     shared_coaching_v5.py          # UPDATED: Fork detection + book move guard
     game_decryption_v5_service.py  # UPDATED: Book move guard + V5 versioning
+    game_coach_summary.py          # NEW: 3-tab coach insight (summary/habits/memory)
+    player_identity.py             # Core memory tracker for Chess DNA
     player_profile_service.py
     endgame_theory_service.py
     v5_llm_narrator.py
   routes/
     games.py                       # UPDATED: regenerate-coaching endpoint
+    lab.py                         # UPDATED: /lab/{id}/coach-insight endpoint
     coach.py                       # UPDATED: V5 version check + auto-regeneration
   server.py                        # UPDATED: FlagMoveRequest with diagnostics
 /app/frontend/src/
   pages/
     CoachPlay.jsx                  # UPDATED: P0 fixes
     Lab.jsx                        # UPDATED: Refresh Coaching button
+    LabV2.jsx                      # UPDATED: Coach Insight Panel integrated (replaces old 5-tab)
     AdminDashboard.jsx             # UPDATED: Diagnostics display
   components/
+    Lab/
+      CoachInsightPanel.jsx        # NEW: 3-tab insight panel (Summary, Habits, Memory)
     shared/
       FlagMoveDialog.jsx           # REWRITTEN: InlineFlag system
       V5CoachingCard.jsx           # UPDATED: Inline flags on every section
@@ -96,6 +112,7 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 - Iteration 161: Super Admin Dashboard -- 100%
 - Iteration 162: Player Profile Narrative -- 100%
 - Iteration 163: CoachPlay P0 Fixes (all 4 issues) -- 100%
+- Iteration 164: Coach Insight Panel (3-tab pivot) -- 100% (8/8 backend, all frontend verified)
 - Book opening guard: manually tested with python3 -c (d5, c5, e6, Nf6 all correctly identified as book)
 - Inline flagging: visually verified via screenshot, backend endpoint tested with curl
 - Fork detection: verified with chess.BB_KNIGHT_ATTACKS bitboard tests
