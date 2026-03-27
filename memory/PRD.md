@@ -7,6 +7,14 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 
 ## What's Been Implemented
 
+### Adaptive Game Decryption V5 — March 2026
+- Rating-based filtering: ~1100 player only sees mistakes (100+cp) and blunders (250+cp), not inaccuracies
+- Known weakness matching: moves matching player_identity patterns get priority boost ("Known pattern" badge)
+- Progressive difficulty: as rating increases, more detail surfaces (1200→70cp, 1400→50cp, 1600+→30cp)
+- V5_COACHING_VERSION bumped to 4 to auto-regenerate cached data
+- Each move now has `priority` field: essential/weakness_match/growth/silent/context
+- Backend: `_get_adaptive_config()` in `game_decryption_v5_service.py`
+
 ### Coach Insight Panel — March 2026 (The Lab 3-Tab Pivot)
 - Replaced old 5-tab analysis (Summary/Moments/Ideas/Habits/Memory) with 3-tab Coach Insight
 - **Summary Tab**: One brutal truth diagnosis (THROW, MATE_BLIND, SLOW_BLEED, etc.), critical move, context bullets, coach note
@@ -113,13 +121,14 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 - Iteration 162: Player Profile Narrative -- 100%
 - Iteration 163: CoachPlay P0 Fixes (all 4 issues) -- 100%
 - Iteration 164: Coach Insight Panel (3-tab pivot) -- 100% (8/8 backend, all frontend verified)
+- Iteration 165: Adaptive Decryption V5 + Habits Fix -- 100% (15/15 backend, all frontend verified)
 - Book opening guard: manually tested with python3 -c (d5, c5, e6, Nf6 all correctly identified as book)
 - Inline flagging: visually verified via screenshot, backend endpoint tested with curl
 - Fork detection: verified with chess.BB_KNIGHT_ATTACKS bitboard tests
 
 ## Critical Notes
 - **Mohit** (user_62852a1b64e7) = super_admin
-- **V5_COACHING_VERSION = 2**: Bump when coaching logic changes, old games auto-refresh
+- **V5_COACHING_VERSION = 4**: Bump when coaching logic changes, old games auto-refresh
 - **Player profile cached**: `player_profiles` collection, regenerates every 5 games
 - **LLM**: GPT-4.1-mini via emergentintegrations (EMERGENT_LLM_KEY)
 - **Never generic text**: All prompts demand specific, contextual output
