@@ -289,6 +289,91 @@ def get_opening_introduction(eco_code: Optional[str], opening_name: Optional[str
     return None
 
 
+# ─── OPENING BOOK MOVE DETECTION ─────────────────────────────────────
+
+# Known opening responses that Stockfish may score poorly but are completely valid theory.
+# Maps FEN position prefix -> set of valid SAN moves in that position.
+# We only need to track positions where Stockfish might disagree with theory.
+KNOWN_OPENING_RESPONSES = None  # Will be built dynamically using python-chess
+
+def is_book_opening_move(board: chess.Board, move_san: str, move_index: int, 
+                         opening_name: Optional[str] = None, cp_loss: int = 0) -> bool:
+    """
+    Check if a user's move is a known opening book move that shouldn't be 
+    flagged as an inaccuracy, even if Stockfish slightly prefers another line.
+    
+    Returns True if the move is a recognized opening response.
+    """
+    # Only applies to early game (first 12 half-moves)
+    if move_index > 12:
+        return False
+    
+    # If cp_loss is very high (>120), it's genuinely bad even for an opening
+    if cp_loss > 120:
+        return False
+    
+    # --- Check 1: Common opening responses by position context ---
+    # After 1.e4, all standard replies are book
+    
+    # Move 1 for black (index 1): after 1.e4 or 1.d4
+    if move_index == 1:
+        # After 1.e4, these are all valid defenses
+        if "rnbqkbnr/pppppppp/8/8/4P3" in board.fen():
+            valid_responses = {"e5", "c5", "e6", "c6", "d5", "d6", "Nf6", "g6", "b6", "Nc6", "a6"}
+            if move_san in valid_responses:
+                return True
+        # After 1.d4
+        if "rnbqkbnr/pppppppp/8/8/3P4" in board.fen():
+            valid_responses = {"d5", "Nf6", "f5", "e6", "c5", "d6", "g6", "c6", "e5", "Nc6", "b6"}
+            if move_san in valid_responses:
+                return True
+        # After 1.c4
+        if "rnbqkbnr/pppppppp/8/8/2P5" in board.fen():
+            valid_responses = {"e5", "c5", "Nf6", "e6", "c6", "g6", "f5", "b6"}
+            if move_san in valid_responses:
+                return True
+        # After 1.Nf3
+        if "rnbqkbnr/pppppppp/8/8/8/5N2" in board.fen():
+            valid_responses = {"d5", "Nf6", "c5", "g6", "f5", "e6", "d6"}
+            if move_san in valid_responses:
+                return True
+    
+    # Move 1 for white (index 0): all standard first moves are fine
+    if move_index == 0:
+        valid_first_moves = {"e4", "d4", "c4", "Nf3", "g3", "b3", "f4", "e3", "d3", "b4", "Nc3"}
+        if move_san in valid_first_moves:
+            return True
+    
+    # --- Check 2: If opening was detected, trust early moves ---
+    # If the game eventually reaches a recognized opening (e.g., Scandinavian),
+    # the moves that got us there were book moves
+    if opening_name and move_index < 8:
+        return True
+    
+    # --- Check 3: Common early-game developing moves with small cp_loss ---
+    # In the first few moves, natural developing moves shouldn't be flagged
+    if move_index <= 6 and cp_loss < 60:
+        # Check if it's a natural developing move
+        try:
+            move = board.parse_san(move_san)
+            piece = board.piece_at(move.from_square)
+            if piece:
+                # Knight/Bishop development, castling, central pawn pushes
+                if piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+                    return True
+                if piece.piece_type == chess.KING and board.is_castling(move):
+                    return True
+                if piece.piece_type == chess.PAWN:
+                    # Central or semi-central pawn moves
+                    to_file = chess.square_file(move.to_square)
+                    if to_file in (2, 3, 4, 5):  # c, d, e, f files
+                        return True
+        except Exception:
+            pass
+    
+    return False
+
+
 # ─── PLAN EXTRACTION ─────────────────────────────────────────────────
 
 def extract_plan_from_pv(
@@ -2177,6 +2262,12 @@ async def generate_game_decryption_v5(
                 severity = "mistake"
             else:
                 severity = "blunder"
+            
+            # Override: known opening book moves should never be flagged as inaccuracies
+            if is_user and severity in ("inaccuracy", "mistake") and phase == "opening":
+                if is_book_opening_move(board, move_san, idx, opening_name, cp_loss):
+                    logger.info(f"[BOOK MOVE] {move_san} (cpl={cp_loss}) is a book opening move — overriding '{severity}' to 'good'")
+                    severity = "good"
             
             # Check for forced recapture
             is_forced_recapture = False

@@ -505,6 +505,49 @@ def detect_fork_in_pv(board: chess.Board, pv: List[str], user_color: bool) -> Op
     return None
 
 
+# ─── OPENING BOOK MOVE CHECK ──────────────────────────────────────
+
+def _is_book_opening_move(board: chess.Board, move_san: str, move_index: int, cp_loss: int) -> bool:
+    """Check if a move is a known opening book move that shouldn't be flagged."""
+    if move_index > 12 or cp_loss > 120:
+        return False
+    
+    # Move 0: all standard white first moves
+    if move_index == 0:
+        return move_san in {"e4", "d4", "c4", "Nf3", "g3", "b3", "f4", "e3", "d3", "b4", "Nc3"}
+    
+    # Move 1: black responses to e4/d4/c4/Nf3
+    if move_index == 1:
+        fen = board.fen()
+        if "4P3" in fen:  # after e4
+            return move_san in {"e5", "c5", "e6", "c6", "d5", "d6", "Nf6", "g6", "b6", "Nc6", "a6"}
+        if "3P4" in fen:  # after d4
+            return move_san in {"d5", "Nf6", "f5", "e6", "c5", "d6", "g6", "c6", "e5", "Nc6", "b6"}
+        if "2P5" in fen:  # after c4
+            return move_san in {"e5", "c5", "Nf6", "e6", "c6", "g6", "f5", "b6"}
+        if "5N2" in fen:  # after Nf3
+            return move_san in {"d5", "Nf6", "c5", "g6", "f5", "e6", "d6"}
+    
+    # Early developing moves with small cp loss
+    if move_index <= 6 and cp_loss < 60:
+        try:
+            move = board.parse_san(move_san)
+            piece = board.piece_at(move.from_square)
+            if piece:
+                if piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+                    return True
+                if piece.piece_type == chess.KING and board.is_castling(move):
+                    return True
+                if piece.piece_type == chess.PAWN:
+                    to_file = chess.square_file(move.to_square)
+                    if to_file in (2, 3, 4, 5):  # c,d,e,f files
+                        return True
+        except Exception:
+            pass
+    
+    return False
+
+
 # ─── MAIN COACHING GENERATION ──────────────────────────────────────
 
 async def generate_move_coaching(
@@ -539,6 +582,12 @@ async def generate_move_coaching(
         severity = "mistake"
     else:
         severity = "blunder"
+    
+    # Override: known opening book moves should not be flagged
+    if is_user_move and severity in ("inaccuracy", "mistake") and phase == "opening":
+        move_index = (board_before.fullmove_number - 1) * 2 + (0 if board_before.turn == chess.WHITE else 1)
+        if _is_book_opening_move(board_before, move_san, move_index, cp_loss):
+            severity = "good"
     
     # Get piece info
     piece = board_before.piece_at(move.from_square)
