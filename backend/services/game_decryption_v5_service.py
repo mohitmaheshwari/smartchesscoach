@@ -44,6 +44,9 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+# V5 coaching version — increment when coaching logic changes to trigger re-generation
+V5_COACHING_VERSION = 2  # v2: book opening move guard added
+
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
 

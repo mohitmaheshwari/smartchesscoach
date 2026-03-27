@@ -694,11 +694,22 @@ async def get_game_decryption_v5(
         # Check for existing V5 data
         analysis = await db.game_analyses.find_one(
             {"game_id": game_id},
-            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1}
+            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1}
         )
         
         if not analysis or "game_id" not in analysis:
             return {"error": "Game analysis not found", "decryption_data": None}
+        
+        # Auto-regenerate if V5 coaching version is outdated
+        from services.game_decryption_v5_service import V5_COACHING_VERSION
+        stored_version = analysis.get("decryption_v5_version", 1)
+        if analysis.get("decryption_v5_data") and stored_version < V5_COACHING_VERSION:
+            logger.info(f"[DECRYPTION V5] Outdated coaching v{stored_version} → v{V5_COACHING_VERSION} for {game_id}, clearing for regeneration")
+            await db.game_analyses.update_one(
+                {"game_id": game_id},
+                {"$unset": {"decryption_v5_data": "", "decryption_v5_generating": "", "decryption_v5_generated_at": ""}}
+            )
+            analysis["decryption_v5_data"] = None  # Force regeneration below
         
         # If V5 data exists, return it
         if analysis.get("decryption_v5_data"):
@@ -797,6 +808,7 @@ async def get_game_decryption_v5(
                                 "decryption_v5_data": decryption_data,
                                 "decryption_v5_generated_at": datetime.now(timezone.utc).isoformat(),
                                 "decryption_v5_generating": False,
+                                "decryption_v5_version": V5_COACHING_VERSION,
                                 "habits_report": habits_report
                             }}
                         )
