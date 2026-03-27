@@ -309,31 +309,6 @@ const Layout = ({ children, user }) => {
             </div>
           )}
 
-          {/* Coach Pulse (but not for losing streak - that has its own button above) */}
-          {coachPulse && coachPulse.type !== "losing_streak" && (
-            <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
-              <Button
-                variant="outline"
-                onClick={handleCoachPulseClick}
-                className={`w-full gap-2 border-amber-500/50 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 ${
-                  sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                }`}
-                data-testid="coach-pulse"
-                title={sidebarCollapsed ? coachPulse.label : undefined}
-              >
-                <div className="relative">
-                  <Sparkles className="w-4 h-4" />
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                </div>
-                {!sidebarCollapsed && (
-                  <span className="text-sm truncate">
-                    {coachPulse.type === "loss" ? "Fix Loss" : `Review (${coachPulse.count})`}
-                  </span>
-                )}
-              </Button>
-            </div>
-          )}
-
           {/* Admin Dashboard - Only for admin/super_admin */}
           {isAdmin && (
             <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
@@ -555,17 +530,6 @@ const Layout = ({ children, user }) => {
                       {lossStreak.count} losses - Fix Now
                     </Button>
                   </Link>
-                )}
-
-                {coachPulse && coachPulse.type !== "losing_streak" && (
-                  <Button
-                    variant="outline"
-                    onClick={() => { handleCoachPulseClick(); setMobileMenuOpen(false); }}
-                    className="w-full justify-start gap-3 border-amber-500/50 text-amber-600"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    {coachPulse.type === "loss" ? "Fix Loss" : `Review (${coachPulse.count})`}
-                  </Button>
                 )}
 
                 <div className="border-t border-border my-2" />
