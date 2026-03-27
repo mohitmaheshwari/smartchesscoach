@@ -8893,6 +8893,19 @@ class FlagMoveRequest(BaseModel):
     move_san: Optional[str] = None
     coaching_text: Optional[str] = None
     user_note: str
+    # Developer-grade diagnostic fields
+    severity: Optional[str] = None           # good/inaccuracy/mistake/blunder
+    cp_loss: Optional[int] = None            # centipawn loss
+    best_move: Optional[str] = None          # what Stockfish recommended
+    eval_before: Optional[float] = None      # eval before the move
+    eval_after: Optional[float] = None       # eval after the move
+    phase: Optional[str] = None              # opening/middlegame/endgame
+    component: Optional[str] = None          # which UI component (V5CoachingCard, DecryptionV5, etc.)
+    concept_id: Optional[str] = None         # coaching concept that was shown
+    goal: Optional[str] = None               # V5 coaching goal text
+    consequence: Optional[str] = None        # V5 coaching consequence text
+    better_approach: Optional[str] = None    # V5 coaching better_approach text
+    your_plan_now: Optional[str] = None      # V5 your_plan_now text
 
 
 @api_router.post("/feedback/flag")
@@ -8914,6 +8927,21 @@ async def flag_move(req: FlagMoveRequest, user: User = Depends(get_current_user)
         "status": "pending",
         "admin_notes": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        # Developer diagnostic data
+        "diagnostics": {
+            "severity": req.severity,
+            "cp_loss": req.cp_loss,
+            "best_move": req.best_move,
+            "eval_before": req.eval_before,
+            "eval_after": req.eval_after,
+            "phase": req.phase,
+            "component": req.component,
+            "concept_id": req.concept_id,
+            "goal": req.goal,
+            "consequence": req.consequence,
+            "better_approach": req.better_approach,
+            "your_plan_now": req.your_plan_now,
+        }
     }
 
     # Try to get user rating

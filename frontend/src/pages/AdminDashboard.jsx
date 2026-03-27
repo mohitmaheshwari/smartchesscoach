@@ -633,6 +633,26 @@ const FeedbackTab = () => {
                         <span className="text-zinc-300">{fb.coaching_text}</span>
                       </div>
                     )}
+                    {/* Developer Diagnostics */}
+                    {fb.diagnostics && Object.values(fb.diagnostics).some(v => v != null) && (
+                      <div className="text-[10px] bg-zinc-800/50 p-2 rounded border border-zinc-700/50 space-y-0.5">
+                        <span className="text-zinc-500 uppercase tracking-wide text-[9px] font-medium">Diagnostics</span>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1">
+                          {fb.diagnostics.severity && <div><span className="text-zinc-500">Severity:</span> <span className={`font-medium ${fb.diagnostics.severity === 'blunder' ? 'text-red-400' : fb.diagnostics.severity === 'mistake' ? 'text-orange-400' : fb.diagnostics.severity === 'inaccuracy' ? 'text-amber-400' : 'text-emerald-400'}`}>{fb.diagnostics.severity}</span></div>}
+                          {fb.diagnostics.cp_loss != null && <div><span className="text-zinc-500">CP Loss:</span> <span className="text-zinc-300">{fb.diagnostics.cp_loss}</span></div>}
+                          {fb.diagnostics.best_move && <div><span className="text-zinc-500">Best Move:</span> <span className="text-emerald-400 font-mono">{fb.diagnostics.best_move}</span></div>}
+                          {fb.diagnostics.eval_before != null && <div><span className="text-zinc-500">Eval Before:</span> <span className="text-zinc-300">{fb.diagnostics.eval_before}</span></div>}
+                          {fb.diagnostics.eval_after != null && <div><span className="text-zinc-500">Eval After:</span> <span className="text-zinc-300">{fb.diagnostics.eval_after}</span></div>}
+                          {fb.diagnostics.phase && <div><span className="text-zinc-500">Phase:</span> <span className="text-zinc-300">{fb.diagnostics.phase}</span></div>}
+                          {fb.diagnostics.component && <div><span className="text-zinc-500">Component:</span> <span className="text-blue-400">{fb.diagnostics.component}</span></div>}
+                          {fb.diagnostics.concept_id && <div><span className="text-zinc-500">Concept:</span> <span className="text-zinc-300">{fb.diagnostics.concept_id}</span></div>}
+                        </div>
+                        {fb.diagnostics.goal && <div className="mt-1"><span className="text-zinc-500">Goal:</span> <span className="text-zinc-300">{fb.diagnostics.goal}</span></div>}
+                        {fb.diagnostics.consequence && <div><span className="text-zinc-500">Consequence:</span> <span className="text-zinc-300">{fb.diagnostics.consequence}</span></div>}
+                        {fb.diagnostics.better_approach && <div><span className="text-zinc-500">Better Approach:</span> <span className="text-zinc-300">{fb.diagnostics.better_approach}</span></div>}
+                        {fb.diagnostics.your_plan_now && <div><span className="text-zinc-500">Your Plan Now:</span> <span className="text-zinc-300">{fb.diagnostics.your_plan_now}</span></div>}
+                      </div>
+                    )}
                     {fb.admin_notes && (
                       <div className="text-xs bg-zinc-800 p-2 rounded border border-zinc-700">
                         <span className="text-muted-foreground">Admin notes: </span>

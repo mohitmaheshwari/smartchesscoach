@@ -139,6 +139,18 @@ const V5CoachingCard = ({
             fen={coaching.fen_before || ""}
             moveSan={moveSan}
             coachingText={coaching.narrative}
+            severity={coaching.severity}
+            cpLoss={coaching.cp_loss}
+            bestMove={coaching.best_move}
+            evalBefore={coaching.eval_before}
+            evalAfter={coaching.eval_after}
+            phase={coaching.phase}
+            component="V5CoachingCard"
+            conceptId={coaching.concept_id}
+            goal={coaching.goal}
+            consequence={coaching.consequence}
+            betterApproach={coaching.better_approach}
+            yourPlanNow={coaching.your_plan_now}
           />
         </div>
       </div>

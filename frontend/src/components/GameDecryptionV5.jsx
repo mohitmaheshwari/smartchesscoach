@@ -853,6 +853,18 @@ const MoveCoachingCardV5 = ({
             fen={move.fen || ""}
             moveSan={move.move_san}
             coachingText={move.narrative}
+            severity={severity}
+            cpLoss={move.cp_loss}
+            bestMove={move.best_move}
+            evalBefore={move.eval_before}
+            evalAfter={move.eval_after}
+            phase={move.phase}
+            component="GameDecryptionV5"
+            conceptId={move.concept_id}
+            goal={move.goal}
+            consequence={move.consequence}
+            betterApproach={move.better_approach}
+            yourPlanNow={move.your_plan_now}
           />
         </div>
 
