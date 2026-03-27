@@ -790,6 +790,8 @@ const MoveCoachingCardV5 = ({
 
   const isUser = move.is_user_move;
   const severity = move.severity || 'good';
+  const priority = move.priority || (severity === 'good' ? 'silent' : 'essential');
+  const weaknessMatch = move.weakness_match;
   const hasPlan = !!move.plan;
   const needsAck = move.needs_acknowledgment && move.concept_id && !acknowledgedConcepts.has(move.concept_id);
   const wasAcked = move.concept_id && acknowledgedConcepts.has(move.concept_id);
@@ -809,7 +811,9 @@ const MoveCoachingCardV5 = ({
     borderClass = 'border-red-500/30 bg-red-950/10';
     headerIcon = <AlertTriangle className="w-5 h-5 text-red-400" />;
   } else if (severity === 'inaccuracy') {
-    borderClass = 'border-orange-500/30 bg-orange-950/10';
+    borderClass = weaknessMatch 
+      ? 'border-amber-500/40 bg-amber-950/15 ring-1 ring-amber-500/20'
+      : 'border-orange-500/30 bg-orange-950/10';
     headerIcon = <Lightbulb className="w-5 h-5 text-orange-400" />;
   } else if (move.is_best_move) {
     borderClass = 'border-emerald-500/30 bg-emerald-950/10';
@@ -864,6 +868,11 @@ const MoveCoachingCardV5 = ({
             {move.is_best_move && (
               <Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                 Best move!
+              </Badge>
+            )}
+            {weaknessMatch && (
+              <Badge className="text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">
+                Known pattern{move.weakness_count ? ` (${move.weakness_count}x)` : ''}
               </Badge>
             )}
           </div>

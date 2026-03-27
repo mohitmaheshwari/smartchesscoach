@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 3  # v3: mate detection + book opening guard
+V5_COACHING_VERSION = 4  # v4: adaptive decryption (rating-based filtering + weakness matching)
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -2199,6 +2199,126 @@ def generate_simple_narrative(
 
 # ─── MAIN ORCHESTRATOR ───────────────────────────────────────────────
 
+async def _get_adaptive_config(db, user_id: str) -> Dict:
+    """
+    Get adaptive decryption config based on player rating + known weaknesses.
+    
+    Philosophy:
+    - 1100 player: Only blunders/mistakes. Inaccuracies are noise.
+    - 1400 player: Blunders/mistakes + inaccuracies that match known weaknesses.
+    - 1700+ player: Everything.
+    - If a known weakness reappears: ALWAYS explain, even at low cp_loss.
+    """
+    config = {
+        "rating": 1200,
+        "min_cp_explain": 100,   # Only explain moves with cp_loss >= this
+        "min_cp_detail": 200,    # Only show detailed plans for moves >= this
+        "known_weaknesses": set(),  # concept_ids / pattern types to always explain
+        "weakness_patterns": {},    # pattern_type -> count (for emphasis)
+    }
+
+    if db is None:
+        return config
+
+    try:
+        # Get player rating from profile
+        profile = await db.player_profiles.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "estimated_elo": 1, "current_rating": 1}
+        )
+        if profile:
+            config["rating"] = profile.get("estimated_elo") or profile.get("current_rating") or 1200
+
+        # Get known weaknesses from player identity
+        identity = await db.player_identities.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "blunder_taxonomy": 1, "priority_focus": 1, "learning_velocity": 1}
+        )
+        if identity:
+            taxonomy = identity.get("blunder_taxonomy", {})
+            by_type = taxonomy.get("by_type", {})
+            # Top 3 most frequent weakness patterns
+            sorted_types = sorted(by_type.items(), key=lambda x: x[1], reverse=True)
+            for ptype, count in sorted_types[:3]:
+                config["known_weaknesses"].add(ptype)
+                config["weakness_patterns"][ptype] = count
+
+            priority = identity.get("priority_focus")
+            if priority:
+                config["known_weaknesses"].add(priority)
+
+            # Also add worsening areas
+            velocity = identity.get("learning_velocity", {})
+            for area in velocity.get("worsening_areas", []):
+                config["known_weaknesses"].add(area)
+
+        # Adaptive thresholds based on rating
+        rating = config["rating"]
+        if rating < 1200:
+            config["min_cp_explain"] = 100   # Only mistakes & blunders
+            config["min_cp_detail"] = 150
+        elif rating < 1400:
+            config["min_cp_explain"] = 70    # Include bigger inaccuracies
+            config["min_cp_detail"] = 120
+        elif rating < 1600:
+            config["min_cp_explain"] = 50    # Include most inaccuracies
+            config["min_cp_detail"] = 80
+        else:
+            config["min_cp_explain"] = 30    # Full detail (current behavior)
+            config["min_cp_detail"] = 50
+
+        logger.info(f"[ADAPTIVE] Rating={rating}, min_explain={config['min_cp_explain']}, weaknesses={config['known_weaknesses']}")
+
+    except Exception as e:
+        logger.warning(f"Could not load adaptive config: {e}")
+
+    return config
+
+
+def _get_move_priority(
+    severity: str,
+    cp_loss: int,
+    plan: object,
+    config: Dict,
+    is_user: bool,
+) -> str:
+    """
+    Determine decryption priority for a move.
+    Returns: "essential" | "weakness_match" | "growth" | "silent"
+    
+    essential: Always show (blunders, mistakes, opponent blunders)
+    weakness_match: Matches a known weakness — show with emphasis
+    growth: Inaccuracy worth explaining at this level
+    silent: Skip detailed explanation
+    """
+    if not is_user:
+        # Opponent moves: show blunders/mistakes, skip the rest
+        if severity in ("opp_blunder", "opp_mistake"):
+            return "essential"
+        return "context"
+
+    if severity in ("blunder",):
+        return "essential"
+    if severity in ("mistake",):
+        return "essential"
+
+    # Check if this move matches a known weakness pattern
+    if plan and hasattr(plan, 'concept_id') and plan.concept_id:
+        concept = plan.concept_id.lower()
+        for weakness in config.get("known_weaknesses", set()):
+            if weakness.lower() in concept or concept in weakness.lower():
+                return "weakness_match"
+
+    # Inaccuracies: only explain if cp_loss meets the adaptive threshold
+    if severity == "inaccuracy":
+        if cp_loss >= config.get("min_cp_explain", 100):
+            return "growth"
+        return "silent"
+
+    # Good moves
+    return "silent"
+
+
 async def generate_game_decryption_v5(
     pgn: str,
     user_color: str,
@@ -2249,6 +2369,9 @@ async def generate_game_decryption_v5(
                     acknowledged_concepts.add(doc.get("concept_id"))
             except Exception as e:
                 logger.warning(f"Could not fetch acknowledged concepts: {e}")
+        
+        # Get adaptive config (rating-based filtering + known weaknesses)
+        adaptive = await _get_adaptive_config(db, user_id)
         
         # Process each move
         decryption_data = []
@@ -2332,6 +2455,25 @@ async def generate_game_decryption_v5(
                         severity = "good"
             
             fen_before = board.fen()
+            
+            # ─── ADAPTIVE PRIORITY ────────────────────────────────
+            # Determine if this move should be fully explained based on player level
+            # For lower-rated players: skip inaccuracies, focus on mistakes/blunders
+            move_priority = "silent"
+            if is_user and severity == "inaccuracy" and cp_loss < adaptive.get("min_cp_explain", 100):
+                # Below this player's threshold — treat as fine
+                severity = "good"
+                move_priority = "silent"
+            elif is_user and severity == "inaccuracy":
+                move_priority = "growth"
+            elif is_user and severity in ("mistake", "blunder"):
+                move_priority = "essential"
+            elif not is_user and severity in ("opp_blunder", "opp_mistake"):
+                move_priority = "essential"
+            elif not is_user:
+                move_priority = "context"
+            elif severity == "good":
+                move_priority = "silent"
             
             # Get PV data
             pv_after_played = eval_data.get("pv_after_played", [])
@@ -2446,6 +2588,21 @@ async def generate_game_decryption_v5(
                     narrative = f"{move_san} loses about {cp_loss // 100} pawns. {best_move} was better."
                     future_moves = pv_after_played[:3] if pv_after_played else []
             
+            # Check weakness match — boost priority if move matches known pattern
+            weakness_match = False
+            weakness_count = 0
+            if plan and is_user and severity in ("inaccuracy", "mistake", "blunder"):
+                concept = (plan.concept_id or "").lower()
+                concept_type = (plan.concept_type or "").lower()
+                for weakness in adaptive.get("known_weaknesses", set()):
+                    wk = weakness.lower()
+                    if wk in concept or wk in concept_type or concept in wk:
+                        weakness_match = True
+                        weakness_count = adaptive.get("weakness_patterns", {}).get(weakness, 0)
+                        if move_priority != "essential":
+                            move_priority = "weakness_match"
+                        break
+
             # Build move output
             prev_move = move
             board.push(move)
@@ -2471,6 +2628,11 @@ async def generate_game_decryption_v5(
                 "best_move_san": best_move,
                 "severity": severity,
                 "is_mistake": severity in ("mistake", "blunder", "opp_blunder", "opp_mistake"),
+                
+                # Adaptive priority
+                "priority": move_priority,
+                "weakness_match": weakness_match,
+                "weakness_count": weakness_count if weakness_match else None,
                 
                 # V5 Coaching
                 "narrative": narrative,
@@ -2529,7 +2691,9 @@ async def generate_game_decryption_v5(
             
             mistakes_to_enhance = [
                 (i, m) for i, m in enumerate(decryption_data)
-                if m.get("severity") in ("mistake", "blunder", "inaccuracy") and m.get("plan")
+                if m.get("severity") in ("mistake", "blunder", "inaccuracy") 
+                and m.get("plan")
+                and m.get("priority") != "silent"
             ]
             
             if mistakes_to_enhance:
