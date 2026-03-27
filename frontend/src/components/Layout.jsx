@@ -188,7 +188,7 @@ const Layout = ({ children, user }) => {
 
   const navigation = [
     { name: 'Home', href: '/home', icon: Home },
-    { name: 'Train', href: '/training', icon: Target },
+    { name: 'Lab', href: '/lab', icon: FlaskConical },
     { name: 'Openings', href: '/openings-overview', icon: BookOpen },
     { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
