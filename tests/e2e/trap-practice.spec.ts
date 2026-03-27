@@ -7,7 +7,7 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'https://opening-portrait.preview.emergentagent.com';
+const BASE_URL = 'https://coach-play-fix.preview.emergentagent.com';
 
 test.describe('Opening Lesson Page - Traps Tab', () => {
   

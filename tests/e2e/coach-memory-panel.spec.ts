@@ -8,7 +8,7 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://opening-portrait.preview.emergentagent.com';
+const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://coach-play-fix.preview.emergentagent.com';
 
 test.describe('Coach Memory Panel - UI Tests', () => {
   test.beforeEach(async ({ page }) => {

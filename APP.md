@@ -890,7 +890,7 @@ Interactive guided walkthroughs with auto-playing moves, coach narration, and "W
 
 ## Contact & Links
 
-- **Live Demo**: https://opening-portrait.preview.emergentagent.com
+- **Live Demo**: https://coach-play-fix.preview.emergentagent.com
 - **API Documentation**: /api/docs (FastAPI auto-generated)
 
 ---

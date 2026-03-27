@@ -15,7 +15,7 @@ Tests:
 import pytest
 import uuid
 
-BASE_URL = "https://opening-portrait.preview.emergentagent.com"
+BASE_URL = "https://coach-play-fix.preview.emergentagent.com"
 
 
 class TestTriggerCoachMoveEndpoint:

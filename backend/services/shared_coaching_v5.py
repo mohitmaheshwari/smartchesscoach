@@ -447,8 +447,10 @@ def analyze_positional_weakness(board: chess.Board, user_color: bool, opponent_m
 
 def detect_fork_in_pv(board: chess.Board, pv: List[str], user_color: bool) -> Optional[Dict]:
     """
-    Detect if the PV contains a fork threat.
-    Returns details about which pieces get forked.
+    Detect if the PV contains a fork threat by the KNIGHT specifically.
+    Only reports a fork when the knight itself attacks 2+ valuable pieces.
+    Uses chess.attacks() on the knight square instead of is_attacked_by()
+    to avoid false positives from other pieces.
     """
     if not pv:
         return None
@@ -460,23 +462,29 @@ def detect_fork_in_pv(board: chess.Board, pv: List[str], user_color: bool) -> Op
             move = sim.parse_san(san)
             moving_piece = sim.piece_at(move.from_square)
             
-            # Check for knight forks
+            # Check for knight forks only
             if moving_piece and moving_piece.piece_type == chess.KNIGHT:
+                knight_dest = move.to_square
                 sim.push(move)
                 
-                # Find attacked valuable pieces
+                # Get squares attacked specifically by this knight
+                knight_attacks = chess.BB_KNIGHT_ATTACKS[knight_dest]
+                
+                # Find user's valuable pieces on those specific squares
                 attacked = []
                 attacked_values = []
                 
                 for sq in chess.SQUARES:
-                    if sim.is_attacked_by(not user_color, sq):
-                        piece = sim.piece_at(sq)
-                        if piece and piece.color == user_color:
-                            attacked.append(get_fun_piece_name(piece))
-                            attacked_values.append(get_piece_value(piece))
+                    if not (knight_attacks & chess.BB_SQUARES[sq]):
+                        continue  # Knight doesn't attack this square
+                    piece = sim.piece_at(sq)
+                    if piece and piece.color == user_color:
+                        attacked.append(get_fun_piece_name(piece))
+                        attacked_values.append(get_piece_value(piece))
                 
-                # Fork detected if 2+ valuable pieces attacked
-                if len(attacked) >= 2 and sum(attacked_values) >= 5:
+                # Fork detected if 2+ valuable pieces attacked by the knight
+                # Require total value >= 6 (at least rook+bishop or queen+anything)
+                if len(attacked) >= 2 and sum(attacked_values) >= 6:
                     attacked_with_values = list(zip(attacked, attacked_values))
                     attacked_with_values.sort(key=lambda x: x[1], reverse=True)
                     piece1 = attacked_with_values[0][0]

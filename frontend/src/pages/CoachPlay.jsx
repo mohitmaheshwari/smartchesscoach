@@ -530,6 +530,12 @@ const CoachPlay = ({ user }) => {
     if (moves.length === 0) {
       setShowChecklist(true);
     }
+    
+    // Auto-dismiss opening suggestions once past the opening phase (~14 half-moves)
+    if (moves.length >= 14 && (inlineOpening || inlineTrap)) {
+      setInlineOpening(null);
+      setInlineTrap(null);
+    }
   }, [session?.move_history, selectedColor]);
 
   const checkActiveSession = async () => {
@@ -1340,6 +1346,15 @@ const CoachPlay = ({ user }) => {
 
   // Execute the move (called after guardian check passes or user confirms)
   const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
+    // IMMEDIATELY clear all coaching state for clean transition
+    setV5Coaching(null);
+    setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
+    setBehavioralCoaching(null);
+    setCurrentInsight(null);
+    setConsequenceFeedback(null);
+    setIsCoachThinking(true);
+    setLoadingFeedback(true);
+
     try {
       // If this is an override (user confirmed risky move), first log the confirmation
       if (isOverride) {
@@ -1420,14 +1435,11 @@ const CoachPlay = ({ user }) => {
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
         
-        // Clear previous coach explanation (new move cycle starting)
-        setInteractiveCoaching(prev => ({ ...prev, coachMoveCoaching: null }));
-        
         // Fetch V5 feedback for user's move IMMEDIATELY (don't wait for coach)
         fetchUserMoveCoaching(session.session_id);
         
         // Add thinking message to chat
-        setChatMessages(prev => [...prev, {
+        setChatMessages(prev => [...prev.filter(m => m.type !== "thinking"), {
           type: "thinking",
           message: THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)],
           timestamp: Date.now()
@@ -1435,6 +1447,10 @@ const CoachPlay = ({ user }) => {
         
         // Poll for coach's response
         pollForCoachResponse();
+      } else {
+        // No coach response expected - clear loading state
+        setLoadingFeedback(false);
+        setIsCoachThinking(false);
       }
 
       return true;
@@ -2262,64 +2278,7 @@ const CoachPlay = ({ user }) => {
                 )}
               </div>
 
-              {/* Time Control */}
-              <div>
-                <label className="text-sm font-medium mb-3 block">
-                  Time Control
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {["3+2", "10+5", "15+10"].map((tc) => (
-                    <Button
-                      key={tc}
-                      variant={timeControl === tc ? "default" : "outline"}
-                      onClick={() => setTimeControl(tc)}
-                      size="sm"
-                      data-testid={`time-${tc.replace("+", "-")}`}
-                    >
-                      <Clock className="w-4 h-4 mr-1" />
-                      {tc}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Coaching Mode */}
-              <div>
-                <label className="text-sm font-medium mb-3 block">
-                  Coaching Style
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    variant={coachingMode === "beginner" ? "default" : "outline"}
-                    onClick={() => setCoachingMode("beginner")}
-                    size="sm"
-                    data-testid="mode-beginner"
-                  >
-                    🌱 Beginner
-                  </Button>
-                  <Button
-                    variant={coachingMode === "intermediate" ? "default" : "outline"}
-                    onClick={() => setCoachingMode("intermediate")}
-                    size="sm"
-                    data-testid="mode-intermediate"
-                  >
-                    🎯 Standard
-                  </Button>
-                  <Button
-                    variant={coachingMode === "advanced" ? "default" : "outline"}
-                    onClick={() => setCoachingMode("advanced")}
-                    size="sm"
-                    data-testid="mode-advanced"
-                  >
-                    🚀 Minimal
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {coachingMode === "beginner" && "More explanations, hand-holding through each move"}
-                  {coachingMode === "intermediate" && "Balanced feedback, click for details"}
-                  {coachingMode === "advanced" && "Just the essentials, no fluff"}
-                </p>
-              </div>
+              {/* Adaptive coaching - no manual config needed */}
 
               {/* NEW: Past Games Memory */}
               {!practiceMode && pastGamesHistory?.sessions?.length > 0 && (
@@ -2434,9 +2393,6 @@ const CoachPlay = ({ user }) => {
               <div className="flex items-center gap-2">
                 <Brain className="w-4 h-4 text-primary" />
                 <span className="font-medium">Coach</span>
-                <Badge variant="secondary" className="text-xs">
-                  Lvl {session?.coach_skill_level || 8}
-                </Badge>
               </div>
               <Badge variant="outline" className="text-xs">
                 <Clock className="w-3 h-3 mr-1" />
@@ -2827,8 +2783,8 @@ const CoachPlay = ({ user }) => {
                   />
                 )}
                 
-                {/* Opening Suggestion Card - In coach panel */}
-                {session && (inlineOpening || inlineTrap) && !isInTeachingMode && !gameOver && (
+                {/* Opening Suggestion Card - In coach panel (only during opening phase) */}
+                {session && (inlineOpening || inlineTrap) && !isInTeachingMode && !gameOver && (session?.move_history?.length || 0) < 14 && (
                   <div data-testid="opening-suggestion-card" className="p-4 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30">
                     <div className="flex items-start gap-3">
                       <div className="p-2 rounded-lg bg-amber-500/20 shrink-0">
@@ -2965,6 +2921,19 @@ const CoachPlay = ({ user }) => {
                     consequence={consequenceFeedback}
                     onDismiss={() => setConsequenceFeedback(null)}
                   />
+                )}
+                
+                {/* === COACH THINKING INDICATOR === */}
+                {isCoachThinking && !v5Coaching && !guardianIntervention && (
+                  <div data-testid="coach-thinking-indicator" className="p-4 rounded-lg bg-primary/5 border border-primary/10 animate-pulse">
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                      <div>
+                        <p className="text-sm font-medium text-primary">Analyzing your move...</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Coach is evaluating the position</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
                 
                 {/* === USER'S MOVE FEEDBACK (Same V5CoachingCard as Lab!) === */}
