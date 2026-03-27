@@ -183,7 +183,7 @@ const HomePage = ({ user }) => {
           {/* Train - Community Intelligence */}
           <Card 
             className="bg-zinc-900 border-zinc-800 cursor-pointer hover:border-zinc-700 transition-all group"
-            onClick={() => navigate("/training")}
+            onClick={() => navigate(problem ? `/training?focus=${problem}` : "/training")}
             data-testid="train-card"
           >
             <CardContent className="p-4">
@@ -232,8 +232,7 @@ const HomePage = ({ user }) => {
             className="mt-3"
           >
             <Card 
-              className="bg-zinc-900 border-amber-500/20 cursor-pointer hover:border-amber-500/30 transition-all"
-              onClick={() => navigate("/training")}
+              className="bg-zinc-900 border-amber-500/20"
               data-testid="pattern-prescription-card"
             >
               <CardContent className="p-4">
@@ -243,7 +242,12 @@ const HomePage = ({ user }) => {
                 </div>
                 <div className="space-y-2">
                   {prescriptions.map((rx) => (
-                    <div key={rx.pattern_type} className="flex items-center justify-between" data-testid={`prescription-${rx.pattern_type}`}>
+                    <div 
+                      key={rx.pattern_type} 
+                      className="flex items-center justify-between cursor-pointer hover:bg-zinc-800/50 rounded px-2 py-1.5 -mx-2 transition-colors" 
+                      data-testid={`prescription-${rx.pattern_type}`}
+                      onClick={() => navigate(`/training?focus=${rx.pattern_type}`)}
+                    >
                       <div className="flex items-center gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full ${
                           rx.severity === 'critical' ? 'bg-red-400' : rx.severity === 'concerning' ? 'bg-amber-400' : 'bg-zinc-400'

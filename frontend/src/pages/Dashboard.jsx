@@ -321,7 +321,7 @@ const Dashboard = ({ user }) => {
             </p>
             
             <div className="space-y-2">
-              {worthReviewing.slice(1, 8).map((game, i) => {
+              {worthReviewing.slice(1).map((game, i) => {
                 const result = getResult(game);
                 const display = game.display;
                 const MistakeIcon = display.icon;
@@ -368,11 +368,6 @@ const Dashboard = ({ user }) => {
                 );
               })}
               
-              {worthReviewing.length > 8 && (
-                <p className="text-xs text-zinc-600 text-center pt-2">
-                  +{worthReviewing.length - 8} more games
-                </p>
-              )}
             </div>
           </motion.div>
         )}
