@@ -2926,7 +2926,7 @@ const CoachPlay = ({ user }) => {
                       <FlagMoveButton
                         source="coach"
                         sessionId={session?.session_id}
-                        fen={game?.fen() || ""}
+                        fen={currentFen || ""}
                         moveSan={interactiveCoaching.coachMoveCoaching.move_san}
                         coachingText={interactiveCoaching.coachMoveCoaching.explanation}
                         className="ml-auto"
