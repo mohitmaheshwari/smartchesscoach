@@ -191,29 +191,34 @@ async def _generate_narrative(data: dict) -> str:
             logger.warning("No EMERGENT_LLM_KEY, using fallback narrative")
             return _fallback_narrative(data)
 
-        prompt = f"""You are a chess coach writing a brief player profile. Write 2-3 sentences describing who this player is RIGHT NOW — their tendencies, where their games are decided, and what makes them distinctive compared to typical players at their level.
+        prompt = f"""Look at this player's data and tell them who they are as a chess player right now. Talk to them like their personal coach — someone who's watched all their games and knows their patterns.
 
 RULES:
-- Purely observational. Do NOT give advice or prescriptions.
-- Be specific. Reference actual data (opening names, game phases, tendencies).
-- Write as if talking directly to the player ("You tend to...", "Your games are...").
-- No cliches. No "you need to work on." Just describe WHO they are as a player.
-- Keep it to 2-3 sentences maximum. Concise and punchy.
+- Talk like a real coach talks. Short sentences. Direct. Like you're sitting across from them.
+- Say what you actually see in the data. Name specific openings, specific phases, specific patterns.
+- Do NOT give advice. Don't say "you should" or "you need to." Just tell them what you see.
+- 2-3 short sentences. That's it. No essays.
+- Don't be formal. Don't be flowery. Be real.
+
+BAD example (too formal, too wordy):
+"Your reliance on offbeat lines reveals a taste for unconventional play, yet tactical oversights dominate your losses, reflecting a struggle to balance complexity with accuracy."
+
+GOOD example (how a coach actually talks):
+"You play a different opening almost every game — {data['unique_openings']} different ones in your last {data['total_games']}. Most of your games go wrong in the opening itself, before you even get to the middlegame. You're a scrappy fighter though — {data['win_rate']}% wins says you find ways to win even from messy positions."
 
 PLAYER DATA:
 - Name: {data['name']}
-- Rating: {data['rating']}
-- Last {data['total_games']} games: {data['wins']}W / {data['losses']}L / {data['draws']}D (win rate {data['win_rate']}%)
+- Last {data['total_games']} games: {data['wins']}W / {data['losses']}L / {data['draws']}D ({data['win_rate']}% wins)
 - Most played opening: {data['most_played_opening']} ({data['most_played_opening_pct']}% of games)
 - Opening diversity: {data['unique_openings']} different openings in {data['total_games']} games
-- Where mistakes happen most: {data['worst_phase']} (opening: {data['phase_mistakes']['opening']}, middlegame: {data['phase_mistakes']['middlegame']}, endgame: {data['phase_mistakes']['endgame']})
-- Blunders in analyzed games: {data['blunder_count']}
-- Common mistake types: {', '.join(f"{t['type']} ({t['count']}x)" for t in data['top_mistake_types']) or 'varied'}
 - Top openings: {', '.join(f"{o['name']} ({o['count']}x)" for o in data['top_openings']) or 'varied'}
+- Where things go wrong: {data['worst_phase']} (opening: {data['phase_mistakes']['opening']}, middlegame: {data['phase_mistakes']['middlegame']}, endgame: {data['phase_mistakes']['endgame']})
+- Blunders: {data['blunder_count']}
+- Common mistake types: {', '.join(f"{t['type']} ({t['count']}x)" for t in data['top_mistake_types']) or 'varied'}
 
-Write the profile now. 2-3 sentences only."""
+Now write the profile. 2-3 short sentences. Talk like a coach, not a textbook."""
 
-        system_msg = "You are a perceptive chess coach. You describe players accurately and specifically. No generic platitudes. No advice. Just sharp observation."
+        system_msg = "You are a chess coach who talks straight. No academic language. No fancy vocabulary. You talk like a real person who's been watching this player's games and knows them well. Short, punchy, specific."
 
         chat_instance = LlmChat(
             api_key=api_key,
