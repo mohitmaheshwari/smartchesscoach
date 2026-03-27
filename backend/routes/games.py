@@ -407,3 +407,46 @@ async def reanalyze_game(
         "status": "queued",
         "message": "Game queued for analysis. The analysis worker will process it shortly."
     }
+
+
+
+@router.post("/{game_id}/regenerate-coaching")
+async def regenerate_coaching(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Regenerate V5 coaching narratives for a game.
+    Clears cached V5 decryption data so it regenerates with latest logic.
+    Does NOT re-run Stockfish — just the coaching layer.
+    """
+    global db
+    
+    # Verify game belongs to user
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "game_id": 1}
+    )
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Clear V5 coaching cache from game_analysis
+    result = await db.game_analysis.update_one(
+        {"game_id": game_id},
+        {"$unset": {
+            "decryption_v5_data": "",
+            "decryption_v5_generating": "",
+            "decryption_generated_at": ""
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="No analysis found for this game")
+    
+    logger.info(f"Cleared V5 coaching cache for game {game_id} — will regenerate on next view")
+    
+    return {
+        "success": True,
+        "message": "Coaching cleared. Open the game in The Lab to regenerate with improved logic."
+    }

@@ -15,7 +15,8 @@ import GameDecryptionV5 from "@/components/GameDecryptionV5";
 import LabClassic from "@/pages/LabClassic";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, BookOpen, Brain, Loader2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Brain, Loader2, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -31,6 +32,7 @@ const Lab = ({ user }) => {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshingCoaching, setRefreshingCoaching] = useState(false);
   
   // Fetch game and analysis data
   useEffect(() => {
@@ -69,6 +71,27 @@ const Lab = ({ user }) => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const handleRefreshCoaching = async () => {
+    setRefreshingCoaching(true);
+    try {
+      const res = await fetch(`${API}/games/${gameId}/regenerate-coaching`, {
+        method: "POST",
+        credentials: "include"
+      });
+      if (res.ok) {
+        toast.success("Coaching cleared — reloading...");
+        await fetchGameData();
+      } else {
+        const err = await res.json();
+        toast.error(err.detail || "Failed to refresh coaching");
+      }
+    } catch (e) {
+      toast.error("Failed to refresh coaching");
+    } finally {
+      setRefreshingCoaching(false);
     }
   };
   
@@ -144,8 +167,21 @@ const Lab = ({ user }) => {
               </div>
             </div>
             
-            {/* Right: View Toggle */}
-            <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-800/50 border border-gray-700">
+            {/* Right: Refresh + View Toggle */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshCoaching}
+                disabled={refreshingCoaching}
+                data-testid="refresh-coaching-btn"
+                className="text-xs text-muted-foreground hover:text-primary"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 mr-1 ${refreshingCoaching ? 'animate-spin' : ''}`} />
+                {refreshingCoaching ? "Refreshing..." : "Refresh Coaching"}
+              </Button>
+              
+              <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-800/50 border border-gray-700">
               <button
                 onClick={() => setViewMode("decryption")}
                 className={`px-3 py-1.5 text-xs rounded transition-colors ${
@@ -170,6 +206,7 @@ const Lab = ({ user }) => {
                 <Brain className="w-3 h-3 inline mr-1" />
                 Classic View
               </button>
+              </div>
             </div>
           </div>
         </div>
