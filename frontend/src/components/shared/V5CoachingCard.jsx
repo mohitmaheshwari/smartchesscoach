@@ -32,7 +32,7 @@ import {
   Swords,
   Eye
 } from "lucide-react";
-import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
 // Severity colors and icons
 const SEVERITY_CONFIG = {
@@ -86,6 +86,28 @@ const V5CoachingCard = ({
   const isMistake = ["inaccuracy", "mistake", "blunder"].includes(severity);
   const isOpponentMove = severity === "context";
   
+  // Shared flag context for all inline flags
+  const flagCtx = {
+    source,
+    gameId,
+    sessionId,
+    moveNumber,
+    fen: coaching.fen_before || "",
+    moveSan,
+    side: isOpponentMove ? "opponent" : "user",
+    severity,
+    cpLoss: coaching.cp_loss,
+    bestMove: coaching.best_move,
+    evalBefore: coaching.eval_before,
+    evalAfter: coaching.eval_after,
+    phase: coaching.phase,
+    component: "V5CoachingCard",
+    goal: coaching.goal,
+    consequence: coaching.consequence,
+    betterApproach: coaching.better_approach,
+    yourPlanNow: coaching.your_plan_now,
+  };
+  
   // Handle acknowledge click
   const handleAcknowledge = async () => {
     if (!onAcknowledge || !coaching.concept_id) return;
@@ -131,48 +153,29 @@ const V5CoachingCard = ({
               Best: <span className="text-emerald-400 font-mono">{coaching.best_move}</span>
             </span>
           )}
-          <FlagMoveButton
-            source={source}
-            gameId={gameId}
-            sessionId={sessionId}
-            moveNumber={moveNumber}
-            fen={coaching.fen_before || ""}
-            moveSan={moveSan}
-            coachingText={coaching.narrative}
-            severity={coaching.severity}
-            cpLoss={coaching.cp_loss}
-            bestMove={coaching.best_move}
-            evalBefore={coaching.eval_before}
-            evalAfter={coaching.eval_after}
-            phase={coaching.phase}
-            component="V5CoachingCard"
-            conceptId={coaching.concept_id}
-            goal={coaching.goal}
-            consequence={coaching.consequence}
-            betterApproach={coaching.better_approach}
-            yourPlanNow={coaching.your_plan_now}
-          />
         </div>
       </div>
       
       {/* Content */}
       <div className="p-4 space-y-4">
         {/* Main Narrative */}
-        <p className={`text-sm ${
+        <div className={`text-sm group ${
           isGoodMove ? 'text-emerald-300' :
           isMistake ? 'text-white' :
           'text-zinc-300'
         }`}>
-          {coaching.narrative}
-        </p>
+          <span className="inline">{coaching.narrative}</span>
+          <InlineFlag section="narrative" flaggedText={coaching.narrative} context={flagCtx} />
+        </div>
         
         {/* Opponent Move: Your Plan Now */}
         {isOpponentMove && coaching.your_plan_now && (
-          <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
+          <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20 group">
             <p className="text-xs text-blue-400 mb-1 flex items-center gap-1">
               <Target className="w-3 h-3" /> Your plan now
             </p>
-            <p className="text-white text-sm">{coaching.your_plan_now}</p>
+            <p className="text-white text-sm inline">{coaching.your_plan_now}</p>
+            <InlineFlag section="your_plan_now" flaggedText={coaching.your_plan_now} context={flagCtx} />
           </div>
         )}
         
@@ -181,9 +184,10 @@ const V5CoachingCard = ({
           <>
             {/* Problem */}
             {coaching.current_problem && (
-              <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20">
+              <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20 group">
                 <p className="text-xs text-red-400 mb-1">The problem</p>
-                <p className="text-white text-sm">{coaching.current_problem}</p>
+                <p className="text-white text-sm inline">{coaching.current_problem}</p>
+                <InlineFlag section="current_problem" flaggedText={coaching.current_problem} context={flagCtx} />
               </div>
             )}
             
@@ -210,6 +214,7 @@ const V5CoachingCard = ({
               <CandidateMovesSection 
                 candidates={coaching.candidate_moves}
                 onShowMove={onShowAlternativeMove}
+                flagCtx={flagCtx}
               />
             )}
             
@@ -222,20 +227,22 @@ const V5CoachingCard = ({
                 onAcknowledge={handleAcknowledge}
                 acknowledging={acknowledging}
                 showButton={showAcknowledgeButton && !isAcknowledged}
+                flagCtx={flagCtx}
               />
             )}
             
             {/* Pattern Memory — "You've missed this 3 times" */}
             {coaching.pattern_memory && (
               <div
-                className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20"
+                className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20 group"
                 data-testid="pattern-memory-note"
               >
                 <p className="text-xs text-amber-300 font-medium flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
-                  {coaching.pattern_memory}
+                  <span className="inline">{coaching.pattern_memory}</span>
+                  <InlineFlag section="pattern_memory" flaggedText={coaching.pattern_memory} context={flagCtx} />
                 </p>
               </div>
             )}
@@ -243,14 +250,15 @@ const V5CoachingCard = ({
             {/* Theory Applied — "You played the book move" */}
             {coaching.theory_applied && (
               <div
-                className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20"
+                className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20 group"
                 data-testid="theory-applied-note"
               >
                 <p className="text-xs text-emerald-300 font-medium flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  {coaching.theory_applied}
+                  <span className="inline">{coaching.theory_applied}</span>
+                  <InlineFlag section="theory_applied" flaggedText={coaching.theory_applied} context={flagCtx} />
                 </p>
               </div>
             )}
@@ -265,7 +273,7 @@ const V5CoachingCard = ({
 /**
  * Candidate Moves Section - Shows Stockfish alternatives with clickable moves
  */
-const CandidateMovesSection = ({ candidates, onShowMove }) => {
+const CandidateMovesSection = ({ candidates, onShowMove, flagCtx }) => {
   if (!candidates?.length) return null;
   
   return (
@@ -280,7 +288,7 @@ const CandidateMovesSection = ({ candidates, onShowMove }) => {
         {candidates.map((candidate, idx) => (
           <div 
             key={idx}
-            className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-all hover:scale-[1.01] ${
+            className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-all hover:scale-[1.01] group ${
               candidate.is_best 
                 ? 'bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20' 
                 : 'bg-zinc-800/50 hover:bg-zinc-700/50'
@@ -302,7 +310,8 @@ const CandidateMovesSection = ({ candidates, onShowMove }) => {
               {candidate.move}
             </button>
             <div className="flex-1">
-              <p className="text-sm text-zinc-200">{candidate.idea}</p>
+              <span className="text-sm text-zinc-200 inline">{candidate.idea}</span>
+              {flagCtx && <InlineFlag section={`candidate_${candidate.move}`} flaggedText={`${candidate.move}: ${candidate.idea}`} context={flagCtx} />}
               {candidate.type && (
                 <Badge 
                   variant="outline" 
@@ -332,19 +341,21 @@ const TransferableLearningSection = ({
   isAcknowledged,
   onAcknowledge,
   acknowledging,
-  showButton
+  showButton,
+  flagCtx
 }) => {
   return (
     <div 
-      className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/30"
+      className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/30 group"
       data-testid="transferable-learning-section"
     >
       <div className="flex items-center gap-2 mb-1">
         <GraduationCap className="w-4 h-4 text-amber-400" />
         <p className="text-xs font-semibold text-amber-400">Golden Rule</p>
       </div>
-      <p className="text-white text-sm font-medium mb-3">{learning}</p>
-      
+      <span className="text-white text-sm font-medium inline">{learning}</span>
+      {flagCtx && <InlineFlag section="transferable_learning" flaggedText={learning} context={flagCtx} />}
+      <div className="mt-3">
       {showButton && conceptId && (
         <Button
           size="sm"
@@ -370,6 +381,7 @@ const TransferableLearningSection = ({
           You've learned this concept!
         </div>
       )}
+      </div>
     </div>
   );
 };

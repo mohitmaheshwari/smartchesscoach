@@ -45,7 +45,7 @@ import {
   ArrowRight,
   Check
 } from "lucide-react";
-import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -819,6 +819,28 @@ const MoveCoachingCardV5 = ({
     headerIcon = <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
   }
 
+  // Shared flag context for all inline flags on this move
+  const flagCtx = {
+    source: "lab",
+    gameId,
+    moveNumber: move.move_number,
+    fen: move.fen || "",
+    moveSan: move.move_san,
+    side: isUser ? "user" : "opponent",
+    severity,
+    cpLoss: move.cp_loss,
+    bestMove: move.best_move,
+    evalBefore: move.eval_before,
+    evalAfter: move.eval_after,
+    phase: move.phase,
+    component: "GameDecryptionV5",
+    opening: move.opening_name,
+    goal: move.plan?.goal,
+    consequence: move.plan?.consequence,
+    betterApproach: move.plan?.better_approach,
+    yourPlanNow: move.your_plan_now,
+  };
+
   return (
     <Card className={`border ${borderClass}`} data-testid="move-coaching-card-v5">
       <CardContent className="p-5 space-y-3">
@@ -846,42 +868,24 @@ const MoveCoachingCardV5 = ({
             )}
           </div>
           <Badge variant="outline" className="text-xs text-zinc-400">{move.phase}</Badge>
-          <FlagMoveButton
-            source="lab"
-            gameId={gameId}
-            moveNumber={move.move_number}
-            fen={move.fen || ""}
-            moveSan={move.move_san}
-            coachingText={move.narrative}
-            severity={severity}
-            cpLoss={move.cp_loss}
-            bestMove={move.best_move}
-            evalBefore={move.eval_before}
-            evalAfter={move.eval_after}
-            phase={move.phase}
-            component="GameDecryptionV5"
-            conceptId={move.concept_id}
-            goal={move.goal}
-            consequence={move.consequence}
-            betterApproach={move.better_approach}
-            yourPlanNow={move.your_plan_now}
-          />
         </div>
 
         {/* ─── NARRATIVE ────────────────────────────────────── */}
         {move.narrative && (
-          <div className="leading-relaxed" data-testid="move-narrative">
-            <p className="text-sm text-zinc-200">{move.narrative}</p>
+          <div className="leading-relaxed group" data-testid="move-narrative">
+            <p className="text-sm text-zinc-200 inline">{move.narrative}</p>
+            <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
           </div>
         )}
 
         {/* ─── OPPONENT MOVE: YOUR PLAN NOW ─────────────────── */}
         {!isUser && move.your_plan_now && (
-          <div className="bg-indigo-500/10 rounded-lg p-3 border border-indigo-500/30" data-testid="your-plan-now">
+          <div className="bg-indigo-500/10 rounded-lg p-3 border border-indigo-500/30 group" data-testid="your-plan-now">
             <p className="text-xs text-indigo-400 mb-1 flex items-center gap-1">
               <Swords className="w-3 h-3" /> What's your plan now?
             </p>
-            <p className="text-white text-sm">{move.your_plan_now}</p>
+            <p className="text-white text-sm inline">{move.your_plan_now}</p>
+            <InlineFlag section="your_plan_now" flaggedText={move.your_plan_now} context={flagCtx} />
           </div>
         )}
 
@@ -890,21 +894,25 @@ const MoveCoachingCardV5 = ({
           <div className="space-y-2">
             {/* Consequence with clickable moves */}
             {move.plan.consequence && (
-              <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20" data-testid="plan-consequence">
+              <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20 group" data-testid="plan-consequence">
                 <p className="text-xs text-red-400 mb-1">What happens</p>
-                <ClickableMoves 
-                  text={move.plan.consequence}
-                  moves={move.future_moves || []}
-                  onMoveClick={onShowFutureMoves}
-                />
+                <span className="inline">
+                  <ClickableMoves 
+                    text={move.plan.consequence}
+                    moves={move.future_moves || []}
+                    onMoveClick={onShowFutureMoves}
+                  />
+                </span>
+                <InlineFlag section="consequence" flaggedText={move.plan.consequence} context={flagCtx} />
               </div>
             )}
             
             {/* Better approach */}
             {move.plan.better_approach && (
-              <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20" data-testid="plan-better">
+              <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20 group" data-testid="plan-better">
                 <p className="text-xs text-emerald-400 mb-1">Better approach</p>
-                <p className="text-white text-sm">{move.plan.better_approach}</p>
+                <p className="text-white text-sm inline">{move.plan.better_approach}</p>
+                <InlineFlag section="better_approach" flaggedText={move.plan.better_approach} context={flagCtx} />
               </div>
             )}
             
@@ -939,8 +947,9 @@ const MoveCoachingCardV5 = ({
                       >
                         {candidate.move}
                       </button>
-                      <div className="flex-1">
-                        <p className="text-sm text-zinc-200">{candidate.idea}</p>
+                      <div className="flex-1 group">
+                        <p className="text-sm text-zinc-200 inline">{candidate.idea}</p>
+                        <InlineFlag section={`candidate_move_${candidate.move}`} flaggedText={`${candidate.move}: ${candidate.idea}`} context={flagCtx} />
                         <Badge 
                           variant="outline" 
                           className={`mt-1 text-xs ${
@@ -966,12 +975,13 @@ const MoveCoachingCardV5 = ({
             
             {/* Transferable learning */}
             {move.plan.transferable_learning && (
-              <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/30" data-testid="transferable-learning">
+              <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/30 group" data-testid="transferable-learning">
                 <div className="flex items-center gap-2 mb-1">
                   <GraduationCap className="w-4 h-4 text-amber-400" />
                   <p className="text-xs font-semibold text-amber-400">Learning</p>
                 </div>
-                <p className="text-white text-sm font-medium">{move.plan.transferable_learning}</p>
+                <p className="text-white text-sm font-medium inline">{move.plan.transferable_learning}</p>
+                <InlineFlag section="transferable_learning" flaggedText={move.plan.transferable_learning} context={flagCtx} />
                 
                 {/* I Understand button */}
                 {needsAck && (

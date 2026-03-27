@@ -1,12 +1,12 @@
 /**
- * FlagMoveDialog.jsx — Developer-grade coaching flag system
+ * FlagMoveDialog.jsx — Inline flag system for every coaching text element
  *
- * Every coaching message gets a flag button. When flagged, captures:
- * - Exact coaching text, FEN, move, eval data
- * - Severity, phase, component, concept
- * - Goal/consequence/better_approach from V5 coaching
+ * InlineFlag: tiny flag icon next to each coaching text. One click opens a 
+ * pre-filled dialog with FULL context: game_id, FEN, side, move, classification,
+ * eval data, the exact text being flagged, and which section it's from.
  * 
- * Used in Lab (GameDecryptionV5) and Coach (CoachPlay).
+ * Developer gets: game_id + position + side + section + text + eval + classification
+ * = instant understanding of what to fix.
  */
 
 import { useState } from "react";
@@ -20,37 +20,23 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Flag, Loader2, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Flag, Loader2, Check, Copy, ChevronDown, ChevronUp } from "lucide-react";
 
-export const FlagMoveButton = ({ 
-  source, 
-  gameId, 
-  sessionId, 
-  moveNumber, 
-  fen, 
-  moveSan, 
-  coachingText,
-  // Developer diagnostic props
-  severity,
-  cpLoss,
-  bestMove,
-  evalBefore,
-  evalAfter,
-  phase,
-  component,
-  conceptId,
-  goal,
-  consequence,
-  betterApproach,
-  yourPlanNow,
-  className = "",
-  iconOnly = false 
-}) => {
+/**
+ * InlineFlag — tiny flag icon placed next to any coaching text.
+ * Auto-captures full context when clicked.
+ * 
+ * Props:
+ *  - section: "narrative" | "goal" | "consequence" | "better_approach" | "your_plan_now" | "candidate_move" | "tactical_warning" | etc.
+ *  - flaggedText: the exact text being flagged
+ *  - context: { gameId, sessionId, moveNumber, fen, moveSan, side, severity, cpLoss, bestMove, evalBefore, evalAfter, phase, component, opening }
+ */
+export const InlineFlag = ({ section, flaggedText, context = {} }) => {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showContext, setShowContext] = useState(false);
 
   const handleSubmit = async () => {
     if (!note.trim()) return;
@@ -61,27 +47,26 @@ export const FlagMoveButton = ({
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          source,
-          game_id: gameId || null,
-          session_id: sessionId || null,
-          move_number: moveNumber || null,
-          fen: fen || "",
-          move_san: moveSan || null,
-          coaching_text: coachingText || null,
+          source: context.source || "lab",
+          game_id: context.gameId || null,
+          session_id: context.sessionId || null,
+          move_number: context.moveNumber || null,
+          fen: context.fen || "",
+          move_san: context.moveSan || null,
+          coaching_text: flaggedText || null,
           user_note: note.trim(),
-          // Diagnostic data
-          severity: severity || null,
-          cp_loss: cpLoss != null ? cpLoss : null,
-          best_move: bestMove || null,
-          eval_before: evalBefore != null ? evalBefore : null,
-          eval_after: evalAfter != null ? evalAfter : null,
-          phase: phase || null,
-          component: component || null,
-          concept_id: conceptId || null,
-          goal: goal || null,
-          consequence: consequence || null,
-          better_approach: betterApproach || null,
-          your_plan_now: yourPlanNow || null,
+          severity: context.severity || null,
+          cp_loss: context.cpLoss != null ? context.cpLoss : null,
+          best_move: context.bestMove || null,
+          eval_before: context.evalBefore != null ? context.evalBefore : null,
+          eval_after: context.evalAfter != null ? context.evalAfter : null,
+          phase: context.phase || null,
+          component: context.component || null,
+          concept_id: section || null,
+          goal: context.goal || null,
+          consequence: context.consequence || null,
+          better_approach: context.betterApproach || null,
+          your_plan_now: context.yourPlanNow || null,
         }),
       });
       if (res.ok) {
@@ -97,43 +82,46 @@ export const FlagMoveButton = ({
     }
   };
 
-  // Build diagnostic summary for display
-  const diagnosticItems = [
-    severity && { label: "Severity", value: severity },
-    cpLoss != null && { label: "CP Loss", value: cpLoss },
-    bestMove && { label: "Best Move", value: bestMove },
-    evalBefore != null && { label: "Eval Before", value: evalBefore },
-    evalAfter != null && { label: "Eval After", value: evalAfter },
-    phase && { label: "Phase", value: phase },
-    component && { label: "Component", value: component },
-    conceptId && { label: "Concept", value: conceptId },
-    goal && { label: "Goal", value: goal },
-    consequence && { label: "Consequence", value: consequence },
-    betterApproach && { label: "Better Approach", value: betterApproach },
-    yourPlanNow && { label: "Your Plan Now", value: yourPlanNow },
+  // Build context items for display
+  const contextItems = [
+    context.gameId && { label: "Game ID", value: context.gameId },
+    context.fen && { label: "Position (FEN)", value: context.fen },
+    context.moveSan && { label: "Move", value: `${context.moveSan}${context.moveNumber ? ` (#${context.moveNumber})` : ''}` },
+    context.side && { label: "Side", value: context.side },
+    section && { label: "Section", value: section },
+    context.severity && { label: "Classification", value: context.severity },
+    context.cpLoss != null && { label: "CP Loss", value: context.cpLoss },
+    context.bestMove && { label: "Best Move (Stockfish)", value: context.bestMove },
+    context.evalBefore != null && { label: "Eval Before", value: context.evalBefore },
+    context.evalAfter != null && { label: "Eval After", value: context.evalAfter },
+    context.phase && { label: "Phase", value: context.phase },
+    context.component && { label: "Component", value: context.component },
+    context.opening && { label: "Opening", value: context.opening },
   ].filter(Boolean);
 
   return (
     <>
       <button
-        className={`text-xs text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1 ${className}`}
+        className="inline-flex items-center text-zinc-600 hover:text-red-400 transition-colors ml-1 align-middle opacity-0 group-hover:opacity-100 focus:opacity-100"
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);
         }}
-        data-testid="flag-move-btn"
-        title="Report incorrect coaching"
+        data-testid={`inline-flag-${section}`}
+        title={`Flag this ${section}`}
       >
         <Flag className="w-3 h-3" />
-        {!iconOnly && <span>Flag</span>}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg" data-testid="flag-move-dialog">
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg" data-testid="flag-dialog">
           <DialogHeader>
-            <DialogTitle className="text-sm">Report Incorrect Coaching</DialogTitle>
-            <DialogDescription className="text-xs">
-              Help us improve. Describe what seems wrong — all position data is auto-captured.
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Flag className="w-4 h-4 text-red-400" />
+              Flag Coaching Issue
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-400">
+              All position data auto-captured. Just describe what's wrong.
             </DialogDescription>
           </DialogHeader>
 
@@ -142,70 +130,87 @@ export const FlagMoveButton = ({
               <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
                 <Check className="w-5 h-5 text-emerald-400" />
               </div>
-              <p className="text-sm text-emerald-400">Feedback submitted with full diagnostics!</p>
+              <p className="text-sm text-emerald-400">Flagged with full diagnostics!</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Move context */}
-              <div className="text-xs bg-zinc-800 rounded p-2 space-y-1">
-                <div className="flex items-center gap-3 flex-wrap">
-                  {moveSan && (
-                    <span><span className="text-muted-foreground">Move: </span><span className="font-mono font-medium">{moveSan}</span></span>
-                  )}
-                  {moveNumber && (
-                    <span className="text-muted-foreground">(#{moveNumber})</span>
-                  )}
-                  {severity && (
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                      severity === 'good' ? 'bg-emerald-500/20 text-emerald-400' :
-                      severity === 'inaccuracy' ? 'bg-amber-500/20 text-amber-400' :
-                      severity === 'mistake' ? 'bg-orange-500/20 text-orange-400' :
-                      severity === 'blunder' ? 'bg-red-500/20 text-red-400' :
+              {/* What's being flagged */}
+              <div className="bg-red-950/30 border border-red-900/30 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-red-400/70 uppercase tracking-wider font-medium">
+                    Flagging: {section}
+                  </span>
+                  {context.severity && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      context.severity === 'good' ? 'bg-emerald-500/20 text-emerald-400' :
+                      context.severity === 'inaccuracy' ? 'bg-amber-500/20 text-amber-400' :
+                      context.severity === 'mistake' ? 'bg-orange-500/20 text-orange-400' :
+                      context.severity === 'blunder' ? 'bg-red-500/20 text-red-400' :
                       'bg-zinc-700 text-zinc-400'
-                    }`}>{severity}</span>
+                    }`}>{context.severity}</span>
                   )}
-                  {phase && <span className="text-zinc-500">{phase}</span>}
                 </div>
-                {fen && (
-                  <div className="font-mono text-[10px] text-zinc-600 truncate">FEN: {fen}</div>
+                <p className="text-sm text-zinc-200 leading-relaxed">{flaggedText}</p>
+              </div>
+
+              {/* Position summary */}
+              <div className="bg-zinc-800/50 rounded-lg p-2.5 text-xs space-y-1">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {context.moveSan && (
+                    <span><span className="text-zinc-500">Move:</span> <span className="font-mono font-medium text-white">{context.moveSan}</span></span>
+                  )}
+                  {context.moveNumber && (
+                    <span className="text-zinc-500">#{context.moveNumber}</span>
+                  )}
+                  {context.side && (
+                    <span><span className="text-zinc-500">Side:</span> <span className="text-zinc-300">{context.side}</span></span>
+                  )}
+                  {context.phase && (
+                    <span><span className="text-zinc-500">Phase:</span> <span className="text-zinc-300">{context.phase}</span></span>
+                  )}
+                  {context.cpLoss != null && (
+                    <span><span className="text-zinc-500">CP Loss:</span> <span className="text-zinc-300">{context.cpLoss}</span></span>
+                  )}
+                  {context.bestMove && context.bestMove !== context.moveSan && (
+                    <span><span className="text-zinc-500">Best:</span> <span className="text-emerald-400 font-mono">{context.bestMove}</span></span>
+                  )}
+                </div>
+                {context.fen && (
+                  <div className="font-mono text-[10px] text-zinc-600 truncate">
+                    {context.fen}
+                  </div>
                 )}
               </div>
 
-              {/* Coaching text being flagged */}
-              {coachingText && (
-                <div className="text-xs bg-red-950/30 border border-red-900/30 rounded p-2 max-h-24 overflow-y-auto">
-                  <span className="text-red-400/70 text-[10px] uppercase tracking-wide">Flagged text: </span>
-                  <span className="text-zinc-300 block mt-0.5">{coachingText}</span>
-                </div>
-              )}
-
-              {/* Diagnostics accordion */}
-              {diagnosticItems.length > 0 && (
+              {/* Full context accordion */}
+              {contextItems.length > 0 && (
                 <button
                   className="text-[10px] text-zinc-500 hover:text-zinc-400 flex items-center gap-1 transition-colors"
-                  onClick={() => setShowDiagnostics(!showDiagnostics)}
+                  onClick={() => setShowContext(!showContext)}
                 >
-                  {showDiagnostics ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  {showDiagnostics ? "Hide" : "Show"} diagnostic data ({diagnosticItems.length} fields captured)
+                  {showContext ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  {contextItems.length} fields auto-captured for developer
                 </button>
               )}
-              {showDiagnostics && diagnosticItems.length > 0 && (
-                <div className="text-[10px] bg-zinc-800/50 rounded p-2 space-y-0.5 max-h-32 overflow-y-auto border border-zinc-700/50">
-                  {diagnosticItems.map((item, i) => (
+              {showContext && (
+                <div className="text-[10px] bg-zinc-800/30 rounded p-2 space-y-0.5 max-h-40 overflow-y-auto border border-zinc-700/30">
+                  {contextItems.map((item, i) => (
                     <div key={i} className="flex">
-                      <span className="text-zinc-500 w-24 flex-shrink-0">{item.label}:</span>
-                      <span className="text-zinc-300 truncate">{String(item.value)}</span>
+                      <span className="text-zinc-500 w-28 flex-shrink-0">{item.label}:</span>
+                      <span className="text-zinc-300 break-all">{String(item.value)}</span>
                     </div>
                   ))}
                 </div>
               )}
 
+              {/* User note */}
               <Textarea
-                placeholder="What's wrong? e.g., 'Knight is not actually outnumbered — queen+king vs knight+pawn means value favors the attacker...'"
+                placeholder="What's wrong? e.g., 'Knight is not outnumbered — queen+king vs knight+pawn, value favors the attacker...'"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="bg-zinc-800 border-zinc-700 min-h-[80px] text-sm"
                 data-testid="flag-note-input"
+                autoFocus
               />
               <Button
                 className="w-full"
@@ -222,3 +227,6 @@ export const FlagMoveButton = ({
     </>
   );
 };
+
+// Legacy export for backward compat
+export const FlagMoveButton = InlineFlag;

@@ -7,24 +7,36 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 
 ## What's Been Implemented
 
+### Inline Flagging System - March 2026
+- Every coaching text element has its own inline flag icon (appears on hover)
+- Sections flagged: narrative, your_plan_now, consequence, better_approach, candidate_moves, transferable_learning, pattern_memory, theory_applied
+- Flag dialog auto-captures: game_id, FEN, move, side (user/opponent), severity, CP loss, best move, eval before/after, phase, component, section name
+- Admin Dashboard shows full diagnostics in feedback queue
+- Backend stores diagnostics in `move_feedback` collection
+
+### Book Opening Move Guard - March 2026
+- Known opening responses (d5/Scandinavian, c5/Sicilian, e6/French, etc.) no longer flagged as inaccuracies
+- Applied to both live coaching (`shared_coaching_v5.py`) and post-game analysis (`game_decryption_v5_service.py`)
+- V5_COACHING_VERSION = 2: old coaching auto-regenerates when game is opened in Lab
+- `POST /api/games/{game_id}/regenerate-coaching` endpoint added
+- "Refresh Coaching" button in Lab header
+
 ### CoachPlay P0 Fixes - March 2026
-- **Issue 1: State Sync** - executeMove now immediately clears all coaching state (v5Coaching, interactiveCoaching, behavioralCoaching, currentInsight) and shows "Analyzing your move..." indicator until new feedback arrives
-- **Issue 2: LLM Hallucination on Tactics** - Fork detection in `shared_coaching_v5.py` now uses `BB_KNIGHT_ATTACKS` bitboard for precise knight-only attack detection (prevents false positives from other pieces). Threshold raised from 5 to 6.
-- **Issue 3: Opening Lesson Persists** - Opening suggestion card auto-dismisses after 14 half-moves. Rendering condition also checks move count.
-- **Issue 4: Adaptive UX** - Removed Time Control and Coaching Style selectors from setup screen. Removed "Lvl X" badge from coach info bar. Only Color Selection + Start Game remain.
+- **State Sync**: executeMove clears all coaching state immediately, shows "Analyzing your move..." indicator
+- **Fork Detection**: Uses `BB_KNIGHT_ATTACKS` bitboard for precise knight-only attack detection (was using `is_attacked_by` which caused false positives). Threshold raised from 5 to 6.
+- **Opening Lesson Persistence**: Auto-dismisses after 14 half-moves + rendering condition checks move count
+- **Adaptive UX**: Removed Time Control, Coaching Style selectors, "Lvl X" badge. Setup screen: Color + Start Game only.
 
 ### Player Profile Narrative (March 2026)
-- LLM-generated 2-3 sentence coaching narrative comparing user to rating band
-- Cached in DB, regenerates every 5 new games
-- API: `GET /api/progress/player-profile`
+- LLM-generated coaching narrative, Indian Coach persona
+- Cached in `player_profiles`, regenerates every 5 games
 
 ### Super Admin Dashboard (March 2026)
-- Role system: `super_admin`, `admin`, `user`
-- Overview, Users, Feedback Queue tabs
-- Flag button in Lab + Coach for users to report incorrect coaching
+- Role system: super_admin, admin, user
+- Overview, Users, Feedback Queue tabs (now with diagnostics display)
 
 ### Endgame Lesson System (March 2026)
-- 10 lessons, 30 positions, interactive Position -> Try -> Teach flow
+- 10 lessons, 30 positions, interactive flow
 
 ### Previous Features (All Working)
 - Community Intelligence Training, Opening Portrait, Pattern Memory
@@ -37,20 +49,25 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 ```
 /app/backend/
   services/
-    shared_coaching_v5.py          # UPDATED: Fork detection fix
+    shared_coaching_v5.py          # UPDATED: Fork detection + book move guard
+    game_decryption_v5_service.py  # UPDATED: Book move guard + V5 versioning
     player_profile_service.py
     endgame_theory_service.py
     v5_llm_narrator.py
-  server.py
+  routes/
+    games.py                       # UPDATED: regenerate-coaching endpoint
+    coach.py                       # UPDATED: V5 version check + auto-regeneration
+  server.py                        # UPDATED: FlagMoveRequest with diagnostics
 /app/frontend/src/
   pages/
-    CoachPlay.jsx                  # UPDATED: P0 fixes (state sync, adaptive UI, opening phase)
-    AdminDashboard.jsx
-    EndgameLesson.jsx
-    UnifiedProgress.jsx
-  components/shared/
-    FlagMoveDialog.jsx
-    V5CoachingCard.jsx
+    CoachPlay.jsx                  # UPDATED: P0 fixes
+    Lab.jsx                        # UPDATED: Refresh Coaching button
+    AdminDashboard.jsx             # UPDATED: Diagnostics display
+  components/
+    shared/
+      FlagMoveDialog.jsx           # REWRITTEN: InlineFlag system
+      V5CoachingCard.jsx           # UPDATED: Inline flags on every section
+    GameDecryptionV5.jsx           # UPDATED: Inline flags on every section
 ```
 
 ---
@@ -58,6 +75,7 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 ## Backlog
 
 ### P1 - High Priority
+- [ ] Integrate logo into app sidebar/favicon
 - [ ] Refactor `GameDecryptionV5.jsx` to use shared `V5CoachingCard.jsx`
 - [ ] Admin content management (edit openings/endgames theory)
 
@@ -69,7 +87,7 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 ### P3 - Nice to Have
 - [ ] Voice coaching mode
 - [ ] CoachPlay.jsx refactoring (3500+ lines - split into smaller components)
-- [ ] Weekly learning summary
+- [ ] Coaching accuracy score (% of flags valid vs dismissed)
 
 ---
 
@@ -78,13 +96,16 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 - Iteration 161: Super Admin Dashboard -- 100%
 - Iteration 162: Player Profile Narrative -- 100%
 - Iteration 163: CoachPlay P0 Fixes (all 4 issues) -- 100%
+- Book opening guard: manually tested with python3 -c (d5, c5, e6, Nf6 all correctly identified as book)
+- Inline flagging: visually verified via screenshot, backend endpoint tested with curl
+- Fork detection: verified with chess.BB_KNIGHT_ATTACKS bitboard tests
 
 ## Critical Notes
 - **Mohit** (user_62852a1b64e7) = super_admin
+- **V5_COACHING_VERSION = 2**: Bump when coaching logic changes, old games auto-refresh
 - **Player profile cached**: `player_profiles` collection, regenerates every 5 games
-- **Endgame JSON cached**: Restart backend after changes
 - **LLM**: GPT-4.1-mini via emergentintegrations (EMERGENT_LLM_KEY)
 - **Never generic text**: All prompts demand specific, contextual output
-- **Adaptive by design**: No user-facing config dropdowns -- app adapts to user behind the scenes
+- **Adaptive by design**: No user-facing config dropdowns
 
 *Last Updated: March 2026*
