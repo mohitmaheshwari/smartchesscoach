@@ -861,8 +861,8 @@ const LabV2 = ({ user }) => {
             </Button>
             
             <div className="flex items-center gap-3">
-              <h1 className="font-semibold">Game Review</h1>
-              <span className="text-muted-foreground">
+              <h1 className="text-lg text-white tracking-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>Game Review</h1>
+              <span className="text-gray-500 text-sm font-light">
                 vs {game?.opponent_name || "Opponent"}
               </span>
               <Badge 
@@ -880,36 +880,36 @@ const LabV2 = ({ user }) => {
                     : "Lost"
                 }
               </Badge>
-              <span className="text-sm text-muted-foreground">
-                {accuracy ? `${accuracy.toFixed(0)}% accuracy` : ""}
+              <span className="text-xs text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                {accuracy ? `${accuracy.toFixed(0)}%` : ""}
               </span>
             </div>
           </div>
           
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-800/50 border border-gray-700">
+          <div className="flex items-center gap-0" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
             <button
               onClick={() => setViewMode("coach")}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
-                viewMode === "coach" 
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                  : 'text-gray-400 hover:text-gray-300'
-              }`}
+              className="px-4 py-1.5 text-xs transition-all duration-200"
+              style={viewMode === "coach" 
+                ? { background: "rgba(114,47,55,0.2)", color: "#fff", borderBottom: "2px solid #722F37" }
+                : { color: "#666", borderBottom: "2px solid transparent" }
+              }
               data-testid="coach-view-btn"
             >
-              <Brain className="w-3 h-3 inline mr-1" />
+              <Brain className="w-3 h-3 inline mr-1" strokeWidth={1.5} />
               Coach
             </button>
             <button
               onClick={() => setViewMode("decrypt")}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
-                viewMode === "decrypt" 
-                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
-                  : 'text-gray-400 hover:text-gray-300'
-              }`}
+              className="px-4 py-1.5 text-xs transition-all duration-200"
+              style={viewMode === "decrypt"
+                ? { background: "rgba(203,161,53,0.1)", color: "#fff", borderBottom: "2px solid #CBA135" }
+                : { color: "#666", borderBottom: "2px solid transparent" }
+              }
               data-testid="decrypt-view-btn"
             >
-              <BookOpen className="w-3 h-3 inline mr-1" />
+              <BookOpen className="w-3 h-3 inline mr-1" strokeWidth={1.5} />
               Decrypt
             </button>
           </div>

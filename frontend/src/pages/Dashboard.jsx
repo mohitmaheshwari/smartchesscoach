@@ -231,8 +231,8 @@ const Dashboard = ({ user }) => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-white">Review</h1>
-            <p className="text-sm text-zinc-500">{games.length} games analyzed</p>
+            <h1 className="text-3xl text-white tracking-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>Lab</h1>
+            <p className="text-xs text-gray-600 mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{games.length} games analyzed</p>
           </div>
           <div className="flex items-center gap-2">
             {needsMigration && (
@@ -271,39 +271,35 @@ const Dashboard = ({ user }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <Card 
-              className="border-amber-500/30 bg-amber-500/5 cursor-pointer hover:bg-amber-500/10 transition-colors"
+            <div 
+              className="cursor-pointer transition-all duration-200 hover:bg-white/[0.02]"
+              style={{ background: "#0a0a0a", border: "1px solid rgba(203,161,53,0.2)", borderLeft: "3px solid #CBA135" }}
               onClick={() => navigate(`/game/${topGame.game_id}`)}
               data-testid="top-game-card"
             >
-              <CardContent className="p-4">
-                <p className="text-xs text-amber-500 font-medium uppercase tracking-wide mb-2">
+              <div className="p-5">
+                <p className="text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: "#CBA135", fontFamily: "'JetBrains Mono', monospace" }}>
                   Start here
                 </p>
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate">
+                    <p className="text-white text-base font-light truncate" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
                       vs {topGame.opponent || topGame.white_player || topGame.black_player}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`text-sm ${getResult(topGame).color}`}>
                         {getResult(topGame).label}
                       </span>
-                      <span className="text-zinc-600">·</span>
-                      <span className={`text-sm ${topGame.display.color}`}>
+                      <span className="text-gray-700">·</span>
+                      <span className={`text-sm font-light ${topGame.display.color}`}>
                         {topGame.display.headline}
                       </span>
                     </div>
-                    {topGame.display.subtext && (
-                      <p className="text-xs text-zinc-500 mt-1 truncate">
-                        Also: {topGame.display.subtext}
-                      </p>
-                    )}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-amber-500 flex-shrink-0 ml-2" />
+                  <ChevronRight className="w-5 h-5 text-gray-600 flex-shrink-0 ml-2" strokeWidth={1.5} />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </motion.div>
         )}
 
@@ -316,54 +312,40 @@ const Dashboard = ({ user }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
           >
-            <p className="text-xs text-zinc-500 uppercase tracking-wide mb-3">
+            <p className="text-[10px] tracking-[0.15em] uppercase text-gray-600 mb-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               Worth reviewing ({worthReviewing.length - 1} more)
             </p>
             
-            <div className="space-y-2">
+            <div className="space-y-0">
               {worthReviewing.slice(1).map((game, i) => {
                 const result = getResult(game);
                 const display = game.display;
-                const MistakeIcon = display.icon;
                 
                 return (
                   <motion.div
                     key={game.game_id}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 + i * 0.03 }}
+                    transition={{ delay: 0.1 + i * 0.02 }}
                   >
-                    <Card 
-                      className="bg-zinc-900/50 border-zinc-800 cursor-pointer hover:bg-zinc-900 hover:border-zinc-700 transition-all"
+                    <div 
+                      className="flex items-center gap-3 p-3 cursor-pointer transition-all duration-200 hover:bg-white/[0.02]"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
                       onClick={() => navigate(`/game/${game.game_id}`)}
                     >
-                      <CardContent className="p-3 flex items-center gap-3">
-                        {/* Result indicator */}
-                        <div className={`w-1 h-12 rounded-full ${result.bg}`} />
-                        
-                        {/* Game info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-white truncate">
-                            vs {game.opponent || game.white_player || game.black_player}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs mt-0.5">
-                            <span className={result.color}>{result.label}</span>
-                            <span className="text-zinc-600">·</span>
-                            <span className={`${display.color} truncate`}>{display.headline}</span>
-                          </div>
-                          {display.subtext && (
-                            <p className="text-xs text-zinc-600 mt-0.5 truncate">
-                              + {display.subtext}
-                            </p>
-                          )}
+                      <div className="w-1 h-10 flex-shrink-0" style={{ background: result.label === 'Won' ? '#276F4B' : result.label === 'Lost' ? '#722F37' : 'rgba(255,255,255,0.1)' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white font-light truncate">
+                          vs {game.opponent || game.white_player || game.black_player}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs mt-0.5">
+                          <span className={result.color}>{result.label}</span>
+                          <span className="text-gray-700">·</span>
+                          <span className={`${display.color} truncate font-light`}>{display.headline}</span>
                         </div>
-                        
-                        {/* Mistake icon */}
-                        <MistakeIcon className={`w-4 h-4 ${display.color} flex-shrink-0`} />
-                        
-                        <ChevronRight className="w-4 h-4 text-zinc-600 flex-shrink-0" />
-                      </CardContent>
-                    </Card>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-700 flex-shrink-0" strokeWidth={1.5} />
+                    </div>
                   </motion.div>
                 );
               })}

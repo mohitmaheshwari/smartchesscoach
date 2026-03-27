@@ -218,160 +218,141 @@ const Layout = ({ children, user }) => {
   const userInitial = userName.charAt(0);
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen flex" style={{ background: "#050505", fontFamily: "'Outfit', sans-serif" }}>
       {/* Desktop Sidebar */}
       <aside 
-        className={`hidden md:flex flex-col fixed left-0 top-0 h-full bg-card border-r border-border z-40 transition-all duration-300 ${
+        className={`hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 ${
           sidebarCollapsed ? 'w-16' : 'w-56'
         }`}
+        style={{ background: "#0a0a0a", borderRight: "1px solid rgba(255,255,255,0.05)" }}
       >
         {/* Logo */}
-        <div className={`flex items-center h-14 border-b border-border px-3 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className={`flex items-center h-14 px-3 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           <Link to="/home" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center transition-transform group-hover:scale-105">
-              <span className="text-primary-foreground font-heading font-bold text-sm">CC</span>
-            </div>
-            {!sidebarCollapsed && (
-              <span className="font-heading font-semibold text-sm tracking-tight">
-                Chess Coach
-              </span>
-            )}
+            <span className="text-white font-semibold text-base tracking-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+              {sidebarCollapsed ? "C" : "Chess Coach"}
+            </span>
           </Link>
           {!sidebarCollapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-7 h-7 text-muted-foreground hover:text-foreground"
+            <button
+              className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-white transition-colors"
               onClick={() => setSidebarCollapsed(true)}
             >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
+              <ChevronLeft className="w-4 h-4" strokeWidth={1} />
+            </button>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-2 space-y-1">
+        <nav className="flex-1 py-4 px-2 space-y-0.5">
           {navigation.map((item) => {
             const IconComponent = item.icon;
             const active = isActive(item.href);
             return (
               <Link key={item.href} to={item.href}>
-                <Button
-                  variant={active ? "secondary" : "ghost"}
-                  className={`w-full gap-3 transition-colors ${
+                <div
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${active ? 'bg-primary/10 text-primary hover:bg-primary/15' : 'text-muted-foreground hover:text-foreground'}`}
+                  } ${active ? 'text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.03]'}`}
+                  style={active ? { borderLeft: "2px solid #CBA135", background: "rgba(255,255,255,0.03)" } : { borderLeft: "2px solid transparent" }}
                   data-testid={`nav-${item.name.toLowerCase()}`}
                   title={sidebarCollapsed ? item.name : undefined}
                 >
-                  <IconComponent className="w-4 h-4 flex-shrink-0" />
-                  {!sidebarCollapsed && <span className="text-sm">{item.name}</span>}
-                </Button>
+                  <IconComponent className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                  {!sidebarCollapsed && <span className="text-sm font-light">{item.name}</span>}
+                </div>
               </Link>
             );
           })}
           
           {/* Play with Coach - Featured */}
-          <div className={`pt-4 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
+          <div className={`pt-5 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
             <Link to="/play-with-coach">
-              <Button
-                variant="default"
-                className={`w-full gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 ${
+              <div
+                className={`w-full flex items-center gap-2 px-3 py-2.5 transition-all duration-200 hover:opacity-90 ${
                   sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                 }`}
+                style={{ background: "#CBA135", color: "#050505" }}
                 data-testid="nav-play-coach"
                 title={sidebarCollapsed ? "Play with Coach" : undefined}
               >
-                <Swords className="w-4 h-4 flex-shrink-0" />
-                {!sidebarCollapsed && <span className="text-sm">Play with Coach</span>}
-              </Button>
+                <Swords className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                {!sidebarCollapsed && <span className="text-sm font-medium">Play with Coach</span>}
+              </div>
             </Link>
           </div>
 
-          {/* Plateau Breaker - Only show when on losing streak (3+ losses) */}
+          {/* Plateau Breaker */}
           {lossStreak.show && (
             <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
               <Link to="/plateau-breaker">
-                <Button
-                  variant="outline"
-                  className={`w-full gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-400 animate-pulse ${
+                <div
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-all ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   }`}
+                  style={{ color: "#722F37", border: "1px solid rgba(114,47,55,0.4)" }}
                   data-testid="nav-plateau-breaker"
-                  title={sidebarCollapsed ? `${lossStreak.count} losses - Fix this now` : undefined}
                 >
-                  <Zap className="w-4 h-4 flex-shrink-0" />
-                  {!sidebarCollapsed && (
-                    <span className="text-sm">{lossStreak.count} losses - Fix Now</span>
-                  )}
-                </Button>
+                  <Zap className="w-4 h-4 flex-shrink-0 animate-pulse" strokeWidth={1.5} />
+                  {!sidebarCollapsed && <span className="font-light">{lossStreak.count} losses - Fix Now</span>}
+                </div>
               </Link>
             </div>
           )}
 
-          {/* Admin Dashboard - Only for admin/super_admin */}
+          {/* Admin */}
           {isAdmin && (
             <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
               <Link to="/admin">
-                <Button
-                  variant={isActive('/admin') ? "secondary" : "ghost"}
-                  className={`w-full gap-2 ${
+                <div
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${isActive('/admin') ? 'bg-amber-500/10 text-amber-400' : 'text-muted-foreground hover:text-foreground'}`}
+                  } ${isActive('/admin') ? 'text-white' : 'text-gray-600 hover:text-gray-300'}`}
                   data-testid="nav-admin"
-                  title={sidebarCollapsed ? "Admin Dashboard" : undefined}
                 >
-                  <Settings className="w-4 h-4 flex-shrink-0" />
-                  {!sidebarCollapsed && <span className="text-sm">Admin</span>}
-                </Button>
+                  <Settings className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                  {!sidebarCollapsed && <span className="font-light">Admin</span>}
+                </div>
               </Link>
             </div>
           )}
         </nav>
 
-        {/* Collapse toggle (when collapsed) */}
+        {/* Collapse toggle */}
         {sidebarCollapsed && (
           <div className="px-2 pb-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-full h-8 text-muted-foreground hover:text-foreground"
+            <button
+              className="w-full h-8 flex items-center justify-center text-gray-600 hover:text-white transition-colors"
               onClick={() => setSidebarCollapsed(false)}
             >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+              <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
+            </button>
           </div>
         )}
 
         {/* Bottom section */}
-        <div className={`border-t border-border p-2 space-y-1`}>
-          {/* Theme toggle */}
-          <Button
-            variant="ghost"
+        <div className="p-2 space-y-0.5" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          <button
             onClick={toggleTheme}
-            className={`w-full gap-3 text-muted-foreground hover:text-foreground ${
+            className={`w-full flex items-center gap-3 px-3 py-2 text-gray-500 hover:text-white transition-colors ${
               sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
             }`}
             data-testid="sidebar-theme-toggle"
-            title={sidebarCollapsed ? (theme === "dark" ? "Light mode" : "Dark mode") : undefined}
           >
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            {!sidebarCollapsed && <span className="text-sm">{theme === "dark" ? "Light mode" : "Dark mode"}</span>}
-          </Button>
+            {theme === "dark" ? <Sun className="w-4 h-4" strokeWidth={1.5} /> : <Moon className="w-4 h-4" strokeWidth={1.5} />}
+            {!sidebarCollapsed && <span className="text-sm font-light">{theme === "dark" ? "Light" : "Dark"}</span>}
+          </button>
 
-          {/* Settings */}
           <Link to="/settings">
-            <Button
-              variant="ghost"
-              className={`w-full gap-3 text-muted-foreground hover:text-foreground ${
+            <div
+              className={`w-full flex items-center gap-3 px-3 py-2 text-gray-500 hover:text-white transition-colors ${
                 sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
               }`}
               data-testid="nav-settings"
-              title={sidebarCollapsed ? "Settings" : undefined}
             >
-              <Settings className="w-4 h-4" />
-              {!sidebarCollapsed && <span className="text-sm">Settings</span>}
-            </Button>
+              <Settings className="w-4 h-4" strokeWidth={1.5} />
+              {!sidebarCollapsed && <span className="text-sm font-light">Settings</span>}
+            </div>
           </Link>
 
           {/* User Profile */}
@@ -557,7 +538,7 @@ const Layout = ({ children, user }) => {
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'} pt-14 md:pt-0`}>
+      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'} pt-14 md:pt-0`} style={{ background: "#050505" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
