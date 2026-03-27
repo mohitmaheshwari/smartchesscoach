@@ -8603,11 +8603,12 @@ async def extract_training_positions_endpoint(
 @api_router.get("/training/community-feed")
 async def get_training_feed_endpoint(
     limit: int = 10,
+    pattern: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
-    """Get mixed training feed: own positions + community positions."""
+    """Get mixed training feed: own positions + community positions. Optionally filter by pattern_type."""
     from services.community_training_service import get_training_feed
-    return await get_training_feed(db, user.user_id, limit)
+    return await get_training_feed(db, user.user_id, limit, pattern_filter=pattern)
 
 
 class SolveAttemptRequest(BaseModel):

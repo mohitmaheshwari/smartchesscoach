@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import { API } from "@/App";
@@ -45,6 +45,8 @@ const formatPattern = (key) => {
 
 const ThinkingTraining = ({ user }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const focusPattern = searchParams.get('focus');
 
   // Data state
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,7 @@ const ThinkingTraining = ({ user }) => {
   const [patternStats, setPatternStats] = useState([]);
   const [communityCount, setCommunityCount] = useState(0);
   const [feedMeta, setFeedMeta] = useState({ own_count: 0, community_count: 0 });
-  const [activeFilter, setActiveFilter] = useState("all"); // "all" or pattern_type
+  const [activeFilter, setActiveFilter] = useState(focusPattern || "all"); // "all" or pattern_type
 
   // Current position state
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -67,13 +69,16 @@ const ThinkingTraining = ({ user }) => {
 
   useEffect(() => {
     fetchTrainingData();
-  }, []);
+  }, [focusPattern]);
 
   const fetchTrainingData = async () => {
     setLoading(true);
     try {
+      const feedUrl = focusPattern
+        ? `${API}/training/community-feed?limit=20&pattern=${encodeURIComponent(focusPattern)}`
+        : `${API}/training/community-feed?limit=12`;
       const [feedRes, countRes] = await Promise.all([
-        fetch(`${API}/training/community-feed?limit=12`, { credentials: "include" }),
+        fetch(feedUrl, { credentials: "include" }),
         fetch(`${API}/training/community-count`, { credentials: "include" }),
       ]);
 

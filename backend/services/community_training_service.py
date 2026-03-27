@@ -30,8 +30,9 @@ MIN_CP_LOSS = 150
 RATING_RANGE = 200
 
 
-def classify_pattern_type(issue_type: str, critical_detail: str = "") -> str:
+def classify_pattern_type(issue_type: str, critical_detail: str = "", cognitive_gap: str = "", coaching_focus: str = "") -> str:
     """Map issue types to human-readable pattern types."""
+    # Direct mapping from known issue types
     mapping = {
         "allows_mate_in_1": "checkmate_pattern",
         "allows_mate_in_2": "checkmate_pattern",
@@ -48,22 +49,67 @@ def classify_pattern_type(issue_type: str, critical_detail: str = "") -> str:
         "back_rank_weakness": "back_rank",
         "positional_error": "positional",
     }
-    result = mapping.get(issue_type, "tactical")
+    result = mapping.get(issue_type, "")
     
-    # Refine from critical_detail if available
-    detail_lower = (critical_detail or "").lower()
-    if "fork" in detail_lower:
-        result = "fork"
-    elif "pin" in detail_lower:
-        result = "pin"
-    elif "back rank" in detail_lower:
-        result = "back_rank"
-    elif "skewer" in detail_lower:
-        result = "skewer"
-    elif "hanging" in detail_lower or "undefended" in detail_lower:
-        result = "hanging_piece"
-    
-    return result
+    # If no direct mapping, infer from cognitive_gap (the thinking-level pattern)
+    if not result and cognitive_gap:
+        gap_lower = cognitive_gap.lower().replace(" ", "_")
+        gap_map = {
+            "calculation_depth": "calculation_depth",
+            "short_calculation": "short_calculation",
+            "tactical_oversight": "tactical_miss",
+            "tactical_miss": "tactical_miss",
+            "ignore_threat": "missed_threat",
+            "missed_threat": "missed_threat",
+            "hanging_piece": "hanging_piece",
+            "impulse_move": "impulse_move",
+            "king_safety": "king_safety",
+            "positional": "positional",
+        }
+        for key, val in gap_map.items():
+            if key in gap_lower:
+                result = val
+                break
+
+    # Fallback: infer from coaching_focus text
+    if not result and coaching_focus:
+        focus_lower = coaching_focus.lower()
+        if "calculat" in focus_lower and "depth" in focus_lower:
+            result = "calculation_depth"
+        elif "calculat" in focus_lower and "short" in focus_lower:
+            result = "short_calculation"
+        elif "calculat" in focus_lower:
+            result = "calculation_depth"
+        elif "threat" in focus_lower:
+            result = "missed_threat"
+        elif "tactic" in focus_lower:
+            result = "tactical_miss"
+        elif "hang" in focus_lower or "undefend" in focus_lower:
+            result = "hanging_piece"
+        elif "fork" in focus_lower:
+            result = "fork"
+        elif "pin" in focus_lower:
+            result = "pin"
+        elif "back rank" in focus_lower:
+            result = "back_rank"
+
+    # Last resort: infer from critical_detail
+    if not result and critical_detail:
+        detail_lower = critical_detail.lower()
+        if "fork" in detail_lower:
+            result = "fork"
+        elif "pin" in detail_lower:
+            result = "pin"
+        elif "back rank" in detail_lower:
+            result = "back_rank"
+        elif "skewer" in detail_lower:
+            result = "skewer"
+        elif "hanging" in detail_lower or "undefended" in detail_lower:
+            result = "hanging_piece"
+        elif "mate" in detail_lower:
+            result = "checkmate_pattern"
+
+    return result or "tactical"
 
 
 def classify_difficulty(cp_loss: int) -> str:
@@ -155,10 +201,12 @@ async def extract_training_positions(
         except Exception:
             continue
         
-        # Determine pattern type
-        issue_type = move_data.get("classification", "tactical_mistake")
+        # Determine pattern type from cognitive_gap, coaching_focus, or classification
+        issue_type = move_data.get("classification", "")
         critical_detail = move_data.get("explanation", "")
-        pattern_type = classify_pattern_type(issue_type, critical_detail)
+        cognitive_gap = move_data.get("cognitive_gap", "")
+        coaching_focus = move_data.get("coaching_focus", "")
+        pattern_type = classify_pattern_type(issue_type, critical_detail, cognitive_gap, coaching_focus)
         
         position_id = f"{game_id}_m{move_number}"
         
@@ -211,7 +259,8 @@ async def extract_training_positions(
 async def get_training_feed(
     db: AsyncIOMotorDatabase,
     user_id: str,
-    limit: int = 10
+    limit: int = 10,
+    pattern_filter: str = None
 ) -> Dict:
     """
     Get a mixed training feed: user's own positions + community positions.
@@ -241,6 +290,8 @@ async def get_training_feed(
     
     # 1. Fetch user's own positions (most recent first)
     own_query = {"source_user_id": user_id}
+    if pattern_filter:
+        own_query["pattern_type"] = pattern_filter
     if solved_ids:
         own_query["position_id"] = {"$nin": list(solved_ids)}
     
@@ -261,6 +312,8 @@ async def get_training_feed(
         "source_user_id": {"$ne": user_id},
         "source_user_rating": {"$gte": rating_low, "$lte": rating_high},
     }
+    if pattern_filter:
+        community_query["pattern_type"] = pattern_filter
     if solved_ids:
         community_query["position_id"] = {"$nin": list(solved_ids)}
     
@@ -278,6 +331,8 @@ async def get_training_feed(
             "source_user_id": {"$ne": user_id},
             "position_id": {"$nin": list(solved_ids) + existing_ids},
         }
+        if pattern_filter:
+            wider_query["pattern_type"] = pattern_filter
         
         wider_positions = await db.community_training_positions.find(
             wider_query,
