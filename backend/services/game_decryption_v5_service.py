@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 2  # v2: book opening move guard added
+V5_COACHING_VERSION = 3  # v3: mate detection + book opening guard
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -402,6 +402,25 @@ def extract_plan_from_pv(
     
     played_san = board.san(played_move)
     
+    # ─── MATE BLUNDER CHECK ──────────────────────────────
+    # If this move allows checkmate, everything else is irrelevant
+    if cp_loss >= 5000 or (pv_after_played and any("#" in m for m in pv_after_played[:4])):
+        board_after = board.copy()
+        board_after.push(played_move)
+        
+        # Check if opponent can mate immediately or within a few moves
+        consequence = _describe_consequence(pv_after_played, board_after) if pv_after_played else "This allows a forced checkmate."
+        
+        return ChessPlan(
+            goal="King safety — avoid getting mated",
+            current_problem=f"{played_san} is a one-move blunder that allows checkmate.",
+            consequence=consequence,
+            better_approach=f"{best_move} keeps the game going." if best_move else "Look for moves that address the immediate threat.",
+            transferable_learning="Before any move, check: can my opponent deliver checkmate? If yes, deal with that FIRST.",
+            concept_id="king_safety_mate_threat",
+            concept_type="tactical"
+        )
+    
     # Create a board with the user's move played (for consequence analysis)
     board_after_move = board.copy()
     board_after_move.push(played_move)
@@ -474,29 +493,60 @@ def extract_plan_from_pv(
 
 def _describe_consequence(pv: List[str], board: chess.Board) -> str:
     """
-    Describe what SPECIFICALLY gets weak in the PV.
-    NO MORE "position weakens" garbage!
+    Describe what SPECIFICALLY happens in the PV.
     
-    Must answer: WHAT gets weak and WHY?
+    CRITICAL: Check for checkmate first! If the PV delivers mate,
+    say "Checkmate" — don't analyze undefended pawns.
     """
     if not pv:
         return "Something's not right here!"
     
-    # The user just made a move, so now it's opponent's turn
-    # After opponent responds (pv[0]), we check what's weak for the user
     sim = board.copy()
     user_color = not board.turn  # User just moved, so opponent is to move
     first_move_san = pv[0]
     
+    # ─── CHECKMATE CHECK ──────────────────────────────────
+    # If the first PV move delivers checkmate, that's the consequence. Period.
+    if "#" in first_move_san:
+        return f"After {first_move_san}, it's checkmate. Game over."
+    
+    try:
+        first_move = sim.parse_san(first_move_san)
+        sim.push(first_move)
+        
+        # Check if this position is checkmate
+        if sim.is_checkmate():
+            return f"After {first_move_san}, it's checkmate. Game over."
+        
+        # Check if mate is coming within the PV (mate in 2-3)
+        mate_in_pv = False
+        sim2 = sim.copy()
+        for pv_move_san in pv[1:4]:
+            try:
+                if "#" in pv_move_san:
+                    mate_in_pv = True
+                    break
+                pm = sim2.parse_san(pv_move_san)
+                sim2.push(pm)
+                if sim2.is_checkmate():
+                    mate_in_pv = True
+                    break
+            except Exception:
+                break
+        
+        if mate_in_pv:
+            return f"After {first_move_san}, forced checkmate follows within a few moves."
+    except Exception:
+        pass
+    
+    # ─── NORMAL CONSEQUENCE ANALYSIS ──────────────────────
+    sim = board.copy()
     problems = []
     move_parsed = False
     
-    # First, play the first opponent move and see what it threatens
     try:
         first_move = sim.parse_san(first_move_san)
         move_parsed = True
-        
-        # Play the opponent's response
         sim.push(first_move)
         
         # Check ALL user pieces for new attacks

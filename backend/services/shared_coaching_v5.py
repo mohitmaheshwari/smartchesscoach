@@ -355,7 +355,7 @@ def describe_consequence(pv: List[str], board_after_move: chess.Board) -> str:
     """
     Describe SPECIFICALLY what goes wrong after the move.
     
-    NO MORE "position weakens" - must explain WHAT and WHY!
+    CRITICAL: Check for checkmate first! Nothing else matters if it's mate.
     """
     if not pv:
         return "Something's not right here!"
@@ -363,6 +363,34 @@ def describe_consequence(pv: List[str], board_after_move: chess.Board) -> str:
     sim = board_after_move.copy()
     user_color = not board_after_move.turn  # User just moved
     first_move_san = pv[0]
+    
+    # ─── CHECKMATE CHECK ──────────────────────────────────
+    if "#" in first_move_san:
+        return f"After {first_move_san}, it's checkmate. Game over."
+    
+    try:
+        test_move = sim.parse_san(first_move_san)
+        test_sim = sim.copy()
+        test_sim.push(test_move)
+        if test_sim.is_checkmate():
+            return f"After {first_move_san}, it's checkmate. Game over."
+        
+        # Check for mate within PV
+        for pv_san in pv[1:4]:
+            try:
+                if "#" in pv_san:
+                    return f"After {first_move_san}, forced checkmate follows within a few moves."
+                pm = test_sim.parse_san(pv_san)
+                test_sim.push(pm)
+                if test_sim.is_checkmate():
+                    return f"After {first_move_san}, forced checkmate follows within a few moves."
+            except Exception:
+                break
+    except Exception:
+        pass
+    
+    # ─── NORMAL CONSEQUENCE ANALYSIS ──────────────────────
+    sim = board_after_move.copy()
     
     # Try to play the opponent's response
     try:
@@ -618,6 +646,34 @@ async def generate_move_coaching(
         )
     
     # ─── MISTAKE/INACCURACY ───
+    
+    # ─── MATE BLUNDER CHECK (highest priority) ───
+    if cp_loss >= 5000 or (pv_after_played and any("#" in m for m in pv_after_played[:4])):
+        # Check if this allows checkmate
+        mate_move = pv_after_played[0] if pv_after_played else "the next move"
+        is_immediate_mate = "#" in mate_move if pv_after_played else False
+        
+        if is_immediate_mate:
+            consequence = f"After {mate_move}, it's checkmate. Game over."
+        else:
+            consequence = "This allows a forced checkmate within a few moves."
+        
+        return V5Coaching(
+            narrative=f"{move_san} allows checkmate! This is a one-move blunder — the game is lost.",
+            severity="blunder",
+            goal="King safety — never allow checkmate",
+            current_problem=f"{move_san} ignores the mating threat completely.",
+            consequence=consequence,
+            better_approach=f"{best_move_san} defends against the mate threat." if best_move_san else "Look for moves that address the checkmate threat first.",
+            transferable_learning="Before ANY move, ask: can my opponent checkmate me? If there's a mating threat, deal with it FIRST — nothing else matters.",
+            concept_id="king_safety_mate_threat",
+            concept_type="tactical",
+            candidate_moves=None,
+            future_moves=pv_after_played[:4] if pv_after_played else None,
+            is_user_move=True,
+            best_move=best_move_san
+        )
+    
     # Get Stockfish candidates
     stockfish_candidates = await get_stockfish_candidates(board_before, num_moves=3, depth=12)
     
