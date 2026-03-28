@@ -53,9 +53,9 @@ const MOVE_TYPE_COLORS = {
   development: "text-blue-400 border-blue-500/30",
   central: "text-yellow-400 border-yellow-500/30",
   tactical: "text-red-400 border-red-500/30",
-  king_safety: "text-emerald-400 border-emerald-500/30",
+  king_safety: "text-emerald-700 border-emerald-500/30",
   positional: "text-cyan-400 border-cyan-500/30",
-  engine_choice: "text-zinc-400 border-zinc-500/30"
+  engine_choice: "text-muted-foreground border-gray-300"
 };
 
 /**
@@ -122,9 +122,9 @@ const V5CoachingCard = ({
   return (
     <div 
       className={`rounded-xl border ${
-        isGoodMove ? 'bg-emerald-500/5 border-emerald-500/20' :
-        isMistake ? 'bg-red-500/5 border-red-500/20' :
-        'bg-zinc-800/50 border-zinc-700/50'
+        isGoodMove ? 'bg-emerald-50 border-emerald-200' :
+        isMistake ? 'bg-red-50 border-red-200' :
+        'bg-card border-border'
       }`}
       data-testid="v5-coaching-card"
     >
@@ -136,8 +136,8 @@ const V5CoachingCard = ({
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500 uppercase tracking-wide">Your move</span>
-            <span className="font-mono font-bold text-lg text-white">
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Your move</span>
+            <span className="font-mono font-bold text-lg text-gray-900">
               {moveSan}
             </span>
             <Badge 
@@ -149,8 +149,8 @@ const V5CoachingCard = ({
             </Badge>
           </div>
           {coaching.best_move && coaching.best_move !== moveSan && (
-            <span className="text-xs text-zinc-400">
-              Best: <span className="text-emerald-400 font-mono">{coaching.best_move}</span>
+            <span className="text-xs text-muted-foreground">
+              Best: <span className="text-emerald-700 font-mono">{coaching.best_move}</span>
             </span>
           )}
         </div>
@@ -160,9 +160,9 @@ const V5CoachingCard = ({
       <div className="p-4 space-y-4">
         {/* Main Narrative */}
         <div className={`text-sm group ${
-          isGoodMove ? 'text-emerald-300' :
-          isMistake ? 'text-white' :
-          'text-zinc-300'
+          isGoodMove ? 'text-emerald-700' :
+          isMistake ? 'text-gray-900' :
+          'text-gray-700'
         }`}>
           <span className="inline">{coaching.narrative}</span>
           <InlineFlag section="narrative" flaggedText={coaching.narrative} context={flagCtx} />
@@ -174,7 +174,7 @@ const V5CoachingCard = ({
             <p className="text-xs text-blue-400 mb-1 flex items-center gap-1">
               <Target className="w-3 h-3" /> Your plan now
             </p>
-            <p className="text-white text-sm inline">{coaching.your_plan_now}</p>
+            <p className="text-gray-900 text-sm inline">{coaching.your_plan_now}</p>
             <InlineFlag section="your_plan_now" flaggedText={coaching.your_plan_now} context={flagCtx} />
           </div>
         )}
@@ -184,28 +184,28 @@ const V5CoachingCard = ({
           <>
             {/* Problem */}
             {coaching.current_problem && (
-              <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20 group">
+              <div className="bg-red-50 rounded-lg p-3 border border-red-200 group">
                 <p className="text-xs text-red-400 mb-1">The problem</p>
-                <p className="text-white text-sm inline">{coaching.current_problem}</p>
+                <p className="text-gray-900 text-sm inline">{coaching.current_problem}</p>
                 <InlineFlag section="current_problem" flaggedText={coaching.current_problem} context={flagCtx} />
               </div>
             )}
             
             {/* Consequence */}
             {coaching.consequence && (
-              <div className="bg-orange-500/10 rounded-lg p-3 border border-orange-500/20">
+              <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
                 <p className="text-xs text-orange-400 mb-1 flex items-center gap-1">
                   <ArrowRight className="w-3 h-3" /> What happens next
                 </p>
-                <p className="text-white text-sm">{coaching.consequence}</p>
+                <p className="text-gray-900 text-sm">{coaching.consequence}</p>
               </div>
             )}
             
             {/* Better Approach */}
             {coaching.better_approach && (
-              <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20">
-                <p className="text-xs text-emerald-400 mb-1">Better approach</p>
-                <p className="text-white text-sm">{coaching.better_approach}</p>
+              <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                <p className="text-xs text-emerald-700 mb-1">Better approach</p>
+                <p className="text-gray-900 text-sm">{coaching.better_approach}</p>
               </div>
             )}
             
@@ -234,10 +234,10 @@ const V5CoachingCard = ({
             {/* Pattern Memory — "You've missed this 3 times" */}
             {coaching.pattern_memory && (
               <div
-                className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20 group"
+                className="bg-amber-50 rounded-lg p-3 border border-amber-200 group"
                 data-testid="pattern-memory-note"
               >
-                <p className="text-xs text-amber-300 font-medium flex items-center gap-1.5">
+                <p className="text-xs text-amber-700 font-medium flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
@@ -250,10 +250,10 @@ const V5CoachingCard = ({
             {/* Theory Applied — "You played the book move" */}
             {coaching.theory_applied && (
               <div
-                className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20 group"
+                className="bg-emerald-50 rounded-lg p-3 border border-emerald-200 group"
                 data-testid="theory-applied-note"
               >
-                <p className="text-xs text-emerald-300 font-medium flex items-center gap-1.5">
+                <p className="text-xs text-emerald-700 font-medium flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -290,8 +290,8 @@ const CandidateMovesSection = ({ candidates, onShowMove, flagCtx }) => {
             key={idx}
             className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-all hover:scale-[1.01] group ${
               candidate.is_best 
-                ? 'bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20' 
-                : 'bg-zinc-800/50 hover:bg-zinc-700/50'
+                ? 'bg-emerald-50 border border-emerald-200 hover:bg-emerald-100' 
+                : 'bg-gray-50 hover:bg-gray-100'
             }`}
             onClick={() => onShowMove?.(candidate.move)}
             title={`Click to see ${candidate.move} on the board`}
@@ -299,7 +299,7 @@ const CandidateMovesSection = ({ candidates, onShowMove, flagCtx }) => {
             <button
               className={`font-mono font-bold text-sm min-w-[50px] px-2 py-1 rounded hover:ring-2 ring-offset-1 ring-offset-zinc-900 ${
                 candidate.is_best 
-                  ? 'text-emerald-400 bg-emerald-500/20 hover:ring-emerald-500/50' 
+                  ? 'text-emerald-700 bg-emerald-500/20 hover:ring-emerald-300' 
                   : 'text-blue-400 bg-blue-500/20 hover:ring-blue-500/50'
               }`}
               onClick={(e) => {
@@ -310,7 +310,7 @@ const CandidateMovesSection = ({ candidates, onShowMove, flagCtx }) => {
               {candidate.move}
             </button>
             <div className="flex-1">
-              <span className="text-sm text-zinc-200 inline">{candidate.idea}</span>
+              <span className="text-sm text-gray-700 inline">{candidate.idea}</span>
               {flagCtx && <InlineFlag section={`candidate_${candidate.move}`} flaggedText={`${candidate.move}: ${candidate.idea}`} context={flagCtx} />}
               {candidate.type && (
                 <Badge 
@@ -322,7 +322,7 @@ const CandidateMovesSection = ({ candidates, onShowMove, flagCtx }) => {
               )}
             </div>
             {candidate.is_best && (
-              <Trophy className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <Trophy className="w-4 h-4 text-emerald-700 flex-shrink-0" />
             )}
           </div>
         ))}
@@ -353,7 +353,7 @@ const TransferableLearningSection = ({
         <GraduationCap className="w-4 h-4 text-amber-400" />
         <p className="text-xs font-semibold text-amber-400">Golden Rule</p>
       </div>
-      <span className="text-white text-sm font-medium inline">{learning}</span>
+      <span className="text-gray-900 text-sm font-medium inline">{learning}</span>
       {flagCtx && <InlineFlag section="transferable_learning" flaggedText={learning} context={flagCtx} />}
       <div className="mt-3">
       {showButton && conceptId && (
@@ -376,7 +376,7 @@ const TransferableLearningSection = ({
       )}
       
       {isAcknowledged && (
-        <div className="flex items-center gap-2 text-emerald-400 text-xs mt-2">
+        <div className="flex items-center gap-2 text-emerald-700 text-xs mt-2">
           <CheckCircle2 className="w-4 h-4" />
           You've learned this concept!
         </div>
@@ -406,14 +406,14 @@ export const V5CoachingCardCompact = ({
     <div className="bg-zinc-900/80 rounded-lg p-3 border border-zinc-700/50">
       {/* Header with move and severity */}
       <div className="flex items-center gap-2 mb-2">
-        <span className="font-mono font-bold text-white">{moveSan}</span>
+        <span className="font-mono font-bold text-gray-900">{moveSan}</span>
         <Badge variant="outline" className={`text-${config.color}-400 text-xs`}>
           {config.label}
         </Badge>
       </div>
       
       {/* Narrative */}
-      <p className="text-sm text-zinc-300 mb-2">{coaching.narrative}</p>
+      <p className="text-sm text-gray-700 mb-2">{coaching.narrative}</p>
       
       {/* Quick consequence for mistakes */}
       {isMistake && coaching.consequence && (
