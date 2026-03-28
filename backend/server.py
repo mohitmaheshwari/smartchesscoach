@@ -4969,6 +4969,43 @@ async def get_progress_journey(user: User = Depends(get_current_user)):
     recent_acc = [g["accuracy"] for g in journey[-10:]] if journey else []
     current_accuracy = round(sum(recent_acc) / len(recent_acc), 1) if recent_acc else 0
 
+    # ── CHESS DNA ──
+    chess_dna = None
+    try:
+        identity = await db.player_identities.find_one({"user_id": user.user_id}, {"_id": 0})
+        if identity:
+            taxonomy = identity.get("blunder_taxonomy", {})
+            by_type = taxonomy.get("by_type", taxonomy) if isinstance(taxonomy, dict) else {}
+            worst = max(by_type.items(), key=lambda x: x[1], default=("", 0)) if by_type else ("", 0)
+            chess_dna = {
+                "archetype": identity.get("play_style", "Developing"),
+                "worst_pattern": worst[0].replace("_", " ").title() if worst[0] else None,
+                "worst_count": worst[1] if worst[0] else 0,
+            }
+    except Exception:
+        pass
+
+    # ── DANGER ZONES (patterns getting worse) ──
+    danger_zones = []
+    try:
+        from services.pattern_memory_service import get_top_patterns
+        patterns = await get_top_patterns(db, user.user_id, limit=3)
+        for p in patterns:
+            danger_zones.append({
+                "label": p.get("label", ""),
+                "pattern_type": p.get("pattern_type", ""),
+                "recent_count": p.get("recent_count", 0),
+                "severity": p.get("severity", ""),
+            })
+    except Exception:
+        pass
+
+    # ── BLUNDER TREND ──
+    recent_blunders = sum(g.get("blunders", 0) for g in journey[-10:]) if journey else 0
+    prev_blunders = sum(g.get("blunders", 0) for g in journey[-20:-10]) if len(journey) > 10 else 0
+    recent_bl_avg = round(recent_blunders / min(len(journey[-10:]), 10), 1) if journey else 0
+    prev_bl_avg = round(prev_blunders / max(len(journey[-20:-10]), 1), 1) if len(journey) > 10 else 0
+
     return {
         "journey": journey,
         "current_accuracy": current_accuracy,
@@ -4976,6 +5013,13 @@ async def get_progress_journey(user: User = Depends(get_current_user)):
         "biggest_shift": biggest_shift,
         "still_leaking": still_leaking,
         "win_trend": win_trend,
+        "chess_dna": chess_dna,
+        "danger_zones": danger_zones,
+        "blunder_trend": {
+            "recent_avg": recent_bl_avg,
+            "prev_avg": prev_bl_avg,
+            "getting_worse": recent_bl_avg > prev_bl_avg + 0.3,
+        },
     }
 
 
