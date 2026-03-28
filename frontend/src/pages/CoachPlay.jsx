@@ -2232,10 +2232,10 @@ const CoachPlay = ({ user }) => {
             <CardContent className="space-y-6">
               {/* Practice Mode Indicator */}
               {practiceMode && practicePosition && (
-                <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20" data-testid="practice-mode-indicator">
+                <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-200" data-testid="practice-mode-indicator">
                   <div className="flex items-center gap-2 mb-2">
-                    <Target className="w-4 h-4 text-emerald-400" />
-                    <span className="font-medium text-emerald-400">Practice Mode</span>
+                    <Target className="w-4 h-4 text-emerald-700" />
+                    <span className="font-medium text-emerald-700">Practice Mode</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
                     You'll start from the position where you made a mistake. 
@@ -2471,7 +2471,7 @@ const CoachPlay = ({ user }) => {
             
             {/* Teaching Mode Instruction Bar - BELOW the board, not overlaying it */}
             {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (
-              <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <div className="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <BookOpen className="w-4 h-4 text-amber-500 shrink-0" />
@@ -2567,12 +2567,12 @@ const CoachPlay = ({ user }) => {
                 <div className={`w-4 h-4 rounded-full ${selectedColor === "white" ? "bg-white border" : "bg-gray-900"}`} />
                 <span className="font-medium">You</span>
                 {isPlayerTurn && !gameOver && (
-                  <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-xs">
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">
                     Your turn
                   </Badge>
                 )}
                 {!isPlayerTurn && !gameOver && !coachThinking && (
-                  <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 text-xs">
+                  <Badge className="bg-amber-500/20 text-amber-500 border-amber-200 text-xs">
                     Coach's turn
                   </Badge>
                 )}
@@ -2607,7 +2607,7 @@ const CoachPlay = ({ user }) => {
             
             {/* Coach turn prompt - shows when game is stuck on coach's turn */}
             {!isPlayerTurn && !gameOver && !coachThinking && session && (
-              <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
+              <div className="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
                 <p className="text-sm text-amber-500 mb-2">
                   It's the coach's turn. The game may have been interrupted.
                 </p>
@@ -2701,7 +2701,7 @@ const CoachPlay = ({ user }) => {
                     className={`p-4 rounded-lg border-2 ${
                       guardianIntervention.risk_level === "critical" ? "border-red-500 bg-red-500/10" :
                       guardianIntervention.risk_level === "high" ? "border-orange-500 bg-orange-500/10" :
-                      "border-yellow-500 bg-yellow-500/10"
+                      "border-yellow-500 bg-yellow-50"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-3">
@@ -2719,8 +2719,8 @@ const CoachPlay = ({ user }) => {
                     <p className="text-xs text-muted-foreground mb-3">{guardianIntervention.explanation}</p>
                     
                     {guardianIntervention.alternative_moves?.length > 0 && (
-                      <div className="p-2 rounded bg-zinc-800/50 mb-3">
-                        <p className="text-xs font-medium text-zinc-300 mb-1.5 flex items-center gap-1">
+                      <div className="p-2 rounded bg-muted/50 mb-3">
+                        <p className="text-xs font-medium text-foreground mb-1.5 flex items-center gap-1">
                           <Lightbulb className="w-3 h-3 text-primary" />
                           Better alternatives:
                         </p>
@@ -2785,10 +2785,10 @@ const CoachPlay = ({ user }) => {
                 
                 {/* === COACH'S MOVE EXPLANATION === */}
                 {interactiveCoaching.coachMoveCoaching && (
-                  <div data-testid="coach-move-explanation" className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 space-y-2">
+                  <div data-testid="coach-move-explanation" className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-blue-400 font-bold text-sm tracking-wide uppercase">Coach played</span>
-                      <span className="font-mono text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded text-sm">
+                      <span className="text-blue-700 font-bold text-sm tracking-wide uppercase">Coach played</span>
+                      <span className="font-mono text-blue-700 bg-blue-100 px-2 py-0.5 rounded text-sm">
                         {interactiveCoaching.coachMoveCoaching.move_san}
                       </span>
                       <FlagMoveButton
@@ -2802,26 +2802,26 @@ const CoachPlay = ({ user }) => {
                     </div>
                     
                     {interactiveCoaching.coachMoveCoaching.explanation && (
-                      <p className="text-white text-sm">{interactiveCoaching.coachMoveCoaching.explanation}</p>
+                      <p className="text-blue-800 text-sm">{interactiveCoaching.coachMoveCoaching.explanation}</p>
                     )}
                     
                     {interactiveCoaching.coachMoveCoaching.plan && (
                       <div className="flex items-start gap-2 mt-1">
-                        <span className="text-blue-400 text-xs font-semibold shrink-0">PLAN:</span>
-                        <p className="text-blue-200 text-sm">{interactiveCoaching.coachMoveCoaching.plan}</p>
+                        <span className="text-blue-700 text-xs font-semibold shrink-0">PLAN:</span>
+                        <p className="text-blue-800 text-sm">{interactiveCoaching.coachMoveCoaching.plan}</p>
                       </div>
                     )}
                     
                     {interactiveCoaching.coachMoveCoaching.threats?.length > 0 && (
                       <div className="flex items-start gap-2 mt-1">
-                        <span className="text-red-400 text-xs font-semibold shrink-0">THREATS:</span>
-                        <p className="text-red-300 text-sm">{interactiveCoaching.coachMoveCoaching.threats.join(", ")}</p>
+                        <span className="text-red-600 text-xs font-semibold shrink-0">THREATS:</span>
+                        <p className="text-red-600 text-sm">{interactiveCoaching.coachMoveCoaching.threats.join(", ")}</p>
                       </div>
                     )}
                     
                     {interactiveCoaching.coachMoveCoaching.teaching_point && (
                       <div className="mt-2 pt-2 border-t border-blue-500/20">
-                        <p className="text-amber-300 text-xs italic">{interactiveCoaching.coachMoveCoaching.teaching_point}</p>
+                        <p className="text-amber-700 text-xs italic">{interactiveCoaching.coachMoveCoaching.teaching_point}</p>
                       </div>
                     )}
                   </div>
@@ -2868,9 +2868,9 @@ const CoachPlay = ({ user }) => {
                     data-testid="behavioral-coaching"
                     className={`p-3 rounded-lg border ${
                       behavioralCoaching.severity === "high" 
-                        ? "bg-red-500/10 border-red-500/30" 
+                        ? "bg-red-50 border-red-200" 
                         : behavioralCoaching.type === "positive"
-                          ? "bg-emerald-500/10 border-emerald-500/30"
+                          ? "bg-emerald-50 border-emerald-200"
                           : "bg-orange-500/10 border-orange-500/30"
                     }`}
                   >
@@ -2883,8 +2883,8 @@ const CoachPlay = ({ user }) => {
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-medium mb-1 ${
-                          behavioralCoaching.type === "positive" ? "text-emerald-300" :
-                          behavioralCoaching.severity === "high" ? "text-red-300" : "text-orange-300"
+                          behavioralCoaching.type === "positive" ? "text-emerald-700" :
+                          behavioralCoaching.severity === "high" ? "text-red-600" : "text-orange-300"
                         }`}>
                           {behavioralCoaching.type === "time_management" ? "Time Check" :
                            behavioralCoaching.type === "emotional" ? "Mental Check" :
@@ -2905,7 +2905,7 @@ const CoachPlay = ({ user }) => {
                 
                 {/* Teaching Mode Instruction - if active */}
                 {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (
-                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
                     <div className="flex items-center gap-2 mb-1">
                       <BookOpen className="w-4 h-4 text-amber-500" />
                       <span className="text-sm font-medium text-amber-500">
@@ -3029,8 +3029,8 @@ const CoachPlay = ({ user }) => {
                   
                   {/* Pattern Correction Section - shown when "wrong" is selected */}
                   {feedbackType === "wrong" && (
-                    <div className="space-y-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                      <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                    <div className="space-y-3 p-3 bg-amber-50 border border-amber-500/20 rounded-lg">
+                      <p className="text-xs font-medium text-amber-600 dark:text-amber-700">
                         Help us learn! What was it actually?
                       </p>
                       <select
@@ -3190,9 +3190,9 @@ const CoachPlay = ({ user }) => {
                     ? msg.trigger === "warning" 
                       ? "bg-red-500/10 border border-red-500/20"
                       : msg.trigger === "teaching"
-                      ? "bg-amber-500/10 border border-amber-500/20"
+                      ? "bg-amber-50 border border-amber-500/20"
                       : msg.trigger === "encouragement"
-                      ? "bg-green-500/10 border border-green-500/20"
+                      ? "bg-emerald-50 border border-emerald-200"
                       : "bg-primary/10 border border-primary/20"
                     : msg.type === "thinking"
                     ? "bg-primary/5 border border-primary/10 animate-pulse"
@@ -3202,9 +3202,9 @@ const CoachPlay = ({ user }) => {
                 <div className="flex items-start gap-2">
                   {msg.type === "coach" ? (
                     <Brain className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-                      msg.trigger === "warning" ? "text-red-400" :
-                      msg.trigger === "teaching" ? "text-amber-400" :
-                      msg.trigger === "encouragement" ? "text-green-400" :
+                      msg.trigger === "warning" ? "text-red-600" :
+                      msg.trigger === "teaching" ? "text-amber-700" :
+                      msg.trigger === "encouragement" ? "text-emerald-700" :
                       "text-primary"
                     }`} />
                   ) : msg.type === "thinking" ? (
@@ -3215,9 +3215,9 @@ const CoachPlay = ({ user }) => {
                   <div className="text-sm flex-1">
                     {msg.type === "coach" && msg.trigger && (
                       <Badge variant="outline" className={`text-xs mb-1 capitalize ${
-                        msg.trigger === "warning" ? "border-red-500/30 text-red-400" :
-                        msg.trigger === "teaching" ? "border-amber-500/30 text-amber-400" :
-                        msg.trigger === "encouragement" ? "border-green-500/30 text-green-400" :
+                        msg.trigger === "warning" ? "border-red-200 text-red-600" :
+                        msg.trigger === "teaching" ? "border-amber-200 text-amber-700" :
+                        msg.trigger === "encouragement" ? "border-emerald-200 text-emerald-700" :
                         ""
                       }`}>
                         {msg.trigger === "encouragement" ? "👏" : 
@@ -3267,7 +3267,7 @@ const CoachPlay = ({ user }) => {
                           <>
                             <button
                               onClick={() => sendChatMessage(`Why was ${msg.move || "my move"} bad?`)}
-                              className="text-xs px-2 py-1 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                              className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-500/20 transition-colors"
                               data-testid={`why-btn-${i}`}
                             >
                               Why?
@@ -3362,9 +3362,9 @@ const CoachPlay = ({ user }) => {
           {gameOver && (
             <div className="p-4 border-t border-border">
               <Card className={`${
-                gameResult === "win" ? "border-green-500/30 bg-green-500/5" :
-                gameResult === "loss" ? "border-red-500/30 bg-red-500/5" :
-                "border-yellow-500/30 bg-yellow-500/5"
+                gameResult === "win" ? "border-emerald-200 bg-green-500/5" :
+                gameResult === "loss" ? "border-red-200 bg-red-500/5" :
+                "border-yellow-200 bg-yellow-500/5"
               }`}>
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2">

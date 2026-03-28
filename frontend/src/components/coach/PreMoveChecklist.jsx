@@ -266,7 +266,7 @@ const PreMoveChecklist = ({
           variant="outline"
           size="sm"
           onClick={() => setExpanded(true)}
-          className="w-full justify-between bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 text-purple-300"
+          className="w-full justify-between bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-700"
           data-testid="pre-move-checklist-expand"
         >
           <div className="flex items-center gap-2">
@@ -292,13 +292,13 @@ const PreMoveChecklist = ({
         exit={{ opacity: 0, height: 0 }}
         className="mb-3"
       >
-        <Card className="border-purple-500/30 bg-purple-500/5" data-testid="pre-move-checklist">
+        <Card className="border-purple-200 bg-purple-50" data-testid="pre-move-checklist">
           <CardContent className="p-3">
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-medium text-purple-300">Before You Move</span>
+                <Brain className="w-4 h-4 text-purple-600" />
+                <span className="text-sm font-medium text-purple-700">Before You Move</span>
               </div>
               <div className="flex items-center gap-1">
                 <Button 
