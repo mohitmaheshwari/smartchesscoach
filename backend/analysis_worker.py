@@ -1020,6 +1020,25 @@ def process_job(db, job):
             logger.warning(f"[TURNING_POINT] Failed to calculate: {tp_err}")
         
         # =========================================================================
+        # PHASE 3.45: AUTO-EXTRACT COMMUNITY TRAINING POSITIONS
+        # Extract training-worthy positions for the community training pool
+        # =========================================================================
+        try:
+            from services.community_training_service import extract_training_positions
+            from motor.motor_asyncio import AsyncIOMotorClient
+            import asyncio
+            motor_client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
+            motor_db = motor_client[os.environ.get("DB_NAME", "chess_coach")]
+            loop = asyncio.new_event_loop()
+            positions = loop.run_until_complete(extract_training_positions(motor_db, game_id, user_id))
+            loop.close()
+            motor_client.close()
+            if positions:
+                logger.info(f"[COMMUNITY TRAINING] Extracted {len(positions)} positions from game {game_id}")
+        except Exception as extract_err:
+            logger.warning(f"[COMMUNITY TRAINING] Position extraction failed (non-critical): {extract_err}")
+        
+        # =========================================================================
         # PHASE 3.5: UPDATE PLAYER IDENTITY (DeepMemory)
         # This updates the PlayerIdentity document which powers the Memory tab
         # =========================================================================
