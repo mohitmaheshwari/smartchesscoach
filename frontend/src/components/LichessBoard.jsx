@@ -221,6 +221,13 @@ const LichessBoard = forwardRef(({
         orientation: orientation,
         turnColor: getTurnColor(fen),
         viewOnly: !shouldBeInteractive,
+        highlight: {
+          lastMove: true,
+          check: true,
+        },
+        premovable: {
+          enabled: false,
+        },
         events: {
           select: (key) => {
             console.log("LichessBoard piece selected:", key);
@@ -408,8 +415,8 @@ const LichessBoard = forwardRef(({
         config.viewOnly = !shouldBeInteractive;
         config.movable = {
           free: false,
-          color: shouldBeInteractive ? "both" : undefined,
-          dests: dests,
+          color: shouldBeInteractive ? (movableColor || (planMode ? "both" : getTurnColor(fen))) : undefined,
+          dests: movableColor ? getMovesForColor(chessRef.current, movableColor) : dests,
           showDests: showDests && shouldBeInteractive,
         };
         config.draggable = {

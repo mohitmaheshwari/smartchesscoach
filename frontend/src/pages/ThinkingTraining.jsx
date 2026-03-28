@@ -120,75 +120,68 @@ const ThinkingTraining = ({ user }) => {
   const currentFiltered = filteredPositions[currentIndex] || null;
 
   const handleMove = useCallback(
-    (from, to, promotion) => {
+    (moveData) => {
       if (!currentFiltered || solveState !== "ready") return false;
+      if (!moveData || !moveData.from || !moveData.to) return false;
 
-      const chess = new Chess(currentFiltered.fen);
-      try {
-        const move = chess.move({ from, to, promotion: promotion || "q" });
-        if (!move) return false;
+      const from = moveData.from;
+      const to = moveData.to;
+      const userMoveUci = `${from}${to}`;
+      console.log("[TRAINING] Move made:", userMoveUci, "position:", currentFiltered?.position_id);
+      setSessionTotal((p) => p + 1);
 
-        const userMoveUci = `${from}${to}${promotion || ""}`;
-        setSessionTotal((p) => p + 1);
-
-        // Submit to backend
-        fetch(`${API}/training/solve-attempt`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            position_id: currentFiltered.position_id,
-            user_move: userMoveUci,
-            time_taken_seconds: 0,
-          }),
+      // Submit to backend
+      fetch(`${API}/training/solve-attempt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          position_id: currentFiltered.position_id,
+          user_move: userMoveUci,
+          time_taken_seconds: 0,
+        }),
+      })
+        .then((r) => r.json())
+        .then((result) => {
+          setSolveResult(result || {});
+          console.log("[TRAINING] Solve result:", result?.solved, "candidates:", result?.candidates?.length);
+          if (result && result.solved) {
+            setSolveState("correct");
+            setSessionSolved((p) => p + 1);
+            setLastMove([from, to]);
+            setArrows([{ orig: from, dest: to, brush: "green" }]);
+          } else {
+            setSolveState("incorrect");
+            const correctFrom = (currentFiltered.best_move_uci || "").slice(0, 2);
+            const correctTo = (currentFiltered.best_move_uci || "").slice(2, 4);
+            const newArrows = [{ orig: from, dest: to, brush: "red" }];
+            if (correctFrom && correctTo) {
+              newArrows.push({ orig: correctFrom, dest: correctTo, brush: "green" });
+            }
+            setArrows(newArrows);
+          }
         })
-          .then((r) => r.json())
-          .then((result) => {
-            setSolveResult(result);
-            if (result.solved) {
-              setSolveState("correct");
-              setSessionSolved((p) => p + 1);
-              setLastMove([from, to]);
-              setArrows([{ orig: from, dest: to, brush: "green" }]);
-            } else {
-              setSolveState("incorrect");
-              // Show what was correct
-              const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
-              const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
-              setArrows([
-                { orig: from, dest: to, brush: "red" },
-                ...(correctFrom && correctTo
-                  ? [{ orig: correctFrom, dest: correctTo, brush: "green" }]
-                  : []),
-              ]);
+        .catch((err) => {
+          console.error("Solve attempt failed:", err);
+          // Fallback: local check
+          const isCorrect = userMoveUci === currentFiltered.best_move_uci;
+          if (isCorrect) {
+            setSolveState("correct");
+            setSessionSolved((p) => p + 1);
+            setArrows([{ orig: from, dest: to, brush: "green" }]);
+          } else {
+            setSolveState("incorrect");
+            const correctFrom = (currentFiltered.best_move_uci || "").slice(0, 2);
+            const correctTo = (currentFiltered.best_move_uci || "").slice(2, 4);
+            const newArrows = [{ orig: from, dest: to, brush: "red" }];
+            if (correctFrom && correctTo) {
+              newArrows.push({ orig: correctFrom, dest: correctTo, brush: "green" });
             }
-          })
-          .catch(() => {
-            // Fallback: local check
-            const isCorrect =
-              userMoveUci === currentFiltered.best_move_uci ||
-              move.san === currentFiltered.best_move_san;
-            if (isCorrect) {
-              setSolveState("correct");
-              setSessionSolved((p) => p + 1);
-              setArrows([{ orig: from, dest: to, brush: "green" }]);
-            } else {
-              setSolveState("incorrect");
-              const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
-              const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
-              setArrows([
-                { orig: from, dest: to, brush: "red" },
-                ...(correctFrom && correctTo
-                  ? [{ orig: correctFrom, dest: correctTo, brush: "green" }]
-                  : []),
-              ]);
-            }
-          });
+            setArrows(newArrows);
+          }
+        });
 
-        return true;
-      } catch (e) {
-        return false;
-      }
+      return true;
     },
     [currentFiltered, solveState]
   );
@@ -346,8 +339,10 @@ const ThinkingTraining = ({ user }) => {
               <LichessBoard
                 fen={currentFiltered.fen}
                 orientation={currentFiltered.user_color || "white"}
-                viewOnly={solveState !== "ready"}
-                onMove={solveState === "ready" ? handleMove : undefined}
+                viewOnly={false}
+                interactive={true}
+                movableColor={currentFiltered.user_color || "white"}
+                onMove={handleMove}
                 lastMove={lastMove}
                 arrows={arrows}
               />
@@ -375,7 +370,7 @@ const ThinkingTraining = ({ user }) => {
 
           {/* RIGHT: Context + Actions (2 cols) */}
           <div className="lg:col-span-2 space-y-4">
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {/* READY STATE */}
               {solveState === "ready" && (
                 <motion.div
@@ -640,10 +635,10 @@ const CandidateMoves = ({ candidates }) => {
       {candidates.map((c, i) => (
         <div
           key={i}
-          className={`flex items-start gap-3 p-2.5 rounded-lg border transition-colors ${
+          className={`flex items-start gap-3 p-2.5 rounded-sm border transition-colors ${
             c.is_best
-              ? "bg-emerald-500/5 border-emerald-500/20"
-              : "bg-muted/30 border-zinc-700/30"
+              ? "bg-emerald-50 border-emerald-200"
+              : "bg-muted/30 border-border"
           }`}
           data-testid={`candidate-${i}`}
         >
