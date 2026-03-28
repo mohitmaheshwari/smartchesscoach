@@ -2223,3 +2223,36 @@ backend:
       ✅ Application API is now fully functional
       
       NO ACTION ITEMS - Fix is production-ready and working perfectly.
+
+
+  - agent: "main"
+    message: |
+      🏠 HOME PAGE LAYOUT REBUILD — Matching PAGE_LAYOUTS.md Spec
+      
+      CHANGES MADE TO HomePage.jsx:
+      1. Added COACH MESSAGE section at top (Playfair Display, text-2xl/3xl)
+         - Dynamic: Uses top pattern data ("Calc Depth is showing up in almost every game")
+         - Subtext: Pattern count + "This is your biggest leak right now"
+         - Streak indicator included
+      
+      2. LAST GAME (3/5) + ACTIONS (2/5) — Side-by-side grid
+         - Last Game: ChessBoard + opponent + result badge + diagnosis + move detail + Review
+         - Actions: Primary wine CTA (Train [pattern]) + Play with Coach + Study Openings
+         - Dynamic primary CTA based on top pattern
+      
+      3. PATTERNS (1/2) + CHESS DNA (1/2) — Side-by-side grid
+         - Patterns: List with severity dots, count, CRIT/MED badges, clickable to training
+         - Chess DNA: Archetype + Biggest Leak label + before/after lines
+      
+      4. Footer: games count + accuracy %
+      
+      DESIGN SYSTEM COMPLIANCE:
+      - Section labels: ALL CAPS, 10px, tracking 0.2em, JetBrains Mono, gold #8B6F1F ✅
+      - Cards: white bg, 1px border hsl(35 10% 87%), rounded-sm ✅
+      - Wine Red #722F37 for CTAs and loss indicators ✅
+      - Result badges: WON (green bg), LOST (wine bg), DRAW (gray bg) ✅
+      - Severity badges: CRIT (wine), MED (gold) ✅
+      - Playfair Display for headings, DM Sans font-light for body ✅
+      - JetBrains Mono for stats/badges ✅
+      
+      PRESERVED: Empty state (no games), loading state, API contract unchanged

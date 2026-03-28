@@ -1,8 +1,11 @@
 /**
- * HOME PAGE — V3
+ * HOME PAGE — Coach-First Dashboard
  * 
- * Your chess story at a glance.
- * Last battle (compact), streak, patterns across games, chess DNA, quick actions.
+ * Layout spec:
+ * 1. COACH MESSAGE (top, bold Playfair)
+ * 2. LAST GAME (3/5) + ACTIONS (2/5) side-by-side
+ * 3. PATTERNS (1/2) + CHESS DNA (1/2) side-by-side
+ * 4. Footer stats
  */
 
 import { useState, useEffect } from "react";
@@ -11,7 +14,7 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
-import { ChevronRight, Swords, Target, ArrowRight, Import } from "lucide-react";
+import { ChevronRight, Swords, Target, ArrowRight, Import, BookOpen } from "lucide-react";
 
 const WINE = "#722F37";
 const GOLD_TEXT = "#8B6F1F";
@@ -54,18 +57,17 @@ const HomePage = ({ user }) => {
   const accuracy = data?.accuracy || 0;
   const gamesAnalyzed = data?.games_analyzed || 0;
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
   // No games state
   if (!battle && gamesAnalyzed === 0) {
     return (
       <Layout user={user}>
         <div className="max-w-xl mx-auto px-4 py-16 text-center" data-testid="home-page">
-          <h1 className="text-3xl text-foreground tracking-tight mb-3 font-heading">
+          <h1 className="text-3xl text-foreground tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
             Welcome to ChessGuru
           </h1>
-          <p className="text-muted-foreground mb-8 font-light">Import your games to get started. After 5 games, your coach will know your strengths. After 15, it'll know your weaknesses by name.</p>
+          <p className="text-muted-foreground mb-8 font-light">
+            Import your games to get started. After 5 games, your coach will know your strengths. After 15, it'll know your weaknesses by name.
+          </p>
           <div className="flex gap-3 justify-center">
             <button onClick={() => navigate("/import")} className="px-6 py-3 text-sm text-white rounded-sm" style={{ background: WINE }} data-testid="import-cta">
               <Import className="w-4 h-4 inline mr-2" strokeWidth={1.5} />
@@ -81,162 +83,262 @@ const HomePage = ({ user }) => {
     );
   }
 
+  // Build coach message from patterns or fix data
+  const topPattern = patterns.length > 0 ? patterns[0] : null;
+  const coachMessageMain = topPattern
+    ? `${topPattern.label} is showing up in almost every game.`
+    : fix?.fix_line || "Let's review your recent games.";
+  const coachMessageSub = topPattern
+    ? `${topPattern.recent_count} times recently. This is your biggest leak right now.`
+    : fix?.stat_line || "";
+
+  // Dynamic primary action label
+  const primaryActionLabel = topPattern
+    ? `Train ${topPattern.label}`
+    : fix?.pattern
+      ? `Train ${fix.pattern.replace(/_/g, " ")}`
+      : "Train Calculation";
+  const primaryActionHref = topPattern
+    ? `/training?focus=${topPattern.pattern_type}`
+    : `/training?focus=calculation_depth`;
+
   return (
     <Layout user={user}>
-      <div className="max-w-2xl mx-auto px-4 py-6" data-testid="home-page">
+      <div className="max-w-3xl mx-auto px-4 py-6" data-testid="home-page">
 
-        {/* ── GREETING + STREAK ── */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between mb-8">
-          <p className="text-sm text-muted-foreground font-light">{greeting}</p>
+        {/* ═══════════════════════════════════════════════════
+            COACH MESSAGE
+        ═══════════════════════════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          {/* Streak indicator */}
           {streak && streak.count >= 2 && (
-            <span className="text-xs font-mono" style={{ color: streak.type === "W" ? "#16a34a" : streak.type === "L" ? WINE : undefined }}>
+            <p className="text-xs font-mono mb-3" style={{
+              color: streak.type === "W" ? "#16a34a" : streak.type === "L" ? WINE : "#888"
+            }}>
               {streak.count} {streak.type === "W" ? "wins" : streak.type === "L" ? "losses" : "draws"} in a row
-            </span>
+            </p>
+          )}
+
+          <h1
+            className="text-2xl sm:text-3xl text-foreground tracking-tight leading-snug mb-2"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            {coachMessageMain}
+          </h1>
+          {coachMessageSub && (
+            <p className="text-sm text-muted-foreground font-light">{coachMessageSub}</p>
           )}
         </motion.div>
 
-        {/* ── LAST BATTLE (compact) ── */}
-        {battle && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-6">
-            <SectionLabel>Last Game</SectionLabel>
-            <div
-              className="bg-card border border-border cursor-pointer transition-all duration-200 hover:shadow-sm rounded-sm overflow-hidden"
-              onClick={() => navigate(`/game/${battle.game_id}`)}
-              data-testid="last-battle-card"
-            >
-              <div className="flex">
-                <div className="w-[160px] h-[160px] flex-shrink-0">
-                  <LichessBoard fen={battle.fen} orientation={battle.user_color} viewOnly={true} />
-                </div>
-                <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm text-muted-foreground font-light">vs {battle.opponent}</span>
-                      <ResultBadge result={battle.result} userColor={battle.user_color} />
-                    </div>
-                    <p className="text-sm text-foreground leading-snug font-light">{dna?.root_cause || "Review this game"}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <span className="text-[10px] text-muted-foreground font-mono">Move {battle.move_number}</span>
-                    <span className="text-[10px] font-mono" style={{ color: WINE }}>{battle.your_move}</span>
-                    <ArrowRight className="w-2.5 h-2.5 text-border" />
-                    <span className="text-[10px] font-mono text-emerald-600">{battle.best_move}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── CHESS DNA (compact) ── */}
-        {dna && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-6">
-            <SectionLabel>Your Chess DNA</SectionLabel>
-            <div className="bg-card border border-border rounded-sm">
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl text-foreground tracking-tight font-heading">
-                    {dna.archetype}
-                  </h2>
-                  <span className="text-[9px] tracking-[0.15em] uppercase px-1.5 py-0.5 border font-mono rounded-sm"
-                    style={{ borderColor: `${WINE}40`, color: WINE }}>
-                    {dna.diagnosis?.replace(/_/g, " ")}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground font-light">{dna.before_line}</p>
-                <p className="text-xs text-foreground font-light mt-0.5">{dna.after_line}</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── PATTERNS ACROSS GAMES ── */}
-        {patterns.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-6">
-            <SectionLabel>Patterns Across Games</SectionLabel>
-            <div className="bg-card border border-border rounded-sm divide-y divide-border">
-              {patterns.map((p) => (
+        {/* ═══════════════════════════════════════════════════
+            LAST GAME (3/5) + ACTIONS (2/5)
+        ═══════════════════════════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="mb-6"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* LAST GAME — 3/5 */}
+            {battle && (
+              <div className="md:col-span-3">
+                <SectionLabel>Last Game</SectionLabel>
                 <div
-                  key={p.pattern_type}
-                  className="flex items-center justify-between px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50"
-                  onClick={() => navigate(`/training?focus=${p.pattern_type}`)}
-                  data-testid={`pattern-${p.pattern_type}`}
+                  className="bg-white border border-border cursor-pointer transition-all duration-200 hover:shadow-sm rounded-sm overflow-hidden h-full"
+                  onClick={() => navigate(`/game/${battle.game_id}`)}
+                  data-testid="last-battle-card"
+                  style={{ borderColor: "hsl(35 10% 87%)" }}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: p.severity === "critical" ? WINE : "#CBA135" }} />
-                    <span className="text-sm text-foreground font-light">{p.label}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground font-mono">{p.recent_count}x</span>
-                    <span className="text-[9px] px-1.5 py-0.5 uppercase font-mono rounded-sm"
-                      style={{
-                        background: p.severity === "critical" ? `${WINE}10` : "#CBA13515",
-                        color: p.severity === "critical" ? WINE : GOLD_TEXT,
-                      }}>
-                      {p.severity}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40" strokeWidth={1.5} />
+                  <div className="flex h-full">
+                    <div className="w-[140px] sm:w-[160px] flex-shrink-0">
+                      <LichessBoard fen={battle.fen} orientation={battle.user_color} viewOnly={true} />
+                    </div>
+                    <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-sm text-muted-foreground font-light">vs {battle.opponent}</span>
+                          <ResultBadge result={battle.result} userColor={battle.user_color} />
+                        </div>
+                        <p className="text-sm text-foreground leading-snug font-light">
+                          {dna?.root_cause || "Review this game"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-3">
+                        <span className="text-[10px] text-muted-foreground font-mono">Move {battle.move_number}</span>
+                        <span className="text-[10px] font-mono" style={{ color: WINE }}>{battle.your_move}</span>
+                        <ArrowRight className="w-2.5 h-2.5 text-border" />
+                        <span className="text-[10px] font-mono text-emerald-600">{battle.best_move}</span>
+                        <span className="text-[10px] text-muted-foreground/60 ml-auto font-mono">Review ›</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── FIX THIS ONE THING ── */}
-        {fix && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-6">
-            <SectionLabel>If You Fixed One Thing</SectionLabel>
-            <div
-              className="bg-card border border-border rounded-sm cursor-pointer transition-all duration-200 hover:shadow-sm"
-              onClick={() => navigate("/training?focus=calculation_depth")}
-              data-testid="one-thing-to-fix"
-            >
-              <div className="p-4">
-                <p className="text-xs text-muted-foreground font-light mb-1">{fix.stat_line}</p>
-                <p className="text-sm text-foreground font-light font-heading">{fix.fix_line}</p>
-                {fix.diff_line && (
-                  <p className="text-base mt-1 font-heading text-emerald-600">{fix.diff_line}</p>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── QUICK ACTIONS ── */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-6">
-          <div className="flex gap-3">
-            {action && (
-              <div
-                className={`flex-1 p-3.5 cursor-pointer transition-all duration-200 hover:shadow-sm flex items-center gap-3 rounded-sm ${
-                  action.type === "review_loss" ? "text-white" : "bg-card border border-border text-foreground"
-                }`}
-                style={action.type === "review_loss" ? { background: WINE } : undefined}
-                onClick={() => navigate(action.href)}
-                data-testid="context-action"
-              >
-                <Target className="w-4 h-4 flex-shrink-0 opacity-70" strokeWidth={1.5} />
-                <span className="text-sm font-light">{action.label}</span>
-                <ChevronRight className="w-4 h-4 ml-auto opacity-40" strokeWidth={1.5} />
               </div>
             )}
-            {action?.type !== "play" && (
-              <div
-                className="p-3.5 cursor-pointer transition-all duration-200 hover:opacity-90 flex items-center gap-2 rounded-sm"
-                style={{ background: "#CBA135", color: "#1a1a1a" }}
-                onClick={() => navigate("/play-with-coach")}
-                data-testid="play-btn"
-              >
-                <Swords className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-                <span className="text-sm font-medium whitespace-nowrap">Play</span>
+
+            {/* ACTIONS — 2/5 */}
+            <div className={battle ? "md:col-span-2" : "md:col-span-5"}>
+              <SectionLabel>Actions</SectionLabel>
+              <div className="bg-white border border-border rounded-sm h-full flex flex-col justify-between" style={{ borderColor: "hsl(35 10% 87%)" }}>
+                {/* Primary CTA */}
+                <div
+                  className="p-4 cursor-pointer transition-all duration-200 hover:opacity-90 flex items-center gap-3 text-white rounded-t-sm"
+                  style={{ background: WINE }}
+                  onClick={() => navigate(primaryActionHref)}
+                  data-testid="primary-action"
+                >
+                  <Target className="w-4 h-4 flex-shrink-0 opacity-80" strokeWidth={1.5} />
+                  <span className="text-sm font-light flex-1">{primaryActionLabel}</span>
+                  <ChevronRight className="w-4 h-4 opacity-60" strokeWidth={1.5} />
+                </div>
+
+                <div className="border-t border-border" style={{ borderColor: "hsl(35 10% 87%)" }} />
+
+                {/* Play with Coach */}
+                <div
+                  className="p-4 cursor-pointer transition-colors hover:bg-black/[0.02] flex items-center gap-3"
+                  onClick={() => navigate("/play-with-coach")}
+                  data-testid="play-action"
+                >
+                  <Swords className="w-4 h-4 flex-shrink-0 text-muted-foreground" strokeWidth={1.5} />
+                  <span className="text-sm text-foreground font-light flex-1">Play with Coach</span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/30" strokeWidth={1.5} />
+                </div>
+
+                <div className="border-t border-border" style={{ borderColor: "hsl(35 10% 87%)" }} />
+
+                {/* Study Openings */}
+                <div
+                  className="p-4 cursor-pointer transition-colors hover:bg-black/[0.02] flex items-center gap-3"
+                  onClick={() => navigate("/openings-overview")}
+                  data-testid="openings-action"
+                >
+                  <BookOpen className="w-4 h-4 flex-shrink-0 text-muted-foreground" strokeWidth={1.5} />
+                  <span className="text-sm text-foreground font-light flex-1">Study Openings</span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/30" strokeWidth={1.5} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ═══════════════════════════════════════════════════
+            PATTERNS (1/2) + CHESS DNA (1/2) — side by side
+        ═══════════════════════════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-6"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* PATTERNS ACROSS GAMES */}
+            {patterns.length > 0 && (
+              <div>
+                <SectionLabel>Patterns Across Games</SectionLabel>
+                <div className="bg-white border border-border rounded-sm h-full" style={{ borderColor: "hsl(35 10% 87%)" }}>
+                  <div className="divide-y divide-border" style={{ "--tw-divide-opacity": 1, borderColor: "hsl(35 10% 87%)" }}>
+                    {patterns.map((p) => (
+                      <div
+                        key={p.pattern_type}
+                        className="flex items-center justify-between px-4 py-3 cursor-pointer transition-colors hover:bg-black/[0.02]"
+                        onClick={() => navigate(`/training?focus=${p.pattern_type}`)}
+                        data-testid={`pattern-${p.pattern_type}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{
+                            background: p.severity === "critical" ? WINE : "#CBA135"
+                          }} />
+                          <span className="text-sm text-foreground font-light">{p.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground font-mono">{p.recent_count}x</span>
+                          <SeverityBadge severity={p.severity} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* YOUR CHESS DNA */}
+            {dna && (
+              <div>
+                <SectionLabel>Your Chess DNA</SectionLabel>
+                <div className="bg-white border border-border rounded-sm h-full" style={{ borderColor: "hsl(35 10% 87%)" }}>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-muted-foreground font-light">
+                        {dna.archetype || "Developing"}
+                      </span>
+                    </div>
+
+                    <div className="mb-3">
+                      <span className="text-[9px] tracking-[0.15em] uppercase font-mono" style={{ color: WINE }}>
+                        Biggest Leak
+                      </span>
+                      <p className="text-base text-foreground tracking-tight mt-0.5" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        {dna.diagnosis?.replace(/_/g, " ") || "—"}
+                      </p>
+                    </div>
+
+                    {dna.before_line && (
+                      <p className="text-xs text-muted-foreground font-light mb-0.5">
+                        Before: {dna.before_line}
+                      </p>
+                    )}
+                    {dna.after_line && (
+                      <p className="text-xs text-foreground font-light">
+                        After: {dna.after_line}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* If no DNA but patterns exist, fill the second column */}
+            {!dna && patterns.length > 0 && fix && (
+              <div>
+                <SectionLabel>If You Fixed One Thing</SectionLabel>
+                <div
+                  className="bg-white border border-border rounded-sm h-full cursor-pointer transition-all duration-200 hover:shadow-sm"
+                  style={{ borderColor: "hsl(35 10% 87%)" }}
+                  onClick={() => navigate(primaryActionHref)}
+                >
+                  <div className="p-4">
+                    <p className="text-xs text-muted-foreground font-light mb-1">{fix.stat_line}</p>
+                    <p className="text-sm text-foreground font-light" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      {fix.fix_line}
+                    </p>
+                    {fix.diff_line && (
+                      <p className="text-base mt-2 text-emerald-600" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        {fix.diff_line}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </motion.div>
 
-        {/* ── FOOTER ── */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-          className="flex items-center justify-between text-muted-foreground/60 mt-8 pt-3 border-t border-border">
+        {/* ═══════════════════════════════════════════════════
+            FOOTER STATS
+        ═══════════════════════════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15 }}
+          className="flex items-center justify-between text-muted-foreground/60 mt-8 pt-3 border-t"
+          style={{ borderColor: "hsl(35 10% 87%)" }}
+        >
           <span className="text-[10px] font-mono">{gamesAnalyzed} games</span>
           <span className="text-[10px] font-mono">{accuracy.toFixed(0)}% accuracy</span>
         </motion.div>
@@ -245,23 +347,44 @@ const HomePage = ({ user }) => {
   );
 };
 
-// Reusable section label
+// ── Reusable Components ──
+
 const SectionLabel = ({ children }) => (
-  <p className="text-[10px] tracking-[0.2em] uppercase mb-2 font-mono" style={{ color: GOLD_TEXT }}>
+  <p
+    className="text-[10px] tracking-[0.2em] uppercase mb-2 font-mono"
+    style={{ color: GOLD_TEXT }}
+  >
     {children}
   </p>
 );
 
-// Win/Loss badge
 const ResultBadge = ({ result, userColor }) => {
   const won = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
   const draw = (result || "").includes("1/2");
   return (
-    <span className="text-[10px] px-1.5 py-0.5 font-mono rounded-sm" style={{
-      background: won ? "rgba(22,163,74,0.1)" : draw ? "rgba(0,0,0,0.05)" : `${WINE}15`,
-      color: won ? "#16a34a" : draw ? "#888" : WINE,
-    }}>
+    <span
+      className="text-[10px] px-1.5 py-0.5 font-mono rounded-sm"
+      style={{
+        background: won ? "rgba(22,163,74,0.1)" : draw ? "rgba(0,0,0,0.05)" : `rgba(114,47,55,0.08)`,
+        color: won ? "#16a34a" : draw ? "#888" : WINE,
+      }}
+    >
       {won ? "WON" : draw ? "DRAW" : "LOST"}
+    </span>
+  );
+};
+
+const SeverityBadge = ({ severity }) => {
+  const isCrit = severity === "critical";
+  return (
+    <span
+      className="text-[9px] px-1.5 py-0.5 uppercase font-mono rounded-sm"
+      style={{
+        background: isCrit ? "rgba(114,47,55,0.06)" : "rgba(203,161,53,0.1)",
+        color: isCrit ? WINE : GOLD_TEXT,
+      }}
+    >
+      {isCrit ? "CRIT" : severity?.toUpperCase() || "MED"}
     </span>
   );
 };
