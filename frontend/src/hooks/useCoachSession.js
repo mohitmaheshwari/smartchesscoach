@@ -85,12 +85,11 @@ export const useCoachSession = () => {
         body: JSON.stringify(body)
       });
       
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to start game");
-      }
-      
+      // Read body once to avoid "body stream already read" errors
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to start game");
+      }
       
       setSession(data.session);
       setCurrentFen(data.current_fen);

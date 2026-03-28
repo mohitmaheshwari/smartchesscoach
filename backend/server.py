@@ -14207,6 +14207,12 @@ coach_play_routes.set_db(db)
 coach_play_routes.set_llm(call_llm)
 streak_routes.set_db(db)
 
+# Register the main api_router (contains ~65 endpoints not yet extracted to route files)
+# This includes: /coach/play/start, /coach/play/move, /import-games, /analyze-game, etc.
+# NOTE: This MUST remain until all endpoints are fully extracted to dedicated route files.
+app.include_router(api_router)
+
+# Register extracted route file routers
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
 app.include_router(games_routes.router, prefix="/api")

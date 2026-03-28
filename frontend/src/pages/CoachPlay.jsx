@@ -677,9 +677,9 @@ const CoachPlay = ({ user }) => {
         body: JSON.stringify({ session_id: sessionId })
       });
       
+      // Read body once to avoid "body stream already read" errors
+      const data = await response.json();
       if (response.ok) {
-        const data = await response.json();
-        
         if (data.success) {
           setCurrentFen(data.current_fen);
           setIsPlayerTurn(data.is_player_turn);
@@ -702,8 +702,7 @@ const CoachPlay = ({ user }) => {
           toast.info(data.message || "It's your turn!");
         }
       } else {
-        const err = await response.json();
-        toast.error(err.detail || "Couldn't get coach move");
+        toast.error(data.detail || "Couldn't get coach move");
       }
     } catch (error) {
       console.error("Error triggering coach move:", error);
@@ -761,12 +760,11 @@ const CoachPlay = ({ user }) => {
         body: JSON.stringify(requestBody)
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to start game");
-      }
-
+      // Read body once to avoid "body stream already read" errors
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || "Failed to start game");
+      }
       setSession(data.session);
       // Ensure we have a valid FEN
       const validFen = data.current_fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -1391,13 +1389,12 @@ const CoachPlay = ({ user }) => {
         })
       });
 
+      // Read body once to avoid "body stream already read" errors
+      const data = await response.json();
       if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.detail || "Invalid move");
+        toast.error(data.detail || "Invalid move");
         return false;
       }
-
-      const data = await response.json();
       
       // Handle consequence feedback from pedagogical opponent
       if (data.consequence_feedback) {

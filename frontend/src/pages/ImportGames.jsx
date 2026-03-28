@@ -66,12 +66,12 @@ const ImportGames = ({ user }) => {
         })
       });
 
+      // Read body once to avoid "body stream already read" errors
+      const result = await response.json();
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Import failed');
+        throw new Error(result.detail || 'Import failed');
       }
 
-      const result = await response.json();
       toast.success(`Imported ${result.imported} games from ${platform}`);
 
       // Refresh games list
