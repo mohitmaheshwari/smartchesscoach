@@ -271,6 +271,9 @@ const LabV2 = ({ user }) => {
           setLabData(await labRes.json());
         }
         
+        // Auto-mark game as reviewed (user opened it in the review page)
+        fetch(`${API}/lab-mark-reviewed/${gameId}`, { method: "POST", credentials: "include" }).catch(() => {});
+        
         // Fetch focus module
         try {
           const focusRes = await fetch(`${API}/cognitive/training-priority`, { credentials: "include" });
