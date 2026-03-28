@@ -733,64 +733,30 @@ def generate_opponent_move_coaching(
     user_color: str
 ) -> tuple:
     """
-    Generate coaching for opponent's move.
+    Generate coaching for opponent's move — TEACHING focused.
+    Uses the same plan-reading logic as the Lab decryption.
     Returns (narrative, your_plan_now).
     """
-    move_san = board.san(move)
-    piece = board.piece_at(move.from_square)
-    piece_name = get_fun_piece_name(piece) if piece else "piece"
+    from services.game_decryption_v5_service import _explain_opponent_move_with_context
     
-    board_after = board.copy()
-    board_after.push(move)
-    
-    # Check if it's a capture
-    if board.is_capture(move):
-        captured = board.piece_at(move.to_square)
-        if captured:
-            captured_name = get_fun_piece_name(captured)
-            narrative = f"Opponent takes your {captured_name} with {move_san}!"
-            your_plan = "Can you recapture? Or is there a better response?"
-            return (narrative, your_plan)
-    
-    # Check if it creates a threat
-    is_user_white = user_color.lower() == "white"
-    user_chess_color = chess.WHITE if is_user_white else chess.BLACK
-    
-    for sq in chess.SQUARES:
-        user_piece = board_after.piece_at(sq)
-        if user_piece and user_piece.color == user_chess_color:
-            if board_after.is_attacked_by(not user_chess_color, sq):
-                if not board.is_attacked_by(not user_chess_color, sq):
-                    # New attack!
-                    attacked_name = get_fun_piece_name(user_piece)
-                    narrative = f"Watch out! {move_san} attacks your {attacked_name}!"
-                    your_plan = f"Your {attacked_name} is under attack. Defend it or find a counter-threat!"
-                    return (narrative, your_plan)
-    
-    # Check if it's a check
-    if board_after.is_check():
-        narrative = f"Check! {move_san} attacks your King!"
-        your_plan = "You must get out of check first!"
+    try:
+        narrative, your_plan = _explain_opponent_move_with_context(board, move, user_color, pv)
         return (narrative, your_plan)
-    
-    # Development move
-    if piece and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
-        narrative = f"Opponent develops the {piece_name} to {chess.square_name(move.to_square)}."
-        your_plan = "Keep developing your pieces and fight for the center!"
-        return (narrative, your_plan)
-    
-    # Central pawn
-    if piece and piece.piece_type == chess.PAWN:
-        to_file = chess.square_file(move.to_square)
-        if to_file in [3, 4]:  # d or e file
-            narrative = f"Opponent pushes a central pawn with {move_san}."
-            your_plan = "Fight for the center! Don't let them dominate."
-            return (narrative, your_plan)
-    
-    # Default
-    narrative = f"Opponent plays {move_san}."
-    your_plan = "What's your plan? Think about what you want to achieve."
-    return (narrative, your_plan)
+    except Exception:
+        # Fallback to basic explanation
+        move_san = board.san(move)
+        board_after = board.copy()
+        board_after.push(move)
+        
+        if board.is_capture(move):
+            captured = board.piece_at(move.to_square)
+            if captured:
+                return (f"They captured your {get_fun_piece_name(captured)} with {move_san}.", "Check if recapturing is safe.")
+        
+        if board_after.is_check():
+            return (f"{move_san} gives check.", "Block, capture, or move your king.")
+        
+        return (f"Opponent plays {move_san}.", "Continue with your plan.")
 
 
 def generate_good_move_narrative(
