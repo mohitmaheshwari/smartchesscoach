@@ -1,5 +1,20 @@
 # Chess Coaching App - Product Requirements Document
 
+## ⛔ DO NOT TOUCH — CRITICAL DEPLOYMENT FILES
+**These files must NEVER be modified, overwritten, or have values changed. The owner's production deployment depends on them exactly as they are.**
+
+| File | Why |
+|------|-----|
+| `backend/.env` | Contains owner's OPENAI_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, MONGO_URL, and all production keys |
+| `backend/llm_service.py` | Auto-detects LLM provider (OpenAI on owner's server, Emergent on Emergent platform). Logic must stay as-is |
+| `frontend/.env` | Contains REACT_APP_BACKEND_URL — production URL mapping |
+| `backend/routes/auth.py` | Google OAuth flow — owner's auth depends on this |
+| Any `*_KEY`, `*_SECRET`, `*_ID` env vars | Never add, remove, or modify authentication/API credentials |
+
+**Rule**: If a fix requires touching any of the above, ASK THE OWNER FIRST. No exceptions.
+
+---
+
 ## Original Problem Statement
 Build a hyper-personalized chess coaching application "Thinking Simulator" focusing on deep, insightful coaching for every move. Core features: "Play with Coach", "The Lab" for post-game analysis, "Community Intelligence Training", personalized Opening & Endgame study. UX principle: "One screen = one job."
 
