@@ -249,7 +249,7 @@ const ThinkingTraining = ({ user }) => {
       <Layout user={user}>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4" data-testid="training-empty">
           <Brain className="w-12 h-12 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">No Training Positions Yet</h2>
+          <h2 className="text-xl font-heading">No Training Positions Yet</h2>
           <p className="text-muted-foreground text-center max-w-md">
             Play some games and analyze them. Your mistakes (and other players' mistakes) will become training material.
           </p>
@@ -279,7 +279,7 @@ const ThinkingTraining = ({ user }) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Train</h1>
+            <h1 className="text-2xl font-heading tracking-tight">Train</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               {feedMeta.own_count > 0 && `${feedMeta.own_count} from your games`}
               {feedMeta.own_count > 0 && feedMeta.community_count > 0 && " · "}
@@ -305,10 +305,10 @@ const ThinkingTraining = ({ user }) => {
         {patternTypes.length > 1 && (
           <div className="flex flex-wrap gap-1.5 mb-3" data-testid="pattern-filter">
             <button
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              className={`text-xs px-2.5 py-1 rounded-sm border transition-colors ${
                 activeFilter === "all"
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                  ? "border-current bg-amber-50 text-amber-700"
+                  : "border-zinc-700 text-muted-foreground hover:border-zinc-500"
               }`}
               onClick={() => handleFilterChange("all")}
               data-testid="filter-all"
@@ -318,10 +318,10 @@ const ThinkingTraining = ({ user }) => {
             {patternTypes.map((pt) => (
               <button
                 key={pt}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                className={`text-xs px-2.5 py-1 rounded-sm border transition-colors ${
                   activeFilter === pt
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                    ? "border-current bg-amber-50 text-amber-700"
+                    : "border-zinc-700 text-muted-foreground hover:border-zinc-500"
                 }`}
                 onClick={() => handleFilterChange(pt)}
                 data-testid={`filter-${pt}`}
@@ -387,8 +387,8 @@ const ThinkingTraining = ({ user }) => {
                   <Card className="bg-card border-border" data-testid="solve-prompt">
                     <CardContent className="p-5 space-y-4">
                       <div className="flex items-center gap-2">
-                        <Target className="w-5 h-5 text-amber-500" />
-                        <h2 className="font-semibold">Find the Best Move</h2>
+                        <Target className="w-5 h-5 text-amber-600" />
+                        <h2 className="font-heading">Find the Best Move</h2>
                       </div>
 
                       <p className="text-sm text-muted-foreground">
@@ -412,7 +412,7 @@ const ThinkingTraining = ({ user }) => {
                               ? "border-emerald-500/50 text-emerald-500"
                               : currentFiltered.difficulty === "hard"
                               ? "border-red-500/50 text-red-500"
-                              : "border-amber-500/50 text-amber-500"
+                              : "border-amber-500/50 text-amber-600"
                           }`}
                         >
                           {currentFiltered.difficulty}
@@ -443,16 +443,16 @@ const ThinkingTraining = ({ user }) => {
                     <CardContent className="p-5 space-y-4">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        <h2 className="font-semibold text-emerald-400">You Found It</h2>
+                        <h2 className="font-heading text-emerald-600">You Found It</h2>
                       </div>
 
                       <p className="text-sm text-muted-foreground">
-                        <span className="font-mono text-emerald-400">
+                        <span className="font-mono text-emerald-600">
                           {solveResult?.correct_move || currentFiltered.best_move_san}
                         </span>{" "}
                         was the right move.
                         {solveResult?.original_player_move && (
-                          <span className="text-zinc-500"> The original player played <span className="font-mono text-red-400">{solveResult.original_player_move}</span>.</span>
+                          <span className="text-muted-foreground"> The original player played <span className="font-mono text-red-600">{solveResult.original_player_move}</span>.</span>
                         )}
                       </p>
 
@@ -460,10 +460,10 @@ const ThinkingTraining = ({ user }) => {
                       <CandidateMoves candidates={solveResult?.candidates} />
 
                       {solveResult?.miss_rate_at_your_level != null && (
-                        <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                        <div className="p-3 rounded-lg bg-muted/50 border border-border">
                           <p className="text-sm text-muted-foreground">
                             <Users className="w-3.5 h-3.5 inline mr-1.5" />
-                            <span className="text-emerald-400 font-medium">{solveResult.miss_rate_at_your_level}%</span>{" "}
+                            <span className="text-emerald-600 font-medium">{solveResult.miss_rate_at_your_level}%</span>{" "}
                             of players at your level missed this
                           </p>
                         </div>
@@ -506,16 +506,16 @@ const ThinkingTraining = ({ user }) => {
                     <CardContent className="p-5 space-y-4">
                       <div className="flex items-center gap-2">
                         <XCircle className="w-5 h-5 text-red-500" />
-                        <h2 className="font-semibold text-red-400">Not Quite</h2>
+                        <h2 className="font-heading text-red-600">Not Quite</h2>
                       </div>
 
                       <p className="text-sm text-muted-foreground">
                         The best move was{" "}
-                        <span className="font-mono text-emerald-400">
+                        <span className="font-mono text-emerald-600">
                           {solveResult?.correct_move || currentFiltered.best_move_san}
                         </span>
                         {solveResult?.original_player_move && (
-                          <span className="text-zinc-500">. The original player also missed it — they played <span className="font-mono text-red-400">{solveResult.original_player_move}</span>.</span>
+                          <span className="text-muted-foreground">. The original player also missed it — they played <span className="font-mono text-red-600">{solveResult.original_player_move}</span>.</span>
                         )}
                       </p>
 
@@ -523,10 +523,10 @@ const ThinkingTraining = ({ user }) => {
                       <CandidateMoves candidates={solveResult?.candidates} />
 
                       {solveResult?.miss_rate_at_your_level != null && (
-                        <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                        <div className="p-3 rounded-lg bg-muted/50 border border-border">
                           <p className="text-sm text-muted-foreground">
                             <Users className="w-3.5 h-3.5 inline mr-1.5" />
-                            <span className="text-amber-400 font-medium">{solveResult.miss_rate_at_your_level}%</span>{" "}
+                            <span className="text-amber-600 font-medium">{solveResult.miss_rate_at_your_level}%</span>{" "}
                             of players at your level also missed this
                           </p>
                         </div>
@@ -591,7 +591,7 @@ const ThinkingTraining = ({ user }) => {
                           <span className="font-medium">
                             {stat.total_solved}/{stat.total_attempts}
                           </span>
-                          <div className="w-12 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                          <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
                             <div
                               className="h-full rounded-full bg-primary transition-all"
                               style={{ width: `${stat.solve_rate || 0}%` }}
@@ -636,31 +636,31 @@ const CandidateMoves = ({ candidates }) => {
 
   return (
     <div className="space-y-2" data-testid="candidate-moves">
-      <p className="text-xs text-zinc-500 uppercase tracking-wide">Ideas in this position</p>
+      <p className="text-xs text-muted-foreground uppercase tracking-wide">Ideas in this position</p>
       {candidates.map((c, i) => (
         <div
           key={i}
           className={`flex items-start gap-3 p-2.5 rounded-lg border transition-colors ${
             c.is_best
               ? "bg-emerald-500/5 border-emerald-500/20"
-              : "bg-zinc-800/30 border-zinc-700/30"
+              : "bg-muted/30 border-zinc-700/30"
           }`}
           data-testid={`candidate-${i}`}
         >
           <Badge
             variant="outline"
             className={`text-xs font-mono flex-shrink-0 mt-0.5 ${
-              c.is_best ? "text-emerald-400 border-emerald-500/30" : "text-zinc-400 border-zinc-600"
+              c.is_best ? "text-emerald-600 border-emerald-500/30" : "text-muted-foreground border-zinc-600"
             }`}
           >
             {c.move}
           </Badge>
           <div className="flex-1 min-w-0">
-            <p className={`text-sm leading-relaxed ${c.is_best ? "text-emerald-300" : "text-zinc-400"}`}>
+            <p className={`text-sm leading-relaxed ${c.is_best ? "text-emerald-300" : "text-muted-foreground"}`}>
               {c.idea}
             </p>
             {c.type && c.type !== "engine_choice" && (
-              <span className="text-[10px] text-zinc-600 capitalize">{c.type.replace(/_/g, " ")}</span>
+              <span className="text-[10px] text-muted-foreground capitalize">{c.type.replace(/_/g, " ")}</span>
             )}
           </div>
         </div>
