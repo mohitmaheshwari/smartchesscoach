@@ -2932,14 +2932,6 @@ const CoachPlay = ({ user }) => {
                   </div>
                 )}
                 
-                {/* Ask Coach - Smart prompts + input */}
-                <div className="pt-2 border-t border-border/50">
-                  <AskCoach
-                    onSendMessage={(msg) => sendChatMessage(msg)}
-                    disabled={loadingFeedback}
-                    showPrompts={!isCoachThinking}
-                  />
-                </div>
               </div>
               
               {/* Footer - Move History (collapsible) */}
@@ -3384,39 +3376,6 @@ const CoachPlay = ({ user }) => {
                   )}
                 </CardContent>
               </Card>
-            </div>
-          )}
-          
-          {/* Chat Input - Legacy mode only */}
-          {!gameOver && (
-            <div className="p-4 border-t border-border">
-              <div className="flex gap-2">
-                <Textarea
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ask the coach anything..."
-                  className="min-h-[60px] max-h-[100px] resize-none"
-                  data-testid="chat-input"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey && chatInput.trim()) {
-                      e.preventDefault();
-                      sendChatMessage();
-                    }
-                  }}
-                />
-                <Button
-                  size="icon"
-                  onClick={() => sendChatMessage()}
-                  disabled={!chatInput.trim() || isSendingChat}
-                  data-testid="send-chat-btn"
-                >
-                  {isSendingChat ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
             </div>
           )}
           
