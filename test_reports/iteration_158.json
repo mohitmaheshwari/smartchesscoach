@@ -1,0 +1,95 @@
+{
+  "summary": "Tested 4 new features for chess coaching app: Pattern Prescription on Home Page, Cross-screen progress tracking, Theory Applied moment, and Opening Portrait Coach Progress. All 14 backend tests passed. All frontend UI tests passed. Fixed missing times_applied_in_games field in /api/training/opening-progress endpoint.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pattern_prescription_features.py",
+    "/app/test_reports/pytest/test_pattern_prescription_features.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "HomePage.jsx correctly fetches /api/home/pattern-prescription and displays prescriptions in pattern-prescription-card",
+    "Pattern prescription card shows 3 patterns with labels, recent counts, and severity indicators",
+    "Clicking pattern-prescription-card navigates to /training",
+    "Train card shows dominant pattern with 'Xx recently' count",
+    "Study card correctly says 'Your Openings' and navigates to /openings-overview",
+    "V5CoachingCard.jsx has pattern_memory (amber) and theory_applied (green) display elements with correct data-testid attributes",
+    "OpeningsOverview.jsx Coach Progress section shows 'Applied Xx in games' when times_applied_in_games > 0",
+    "GET /api/home/pattern-prescription returns prescriptions array with pattern_type, label, recent_count, severity, training_positions_available",
+    "GET /api/training/opening-progress now returns times_applied_in_games field for coach-taught openings (BUG FIX applied)",
+    "GET /api/openings/french-defense?variation=french_winawer returns correct active_variation"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pattern_prescription_features.py",
+    "/app/backend/server.py (line 7963-7965: added times_applied_in_games and correct_applications to opening progress response)"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "seed_data_creation": "None - used existing user data (Mohit Maheshwari with 20 games, 3 patterns: calculation_depth 19x, tactical_miss 15x, short_calculation 13x)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 4 features verified working: 1) Pattern Prescription on Home Page - shows 'Patterns to Fix' card with top 3 recurring patterns and their counts. 2) Cross-screen progress tracking - times_applied_in_games field now returned in /api/training/opening-progress. 3) Theory Applied moment - V5CoachingCard has theory_applied note (green box) that displays when coaching.theory_applied is present. 4) Opening Portrait Coach Progress - shows 'Applied Xx in games' when times_applied_in_games > 0. Note: Theory applied tracking cannot be fully tested end-to-end without a live game where user plays a book move in a taught opening.",
+  "features_verified": {
+    "feature_1_pattern_prescription_on_home_page": {
+      "status": "WORKING",
+      "elements_verified": [
+        "pattern-prescription-card with 'PATTERNS TO FIX' header",
+        "prescription-calculation_depth: 'Calculation Depth 19x recently'",
+        "prescription-tactical_miss: 'Missing Tactics 15x recently'",
+        "prescription-short_calculation: 'Stopping Calculation Too Early 13x recently'",
+        "Clicking card navigates to /training"
+      ],
+      "api_test": "GET /api/home/pattern-prescription returns 3 prescriptions with correct fields"
+    },
+    "feature_2_cross_screen_progress_tracking": {
+      "status": "WORKING (BUG FIX APPLIED)",
+      "bug_fixed": "Added times_applied_in_games and correct_applications fields to /api/training/opening-progress response",
+      "api_test": "GET /api/training/opening-progress now returns times_applied_in_games for coach-taught openings"
+    },
+    "feature_3_theory_applied_moment": {
+      "status": "CODE VERIFIED (cannot test end-to-end without live game)",
+      "backend_code": {
+        "coach_play.py": "Theory applied tracking at lines 1940-1945 - increments times_applied_in_games and sets coaching_dict['theory_applied']",
+        "shared_coaching_v5.py": "V5Coaching dataclass has theory_applied field at line 95"
+      },
+      "frontend_code": {
+        "V5CoachingCard.jsx": "theory_applied display element (green box) with data-testid='theory-applied-note' at lines 218-231"
+      },
+      "note": "Theory applied is injected during live play when user plays a book move in a taught opening"
+    },
+    "feature_4_opening_portrait_coach_progress": {
+      "status": "WORKING",
+      "elements_verified": [
+        "coach-progress section with 'Coach Taught' header",
+        "coach-item-French Defense: '1x practiced' 'Not tested in a game yet' 'Introduced'",
+        "coach-item-Vienna Game: '1x practiced' 'Not tested in a game yet' 'Introduced'",
+        "coach-item-Queen's Gambit: '1x practiced' 'Not tested in a game yet' 'Introduced'"
+      ],
+      "note": "'Applied Xx in games' text only shows when times_applied_in_games > 0 (currently 0 for all openings)"
+    }
+  },
+  "home_page_verified": {
+    "greeting": "Good morning / You're on a roll!",
+    "quick_pulse": "Score (43), Accuracy (60%), Trend (up arrow)",
+    "play_card": "Play with Coach - Get feedback on every move",
+    "train_card": "Train - Missed Threat 32x recently",
+    "study_card": "Study - Your Openings - Personal portrait",
+    "pattern_prescription_card": "PATTERNS TO FIX with 3 patterns",
+    "last_game_card": "Last game vs Emoji-88 - Lost - 1 blunder",
+    "games_analyzed": "20 games analyzed"
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All APIs are real, no mocking"
+  }
+}

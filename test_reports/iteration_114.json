@@ -1,0 +1,70 @@
+{
+  "summary": "Tested UX Overhaul for Play with Coach page - Clean UI Mode with one insight at a time coaching loop. All new features working: CoachInsightCard, TrapAlert, AskCoach with smart prompts, collapsible MoveHistorySection. Legacy UI correctly hidden when cleanUIMode is true.",
+  "mode": "generate",
+  "baseline_commit": "ba10c55e0ef8e143d422a80ac8b34216f0ec4495",
+  "head_commit": "9bd5763c8bd5ae0aa178056da0ae76d0dd08f51e",
+  "specs_created": [
+    "/app/tests/e2e/clean-ui-mode.spec.ts"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/coach-play.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/clean-ui-mode.spec.ts",
+    "/app/tests/e2e/coach-play.spec.ts"
+  ],
+  "regression_results": {
+    "total_specs": 24,
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0
+  },
+  "issues": [
+    {
+      "id": "IMP-001",
+      "issue_type": "improvement",
+      "severity": "LOW",
+      "description": "Backend move API tests have pre-existing failures (test_make_valid_move_e4, test_make_valid_move_sequence, test_make_illegal_move) - response structure mismatch. Not related to UX overhaul.",
+      "endpoint_or_component": "/api/coach/play/move"
+    }
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/clean-ui-mode.spec.ts",
+    "/app/tests/e2e/coach-play.spec.ts"
+  ],
+  "test_results": {
+    "frontend": "100% (24/24 tests passed)",
+    "backend": "84% (16/19 passed - 3 pre-existing failures unrelated to UX overhaul)"
+  },
+  "seed_data_creation": "N/A - Uses dev login test user",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Clean UI Mode UX overhaul fully tested. Key components verified: CoachInsightCard shows welcome state and coach insights, TrapAlert displays trap notifications (dismissible), AskCoach has 4 smart prompts (Why was that better?, What's my plan?, Did I miss a tactic?, What should I improve?), MoveHistorySection is collapsible at bottom showing 'Moves (N)' summary. Legacy 'Coach Chat' header is hidden in clean UI mode, shows 'Your Coach' instead. Post-game reverts to legacy UI showing 'Game Analysis'. Opening suggestion panel shows 'Start Learning' and 'Just Play' buttons.",
+  "features_verified": {
+    "cleanUIMode": [
+      "Clean UI renders coach panel with 'Your Coach' header",
+      "CoachInsightCard shows default welcome state: 'Make a move. I'll share my thoughts.'",
+      "Smart prompts visible: Why was that better?, What's my plan?, Did I miss a tactic?, What should I improve?",
+      "MoveHistorySection collapsible at bottom with 'Moves (N)' summary",
+      "Legacy 'Coach Chat' header NOT visible in clean UI mode",
+      "Legacy chat-messages container NOT visible in clean UI mode"
+    ],
+    "openingSuggestionPanel": [
+      "Opening suggestion panel appears with lesson info",
+      "Just Play button visible and dismisses panel when clicked"
+    ],
+    "boardInteractivity": [
+      "Board is interactive when game is active",
+      "Your turn indicator shows correctly",
+      "Eval bar visible next to board"
+    ],
+    "gameControls": [
+      "Flip board button works",
+      "Resign button visible during game",
+      "New Game button appears after resignation",
+      "Post-game shows Game Analysis UI"
+    ]
+  }
+}

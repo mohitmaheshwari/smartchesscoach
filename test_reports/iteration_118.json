@@ -1,0 +1,66 @@
+{
+  "summary": "Chess Brain Testing Complete: All 31 tests pass. Verified detector registry (10 tactical, 5 strategic, 3 behavioral), lesson selection engine scoring, ChessBrain analyze_move with quality classification (blunder/mistake/good/excellent), teaching mode assignment, lesson memory anti-spam, and full play with coach flow via API integration tests.",
+  "mode": "generate",
+  "baseline_commit": "561adb5937039a6ff502b7022ef5c7d81e976e5d",
+  "head_commit": "8146f17d154892d6ed19569b8489c3ed861dd4fb",
+  "specs_created": ["/app/backend/tests/test_chess_brain_integration.py"],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_chess_brain.py",
+    "/app/backend/tests/test_chess_brain_integration.py",
+    "/app/test_reports/pytest/chess_brain_results.xml"
+  ],
+  "regression_results": {
+    "total_specs": 31,
+    "passed": 31,
+    "failed": 0,
+    "skipped": 0
+  },
+  "issues": [],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_chess_brain_integration.py",
+    "/app/.emergent/testing_baseline_commit"
+  ],
+  "test_results": {
+    "backend": "100% (31/31 tests passed)",
+    "frontend": "N/A - Backend-only Chess Brain feature"
+  },
+  "features_verified": {
+    "detector_registry": [
+      "10 tactical detectors: fork, pin, hanging_piece, trapped_piece, back_rank, mate, discovery, skewer, overload, removal",
+      "5 strategic detectors: isolated_pawn, passed_pawn, knight_outpost, rook_activity, king_safety",
+      "3 behavioral detectors: time_trouble, impulse_move, tilt"
+    ],
+    "lesson_selection_engine": [
+      "Score calculation with severity, clarity, relevance weights",
+      "Priority multipliers (CRITICAL=2.0, HIGH=1.5, NORMAL=1.0)",
+      "Freshness decay affects candidate selection"
+    ],
+    "chess_brain_analysis": [
+      "Excellent move classification when playing best move",
+      "Blunder classification with eval drop > 250cp",
+      "Required output fields: coaching_message, user_move_quality, best_move, teaching_mode"
+    ],
+    "teaching_modes": [
+      "IMMEDIATE_MISTAKE_CORRECTION for blunders/mistakes",
+      "Appropriate modes (POSITIVE_REINFORCEMENT, STRATEGIC, OPENING_GUIDANCE) for good moves",
+      "All 7 teaching modes defined and functional"
+    ],
+    "lesson_memory": [
+      "Anti-spam: blocks same pattern for 5 moves after teaching",
+      "Freshness score decay after teaching",
+      "can_teach check works correctly"
+    ],
+    "api_integration": [
+      "/api/coach/play/start returns session_id and active session",
+      "/api/coach/play/move records move and triggers async processing",
+      "Full play flow works: start -> move -> coach responds"
+    ]
+  },
+  "seed_data_creation": "N/A - Tests use dev login authentication",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Chess Brain deterministic coaching engine fully tested. All detector counts verified (10/5/3), lesson selection scoring works, move quality classification correct, teaching modes assigned properly. The integration with realtime_coaching_feedback is working - the /coach/play/move endpoint triggers async analysis and coach response. Created comprehensive test_chess_brain_integration.py with 21 new tests covering all Chess Brain features."
+}

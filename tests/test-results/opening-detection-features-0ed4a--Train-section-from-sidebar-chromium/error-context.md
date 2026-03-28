@@ -1,0 +1,92 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - complementary [ref=e5]:
+        - generic [ref=e6]:
+          - link "CC Chess Coach" [ref=e7] [cursor=pointer]:
+            - /url: /home
+            - generic [ref=e9]: CC
+            - generic [ref=e10]: Chess Coach
+          - button [ref=e11] [cursor=pointer]:
+            - img
+        - navigation [ref=e12]:
+          - link "Home" [ref=e13] [cursor=pointer]:
+            - /url: /home
+            - button "Home" [ref=e14]:
+              - img
+              - generic [ref=e15]: Home
+          - link "Analyze" [ref=e16] [cursor=pointer]:
+            - /url: /lab
+            - button "Analyze" [ref=e17]:
+              - img
+              - generic [ref=e18]: Analyze
+          - link "Train" [ref=e19] [cursor=pointer]:
+            - /url: /training
+            - button "Train" [ref=e20]:
+              - img
+              - generic [ref=e21]: Train
+          - link "Progress" [ref=e22] [cursor=pointer]:
+            - /url: /progress
+            - button "Progress" [ref=e23]:
+              - img
+              - generic [ref=e24]: Progress
+          - link "Reflect" [ref=e25] [cursor=pointer]:
+            - /url: /reflect
+            - button "Reflect" [ref=e26]:
+              - img
+              - generic [ref=e27]: Reflect
+          - link "Play with Coach" [ref=e29] [cursor=pointer]:
+            - /url: /play-with-coach
+            - button "Play with Coach" [ref=e30]:
+              - img
+              - generic [ref=e31]: Play with Coach
+        - generic [ref=e32]:
+          - button "Light mode" [ref=e33] [cursor=pointer]:
+            - img
+            - generic [ref=e34]: Light mode
+          - link "Settings" [ref=e35] [cursor=pointer]:
+            - /url: /settings
+            - button "Settings" [ref=e36]:
+              - img
+              - generic [ref=e37]: Settings
+          - button "D Dev User" [ref=e38] [cursor=pointer]:
+            - generic [ref=e40]: D
+            - generic [ref=e42]: Dev User
+      - main [ref=e43]:
+        - generic [ref=e46]:
+          - generic [ref=e50]:
+            - img [ref=e51]
+            - heading "No patterns detected yet" [level=2] [ref=e53]
+            - paragraph [ref=e54]: Import and analyze games to discover your weaknesses.
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - img [ref=e59]
+              - generic [ref=e63]: Today's Training
+            - heading "Start Your Journey" [level=3] [ref=e64]
+            - paragraph [ref=e65]: Import games to discover your patterns
+            - button "Import Games" [ref=e66] [cursor=pointer]:
+              - img
+              - text: Import Games
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - img [ref=e71]
+              - generic [ref=e73]: Games to Reflect
+            - button "Game vs ShadowKing71 0 moments to review" [ref=e75] [cursor=pointer]:
+              - generic [ref=e76]:
+                - generic [ref=e77]:
+                  - paragraph [ref=e78]: Game vs ShadowKing71
+                  - paragraph [ref=e79]: 0 moments to review
+                - img [ref=e80]
+          - generic [ref=e82]:
+            - button "Full Journey" [ref=e83] [cursor=pointer]
+            - button "Openings" [ref=e84] [cursor=pointer]
+            - button "Play" [ref=e85] [cursor=pointer]
+    - region "Notifications alt+T"
+  - link "Made with Emergent" [ref=e86] [cursor=pointer]:
+    - /url: https://app.emergent.sh/?utm_source=emergent-badge
+    - img [ref=e87]
+    - paragraph [ref=e90]: Made with Emergent
+```

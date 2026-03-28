@@ -158,7 +158,7 @@ docker-compose up -d
 
 # 4. Access the app
 # Frontend: http://localhost:3000
-# Backend:  http://localhost:8001/docs
+# Backend:  http://localhost:8002/docs
 ```
 
 ### Local Development
@@ -169,7 +169,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn server:app --reload --port 8001
+uvicorn server:app --reload --port 8002
 
 # Frontend (new terminal)
 cd frontend
@@ -187,14 +187,14 @@ MONGO_URL=mongodb://localhost:27017
 DB_NAME=chess_coach
 
 # LLM Integration (Required)
-EMERGENT_LLM_KEY=your_emergent_llm_key
+OPENAI_API_KEY=your_emergent_llm_key
 
 # OAuth (Optional - for Google login)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 # Frontend
-REACT_APP_BACKEND_URL=http://localhost:8001
+REACT_APP_BACKEND_URL=http://localhost:8002
 ```
 
 ---
@@ -479,7 +479,7 @@ docker run -d \
   -p 80:80 \
   -e MONGO_URL=mongodb://your-mongo:27017 \
   -e DB_NAME=chess_coach \
-  -e EMERGENT_LLM_KEY=your_key \
+  -e OPENAI_API_KEY=your_key \
   chess-coach:latest
 ```
 
@@ -489,7 +489,7 @@ docker run -d \
 # Create production .env
 MONGO_URL=mongodb://mongodb:27017
 DB_NAME=chess_coach
-EMERGENT_LLM_KEY=your_production_key
+OPENAI_API_KEY=your_production_key
 
 # Deploy
 docker-compose up -d
@@ -525,7 +525,7 @@ docker-compose logs mongodb
 ```
 
 **3. LLM API errors**
-- Verify `EMERGENT_LLM_KEY` is set
+- Verify `OPENAI_API_KEY` is set
 - Check API quota/balance
 - Review backend logs: `tail -f /var/log/supervisor/backend.err.log`
 

@@ -1,0 +1,3294 @@
+{
+  "_meta": {
+    "description": "Opening theory tree structure with variations for V5 Thinking Simulator",
+    "version": "3.0",
+    "structure": "Each opening has main_line + variations as sub-trees with critical positions, best/mistake moves, and deep teaching content"
+  },
+  "italian_game": {
+    "name": "Italian Game",
+    "eco_prefix": [
+      "C50",
+      "C51",
+      "C52",
+      "C53",
+      "C54",
+      "C55",
+      "C56"
+    ],
+    "main_line": [
+      "e4",
+      "e5",
+      "Nf3",
+      "Nc6",
+      "Bc4"
+    ],
+    "white_plan": "Control the center, target f7 weakness, rapid development",
+    "black_plan": "Solid defense with d6 and Be7, or aggressive with Bc5",
+    "critical_positions": {
+      "after_Bc4": {
+        "fen_pattern": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq -",
+        "key_decision": "How to respond to Bc4 - the character of the game depends on this",
+        "best_moves": {
+          "Bc5": {
+            "name": "Giuoco Piano",
+            "idea": "Symmetric development, solid and principled",
+            "leads_to": "giuoco_piano"
+          },
+          "Nf6": {
+            "name": "Two Knights Defense",
+            "idea": "Attacking e4, more aggressive",
+            "leads_to": "two_knights"
+          },
+          "Be7": {
+            "name": "Hungarian Defense",
+            "idea": "Very solid, preparing d6",
+            "leads_to": "hungarian"
+          }
+        },
+        "mistake_moves": {
+          "d5": {
+            "why_bad": "Too early - after exd5 Nxd5, White has a big center",
+            "consequence": "After exd5 Nxd5 Nxd5 Qxd5 Nc3, the queen must retreat and White has excellent development",
+            "learning": "In the Italian, control the center with pieces first (Bc5 or Nf6), not pawns"
+          },
+          "f6": {
+            "why_bad": "Weakens the kingside terribly",
+            "consequence": "After Nxe5! fxe5, Qh5+ wins material",
+            "learning": "Never play f6 in the opening - it invites tactics on the king"
+          }
+        }
+      }
+    },
+    "variations": {
+      "giuoco_piano": {
+        "name": "Giuoco Piano",
+        "moves_from_parent": [
+          "Bc5"
+        ],
+        "continuation": [
+          "c3",
+          "Nf6",
+          "d4",
+          "exd4",
+          "cxd4",
+          "Bb4+",
+          "Bd2",
+          "Bxd2+",
+          "Nbxd2"
+        ],
+        "white_plan": "c3 preparing d4, control the center, rapid castling",
+        "black_plan": "Solid development with d6, castle, connect rooks",
+        "critical_positions": {
+          "after_c3": {
+            "fen_pattern": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/2P2N2/PP1P1PPP/RNBQK2R b KQkq -",
+            "key_decision": "Black must decide how to develop - d6 or Nf6",
+            "best_moves": {
+              "Nf6": {
+                "idea": "Active - immediately attacks e4",
+                "why_good": "Forces White to decide how to defend e4"
+              },
+              "d6": {
+                "idea": "Solid - preparing Be6 or Bg4, supports e5",
+                "why_good": "Controls the center with pieces, keeps tension"
+              }
+            },
+            "mistake_moves": {
+              "d5": {
+                "why_bad": "Premature center break",
+                "consequence": "After exd5 Nxd5, White gets d4 in comfortably",
+                "better_move": "Nf6",
+                "learning": "Keep the tension in the Italian - don't release it too early"
+              }
+            }
+          }
+        },
+        "subvariations": {
+          "evans_gambit": {
+            "name": "Evans Gambit",
+            "trigger_move": "b4",
+            "moves": [
+              "c3",
+              "Nf6",
+              "d4",
+              "exd4",
+              "b4"
+            ],
+            "white_plan": "Sacrifice b4 pawn for rapid development and center control",
+            "black_plan": "Accept the gambit but develop quickly, return material if needed",
+            "key_ideas": {
+              "accept": "Bxb4 is critical - accept and hold if you can calculate",
+              "decline": "Bb6 is safe but passive"
+            }
+          }
+        }
+      },
+      "two_knights": {
+        "name": "Two Knights Defense",
+        "moves_from_parent": [
+          "Nf6"
+        ],
+        "continuation": [
+          "Ng5",
+          "d5",
+          "exd5",
+          "Na5",
+          "Bb5+",
+          "c6",
+          "dxc6",
+          "bxc6",
+          "Be2"
+        ],
+        "white_plan": "Attack with Ng5 targeting f7, or play d3 for a quiet game",
+        "black_plan": "Counter-attack! Don't be passive. d5 is the key move.",
+        "critical_positions": {
+          "after_Ng5": {
+            "fen_pattern": "r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq -",
+            "key_decision": "Black must react precisely to the f7 attack",
+            "best_moves": {
+              "d5": {
+                "idea": "Counter in the center! The fighting move.",
+                "why_good": "Opens lines, attacks the bishop, gains tempo"
+              }
+            },
+            "mistake_moves": {
+              "Bc5": {
+                "why_bad": "Too slow - White crashes through on f7",
+                "consequence": "Bxf7+ Ke7 and Black's king is exposed",
+                "learning": "When attacked, counter-attack! d5 is the fighting move."
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "Control the center with pieces before pawns in the Italian",
+      "The d5 break is powerful but must be timed correctly",
+      "f7 is the weak point early - defend it indirectly with development",
+      "When attacked (Ng5), counter-attack (d5) rather than defend passively"
+    ]
+  },
+  "french_defense": {
+    "name": "French Defense",
+    "eco_prefix": [
+      "C00",
+      "C01",
+      "C02",
+      "C03",
+      "C10",
+      "C11",
+      "C12",
+      "C13",
+      "C14",
+      "C15",
+      "C16",
+      "C17",
+      "C18",
+      "C19"
+    ],
+    "main_line": [
+      "e4",
+      "e6",
+      "d4",
+      "d5"
+    ],
+    "white_plan": "Space advantage with e5, attack kingside, target the weak light squares",
+    "black_plan": "Undermine White's center with c5 and f6, solve the light-squared bishop problem",
+    "critical_positions": {
+      "after_d5": {
+        "fen_pattern": "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq -",
+        "key_decision": "White chooses the variation - this shapes the entire game",
+        "best_moves_white": {
+          "Nc3": {
+            "name": "Classical/Winawer",
+            "idea": "Develop and protect e4, main line",
+            "leads_to": "french_classical"
+          },
+          "e5": {
+            "name": "Advance Variation",
+            "idea": "Lock the center, gain space immediately",
+            "leads_to": "french_advance"
+          },
+          "Nd2": {
+            "name": "Tarrasch Variation",
+            "idea": "Avoid Winawer pin, quieter play",
+            "leads_to": "french_tarrasch"
+          },
+          "exd5": {
+            "name": "Exchange Variation",
+            "idea": "Simplify, play for small edge",
+            "leads_to": "french_exchange"
+          }
+        }
+      }
+    },
+    "variations": {
+      "french_advance": {
+        "name": "Advance Variation",
+        "moves_from_parent": [
+          "e5"
+        ],
+        "continuation": [
+          "c5",
+          "c3",
+          "Nc6",
+          "Nf3",
+          "Qb6",
+          "a3",
+          "Nh6"
+        ],
+        "white_plan": "Maintain the e5-d4 pawn chain, attack kingside with f4-f5, Bd3 battery",
+        "black_plan": "Attack the base of the chain with c5, play Nh6-f5 to pressure d4, break with f6",
+        "critical_positions": {
+          "after_e5": {
+            "fen_pattern": "rnbqkbnr/ppp2ppp/4p3/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq -",
+            "key_decision": "Black must immediately challenge the center",
+            "best_moves": {
+              "c5": {
+                "idea": "Attack the BASE of the pawn chain!",
+                "why_good": "The fundamental French principle - attack d4 to undermine e5"
+              }
+            },
+            "mistake_moves": {
+              "f6": {
+                "why_bad": "Too early! Weakens the kingside before developing",
+                "consequence": "After exf6 Nxf6, Black has wasted time and the king position is loose",
+                "better_move": "c5",
+                "learning": "In the French Advance, always play c5 first to attack d4. f6 comes later."
+              },
+              "Be7": {
+                "why_bad": "Passive - doesn't challenge the center",
+                "consequence": "White gets a free hand to build the attack",
+                "better_move": "c5",
+                "learning": "Don't develop aimlessly - challenge the opponent's strongest point"
+              }
+            }
+          },
+          "after_c5_c3": {
+            "fen_pattern": "rnbqkbnr/pp3ppp/4p3/2ppP3/3P4/2P2N2/PP3PPP/RNBQKB1R b KQkq -",
+            "key_decision": "How to develop the kingside",
+            "best_moves": {
+              "Nc6": {
+                "idea": "Develop and increase pressure on d4",
+                "why_good": "Natural development, eyes on d4"
+              },
+              "Qb6": {
+                "idea": "Pressure d4 AND b2 simultaneously",
+                "why_good": "Forces White to make a concession"
+              }
+            },
+            "mistake_moves": {
+              "cxd4": {
+                "why_bad": "Releases the tension too early",
+                "consequence": "After cxd4, White's center is stable and the c-file is less useful",
+                "better_move": "Nc6",
+                "learning": "Keep the tension on d4 - don't exchange unless you get something concrete"
+              }
+            }
+          },
+          "knight_maneuver": {
+            "fen_pattern": "r1bqkb1r/pp3ppp/2n1pn1N/2ppP3/3P4/P1P5/1P3PPP/RNBQKB1R b KQkq -",
+            "key_decision": "The knight goes to h6 heading for f5",
+            "best_moves": {
+              "Nh6": {
+                "idea": "Nh6-f5 is THE key maneuver in the Advance!",
+                "why_good": "The knight on f5 pressures d4 and e3, and can't be kicked easily"
+              }
+            }
+          }
+        }
+      },
+      "french_classical": {
+        "name": "Classical Variation (Steinitz)",
+        "moves_from_parent": [
+          "Nc3",
+          "Nf6",
+          "e5",
+          "Nfd7"
+        ],
+        "continuation": [
+          "f4",
+          "c5",
+          "Nf3",
+          "Nc6",
+          "Be3",
+          "cxd4",
+          "Nxd4",
+          "Bc5"
+        ],
+        "white_plan": "Push f4 to support e5, kingside attack with Qg4 or f5, restrict Black's pieces",
+        "black_plan": "Counter with c5, develop Nc6, plan f6 break, solve the light bishop problem",
+        "critical_positions": {
+          "after_e5_Nfd7": {
+            "fen_pattern": "rnbqkb1r/pppn1ppp/4p3/3pP3/3P4/2N5/PPP2PPP/R1BQKBNR w KQkq -",
+            "key_decision": "White must choose how to support the e5 pawn",
+            "best_moves_white": {
+              "f4": {
+                "idea": "Classical support - solid and aggressive",
+                "why_good": "Supports e5 firmly and prepares Nf3, Be3, Qg4 attack"
+              },
+              "Nf3": {
+                "idea": "Simple development, keeping options open",
+                "why_good": "Flexible - can still play f4 later"
+              }
+            }
+          },
+          "after_c5": {
+            "key_decision": "The center tension is critical",
+            "best_moves": {
+              "c5": {
+                "idea": "The fundamental French break",
+                "why_good": "Challenges d4, opens the c-file for Black's rook"
+              },
+              "f6": {
+                "idea": "Direct challenge to e5",
+                "why_good": "If timed right, opens the f-file and frees Black's position"
+              }
+            },
+            "mistake_moves": {
+              "a6": {
+                "why_bad": "Too slow - doesn't challenge the center",
+                "consequence": "White consolidates and attacks freely",
+                "better_move": "c5",
+                "learning": "In the French, always prioritize center breaks (c5 or f6) over wing moves"
+              }
+            }
+          }
+        }
+      },
+      "french_winawer": {
+        "name": "Winawer Variation",
+        "moves_from_parent": [
+          "Nc3",
+          "Bb4"
+        ],
+        "continuation": [
+          "e5",
+          "c5",
+          "a3",
+          "Bxc3+",
+          "bxc3",
+          "Ne7",
+          "Nf3",
+          "Nbc6",
+          "Be2",
+          "Qa5"
+        ],
+        "white_plan": "Use the bishop pair, attack kingside with Qg4 and f4, use the strong e5 pawn",
+        "black_plan": "Target the weak c3 pawn, play Qa5, develop Ne7-f5, break with f6",
+        "critical_positions": {
+          "after_Bb4": {
+            "fen_pattern": "rnbqk1nr/ppp2ppp/4p3/3p4/1b1PP3/2N5/PPP2PPP/R1BQKBNR w KQkq -",
+            "key_decision": "The most aggressive French - Black pins the knight!",
+            "best_moves_white": {
+              "e5": {
+                "idea": "Push forward! The Winawer mainline",
+                "why_good": "Gains space and creates an asymmetric fight"
+              },
+              "Bd2": {
+                "idea": "Break the pin quietly",
+                "why_good": "Less sharp but solid"
+              }
+            }
+          },
+          "after_Bxc3": {
+            "key_decision": "White has doubled c-pawns but the bishop pair",
+            "best_moves": {
+              "Ne7": {
+                "idea": "Head to f5 to pressure d4 and e3",
+                "why_good": "Knight on f5 is a monster"
+              },
+              "Qa5": {
+                "idea": "Target the weak c3 pawn immediately",
+                "why_good": "Forces White to defend"
+              }
+            },
+            "mistake_moves": {
+              "Nc6": {
+                "why_bad": "Blocks the c-file and doesn't target c3",
+                "consequence": "White gets time to consolidate the doubled pawns",
+                "better_move": "Ne7",
+                "learning": "In the Winawer, the knight belongs on e7\u2192f5, not c6"
+              }
+            }
+          }
+        }
+      },
+      "french_tarrasch": {
+        "name": "Tarrasch Variation",
+        "moves_from_parent": [
+          "Nd2",
+          "Nf6",
+          "e5",
+          "Nfd7"
+        ],
+        "continuation": [
+          "Bd3",
+          "c5",
+          "c3",
+          "Nc6",
+          "Ne2",
+          "cxd4",
+          "cxd4",
+          "f6"
+        ],
+        "white_plan": "Bd3 targets h7, Ne2-f4-g5 knight maneuver, solid center with c3",
+        "black_plan": "Challenge center with c5, break with f6, develop Nc6 and Qb6",
+        "critical_positions": {
+          "after_Nd2": {
+            "key_decision": "White avoids the Winawer pin with Nd2 instead of Nc3",
+            "best_moves": {
+              "Nf6": {
+                "idea": "Standard development, attacking e4",
+                "why_good": "Forces White to push e5 or defend"
+              },
+              "c5": {
+                "idea": "Immediate center challenge",
+                "why_good": "Can transpose to favorable lines"
+              }
+            }
+          }
+        }
+      },
+      "french_exchange": {
+        "name": "Exchange Variation",
+        "moves_from_parent": [
+          "exd5",
+          "exd5"
+        ],
+        "continuation": [
+          "Nc3",
+          "Nf6",
+          "Bg5",
+          "Be7",
+          "Bd3",
+          "O-O",
+          "Nge2",
+          "c6",
+          "Qd2",
+          "Re8"
+        ],
+        "white_plan": "Minority attack with b4-b5, pressure along the e-file, exploit symmetry for first-move advantage",
+        "black_plan": "Use the freed light bishop (Bf5 or Bg4!), central control, counterattack queenside advances",
+        "critical_positions": {
+          "after_exd5": {
+            "key_decision": "Symmetrical structure - but Black's bishop is FREE!",
+            "best_moves": {
+              "Nf6": {
+                "idea": "Natural development",
+                "why_good": "Prepares to castle and keeps options open"
+              },
+              "Bf5": {
+                "idea": "Get the bishop out immediately!",
+                "why_good": "In the Exchange, Black's light bishop is GOOD - use it!"
+              }
+            },
+            "mistake_moves": {
+              "Bd6": {
+                "why_bad": "Blocks the d-pawn",
+                "consequence": "Makes it harder to develop the queenside",
+                "better_move": "Nf6",
+                "learning": "Don't block your own pawns - develop knights before bishops in symmetric positions"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The French bishop on c8 is the 'problem piece' - always have a plan to activate it",
+      "c5 attacks the base of White's pawn chain - this is THE key break for Black",
+      "f6 is thematic but must be timed carefully - not too early, not too late",
+      "In the Advance, Nh6-f5 is the key knight maneuver",
+      "In the Winawer, target the doubled c-pawns with Qa5",
+      "In the Exchange, your light bishop is FREE - use it!"
+    ]
+  },
+  "queens_gambit": {
+    "name": "Queen's Gambit",
+    "eco_prefix": [
+      "D06",
+      "D07",
+      "D08",
+      "D09",
+      "D10",
+      "D20",
+      "D30",
+      "D31",
+      "D35",
+      "D37",
+      "D50",
+      "D60"
+    ],
+    "main_line": [
+      "d4",
+      "d5",
+      "c4"
+    ],
+    "white_plan": "Central control, queenside space, minority attack or central break e4",
+    "black_plan": "Solid defense of d5, counterattack with c5 or e5 when ready",
+    "critical_positions": {
+      "after_c4": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq -",
+        "key_decision": "The most important decision - accept, decline, or play the Slav?",
+        "best_moves": {
+          "e6": {
+            "name": "Queen's Gambit Declined",
+            "idea": "Solid defense of d5, classical approach",
+            "leads_to": "qgd_orthodox"
+          },
+          "dxc4": {
+            "name": "Queen's Gambit Accepted",
+            "idea": "Take the pawn but give it back for activity",
+            "leads_to": "qga"
+          },
+          "c6": {
+            "name": "Slav Defense",
+            "idea": "Support d5 while keeping the bishop free!",
+            "leads_to": "slav"
+          }
+        },
+        "mistake_moves": {
+          "e5": {
+            "why_bad": "Loses a pawn after dxe5",
+            "consequence": "White wins a clean pawn with a better position",
+            "learning": "Don't try to gambit back in the Queen's Gambit - just defend d5"
+          },
+          "Nc6": {
+            "why_bad": "Blocks the c-pawn",
+            "consequence": "Black can never play c5 or c6 to support the center",
+            "learning": "In d4 openings, keep the c-pawn free to support your center"
+          }
+        }
+      }
+    },
+    "variations": {
+      "qgd_orthodox": {
+        "name": "Queen's Gambit Declined (Orthodox)",
+        "moves_from_parent": [
+          "e6"
+        ],
+        "continuation": [
+          "Nc3",
+          "Nf6",
+          "Bg5",
+          "Be7",
+          "e3",
+          "O-O",
+          "Nf3",
+          "Nbd7",
+          "Rc1",
+          "c6",
+          "Bd3",
+          "dxc4",
+          "Bxc4",
+          "Nd5"
+        ],
+        "white_plan": "Minority attack (a3, b4, b5) to create queenside weaknesses, control c-file",
+        "black_plan": "Solid center with c6, develop Nd7, plan c5 or e5 break, solve the bishop problem",
+        "critical_positions": {
+          "after_Bg5": {
+            "key_decision": "The Bg5 pin is annoying - how to deal with it?",
+            "best_moves": {
+              "Be7": {
+                "idea": "Classical - break the pin simply",
+                "why_good": "Prepares to castle, keeps structure intact"
+              },
+              "h6": {
+                "idea": "Anti-Bg5 - kick the bishop",
+                "why_good": "Forces Bh4 where g5 becomes possible later"
+              }
+            },
+            "mistake_moves": {
+              "Nbd7": {
+                "why_bad": "Doesn't address the pin on f6",
+                "consequence": "Bxf6 damages the pawn structure",
+                "better_move": "Be7",
+                "learning": "Address pins before they become a problem. Be7 breaks the pin cleanly."
+              }
+            }
+          },
+          "minority_attack": {
+            "key_decision": "White starts the minority attack - Black must know how to respond",
+            "best_moves": {
+              "a5": {
+                "idea": "Stop b4! Prevent the minority attack",
+                "why_good": "Fixes the queenside pawns and stops White's main plan"
+              },
+              "Ne4": {
+                "idea": "Central counterplay",
+                "why_good": "Active piece play to distract from the queenside"
+              }
+            }
+          }
+        }
+      },
+      "qga": {
+        "name": "Queen's Gambit Accepted",
+        "moves_from_parent": [
+          "dxc4"
+        ],
+        "continuation": [
+          "Nf3",
+          "Nf6",
+          "e3",
+          "e6",
+          "Bxc4",
+          "c5",
+          "O-O",
+          "a6",
+          "Qe2",
+          "b5",
+          "Bd3",
+          "Bb7"
+        ],
+        "white_plan": "Recover the pawn with Bxc4, build a strong center with e4, dominate the center",
+        "black_plan": "Quick development, strike with c5, expand with a6-b5, Bb7 on the long diagonal",
+        "critical_positions": {
+          "after_dxc4": {
+            "key_decision": "Should Black try to hold the pawn?",
+            "best_moves": {
+              "Nf6": {
+                "idea": "Develop first, give back the pawn when ready",
+                "why_good": "Time is more important than one pawn"
+              },
+              "e6": {
+                "idea": "Solid approach, prepare to return the pawn",
+                "why_good": "Opens the bishop and supports d5"
+              }
+            },
+            "mistake_moves": {
+              "b5": {
+                "why_bad": "Trying to hold the c4 pawn costs too much time",
+                "consequence": "After a4 b4, Black's queenside is shattered",
+                "better_move": "Nf6",
+                "learning": "In the QGA, NEVER try to hold the pawn. Develop, give it back, and get active."
+              }
+            }
+          },
+          "after_c5": {
+            "key_decision": "Black strikes in the center",
+            "best_moves": {
+              "c5": {
+                "idea": "Challenge d4 - the key counter-break!",
+                "why_good": "Opens lines, activates pieces, challenges White's center"
+              }
+            }
+          }
+        }
+      },
+      "slav": {
+        "name": "Slav Defense",
+        "moves_from_parent": [
+          "c6"
+        ],
+        "continuation": [
+          "Nf3",
+          "Nf6",
+          "Nc3",
+          "dxc4",
+          "a4",
+          "Bf5",
+          "e3",
+          "e6",
+          "Bxc4",
+          "Bb4",
+          "O-O",
+          "O-O"
+        ],
+        "white_plan": "Recover the c4 pawn with a4 preventing b5, build strong center with e4",
+        "black_plan": "Develop Bf5 BEFORE e6 (key Slav idea!), solid structure, flexible development",
+        "critical_positions": {
+          "after_c6": {
+            "key_decision": "The brilliant idea behind the Slav",
+            "best_moves": {
+              "Bf5": {
+                "idea": "THE point of the Slav - bishop comes out before e6!",
+                "why_good": "Solves the French bishop problem. The bishop is active on f5."
+              },
+              "dxc4": {
+                "idea": "Take first, then develop the bishop",
+                "why_good": "Semi-Slav approach - flexible"
+              }
+            },
+            "mistake_moves": {
+              "e6": {
+                "why_bad": "Defeats the purpose of the Slav!",
+                "consequence": "The light bishop is stuck behind the e6 pawn, just like in the French",
+                "better_move": "Bf5 or dxc4",
+                "learning": "The WHOLE POINT of c6 instead of e6 is to keep Bf5 available. Don't play e6 before the bishop is out!"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Queen's Gambit is not a real gambit - White usually gets the pawn back",
+      "In the QGD, the minority attack (b4-b5) is White's main plan",
+      "In the QGA, never try to hold the c4 pawn - develop instead",
+      "In the Slav, develop Bf5 BEFORE playing e6 - that's the whole point",
+      "c5 is Black's key break in almost all Queen's Gambit lines"
+    ]
+  },
+  "london_system": {
+    "name": "London System",
+    "eco_prefix": [
+      "D00"
+    ],
+    "main_line": [
+      "d4",
+      "d5",
+      "Bf4"
+    ],
+    "white_plan": "Solid development: Bf4, e3, Nf3, Bd3, c3, Nbd2 - then push e4",
+    "black_plan": "Challenge with c5 or Bd6, fight for the center, don't let White play e4 easily",
+    "critical_positions": {
+      "after_Bf4": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/3P1B2/8/PPP1PPPP/RN1QKBNR b KQkq -",
+        "key_decision": "Black must decide how to challenge the London setup",
+        "best_moves": {
+          "Nf6": {
+            "idea": "Natural development, flexible",
+            "leads_to": "london_main"
+          },
+          "c5": {
+            "idea": "Immediately challenge d4",
+            "leads_to": "london_c5"
+          },
+          "Bf5": {
+            "idea": "Mirror the London! Develop the bishop early",
+            "leads_to": "london_bf5"
+          }
+        },
+        "mistake_moves": {
+          "e6": {
+            "why_bad": "Passive - locks in the light bishop like the French",
+            "consequence": "White gets a comfortable position with easy development",
+            "better_move": "Nf6 or c5",
+            "learning": "Against the London, be active! Challenge the center or develop actively."
+          }
+        }
+      }
+    },
+    "variations": {
+      "london_main": {
+        "name": "London Main Line",
+        "moves_from_parent": [
+          "Nf6"
+        ],
+        "continuation": [
+          "e3",
+          "e6",
+          "Nf3",
+          "c5",
+          "c3",
+          "Nc6",
+          "Nbd2",
+          "Bd6",
+          "Bg3",
+          "O-O",
+          "Bd3",
+          "b6",
+          "Ne5"
+        ],
+        "white_plan": "Complete development with e3, Nf3, Bd3, c3, Nbd2, O-O - then push e4 when ready",
+        "black_plan": "Play c5 to challenge d4, develop Bd6 to trade the London bishop, prepare e5 or dxc3",
+        "critical_positions": {
+          "after_e3": {
+            "key_decision": "White has set up the London pyramid - how to respond?",
+            "best_moves": {
+              "c5": {
+                "idea": "Challenge d4 immediately!",
+                "why_good": "Prevents White from getting a free center"
+              },
+              "Bd6": {
+                "idea": "Challenge the London bishop directly",
+                "why_good": "After Bxd6 Qxd6, Black has the pair and targets h2"
+              }
+            },
+            "mistake_moves": {
+              "Bg4": {
+                "why_bad": "The pin on f3 can be broken with Be2 or h3",
+                "consequence": "After h3 Bh5, White gains time and the bishop is offside",
+                "better_move": "c5",
+                "learning": "Against the London, focus on center play (c5) rather than pins"
+              }
+            }
+          },
+          "ne5_outpost": {
+            "key_decision": "White's knight reaches the powerful e5 outpost",
+            "best_moves_white": {
+              "Ne5": {
+                "idea": "The dream square for the London knight!",
+                "why_good": "Controls c4, d3, f3, and g4 - very hard to dislodge"
+              }
+            },
+            "best_moves_black": {
+              "Nxe5": {
+                "idea": "Trade it off!",
+                "why_good": "Don't let the knight sit on e5 forever"
+              },
+              "Nd7": {
+                "idea": "Challenge e5 with a knight",
+                "why_good": "Forces an exchange or retreat"
+              }
+            }
+          }
+        }
+      },
+      "london_c5": {
+        "name": "London vs Early c5",
+        "moves_from_parent": [
+          "c5"
+        ],
+        "continuation": [
+          "e3",
+          "Nc6",
+          "c3",
+          "Nf6",
+          "Nf3",
+          "Qb6",
+          "Qb3",
+          "c4",
+          "Qc2"
+        ],
+        "white_plan": "Hold d4 with c3, develop normally, push e4 when the center is stable",
+        "black_plan": "Pressure d4 with c5 and Nc6, Qb6 targets b2, play for queenside activity",
+        "critical_positions": {
+          "after_Qb6": {
+            "key_decision": "Black hits b2 and d4 simultaneously",
+            "best_moves_white": {
+              "Qb3": {
+                "idea": "Trade queens to neutralize the pressure",
+                "why_good": "Simplifies and removes the Qb6 threat"
+              },
+              "Qc1": {
+                "idea": "Keep queens on but defend b2",
+                "why_good": "Maintains complexity"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "In the London, ALWAYS play Bf4 BEFORE e3 - otherwise the bishop gets trapped",
+      "The pawn triangle c3-d4-e3 is the London's fortress",
+      "Ne5 is the dream square - aim for it with Nf3-e5",
+      "Against the London, Black should play c5 early to challenge d4",
+      "If Black plays Bd6, White should trade (Bxd6) or retreat (Bg3) - don't lose the bishop pair for nothing"
+    ]
+  },
+  "sicilian_dragon": {
+    "name": "Sicilian Dragon",
+    "eco_prefix": [
+      "B70",
+      "B71",
+      "B72",
+      "B73",
+      "B74",
+      "B75",
+      "B76",
+      "B77",
+      "B78",
+      "B79"
+    ],
+    "main_line": [
+      "e4",
+      "c5",
+      "Nf3",
+      "d6",
+      "d4",
+      "cxd4",
+      "Nxd4",
+      "Nf6",
+      "Nc3",
+      "g6"
+    ],
+    "white_plan": "Yugoslav Attack: castle queenside, launch h4-h5 pawn storm",
+    "black_plan": "Fianchetto bishop, counter on the c-file, attack White's king",
+    "critical_positions": {
+      "dragon_setup": {
+        "fen_pattern": "r1bqkb1r/pp2pp1p/2np1np1/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -",
+        "key_decision": "White chooses between Yugoslav Attack (Be3, f3, Qd2, O-O-O) or Classical (Be2, O-O)",
+        "best_moves_white": {
+          "Be3": {
+            "idea": "Yugoslav Attack - the sharpest and most critical",
+            "leads_to": "yugoslav_attack"
+          },
+          "Be2": {
+            "idea": "Classical - safer but less ambitious",
+            "leads_to": "classical_dragon"
+          }
+        }
+      }
+    },
+    "variations": {
+      "yugoslav_attack": {
+        "name": "Yugoslav Attack",
+        "moves_from_parent": [
+          "Be3",
+          "Bg7",
+          "f3",
+          "O-O",
+          "Qd2",
+          "Nc6",
+          "O-O-O"
+        ],
+        "continuation": [
+          "Rb8",
+          "g4",
+          "Ne5",
+          "Nxe5",
+          "dxe5"
+        ],
+        "white_plan": "h4-h5-hxg6 pawn storm, Bh6 to trade dragons, g4-g5 to open lines",
+        "black_plan": "Rc8, Qa5 or Qb6, pressure on c-file, Ne5-c4 maneuver",
+        "critical_positions": {
+          "after_O-O-O": {
+            "key_decision": "The race begins - who attacks faster?",
+            "best_moves": {
+              "Rc8": {
+                "idea": "The most important move - pressure the c-file",
+                "why_good": "Prepares Qa5 or Ne5-c4, creates threats against White's king"
+              },
+              "Qa5": {
+                "idea": "Target the a2 pawn and create threats",
+                "why_good": "Combines with Rc8 for devastating pressure"
+              }
+            },
+            "mistake_moves": {
+              "a6": {
+                "why_bad": "Too slow - White's attack arrives first",
+                "consequence": "h4-h5 comes with devastating effect before Black is ready",
+                "learning": "In the Dragon Yugoslav, every tempo matters - activate with Rc8 immediately"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Dragon is a race - whoever attacks first usually wins",
+      "Black's counterplay is on the c-file, not the a or b files",
+      "Trading the dragon bishop (Bg7) is often bad for Black",
+      "Rc8 is almost always the right move after castling"
+    ]
+  },
+  "caro_kann": {
+    "name": "Caro-Kann Defense",
+    "eco_prefix": [
+      "B10",
+      "B11",
+      "B12",
+      "B13",
+      "B14",
+      "B15",
+      "B16",
+      "B17",
+      "B18",
+      "B19"
+    ],
+    "main_line": [
+      "e4",
+      "c6",
+      "d4",
+      "d5"
+    ],
+    "white_plan": "Build a strong center, use space advantage, attack with Nc3 or Nd2 systems",
+    "black_plan": "Solid structure with d5, develop the light bishop to f5 or g4 BEFORE e6",
+    "critical_positions": {
+      "after_d5": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq -",
+        "key_decision": "White chooses the variation",
+        "best_moves_white": {
+          "Nc3": {
+            "name": "Classical",
+            "idea": "Main line - defend and advance",
+            "leads_to": "caro_classical"
+          },
+          "e5": {
+            "name": "Advance",
+            "idea": "Space advantage, restrict pieces",
+            "leads_to": "caro_advance"
+          },
+          "exd5": {
+            "name": "Exchange",
+            "idea": "Simplified but active play",
+            "leads_to": "caro_exchange"
+          },
+          "Nd2": {
+            "name": "Two Knights",
+            "idea": "Modern approach, flexible",
+            "leads_to": "caro_two_knights"
+          }
+        }
+      }
+    },
+    "variations": {
+      "caro_classical": {
+        "name": "Classical Variation",
+        "moves_from_parent": [
+          "Nc3",
+          "dxe4",
+          "Nxe4"
+        ],
+        "continuation": [
+          "Bf5",
+          "Ng3",
+          "Bg6",
+          "h4",
+          "h6",
+          "Nf3",
+          "Nd7",
+          "h5",
+          "Bh7",
+          "Bd3",
+          "Bxd3",
+          "Qxd3"
+        ],
+        "white_plan": "Drive the bishop with h4-h5, control the center, develop with Nf3 and Bd3",
+        "black_plan": "Get Bf5 out immediately (the whole point!), solid development, castle kingside",
+        "critical_positions": {
+          "after_Nxe4": {
+            "key_decision": "THIS is the moment - develop the bishop!",
+            "best_moves": {
+              "Bf5": {
+                "idea": "The BEST move - develop the bishop before e6!",
+                "why_good": "This is why Black played c6 instead of e6. The bishop is active on f5."
+              },
+              "Nd7": {
+                "idea": "Solid but passive",
+                "why_good": "Prepares Ngf6 but doesn't solve the bishop problem yet"
+              }
+            },
+            "mistake_moves": {
+              "e6": {
+                "why_bad": "Defeats the purpose of the Caro-Kann!",
+                "consequence": "The light bishop is stuck behind the pawn chain, like in the French",
+                "better_move": "Bf5",
+                "learning": "In the Caro-Kann, the bishop goes to f5 BEFORE you play e6. That's the whole point of c6."
+              }
+            }
+          }
+        }
+      },
+      "caro_advance": {
+        "name": "Advance Variation",
+        "moves_from_parent": [
+          "e5"
+        ],
+        "continuation": [
+          "Bf5",
+          "Nf3",
+          "e6",
+          "Be2",
+          "c5",
+          "Be3",
+          "Nc6",
+          "O-O",
+          "Nge7"
+        ],
+        "white_plan": "Maintain the e5 space advantage, develop smoothly, kingside attack potential",
+        "black_plan": "Develop Bf5 first, then challenge with c5 and f6, castle and counterattack",
+        "critical_positions": {
+          "after_e5": {
+            "key_decision": "The center is locked - bishop first!",
+            "best_moves": {
+              "Bf5": {
+                "idea": "Get the bishop out before e6 locks it in!",
+                "why_good": "Active bishop on f5, then e6, then challenge with c5"
+              }
+            },
+            "mistake_moves": {
+              "e6": {
+                "why_bad": "Bishop gets trapped!",
+                "consequence": "Passive position with no counterplay",
+                "better_move": "Bf5",
+                "learning": "In the Caro-Kann Advance, ALWAYS play Bf5 before e6"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "Get the light-squared bishop out before playing e6 - this is the Caro-Kann's superpower",
+      "The pawn structure is solid - don't rush to create weaknesses",
+      "c5 is often a key break in the middlegame to challenge d4",
+      "The endgame is often favorable for Black due to the solid, no-weakness structure"
+    ]
+  },
+  "sicilian_najdorf": {
+    "name": "Sicilian Najdorf",
+    "eco_prefix": [
+      "B90",
+      "B91",
+      "B92",
+      "B93",
+      "B94",
+      "B95",
+      "B96",
+      "B97",
+      "B98",
+      "B99"
+    ],
+    "main_line": [
+      "e4",
+      "c5",
+      "Nf3",
+      "d6",
+      "d4",
+      "cxd4",
+      "Nxd4",
+      "Nf6",
+      "Nc3",
+      "a6"
+    ],
+    "white_plan": "Attack! Choose between Be2 (English Attack), Bg5 (main line), f3 (English Attack), or Bc4",
+    "black_plan": "Fight for counterplay with e5, b5, or Bb7. The most dynamic Black opening.",
+    "critical_positions": {
+      "after_a6": {
+        "fen_pattern": "rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -",
+        "key_decision": "White must choose their weapon - each leads to a completely different game",
+        "best_moves_white": {
+          "Be2": {
+            "name": "Classical/English Attack",
+            "idea": "Flexible - can lead to f4 and Be3 setups",
+            "leads_to": "najdorf_english"
+          },
+          "Bg5": {
+            "name": "Main Line",
+            "idea": "Pin the knight, prepare for sharp play",
+            "leads_to": "najdorf_bg5"
+          },
+          "f3": {
+            "name": "English Attack",
+            "idea": "Be3, Qd2, O-O-O - full queenside castling attack",
+            "leads_to": "najdorf_f3"
+          }
+        }
+      }
+    },
+    "variations": {
+      "najdorf_english": {
+        "name": "English Attack",
+        "moves_from_parent": [
+          "f3",
+          "e5",
+          "Nb3",
+          "Be6",
+          "Be3",
+          "Be7",
+          "Qd2",
+          "O-O",
+          "O-O-O",
+          "Nbd7"
+        ],
+        "continuation": [
+          "g4",
+          "b5",
+          "g5",
+          "Nh5"
+        ],
+        "white_plan": "Castle queenside, launch g4-g5 pawn storm, attack the Black king",
+        "black_plan": "b5-b4 counterattack, Rc8 pressure, piece play against White's king",
+        "critical_positions": {
+          "after_O-O-O": {
+            "key_decision": "The race is ON - both sides attack opposite flanks",
+            "best_moves": {
+              "b5": {
+                "idea": "Counterattack! Open lines against White's king",
+                "why_good": "b4 will fork the knight and open the b-file"
+              },
+              "Rc8": {
+                "idea": "Prepare b5 with rook support",
+                "why_good": "Doubles the threat on the c-file"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "a6 is the Najdorf move - it prevents Nb5 and prepares b5 expansion",
+      "e5 is the key central break for Black in most Najdorf lines",
+      "The Najdorf is a FIGHTING opening - don't play it if you want a quiet game",
+      "Both sides often castle on opposite wings, leading to a race"
+    ]
+  },
+  "ruy_lopez": {
+    "name": "Ruy Lopez (Spanish Opening)",
+    "eco_prefix": [
+      "C60",
+      "C65",
+      "C70",
+      "C80",
+      "C84",
+      "C88",
+      "C92",
+      "C96"
+    ],
+    "main_line": [
+      "e4",
+      "e5",
+      "Nf3",
+      "Nc6",
+      "Bb5"
+    ],
+    "white_plan": "Pressure e5 indirectly through the Nc6 pin, build a strong center with d4",
+    "black_plan": "Defend with a6 and b5, maintain the center, develop actively",
+    "critical_positions": {
+      "after_Bb5": {
+        "fen_pattern": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq -",
+        "key_decision": "How to handle the pin on Nc6",
+        "best_moves": {
+          "a6": {
+            "name": "Morphy Defense",
+            "idea": "Challenge the bishop - the main line",
+            "leads_to": "morphy_defense"
+          },
+          "Nf6": {
+            "name": "Berlin Defense",
+            "idea": "Counter-attack e4 immediately",
+            "leads_to": "berlin_defense"
+          }
+        },
+        "mistake_moves": {
+          "d6": {
+            "why_bad": "Too passive - doesn't challenge the bishop",
+            "consequence": "White gets a comfortable advantage with d4",
+            "better_move": "a6",
+            "learning": "Always challenge the Bb5 with a6 - make the bishop decide"
+          }
+        }
+      }
+    },
+    "variations": {
+      "morphy_defense": {
+        "name": "Morphy Defense",
+        "moves_from_parent": [
+          "a6",
+          "Ba4",
+          "Nf6",
+          "O-O",
+          "Be7",
+          "Re1",
+          "b5",
+          "Bb3",
+          "d6",
+          "c3",
+          "O-O"
+        ],
+        "continuation": [
+          "h3",
+          "Nb8",
+          "d4",
+          "Nbd7"
+        ],
+        "white_plan": "d4 to open the center, build pressure with Re1, Bc2, d4",
+        "black_plan": "The Breyer/Chigorin maneuver: Nb8-d7, Bb7, Re8, Bf8",
+        "critical_positions": {
+          "after_O-O_Be7": {
+            "key_decision": "Black prepares to castle - the long strategic battle begins",
+            "best_moves": {
+              "b5": {
+                "idea": "Push the bishop back and gain space",
+                "why_good": "Prepares d6, Bb7, and a long-term position"
+              },
+              "d6": {
+                "idea": "Support e5 solidly",
+                "why_good": "Classical approach, keeps all options open"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "Bb5 doesn't actually threaten to win e5 (Bxc6 dxc6, Nxe5? Qd4 wins it back)",
+      "a6 challenges the bishop and is almost always the right response",
+      "The Ruy Lopez is a long strategic battle - don't expect quick tactics",
+      "Black's Breyer maneuver (Nb8-d7) is one of the deepest ideas in chess"
+    ]
+  },
+  "sicilian_defense": {
+    "name": "Sicilian Defense",
+    "eco_prefix": [
+      "B20",
+      "B21",
+      "B22",
+      "B23",
+      "B24",
+      "B25",
+      "B26",
+      "B27",
+      "B28",
+      "B29",
+      "B30"
+    ],
+    "main_line": [
+      "e4",
+      "c5"
+    ],
+    "white_plan": "Open the position with d4, gain central control, attack on the kingside",
+    "black_plan": "Create asymmetry with c5, fight for the d4 square, counter-attack on the queenside",
+    "critical_positions": {
+      "after_c5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -",
+        "key_decision": "White must choose: Open Sicilian (Nf3+d4), Alapin (c3), or Closed (Nc3+g3)",
+        "best_moves": {
+          "Nf3": {
+            "idea": "Head for the Open Sicilian - the most ambitious",
+            "why_good": "Prepares d4 to open the center"
+          },
+          "c3": {
+            "idea": "Alapin Variation - simpler but solid",
+            "why_good": "Prepares d4 without allowing the typical Sicilian structures"
+          }
+        }
+      }
+    },
+    "variations": {
+      "open_sicilian": {
+        "name": "Open Sicilian (Main Framework)",
+        "moves_from_parent": [
+          "Nf3",
+          "d6",
+          "d4",
+          "cxd4",
+          "Nxd4"
+        ],
+        "continuation": [
+          "Nf6",
+          "Nc3",
+          "a6",
+          "Be3",
+          "e5",
+          "Nb3",
+          "Be6",
+          "f3",
+          "Be7",
+          "Qd2",
+          "O-O",
+          "O-O-O"
+        ],
+        "white_plan": "Castle queenside and launch a kingside pawn storm with g4-g5 or f3-g4",
+        "black_plan": "Counter on the queenside with a6-b5-b4, pressure the c-file, play Rc8",
+        "critical_positions": {
+          "after_Nxd4": {
+            "key_decision": "The Open Sicilian pawn structure is set - Black has a semi-open c-file",
+            "best_moves": {
+              "Nf6": {
+                "idea": "Develop and attack e4",
+                "why_good": "The most natural and flexible move"
+              }
+            },
+            "mistake_moves": {
+              "Qb6": {
+                "why_bad": "Too early - the queen can be harassed",
+                "consequence": "After Nb3, the queen must retreat",
+                "learning": "Develop pieces before queens in the Sicilian"
+              }
+            }
+          }
+        }
+      },
+      "alapin_variation": {
+        "name": "Alapin Variation (c3)",
+        "moves_from_parent": [
+          "c3"
+        ],
+        "continuation": [
+          "d5",
+          "exd5",
+          "Qxd5",
+          "d4",
+          "Nf6",
+          "Nf3",
+          "e6",
+          "Be2",
+          "cxd4",
+          "cxd4",
+          "Be7",
+          "Nc3",
+          "Qd8",
+          "O-O",
+          "O-O"
+        ],
+        "white_plan": "Build a strong d4 center, develop quickly, use the IQP for piece activity",
+        "black_plan": "Challenge the center with d5, exchange and reach a comfortable IQP position",
+        "critical_positions": {
+          "after_c3": {
+            "key_decision": "Black should challenge the center immediately",
+            "best_moves": {
+              "d5": {
+                "idea": "Strike in the center before White plays d4!",
+                "why_good": "Equalizes immediately - the point of the Alapin is to play d4, so beat White to it"
+              }
+            },
+            "mistake_moves": {
+              "d6": {
+                "why_bad": "Too passive - lets White build a big center with d4",
+                "consequence": "White gets a comfortable space advantage",
+                "learning": "In the Alapin, always play d5 immediately - don't let White have the center for free"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Sicilian creates asymmetric positions - both sides have chances",
+      "Black fights for the d4 square and uses the semi-open c-file",
+      "In the Open Sicilian, both sides often castle on opposite wings",
+      "The Alapin (c3) is White's attempt to play d4 without allowing typical Sicilian structures",
+      "d5 is always the key equalizing break for Black"
+    ]
+  },
+  "philidor_defense": {
+    "name": "Philidor Defense",
+    "eco_prefix": [
+      "C41"
+    ],
+    "main_line": [
+      "e4",
+      "e5",
+      "Nf3",
+      "d6"
+    ],
+    "white_plan": "Control the center with d4, develop actively, exploit Black's cramped position",
+    "black_plan": "Maintain a solid but flexible structure, prepare f5 or Nf6-d7 setups",
+    "critical_positions": {
+      "after_d6": {
+        "fen_pattern": "rnbqkbnr/ppp2ppp/3p4/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -",
+        "key_decision": "White should push d4 to challenge the center",
+        "best_moves": {
+          "d4": {
+            "idea": "Challenge Black's center directly",
+            "why_good": "Forces Black to make a critical decision about the center"
+          }
+        }
+      }
+    },
+    "variations": {
+      "hanham_variation": {
+        "name": "Hanham Variation",
+        "moves_from_parent": [
+          "d4",
+          "Nf6",
+          "Nc3",
+          "Nbd7"
+        ],
+        "continuation": [
+          "Bc4",
+          "Be7",
+          "O-O",
+          "O-O",
+          "Re1",
+          "c6",
+          "a4",
+          "Qc7",
+          "Ba2",
+          "b6"
+        ],
+        "white_plan": "Maintain central control, prepare for a kingside attack or central break",
+        "black_plan": "Solid setup with Nbd7, Be7, O-O - prepare c6 and later b5 or d5 break",
+        "critical_positions": {
+          "after_Nbd7": {
+            "key_decision": "The Hanham setup - Black keeps things solid but cramped",
+            "best_moves": {
+              "Bc4": {
+                "idea": "Develop with pressure on f7",
+                "why_good": "Eyes the weak f7 square while developing"
+              }
+            },
+            "mistake_moves": {
+              "dxe5": {
+                "why_bad": "Premature exchange releases tension",
+                "consequence": "Black gets easy equality after dxe5 Nxe5",
+                "learning": "Keep the tension in the center - don't exchange unless you gain something"
+              }
+            }
+          }
+        }
+      },
+      "exchange_variation": {
+        "name": "Exchange Variation",
+        "moves_from_parent": [
+          "d4",
+          "exd4",
+          "Nxd4"
+        ],
+        "continuation": [
+          "Nf6",
+          "Nc3",
+          "Be7",
+          "Be2",
+          "O-O",
+          "O-O",
+          "Re8",
+          "f4",
+          "Bf8",
+          "Bf3",
+          "c6",
+          "Qd2",
+          "Qc7"
+        ],
+        "white_plan": "Use the space advantage, develop smoothly, push f4 for kingside pressure",
+        "black_plan": "Develop solidly, prepare c6-d5 central break, challenge White's center when ready",
+        "critical_positions": {
+          "after_exd4": {
+            "key_decision": "Black gave up the center - now must play carefully",
+            "best_moves": {
+              "Nf6": {
+                "idea": "Develop and prepare to challenge e4",
+                "why_good": "Natural development, aiming for d5 later"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Philidor is solid but can be passive if Black isn't careful",
+      "d5 is the key break for Black - time it carefully",
+      "Don't exchange on d4 unless you have a specific plan",
+      "The Hanham setup (Nbd7, Be7, O-O, c6) is the most reliable for Black"
+    ]
+  },
+  "vienna_game": {
+    "name": "Vienna Game",
+    "eco_prefix": [
+      "C25",
+      "C26",
+      "C27",
+      "C28",
+      "C29"
+    ],
+    "main_line": [
+      "e4",
+      "e5",
+      "Nc3"
+    ],
+    "white_plan": "Prepare f4 (Vienna Gambit) or Bc4 for attacking play, delay Nf3 for flexibility",
+    "black_plan": "Develop naturally with Nf6, be ready for f4 gambit, maintain central presence",
+    "critical_positions": {
+      "after_Nc3": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq -",
+        "key_decision": "Black chooses between Nf6 (solid) or Nc6 (classical)",
+        "best_moves": {
+          "Nf6": {
+            "idea": "Counter-attack e4 immediately",
+            "why_good": "The most active response, challenging White's center"
+          },
+          "Nc6": {
+            "idea": "Classical development",
+            "why_good": "Solid - develops a piece and supports e5"
+          }
+        }
+      }
+    },
+    "variations": {
+      "vienna_gambit": {
+        "name": "Vienna Gambit",
+        "moves_from_parent": [
+          "Nf6",
+          "f4"
+        ],
+        "continuation": [
+          "d5",
+          "fxe5",
+          "Nxe4",
+          "Nf3",
+          "Bg4",
+          "Qe2",
+          "Nc6",
+          "d3",
+          "Nxc3",
+          "bxc3",
+          "Be7",
+          "d4",
+          "O-O"
+        ],
+        "white_plan": "Gambit f4 for open lines, develop quickly, attack the kingside",
+        "black_plan": "Accept with d5! Counter in the center, develop actively, castle quickly",
+        "critical_positions": {
+          "after_f4": {
+            "key_decision": "The gambit! Black must respond precisely",
+            "best_moves": {
+              "d5": {
+                "idea": "Counter in the center - the strongest response!",
+                "why_good": "Opens the position while Black is better developed"
+              }
+            },
+            "mistake_moves": {
+              "exf4": {
+                "why_bad": "Accepting passively gives White a strong center",
+                "consequence": "After e5, White has a powerful center and open f-file",
+                "learning": "Against gambits, counter in the CENTER (d5) rather than just grabbing pawns"
+              }
+            }
+          }
+        }
+      },
+      "vienna_bc4": {
+        "name": "Vienna Game - Bc4 System",
+        "moves_from_parent": [
+          "Nf6",
+          "Bc4"
+        ],
+        "continuation": [
+          "Nc6",
+          "d3",
+          "Bc5",
+          "f4",
+          "d6",
+          "Nf3",
+          "Bg4",
+          "Na4",
+          "O-O",
+          "Nxc5",
+          "dxc5",
+          "c3",
+          "Qd6"
+        ],
+        "white_plan": "Develop Bc4 and f4, combine Italian-style play with Vienna flexibility",
+        "black_plan": "Develop Nc6, Bc5, counter with d6 and Bg4 pin, castle early",
+        "critical_positions": {
+          "after_Bc4": {
+            "key_decision": "White combines Bc4 with Nc3 - more flexible than the Italian",
+            "best_moves": {
+              "Nc6": {
+                "idea": "Develop and support e5",
+                "why_good": "Prepares Bc5 and keeps options open"
+              },
+              "Nxe4": {
+                "idea": "Grab the pawn!",
+                "why_good": "Tactical shot - after Nxe4, Qh5! forks"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Vienna delays Nf3 to keep f4 options open",
+      "Against f4, counter with d5 in the center - don't just grab the pawn",
+      "Bc4 systems combine Italian themes with Vienna flexibility",
+      "White aims for quick piece activity; Black should counter-punch in the center"
+    ]
+  },
+  "scotch_game": {
+    "name": "Scotch Game",
+    "eco_prefix": [
+      "C44",
+      "C45"
+    ],
+    "main_line": [
+      "e4",
+      "e5",
+      "Nf3",
+      "Nc6",
+      "d4"
+    ],
+    "white_plan": "Open the center immediately with d4, gain piece activity, avoid the slow Ruy Lopez",
+    "black_plan": "Capture on d4, develop actively, use the open center for piece play",
+    "critical_positions": {
+      "after_d4": {
+        "fen_pattern": "r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq -",
+        "key_decision": "Black should capture on d4",
+        "best_moves": {
+          "exd4": {
+            "idea": "Accept the exchange and open the center",
+            "why_good": "Standard - leads to an open game where both sides have chances"
+          }
+        }
+      }
+    },
+    "variations": {
+      "classical_scotch": {
+        "name": "Classical Scotch",
+        "moves_from_parent": [
+          "exd4",
+          "Nxd4",
+          "Bc5"
+        ],
+        "continuation": [
+          "Be3",
+          "Qf6",
+          "c3",
+          "Nge7",
+          "Bc4",
+          "Ne5",
+          "Be2",
+          "Qg6",
+          "O-O",
+          "d6",
+          "f4",
+          "Nc4",
+          "Bxc4",
+          "Qxe4"
+        ],
+        "white_plan": "Develop with Be3, c3, Bc4 - strong center and piece coordination",
+        "black_plan": "Active development with Bc5, Qf6, threaten the center, castle queenside if needed",
+        "critical_positions": {
+          "after_Bc5": {
+            "key_decision": "Black develops aggressively, targeting f2",
+            "best_moves": {
+              "Be3": {
+                "idea": "Defend and develop",
+                "why_good": "Blocks the Bc5 pressure on f2, prepares c3 and Bc4"
+              }
+            },
+            "mistake_moves": {
+              "Nxc6": {
+                "why_bad": "Helps Black develop",
+                "consequence": "After bxc6 or dxc6, Black gets active piece play",
+                "learning": "Don't exchange pieces that help your opponent develop"
+              }
+            }
+          }
+        }
+      },
+      "scotch_gambit": {
+        "name": "Scotch Gambit",
+        "moves_from_parent": [
+          "exd4",
+          "Bc4"
+        ],
+        "continuation": [
+          "Nf6",
+          "e5",
+          "d5",
+          "Bb5",
+          "Ne4",
+          "Nxd4",
+          "Bc5",
+          "Be3",
+          "Bd6",
+          "f4",
+          "O-O",
+          "O-O",
+          "f5"
+        ],
+        "white_plan": "Sacrifice the d4 pawn for rapid development and attacking chances",
+        "black_plan": "Accept the pawn, develop quickly with Nf6, challenge with d5",
+        "critical_positions": {
+          "after_Bc4": {
+            "key_decision": "White offers a gambit for rapid development",
+            "best_moves": {
+              "Nf6": {
+                "idea": "Develop and attack e4 - the safest and best",
+                "why_good": "Develops a piece and puts pressure on e4"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Scotch opens the center early - piece activity matters more than pawn structure",
+      "After d4 exd4 Nxd4, White has a lead in development",
+      "Black should develop aggressively (Bc5, Qf6) to create counterplay",
+      "The Scotch Gambit (Bc4 instead of Nxd4) offers sharp tactical play"
+    ]
+  },
+  "petrov_defense": {
+    "name": "Petrov Defense",
+    "eco_prefix": [
+      "C42",
+      "C43"
+    ],
+    "main_line": [
+      "e4",
+      "e5",
+      "Nf3",
+      "Nf6"
+    ],
+    "white_plan": "Capture on e5 or play d4 to maintain central initiative, exploit Black's symmetry",
+    "black_plan": "Mirror White's play, equalize with precise moves, reach a solid middlegame",
+    "critical_positions": {
+      "after_Nf6": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -",
+        "key_decision": "White's main choice: Nxe5 (classical) or d4 (Steinitz)",
+        "best_moves": {
+          "Nxe5": {
+            "idea": "Win the e5 pawn - but Black has resources",
+            "why_good": "The main line, leading to sharp play"
+          },
+          "d4": {
+            "idea": "Steinitz Attack - central approach",
+            "why_good": "Opens the position directly"
+          }
+        }
+      }
+    },
+    "variations": {
+      "classical_petrov": {
+        "name": "Classical Variation (Nxe5)",
+        "moves_from_parent": [
+          "Nxe5",
+          "d6",
+          "Nf3",
+          "Nxe4"
+        ],
+        "continuation": [
+          "d4",
+          "d5",
+          "Bd3",
+          "Nc6",
+          "O-O",
+          "Be7",
+          "c4",
+          "Nb4",
+          "Be2",
+          "O-O",
+          "Nc3",
+          "Bf5"
+        ],
+        "white_plan": "Build a strong center with d4, develop Bd3, castle, and press with c4",
+        "black_plan": "Equalize with d6, Nxe4, develop Be7, Nc6, castle - rock solid",
+        "critical_positions": {
+          "after_Nxe5": {
+            "key_decision": "Black must NOT play Nxe4 immediately!",
+            "best_moves": {
+              "d6": {
+                "idea": "Kick the knight first, THEN take e4",
+                "why_good": "After Nf3 Nxe4, Black has equalized"
+              }
+            },
+            "mistake_moves": {
+              "Nxe4": {
+                "why_bad": "Falls into a trap!",
+                "consequence": "After Qe2! d5 d3, Black's knight is trapped in the center",
+                "learning": "In the Petrov, always play d6 first to kick the knight, then take on e4"
+              }
+            }
+          }
+        }
+      },
+      "steinitz_attack": {
+        "name": "Steinitz Attack (d4)",
+        "moves_from_parent": [
+          "d4",
+          "Nxe4"
+        ],
+        "continuation": [
+          "Bd3",
+          "d5",
+          "Nxe5",
+          "Nd7",
+          "Nxd7",
+          "Bxd7",
+          "O-O",
+          "Bd6",
+          "c4",
+          "c6",
+          "Nc3",
+          "Nxc3",
+          "bxc3",
+          "O-O"
+        ],
+        "white_plan": "Open center with d4, develop Bd3, aim for active piece play",
+        "black_plan": "Take on e4, develop solidly, exchange pieces to reach equality",
+        "critical_positions": {
+          "after_d4": {
+            "key_decision": "With d4, White opens the center aggressively",
+            "best_moves": {
+              "Nxe4": {
+                "idea": "Take the pawn - safe in this line",
+                "why_good": "Unlike after Nxe5, here Nxe4 is correct since d4 has been played"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "In the Petrov, Black MUST play d6 before Nxe4 (after Nxe5) - this is critical!",
+      "The Petrov is a drawing weapon - Black aims for equality, not an advantage",
+      "Symmetry in the Petrov is deceptive - one wrong move and you're lost",
+      "If you want a quiet, solid game as Black, the Petrov is your weapon"
+    ]
+  },
+  "kings_indian_defense": {
+    "name": "King's Indian Defense",
+    "eco_prefix": [
+      "E60",
+      "E61",
+      "E62",
+      "E70",
+      "E80",
+      "E90",
+      "E92",
+      "E97",
+      "E99"
+    ],
+    "main_line": [
+      "d4",
+      "Nf6",
+      "c4",
+      "g6"
+    ],
+    "white_plan": "Build a big center with e4, control space, choose between Classical, Samisch, or Four Pawns",
+    "black_plan": "Fianchetto the bishop, let White build a center, then SMASH it with e5 or c5",
+    "critical_positions": {
+      "after_g6": {
+        "key_decision": "Black announces the King's Indian! The bishop goes to g7.",
+        "best_moves": {
+          "Nc3": {
+            "idea": "Main line - develop and prepare e4",
+            "why_good": "Natural development, heading for e4"
+          }
+        }
+      }
+    },
+    "variations": {
+      "classical_kid": {
+        "name": "Classical King's Indian",
+        "moves_from_parent": [
+          "Nc3",
+          "Bg7",
+          "e4",
+          "d6"
+        ],
+        "continuation": [
+          "Nf3",
+          "O-O",
+          "Be2",
+          "e5",
+          "O-O",
+          "Nc6",
+          "d5",
+          "Ne7",
+          "Ne1",
+          "Nd7",
+          "f3",
+          "f5"
+        ],
+        "white_plan": "Build e4+d5 center, expand on the queenside with c5, play for a queenside break",
+        "black_plan": "Castle, play e5, then f5-f4 kingside attack - the classic KID pawn storm!",
+        "critical_positions": {
+          "after_e5": {
+            "key_decision": "The critical moment - White closes with d5 and the race begins",
+            "best_moves": {
+              "d5": {
+                "idea": "Close the center and start the race!",
+                "why_good": "White attacks queenside (c5), Black attacks kingside (f5-f4)"
+              },
+              "dxe5": {
+                "idea": "Open the center",
+                "why_good": "Leads to different type of game, less theoretical"
+              }
+            },
+            "mistake_moves": {
+              "Bg5": {
+                "why_bad": "Doesn't address the central tension",
+                "consequence": "Black plays exd4 and gets a good position",
+                "learning": "In the KID, White must decide: d5 (close) or dxe5 (open) - don't delay"
+              }
+            }
+          }
+        }
+      },
+      "samisch_kid": {
+        "name": "Samisch Variation",
+        "moves_from_parent": [
+          "Nc3",
+          "Bg7",
+          "e4",
+          "d6",
+          "f3"
+        ],
+        "continuation": [
+          "O-O",
+          "Be3",
+          "e5",
+          "d5",
+          "Nh5",
+          "Qd2",
+          "f5",
+          "O-O-O",
+          "Nd7",
+          "Bd3",
+          "Ndf6"
+        ],
+        "white_plan": "f3 supports e4, Be3 develops, castle queenside, push g4 or play positionally",
+        "black_plan": "Castle, play e5 and f5, attack the kingside with Nh5 and f4",
+        "critical_positions": {
+          "after_f3": {
+            "key_decision": "The Samisch - White bolsters e4 with f3",
+            "best_moves": {
+              "O-O": {
+                "idea": "Castle first, then fight",
+                "why_good": "Safe king before launching the attack"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The King's Indian is a FIGHTING opening - Black concedes the center to destroy it later",
+      "After d5, it's a race: White attacks queenside, Black attacks kingside",
+      "f5-f4 is Black's dream attack on the kingside",
+      "The fianchetto bishop on g7 is Black's most powerful piece - don't trade it easily",
+      "In the Samisch (f3), White's king often goes to the queenside"
+    ]
+  },
+  "grunfeld_defense": {
+    "name": "Grunfeld Defense",
+    "eco_prefix": [
+      "D80",
+      "D81",
+      "D82",
+      "D85",
+      "D86",
+      "D87",
+      "D90",
+      "D97",
+      "D98"
+    ],
+    "main_line": [
+      "d4",
+      "Nf6",
+      "c4",
+      "g6",
+      "Nc3",
+      "d5"
+    ],
+    "white_plan": "Build a massive center with e4, use the pawn center for space advantage",
+    "black_plan": "LET White build the center, then DESTROY it with c5, Bg7 pressure, and Nc6",
+    "critical_positions": {
+      "after_d5": {
+        "key_decision": "The Grunfeld gambit! Black INVITES White to build a center, planning to demolish it",
+        "best_moves_white": {
+          "cxd5": {
+            "idea": "Accept and build the center with e4",
+            "leads_to": "exchange_grunfeld"
+          },
+          "Nf3": {
+            "idea": "Russian System - develop first",
+            "leads_to": "russian_grunfeld"
+          }
+        }
+      }
+    },
+    "variations": {
+      "exchange_grunfeld": {
+        "name": "Exchange Variation",
+        "moves_from_parent": [
+          "cxd5",
+          "Nxd5",
+          "e4",
+          "Nxc3",
+          "bxc3"
+        ],
+        "continuation": [
+          "Bg7",
+          "Nf3",
+          "c5",
+          "Be3",
+          "Qa5",
+          "Qd2",
+          "O-O",
+          "Rc1",
+          "cxd4",
+          "cxd4",
+          "Qxd2+",
+          "Kxd2"
+        ],
+        "white_plan": "Massive center (d4+e4+c3), develop pieces behind the pawns, press forward",
+        "black_plan": "Pressure d4 with Bg7, c5, Nc6 - the center looks strong but is a TARGET",
+        "critical_positions": {
+          "after_bxc3": {
+            "key_decision": "White has a huge center - but it's vulnerable!",
+            "best_moves": {
+              "Bg7": {
+                "idea": "The sniper bishop! Pressures d4 from the long diagonal",
+                "why_good": "This is why the Grunfeld works - the bishop is devastating on g7"
+              },
+              "c5": {
+                "idea": "Strike at the center immediately!",
+                "why_good": "Challenges d4 and opens lines for the bishop"
+              }
+            }
+          }
+        }
+      },
+      "russian_grunfeld": {
+        "name": "Russian System",
+        "moves_from_parent": [
+          "Nf3",
+          "Bg7",
+          "Qb3"
+        ],
+        "continuation": [
+          "dxc4",
+          "Qxc4",
+          "O-O",
+          "e4",
+          "Bg4",
+          "Be3",
+          "Nfd7",
+          "Qb3",
+          "Nb6",
+          "Rd1",
+          "Nc6",
+          "d5",
+          "Ne5"
+        ],
+        "white_plan": "Qb3 pressures d5 and b7, build a strong center, develop naturally",
+        "black_plan": "Give up the d5 pawn for piece activity, Bg4 pins, Nc6 pressures d4",
+        "critical_positions": {
+          "after_Qb3": {
+            "key_decision": "White pressures d5 and b7 with the queen",
+            "best_moves": {
+              "dxc4": {
+                "idea": "Give up the center to activate pieces",
+                "why_good": "After Qxc4, Black develops freely with O-O and Bg4"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Grunfeld is a COUNTER-ATTACKING opening - let White build, then destroy",
+      "The Bg7 on the long diagonal is the key piece - it pressures d4 from afar",
+      "c5 is the key break to undermine White's center",
+      "White's center looks impressive but is actually a liability if Black plays accurately",
+      "Don't be afraid to give up material to smash the center"
+    ]
+  },
+  "nimzo_indian": {
+    "name": "Nimzo-Indian Defense",
+    "eco_prefix": [
+      "E20",
+      "E21",
+      "E25",
+      "E30",
+      "E32",
+      "E40",
+      "E41",
+      "E46",
+      "E48",
+      "E54"
+    ],
+    "main_line": [
+      "d4",
+      "Nf6",
+      "c4",
+      "e6",
+      "Nc3",
+      "Bb4"
+    ],
+    "white_plan": "Unpin with various systems (e3, Qc2, a3), develop and use the bishop pair",
+    "black_plan": "Pin the Nc3, control e4, create doubled c-pawns after Bxc3, play for dark square control",
+    "critical_positions": {
+      "after_Bb4": {
+        "fen_pattern": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/2N5/PP2PPPP/R1BQKBNR w KQkq -",
+        "key_decision": "White must decide how to handle the pin on Nc3",
+        "best_moves_white": {
+          "e3": {
+            "idea": "Rubinstein - solid and most popular",
+            "leads_to": "rubinstein_nimzo"
+          },
+          "Qc2": {
+            "idea": "Classical - prevent doubled pawns",
+            "leads_to": "classical_nimzo"
+          }
+        }
+      }
+    },
+    "variations": {
+      "rubinstein_nimzo": {
+        "name": "Rubinstein System",
+        "moves_from_parent": [
+          "e3",
+          "O-O",
+          "Bd3"
+        ],
+        "continuation": [
+          "d5",
+          "Nf3",
+          "c5",
+          "O-O",
+          "dxc4",
+          "Bxc4",
+          "Nc6",
+          "a3",
+          "Ba5",
+          "Qe2",
+          "cxd4",
+          "exd4"
+        ],
+        "white_plan": "Develop with e3, Bd3, Nf3, castle, play for the bishop pair advantage",
+        "black_plan": "Castle, play d5 and c5, challenge the center, keep the Bb4 active as long as possible",
+        "critical_positions": {
+          "after_Bd3": {
+            "key_decision": "The Rubinstein setup - White prepares to develop smoothly",
+            "best_moves": {
+              "d5": {
+                "idea": "Challenge the center immediately",
+                "why_good": "The most principled - fights for central control"
+              },
+              "c5": {
+                "idea": "Hit d4 from the side",
+                "why_good": "Creates tension in the center"
+              }
+            }
+          }
+        }
+      },
+      "classical_nimzo": {
+        "name": "Classical (Qc2)",
+        "moves_from_parent": [
+          "Qc2",
+          "O-O"
+        ],
+        "continuation": [
+          "a3",
+          "Bxc3+",
+          "Qxc3",
+          "d5",
+          "Nf3",
+          "c5",
+          "dxc5",
+          "dxc4",
+          "e3",
+          "Nbd7",
+          "Bxc4",
+          "Nxc5",
+          "O-O",
+          "Nce4"
+        ],
+        "white_plan": "Qc2 prevents doubled pawns, develop normally, use the bishop pair",
+        "black_plan": "Trade on c3 when forced, play d5 and c5, use the knight outposts",
+        "critical_positions": {
+          "after_Qc2": {
+            "key_decision": "White prevents doubled c-pawns - the classical approach",
+            "best_moves": {
+              "O-O": {
+                "idea": "Castle and wait for a3",
+                "why_good": "Flexible - keeps Bb4 placement options open"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Nimzo-Indian is one of the most respected defenses in chess",
+      "Bb4 pins the knight and fights for control of e4",
+      "If White plays a3, Black should usually trade Bxc3 and aim for the doubled c-pawns",
+      "Black's dark-square control is the key strategic theme",
+      "The bishop pair vs knight pair is the central positional battle"
+    ]
+  },
+  "queens_indian": {
+    "name": "Queen's Indian Defense",
+    "eco_prefix": [
+      "E12",
+      "E13",
+      "E14",
+      "E15",
+      "E16",
+      "E17",
+      "E18",
+      "E19"
+    ],
+    "main_line": [
+      "d4",
+      "Nf6",
+      "c4",
+      "e6",
+      "Nf3",
+      "b6"
+    ],
+    "white_plan": "Control the center, develop with g3 or Nc3, use space advantage",
+    "black_plan": "Fianchetto the Bb7, control e4 indirectly, flexible center with d5 or d6",
+    "critical_positions": {
+      "after_b6": {
+        "fen_pattern": "rnbqkb1r/p1pp1ppp/1p2pn2/8/2PP4/5N2/PP2PPPP/RNBQKB1R w KQkq -",
+        "key_decision": "White chooses between g3 (fianchetto) or a3 (Petrosian system)",
+        "best_moves_white": {
+          "g3": {
+            "idea": "Fianchetto - the main line",
+            "leads_to": "qi_fianchetto"
+          },
+          "a3": {
+            "idea": "Petrosian system - prevent Bb4",
+            "leads_to": "qi_petrosian"
+          }
+        }
+      }
+    },
+    "variations": {
+      "qi_fianchetto": {
+        "name": "Fianchetto Variation",
+        "moves_from_parent": [
+          "g3",
+          "Bb7",
+          "Bg2"
+        ],
+        "continuation": [
+          "Be7",
+          "O-O",
+          "O-O",
+          "Nc3",
+          "d5",
+          "Ne5",
+          "c6",
+          "e4",
+          "Nbd7",
+          "Bf4",
+          "Nxe5",
+          "Bxe5"
+        ],
+        "white_plan": "Bg2 controls the long diagonal, Nc3 and e4 for a strong center",
+        "black_plan": "Bb7 controls the light squares, play d5 for central control, develop harmoniously",
+        "critical_positions": {
+          "after_Bg2": {
+            "key_decision": "Two bishops aim at the center from the flanks",
+            "best_moves": {
+              "Be7": {
+                "idea": "Solid development, prepare to castle",
+                "why_good": "Keeps all options open - can play d5 or d6"
+              },
+              "Bb4+": {
+                "idea": "Check and develop with tempo",
+                "why_good": "Forces a decision from White - Bd2 or Nbd2"
+              }
+            }
+          }
+        }
+      },
+      "qi_petrosian": {
+        "name": "Petrosian System",
+        "moves_from_parent": [
+          "a3",
+          "Bb7",
+          "Nc3"
+        ],
+        "continuation": [
+          "d5",
+          "cxd5",
+          "Nxd5",
+          "e3",
+          "Be7",
+          "Bd3",
+          "O-O",
+          "O-O",
+          "c5",
+          "Qe2",
+          "Nd7",
+          "Nxd5",
+          "exd5"
+        ],
+        "white_plan": "Prevent Bb4, develop with Nc3 and e3, build a solid position",
+        "black_plan": "Develop Bb7, play d5 for equality, challenge with c5",
+        "critical_positions": {
+          "after_a3": {
+            "key_decision": "The Petrosian system prevents Bb4 ideas",
+            "best_moves": {
+              "Bb7": {
+                "idea": "Continue the fianchetto plan",
+                "why_good": "The bishop is powerful on b7 regardless of White's setup"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Queen's Indian is Black's way to fight for e4 when White plays Nf3 instead of Nc3",
+      "Bb7 on the long diagonal is the key piece - it controls e4 and pressures the center",
+      "b6 + Bb7 is the alternative to the Nimzo-Indian when White avoids Nc3",
+      "Black should play d5 when ready to equalize in the center",
+      "The position is typically quiet and strategic - suited for patient players"
+    ]
+  },
+  "slav_defense": {
+    "name": "Slav Defense",
+    "eco_prefix": [
+      "D10",
+      "D11",
+      "D12",
+      "D13",
+      "D14",
+      "D15",
+      "D16",
+      "D17",
+      "D18",
+      "D19"
+    ],
+    "main_line": [
+      "d4",
+      "d5",
+      "c4",
+      "c6"
+    ],
+    "white_plan": "Build a strong center, recover the c4 pawn if taken, push for e4",
+    "black_plan": "Support d5 with c6, develop the light bishop to f5 BEFORE e6, solid structure",
+    "critical_positions": {
+      "after_c6": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq -",
+        "key_decision": "The Slav setup - Black keeps the light bishop free!",
+        "best_moves": {
+          "Nf3": {
+            "idea": "Natural development",
+            "why_good": "Flexible - prepares for many systems"
+          },
+          "Nc3": {
+            "idea": "Develop and protect c4",
+            "why_good": "Supports e4 later"
+          }
+        }
+      }
+    },
+    "variations": {
+      "main_slav": {
+        "name": "Main Line Slav",
+        "moves_from_parent": [
+          "Nf3",
+          "Nf6",
+          "Nc3",
+          "dxc4"
+        ],
+        "continuation": [
+          "a4",
+          "Bf5",
+          "e3",
+          "e6",
+          "Bxc4",
+          "Bb4",
+          "O-O",
+          "O-O",
+          "Qe2",
+          "Bg6",
+          "Ne5",
+          "Nbd7"
+        ],
+        "white_plan": "Recover c4 pawn with a4 and Bxc4, push e4 when ready, use the center",
+        "black_plan": "Develop Bf5 BEFORE e6 (the key Slav idea!), castle, solid setup with Nbd7",
+        "critical_positions": {
+          "after_dxc4": {
+            "key_decision": "Black takes c4 - now the bishop comes out!",
+            "best_moves": {
+              "Bf5": {
+                "idea": "THE point of the Slav! Bishop out before e6!",
+                "why_good": "Solves the French/QGD bishop problem. Active bishop on f5."
+              }
+            },
+            "mistake_moves": {
+              "e6": {
+                "why_bad": "Defeats the purpose of the Slav!",
+                "consequence": "The light bishop is trapped behind e6, like in the French",
+                "learning": "The WHOLE POINT of c6 instead of e6 is to play Bf5 first!"
+              }
+            }
+          }
+        }
+      },
+      "semi_slav": {
+        "name": "Semi-Slav Defense",
+        "moves_from_parent": [
+          "Nf3",
+          "Nf6",
+          "Nc3",
+          "e6"
+        ],
+        "continuation": [
+          "e3",
+          "Nbd7",
+          "Bd3",
+          "dxc4",
+          "Bxc4",
+          "b5",
+          "Bd3",
+          "Bb7",
+          "O-O",
+          "a6",
+          "e4",
+          "c5"
+        ],
+        "white_plan": "Build e3-e4 center, develop Bd3, prepare for central break",
+        "black_plan": "Play e6 (accepting the locked bishop), then expand with b5-Bb7 and c5",
+        "critical_positions": {
+          "after_e6": {
+            "key_decision": "The Semi-Slav - Black plays e6, locking the bishop but gaining solidity",
+            "best_moves": {
+              "e3": {
+                "idea": "Solid development",
+                "why_good": "Prepares Bd3 and a strong center"
+              },
+              "Bg5": {
+                "idea": "The Anti-Meran - pin and pressure",
+                "why_good": "Creates tension and threatens to double Black's pawns"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Slav's key idea: play c6 to support d5 while keeping Bf5 available",
+      "In the pure Slav, develop Bf5 BEFORE playing e6 - that's the whole point",
+      "The Semi-Slav (with e6) accepts a locked bishop for extra solidity",
+      "a4 by White prevents Black from holding the c4 pawn with b5",
+      "The Slav is one of the most reliable defenses against 1.d4"
+    ]
+  },
+  "qgd": {
+    "name": "Queen's Gambit Declined",
+    "eco_prefix": [
+      "D30",
+      "D31",
+      "D35",
+      "D37",
+      "D50",
+      "D52",
+      "D53",
+      "D55",
+      "D56",
+      "D60",
+      "D63"
+    ],
+    "main_line": [
+      "d4",
+      "d5",
+      "c4",
+      "e6"
+    ],
+    "white_plan": "Build central control, develop with Nc3-Bg5-e3, aim for minority attack or central break",
+    "black_plan": "Solidly defend d5, develop with Nf6-Be7-O-O, solve the light bishop problem, break with c5",
+    "critical_positions": {
+      "after_e6": {
+        "fen_pattern": "rnbqkbnr/ppp2ppp/4p3/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq -",
+        "key_decision": "Black declines the gambit - solid and classical",
+        "best_moves_white": {
+          "Nc3": {
+            "idea": "Develop and support e4",
+            "why_good": "The main line - leads to the Orthodox QGD"
+          },
+          "Nf3": {
+            "idea": "Flexible development",
+            "why_good": "Keeps options open"
+          }
+        }
+      }
+    },
+    "variations": {
+      "orthodox_qgd": {
+        "name": "Orthodox Defense",
+        "moves_from_parent": [
+          "Nc3",
+          "Nf6",
+          "Bg5",
+          "Be7",
+          "e3"
+        ],
+        "continuation": [
+          "O-O",
+          "Nf3",
+          "Nbd7",
+          "Rc1",
+          "c6",
+          "Bd3",
+          "dxc4",
+          "Bxc4",
+          "Nd5",
+          "Bxe7",
+          "Qxe7",
+          "O-O",
+          "Nxc3",
+          "Rxc3"
+        ],
+        "white_plan": "Develop with Bg5-e3-Nf3-Bd3, castle, launch minority attack (a3-b4-b5)",
+        "black_plan": "Solid with Be7-O-O-Nbd7-c6, aim for dxc4 and Nd5 exchanges, break with c5 or e5",
+        "critical_positions": {
+          "after_Bg5": {
+            "key_decision": "The Bg5 pin is the hallmark of the Orthodox QGD",
+            "best_moves": {
+              "Be7": {
+                "idea": "Break the pin simply",
+                "why_good": "Classical and reliable - prepares to castle"
+              },
+              "h6": {
+                "idea": "Kick the bishop immediately",
+                "why_good": "Forces Bh4, and Black can play g5 later"
+              }
+            },
+            "mistake_moves": {
+              "Nbd7": {
+                "why_bad": "Doesn't address the pin",
+                "consequence": "Bxf6 damages the pawn structure",
+                "learning": "Break pins before they become a problem - Be7 is simple and effective"
+              }
+            }
+          }
+        }
+      },
+      "lasker_defense": {
+        "name": "Lasker Defense",
+        "moves_from_parent": [
+          "Nc3",
+          "Nf6",
+          "Bg5",
+          "Be7",
+          "e3",
+          "O-O",
+          "Nf3",
+          "h6"
+        ],
+        "continuation": [
+          "Bh4",
+          "Ne4",
+          "Bxe7",
+          "Qxe7",
+          "Rc1",
+          "c6",
+          "Bd3",
+          "Nxc3",
+          "Rxc3",
+          "dxc4",
+          "Bxc4",
+          "Nd7",
+          "O-O",
+          "e5"
+        ],
+        "white_plan": "Accept the trade of minor pieces, maintain slight pull with better center",
+        "black_plan": "Exchange pieces to ease the cramp, reach a playable endgame, break with e5",
+        "critical_positions": {
+          "after_h6": {
+            "key_decision": "The Lasker Defense - Black plans Ne4 to simplify",
+            "best_moves": {
+              "Bh4": {
+                "idea": "Retreat and maintain the pin",
+                "why_good": "Standard - after Ne4 Bxe7 Qxe7, the position simplifies"
+              },
+              "Bxf6": {
+                "idea": "Take immediately",
+                "why_good": "Simpler - gives up bishop pair but avoids simplification"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The QGD is one of the most classical and tested openings in chess",
+      "Black's light bishop on c8 is the 'problem piece' - solving it is key",
+      "c5 and e5 are the two key breaks for Black in the middlegame",
+      "White's minority attack (b4-b5) is the main strategic plan",
+      "The Lasker Defense (h6/Ne4) is a great simplification tool for Black"
+    ]
+  },
+  "benoni_defense": {
+    "name": "Benoni Defense",
+    "eco_prefix": [
+      "A56",
+      "A57",
+      "A60",
+      "A61",
+      "A62",
+      "A63",
+      "A64",
+      "A65",
+      "A66",
+      "A67",
+      "A68",
+      "A69",
+      "A70"
+    ],
+    "main_line": [
+      "d4",
+      "Nf6",
+      "c4",
+      "c5",
+      "d5"
+    ],
+    "white_plan": "Use the space advantage from d5, press on the queenside (a4, Nd2-c4), control e4",
+    "black_plan": "Counter with e6 (Modern Benoni) or e5 (Czech), kingside attack, use the dark squares",
+    "critical_positions": {
+      "after_d5": {
+        "fen_pattern": "rnbqkb1r/pp1ppppp/5n2/2pP4/2P5/8/PP2PPPP/RNBQKBNR b KQkq -",
+        "key_decision": "Black must choose: e6 (Modern Benoni) or e5 (Czech Benoni)",
+        "best_moves": {
+          "e6": {
+            "idea": "Modern Benoni - dynamic and sharp!",
+            "leads_to": "modern_benoni"
+          },
+          "e5": {
+            "idea": "Czech Benoni - solid pawn chain",
+            "leads_to": "czech_benoni"
+          }
+        }
+      }
+    },
+    "variations": {
+      "modern_benoni": {
+        "name": "Modern Benoni",
+        "moves_from_parent": [
+          "e6",
+          "Nc3",
+          "exd5",
+          "cxd5"
+        ],
+        "continuation": [
+          "d6",
+          "e4",
+          "g6",
+          "Nf3",
+          "Bg7",
+          "Be2",
+          "O-O",
+          "O-O",
+          "Re8",
+          "Nd2",
+          "Nbd7",
+          "a4",
+          "Ne5"
+        ],
+        "white_plan": "Use the d5 pawn as a spearhead, expand on queenside with a4-Nc4, control e4",
+        "black_plan": "Fianchetto Bg7, play on the kingside with f5 or center with e5, use the dark squares",
+        "critical_positions": {
+          "after_d6": {
+            "key_decision": "The Modern Benoni structure is set - asymmetric and sharp",
+            "best_moves": {
+              "e4": {
+                "idea": "Occupy the center!",
+                "why_good": "White has a strong center with d5+e4"
+              }
+            }
+          }
+        }
+      },
+      "czech_benoni": {
+        "name": "Czech Benoni",
+        "moves_from_parent": [
+          "e5"
+        ],
+        "continuation": [
+          "Nc3",
+          "d6",
+          "e4",
+          "Be7",
+          "Bd3",
+          "O-O",
+          "Nge2",
+          "Nbd7",
+          "O-O",
+          "Ne8",
+          "f4",
+          "g6"
+        ],
+        "white_plan": "Build a big center (e4+d5), slowly expand, use space advantage",
+        "black_plan": "Lock the center with e5, maneuver pieces to the kingside, break with f5 when ready",
+        "critical_positions": {
+          "after_e5": {
+            "key_decision": "The Czech Benoni - a closed, strategic battle",
+            "best_moves_white": {
+              "Nc3": {
+                "idea": "Develop naturally",
+                "why_good": "Build behind the pawn chain, prepare f4"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Benoni creates an asymmetric pawn structure - White has space, Black has dynamics",
+      "In the Modern Benoni, the d5 pawn is both White's strength and a target",
+      "Black's dark-square bishop on g7 is crucial - don't trade it",
+      "f5 is the key break for Black in most Benoni structures",
+      "The Czech Benoni (e5) leads to a slower, more maneuvering game"
+    ]
+  },
+  "budapest_gambit": {
+    "name": "Budapest Gambit",
+    "eco_prefix": [
+      "A51",
+      "A52"
+    ],
+    "main_line": [
+      "d4",
+      "Nf6",
+      "c4",
+      "e5"
+    ],
+    "white_plan": "Accept the gambit with dxe5, hold the extra pawn, develop solidly",
+    "black_plan": "Sacrifice the e5 pawn for rapid development and piece activity, harass White's center",
+    "critical_positions": {
+      "after_e5": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/5n2/4p3/2PP4/8/PP2PPPP/RNBQKBNR w KQkq -",
+        "key_decision": "Black gambits the e5 pawn! White almost always takes.",
+        "best_moves_white": {
+          "dxe5": {
+            "idea": "Accept - the principled choice",
+            "why_good": "An extra pawn if White can hold it"
+          }
+        }
+      }
+    },
+    "variations": {
+      "budapest_main": {
+        "name": "Budapest Main Line (Ng4)",
+        "moves_from_parent": [
+          "dxe5",
+          "Ng4"
+        ],
+        "continuation": [
+          "Bf4",
+          "Nc6",
+          "Nf3",
+          "Bb4+",
+          "Nbd2",
+          "Qe7",
+          "a3",
+          "Ngxe5",
+          "Nxe5",
+          "Nxe5",
+          "e3",
+          "Bxd2+",
+          "Qxd2",
+          "O-O"
+        ],
+        "white_plan": "Hold e5, develop with Bf4-Nf3-e3, maintain the extra pawn",
+        "black_plan": "Pressure e5 with Ng4 and Nc6, develop Bb4+ for tempo, recover the pawn",
+        "critical_positions": {
+          "after_Ng4": {
+            "key_decision": "Black immediately targets the e5 pawn",
+            "best_moves_white": {
+              "Bf4": {
+                "idea": "Defend e5 solidly",
+                "why_good": "The most reliable - holds the pawn and develops"
+              },
+              "e4": {
+                "idea": "Bold - give up e5 for a big center",
+                "why_good": "After Nxe5, White has a strong center"
+              }
+            }
+          }
+        }
+      },
+      "fajarowicz_gambit": {
+        "name": "Fajarowicz Gambit (Ne4)",
+        "moves_from_parent": [
+          "dxe5",
+          "Ne4"
+        ],
+        "continuation": [
+          "Nf3",
+          "Bb4+",
+          "Nbd2",
+          "Nc6",
+          "a3",
+          "Bxd2+",
+          "Bxd2",
+          "Nxd2",
+          "Qxd2",
+          "Qe7",
+          "Qc3",
+          "O-O",
+          "e3",
+          "Re8"
+        ],
+        "white_plan": "Don't panic - develop normally with Nf3-e3, keep the extra pawn",
+        "black_plan": "Ne4 is more ambitious than Ng4 - aim for piece activity and tactical tricks",
+        "critical_positions": {
+          "after_Ne4": {
+            "key_decision": "The Fajarowicz - trickier than the main line",
+            "best_moves_white": {
+              "Nf3": {
+                "idea": "Simple development",
+                "why_good": "Don't overthink - develop and hold the pawn"
+              }
+            },
+            "mistake_moves": {
+              "Qd5": {
+                "why_bad": "The queen is exposed",
+                "consequence": "Black gets rapid development with tempo against the queen",
+                "learning": "Don't bring the queen out early to protect pawns - develop pieces instead"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Budapest is a surprise weapon - great for catching White off guard",
+      "Black sacrifices the e5 pawn for piece activity and development",
+      "Ng4 is the main move (more sound), Ne4 is the Fajarowicz (trickier)",
+      "White should stay calm, develop naturally, and hold the extra pawn",
+      "If White plays accurately, they keep a small edge - but practical chances are good for Black"
+    ]
+  },
+  "dutch_defense": {
+    "name": "Dutch Defense",
+    "eco_prefix": [
+      "A80",
+      "A81",
+      "A82",
+      "A83",
+      "A84",
+      "A85",
+      "A86",
+      "A87",
+      "A88",
+      "A90",
+      "A92",
+      "A95",
+      "A96",
+      "A99"
+    ],
+    "main_line": [
+      "d4",
+      "f5"
+    ],
+    "white_plan": "Control the center, develop naturally, exploit the weakened kingside (e1-h5 diagonal)",
+    "black_plan": "Control e4 with f5, choose between Stonewall (d5), Leningrad (g6), or Classical (e6+Be7)",
+    "critical_positions": {
+      "after_f5": {
+        "fen_pattern": "rnbqkbnr/ppppp1pp/8/5p2/3P4/8/PPP1PPPP/RNBQKBNR w KQkq -",
+        "key_decision": "Black plays aggressively with f5 - controlling e4 is the priority",
+        "best_moves_white": {
+          "g3": {
+            "idea": "Fianchetto - the most common response",
+            "why_good": "Bg2 will pressure the center and fight for e4"
+          },
+          "c4": {
+            "idea": "Standard - control the center",
+            "why_good": "Flexible - can transpose to many systems"
+          }
+        }
+      }
+    },
+    "variations": {
+      "stonewall_dutch": {
+        "name": "Stonewall Dutch",
+        "moves_from_parent": [
+          "c4",
+          "Nf6",
+          "g3",
+          "e6",
+          "Bg2"
+        ],
+        "continuation": [
+          "d5",
+          "Nf3",
+          "c6",
+          "O-O",
+          "Bd6",
+          "b3",
+          "Qe7",
+          "Bb2",
+          "O-O",
+          "Nbd2",
+          "b6",
+          "Ne5",
+          "Bb7"
+        ],
+        "white_plan": "Fianchetto Bg2, exploit the weak e5 square, play around the stonewall",
+        "black_plan": "Build the wall: d5+f5+e6+c6, develop Bd6 and aim for a kingside attack",
+        "critical_positions": {
+          "after_d5": {
+            "key_decision": "The Stonewall is erected - d5+f5+e6+c6",
+            "best_moves": {
+              "Nf3": {
+                "idea": "Develop and aim for Ne5",
+                "why_good": "The Ne5 outpost is White's dream square in the Stonewall"
+              }
+            },
+            "mistake_moves": {
+              "cxd5": {
+                "why_bad": "Opens the position for Black's bishops",
+                "consequence": "After exd5 or cxd5, Black's pieces become very active",
+                "learning": "Don't exchange in the center against the Stonewall - play around it"
+              }
+            }
+          }
+        }
+      },
+      "leningrad_dutch": {
+        "name": "Leningrad Dutch",
+        "moves_from_parent": [
+          "c4",
+          "Nf6",
+          "g3",
+          "g6",
+          "Bg2"
+        ],
+        "continuation": [
+          "Bg7",
+          "Nf3",
+          "O-O",
+          "O-O",
+          "d6",
+          "Nc3",
+          "c6",
+          "d5",
+          "e5",
+          "dxe6",
+          "Bxe6"
+        ],
+        "white_plan": "Develop with g3-Bg2-Nf3, challenge the center, exploit the weakened light squares",
+        "black_plan": "Fianchetto BOTH bishops (Bg7 + f5), play for e5 break, kingside attack",
+        "critical_positions": {
+          "after_Bg7": {
+            "key_decision": "The Leningrad setup - double fianchetto with f5",
+            "best_moves": {
+              "Nf3": {
+                "idea": "Develop naturally",
+                "why_good": "Prepares to castle and fight for the center"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Dutch is aggressive for Black - f5 controls e4 and aims for kingside play",
+      "The Stonewall (d5+f5) creates a fortress but leaves e5 weak",
+      "The Leningrad (g6+Bg7+f5) is more dynamic with the double fianchetto",
+      "The weak e1-h5 diagonal is Black's main vulnerability after f5",
+      "Black should always castle kingside quickly to protect the weakened king position"
+    ]
+  },
+  "scandinavian_defense": {
+    "name": "Scandinavian Defense",
+    "eco_prefix": [
+      "B01"
+    ],
+    "main_line": [
+      "e4",
+      "d5"
+    ],
+    "white_plan": "Capture on d5, develop with tempo against the Black queen, build a central advantage",
+    "black_plan": "Challenge e4 immediately, develop the queen early or recapture with Nf6, solid but slightly behind",
+    "critical_positions": {
+      "after_d5": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -",
+        "key_decision": "White should capture on d5",
+        "best_moves_white": {
+          "exd5": {
+            "idea": "Take the pawn - the only principled response",
+            "why_good": "Forces Black to make a concession"
+          }
+        }
+      }
+    },
+    "variations": {
+      "scand_qxd5": {
+        "name": "Main Line (Qxd5)",
+        "moves_from_parent": [
+          "exd5",
+          "Qxd5",
+          "Nc3"
+        ],
+        "continuation": [
+          "Qa5",
+          "d4",
+          "Nf6",
+          "Nf3",
+          "Bf5",
+          "Bc4",
+          "e6",
+          "Bd2",
+          "c6",
+          "Qe2",
+          "Bb4",
+          "O-O-O",
+          "Nbd7"
+        ],
+        "white_plan": "Develop with tempo (Nc3 gains time), build a strong center, pressure Black's queen",
+        "black_plan": "Develop Qa5 (safe square), Nf6, Bf5 early (before e6!), castle and equalize",
+        "critical_positions": {
+          "after_Nc3": {
+            "key_decision": "The queen must move - where?",
+            "best_moves": {
+              "Qa5": {
+                "idea": "Safe and active - the modern main line",
+                "why_good": "Avoids further tempo loss, connects with Bd7/Bf5 plans"
+              },
+              "Qd6": {
+                "idea": "The Scandinavian middlegame queen",
+                "why_good": "Flexible - can support c5 or e5 breaks"
+              }
+            },
+            "mistake_moves": {
+              "Qe5+": {
+                "why_bad": "The queen will be kicked around",
+                "consequence": "After Be2, Black has no good square for the queen",
+                "learning": "Don't check just because you can - the queen needs a stable square"
+              }
+            }
+          }
+        }
+      },
+      "scand_nf6": {
+        "name": "Modern Scandinavian (Nf6)",
+        "moves_from_parent": [
+          "exd5",
+          "Nf6"
+        ],
+        "continuation": [
+          "d4",
+          "Nxd5",
+          "Nf3",
+          "g6",
+          "c4",
+          "Nb6",
+          "Nc3",
+          "Bg7",
+          "Be3",
+          "O-O",
+          "Be2",
+          "Nc6",
+          "O-O",
+          "e5"
+        ],
+        "white_plan": "Build a big center with d4+c4, develop naturally, use the space advantage",
+        "black_plan": "Recapture with Nf6-Nxd5, fianchetto Bg7, play for counterattack with c5 or e5",
+        "critical_positions": {
+          "after_Nf6": {
+            "key_decision": "The Modern Scandinavian avoids early queen moves",
+            "best_moves": {
+              "d4": {
+                "idea": "Build the center",
+                "why_good": "Natural - prepares c4 for a strong pawn duo"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Scandinavian immediately challenges e4 - direct and honest",
+      "After Qxd5 Nc3, the queen MUST move - losing a tempo is the cost",
+      "Qa5 is the modern main line - safe and active",
+      "The Nf6 variation avoids queen moves but gives White a bigger center",
+      "Bf5 should come out BEFORE e6 (same idea as the Caro-Kann and Slav)"
+    ]
+  },
+  "nimzowitsch_defense": {
+    "name": "Nimzowitsch Defense",
+    "eco_prefix": [
+      "B00"
+    ],
+    "main_line": [
+      "e4",
+      "Nc6"
+    ],
+    "white_plan": "Maintain the center with d4, develop naturally, punish the unusual move order",
+    "black_plan": "Hypermodern approach - let White build the center, then attack it with d5, f5, or e5",
+    "critical_positions": {
+      "after_Nc6": {
+        "fen_pattern": "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -",
+        "key_decision": "White should grab the center with d4",
+        "best_moves_white": {
+          "d4": {
+            "idea": "Occupy the center - the most principled",
+            "why_good": "Takes advantage of Black's unusual move order"
+          },
+          "Nf3": {
+            "idea": "Develop first",
+            "why_good": "Flexible - avoids any tricky lines"
+          }
+        }
+      }
+    },
+    "variations": {
+      "nimzo_main": {
+        "name": "Nimzowitsch Main Line",
+        "moves_from_parent": [
+          "d4",
+          "d5",
+          "e5"
+        ],
+        "continuation": [
+          "Bf5",
+          "Nf3",
+          "e6",
+          "Be2",
+          "f6",
+          "O-O",
+          "fxe5",
+          "Nxe5",
+          "Nxe5",
+          "dxe5",
+          "Bg4",
+          "c3",
+          "Bd6"
+        ],
+        "white_plan": "Push e5 for space, develop Nf3-Be2-O-O, maintain the center",
+        "black_plan": "Challenge e5 with f6, develop Bf5 (before e6!), castle and counterattack",
+        "critical_positions": {
+          "after_e5": {
+            "key_decision": "White has a space advantage with e5",
+            "best_moves": {
+              "Bf5": {
+                "idea": "Develop the bishop before e6!",
+                "why_good": "Active bishop, prepares f6 to challenge e5"
+              }
+            },
+            "mistake_moves": {
+              "e6": {
+                "why_bad": "Locks in the light bishop",
+                "consequence": "Black is cramped with no active piece play",
+                "learning": "Always develop bishops before playing e6 in closed positions"
+              }
+            }
+          }
+        }
+      },
+      "nimzo_nf3": {
+        "name": "Nimzowitsch vs Nf3",
+        "moves_from_parent": [
+          "Nf3",
+          "d5",
+          "exd5",
+          "Qxd5"
+        ],
+        "continuation": [
+          "Nc3",
+          "Qa5",
+          "d4",
+          "Nf6",
+          "Bc4",
+          "Bf5",
+          "Bd2",
+          "e6",
+          "Qe2",
+          "O-O-O",
+          "O-O-O",
+          "Bd6"
+        ],
+        "white_plan": "Develop with tempo against the queen, build a solid center",
+        "black_plan": "Transpose to Scandinavian-like positions, develop actively",
+        "critical_positions": {
+          "after_Qxd5": {
+            "key_decision": "Transposing to a Scandinavian-style position",
+            "best_moves": {
+              "Nc3": {
+                "idea": "Gain tempo on the queen",
+                "why_good": "Standard - forces the queen to move again"
+              }
+            }
+          }
+        }
+      }
+    },
+    "common_learnings": [
+      "The Nimzowitsch Defense is a surprise weapon - opponents won't know the theory",
+      "Nc6 on move 1 is unusual but not bad - it has hypermodern ideas",
+      "Black often transposes into other openings (Scandinavian, French) from this setup",
+      "Develop the light bishop before playing e6 - the same principle as Caro-Kann and Slav",
+      "Best suited for players who enjoy unusual positions and catching opponents off guard"
+    ]
+  }
+}

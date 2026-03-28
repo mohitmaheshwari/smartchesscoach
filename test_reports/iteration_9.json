@@ -86,7 +86,7 @@
   "retest_needed": false,
   "should_main_agent_self_test": false,
 
-  "context_for_next_testing_agent": "PDR feature fully tested and working. All flows verified: (1) Correct move -> Socratic 'why' question -> correct/wrong reason feedback, (2) Wrong move -> animated refutation -> 5-step idea chain. Backend test file created at /app/backend/tests/test_pdr_coach.py with 14 test cases. LLM integration using EMERGENT_LLM_KEY is working correctly for generating idea_chain explanations and why_options.",
+  "context_for_next_testing_agent": "PDR feature fully tested and working. All flows verified: (1) Correct move -> Socratic 'why' question -> correct/wrong reason feedback, (2) Wrong move -> animated refutation -> 5-step idea chain. Backend test file created at /app/backend/tests/test_pdr_coach.py with 14 test cases. LLM integration using OPENAI_API_KEY is working correctly for generating idea_chain explanations and why_options.",
 
   "pdr_feature_status": "FULLY FUNCTIONAL - NOT MOCKED"
 }

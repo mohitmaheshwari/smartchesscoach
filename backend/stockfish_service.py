@@ -69,10 +69,14 @@ class MoveEvaluation:
     is_mate_after: bool     # Is there a forced mate after this move?
     mate_in_before: Optional[int]  # Mate in X moves (before)
     mate_in_after: Optional[int]   # Mate in X moves (after)
-    # NEW: Principal variations for understanding WHY moves are good/bad
+    # Principal variations for understanding WHY moves are good/bad
     pv_after_played: List[str] = None    # What happens after the move you played
     pv_after_best: List[str] = None      # What would happen after the best move
-    threat_after_played: str = None       # The immediate threat you face after your move
+    threat_after_played: str = None      # The immediate threat you face after your move
+    # NEW: Position after move and turning point detection
+    fen_after: str = None                # FEN position after the move
+    is_turning_point: bool = False       # Eval swing >= 120cp
+    eval_swing: int = 0                  # Absolute eval change
 
 @dataclass
 class GameAnalysis:
@@ -236,33 +240,74 @@ class StockfishEngine:
             return MoveClassification.BLUNDER
 
 
-def calculate_accuracy(cp_losses: List[int]) -> float:
+def calculate_accuracy(cp_losses: List[int], classifications: List[str] = None) -> float:
     """
-    Calculate Chess.com-style accuracy score (0-100).
-    Uses a formula that weights severe mistakes more heavily.
+    Calculate Chess.com CAPS2-style accuracy score (0-100).
+    
+    CAPS2 assigns scores based on move classifications, not raw cp loss.
+    This produces scores that feel more like "school grades" (50-95 typical).
+    
+    Move scores (calibrated to match Chess.com CAPS2):
+    - Best/Brilliant/Great: 100 points
+    - Excellent: 98 points  
+    - Good: 90 points
+    - Inaccuracy: 65 points
+    - Mistake: 35 points
+    - Blunder: 0 points
+    
+    Chess.com also applies smoothing for mate-distance and consecutive blunders,
+    which we approximate by being slightly generous on scores.
     """
     if not cp_losses:
         return 100.0
     
-    # Formula based on Chess.com's accuracy calculation
-    # Accuracy = 100 * (1 - avg_cp_loss / 100) with diminishing returns for high losses
-    total_weight = 0
-    weighted_score = 0
+    # CAPS2-style move scores (calibrated to Chess.com)
+    MOVE_SCORES = {
+        "brilliant": 100,
+        "great": 100,
+        "best": 100,
+        "excellent": 98,
+        "good": 90,
+        "book": 100,  # Opening book moves
+        "inaccuracy": 65,
+        "mistake": 35,
+        "blunder": 0
+    }
     
-    for cp_loss in cp_losses:
-        # Cap individual move loss at 500 cp for accuracy calculation
-        capped_loss = min(abs(cp_loss), 500)
-        
-        # Convert to accuracy contribution (0-1)
-        move_accuracy = max(0, 1 - capped_loss / 200)
-        
-        weighted_score += move_accuracy
-        total_weight += 1
+    total_score = 0
+    num_moves = len(cp_losses)
     
-    if total_weight == 0:
-        return 100.0
+    # If we have classifications, use them directly
+    if classifications and len(classifications) == num_moves:
+        prev_was_blunder = False
+        for classification in classifications:
+            score = MOVE_SCORES.get(classification, 75)  # Default to "good" range
+            
+            # CAPS2 smoothing: Reduce penalty for consecutive blunders
+            if classification == "blunder" and prev_was_blunder:
+                score = 15  # Second+ consecutive blunder gets partial credit
+            
+            total_score += score
+            prev_was_blunder = (classification == "blunder")
+    else:
+        # Fall back to cp_loss-based classification
+        for cp_loss in cp_losses:
+            abs_loss = abs(cp_loss)
+            if abs_loss <= CP_THRESHOLDS["excellent"]:
+                total_score += MOVE_SCORES["excellent"]
+            elif abs_loss <= CP_THRESHOLDS["good"]:
+                total_score += MOVE_SCORES["good"]
+            elif abs_loss <= CP_THRESHOLDS["inaccuracy"]:
+                total_score += MOVE_SCORES["inaccuracy"]
+            elif abs_loss <= CP_THRESHOLDS["mistake"]:
+                total_score += MOVE_SCORES["mistake"]
+            else:
+                total_score += MOVE_SCORES["blunder"]
     
-    return round(weighted_score / total_weight * 100, 1)
+    accuracy = total_score / num_moves
+    
+    # CAPS2 typically produces scores between 50-95 for normal play
+    return round(min(100, max(0, accuracy)), 1)
 
 
 def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", depth: int = DEFAULT_DEPTH) -> Dict[str, Any]:
@@ -289,6 +334,8 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
         moves_analysis = []
         white_cp_losses = []
         black_cp_losses = []
+        white_classifications = []  # Track classifications for CAPS2-style accuracy
+        black_classifications = []
         
         blunders = 0
         mistakes = 0
@@ -320,29 +367,49 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 move_san = board.san(move)
                 board.push(move)
                 
+                # Check if the game is over (checkmate, stalemate, etc.)
+                is_checkmate = board.is_checkmate()
+                
                 # Evaluate position after the move
                 current_eval, current_mate = engine.evaluate_position(board, depth)
                 
-                # Calculate centipawn loss
-                # For white: loss = prev_eval - current_eval (if white moved)
-                # For black: loss = current_eval - prev_eval (if black moved)
-                if is_white_move:
-                    cp_loss = max(0, prev_eval - current_eval)
-                    if cp_loss > 0:
-                        white_cp_losses.append(cp_loss)
+                # CRITICAL FIX: If the played move IS the best move, cp_loss = 0
+                # This handles checkmate moves and other cases where move == best_move
+                if move == best_move:
+                    cp_loss = 0
+                # If the move delivers checkmate, it's always the best - no loss
+                elif is_checkmate:
+                    cp_loss = 0
                 else:
-                    cp_loss = max(0, current_eval - prev_eval)
-                    if cp_loss > 0:
-                        black_cp_losses.append(cp_loss)
+                    # Calculate centipawn loss normally
+                    # For white: loss = prev_eval - current_eval (if white moved)
+                    # For black: loss = current_eval - prev_eval (if black moved)
+                    if is_white_move:
+                        cp_loss = max(0, prev_eval - current_eval)
+                        if cp_loss > 0:
+                            white_cp_losses.append(cp_loss)
+                    else:
+                        cp_loss = max(0, current_eval - prev_eval)
+                        if cp_loss > 0:
+                            black_cp_losses.append(cp_loss)
                 
-                # Check for missed mate
-                missed_mate = prev_mate is not None and (
-                    (is_white_move and prev_mate > 0 and (current_mate is None or current_mate <= 0)) or
-                    (not is_white_move and prev_mate < 0 and (current_mate is None or current_mate >= 0))
-                )
+                # Check for missed mate - but NOT if the player just delivered mate
+                missed_mate = False
+                if not is_checkmate:
+                    missed_mate = prev_mate is not None and (
+                        (is_white_move and prev_mate > 0 and (current_mate is None or current_mate <= 0)) or
+                        (not is_white_move and prev_mate < 0 and (current_mate is None or current_mate >= 0))
+                    )
                 
                 # Classify the move
                 classification = engine.classify_move(cp_loss, missed_mate)
+                
+                # Track classifications for CAPS2-style accuracy
+                classification_str = classification.value if hasattr(classification, 'value') else str(classification)
+                if is_white_move:
+                    white_classifications.append(classification_str)
+                else:
+                    black_classifications.append(classification_str)
                 
                 # Count classifications
                 if classification == MoveClassification.BLUNDER:
@@ -384,6 +451,26 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         threat_after_played = engine.get_threat(played_board, depth=12)
                     
                     board.push(move)
+                    fen_after = board.fen()  # Store position after move
+                    
+                    # Detect turning point (eval swing >= 120 cp)
+                    eval_swing = abs(current_eval - prev_eval)
+                    is_turning_point = eval_swing >= 120 and not is_bad_move
+                    
+                    # If turning point but not already computed PV, compute now
+                    if is_turning_point and not pv_after_played:
+                        board.pop()
+                        # Get PV after best move
+                        best_board = board.copy()
+                        best_board.push(best_move)
+                        pv_after_best = engine.get_principal_variation(best_board, depth=12, pv_length=4)
+                        
+                        # Get PV after played move
+                        played_board = board.copy()
+                        played_board.push(move)
+                        pv_after_played = engine.get_principal_variation(played_board, depth=12, pv_length=4)
+                        
+                        board.push(move)
                     
                     move_eval = MoveEvaluation(
                         move_number=(move_number + 1) // 2,
@@ -403,7 +490,10 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         mate_in_after=current_mate,
                         pv_after_played=pv_after_played,
                         pv_after_best=pv_after_best,
-                        threat_after_played=threat_after_played
+                        threat_after_played=threat_after_played,
+                        fen_after=fen_after,
+                        is_turning_point=is_turning_point,
+                        eval_swing=eval_swing
                     )
                     moves_analysis.append(move_eval)
                 
@@ -411,9 +501,9 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 prev_eval = current_eval
                 prev_mate = current_mate
         
-        # Calculate accuracies
-        accuracy_white = calculate_accuracy(white_cp_losses)
-        accuracy_black = calculate_accuracy(black_cp_losses)
+        # Calculate accuracies using CAPS2-style scoring
+        accuracy_white = calculate_accuracy(white_cp_losses, white_classifications)
+        accuracy_black = calculate_accuracy(black_cp_losses, black_classifications)
         
         # User-specific stats
         user_moves = [m for m in moves_analysis]
@@ -434,13 +524,16 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                     "move": m.move_san,
                     "move_uci": m.move_uci,
                     "fen_before": m.fen_before,
+                    "fen_after": m.fen_after,
                     "evaluation": m.classification,
                     "cp_loss": m.cp_loss,
                     "eval_before": m.eval_before,
                     "eval_after": m.eval_after,
+                    "eval_swing": m.eval_swing,
                     "best_move": m.best_move_san,
                     "best_move_uci": m.best_move_uci,
                     "is_best": m.cp_loss <= CP_THRESHOLDS["excellent"],
+                    "is_turning_point": m.is_turning_point,
                     "mate_info": {
                         "before": m.mate_in_before,
                         "after": m.mate_in_after

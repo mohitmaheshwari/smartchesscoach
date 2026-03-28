@@ -1,0 +1,90 @@
+{
+  "summary": "Testing complete for Mission Stepper UI, Focus Mastery API/Section, and Coach Narrative Rail features. All 19 backend tests and 13 frontend tests passed.",
+  "mode": "generate",
+  "baseline_commit": "338c96b972465b881c725a185aea4898720ae749",
+  "head_commit": "ad2851b2dd7ae5081500f0a65a600ad9ab8e448e",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 32,
+    "passed": 32,
+    "failed": 0,
+    "skipped": 1
+  },
+  "specs_created": [
+    "/app/backend/tests/test_focus_mastery_api.py",
+    "/app/tests/e2e/journey-mastery-stepper.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_focus_mastery_api.py",
+    "/app/tests/e2e/journey-mastery-stepper.spec.ts",
+    "/app/test_reports/pytest/pytest_focus_mastery.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_focus_mastery_api.py",
+    "/app/tests/e2e/journey-mastery-stepper.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 pytest tests passed)",
+    "frontend": "100% (13/14 Playwright tests passed, 1 skipped)"
+  },
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Three new features tested: 1) MissionStepper component at /mission/:missionId shows Reflect->Train->Wrap-up steps with proper phase highlighting, 2) FocusMasterySection on /progress page (JourneyV2.jsx) displays overall mastery ring, individual pattern progress bars, mastery levels, and recommended focus, 3) Coach Narrative Rail shows Before/After/Growth tabs with coaching comparison data. Note: JourneyV2.jsx is at /progress route, not /journey (which uses JourneyCognitive).",
+  "features_tested": {
+    "mission_stepper_ui": {
+      "status": "PASS",
+      "tests": [
+        "Displays 3 steps: Reflect, Train, Wrap-up",
+        "Highlights Reflect step during briefing phase",
+        "Highlights Train step during drill phase",
+        "Shows step icons (Brain, Dumbbell, Flag)",
+        "Has connectors between steps"
+      ]
+    },
+    "focus_mastery_api": {
+      "status": "PASS",
+      "tests": [
+        "Returns 200 for authenticated users",
+        "Contains focus_mastery field with comprehensive data",
+        "Contains masteries legacy field",
+        "Contains user_id, patterns, overall_mastery, overall_level",
+        "Contains top_strength, biggest_gap, recommended_focus",
+        "Patterns have all required fields",
+        "Patterns have valid mastery_level (master/proficient/competent/developing/novice)",
+        "Patterns have valid trend (improving/stable/declining)",
+        "All 10 known patterns present"
+      ]
+    },
+    "focus_mastery_section_ui": {
+      "status": "PASS",
+      "tests": [
+        "Section renders on Progress page (/progress)",
+        "Shows overall mastery ring with percentage",
+        "Shows individual pattern progress bars",
+        "Shows mastery levels",
+        "Shows Strongest and Focus Area cards",
+        "Shows recommended focus suggestion"
+      ]
+    },
+    "coach_narrative_rail": {
+      "status": "PASS",
+      "tests": [
+        "Shows Coach Comparison section at top of Progress page",
+        "Before/After/Your Growth tabs work",
+        "Shows accuracy, blunders/game, win rate stats"
+      ]
+    }
+  }
+}

@@ -129,6 +129,73 @@ async def init_database():
     await db.reflection_results.create_index("game_id")
     print("  ✓ reflection_results indexes")
     
+    # P1.5: Coach Advice indexes
+    await db.coach_advice.create_index("advice_id", unique=True)
+    await db.coach_advice.create_index("user_id")
+    await db.coach_advice.create_index([("user_id", 1), ("status", 1)])
+    await db.coach_advice.create_index([("user_id", 1), ("rule_code", 1)])
+    print("  ✓ coach_advice indexes")
+    
+    # P1.5: Advice Applications indexes
+    await db.advice_applications.create_index("application_id", unique=True)
+    await db.advice_applications.create_index("user_id")
+    await db.advice_applications.create_index("advice_id")
+    await db.advice_applications.create_index("game_id")
+    await db.advice_applications.create_index([("user_id", 1), ("evaluated_at", -1)])
+    await db.advice_applications.create_index([("advice_id", 1), ("game_id", 1)], unique=True)
+    print("  ✓ advice_applications indexes")
+    
+    # P1.6: Reanalysis Jobs indexes
+    await db.reanalysis_jobs.create_index("job_id", unique=True)
+    await db.reanalysis_jobs.create_index("user_id")
+    await db.reanalysis_jobs.create_index("idempotency_key", unique=True)
+    await db.reanalysis_jobs.create_index([("user_id", 1), ("status", 1)])
+    await db.reanalysis_jobs.create_index("created_at")
+    print("  ✓ reanalysis_jobs indexes")
+    
+    # P1.6: Behavioral Reports cache indexes
+    await db.behavioral_reports.create_index([("user_id", 1), ("game_id", 1)], unique=True)
+    await db.behavioral_reports.create_index("user_id")
+    await db.behavioral_reports.create_index("game_id")
+    await db.behavioral_reports.create_index([("user_id", 1), ("computed_at", -1)])
+    await db.behavioral_reports.create_index("engine_version")
+    print("  ✓ behavioral_reports indexes")
+    
+    # P1.7: Mission History indexes
+    await db.mission_history.create_index("mission_id", unique=True)
+    await db.mission_history.create_index("user_id")
+    await db.mission_history.create_index("created_at")
+    await db.mission_history.create_index("mission_type")
+    await db.mission_history.create_index([("user_id", 1), ("status", 1)])
+    await db.mission_history.create_index([("user_id", 1), ("created_at", -1)])
+    await db.mission_history.create_index([("user_id", 1), ("completed_at", -1)])
+    print("  ✓ mission_history indexes")
+    
+    # P2: Coach Sessions indexes (Play With Coach)
+    await db.coach_sessions.create_index("session_id", unique=True)
+    await db.coach_sessions.create_index("user_id")
+    await db.coach_sessions.create_index("status")
+    await db.coach_sessions.create_index([("user_id", 1), ("status", 1)])
+    await db.coach_sessions.create_index([("user_id", 1), ("created_at", -1)])
+    await db.coach_sessions.create_index("created_at")
+    print("  ✓ coach_sessions indexes (P2)")
+    
+    # P2: Player Identity indexes
+    await db.player_identity.create_index("user_id", unique=True)
+    await db.player_identity.create_index("identity_label")
+    await db.player_identity.create_index("last_updated")
+    print("  ✓ player_identity indexes (P2)")
+    
+    # Cognitive Gap Intelligence indexes
+    await db.cognitive_gap_history.create_index("user_id")
+    await db.cognitive_gap_history.create_index([("user_id", 1), ("gap_type", 1)])
+    await db.cognitive_gap_history.create_index([("user_id", 1), ("created_at", -1)])
+    await db.cognitive_gap_history.create_index("created_at")
+    print("  ✓ cognitive_gap_history indexes")
+    
+    await db.cognitive_gap_aggregates.create_index("user_id", unique=True)
+    print("  ✓ cognitive_gap_aggregates indexes")
+    
     # Embedding collections indexes (for RAG)
     await db.game_embeddings.create_index("embedding_id", unique=True)
     await db.game_embeddings.create_index("user_id")

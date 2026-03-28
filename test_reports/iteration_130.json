@@ -1,0 +1,53 @@
+{
+  "summary": "Bug fix verified: OpeningFundamentals component now renders correctly in Lab page Habits tab. The fix was importing API from @/App instead of using a local constant without the /api prefix.",
+  "mode": "update",
+  "baseline_commit": "47295cb12915425709991f037eb34c771f5575cb",
+  "head_commit": "cedfe4183436ad2f47003d2518cfcc34243b8d0a",
+  "specs_created": [
+    "/app/tests/e2e/opening-fundamentals.spec.ts",
+    "/app/backend/tests/test_opening_fundamentals_api.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/opening-fundamentals.spec.ts",
+    "/app/backend/tests/test_opening_fundamentals_api.py"
+  ],
+  "regression_results": {
+    "total_specs": 19,
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0
+  },
+  "issues": [],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/opening-fundamentals.spec.ts",
+    "/app/backend/tests/test_opening_fundamentals_api.py"
+  ],
+  "test_results": {
+    "backend": "100% (13/13 passed)",
+    "frontend": "100% (6/6 passed)"
+  },
+  "seed_data_creation": "None - used existing game data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Opening Fundamentals bug fix verified. The component correctly renders in the Habits tab of the Lab page showing: score percentage, adherences (principles followed), violations (principles to work on), and coach advice. The /api/analysis/{game_id}/opening-fundamentals endpoint returns: score (0-100), violations list, adherences list, summary text, and total_violations count.",
+  "features_verified": {
+    "opening_fundamentals_api": {
+      "status": "WORKING",
+      "endpoint": "GET /api/analysis/{game_id}/opening-fundamentals",
+      "details": "Returns score, violations, adherences, summary, and total_violations for any analyzed game"
+    },
+    "opening_fundamentals_frontend": {
+      "status": "WORKING",
+      "component": "OpeningFundamentals.jsx",
+      "location": "Lab page > Habits tab",
+      "details": "Displays score card, principles followed section, coach advice section"
+    },
+    "lab_page_tabs": {
+      "status": "WORKING",
+      "details": "All 5 tabs functional: Summary, Moments, Ideas, Habits, Memory"
+    }
+  }
+}

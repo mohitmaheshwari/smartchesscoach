@@ -1,0 +1,909 @@
+openapi: 3.0.0
+info:
+  title: Smart Chess Coach API
+  description: |
+    Smart Chess Coach - AI-Powered Chess Learning Platform
+    
+    A comprehensive chess analysis and coaching platform that provides:
+    - Game analysis with Stockfish engine
+    - AI-powered personalized coaching
+    - Player progression tracking
+    - Mistake pattern analysis and learning
+    - Voice-based coaching feedback
+    - Journey dashboard with comprehensive stats
+  version: 1.0.0
+  contact:
+    name: Smart Chess Coach Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.smartchesscoach.com
+    description: Production
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Platforms
+    description: Chess platform integration (Chess.com, Lichess)
+  - name: Games
+    description: Game import, retrieval, and management
+  - name: Analysis
+    description: Game analysis with Stockfish and AI coaching
+  - name: Voice
+    description: Text-to-speech coaching feedback
+  - name: Journey
+    description: Player progression tracking and comprehensive dashboard
+
+paths:
+  /api/auth/google/login:
+    get:
+      tags:
+        - Authentication
+      summary: Start Google OAuth login flow
+      description: Redirects user to Google OAuth consent screen for authentication
+      responses:
+        '200':
+          description: Google authentication URL provided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  auth_url:
+                    type: string
+                    description: URL to redirect user for Google OAuth
+        '500':
+          description: Google OAuth not configured
+
+  /api/auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Handle Google OAuth callback
+      description: Exchange authorization code for session token. Called by Google after user consent.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Authorization code from Google
+      responses:
+        '302':
+          description: Redirect to frontend dashboard with success
+        '401':
+          description: Invalid or failed authorization
+        '500':
+          description: Authentication failed
+
+  /api/auth/session:
+    post:
+      tags:
+        - Authentication
+      summary: Create session from Emergent session ID (legacy)
+      description: Exchange Emergent session_id for session_token. Used for backwards compatibility.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+      responses:
+        '200':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Missing session_id
+        '401':
+          description: Invalid session_id
+
+  /api/auth/google/mobile:
+    post:
+      tags:
+        - Authentication
+      summary: Mobile Google authentication
+      description: Authenticate mobile app users with Google access token from Google Sign-In SDK
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  description: Google OAuth access token from mobile SDK
+              required:
+                - access_token
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  session_token:
+                    type: string
+        '400':
+          description: Missing or invalid access token
+        '401':
+          description: Invalid Google access token
+
+  /api/auth/demo-login:
+    post:
+      tags:
+        - Authentication
+      summary: Demo login for testing (localhost only)
+      description: Create demo user account for testing without Google OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required:
+                - email
+      responses:
+        '200':
+          description: Demo login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  session_token:
+                    type: string
+        '400':
+          description: Invalid email format
+
+  /api/auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user profile
+      description: Retrieve authenticated user's profile information
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Not authenticated or session expired
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Invalidate session and clear authentication cookies
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /api/connect-platform:
+    post:
+      tags:
+        - Platforms
+      summary: Connect Chess.com or Lichess account
+      description: Link user's Chess.com or Lichess username to their profile
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platform:
+                  type: string
+                  enum: [chess.com, lichess]
+                username:
+                  type: string
+              required:
+                - platform
+                - username
+      responses:
+        '200':
+          description: Platform connected successfully
+        '400':
+          description: Invalid platform or username not found
+        '401':
+          description: Not authenticated
+
+  /api/import-games:
+    post:
+      tags:
+        - Games
+      summary: Import games from Chess.com or Lichess
+      description: Fetch and import recent games from user's Chess.com or Lichess account
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platform:
+                  type: string
+                  enum: [chess.com, lichess]
+                username:
+                  type: string
+              required:
+                - platform
+                - username
+      responses:
+        '200':
+          description: Games imported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported:
+                    type: integer
+                    description: Number of games imported
+                  total_found:
+                    type: integer
+                    description: Total games found
+        '400':
+          description: Invalid platform or could not fetch games
+        '401':
+          description: Not authenticated
+
+  /api/games:
+    get:
+      tags:
+        - Games
+      summary: Get all games
+      description: Retrieve all imported games for the authenticated user
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of games
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Game'
+        '401':
+          description: Not authenticated
+
+  /api/games/analyzed:
+    get:
+      tags:
+        - Games
+      summary: Get analyzed games with stats
+      description: Retrieve all analyzed games with accuracy, blunders, and mistakes summary
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of analyzed games with stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        game_id:
+                          type: string
+                        opponent:
+                          type: string
+                        result:
+                          type: string
+                          enum: [win, loss, draw]
+                        accuracy:
+                          type: number
+                          format: float
+                        blunders:
+                          type: integer
+                        mistakes:
+                          type: integer
+                        best_moves:
+                          type: integer
+                        platform:
+                          type: string
+                  total:
+                    type: integer
+        '401':
+          description: Not authenticated
+
+  /api/games/blunders:
+    get:
+      tags:
+        - Games
+      summary: Get all blunders
+      description: Retrieve all blunders from analyzed games with position and explanation
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of blunders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blunders:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        game_id:
+                          type: string
+                        move_number:
+                          type: integer
+                        move:
+                          type: string
+                        evaluation:
+                          type: string
+                          enum: [blunder, mistake]
+                        fen:
+                          type: string
+                          description: FEN position before the blunder
+                        feedback:
+                          type: string
+                        threat:
+                          type: string
+                  total:
+                    type: integer
+        '401':
+          description: Not authenticated
+
+  /api/games/best-moves:
+    get:
+      tags:
+        - Games
+      summary: Get all best moves
+      description: Retrieve all best and excellent moves from analyzed games
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of best moves
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  best_moves:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        game_id:
+                          type: string
+                        move_number:
+                          type: integer
+                        move:
+                          type: string
+                        evaluation:
+                          type: string
+                          enum: [best, excellent, good]
+                        fen:
+                          type: string
+                  total:
+                    type: integer
+        '401':
+          description: Not authenticated
+
+  /api/games/{game_id}:
+    get:
+      tags:
+        - Games
+      summary: Get specific game
+      description: Retrieve detailed information for a specific game including PGN and termination reason
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Game details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '401':
+          description: Not authenticated
+        '404':
+          description: Game not found
+
+  /api/analyze-game:
+    post:
+      tags:
+        - Analysis
+      summary: Analyze a game
+      description: |
+        Perform comprehensive game analysis using Stockfish engine and AI coaching.
+        Provides move-by-move commentary, mistake identification, and personalized coaching.
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                game_id:
+                  type: string
+                force:
+                  type: boolean
+                  default: false
+                  description: Force re-analysis even if already analyzed
+              required:
+                - game_id
+      responses:
+        '200':
+          description: Game analysis completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameAnalysis'
+        '400':
+          description: Invalid request
+        '401':
+          description: Not authenticated
+        '404':
+          description: Game not found
+
+  /api/analysis/{game_id}:
+    get:
+      tags:
+        - Analysis
+      summary: Get game analysis
+      description: Retrieve previously generated analysis for a game
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Game analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameAnalysis'
+        '401':
+          description: Not authenticated
+        '404':
+          description: Analysis not found
+
+  /api/tts/generate:
+    post:
+      tags:
+        - Voice
+      summary: Generate speech from text
+      description: Convert text to speech using OpenAI TTS engine
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                voice:
+                  type: string
+                  default: onyx
+                  description: Voice ID (onyx, echo, fable, nova, shimmer)
+              required:
+                - text
+      responses:
+        '200':
+          description: Speech generated successfully
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+
+  /api/tts/analysis-summary/{game_id}:
+    post:
+      tags:
+        - Voice
+      summary: Generate voice summary for game analysis
+      description: Generate TTS voice of the analysis summary for a game
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Voice summary generated
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+        '404':
+          description: Game or analysis not found
+
+  /api/tts/move-explanation:
+    post:
+      tags:
+        - Voice
+      summary: Generate voice explanation for a move
+      description: Generate TTS voice explanation for a specific move in a game
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                game_id:
+                  type: string
+                move_index:
+                  type: integer
+              required:
+                - game_id
+                - move_index
+      responses:
+        '200':
+          description: Move explanation generated
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+        '404':
+          description: Game or move not found
+
+  /api/journey:
+    get:
+      tags:
+        - Journey
+      summary: Get journey dashboard
+      description: Get comprehensive player progression data and statistics
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Journey dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overview:
+                    type: object
+                  improvements:
+                    type: array
+                  challenges:
+                    type: array
+                  focus_areas:
+                    type: array
+        '401':
+          description: Not authenticated
+
+  /api/journey/comprehensive:
+    get:
+      tags:
+        - Journey
+      summary: Get comprehensive journey data
+      description: Detailed journey data including all metrics and trends
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Comprehensive journey data
+        '401':
+          description: Not authenticated
+
+  /api/journey/weekly-assessment:
+    get:
+      tags:
+        - Journey
+      summary: Get weekly assessment
+      description: Weekly progress assessment and recommendations
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Weekly assessment
+        '401':
+          description: Not authenticated
+
+  /api/journey/weakness-trends:
+    get:
+      tags:
+        - Journey
+      summary: Get weakness trends
+      description: Analyze trends in identified weaknesses over time
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Weakness trends data
+        '401':
+          description: Not authenticated
+
+  /api/journey/link-account:
+    post:
+      tags:
+        - Journey
+      summary: Link platform account
+      description: Link Chess.com or Lichess account for journey tracking
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platform:
+                  type: string
+                  enum: [chess.com, lichess]
+                username:
+                  type: string
+              required:
+                - platform
+                - username
+      responses:
+        '200':
+          description: Account linked successfully
+        '401':
+          description: Not authenticated
+
+  /api/journey/linked-accounts:
+    get:
+      tags:
+        - Journey
+      summary: Get linked accounts
+      description: Retrieve list of connected Chess.com and Lichess accounts
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of linked accounts
+        '401':
+          description: Not authenticated
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        picture:
+          type: string
+          format: uri
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        chess_com_username:
+          type: string
+          nullable: true
+        lichess_username:
+          type: string
+          nullable: true
+      required:
+        - user_id
+        - email
+        - name
+
+    Game:
+      type: object
+      properties:
+        game_id:
+          type: string
+        user_id:
+          type: string
+        platform:
+          type: string
+          enum: [chess.com, lichess]
+        pgn:
+          type: string
+          description: PGN notation of the game
+        white_player:
+          type: string
+        black_player:
+          type: string
+        result:
+          type: string
+          enum: ['1-0', '0-1', '1/2-1/2']
+        time_control:
+          type: string
+          nullable: true
+        date_played:
+          type: string
+          nullable: true
+        opening:
+          type: string
+          nullable: true
+        user_color:
+          type: string
+          enum: [white, black]
+        imported_at:
+          type: string
+          format: date-time
+        is_analyzed:
+          type: boolean
+      required:
+        - game_id
+        - user_id
+        - platform
+        - pgn
+
+    GameAnalysis:
+      type: object
+      properties:
+        analysis_id:
+          type: string
+        game_id:
+          type: string
+        user_id:
+          type: string
+        commentary:
+          type: array
+          items:
+            type: object
+            properties:
+              move_number:
+                type: integer
+              move:
+                type: string
+              evaluation:
+                type: string
+                enum: [blunder, mistake, inaccuracy, good, solid, neutral]
+              intent:
+                type: string
+              feedback:
+                type: string
+              consider:
+                type: string
+              thinking_pattern:
+                type: string
+        blunders:
+          type: integer
+        mistakes:
+          type: integer
+        inaccuracies:
+          type: integer
+        best_moves:
+          type: integer
+        overall_summary:
+          type: string
+        summary_p1:
+          type: string
+        summary_p2:
+          type: string
+        identified_weaknesses:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              subcategory:
+                type: string
+              description:
+                type: string
+        identified_strengths:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              subcategory:
+                type: string
+              description:
+                type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - analysis_id
+        - game_id
+        - user_id
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session_token
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Session token as Bearer token in Authorization header
+
+security:
+  - cookieAuth: []
+  - bearerAuth: []

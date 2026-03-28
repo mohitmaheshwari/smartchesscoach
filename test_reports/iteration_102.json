@@ -1,0 +1,74 @@
+{
+  "summary": "Tested the hallucination fix for the chess coaching app. All 32 backend tests passed covering BLOCKED_BISHOP_BY_OWN_PAWN rule fixes (early opening check, starting square check), LLM prompt FEN inclusion, and opening detection. All 11 frontend E2E tests for Play with Coach passed.",
+  "mode": "generate",
+  "baseline_commit": "a01cdf75bc48ef4a56e168f4dedf2e04a36f0e6f",
+  "head_commit": "8962f1b4ef3a3611f74e779dd6c47f9aaa35738a",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 43,
+    "passed": 43,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_blocked_bishop_rule.py",
+    "/app/backend/tests/test_llm_fen_inclusion.py",
+    "/app/backend/tests/test_opening_detection.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/test_reports/pytest/hallucination_fix_results.xml",
+    "/app/backend/tests/test_hallucination_fix.py"
+  ],
+  "action_items": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (32 passed)",
+    "frontend": "100% (11 passed)"
+  },
+  "seed_data_creation": "N/A - Used existing dev user",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All hallucination fixes verified: 1) BLOCKED_BISHOP_BY_OWN_PAWN rule now has early opening check (move_number < 6) and starting square check (c1, f1, c8, f8). 2) LLM prompts include FEN and explicit instructions to verify piece positions. 3) Opening detection requires minimum moves (e.g., Italian Game needs 5 moves). Play with Coach E2E flow works correctly.",
+  "features_tested": {
+    "backend": [
+      "BLOCKED_BISHOP_BY_OWN_PAWN rule - early opening check (moves 1-5 do not trigger)",
+      "BLOCKED_BISHOP_BY_OWN_PAWN rule - starting square check (c1, f1, c8, f8 bishops not flagged)",
+      "BLOCKED_BISHOP_BY_OWN_PAWN rule - developed bishops CAN be flagged",
+      "LLM prompt includes FEN string for position context",
+      "LLM prompt includes anti-hallucination warnings",
+      "Opening detection requires minimum moves",
+      "Italian Game detected after 5 moves (e4 e5 Nf3 Nc6 Bc4)",
+      "Sicilian Defense detected after 2 moves (e4 c5)",
+      "French Defense detected after 2 moves (e4 e6)",
+      "Caro-Kann detected after 2 moves (e4 c6)"
+    ],
+    "frontend": [
+      "Play with Coach setup page displays correctly",
+      "Color and time control selection works",
+      "Game starts and shows game interface",
+      "Resign game shows summary with New Game button",
+      "New game after resignation returns to setup",
+      "Coach Chat and Move History panels visible",
+      "Your turn indicator displays",
+      "Flip board button works",
+      "Game end summary displays on resignation",
+      "Move count in loss summary displays",
+      "Guardian status with interventions remaining shows"
+    ]
+  },
+  "bugs_fixed_verification": {
+    "hallucination_piece_positions": "FIXED - LLM prompts now include FEN and explicit instructions to verify piece positions",
+    "blocked_bishop_false_positive": "FIXED - Rule now checks for early opening (< 6 moves) and starting squares",
+    "opening_teaching_visibility": "WORKING - Opening detection works correctly, requires enough moves to match a known opening"
+  }
+}

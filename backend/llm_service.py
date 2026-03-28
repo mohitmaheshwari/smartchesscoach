@@ -82,7 +82,7 @@ async def _openai_tts(text: str, voice: str = "onyx", model: str = "tts-1") -> b
 # ==================== EMERGENT IMPLEMENTATION ====================
 async def _call_emergent(system_message: str, user_message: str, model: str = "gpt-4o-mini") -> str:
     """Emergent integrations API call"""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    from llm_helper import LlmChat, UserMessage
     
     api_key = os.environ.get("EMERGENT_LLM_KEY", "")
     
@@ -98,7 +98,7 @@ async def _call_emergent(system_message: str, user_message: str, model: str = "g
 
 async def _emergent_tts(text: str, voice: str = "onyx", model: str = "tts-1") -> bytes:
     """Emergent TTS call - returns audio bytes"""
-    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    from llm_helper import OpenAITextToSpeech
     import base64
     
     api_key = os.environ.get("EMERGENT_LLM_KEY", "")

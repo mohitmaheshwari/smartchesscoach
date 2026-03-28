@@ -1,0 +1,119 @@
+{
+  "summary": "UX Overhaul Testing Complete - Coach Home replaces Dashboard as entry point with action-first paradigm. All core features verified.",
+  "mode": "generate",
+  "baseline_commit": "0b215b39b24179ec524296c5e6414a188bd0ed86",
+  "head_commit": "44446fa850d0ef299e1644fb933af4b4714d08cd",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 35,
+    "passed": 35,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/coach-home.spec.ts",
+    "/app/backend/tests/test_coach_home_api.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/coach-home.spec.ts",
+    "/app/tests/e2e/mission-flow.spec.ts",
+    "/app/backend/tests/test_coach_home_api.py",
+    "/app/test_reports/pytest/pytest_coach_home.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/coach-home.spec.ts",
+    "/app/backend/tests/test_coach_home_api.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 pytest tests passed)",
+    "frontend": "100% (15/15 Playwright tests passed)"
+  },
+  "seed_data_creation": "None - used existing dev user (user_bdd07038f9c0) with games and active mission",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "UX Overhaul complete. Coach Home at /home is the new primary entry point. Navigation simplified to 4 items (Home, Analyze, Train, Progress). Color system uses Deep Graphite (#0F1115) background and Electric Blue (#3B82F6) accent. All data-testids in place: coach-home, mission-hero, post-loss-hero, no-mission-card, start-mission-btn, start-recovery-btn, weekly-proof, recent-games, quick-import, quick-progress, nav-home, nav-analyze, nav-train, nav-progress.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  },
+  "features_tested": {
+    "coach_home_route": {
+      "status": "PASS",
+      "tests": [
+        "Coach Home loads at /home route",
+        "Greeting shows correct time-of-day message"
+      ]
+    },
+    "navigation_4_items": {
+      "status": "PASS",
+      "tests": [
+        "Navigation shows 4 items: Home, Analyze, Train, Progress",
+        "Home nav item is active on /home route",
+        "Navigation items navigate to correct routes"
+      ]
+    },
+    "todays_mission_card": {
+      "status": "PASS",
+      "tests": [
+        "Today's Mission card displays when user has mission",
+        "Mission card shows focus label, duration, and protocol steps",
+        "Start Mission button is visible and clickable",
+        "Start Mission navigates to mission runner"
+      ]
+    },
+    "weekly_proof_card": {
+      "status": "PASS",
+      "tests": ["Weekly Proof card displays below mission"]
+    },
+    "quick_action_buttons": {
+      "status": "PASS",
+      "tests": [
+        "Quick action buttons are visible and functional",
+        "Import Games quick action navigates to import page",
+        "View Progress quick action navigates to progress page"
+      ]
+    },
+    "recent_games_collapse": {
+      "status": "PASS",
+      "tests": ["Recent Games section is collapsible"]
+    },
+    "color_system": {
+      "status": "PASS",
+      "tests": ["Color system applies Electric Blue for primary accent"]
+    },
+    "backend_fresh_loss_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/coach/fresh-loss returns valid response",
+        "When no fresh loss, returns minimal response",
+        "When fresh loss exists, includes game_id, focus_label, estimated_minutes"
+      ]
+    },
+    "backend_weekly_proof_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/coach/weekly-proof returns valid JSON with all fields",
+        "wins, missions_completed, streak_days are non-negative integers",
+        "leak_reduced is string or null"
+      ]
+    },
+    "backend_missions_today_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/missions/today returns valid mission data",
+        "Mission includes focus_label, micro_protocol, estimated_minutes, goal"
+      ]
+    }
+  }
+}

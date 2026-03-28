@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { 
   AlertTriangle, 
   Zap, 
@@ -119,13 +119,10 @@ const StatsDetailModal = ({ isOpen, onClose, type }) => {
           <div className="flex gap-4">
             {/* Mini board */}
             <div className="w-32 h-32 flex-shrink-0">
-              <Chessboard
-                position={blunder.fen}
-                boardWidth={128}
-                arePiecesDraggable={false}
-                customBoardStyle={{
-                  borderRadius: "4px",
-                }}
+              <LichessBoard
+                fen={blunder.fen}
+                viewOnly={true}
+                interactive={false}
               />
             </div>
             
@@ -179,13 +176,10 @@ const StatsDetailModal = ({ isOpen, onClose, type }) => {
           <div className="flex gap-4">
             {/* Mini board */}
             <div className="w-32 h-32 flex-shrink-0">
-              <Chessboard
-                position={move.fen}
-                boardWidth={128}
-                arePiecesDraggable={false}
-                customBoardStyle={{
-                  borderRadius: "4px",
-                }}
+              <LichessBoard
+                fen={move.fen}
+                viewOnly={true}
+                interactive={false}
               />
             </div>
             

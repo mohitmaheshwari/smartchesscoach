@@ -69,10 +69,10 @@ Find and replace all LLM calls:
 
 ```python
 # BEFORE (Emergent)
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from llm_helper import LlmChat, UserMessage
 
 chat = LlmChat(
-    api_key=EMERGENT_LLM_KEY,
+    api_key=OPENAI_API_KEY,
     session_id="...",
     system_message="..."
 ).with_model("openai", "gpt-5.2")
@@ -98,9 +98,9 @@ result = response.choices[0].message.content
 **TTS Changes:**
 ```python
 # BEFORE (Emergent)
-from emergentintegrations.llm.openai import OpenAITextToSpeech
+from llm_helper import OpenAITextToSpeech
 
-tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+tts = OpenAITextToSpeech(api_key=OPENAI_API_KEY)
 audio = await tts.a_generate(text="...", voice="onyx")
 
 # AFTER (Direct OpenAI)
@@ -141,7 +141,7 @@ audio_bytes = response.content
 MONGO_URL=mongodb+srv://user:pass@cluster.mongodb.net/
 DB_NAME=chess_coach
 
-# OpenAI (replaces EMERGENT_LLM_KEY)
+# OpenAI (replaces OPENAI_API_KEY)
 OPENAI_API_KEY=sk-your-openai-api-key
 
 # Google OAuth
@@ -178,7 +178,8 @@ sudo apt install nodejs npm python3 python3-pip nginx
 # Backend
 cd backend
 pip install -r requirements.txt
-pm2 start "uvicorn server:app --host 0.0.0.0 --port 8001" --name chess-backend
+pm2 start "uvicorn server:app --host 0.0.0.0 --port 8002" --name 
+chess-backend
 
 # Frontend
 cd frontend
@@ -196,7 +197,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8002"]
 ```
 
 **Dockerfile.frontend:**
@@ -238,7 +239,7 @@ server {
     
     # Backend API
     location /api {
-        proxy_pass http://localhost:8001;
+        proxy_pass http://localhost:8002;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

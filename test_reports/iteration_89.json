@@ -1,0 +1,53 @@
+{
+  "summary": "Pre-Move Guardian bug fixes tested successfully. All 34 tests passed (17 new unit tests + 17 existing API tests). Bug fixes verified: (1) When in check, guardian returns no intervention with in_check=true detail, (2) Good captures like bishop takes rook do not warn about hanging piece, (3) Bad trades still trigger warnings correctly, (4) Defending/blocking threats does not trigger false IGNORE_THREAT warnings.",
+  "mode": "update",
+  "baseline_commit": "9f9ee92f9ae4343249141922e8bdbf37545b497b",
+  "head_commit": "c1ffc11fd89d00b5b467de89f0285f03d74bcdc1",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 2,
+    "passed": 34,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_guardian_bugfixes.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_guardian_bugfixes.py",
+    "/app/backend/tests/test_guardian_api.py",
+    "/app/test_reports/pytest/guardian_tests.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_guardian_bugfixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (34/34 passed)"
+  },
+  "seed_data_creation": "No seed data needed - unit tests use FEN positions directly, API tests use dev login",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Pre-Move Guardian bug fixes verified with comprehensive unit tests. New test file test_guardian_bugfixes.py covers: (1) TestInCheckNoWarnings - 3 tests verify no intervention when user is in check, (2) TestGoodCapturesNoWarning - 4 tests verify bishop takes rook and similar good trades don't warn, (3) TestBadTradesStillWarn - 2 tests verify bad trades still trigger warnings, (4) TestDefendingThreatNoWarning - 2 tests verify defending/capturing attacker works correctly, (5) TestGivingCheckNoWarning - 1 test verifies giving check doesn't trigger hanging warning, (6) TestConvenienceFunction - 2 tests for evaluate_move_for_guardian(), (7) TestEdgeCases - 3 tests for error handling and processing time.",
+  "features_tested": {
+    "backend": [
+      "Bug Fix #1: When in check, evaluate_move() returns no intervention with details.in_check=true",
+      "Bug Fix #2: Good captures (captured_value >= moving_value) do not warn about hanging piece",
+      "Bug Fix #3: Bad trades (queen takes defended pawn) still trigger HIGH/CRITICAL warnings",
+      "Bug Fix #4: _detect_ignored_threat() checks if move defends/blocks/captures attacker",
+      "Giving check bypasses hanging piece warning",
+      "Invalid FEN/move handled gracefully with error details",
+      "Processing time tracked and under 100ms"
+    ]
+  }
+}

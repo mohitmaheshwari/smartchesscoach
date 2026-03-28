@@ -12,6 +12,7 @@ Handles:
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 import httpx
@@ -31,6 +32,102 @@ INITIAL_GAMES_TO_ANALYZE = FIRST_SYNC_MAX_GAMES
 INITIAL_IMPORT_MONTHS = FIRST_SYNC_MONTHS
 PREFERRED_TIME_CONTROLS = ["rapid", "classical", "correspondence"]
 SKIP_TIME_CONTROLS = ["bullet", "ultrabullet"]
+
+
+def extract_opening_from_pgn(pgn: str) -> Dict[str, str]:
+    """
+    Extract opening information from PGN headers.
+    
+    Returns dict with:
+    - eco: ECO code (e.g., "B00")
+    - opening: Opening name
+    - opening_url: URL to opening info (if available)
+    """
+    result = {
+        "eco": None,
+        "opening": None,
+        "opening_name": None,
+        "opening_url": None
+    }
+    
+    if not pgn:
+        return result
+    
+    # Extract ECO code
+    eco_match = re.search(r'\[ECO\s+"([^"]+)"\]', pgn)
+    if eco_match:
+        result["eco"] = eco_match.group(1)
+    
+    # Extract Opening name - try multiple header names
+    # Chess.com uses ECOUrl which contains the opening name
+    eco_url_match = re.search(r'\[ECOUrl\s+"([^"]+)"\]', pgn)
+    if eco_url_match:
+        result["opening_url"] = eco_url_match.group(1)
+        # Parse opening name from URL: https://www.chess.com/openings/Nimzowitsch-Defense-Declined-Williams-Variation
+        url = eco_url_match.group(1)
+        if "/openings/" in url:
+            opening_slug = url.split("/openings/")[-1]
+            # Convert slug to readable name
+            result["opening_name"] = opening_slug.replace("-", " ")
+            result["opening"] = result["opening_name"]
+    
+    # Try standard Opening header
+    opening_match = re.search(r'\[Opening\s+"([^"]+)"\]', pgn)
+    if opening_match and not result["opening"]:
+        result["opening"] = opening_match.group(1)
+        result["opening_name"] = opening_match.group(1)
+    
+    # Lichess uses "Opening" header directly
+    # Also check for Variant header on Lichess
+    variant_match = re.search(r'\[Variant\s+"([^"]+)"\]', pgn)
+    if variant_match:
+        variant = variant_match.group(1)
+        if variant.lower() != "standard":
+            result["opening"] = f"{variant} - {result.get('opening', 'Unknown')}"
+    
+    return result
+
+
+async def backfill_opening_info(db, user_id: str = None) -> int:
+    """
+    Backfill opening info for existing games that don't have it.
+    
+    Args:
+        db: Database connection
+        user_id: Optional - if provided, only backfill for this user
+    
+    Returns:
+        Number of games updated
+    """
+    query = {"opening": {"$in": [None, ""]}}
+    if user_id:
+        query["user_id"] = user_id
+    
+    games = await db.games.find(query, {"_id": 1, "game_id": 1, "pgn": 1}).to_list(1000)
+    
+    updated = 0
+    for game in games:
+        pgn = game.get("pgn", "")
+        if not pgn:
+            continue
+        
+        opening_info = extract_opening_from_pgn(pgn)
+        
+        if opening_info.get("opening"):
+            await db.games.update_one(
+                {"_id": game["_id"]},
+                {"$set": {
+                    "eco": opening_info.get("eco"),
+                    "opening": opening_info.get("opening"),
+                    "opening_name": opening_info.get("opening_name"),
+                    "opening_url": opening_info.get("opening_url")
+                }}
+            )
+            updated += 1
+            logger.info(f"Backfilled opening for game {game.get('game_id')}: {opening_info.get('opening')}")
+    
+    logger.info(f"Backfilled opening info for {updated} games")
+    return updated
 
 
 async def fetch_recent_chesscom_games(username: str, since_timestamp: int = None) -> List[Dict]:
@@ -429,14 +526,14 @@ async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
     """
     import os
     import json
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    from llm_helper import LlmChat, UserMessage
     from player_profile_service import get_or_create_profile, update_profile_after_analysis
     from rag_service import build_rag_context
     from stockfish_service import analyze_game_with_stockfish, QUICK_DEPTH
     
-    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-    if not EMERGENT_LLM_KEY:
-        logger.error("EMERGENT_LLM_KEY not configured - skipping auto-analysis")
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+    if not OPENAI_API_KEY:
+        logger.error("OPENAI_API_KEY not configured - skipping auto-analysis")
         return None
     
     game_id = game_doc.get("game_id")
@@ -534,7 +631,7 @@ RULES:
 """
         
         chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
+            api_key=OPENAI_API_KEY,
             session_id=f"auto_analysis_{game_id}",
             system_message=system_prompt
         ).with_model(LLM_PROVIDER, LLM_MODEL)
@@ -562,6 +659,16 @@ RULES:
         best_moves = sf_stats.get("best_moves", 0) + sf_stats.get("excellent_moves", 0)
         accuracy = sf_stats.get("accuracy", 0)
         avg_cp_loss = sf_stats.get("avg_cp_loss", 0)
+        
+        # VALIDATION: Ensure analysis is valid before proceeding
+        # A valid analysis must have meaningful data
+        total_moves = len(sf_moves)
+        if total_moves < 5:
+            logger.warning(f"Auto-analysis has too few moves ({total_moves}) for game {game_id}")
+            return None
+        if accuracy == 0 and blunders == 0 and mistakes == 0 and best_moves == 0:
+            logger.warning(f"Auto-analysis returned all zeros for game {game_id} - likely failed")
+            return None
         
         # Merge Stockfish move data with GPT commentary
         commentary = analysis_data.get("move_by_move", [])
@@ -755,7 +862,8 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     """
     import uuid
     
-    chesscom_username = user_doc.get("chesscom_username")
+    # Support both field naming conventions (chess_com_username and chesscom_username)
+    chesscom_username = user_doc.get("chesscom_username") or user_doc.get("chess_com_username")
     lichess_username = user_doc.get("lichess_username")
     
     # Get last sync timestamp
@@ -849,6 +957,23 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 "auto_synced": True  # Mark as auto-synced
             }
             
+            # Extract player names
+            if platform == "chess.com":
+                white_player = game_data.get("white", {}).get("username", "")
+                black_player = game_data.get("black", {}).get("username", "")
+            else:  # lichess
+                white_player = game_data.get("players", {}).get("white", {}).get("user", {}).get("name", "")
+                black_player = game_data.get("players", {}).get("black", {}).get("user", {}).get("name", "")
+            
+            game_doc["white_player"] = white_player
+            game_doc["black_player"] = black_player
+            
+            # Also store opponent_name for convenience
+            if user_color == "white":
+                game_doc["opponent_name"] = black_player or "Opponent"
+            else:
+                game_doc["opponent_name"] = white_player or "Opponent"
+            
             # Extract additional metadata
             if platform == "chess.com":
                 game_doc["time_control"] = game_data.get("time_class", "")
@@ -857,29 +982,49 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 game_doc["time_control"] = game_data.get("speed", "")
                 game_doc["result"] = game_data.get("status", "")
             
+            # Extract opening information from PGN
+            opening_info = extract_opening_from_pgn(pgn)
+            game_doc["eco"] = opening_info.get("eco")
+            game_doc["opening"] = opening_info.get("opening")
+            game_doc["opening_name"] = opening_info.get("opening_name")
+            game_doc["opening_url"] = opening_info.get("opening_url")
+            
+            if opening_info.get("opening"):
+                logger.info(f"Extracted opening: {opening_info.get('opening')} (ECO: {opening_info.get('eco')})")
+            
             await db.games.insert_one(game_doc)
             logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {platform}")
             
-            # Auto-analyze the game with AI
+            # Queue the game for analysis by the worker
             try:
-                analysis_result = await auto_analyze_game(db, user_id, game_doc)
-                if analysis_result:
-                    logger.info(f"Auto-analyzed game {game_doc['game_id']} successfully")
+                existing_queue = await db.analysis_queue.find_one({"game_id": game_doc['game_id']})
+                if not existing_queue:
+                    queue_item = {
+                        "game_id": game_doc['game_id'],
+                        "user_id": user_id,
+                        "pgn": game_doc.get("pgn", ""),
+                        "user_color": game_doc.get("user_color", "white"),
+                        "status": "pending",
+                        "queued_at": datetime.now(timezone.utc).isoformat(),
+                        "auto_synced": True
+                    }
+                    await db.analysis_queue.insert_one(queue_item)
+                    logger.info(f"Queued game {game_doc['game_id']} for analysis")
                     analyzed_count += 1
-                else:
-                    logger.warning(f"Auto-analysis skipped for game {game_doc['game_id']}")
-            except Exception as analysis_error:
-                logger.error(f"Auto-analysis failed for game {game_doc['game_id']}: {analysis_error}")
-                # Game is still imported even if analysis fails
+            except Exception as queue_error:
+                logger.error(f"Failed to queue game {game_doc['game_id']}: {queue_error}")
             
         except Exception as e:
             logger.error(f"Error auto-syncing game for {user_id}: {e}")
     
-    # Update last sync timestamp
-    await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {"last_game_sync": datetime.now(timezone.utc).isoformat()}}
-    )
+    # Only update last sync timestamp if we actually found and imported games
+    # This prevents the timestamp from advancing past games we haven't yet seen
+    if imported_count > 0:
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"last_game_sync": datetime.now(timezone.utc).isoformat()}}
+        )
+        logger.info(f"Updated last_game_sync for {user_id} after importing {imported_count} games")
     
     # Send notifications if games were synced
     if analyzed_count > 0:
@@ -950,11 +1095,12 @@ async def run_background_sync(db):
     Background job to sync games for all users with linked accounts.
     Should be called periodically (every 6-12 hours).
     """
-    # Find users with linked accounts
+    # Find users with linked accounts (support both field naming conventions)
     users = await db.users.find({
         "$or": [
-            {"chesscom_username": {"$exists": True, "$ne": None}},
-            {"lichess_username": {"$exists": True, "$ne": None}}
+            {"chess_com_username": {"$exists": True, "$nin": [None, ""]}},
+            {"chesscom_username": {"$exists": True, "$nin": [None, ""]}},
+            {"lichess_username": {"$exists": True, "$nin": [None, ""]}}
         ]
     }).to_list(1000)
     

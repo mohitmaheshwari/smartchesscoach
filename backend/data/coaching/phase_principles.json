@@ -1,0 +1,97 @@
+{
+  "opening": {
+    "phase_description": "The first 10-15 moves where both sides develop pieces and fight for the center",
+    "main_goals": [
+      "Control the center (e4, d4, e5, d5 squares)",
+      "Develop all pieces to active squares", 
+      "Castle to protect your king",
+      "Connect your rooks"
+    ],
+    "principles": {
+      "development": "Move each piece once before moving any piece twice",
+      "center_control": "Control the center with pawns and pieces - it's the highway of the board",
+      "king_safety": "Castle early - usually within the first 10 moves",
+      "piece_activity": "Develop pieces to squares where they have options"
+    },
+    "common_mistakes": [
+      "Moving the same piece multiple times",
+      "Bringing the queen out too early",
+      "Neglecting development to grab pawns",
+      "Not castling soon enough"
+    ],
+    "transition_signs": [
+      "Most minor pieces are developed",
+      "Both sides have castled",
+      "Rooks are connected",
+      "Pawn structure is established"
+    ]
+  },
+  
+  "middlegame": {
+    "phase_description": "The strategic battle where both sides execute their plans and create threats",
+    "main_goals": [
+      "Create a concrete plan based on the position",
+      "Improve your worst-placed piece",
+      "Create weaknesses in opponent's position",
+      "Coordinate pieces for attack or defense"
+    ],
+    "principles": {
+      "planning": "Every move should be part of a plan - what are you trying to achieve?",
+      "piece_coordination": "Pieces work together - one piece alone rarely achieves much",
+      "prophylaxis": "Before your move, ask: what does my opponent want to do?",
+      "pawn_structure": "Pawn structure determines piece placement - knights need outposts, bishops need diagonals"
+    },
+    "common_mistakes": [
+      "Moving without a plan",
+      "Ignoring opponent's threats",
+      "Trading active pieces for passive ones",
+      "Creating weaknesses in your own position"
+    ],
+    "key_questions": [
+      "What is my opponent's plan?",
+      "What is my worst piece and how can I improve it?",
+      "Are there any tactical opportunities?",
+      "Where are the weak squares in both positions?"
+    ]
+  },
+  
+  "endgame": {
+    "phase_description": "The final phase with fewer pieces where technique and king activity matter most",
+    "main_goals": [
+      "Activate your king - it becomes a strong piece",
+      "Create and push passed pawns",
+      "Coordinate pieces to support pawn promotion",
+      "Simplify when ahead, avoid trades when behind"
+    ],
+    "principles": {
+      "king_activity": "The king is a fighting piece in the endgame - bring it to the center",
+      "passed_pawns": "Passed pawns must be pushed - they tie down enemy pieces",
+      "rook_activity": "Rooks belong behind passed pawns (yours or opponent's)",
+      "opposition": "In king and pawn endings, controlling the opposition is crucial"
+    },
+    "common_mistakes": [
+      "Keeping the king passive",
+      "Not creating passed pawns",
+      "Placing rooks in front of passed pawns",
+      "Trading into a losing pawn endgame"
+    ],
+    "key_techniques": [
+      "King and pawn vs king - the square rule",
+      "Rook endgames - activity over material",
+      "Knight vs bishop - depends on pawn structure",
+      "Same-colored bishop endings - outside passed pawns win"
+    ]
+  },
+  
+  "phase_detection": {
+    "opening_end": {
+      "move_threshold": 15,
+      "material_condition": "no_major_trades",
+      "signs": ["most_pieces_developed", "castled", "rooks_connected"]
+    },
+    "middlegame_end": {
+      "material_condition": "queens_traded_or_few_pieces",
+      "signs": ["simplified_position", "pawn_structure_fixed", "endgame_type_clear"]
+    }
+  }
+}

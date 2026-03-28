@@ -1,0 +1,65 @@
+{
+  "summary": "Verified Coach Memory REAL data fixes. All 30 tests pass (22 backend + 8 frontend). games_played now shows realistic count (7 vs old 68), openings_known correctly queries user_opening_progress for real mastery data, opening teaching includes user color flags.",
+  "mode": "update",
+  "baseline_commit": "e67a59f7033b2903d3e0e7a23928e52c0061c255",
+  "head_commit": "fade57d12c554363d6cbadbaa318409b6abc7594",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 30,
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_opening_teaching_integration.py"
+  ],
+  "specs_updated": [
+    "/app/backend/tests/test_coach_memory_api.py",
+    "/app/tests/e2e/coach-memory-panel.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/test_reports/pytest/coach_memory_and_teaching_results.xml",
+    "/app/test_reports/pytest/opening_teaching_results.xml",
+    "/app/backend/tests/test_coach_memory_api.py",
+    "/app/backend/tests/test_opening_teaching_integration.py",
+    "/app/tests/e2e/coach-memory-panel.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_coach_memory_api.py",
+    "/app/backend/tests/test_opening_teaching_integration.py",
+    "/app/tests/e2e/coach-memory-panel.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (22 passed)",
+    "frontend": "100% (9 passed)"
+  },
+  "seed_data_creation": "N/A - Used existing dev user data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Coach Memory and Opening Teaching fixes verified. Key fixes: 1) games_played now returns actual completed session count (was 68, now ~7). 2) openings_known queries user_opening_progress for real mastery data (practiced/mastered level only). 3) Opening teaching integration now includes user_plays_white and is_user_move flags for correct move assignment. All API endpoints working correctly.",
+  "features_verified": {
+    "coach_memory_real_data": [
+      "GET /api/coach/memory returns games_played matching real session count",
+      "games_played is realistic (< 50), not inflated fake data",
+      "openings_known only includes openings with practiced/mastered mastery level",
+      "openings_known queries user_opening_progress for real data"
+    ],
+    "opening_teaching_integration": [
+      "Opening teaching includes is_white_move in instructions",
+      "First instruction correctly identifies White's move (e4)",
+      "Second instruction correctly identifies Black's move (e5)",
+      "Teaching session returns total_moves count",
+      "Trap teaching includes trap name"
+    ]
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "summary": "Phase 2C/2D Mission System Testing Complete - DailyMissionCard, PostLossRecoveryCard, and MissionRunner components fully tested. All features working correctly.",
+  "mode": "generate",
+  "baseline_commit": "initial",
+  "head_commit": "0b215b39b24179ec524296c5e6414a188bd0ed86",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "MissionRunner Drill Phase",
+        "issues": ["Chess position placeholder visible - actual positions will be added later (as per agent notes)"]
+      }
+    ]
+  },
+  "regression_results": {
+    "total_specs": 24,
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/mission-flow.spec.ts",
+    "/app/tests/e2e/secondary-features.spec.ts",
+    "/app/tests/playwright.config.ts",
+    "/app/tests/fixtures/helpers.ts",
+    "/app/backend/tests/test_missions_rewards.py",
+    "/app/backend/tests/conftest.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/mission-flow.spec.ts",
+    "/app/tests/e2e/secondary-features.spec.ts",
+    "/app/backend/tests/test_missions_rewards.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (8/8 pytest tests passed)",
+    "frontend": "100% (16/16 Playwright tests passed)"
+  },
+  "seed_data_creation": "None - used existing dev user with games",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 2C/2D Mission System is fully functional: DailyMissionCard displays on Dashboard with focus, duration, protocol steps and goals. Start Mission navigates to MissionRunner which shows briefing phase with protocol steps, then transitions to drill phase with progress bar, timer and position counter. Exit returns to dashboard. All backend APIs (/api/missions/today, /api/missions/{id}/start, /api/missions/{id}/step, /api/rewards/post-loss-message) working correctly. Chess position placeholder in drill phase is intentional - actual positions to be added in future phase.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  },
+  "features_tested": {
+    "DailyMissionCard_on_Dashboard": {
+      "status": "PASS",
+      "tests": [
+        "Dashboard displays DailyMissionCard when user has games",
+        "DailyMissionCard shows focus, duration, and protocol steps",
+        "Start Mission button navigates to MissionRunner page"
+      ]
+    },
+    "MissionRunner_briefing_phase": {
+      "status": "PASS",
+      "tests": [
+        "MissionRunner shows briefing phase with protocol steps",
+        "MissionRunner Start Mission transitions to drill phase"
+      ]
+    },
+    "MissionRunner_drill_phase": {
+      "status": "PASS",
+      "tests": [
+        "Drill phase shows progress bar, timer, and position counter",
+        "Drill phase shows correct and missed score tracking"
+      ]
+    },
+    "Exit_functionality": {
+      "status": "PASS",
+      "tests": ["Exit button returns to dashboard from MissionRunner"]
+    },
+    "Backend_APIs": {
+      "status": "PASS",
+      "tests": [
+        "/api/missions/today returns valid mission data",
+        "/api/missions/{id}/start creates session",
+        "/api/missions/{id}/step records drill results",
+        "/api/missions/history returns mission list",
+        "/api/rewards/post-loss-message returns recovery messages"
+      ]
+    }
+  }
+}

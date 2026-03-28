@@ -184,6 +184,289 @@ const RuleCard = ({ rule, index }) => (
   </motion.div>
 );
 
+// Before Coach vs After Coach Comparison Component
+const CoachingComparisonSection = ({ comparison }) => {
+  const [activeTab, setActiveTab] = useState('progress'); // 'before', 'after', 'progress'
+  
+  if (!comparison.has_baseline) {
+    // Still building baseline
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <Card className="border-2 border-dashed border-primary/30">
+          <CardContent className="py-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Getting to Know Your Game</h3>
+                <p className="text-sm text-muted-foreground">
+                  {comparison.games_until_baseline > 0 
+                    ? `${comparison.games_until_baseline} more games to analyze`
+                    : 'Almost ready...'}
+                </p>
+              </div>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all"
+                style={{ width: `${((10 - comparison.games_until_baseline) / 10) * 100}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              We're learning your playing style to track your improvement.
+            </p>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  }
+
+  const { baseline, current, progress } = comparison;
+  if (!progress) return null;
+
+  // Determine improvements and focus areas
+  const getInsights = () => {
+    const improving = [];
+    const needsWork = [];
+
+    if (progress.accuracy.delta >= 3) {
+      improving.push({ label: "Move Quality", detail: "Your moves are getting sharper" });
+    } else if (progress.accuracy.delta <= -3) {
+      needsWork.push({ label: "Move Quality", detail: "Focus on calculating before moving" });
+    }
+
+    if (progress.blunders_per_game.delta <= -0.5) {
+      improving.push({ label: "Blunder Control", detail: "Making fewer game-losing mistakes" });
+    } else if (progress.blunders_per_game.delta >= 0.3) {
+      needsWork.push({ label: "Blunder Control", detail: "Double-check before big moves" });
+    }
+
+    if (progress.win_rate.delta >= 5) {
+      improving.push({ label: "Winning More", detail: "Your results are improving" });
+    } else if (progress.win_rate.delta <= -5) {
+      needsWork.push({ label: "Game Results", detail: "Focus on converting advantages" });
+    }
+
+    return { improving, needsWork };
+  };
+
+  const { improving, needsWork } = getInsights();
+  const overallImproving = improving.length >= needsWork.length;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <Card className="overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b">
+          <button
+            onClick={() => setActiveTab('before')}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              activeTab === 'before' 
+                ? 'bg-muted/50 border-b-2 border-amber-500 text-amber-500' 
+                : 'text-muted-foreground hover:bg-muted/30'
+            }`}
+          >
+            Before Coach
+          </button>
+          <button
+            onClick={() => setActiveTab('after')}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              activeTab === 'after' 
+                ? 'bg-muted/50 border-b-2 border-emerald-500 text-emerald-500' 
+                : 'text-muted-foreground hover:bg-muted/30'
+            }`}
+          >
+            After Coach
+          </button>
+          <button
+            onClick={() => setActiveTab('progress')}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              activeTab === 'progress' 
+                ? 'bg-muted/50 border-b-2 border-primary text-primary' 
+                : 'text-muted-foreground hover:bg-muted/30'
+            }`}
+          >
+            Your Growth
+          </button>
+        </div>
+
+        <CardContent className="py-5">
+          {/* Before Coach Tab */}
+          {activeTab === 'before' && baseline && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-4 h-4 text-amber-500" />
+                <span className="text-sm text-muted-foreground">
+                  Based on your first {baseline.games_analyzed} games
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                  <p className="text-2xl font-bold text-amber-500">{baseline.avg_accuracy}%</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Blunders/Game</p>
+                  <p className="text-2xl font-bold text-amber-500">{baseline.blunders_per_game}</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
+                  <p className="text-2xl font-bold text-amber-500">{baseline.win_rate}%</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Mistakes/Game</p>
+                  <p className="text-2xl font-bold text-amber-500">{baseline.mistakes_per_game}</p>
+                </div>
+              </div>
+
+              {baseline.top_openings && baseline.top_openings.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-xs text-muted-foreground mb-3">Opening Win Rates</p>
+                  {baseline.top_openings.slice(0, 3).map((o, i) => (
+                    <div key={i} className="flex justify-between py-1.5 text-sm">
+                      <span>{o.name}</span>
+                      <span className="text-amber-500 font-medium">{o.win_rate}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* After Coach Tab */}
+          {activeTab === 'after' && current && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                <span className="text-sm text-muted-foreground">
+                  Based on your last {current.games_analyzed} games
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                  <p className="text-2xl font-bold text-emerald-500">{current.avg_accuracy}%</p>
+                  {progress.accuracy.delta !== 0 && (
+                    <p className={`text-xs ${progress.accuracy.delta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {progress.accuracy.delta > 0 ? '+' : ''}{progress.accuracy.delta}%
+                    </p>
+                  )}
+                </div>
+                <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Blunders/Game</p>
+                  <p className="text-2xl font-bold text-emerald-500">{current.blunders_per_game}</p>
+                  {progress.blunders_per_game.delta !== 0 && (
+                    <p className={`text-xs ${progress.blunders_per_game.delta < 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {progress.blunders_per_game.delta > 0 ? '+' : ''}{progress.blunders_per_game.delta}
+                    </p>
+                  )}
+                </div>
+                <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
+                  <p className="text-2xl font-bold text-emerald-500">{current.win_rate}%</p>
+                  {progress.win_rate.delta !== 0 && (
+                    <p className={`text-xs ${progress.win_rate.delta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {progress.win_rate.delta > 0 ? '+' : ''}{progress.win_rate.delta}%
+                    </p>
+                  )}
+                </div>
+                <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Mistakes/Game</p>
+                  <p className="text-2xl font-bold text-emerald-500">{current.mistakes_per_game}</p>
+                  {progress.mistakes_per_game.delta !== 0 && (
+                    <p className={`text-xs ${progress.mistakes_per_game.delta < 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {progress.mistakes_per_game.delta > 0 ? '+' : ''}{progress.mistakes_per_game.delta}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Your Growth Tab */}
+          {activeTab === 'progress' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  {overallImproving 
+                    ? <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    : <Target className="w-5 h-5 text-amber-500" />
+                  }
+                  <span className="text-sm text-muted-foreground">
+                    {progress.games_since_baseline} games with your coach
+                  </span>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  overallImproving 
+                    ? 'bg-emerald-500/10 text-emerald-500'
+                    : 'bg-amber-500/10 text-amber-500'
+                }`}>
+                  {overallImproving ? 'Growing!' : 'Keep Going!'}
+                </span>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* What's Improving */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-emerald-500">What's Improving</span>
+                  </div>
+                  {improving.length > 0 ? (
+                    <div className="space-y-2">
+                      {improving.map((item, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                          <p className="font-medium text-sm">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">{item.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg">
+                      Keep playing! We're tracking your progress.
+                    </p>
+                  )}
+                </div>
+
+                {/* Focus Areas */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-medium text-amber-500">Focus Areas</span>
+                  </div>
+                  {needsWork.length > 0 ? (
+                    <div className="space-y-2">
+                      {needsWork.map((item, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                          <p className="font-medium text-sm">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">{item.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg">
+                      Great job! No major concerns right now.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
 const ProgressV2 = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -293,6 +576,11 @@ const ProgressV2 = ({ user }) => {
           </div>
         </div>
 
+        {/* NEW: Before Coach vs After Coach Comparison */}
+        {data.coaching_comparison && (
+          <CoachingComparisonSection comparison={data.coaching_comparison} />
+        )}
+
         {/* Section 1: Coach's Assessment */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -355,6 +643,95 @@ const ProgressV2 = ({ user }) => {
                         ~{rating_reality.points_recoverable} points
                       </strong>
                       <span className="text-muted-foreground"> recoverable by avoiding simple blunders</span>
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Section 2.5: Tactical Ratio - NEW Motivating Metric */}
+        {badges?.tactical_ratio && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card className="overflow-hidden border-amber-500/20">
+              <CardHeader className="bg-gradient-to-r from-amber-500/5 to-orange-500/5 pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Zap className="w-5 h-5 text-amber-500" />
+                  Tactical Ratio
+                  <span className="ml-auto text-3xl font-bold text-amber-500">
+                    {badges.tactical_ratio.percentage}%
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {/* Progress bar */}
+                <div className="relative h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-4">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${badges.tactical_ratio.percentage}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={`absolute left-0 top-0 h-full rounded-full ${
+                      badges.tactical_ratio.percentage >= 75 
+                        ? "bg-gradient-to-r from-green-500 to-emerald-500" 
+                        : badges.tactical_ratio.percentage >= 50 
+                          ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                          : "bg-gradient-to-r from-red-500 to-orange-500"
+                    }`}
+                  />
+                </div>
+                
+                {/* Stats breakdown */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="text-center p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="text-2xl font-bold text-green-500">
+                      {badges.tactical_ratio.executed?.total || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Tactics Executed</div>
+                    <div className="text-[10px] text-green-600 mt-1">
+                      {badges.tactical_ratio.executed?.forks || 0} forks • {badges.tactical_ratio.executed?.pins || 0} pins • {badges.tactical_ratio.executed?.skewers || 0} skewers
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="text-2xl font-bold text-blue-500">
+                      {badges.tactical_ratio.avoided?.total || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Threats Avoided</div>
+                    <div className="text-[10px] text-blue-600 mt-1">
+                      Good defensive awareness!
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <div className="text-2xl font-bold text-red-500">
+                      {badges.tactical_ratio.fallen_into?.total || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Fell Into</div>
+                    <div className="text-[10px] text-red-600 mt-1">
+                      {badges.tactical_ratio.fallen_into?.forks || 0} forks • {badges.tactical_ratio.fallen_into?.pins || 0} pins • {badges.tactical_ratio.fallen_into?.skewers || 0} skewers
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Trend message */}
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                  <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                  <p className="text-sm">
+                    {badges.tactical_ratio.trend_message}
+                  </p>
+                </div>
+                
+                {/* Weakness tip if present */}
+                {badges.tactical_ratio.weakness && (
+                  <div className="mt-3 flex items-center gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                    <Target className="w-4 h-4 text-amber-500" />
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Focus area: Practice recognizing <strong>{badges.tactical_ratio.weakness}</strong> - you're falling for these most often.
                     </p>
                   </div>
                 )}

@@ -1,0 +1,283 @@
+{
+  "api_info": {
+    "title": "Smart Chess Coach API",
+    "version": "1.0.0",
+    "base_url": "http://localhost:8000/api",
+    "documentation": {
+      "swagger_ui": "http://localhost:8000/docs",
+      "redoc": "http://localhost:8000/redoc",
+      "openapi_json": "http://localhost:8000/openapi.json"
+    }
+  },
+  "endpoints": {
+    "authentication": [
+      {
+        "method": "GET",
+        "path": "/auth/google/login",
+        "description": "Start Google OAuth login flow",
+        "auth_required": false
+      },
+      {
+        "method": "GET",
+        "path": "/auth/google/callback",
+        "description": "Handle Google OAuth callback",
+        "auth_required": false,
+        "params": ["code"]
+      },
+      {
+        "method": "POST",
+        "path": "/auth/session",
+        "description": "Create session from Emergent session ID (legacy)",
+        "auth_required": false
+      },
+      {
+        "method": "POST",
+        "path": "/auth/google/mobile",
+        "description": "Mobile Google authentication with access token",
+        "auth_required": false
+      },
+      {
+        "method": "POST",
+        "path": "/auth/demo-login",
+        "description": "Demo login for testing (localhost only)",
+        "auth_required": false
+      },
+      {
+        "method": "GET",
+        "path": "/auth/me",
+        "description": "Get current user profile",
+        "auth_required": true
+      },
+      {
+        "method": "POST",
+        "path": "/auth/logout",
+        "description": "Logout and clear session",
+        "auth_required": true
+      }
+    ],
+    "platforms": [
+      {
+        "method": "POST",
+        "path": "/connect-platform",
+        "description": "Connect Chess.com or Lichess account",
+        "auth_required": true,
+        "body_params": ["platform", "username"]
+      }
+    ],
+    "games": [
+      {
+        "method": "POST",
+        "path": "/import-games",
+        "description": "Import games from Chess.com or Lichess",
+        "auth_required": true,
+        "body_params": ["platform", "username"]
+      },
+      {
+        "method": "GET",
+        "path": "/games",
+        "description": "Get all games",
+        "auth_required": true
+      },
+      {
+        "method": "GET",
+        "path": "/games/{game_id}",
+        "description": "Get specific game",
+        "auth_required": true,
+        "path_params": ["game_id"]
+      },
+      {
+        "method": "GET",
+        "path": "/games/analyzed",
+        "description": "Get analyzed games with stats",
+        "auth_required": true
+      },
+      {
+        "method": "GET",
+        "path": "/games/blunders",
+        "description": "Get all blunders",
+        "auth_required": true
+      },
+      {
+        "method": "GET",
+        "path": "/games/best-moves",
+        "description": "Get all best moves",
+        "auth_required": true
+      }
+    ],
+    "analysis": [
+      {
+        "method": "POST",
+        "path": "/analyze-game",
+        "description": "Analyze a game with Stockfish + AI coaching",
+        "auth_required": true,
+        "body_params": ["game_id", "force"],
+        "duration": "30-60 seconds"
+      },
+      {
+        "method": "GET",
+        "path": "/analysis/{game_id}",
+        "description": "Get game analysis",
+        "auth_required": true,
+        "path_params": ["game_id"]
+      }
+    ],
+    "voice": [
+      {
+        "method": "POST",
+        "path": "/tts/generate",
+        "description": "Generate speech from text",
+        "auth_required": true,
+        "body_params": ["text", "voice"],
+        "response": "audio/mpeg"
+      },
+      {
+        "method": "POST",
+        "path": "/tts/analysis-summary/{game_id}",
+        "description": "Generate voice summary for analysis",
+        "auth_required": true,
+        "path_params": ["game_id"],
+        "response": "audio/mpeg"
+      },
+      {
+        "method": "POST",
+        "path": "/tts/move-explanation",
+        "description": "Generate voice explanation for move",
+        "auth_required": true,
+        "body_params": ["game_id", "move_index"],
+        "response": "audio/mpeg"
+      }
+    ],
+    "journey": [
+      {
+        "method": "GET",
+        "path": "/journey",
+        "description": "Get journey dashboard",
+        "auth_required": true
+      },
+      {
+        "method": "GET",
+        "path": "/journey/comprehensive",
+        "description": "Get comprehensive journey data",
+        "auth_required": true
+      },
+      {
+        "method": "GET",
+        "path": "/journey/weekly-assessment",
+        "description": "Get weekly assessment",
+        "auth_required": true
+      },
+      {
+        "method": "GET",
+        "path": "/journey/weakness-trends",
+        "description": "Get weakness trends",
+        "auth_required": true
+      },
+      {
+        "method": "POST",
+        "path": "/journey/link-account",
+        "description": "Link platform account",
+        "auth_required": true,
+        "body_params": ["platform", "username"]
+      },
+      {
+        "method": "GET",
+        "path": "/journey/linked-accounts",
+        "description": "Get linked accounts",
+        "auth_required": true
+      }
+    ]
+  },
+  "voice_options": [
+    {
+      "name": "onyx",
+      "type": "male",
+      "description": "Deep, authoritative voice"
+    },
+    {
+      "name": "echo",
+      "type": "male",
+      "description": "Warm male voice"
+    },
+    {
+      "name": "fable",
+      "type": "male",
+      "description": "Balanced male voice"
+    },
+    {
+      "name": "nova",
+      "type": "female",
+      "description": "Clear female voice"
+    },
+    {
+      "name": "shimmer",
+      "type": "female",
+      "description": "Bright female voice"
+    }
+  ],
+  "platforms": [
+    "chess.com",
+    "lichess"
+  ],
+  "evaluation_types": [
+    "blunder",
+    "mistake",
+    "inaccuracy",
+    "good",
+    "solid",
+    "neutral"
+  ],
+  "weakness_categories": [
+    "tactical",
+    "strategic",
+    "endgame",
+    "opening",
+    "time_management"
+  ],
+  "http_status_codes": {
+    "200": "OK - Request succeeded",
+    "201": "Created - Resource created",
+    "400": "Bad Request - Invalid parameters",
+    "401": "Unauthorized - Not authenticated",
+    "403": "Forbidden - No permission",
+    "404": "Not Found - Resource doesn't exist",
+    "409": "Conflict - Resource already exists",
+    "429": "Rate Limited - Too many requests",
+    "500": "Server Error - Backend error",
+    "503": "Service Unavailable - Server down"
+  },
+  "rate_limits": {
+    "game_analysis": "1 per 30 seconds",
+    "game_imports": "1 per 5 minutes",
+    "tts_generation": "10 per minute",
+    "general_api": "100 per minute"
+  },
+  "auth_methods": [
+    {
+      "method": "Cookie",
+      "header": "Cookie: session_token=xxx",
+      "use_case": "Web applications"
+    },
+    {
+      "method": "Bearer Token",
+      "header": "Authorization: Bearer session_token_xxx",
+      "use_case": "Mobile apps, API clients"
+    }
+  ],
+  "session_expiry": {
+    "default_days": 30,
+    "mobile_days": 30
+  },
+  "quick_reference": {
+    "import_games": "POST /import-games",
+    "get_games": "GET /games",
+    "analyze_game": "POST /analyze-game",
+    "get_analysis": "GET /analysis/{game_id}",
+    "get_blunders": "GET /games/blunders",
+    "get_best_moves": "GET /games/best-moves",
+    "get_journey": "GET /journey",
+    "voice_summary": "POST /tts/analysis-summary/{game_id}",
+    "login": "GET /auth/google/login",
+    "current_user": "GET /auth/me",
+    "logout": "POST /auth/logout"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "summary": "Pedagogical Opponent Feature Testing - All 15 backend tests passed (2 skipped). Frontend components verified working. EvalBar shows evaluation and has hidden state support. ConsequenceFeedback component ready for pedagogical move responses.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pedagogical_opponent.py",
+    "/app/test_reports/pytest/test_pedagogical_opponent.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PedagogicalOpportunityService correctly implements 0% probability in opening, 25% in middlegame",
+    "Eval sacrifice range for intermediate players is correctly set to 0.3-1.5 pawns",
+    "CoachGameSession dataclass has all required pedagogical fields",
+    "EvalBar component correctly handles hidden prop with '?' display and amber pulsing animation",
+    "ConsequenceFeedback component has proper data-testid and displays found/missed opportunity feedback",
+    "CoachPlay.jsx correctly integrates hideEvalBar state and consequenceFeedback state",
+    "Session state API returns pedagogical state (hide_eval, opportunities_found, opportunities_missed)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pedagogical_opponent.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 passed, 2 skipped)",
+    "frontend": "100% (EvalBar visible, ConsequenceFeedback ready)"
+  },
+  "seed_data_creation": "None - used live API testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Pedagogical Opponent feature verified. Key findings: 1) Backend service correctly implements phase-based probability (0% opening, 25% middlegame). 2) Eval sacrifice ranges are correctly configured (0.3-1.5 pawns for intermediate). 3) Session tracks pedagogical state (opportunities_found, opportunities_missed). 4) Frontend EvalBar has hidden prop that shows '?' with amber animation. 5) ConsequenceFeedback component displays when user responds to pedagogical move. 6) The feature uses random.random() < 0.25 so pedagogical moves won't occur every time - this is by design.",
+  "features_verified": {
+    "pedagogical_opportunity_service": {
+      "status": "WORKING",
+      "probability_opening": "0%",
+      "probability_middlegame": "25%",
+      "probability_endgame": "30%",
+      "eval_sacrifice_intermediate": "0.3-1.5 pawns",
+      "opportunity_types": ["fork", "pin", "skewer", "hanging_piece", "back_rank", "passed_pawn", "king_safety", "piece_activity", "outpost", "pawn_structure", "endgame_technique", "general"]
+    },
+    "coach_game_session": {
+      "status": "WORKING",
+      "pedagogical_fields": ["pedagogical_mode_active", "last_pedagogical_move_index", "pending_opportunity", "opportunity_history", "opportunities_found", "opportunities_missed"],
+      "pedagogical_mode_default": true
+    },
+    "session_state_api": {
+      "status": "WORKING",
+      "returns_pedagogical_state": true,
+      "fields": ["hide_eval", "opportunities_found", "opportunities_missed", "pending_opportunity"]
+    },
+    "eval_bar_component": {
+      "status": "WORKING",
+      "data_testid": "eval-bar",
+      "hidden_prop": "Shows '?' with amber pulsing animation",
+      "normal_display": "Shows evaluation score with color coding"
+    },
+    "consequence_feedback_component": {
+      "status": "WORKING",
+      "data_testid": "consequence-feedback",
+      "found_opportunity_display": "Green 'You Found It!' with checkmark",
+      "missed_opportunity_display": "Amber 'Missed Opportunity' with X, shows expected move"
+    },
+    "coach_play_integration": {
+      "status": "WORKING",
+      "hideEvalBar_state": "Connected to EvalBar hidden prop",
+      "consequenceFeedback_state": "Connected to ConsequenceFeedback component",
+      "pedagogical_hint_overlay": "Shows 'Find the opportunity!' when eval hidden"
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All APIs are real, no mocking"
+  },
+  "test_notes": {
+    "statistical_nature": "Pedagogical moves use random.random() < 0.25, so they won't occur every game. Testing verified the capability exists and probability is correctly configured.",
+    "skipped_tests": "2 tests skipped because game-phase endpoint is not directly exposed (phase detection tested via session state instead)"
+  }
+}

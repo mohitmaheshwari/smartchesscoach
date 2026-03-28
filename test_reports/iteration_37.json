@@ -1,0 +1,136 @@
+{
+  "summary": "Tested Plan Audit system on Focus page (/coach). All 12 backend tests passed. Frontend UI verified showing Plan Audit section with execution score (X/Y domains executed), domain cards (Opening, Middlegame, Tactics), color-coded verdicts (green=pass, amber=partial, orange=fail), and 'Full analysis' navigation link.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "features_tested": {
+    "plan_audit_endpoint": {
+      "status": "PASS",
+      "endpoint": "GET /api/plan-audit",
+      "response_fields": {
+        "has_data": "boolean - indicates if audit data exists",
+        "game_id": "string - ID of the audited game",
+        "opponent": "string - opponent name",
+        "result": "string - 'win', 'loss', or 'draw'",
+        "accuracy": "number - game accuracy percentage",
+        "blunders": "number - count of blunders",
+        "audits": "array - list of domain audits",
+        "summary": "object - execution score summary"
+      }
+    },
+    "audit_domain_structure": {
+      "status": "PASS",
+      "fields_per_audit": {
+        "domain": "string - Opening, Middlegame, Endgame, Tactics, or Time",
+        "has_plan": "boolean - whether a plan existed for this domain",
+        "plan": "string - the expected plan (nullable)",
+        "what_happened": "array - bullet points of what occurred",
+        "data": "object - domain-specific metrics",
+        "verdict": "string - deterministic verdict text",
+        "verdict_type": "string - 'pass', 'partial', or 'fail'"
+      }
+    },
+    "verdict_color_coding": {
+      "status": "PASS",
+      "colors": {
+        "pass": "emerald/green",
+        "partial": "amber",
+        "fail": "orange"
+      }
+    },
+    "summary_structure": {
+      "status": "PASS",
+      "fields": {
+        "domains_shown": "number - count of domains in audits array",
+        "executed": "number - count of 'pass' verdicts",
+        "partial": "number - count of 'partial' verdicts",
+        "failed": "number - count of 'fail' verdicts",
+        "execution_score": "string - 'X/Y' format",
+        "training_focus": "string - domain to focus on (nullable)"
+      }
+    },
+    "frontend_plan_audit_section": {
+      "status": "PASS",
+      "selector": "[data-testid='plan-audit']",
+      "ui_elements": {
+        "header": "'PLAN AUDIT – LAST GAME' with target icon",
+        "game_info": "vs {opponent} · {result} · {accuracy}% accuracy",
+        "execution_score": "X/Y with 'domains executed' label",
+        "domain_cards": "Opening, Middlegame, Tactics (based on data)",
+        "plan_text": "'Plan: {plan}' per domain",
+        "what_happened_bullets": "• bullet points per domain",
+        "data_tags": "Accuracy, Stability, Peak, Swing, Blunders tags",
+        "verdict": "Colored verdict text per domain",
+        "quick_score_icons": "O~, M~, T~ summary in footer",
+        "full_analysis_link": "Navigates to game detail page"
+      }
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_plan_audit.py",
+    "/app/test_reports/pytest/pytest_plan_audit.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_plan_audit.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (12/12 pytest tests passed)",
+    "frontend": "100% (All UI elements verified via Playwright)"
+  },
+
+  "test_data_verified": {
+    "plan_audit_response": {
+      "has_data": true,
+      "game_id": "a7941678-7409-4d62-8671-11854b530843",
+      "opponent": "Niwzey",
+      "result": "win",
+      "accuracy": "68.4%",
+      "blunders": 1,
+      "domains_shown": 3,
+      "audits": [
+        {
+          "domain": "Opening",
+          "verdict": "Different Opening, Clean Execution",
+          "verdict_type": "partial",
+          "data": {"opening_accuracy": 89, "early_eval_stability": "Unstable"}
+        },
+        {
+          "domain": "Middlegame", 
+          "verdict": "Minor Lapses in Control",
+          "verdict_type": "partial",
+          "data": {"max_advantage": "+3.7", "eval_swing": "-1.9"}
+        },
+        {
+          "domain": "Tactics",
+          "verdict": "One Tactical Lapse",
+          "verdict_type": "partial",
+          "data": {"blunders": 1, "mistakes": 8}
+        }
+      ],
+      "execution_score": "0/3"
+    }
+  },
+
+  "seed_data_creation": "None - used existing analyzed game data",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Plan Audit system fully tested on Focus page (/coach route). GET /api/plan-audit endpoint returns phase-based execution evaluation across 5 domains (Opening, Middlegame, Endgame, Tactics, Time). Each audit contains: domain, has_plan, plan, what_happened (array), data (object with domain-specific metrics), verdict, verdict_type (pass/partial/fail). Frontend displays Plan Audit section with [data-testid='plan-audit'], shows execution score (X/Y domains executed), individual domain cards with [data-testid='audit-{domain}'], color-coded verdicts (emerald=pass, amber=partial, orange=fail), and 'Full analysis' link that navigates to game detail. Test file: /app/backend/tests/test_plan_audit.py"
+}

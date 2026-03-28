@@ -19,43 +19,57 @@
     --card-foreground: 240 10% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 10%;
-    --primary: 240 10% 10%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 5% 92%;
     --secondary-foreground: 240 10% 10%;
     --muted: 240 5% 92%;
     --muted-foreground: 240 4% 46%;
-    --accent: 38 92% 50%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 6% 90%;
     --input: 240 6% 90%;
-    --ring: 240 10% 10%;
-    --radius: 0.5rem;
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
+    
+    /* Semantic colors */
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --critical: 0 84% 60%;
   }
 
   .dark {
-    /* Dark mode - Obsidian */
-    --background: 0 0% 4%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 100%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 0 0% 100%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 38 92% 50%;
+    /* Chess.com inspired warm light */
+    --background: 37 16% 96%;
+    --foreground: 30 7% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 30 7% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 7% 18%;
+    --primary: 353 42% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 37 12% 92%;
+    --secondary-foreground: 30 7% 18%;
+    --muted: 37 10% 92%;
+    --muted-foreground: 30 5% 45%;
+    --accent: 43 59% 50%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 50%;
+    --destructive: 353 50% 45%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 4% 16%;
-    --input: 240 4% 16%;
-    --ring: 0 0% 100%;
+    --border: 35 10% 87%;
+    --input: 35 10% 87%;
+    --ring: 43 59% 50%;
+    
+    /* Semantic colors */
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --critical: 0 84% 60%;
   }
 }
 
@@ -70,14 +84,20 @@
   
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Manrope', system-ui, sans-serif;
-    font-feature-settings: "cv11", "ss01";
+    font-family: 'DM Sans', system-ui, sans-serif;
   }
   
-  /* Headings use Outfit with tight tracking */
+  /* Headings use Playfair Display */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', system-ui, sans-serif;
-    @apply tracking-tighter font-semibold;
+    font-family: 'Playfair Display', Georgia, serif;
+    @apply tracking-tight font-normal;
+  }
+
+  .font-heading {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
   }
   
   h1 { @apply text-3xl md:text-4xl font-bold; }

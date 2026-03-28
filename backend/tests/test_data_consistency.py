@@ -30,7 +30,7 @@ def get_api_url():
         for line in f:
             if line.startswith('REACT_APP_BACKEND_URL='):
                 return line.strip().split('=', 1)[1]
-    return 'http://localhost:8001'
+    return 'http://localhost:8002'
 
 API_URL = get_api_url()
 

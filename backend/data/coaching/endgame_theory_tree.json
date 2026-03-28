@@ -1,0 +1,458 @@
+{
+  "_meta": {
+    "description": "Endgame theory tree - Position → Try → Teach format. One lesson = one idea, multiple positions reinforcing the same concept.",
+    "version": "1.0",
+    "structure": "Categories → Lessons → Positions. Each position: show → user tries → feedback + rule."
+  },
+  "king_and_pawn": {
+    "name": "King & Pawn",
+    "icon": "crown",
+    "description": "The foundation of all endgames. Master king activity and pawn promotion.",
+    "lessons": {
+      "opposition": {
+        "name": "Opposition",
+        "rule": "Get your King IN FRONT of the pawn. The pawn follows the King, not the other way around.",
+        "description": "The most critical endgame concept. Your King must lead the pawn forward — never push the pawn ahead of your King.",
+        "positions": [
+          {
+            "fen": "8/4k3/8/8/4K3/4P3/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kd5",
+            "correct_move_uci": "e4d5",
+            "wrong_example_san": "e4",
+            "prompt": "White to move. How do you make progress?",
+            "idea": "Outflank! Advance the King sideways to get AROUND the defender. Never push the pawn when your King can advance.",
+            "on_correct": "Exactly. Kd5 outflanks the Black King. From here, your King will escort the pawn home.",
+            "on_wrong": "Pushing e4 lets Black take the opposition with ...Kd6 and it's a draw. The King must lead.",
+            "rule_reminder": "King in FRONT of the pawn wins. King BEHIND the pawn draws."
+          },
+          {
+            "fen": "8/3k4/8/3PK3/8/8/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kf6",
+            "correct_move_uci": "e5f6",
+            "wrong_example_san": "d6",
+            "prompt": "Critical position. White to move. How do you win?",
+            "idea": "d6 leads to a stalemate trap! The King must outflank by going to f6, keeping the opponent boxed in.",
+            "on_correct": "Perfect. Kf6 forces Black's King aside. After ...Ke8, Ke6 maintains full control.",
+            "on_wrong": "d6 is a classic blunder! After ...Kd7, Kd5, Kd8, Kc6, Kc8 — stalemate. You threw away the win.",
+            "rule_reminder": "NEVER push the pawn to the 6th rank if your King isn't on the 6th rank first."
+          },
+          {
+            "fen": "8/3k4/8/8/3KP3/8/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kd5",
+            "correct_move_uci": "d4d5",
+            "wrong_example_san": "e5",
+            "prompt": "White to move. What's the right plan?",
+            "idea": "Advance the King, not the pawn. Kd5 takes direct opposition and forces Black backwards.",
+            "on_correct": "Right. Kd5 seizes the opposition. Black must yield ground.",
+            "on_wrong": "e5 lets Black play ...Ke7 and suddenly Black has the opposition. Your winning advantage evaporates.",
+            "rule_reminder": "Advance the King first. The pawn advances last."
+          }
+        ]
+      },
+      "key_squares": {
+        "name": "Key Squares",
+        "rule": "Every pawn has key squares. If your King reaches one, the pawn promotes — guaranteed.",
+        "description": "Key squares are the three squares two ranks ahead of the pawn. Reach one, and nothing can stop promotion.",
+        "positions": [
+          {
+            "fen": "7k/8/8/8/8/8/1PK5/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kd3",
+            "correct_move_uci": "c2d3",
+            "wrong_example_san": "b3",
+            "prompt": "White has a pawn on b2. Where should the King go?",
+            "idea": "Head toward the key squares (a4, b4, c4). Kd3 starts the march toward c4.",
+            "on_correct": "Good. Kd3 heads toward the key square c4. Once your King arrives there, the pawn promotes by force.",
+            "on_wrong": "b3 pushes the pawn too early. Your King needs to reach the key squares first.",
+            "rule_reminder": "Key squares for a pawn on the 2nd rank: three squares on the 4th rank. Get your King there."
+          },
+          {
+            "fen": "8/8/3k4/8/8/4K3/4P3/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kd4",
+            "correct_move_uci": "e3d4",
+            "wrong_example_san": "e4",
+            "prompt": "White to move. How do you secure the promotion?",
+            "idea": "Kd4 claims a key square (d4, e4, f4 are key squares for the e-pawn on e2). From d4, the pawn is unstoppable.",
+            "on_correct": "Kd4 occupies the key square. Black's King can't prevent promotion now.",
+            "on_wrong": "e4 pushes the pawn without controlling the key squares. The King must occupy them first.",
+            "rule_reminder": "Occupy the key square, then push the pawn. Not the other way around."
+          },
+          {
+            "fen": "8/8/2k5/8/2K5/2P5/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kd4",
+            "correct_move_uci": "c4d4",
+            "wrong_example_san": "c4",
+            "prompt": "White to move. The pawn is on c3. What's the winning plan?",
+            "idea": "Outflank with Kd4. This forces Black's King to move aside, letting White reach the key squares (b5, c5, d5).",
+            "on_correct": "Kd4 outflanks. Black must choose a side, and White's King marches to the key squares.",
+            "on_wrong": "c4 pushes the pawn but doesn't secure a key square. The King does the heavy lifting in endgames.",
+            "rule_reminder": "The King must claim key squares. The pawn just follows."
+          }
+        ]
+      },
+      "square_rule": {
+        "name": "Rule of the Square",
+        "rule": "Draw a mental square from the pawn to its promotion square. If the defending King can step inside that square, it catches the pawn.",
+        "description": "A quick visual trick to calculate if a King can catch a passed pawn without counting every move.",
+        "positions": [
+          {
+            "fen": "7k/8/8/1p6/8/8/7K/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kg3",
+            "correct_move_uci": "h2g3",
+            "wrong_example_san": "Kh3",
+            "prompt": "Black's pawn is running! Can White's King catch it?",
+            "idea": "The square from b5 goes b5-b1-f1-f5. White's King on h2 must enter this square immediately. Kg3 steps inside.",
+            "on_correct": "Kg3 enters the square. From here, the King reaches the pawn in time. The diagonal is just as fast as a straight line.",
+            "on_wrong": "Kh3 stays outside the square. The pawn will promote before the King can catch up.",
+            "rule_reminder": "Draw the square. Step inside. Diagonal moves are just as fast as straight ones."
+          },
+          {
+            "fen": "7k/8/8/8/6p1/8/K7/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kb3",
+            "correct_move_uci": "a2b3",
+            "wrong_example_san": "Ka3",
+            "prompt": "Black's g-pawn is advancing. Can you stop it?",
+            "idea": "Square from g4: g4-g1-c1-c4. King on a2 must enter by reaching c-file. Kb3 heads diagonally toward the square.",
+            "on_correct": "Kb3 races diagonally toward the square. The King will arrive at c4-d4 in time to intercept.",
+            "on_wrong": "Ka3 moves sideways without approaching the square. The pawn escapes. Every tempo counts.",
+            "rule_reminder": "Race diagonally — it covers ground toward the pawn AND toward the promotion square simultaneously."
+          },
+          {
+            "fen": "k7/8/8/8/p7/8/8/4K3 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kd2",
+            "correct_move_uci": "e1d2",
+            "wrong_example_san": "Ke2",
+            "prompt": "The a-pawn is running. One chance to enter the square.",
+            "idea": "Square from a4: a4-a1-d1-d4. King on e1 must reach d2 to enter the square and catch the pawn.",
+            "on_correct": "Kd2 enters the square just in time. The King will reach a4 area before the pawn promotes.",
+            "on_wrong": "Ke2 doesn't enter the square. The a-pawn will promote without interference.",
+            "rule_reminder": "One step outside the square = lost. Count carefully before you decide."
+          }
+        ]
+      },
+      "breakthrough": {
+        "name": "Pawn Breakthrough",
+        "rule": "Sacrifice a pawn to create a passed pawn that the enemy King can't stop.",
+        "description": "When pawns face each other and Kings are far away, a well-timed sacrifice can create an unstoppable passer.",
+        "positions": [
+          {
+            "fen": "8/1p6/p1p5/PPP5/8/8/7k/K7 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "b6",
+            "correct_move_uci": "b5b6",
+            "wrong_example_san": "a6",
+            "prompt": "Both Kings are far away. How does White create a passed pawn?",
+            "idea": "b6! sacrifices the b-pawn to blow open the position. If ...axb6, then c6! and if ...bxc6 then a6 — one pawn gets through.",
+            "on_correct": "b6! is the breakthrough. Black can't capture on both sides. One White pawn will promote.",
+            "on_wrong": "a6 doesn't break through. After ...bxa6, the position is simplified without an advantage.",
+            "rule_reminder": "Strike in the CENTER of your pawn chain. The side pawns become unstoppable runners."
+          },
+          {
+            "fen": "8/8/p1p5/1p6/1P6/P1P5/7k/K7 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "c4",
+            "correct_move_uci": "c3c4",
+            "wrong_example_san": "a4",
+            "prompt": "White's pawns vs Black's pawns. Find the breakthrough.",
+            "idea": "c4! breaks through. After ...bxc4, a4 creates a passed a-pawn. If ...b4, then c5 creates a passed c-pawn.",
+            "on_correct": "c4! is the key move. Whatever Black captures, White creates a passed pawn on the other side.",
+            "on_wrong": "a4 doesn't achieve anything. The breakthrough requires attacking the base of the chain.",
+            "rule_reminder": "Attack the weak link. One sacrifice creates two threats — the defender can only handle one."
+          },
+          {
+            "fen": "8/6p1/5p1p/5PPP/8/8/k7/7K w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "g6",
+            "correct_move_uci": "g5g6",
+            "wrong_example_san": "f6",
+            "prompt": "Same concept, kingside. Find the breakthrough.",
+            "idea": "g6! is the center strike. After ...fxg6, h6! and the h-pawn runs. After ...hxg6, f6! and the f-pawn runs.",
+            "on_correct": "g6! works identically to the queenside version. The center pawn sacrifice creates an outside passer.",
+            "on_wrong": "f6 can be captured without creating a passed pawn. The center sacrifice is the key.",
+            "rule_reminder": "Breakthrough = center sacrifice. The flanks become unstoppable."
+          }
+        ]
+      },
+      "king_centralization": {
+        "name": "King to the Center",
+        "rule": "In the endgame, your King is a FIGHTING piece. Centralize it immediately.",
+        "description": "The moment the Queens are off the board, your King transforms from a liability into your strongest piece. Get it to the center.",
+        "positions": [
+          {
+            "fen": "8/pp3k2/8/3p4/3P4/8/PP6/6K1 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kf2",
+            "correct_move_uci": "g1f2",
+            "wrong_example_san": "a3",
+            "prompt": "Endgame. Both sides have pawns. What's White's first priority?",
+            "idea": "Centralize the King! Kf2 starts the march toward d3-e4. Pawn moves can wait — the King decides the endgame.",
+            "on_correct": "Kf2 begins centralization. Next: Ke3, then Kd3 or Ke4. The King will dominate the center.",
+            "on_wrong": "a3 wastes time on the flank. Your King is on g1 doing nothing — that's the real problem.",
+            "rule_reminder": "Queens are gone? King to the center. This is endgame rule #1."
+          },
+          {
+            "fen": "8/5k2/4p3/3pP3/3P4/8/8/4K3 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kd2",
+            "correct_move_uci": "e1d2",
+            "wrong_example_san": "Ke2",
+            "prompt": "Locked pawn structure. How does White improve?",
+            "idea": "March the King toward the action. Kd2 heads for c3-b4 to attack Black's queenside or support a breakthrough.",
+            "on_correct": "Kd2 starts the King march. The plan is Kc3-Kb4 to attack the weak points in Black's position.",
+            "on_wrong": "Ke2 centralizes but aims at a less productive square. Kd2-Kc3-Kb4 targets Black's weakness.",
+            "rule_reminder": "Centralize with PURPOSE. Aim your King at the opponent's weaknesses."
+          },
+          {
+            "fen": "8/p4k2/1p6/8/6P1/8/P7/6K1 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kf2",
+            "correct_move_uci": "g1f2",
+            "wrong_example_san": "g5",
+            "prompt": "Pawn endgame. What should White do first?",
+            "idea": "Kf2 starts centralizing. Pushing g5 prematurely weakens the pawn. The King must be active first.",
+            "on_correct": "Kf2 first, then Ke3, Kd4. The centralized King will support BOTH flanks.",
+            "on_wrong": "g5 pushes a pawn without King support. In endgames, the King must be active before pawns advance.",
+            "rule_reminder": "King first, pawns second. A centralized King supports everything."
+          }
+        ]
+      }
+    }
+  },
+  "rook_endgames": {
+    "name": "Rook Endgames",
+    "icon": "castle",
+    "description": "The most common endgame type. Master the Lucena, Philidor, and rook activity.",
+    "lessons": {
+      "lucena": {
+        "name": "Lucena — Building a Bridge",
+        "rule": "Rook to the 4th rank. Use it as a shield to block enemy checks. This is THE winning technique.",
+        "description": "When you have a Rook + Pawn on the 7th rank vs Rook, the 'Bridge' technique wins. Rook goes to the 4th rank, then blocks checks.",
+        "positions": [
+          {
+            "fen": "1K6/1P1k4/8/8/8/8/r7/7R w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Rh4",
+            "correct_move_uci": "h1h4",
+            "wrong_example_san": "Rh8",
+            "prompt": "White has K on b8, P on b7, R on h1. How do you win?",
+            "idea": "Rh4! places the rook on the 4th rank to later block Black's checks. This is the Bridge.",
+            "on_correct": "Rh4 prepares the bridge. Next: Kc7, and when Black checks from behind, Rb4 blocks everything.",
+            "on_wrong": "Rh8 doesn't help. You need the Rook on the 4th rank to build the bridge.",
+            "rule_reminder": "Step 1: Rook to the 4th rank. Step 2: King steps out. Step 3: Rook blocks the checks."
+          },
+          {
+            "fen": "3K4/3P1k2/8/8/8/8/r7/4R3 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Re4",
+            "correct_move_uci": "e1e4",
+            "wrong_example_san": "Re8",
+            "prompt": "Same idea, different placement. White to move.",
+            "idea": "Re4 goes to the 4th rank — the bridge position. From here, when the King steps out, the Rook will block checks.",
+            "on_correct": "Re4 is the bridge setup. Now Kc7, and Rc4 will block any checks from behind.",
+            "on_wrong": "Re8 doesn't set up the bridge. The 4th rank is the key.",
+            "rule_reminder": "The 4th rank. Always the 4th rank. That's where the bridge is built."
+          },
+          {
+            "fen": "5K2/5P2/8/8/4R3/8/r4k2/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Ke7",
+            "correct_move_uci": "f8e7",
+            "wrong_example_san": "Kg8",
+            "prompt": "The bridge is already set (Rook on e4). What now?",
+            "idea": "Step out with the King! Ke7 moves toward the Rook. When Black checks, Re5 or another block completes the bridge.",
+            "on_correct": "Ke7 is the next step. The Rook on e4 is ready to block checks. The pawn will promote.",
+            "on_wrong": "Kg8 moves the wrong direction. You need to step TOWARD the Rook to use the bridge.",
+            "rule_reminder": "Bridge built? King marches toward the Rook. The Rook blocks the checks."
+          }
+        ]
+      },
+      "philidor": {
+        "name": "Philidor — Third Rank Defense",
+        "rule": "Keep your Rook on the 6th rank (3rd rank as Black). When the pawn reaches the 6th, switch to the back rank for infinite checks.",
+        "description": "The drawing technique when defending Rook vs Rook + Pawn. Hold the 6th rank, then switch to checking from behind.",
+        "positions": [
+          {
+            "fen": "4k3/8/8/4PK2/8/8/8/r4R2 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Ra6",
+            "correct_move_uci": "a1a6",
+            "wrong_example_san": "Ra8",
+            "prompt": "Black to move. The e-pawn is on e5. How does Black hold the draw?",
+            "idea": "Ra6! places the Rook on the 6th rank. This prevents the White King from advancing to e6. The pawn can't progress.",
+            "on_correct": "Ra6 is the Philidor defense. The Rook on the 6th rank stops the White King from advancing. Hold this line.",
+            "on_wrong": "Ra8 goes to the back rank too early. The King can advance to e6 and the position becomes dangerous.",
+            "rule_reminder": "6th rank FIRST. Back rank LATER (only when the pawn reaches the 6th)."
+          },
+          {
+            "fen": "4k3/8/4PK2/8/8/8/8/r4R2 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Rf1",
+            "correct_move_uci": "a1f1",
+            "wrong_example_san": "Ra6",
+            "prompt": "The pawn has reached the 6th rank! Black to move. What now?",
+            "idea": "NOW switch to the back rank! Rf1+ starts the checking sequence. White can't escape the checks because advancing the King blocks the pawn.",
+            "on_correct": "Rf1+ is correct! The back rank is now the right place. Infinite checks from behind — White can never escape.",
+            "on_wrong": "Ra6 is too late now. The pawn is already on the 6th rank. You needed to switch to checking from behind.",
+            "rule_reminder": "Pawn on the 6th? → Back rank. Check from behind. The attacker can never escape."
+          },
+          {
+            "fen": "4k3/8/r3P3/5K2/8/8/8/4R3 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Ra5+",
+            "correct_move_uci": "a6a5",
+            "wrong_example_san": "Rxe6",
+            "prompt": "White's King is on f5, pawn on e6. Black to move.",
+            "idea": "Ra5+! drives the White King away from the pawn. If the King goes to e-file to support the pawn, Black takes. If King hides, Ra1 and check from behind.",
+            "on_correct": "Ra5+ is precise. It forces the King to choose: leave the pawn or go in front of it (blocking promotion).",
+            "on_wrong": "Rxe6 trades into a King vs King draw — but why give up the Rook? You had a clean defense with checks.",
+            "rule_reminder": "Checks from behind are the defender's best friend. The attacker's King can't advance AND support the pawn."
+          }
+        ]
+      },
+      "active_rook": {
+        "name": "Rook Activity",
+        "rule": "An active Rook is worth more than a pawn. Never trap your Rook in a passive defense.",
+        "description": "In rook endgames, the activity of your Rook matters more than material. A Rook on the 7th rank or behind a passed pawn dominates.",
+        "positions": [
+          {
+            "fen": "8/R4pk1/5p2/5P2/8/6K1/r7/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Ra8",
+            "correct_move_uci": "a7a8",
+            "wrong_example_san": "Kf4",
+            "prompt": "White's Rook is on the 7th rank. How should White proceed?",
+            "idea": "Ra8 keeps the Rook maximally active. From a8, it can swing to any file and maintains pressure on the 8th rank.",
+            "on_correct": "Ra8 maintains the active Rook. It ties down Black's King and keeps all options open.",
+            "on_wrong": "Kf4 is passive. The Rook's activity on the 7th/8th rank is the main advantage — keep it there.",
+            "rule_reminder": "Rook on the 7th rank = domination. Keep it active, don't abandon it."
+          },
+          {
+            "fen": "8/8/4k3/p7/P4K2/8/8/r3R3 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Re5+",
+            "correct_move_uci": "e1e5",
+            "wrong_example_san": "Ra1",
+            "prompt": "Rooks and pawns. White to move.",
+            "idea": "Re5+! activates the Rook with check. After the King moves, the Rook is active and White can play for a win.",
+            "on_correct": "Re5+ is active play. The Rook gains activity AND attacks. This is how you win rook endgames.",
+            "on_wrong": "Ra1 is passive. Defending the a-pawn from behind is less important than Rook activity.",
+            "rule_reminder": "Activity > material. An active Rook wins; a passive Rook loses."
+          },
+          {
+            "fen": "8/1r6/8/1Pk5/8/1K6/8/1R6 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Ka4",
+            "correct_move_uci": "b3a4",
+            "wrong_example_san": "Rb2",
+            "prompt": "White has a passed b5-pawn. Where should the pieces go?",
+            "idea": "Ka4 supports the pawn advance. The Rook on b1 is already behind the passed pawn (perfect!). Now the King supports b6.",
+            "on_correct": "Ka4 supports b6 next. With the Rook behind the pawn, this is textbook technique.",
+            "on_wrong": "Rb2 doesn't accomplish anything. The Rook is already perfectly placed behind the passed pawn.",
+            "rule_reminder": "Rooks belong BEHIND passed pawns. Both yours AND your opponent's."
+          }
+        ]
+      }
+    }
+  },
+  "queen_vs_pawn": {
+    "name": "Queen vs Pawn",
+    "icon": "zap",
+    "description": "Queen vs advanced pawn. Win by stopping promotion, and watch for stalemate traps.",
+    "lessons": {
+      "stop_promotion": {
+        "name": "Stopping Promotion",
+        "rule": "Use checks to drive the enemy King IN FRONT of their pawn. Then bring your King closer. Repeat.",
+        "description": "When you have a Queen vs a pawn about to promote, use a check-and-approach pattern to bring your King in.",
+        "positions": [
+          {
+            "fen": "8/8/8/8/7k/1q6/1P6/1K6 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Qc3",
+            "correct_move_uci": "b3c3",
+            "wrong_example_san": "Qb4",
+            "prompt": "Black has the Queen. White's b-pawn is one step from promoting. How do you stop it?",
+            "idea": "Qc3! forces the King to step in front of the pawn (Kc1 or Ka2), blocking the promotion. Then bring your King closer.",
+            "on_correct": "Qc3 forces Kb1 or Ka2, both stepping in front of the pawn. Now bring your King one step closer.",
+            "on_wrong": "Qb4 doesn't force the King in front of the pawn. The King can sidestep and the pawn still threatens.",
+            "rule_reminder": "Check → King in front of pawn → bring your King closer → repeat."
+          },
+          {
+            "fen": "8/8/8/7k/q7/8/P7/K7 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Qd1+",
+            "correct_move_uci": "a4d1",
+            "wrong_example_san": "Qa3",
+            "prompt": "The a-pawn is about to promote. Black's Queen must act.",
+            "idea": "Qd1+ checks the King. After Ka2 (forced into front of pawn), bring your King closer while the pawn is blocked.",
+            "on_correct": "Qd1+ forces the King to block its own pawn. Classic technique.",
+            "on_wrong": "Qa3 pins but doesn't solve the problem long-term. The check-approach method is the winning technique.",
+            "rule_reminder": "Give check from the direction that forces the King IN FRONT of the pawn."
+          },
+          {
+            "fen": "8/8/8/8/6k1/8/1q6/2KP4 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Qb1+",
+            "correct_move_uci": "b2b1",
+            "wrong_example_san": "Qc3+",
+            "prompt": "White's d-pawn is ready to push. Find the winning check.",
+            "idea": "Qb1+ forces Kd2, blocking the d-pawn. Now Kg3 brings the King closer. Repeat the pattern.",
+            "on_correct": "Qb1+ forces Kd2. The d-pawn can't advance. Now bring your King closer step by step.",
+            "on_wrong": "Qc3+ allows Kd1, and the pawn can still push next move. Choose checks that block the pawn.",
+            "rule_reminder": "Not all checks are equal. Pick the check that forces the King IN FRONT of the pawn."
+          }
+        ]
+      },
+      "stalemate_tricks": {
+        "name": "Stalemate Traps",
+        "rule": "Watch out! Some pawns on the 7th rank create stalemate if the King reaches the corner. Bishop-pawn and rook-pawn are the tricky ones.",
+        "description": "Not all Queen vs pawn positions are wins. Learn when stalemate lurks and how to avoid or exploit it.",
+        "positions": [
+          {
+            "fen": "8/8/8/8/5k2/1q6/5P2/5K2 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Qe3",
+            "correct_move_uci": "b3e3",
+            "wrong_example_san": "Ke3",
+            "prompt": "White has an f-pawn on f2. Black has a Queen. Be careful — is there a stalemate trap?",
+            "idea": "Qe3 approaches the pawn and controls the key squares. The f-pawn (not a/h-pawn) is a normal win — no stalemate tricks here.",
+            "on_correct": "Qe3 takes control. The f-pawn is a standard win — centralize the Queen and bring your King closer.",
+            "on_wrong": "Ke3 walks into the pawn's path. Keep the Queen active first, then approach with the King.",
+            "rule_reminder": "Central and bishop/knight pawns are normal wins. Rook-pawn (a/h) is the stalemate danger zone."
+          },
+          {
+            "fen": "K7/P7/8/8/8/8/6q1/7k b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Qg8",
+            "correct_move_uci": "g2g8",
+            "wrong_example_san": "Qb7",
+            "prompt": "White's a-pawn is on the 7th! King is in the corner. Can Black win?",
+            "idea": "Qg8 maintains pressure without allowing stalemate. But this is the dreaded rook-pawn position — if Black isn't careful, Ka8 leads to stalemate.",
+            "on_correct": "Qg8 keeps control. But be warned: this position with the a-pawn/h-pawn IS a draw with correct play from White. Ka8 and it's stalemate if the Queen takes the pawn.",
+            "on_wrong": "Qb7 is stalemate immediately! The King has no squares — that's exactly the trap.",
+            "rule_reminder": "Queen vs rook-pawn (a or h file) with King in the corner = DRAW. This is one of the most important things to know."
+          },
+          {
+            "fen": "8/8/8/8/7k/8/q2P4/3K4 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Qa5",
+            "correct_move_uci": "a2a5",
+            "wrong_example_san": "Qd5",
+            "prompt": "d-pawn on d2. Normal pawn, no stalemate worries. What's the technique?",
+            "idea": "Qa5 controls the d-file and approaches. The d-pawn (center pawn) has no stalemate tricks. Standard check-approach pattern wins.",
+            "on_correct": "Qa5 controls the key squares. Next, approach with your King. Center pawns are always a clean win.",
+            "on_wrong": "Qd5 blocks the d-file but your King is too far. Qa5 lets you approach while maintaining control.",
+            "rule_reminder": "Center pawns and knight/bishop pawns = clean wins for the Queen. Only rook-pawns (a/h) are tricky."
+          }
+        ]
+      }
+    }
+  }
+}

@@ -6,7 +6,7 @@
 #
 # Environment variables required:
 #   - MONGO_URL: MongoDB connection string
-#   - EMERGENT_LLM_KEY: API key for LLM integration
+#   - OPENAI_API_KEY: API key for LLM integration
 #   - (Optional) GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET for OAuth
 
 version: '3.8'
@@ -25,6 +25,8 @@ services:
       - mongodb_data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=chess_coach
+      - MONGO_INITDB_ROOT_USERNAME=admin_user_mii_s_c
+      - MONGO_INITDB_ROOT_PASSWORD=Mii123$44$
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -41,41 +43,42 @@ services:
     container_name: chess-coach-backend
     restart: unless-stopped
     ports:
-      - "8001:8001"
+      - "8002:8002"
     environment:
-      - MONGO_URL=mongodb://mongodb:27017
+      - MONGO_URL=mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017
       - DB_NAME=chess_coach
-      - EMERGENT_LLM_KEY=${EMERGENT_LLM_KEY}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-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}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://chessguru.ai/api/auth/google/callback}
     depends_on:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8002/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
     volumes:
       - ./backend:/app/backend:ro  # Mount for development hot-reload
 
-  # ============================================
-  # Frontend (React - Development)
-  # ============================================
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: chess-coach-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_BACKEND_URL=http://localhost:8001
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend/src:/app/frontend/src:ro  # Mount for development hot-reload
+  # # ============================================
+  # # Frontend (React - Development)
+  # # ============================================
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.frontend
+  #   container_name: chess-coach-frontend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - REACT_APP_BACKEND_URL=http://localhost:8001
+  #   depends_on:
+  #     - backend
+  #   volumes:
+  #     - ./frontend/src:/app/frontend/src:ro  # Mount for development hot-reload
 
 volumes:
   mongodb_data:

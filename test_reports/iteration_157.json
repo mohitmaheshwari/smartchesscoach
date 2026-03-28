@@ -1,0 +1,96 @@
+{
+  "summary": "Tested 3 new features for chess coaching app: Interactive Board on Opening Portrait, Variation Selector for Lessons, and Pattern Memory Injection. All 15 backend tests passed. All frontend UI tests passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_opening_portrait_features.py",
+    "/app/test_reports/pytest/test_opening_portrait_features.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "OpeningsOverview.jsx correctly implements InlineBoardPreview component with expandable rows",
+    "InlineBoardPreview shows board, move list, navigation buttons (forward/back/reset), and Full Lesson button",
+    "Clicking move buttons in inline board updates board position correctly",
+    "Full Lesson button navigates to /openings/{key} correctly",
+    "OpeningLesson.jsx has variation selector with pill buttons (data-testid='variation-selector')",
+    "Clicking different variation reloads lesson with different moves via ?variation= parameter",
+    "GET /api/openings/french-defense returns opening with active_variation field",
+    "GET /api/openings/french-defense?variation=french_winawer returns different main_line",
+    "GET /api/openings/italian-game works with hyphenated key (key normalization fix in opening_theory_json_service.py)",
+    "V5CoachingCard.jsx has pattern_memory display element with data-testid='pattern-memory-note'",
+    "V5Coaching dataclass has pattern_memory field (line 94 in shared_coaching_v5.py)",
+    "Pattern memory injection code exists in coach_play.py (lines 1901-1914)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_opening_portrait_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "seed_data_creation": "None - used existing user data (Mohit Maheshwari with 12 games)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 3 features verified working: 1) Interactive Board on Opening Portrait - clicking opening row expands inline board preview with move list, navigation buttons, and Full Lesson button. 2) Variation Selector - French Defense has 5 variations (Advance, Classical, Winawer, Tarrasch, Exchange), Italian Game has 2 variations (Giuoco Piano, Two Knights Defense). 3) Pattern Memory Injection - code exists in coach_play.py to inject 'You've missed this pattern X times' into V5 coaching during live play. Pattern memory cannot be fully tested end-to-end without a live game with mistakes, but the backend service and frontend display element are verified.",
+  "features_verified": {
+    "feature_1_interactive_board_on_opening_portrait": {
+      "status": "WORKING",
+      "elements_verified": [
+        "openings-overview container",
+        "focus-opening card",
+        "repertoire-as-white section",
+        "repertoire-as-black section",
+        "opening-row-{key} rows (10 found)",
+        "inline-board-preview (expands on click)",
+        "preview-board (LichessBoard component)",
+        "move-list with move-btn-{index} buttons (30 moves)",
+        "preview-forward, preview-back, preview-reset navigation buttons",
+        "study-opening-btn (Full Lesson button)"
+      ],
+      "navigation_test": "Full Lesson button navigates to /openings/italian-game"
+    },
+    "feature_2_variation_selector_for_lessons": {
+      "status": "WORKING",
+      "elements_verified": [
+        "variation-selector container",
+        "variation-btn-{key} pill buttons"
+      ],
+      "french_defense_variations": [
+        "french_advance (12 moves)",
+        "french_classical (18 moves)",
+        "french_winawer (16 moves)",
+        "french_tarrasch (16 moves)",
+        "french_exchange (16 moves)"
+      ],
+      "italian_game_variations": [
+        "Giuoco Piano (15 moves)",
+        "Two Knights Defense (15 moves)"
+      ],
+      "api_test": "GET /api/openings/french-defense?variation=french_winawer returns different main_line"
+    },
+    "feature_3_pattern_memory_injection": {
+      "status": "CODE VERIFIED (cannot test end-to-end without live game mistakes)",
+      "backend_code": {
+        "pattern_memory_service.py": "get_pattern_for_mistake() function exists and works",
+        "coach_play.py": "Pattern memory injection at lines 1901-1914",
+        "shared_coaching_v5.py": "V5Coaching dataclass has pattern_memory field at line 94"
+      },
+      "frontend_code": {
+        "V5CoachingCard.jsx": "pattern_memory display element with data-testid='pattern-memory-note' at line 204-216"
+      },
+      "note": "Pattern memory is injected during live play when user makes a mistake (severity=mistake/blunder/inaccuracy and cp_loss>=100). The confrontation_message format is: 'You've had {label} {recent} times in your last {recent_games} games. Overall: {total} times.'"
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": [],
+    "note": "All APIs are real, no mocking"
+  }
+}

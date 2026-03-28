@@ -19,19 +19,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # ==================== EMBEDDING GENERATION ====================
 
 async def generate_embedding(text: str) -> List[float]:
     """Generate embedding using emergentintegrations library"""
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        from llm_helper import LlmChat, UserMessage
         
         # Use a simple approach - generate a numerical representation
         # by using the LLM to create a semantic hash
         chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
+            api_key=OPENAI_API_KEY,
             session_id=f"embed_{uuid.uuid4().hex[:8]}",
             system_message="You are an embedding generator. Given text, output ONLY a JSON array of 256 floats between -1 and 1 representing the semantic meaning. No explanation, just the array."
         ).with_model("openai", "gpt-4.1-nano")

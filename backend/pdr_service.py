@@ -124,7 +124,7 @@ async def generate_idea_chain_explanation(
         }
     """
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        from llm_helper import LlmChat, UserMessage
         
         refutation_move = refutation.get("refutation_move", "")
         is_check = refutation.get("is_check", False)
@@ -156,7 +156,7 @@ RULE: [A simple rule to remember for next time]"""
 
         import uuid
         chat = LlmChat(
-            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
+            api_key=os.environ.get("OPENAI_API_KEY", ""),
             session_id=f"pdr_idea_{uuid.uuid4().hex[:8]}",
             system_message=system_prompt
         ).with_model(LLM_PROVIDER, LLM_MODEL)
@@ -276,7 +276,7 @@ async def generate_why_options(fen: str, best_move: str, user_move: str, refutat
     Returns one correct reason and two plausible but wrong reasons.
     """
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        from llm_helper import LlmChat, UserMessage
         import uuid
         import random
         
@@ -300,7 +300,7 @@ WRONG1: [sounds reasonable but not the key reason]
 WRONG2: [sounds reasonable but not the key reason]"""
 
         chat = LlmChat(
-            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
+            api_key=os.environ.get("OPENAI_API_KEY", ""),
             session_id=f"pdr_why_{uuid.uuid4().hex[:8]}",
             system_message=system_prompt
         ).with_model(LLM_PROVIDER, LLM_MODEL)

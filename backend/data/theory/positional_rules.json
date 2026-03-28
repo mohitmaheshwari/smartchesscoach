@@ -1,0 +1,110 @@
+{
+  "_meta": {
+    "description": "Positional chess rules — pattern-to-rule mappings for PV line classification fallback",
+    "version": "2.0.0",
+    "last_updated": "2026-02-15",
+    "admin_editable": true,
+    "match_strategy": "Pattern detected from PV line analysis in line_parser.py"
+  },
+
+  "loses_pawn": {
+    "rule": "Don't give away pawns without compensation.",
+    "short": "You lost a pawn.",
+    "severity": "minor"
+  },
+  "loses_piece": {
+    "rule": "Never leave pieces undefended.",
+    "short": "You lost a piece.",
+    "severity": "major"
+  },
+  "loses_exchange": {
+    "rule": "Don't trade a rook for a minor piece without compensation.",
+    "short": "You lost the exchange (rook for bishop/knight).",
+    "severity": "major"
+  },
+  "loses_queen": {
+    "rule": "Protect your queen at all costs.",
+    "short": "You lost your queen.",
+    "severity": "critical"
+  },
+  "allows_checkmate": {
+    "rule": "Always check for checkmate threats before making your move.",
+    "short": "This allows checkmate.",
+    "severity": "critical"
+  },
+  "allows_fork": {
+    "rule": "Watch for knight forks on your king and queen.",
+    "short": "This allowed a fork.",
+    "severity": "major"
+  },
+  "allows_pin": {
+    "rule": "Avoid placing pieces on lines with your king.",
+    "short": "This created a pin.",
+    "severity": "moderate"
+  },
+  "allows_skewer": {
+    "rule": "Keep your valuable pieces off the same line.",
+    "short": "This allowed a skewer.",
+    "severity": "major"
+  },
+  "allows_discovered_attack": {
+    "rule": "Watch for pieces that can move to reveal attacks.",
+    "short": "This allowed a discovered attack.",
+    "severity": "major"
+  },
+  "misses_check": {
+    "rule": "Always look for checks first — they force responses.",
+    "short": "You missed a check that wins material.",
+    "severity": "major"
+  },
+  "allows_back_rank": {
+    "rule": "Give your king an escape square (luft).",
+    "short": "This weakened your back rank.",
+    "severity": "critical"
+  },
+  "loses_center": {
+    "rule": "Control the center — don't give it up easily.",
+    "short": "You gave up central control.",
+    "severity": "moderate"
+  },
+  "weakens_king": {
+    "rule": "Don't push pawns in front of your castled king.",
+    "short": "This weakened your king's safety.",
+    "severity": "major"
+  },
+  "trades_when_behind": {
+    "rule": "When behind in material, avoid trades.",
+    "short": "Trading when behind helps your opponent.",
+    "severity": "moderate"
+  },
+  "trades_when_ahead": {
+    "rule": "When ahead in material, trade pieces to simplify.",
+    "short": "You should trade pieces when ahead.",
+    "severity": "minor"
+  },
+  "premature_pawn_push": {
+    "rule": "Don't push pawns past the 4th rank before developing.",
+    "short": "This pawn push was premature.",
+    "severity": "moderate"
+  },
+  "undeveloped_pieces": {
+    "rule": "Develop all pieces before attacking.",
+    "short": "You attacked with pieces still undeveloped.",
+    "severity": "moderate"
+  },
+  "moved_same_piece_twice": {
+    "rule": "Don't move the same piece twice in the opening.",
+    "short": "Moving the same piece twice loses time.",
+    "severity": "minor"
+  },
+  "delayed_castling": {
+    "rule": "Castle early to protect your king.",
+    "short": "Your king is still in the center.",
+    "severity": "major"
+  },
+  "unknown": {
+    "rule": "Calculate your opponent's best response before moving.",
+    "short": "This move has a tactical flaw.",
+    "severity": "unknown"
+  }
+}

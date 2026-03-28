@@ -1,0 +1,65 @@
+{
+  "summary": "Tested all Socratic Engine API endpoints for the hyper-personalized chess coaching application. All 5 endpoints working correctly: /api/coach/socratic/start, /api/coach/socratic/respond, /api/coach/socratic/hint, /api/coach/socratic/reveal, and /api/coach/debug/test-socratic. The Socratic Engine correctly implements the teaching philosophy - never giving the answer first, asking what the student was thinking, and guiding them with progressive hints until they discover the answer themselves.",
+  "mode": "generate",
+  "baseline_commit": "17f75f82f53cad9a96fdad11197216a8d39c21cc",
+  "head_commit": "8a9a4e8e4e1903d0f88abf4b6785e8cdd295dde9",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/coach/socratic/hint",
+        "issue": "Minor text duplication - 'the the f-file' appears in directional hints due to template formatting",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_socratic_engine_api.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_socratic_engine_api.py",
+    "/app/test_reports/pytest/socratic_engine_results.xml"
+  ],
+  "action_items": [
+    "Optional: Fix minor text duplication in HINT_TEMPLATES directional level - template has 'the {file_or_rank}' but file_or_rank already includes 'the' prefix"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (27 passed, 0 failed)",
+    "frontend": "N/A - backend-only testing requested"
+  },
+  "seed_data_creation": "N/A - Used existing dev user",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Socratic Engine API is fully tested and working. All endpoints validated: start (creates dialogue with opening question), respond (processes student response, celebrates discovery), hint (progressive hints from subtle to almost_answer), reveal (teaching explanation), and debug/test-socratic (demo flow). One minor cosmetic issue: directional hints have 'the the' duplication. Tests cover: happy paths, error handling (missing required fields), different position types (blunder, strategic, endgame, missed_tactic), full dialogue flows, and celebration when student discovers answer.",
+  "features_tested": {
+    "backend": [
+      "POST /api/coach/socratic/start - Creates dialogue with opening question (never reveals answer)",
+      "POST /api/coach/socratic/respond - Processes student response, celebrates discovery or redirects",
+      "POST /api/coach/socratic/hint - Progressive hints (subtle, directional, specific, almost_answer)",
+      "POST /api/coach/socratic/reveal - Teaching explanation after student engagement",
+      "POST /api/coach/debug/test-socratic - Demo endpoint showing full dialogue flow"
+    ],
+    "test_coverage": {
+      "start_dialogue": 7,
+      "respond": 5,
+      "hint": 6,
+      "reveal": 5,
+      "debug": 2,
+      "full_flow_integration": 2
+    }
+  }
+}

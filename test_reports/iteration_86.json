@@ -1,0 +1,64 @@
+{
+  "summary": "P2 Play With Coach Step 2 - Pre-Move Guardian testing complete. Backend (17/17 passed): All guardian API endpoints working correctly - evaluate returns risk assessment under 100ms, confirm decrements interventions. Frontend (8/8 passed): Guardian status shows '3 interventions remaining', modal testids configured correctly, API integration working.",
+  "mode": "generate",
+  "baseline_commit": "0d58b79aff6e621a6a037b206e28e60b61a3639e",
+  "head_commit": "50b8a6129cf5d60807a7ca896476cd274b893ef4",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 3,
+    "passed": 52,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_guardian_api.py",
+    "/app/tests/e2e/guardian.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_guardian_api.py",
+    "/app/test_reports/pytest/test_guardian.xml",
+    "/app/tests/e2e/guardian.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_guardian_api.py",
+    "/app/tests/e2e/guardian.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (36/36 passed - 19 Step 1 + 17 Guardian)",
+    "frontend": "100% (16/16 passed - 8 Step 1 + 8 Guardian)"
+  },
+  "seed_data_creation": "No seed data needed - tests create and clean up their own sessions",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Guardian Step 2 fully tested. Key endpoints: POST /api/coach/play/evaluate (returns risk assessment <100ms), POST /api/coach/play/move/confirm (confirms risky move, decrements interventions). Frontend data-testids: guardian-intervention-modal, guardian-cancel-btn, guardian-confirm-btn. Guardian status shows 'Guardian active: X interventions remaining' in game info panel. Risk types: hanging_piece, blunder_into_tactic, ignore_threat, material_loss, back_rank_weakness, king_safety, trapped_piece. Intervention types: block, warn, suggest, none. Sessions start with 3 interventions that decrement on override.",
+  "features_tested": {
+    "backend": [
+      "POST /api/coach/play/evaluate - Evaluates move with guardian before making it",
+      "POST /api/coach/play/move/confirm - Confirms risky move after user acknowledges warning",
+      "Guardian response time verification (<100ms)",
+      "Guardian detects hanging pieces after a move",
+      "Guardian detects bad material trades",
+      "Session starts with 3 interventions",
+      "Interventions decrement on override",
+      "Valid risk types and intervention types"
+    ],
+    "frontend": [
+      "Guardian status indicator 'Guardian active: X interventions remaining'",
+      "Guardian intervention modal data-testids present",
+      "Modal buttons (guardian-cancel-btn, guardian-confirm-btn) testids",
+      "API integration for evaluate endpoint",
+      "API integration for confirm endpoint with intervention decrement"
+    ]
+  }
+}

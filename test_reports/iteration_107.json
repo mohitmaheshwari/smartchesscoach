@@ -1,0 +1,68 @@
+{
+  "summary": "Verified proactive opening guidance feature. All 20 tests pass (11 backend + 9 frontend). Opening Guide panel displays at game start with suggested moves, trap options with Learn Trap/Skip buttons, and teaching state persists across session calls.",
+  "mode": "generate",
+  "baseline_commit": "fade57d12c554363d6cbadbaa318409b6abc7594",
+  "head_commit": "bcc85315a5a370082febc48f255d1369c44cad17",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 20,
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_proactive_opening_guidance.py",
+    "/app/tests/e2e/opening-guidance.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/test_reports/pytest/proactive_opening_results.xml",
+    "/app/backend/tests/test_proactive_opening_guidance.py",
+    "/app/tests/e2e/opening-guidance.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (11 passed)",
+    "frontend": "100% (9 passed)"
+  },
+  "seed_data_creation": "N/A - Used existing dev user data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Proactive opening guidance feature fully verified. Key functionality: 1) At game start, API returns opening_teaching with teaching_active=true. 2) Session includes suggested_trap and available_traps list. 3) Frontend displays Opening Guide panel below board with suggested move and trap options. 4) Learn Trap and Skip buttons work correctly. 5) Teaching state persists across /api/coach/play/state calls.",
+  "features_verified": {
+    "proactive_opening_guidance": [
+      "POST /api/coach/play/start returns session with opening_teaching_active=true",
+      "GET /api/coach/play/state/{id} returns opening_teaching with teaching_active=true",
+      "Opening teaching includes suggested_trap with trap name when available",
+      "Opening teaching includes available_traps list",
+      "Guidance shows suggested_move for white player at game start (e.g., 'Suggested: e4')",
+      "Guidance shows your_turn=true/false based on user color",
+      "Teaching state persists across multiple state API calls"
+    ],
+    "frontend_opening_guide_panel": [
+      "Opening Guide panel (data-testid='opening-guidance') displays after game starts",
+      "Panel shows suggested move text",
+      "Panel shows trap section with Learn Trap and Skip buttons when trap available",
+      "Skip button dismisses trap option and shows 'No problem' toast",
+      "Learn Trap button initiates trap teaching lesson",
+      "Coach Chat panel renders alongside Opening Guidance",
+      "Eval bar visible during game"
+    ],
+    "api_endpoints_verified": [
+      "POST /api/coach/play/start - session creation with opening teaching",
+      "GET /api/coach/play/state/{session_id} - state with opening_teaching data",
+      "POST /api/coach/play/teaching/skip - skip trap offer endpoint",
+      "POST /api/coach/play/teaching/start - start trap lesson endpoint"
+    ]
+  }
+}

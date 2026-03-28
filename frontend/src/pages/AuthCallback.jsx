@@ -2,6 +2,12 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
 
+const consumeStoredRedirectPath = () => {
+  const savedPath = window.sessionStorage.getItem('post_auth_redirect') || '/dashboard';
+  window.sessionStorage.removeItem('post_auth_redirect');
+  return savedPath;
+};
+
 const AuthCallback = () => {
   const navigate = useNavigate();
   const hasProcessed = useRef(false);
@@ -34,9 +40,9 @@ const AuthCallback = () => {
 
         const user = await response.json();
         
-        // Clear the hash and navigate to coach with user data
-        window.history.replaceState(null, '', '/coach');
-        navigate('/coach', { replace: true, state: { user } });
+        const redirectPath = consumeStoredRedirectPath();
+        window.history.replaceState(null, '', redirectPath);
+        navigate(redirectPath, { replace: true, state: { user } });
       } catch (error) {
         console.error('Auth error:', error);
         navigate('/');
