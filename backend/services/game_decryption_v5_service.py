@@ -1867,111 +1867,242 @@ def _explain_opponent_move_with_context(
     pv_after: List[str]
 ) -> Tuple[str, str]:
     """
-    Explain opponent's move with FUN, MEMORABLE language!
+    Explain opponent's move with STRATEGIC DEPTH.
+    
+    For good moves: explain their PLAN (what they're building toward)
+    For bad moves: explain the WEAKNESS they created and how to exploit it
+    Uses PV to read multi-move plans.
     """
     move_san = board.san(move)
     piece = board.piece_at(move.from_square)
+    user_is_white = (user_color == "white")
     
     sim = board.copy()
     sim.push(move)
     
-    # Check what this move threatens
-    threats = []
-    
-    # 1. Does it create a direct threat?
-    for sq, p in sim.piece_map().items():
-        if p.color == (user_color == "white"):  # User's pieces
-            attackers = sim.attackers(not (user_color == "white"), sq)
-            defenders = sim.attackers(user_color == "white", sq)
-            if len(attackers) > len(defenders):
-                piece_name = _get_fun_piece_name(p)
-                threats.append(f"eyeing your {piece_name} on {chess.square_name(sq)}")
-    
-    # 2. Is this a capture?
+    # ─── CAPTURE ───
     if board.is_capture(move):
         captured = board.piece_at(move.to_square)
         if captured:
             captured_name = _get_fun_piece_name(captured)
             return (
-                f"Chomp! They took your {captured_name}.",
-                "Recapture? Check if it's worth it first!"
+                f"They captured your {captured_name} with {move_san}.",
+                "Check if recapturing is safe — count attackers vs defenders first."
             )
     
-    # 3. Is this castling?
+    # ─── CASTLING ───
     if board.is_castling(move):
         return (
-            "They castled! Their King is tucked away safely now.",
-            "Time to make a plan. Where's their weakness?"
+            "They castled. King is safe now — their rook enters the game.",
+            "Their king is secure. Look for weaknesses on the other side of the board."
         )
     
-    # 4. Check for piece-specific ideas with FUN names
+    # ─── CHECK ───
+    if sim.is_check():
+        return (
+            f"{move_san} gives check. You must deal with it.",
+            "Block, capture, or move the king — pick the option that keeps your position intact."
+        )
+    
+    # ─── READ THE PV: What's the opponent's multi-move plan? ───
+    plan_narrative = _extract_opponent_plan_from_pv(sim, pv_after, user_is_white, move_san)
+    if plan_narrative:
+        return plan_narrative
+    
+    # ─── THREATS: What does this move attack? ───
+    threats = []
+    for sq, p in sim.piece_map().items():
+        if p.color == user_is_white:
+            attackers = list(sim.attackers(not user_is_white, sq))
+            defenders = list(sim.attackers(user_is_white, sq))
+            if attackers and len(attackers) > len(defenders):
+                threats.append({
+                    "piece": _get_fun_piece_name(p),
+                    "square": chess.square_name(sq),
+                    "value": _piece_value(p)
+                })
+    
+    if threats:
+        threats.sort(key=lambda t: t["value"], reverse=True)
+        t = threats[0]
+        return (
+            f"{move_san} attacks your {t['piece']} on {t['square']}.",
+            f"Defend your {t['piece']} or move it — check if you can counterattack at the same time."
+        )
+    
+    # ─── PIECE-SPECIFIC STRATEGIC CONTEXT ───
     if piece:
         if piece.piece_type == chess.PAWN:
             to_file = chess.square_file(move.to_square)
-            if to_file in [3, 4]:  # d or e file
+            # Center pawn
+            if to_file in [3, 4]:
                 return (
-                    f"Little Soldier marches to {move_san}. They want the center!",
-                    "Don't let them have all the space. Push back!"
+                    f"{move_san} fights for the center. Central pawns control key squares.",
+                    "Don't let them dominate the center. Push back or challenge with your own pawns."
+                )
+            # Kingside pawn near castled king
+            opp_king = sim.king(not user_is_white)
+            if opp_king and abs(to_file - chess.square_file(opp_king)) <= 2:
+                return (
+                    f"{move_san} pushes a pawn near their king. This weakens their king safety.",
+                    "Pawn moves near the king create holes. Look for ways to target those weak squares."
                 )
             return (
-                f"Pawn to {move_san}. What's the plan behind it?",
-                "Every pawn move creates a weakness. Where is it?"
+                f"{move_san}. Every pawn move changes the structure permanently.",
+                "Check what squares this pawn now controls — and what squares it gave up."
             )
         
         elif piece.piece_type == chess.KNIGHT:
             to_sq = move.to_square
-            if to_sq in [chess.C3, chess.F3, chess.C6, chess.F6]:
+            # Central outpost
+            if to_sq in [chess.D5, chess.E5, chess.D4, chess.E4, chess.C5, chess.C4]:
                 return (
-                    f"Their horsey hops to {move_san}. Classic development!",
-                    "Keep developing. Don't fall behind!"
-                )
-            if to_sq in [chess.D5, chess.E5, chess.D4, chess.E4]:
-                return (
-                    f"Whoa! Their knight lands in the center with {move_san}. Strong!",
-                    "Can you kick it out? Challenge that knight!"
+                    f"Knight to {move_san} — strong central post. A knight here controls many squares.",
+                    "Can you exchange it or push a pawn to kick it away? A central knight is dangerous."
                 )
             return (
-                f"Knight to {move_san}. Where's it heading?",
-                "Watch where that horsey wants to jump next!"
+                f"Knight to {move_san}. Developing toward the center.",
+                "Watch where this knight can jump next — knights change direction quickly."
             )
         
         elif piece.piece_type == chess.BISHOP:
+            # Check if it's on a long diagonal
+            diag_len = len(list(sim.attacks(move.to_square)))
+            if diag_len >= 5:
+                return (
+                    f"Bishop to {move_san} — it sits on a long open diagonal now.",
+                    "Check if your pieces are on that diagonal. If so, move them or block the line."
+                )
             return (
-                f"Slicey Boi slides to {move_san}. Bishops love open diagonals!",
-                "Make sure your pieces aren't on that diagonal!"
+                f"Bishop to {move_san}. Bishops need open diagonals to be effective.",
+                "If this bishop is passive, don't worry about it. Focus on the active pieces."
             )
         
         elif piece.piece_type == chess.ROOK:
             to_file = chess.square_file(move.to_square)
-            file_pawns = len([sq for sq in chess.SQUARES if chess.square_file(sq) == to_file and board.piece_at(sq) and board.piece_at(sq).piece_type == chess.PAWN])
+            file_pawns = sum(1 for sq in chess.SQUARES if chess.square_file(sq) == to_file 
+                          and sim.piece_at(sq) and sim.piece_at(sq).piece_type == chess.PAWN)
             if file_pawns == 0:
                 return (
-                    f"Tower Power! Their rook hits the open file with {move_san}.",
-                    "Open files are dangerous. Contest it or block it!"
+                    f"Rook to {move_san} on the open file. Rooks are strongest on files with no pawns.",
+                    "Contest the open file with your own rook, or block it."
                 )
             return (
-                f"Rook moves to {move_san}.",
-                "Rooks want open files. Don't give them one!"
+                f"Rook to {move_san}.",
+                "Rooks want open files and the 7th rank. Watch where this rook is heading."
             )
         
         elif piece.piece_type == chess.QUEEN:
             return (
-                f"Her Majesty enters with {move_san}. Respect the Queen!",
-                "The Queen is powerful but attackable. Can you harass her?"
+                f"Queen to {move_san}. The queen is powerful but exposed when advanced early.",
+                "Can you develop a piece with tempo by attacking the queen?"
             )
     
-    # 5. If there's a threat, warn about it
-    if threats:
+    # ─── FALLBACK ───
+    best_resp = pv_after[0] if pv_after else None
+    if best_resp:
         return (
-            f"Watch out! {move_san} is {threats[0]}.",
-            "Deal with this threat first, then continue your plan."
+            f"They played {move_san}.",
+            f"Your best response: {best_resp}. Keep developing and look for opportunities."
         )
     
-    # 6. Fallback - but still useful
     return (
         f"They played {move_san}.",
-        "Keep developing! Castle if you haven't."
+        "Continue with your plan. Develop pieces, control the center, castle early."
     )
+
+
+def _extract_opponent_plan_from_pv(
+    board_after: chess.Board,
+    pv: List[str],
+    user_is_white: bool,
+    move_san: str
+) -> Optional[Tuple[str, str]]:
+    """
+    Read the PV to understand the opponent's multi-move plan.
+    
+    Looks at the next 4-6 moves to detect:
+    - Kingside/queenside attack buildup
+    - Piece coordination toward a target
+    - Pawn breaks being prepared
+    - Piece traps or exchanges being forced
+    
+    Returns (narrative, your_plan_now) or None if no clear plan detected.
+    """
+    if not pv or len(pv) < 3:
+        return None
+    
+    try:
+        sim = board_after.copy()
+        moves_played = []
+        opp_moves = []
+        user_moves = []
+        
+        for i, san in enumerate(pv[:6]):
+            try:
+                m = sim.parse_san(san)
+                is_opp = (sim.turn != user_is_white)
+                
+                if is_opp:
+                    opp_moves.append({"san": san, "move": m, "piece": sim.piece_at(m.from_square), "to": m.to_square})
+                else:
+                    user_moves.append({"san": san, "move": m})
+                
+                moves_played.append(san)
+                sim.push(m)
+            except Exception:
+                break
+        
+        if len(opp_moves) < 2:
+            return None
+        
+        # ─── DETECT PLAN PATTERNS ───
+        
+        # 1. Kingside attack (multiple pieces/pawns moving toward user's king)
+        user_king = board_after.king(user_is_white)
+        if user_king:
+            king_file = chess.square_file(user_king)
+            moves_toward_king = sum(1 for om in opp_moves 
+                                   if abs(chess.square_file(om["to"]) - king_file) <= 2
+                                   and om.get("piece") and om["piece"].piece_type != chess.KING)
+            if moves_toward_king >= 2:
+                pieces_coming = [_get_fun_piece_name(om["piece"]) for om in opp_moves if om.get("piece") and abs(chess.square_file(om["to"]) - king_file) <= 2]
+                return (
+                    f"{move_san} — they're building a kingside attack. Next moves aim {', '.join(pieces_coming[:2])} toward your king.",
+                    "Strengthen your king's defense. Bring a piece back to guard, or counterattack in the center."
+                )
+        
+        # 2. Pawn break preparation (pawn moves in the PV suggesting a break)
+        opp_pawn_moves = [om for om in opp_moves if om.get("piece") and om["piece"].piece_type == chess.PAWN]
+        if len(opp_pawn_moves) >= 2:
+            files = [chess.square_file(om["to"]) for om in opp_pawn_moves]
+            if max(files) - min(files) <= 2:  # Pawns on adjacent files = pawn storm
+                return (
+                    f"{move_san} — they're preparing a pawn push on the {'kingside' if max(files) >= 5 else 'queenside' if max(files) <= 2 else 'center'}.",
+                    "Counter a pawn storm by attacking in the center, or push your own pawns on the opposite side."
+                )
+        
+        # 3. Piece exchange sequence
+        captures_in_pv = sum(1 for san in pv[:4] if 'x' in san)
+        if captures_in_pv >= 2:
+            return (
+                f"{move_san} leads to exchanges. They want to simplify the position.",
+                "Exchanges favor the side with more material or a better endgame. Check if trading helps you."
+            )
+        
+        # 4. Development/consolidation (if most opponent moves are developing)
+        developing = sum(1 for om in opp_moves if om.get("piece") and om["piece"].piece_type in [chess.KNIGHT, chess.BISHOP] 
+                        and chess.square_rank(om["to"]) in [2,3,4,5])
+        if developing >= 2:
+            return (
+                f"{move_san} — they're still developing pieces. Finishing development first is strong.",
+                "Don't fall behind in development. Get your pieces out before starting an attack."
+            )
+        
+    except Exception:
+        pass
+    
+    return None
 
 
 def _get_fun_piece_name(piece: chess.Piece) -> str:
