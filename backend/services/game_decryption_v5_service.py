@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 6  # v6: minor inaccuracy softening (close-to-best moves get gentler language)
+V5_COACHING_VERSION = 7  # v7: teaching-focused language (not commenting), standard piece names
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -1241,10 +1241,10 @@ def _generate_generic_plan(
         if chess.square_file(to_square) in [0, 7] or chess.square_rank(to_square) in [0, 7]:
             return ChessPlan(
                 goal="Keep knights active",
-                current_problem=f"Your Horsey wandered to the edge with {played_san}!" if not is_minor else f"{played_san} puts your knight on the edge — slightly passive.",
+                current_problem=f"Knight moved to the edge with {played_san}!" if not is_minor else f"{played_san} puts your knight on the edge — slightly passive.",
                 consequence=consequence,
                 better_approach=better_approach or f"{best_move} keeps the knight in the game",
-                transferable_learning=transferable_learning or "Knights on the rim are dim! They have fewer squares to jump to.",
+                transferable_learning=transferable_learning or "Knights control fewer squares from the edge. A central knight can reach 8 squares — a rim knight only 4.",
                 concept_id="knight_on_rim",
                 concept_type="positional",
                 candidate_moves=candidate_moves
@@ -1253,10 +1253,10 @@ def _generate_generic_plan(
         else:
             return ChessPlan(
                 goal="Give pieces a job" if not is_minor else "Find the strongest square",
-                current_problem=f"Naughty Knight! {played_san} doesn't do anything useful." if not is_minor else f"{played_san} is fine, but {best_move} was slightly stronger here.",
+                current_problem=f"Knight issue: {played_san} doesn't do anything useful." if not is_minor else f"{played_san} is fine, but {best_move} was slightly stronger here.",
                 consequence=consequence,
                 better_approach=better_approach or f"{best_move} was better",
-                transferable_learning=transferable_learning or ("Every piece needs a job! Ask: what is this piece doing for me?" if not is_minor else "Both moves are reasonable — the difference is small."),
+                transferable_learning=transferable_learning or ("Before moving a piece, ask: does this move create a threat or improve my position? If not, look for something stronger." if not is_minor else "Both moves are reasonable — the difference is small."),
                 concept_id="piece_without_purpose" if not is_minor else "minor_inaccuracy",
                 concept_type="positional",
                 candidate_moves=candidate_moves
@@ -1265,10 +1265,10 @@ def _generate_generic_plan(
     elif piece_type == chess.BISHOP:
         return ChessPlan(
             goal="Keep bishops active",
-            current_problem=f"Your Slicey Boi at {played_san} doesn't have good diagonals!" if not is_minor else f"{played_san} is okay, but {best_move} gave your bishop better scope.",
+            current_problem=f"Bishop at {played_san} doesn't have good diagonals!" if not is_minor else f"{played_san} is okay, but {best_move} gave your bishop better scope.",
             consequence=consequence,
             better_approach=better_approach or f"{best_move} gives the bishop more scope",
-            transferable_learning=transferable_learning or ("Bishops need OPEN diagonals. If pawns block them, they're sad!" if not is_minor else "Both moves are playable — slight edge to the alternative."),
+            transferable_learning=transferable_learning or ("Bishops are strongest on open diagonals. If your own pawns block the bishop, trade a pawn to free it." if not is_minor else "Both moves are playable — slight edge to the alternative."),
             concept_id="blocked_bishop" if not is_minor else "minor_inaccuracy",
             concept_type="positional",
             candidate_moves=candidate_moves
@@ -1277,10 +1277,10 @@ def _generate_generic_plan(
     elif piece_type == chess.PAWN:
         return ChessPlan(
             goal="Think before pushing pawns",
-            current_problem=f"That Little Soldier at {played_san} can't go backwards!" if not is_minor else f"{played_san} is reasonable, but {best_move} was slightly more accurate.",
+            current_problem=f"Pawn at {played_san} can't go backwards!" if not is_minor else f"{played_san} is reasonable, but {best_move} was slightly more accurate.",
             consequence=consequence,
             better_approach=better_approach or f"{best_move} was safer",
-            transferable_learning=transferable_learning or ("Pawns can NEVER go back! Every pawn move creates a weakness somewhere." if not is_minor else "A small difference — both are in the right direction."),
+            transferable_learning=transferable_learning or ("Pawn moves are permanent. Before pushing, check: does this weaken a square? Can my opponent use that weakness?" if not is_minor else "A small difference — both are in the right direction."),
             concept_id="premature_pawn" if not is_minor else "minor_inaccuracy",
             concept_type="positional",
             candidate_moves=candidate_moves
@@ -1293,7 +1293,7 @@ def _generate_generic_plan(
             current_problem=f"Hmm, {played_san} has a problem!" if not is_minor else f"{played_san} is playable, but {best_move} was slightly better.",
             consequence=consequence,
             better_approach=better_approach or f"{best_move} was the move here",
-            transferable_learning=transferable_learning or ("Before EVERY move, ask: what can my opponent do after this?" if not is_minor else "Close to the best move — small improvement possible."),
+            transferable_learning=transferable_learning or ("Before every move, ask: what is my opponent threatening? What does my move allow them to do?" if not is_minor else "Close to the best move — small improvement possible."),
             concept_id="generic_mistake" if not is_minor else "minor_inaccuracy",
             concept_type="general",
             candidate_moves=candidate_moves
@@ -1975,14 +1975,14 @@ def _explain_opponent_move_with_context(
 
 
 def _get_fun_piece_name(piece: chess.Piece) -> str:
-    """Get fun, memorable piece names."""
+    """Get standard chess piece names."""
     names = {
-        chess.PAWN: "Little Soldier",
-        chess.KNIGHT: "Horsey",
-        chess.BISHOP: "Slicey Boi",
-        chess.ROOK: "Tower",
-        chess.QUEEN: "Queen",
-        chess.KING: "King"
+        chess.PAWN: "pawn",
+        chess.KNIGHT: "knight",
+        chess.BISHOP: "bishop",
+        chess.ROOK: "rook",
+        chess.QUEEN: "queen",
+        chess.KING: "king"
     }
     return names.get(piece.piece_type, "piece")
 
@@ -2174,34 +2174,24 @@ def generate_simple_narrative(
     already_acknowledged: bool
 ) -> str:
     """
-    Generate a simple, 1200-friendly narrative.
+    Generate a teaching-focused narrative.
     
-    If user already acknowledged this concept, keep it brief.
-    If not, include the learning.
+    Structure: What happened → Why it's wrong → What to do next time.
     """
     if already_acknowledged:
-        # Brief reminder
         if plan.concept_type == "opening":
-            return f"{move_san} — you know this position. {best_move} was better."
-        return f"{move_san} loses something. You've seen this pattern before."
+            return f"{move_san} — you've seen this before. {best_move} was the right move here."
+        return f"{move_san} — same pattern as before. {best_move} was better."
     
-    # Full explanation for new concepts
     parts = []
     
-    # Start with what they tried to do (acknowledge intent)
-    parts.append(f"You played {move_san}.")
-    
-    # The problem (simple)
+    # The problem (what went wrong)
     if plan.current_problem:
         parts.append(plan.current_problem)
     
-    # The consequence (show the future)
-    if plan.consequence:
-        parts.append(plan.consequence)
-    
-    # The better approach
-    if plan.better_approach:
-        parts.append(plan.better_approach)
+    # The teaching moment (what to check next time)
+    if plan.transferable_learning:
+        parts.append(plan.transferable_learning)
     
     return " ".join(parts)
 
