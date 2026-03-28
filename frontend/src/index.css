@@ -84,14 +84,20 @@
   
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Manrope', system-ui, sans-serif;
-    font-feature-settings: "cv11", "ss01";
+    font-family: 'DM Sans', system-ui, sans-serif;
   }
   
-  /* Headings use Outfit with tight tracking */
+  /* Headings use Playfair Display */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', system-ui, sans-serif;
-    @apply tracking-tighter font-semibold;
+    font-family: 'Playfair Display', Georgia, serif;
+    @apply tracking-tight font-normal;
+  }
+
+  .font-heading {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
   }
   
   h1 { @apply text-3xl md:text-4xl font-bold; }
