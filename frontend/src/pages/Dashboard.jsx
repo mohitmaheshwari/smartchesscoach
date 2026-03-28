@@ -146,7 +146,14 @@ const Dashboard = ({ user }) => {
                     background: game.result === "W" ? "#16a34a" : game.result === "L" ? WINE : "#ddd"
                   }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground font-light truncate">vs {game.opponent}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-foreground font-light truncate">vs {game.opponent}</p>
+                      {game.review_status === "in_progress" && (
+                        <span className="text-[9px] px-1.5 py-0.5 font-mono rounded-sm bg-amber-50 text-amber-700 border border-amber-200">
+                          In Progress
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 text-xs mt-0.5">
                       <ResultBadge result={game.result} small />
                       {game.opening && (

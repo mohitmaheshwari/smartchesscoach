@@ -235,6 +235,7 @@ const LabV2 = ({ user }) => {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState(null);
   const [viewMode, setViewMode] = useState("decrypt"); // "decrypt" (primary) or "coach" (overview)
+  const [reachedEnd, setReachedEnd] = useState(false); // User finished reviewing all moves
   
   // Derived data
   const userColor = game?.user_color || "white";
@@ -271,8 +272,8 @@ const LabV2 = ({ user }) => {
           setLabData(await labRes.json());
         }
         
-        // Auto-mark game as reviewed (user opened it in the review page)
-        fetch(`${API}/lab-mark-reviewed/${gameId}`, { method: "POST", credentials: "include" }).catch(() => {});
+        // Mark game as in-progress (user opened review, not finished yet)
+        fetch(`${API}/lab-mark-reviewed/${gameId}?status=in_progress`, { method: "POST", credentials: "include" }).catch(() => {});
         
         // Fetch focus module
         try {
@@ -921,14 +922,37 @@ const LabV2 = ({ user }) => {
         {/* MAIN CONTENT - Conditional based on viewMode */}
         {viewMode === "decrypt" ? (
           /* Game Decryption View - Step-by-step explanations */
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto relative">
             <GameDecryptionV5
               gameId={gameId}
               analysis={analysis}
               pgn={game?.pgn}
               userColor={userColor}
               onBack={() => navigate(-1)}
+              onReachEnd={() => {
+                if (!reachedEnd) {
+                  setReachedEnd(true);
+                  // Mark as fully reviewed
+                  fetch(`${API}/lab-mark-reviewed/${gameId}?status=reviewed`, { method: "POST", credentials: "include" }).catch(() => {});
+                }
+              }}
             />
+            {/* Subtle Coach prompt — appears after reviewing all moves */}
+            {reachedEnd && viewMode === "decrypt" && (
+              <div className="sticky bottom-0 left-0 right-0 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-3 flex items-center justify-between" data-testid="coach-prompt">
+                <p className="text-sm text-muted-foreground">
+                  You've reviewed every move. See the full picture — diagnosis, habits, and what to fix.
+                </p>
+                <button
+                  onClick={() => setViewMode("coach")}
+                  className="px-4 py-1.5 text-sm rounded-sm transition-all hover:opacity-90 flex-shrink-0"
+                  style={{ background: "#722F37", color: "#fff" }}
+                  data-testid="open-coach-btn"
+                >
+                  Open Coach View
+                </button>
+              </div>
+            )}
           </div>
         ) : (
         <div className="flex-1 flex overflow-hidden">

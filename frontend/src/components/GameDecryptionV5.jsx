@@ -49,7 +49,7 @@ import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
+const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, onReachEnd }) => {
   const [decryptionData, setDecryptionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -313,7 +313,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
     } else {
       setHighlights([]);
     }
-  }, [decryptionData, currentMoveIndex]);
+    
+    // Reached the last move
+    if (i === decryptionData.length - 1 && onReachEnd) {
+      onReachEnd();
+    }
+  }, [decryptionData, currentMoveIndex, onReachEnd]);
 
   const goBackward = useCallback(() => {
     if (!decryptionData || currentMoveIndex < 0) return;
@@ -338,7 +343,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
     setCurrentMoveIndex(i);
     setBoardFen(decryptionData[i].fen_after);
     setHighlights([]);
-  }, [decryptionData]);
+    if (onReachEnd) onReachEnd();
+  }, [decryptionData, onReachEnd]);
 
   const goToMove = useCallback((i) => {
     if (!decryptionData || i < -1 || i >= decryptionData.length) return;

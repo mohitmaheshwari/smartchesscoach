@@ -5625,6 +5625,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         mistakes = sf.get("mistakes", 0)
         accuracy = sf.get("accuracy", 0)
         reviewed = g.get("reviewed", False)
+        review_status = g.get("review_status", "not_started")  # not_started, in_progress, reviewed
 
         # Check if was winning (eval > +2 from user's perspective at any point)
         was_winning = False
@@ -5655,6 +5656,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "mistakes": mistakes,
             "accuracy": round(accuracy, 1) if accuracy else 0,
             "reviewed": reviewed,
+            "review_status": review_status,
             "was_winning": was_winning,
             "max_advantage": round(max_advantage / 100, 1),
             "cognitive_gaps": cognitive_gaps,
@@ -5746,13 +5748,26 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
 
 
 @api_router.post("/lab-mark-reviewed/{game_id}")
-async def mark_game_reviewed(game_id: str, user: User = Depends(get_current_user)):
-    """Mark a game as reviewed by the user."""
+async def mark_game_reviewed(game_id: str, status: str = "reviewed", user: User = Depends(get_current_user)):
+    """Mark a game as reviewed or in-progress."""
+    from datetime import datetime as dt, timezone as tz
+    update = {}
+    if status == "reviewed":
+        update = {"reviewed": True, "review_status": "reviewed", "reviewed_at": dt.now(tz.utc).isoformat()}
+    elif status == "in_progress":
+        # Only set in_progress if not already reviewed
+        existing = await db.games.find_one({"game_id": game_id, "user_id": user.user_id}, {"reviewed": 1, "_id": 0})
+        if existing and existing.get("reviewed"):
+            return {"success": True, "status": "already_reviewed"}
+        update = {"review_status": "in_progress", "review_started_at": dt.now(tz.utc).isoformat()}
+    else:
+        update = {"reviewed": True, "review_status": "reviewed", "reviewed_at": dt.now(tz.utc).isoformat()}
+    
     result = await db.games.update_one(
         {"game_id": game_id, "user_id": user.user_id},
-        {"$set": {"reviewed": True, "reviewed_at": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()}}
+        {"$set": update}
     )
-    return {"success": result.modified_count > 0}
+    return {"success": result.modified_count > 0, "status": status}
 
 
 @api_router.get("/dashboard-stats")
