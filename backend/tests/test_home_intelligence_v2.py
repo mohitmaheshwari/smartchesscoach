@@ -7,7 +7,7 @@ import requests
 import os
 from datetime import datetime, timezone
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://identity-tracker-19.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://json-body-issue.preview.emergentagent.com').rstrip('/')
 
 
 class TestHomeIntelligenceV2SpecificPatterns:
