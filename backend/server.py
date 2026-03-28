@@ -5584,6 +5584,177 @@ async def send_push_notification(user_id: str, title: str, body: str, data: dict
         logger.error(f"Failed to send push notification: {e}")
         return False
 
+
+@api_router.get("/lab-coach-pick")
+async def get_lab_coach_pick(user: User = Depends(get_current_user)):
+    """
+    Smart game picker for the Lab page.
+    Returns the most educational unreviewed game + reason + all games with reviewed status.
+    
+    Priority:
+    1. Recurring pattern (same mistake in multiple games)
+    2. Thrown game (was winning, lost)
+    3. Single decisive blunder (one teachable moment)
+    Skip: clean wins, already reviewed games
+    """
+    # Get all analyzed games with analysis data
+    games = await db.games.find(
+        {"user_id": user.user_id, "is_analyzed": True},
+        {"_id": 0}
+    ).sort("imported_at", -1).to_list(100)
+
+    analyses_cursor = db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1,
+         "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.accuracy": 1}
+    )
+    analyses = {a["game_id"]: a async for a in analyses_cursor}
+
+    # Build enriched game list
+    enriched = []
+    for g in games:
+        gid = g.get("game_id", "")
+        a = analyses.get(gid, {})
+        sf = a.get("stockfish_analysis", {})
+        evals = sf.get("move_evaluations", [])
+        uc = g.get("user_color", "white")
+        result = g.get("result", "")
+        user_won = (result == "1-0" and uc == "white") or (result == "0-1" and uc == "black")
+        is_draw = "1/2" in result
+        blunders = sf.get("blunders", 0)
+        mistakes = sf.get("mistakes", 0)
+        accuracy = sf.get("accuracy", 0)
+        reviewed = g.get("reviewed", False)
+
+        # Check if was winning (eval > +2 from user's perspective at any point)
+        was_winning = False
+        max_advantage = 0
+        for e in evals:
+            ev = e.get("eval_before", 0)
+            user_ev = ev if uc == "white" else -ev
+            if user_ev > max_advantage:
+                max_advantage = user_ev
+            if user_ev > 200:
+                was_winning = True
+
+        # Count cognitive gaps for pattern matching
+        cognitive_gaps = []
+        for e in evals:
+            gap = e.get("cognitive_gap", "")
+            if gap and e.get("cp_loss", 0) >= 100:
+                cognitive_gaps.append(gap)
+
+        opp = g.get("opponent_name") or (g.get("white_player") if uc == "black" else g.get("black_player")) or ""
+
+        enriched.append({
+            "game_id": gid,
+            "opponent": opp,
+            "result": "W" if user_won else ("D" if is_draw else "L"),
+            "user_color": uc,
+            "blunders": blunders,
+            "mistakes": mistakes,
+            "accuracy": round(accuracy, 1) if accuracy else 0,
+            "reviewed": reviewed,
+            "was_winning": was_winning,
+            "max_advantage": round(max_advantage / 100, 1),
+            "cognitive_gaps": cognitive_gaps,
+            "opening": g.get("opening", ""),
+            "summary_headline": g.get("summary", {}).get("headline") if isinstance(g.get("summary"), dict) else None,
+        })
+
+    # ── SMART PICK: find the best unreviewed game ──
+    unreviewed = [g for g in enriched if not g["reviewed"]]
+    pick = None
+    pick_reason = ""
+
+    if unreviewed:
+        # Count pattern frequency across all games
+        pattern_counts = {}
+        for g in enriched:
+            for gap in g["cognitive_gaps"]:
+                pattern_counts[gap] = pattern_counts.get(gap, 0) + 1
+
+        # Priority 1: Recurring pattern (game has a pattern that appears 3+ times across games)
+        for g in unreviewed:
+            if g["result"] == "W" and g["blunders"] == 0:
+                continue  # skip clean wins
+            for gap in g["cognitive_gaps"]:
+                if pattern_counts.get(gap, 0) >= 3:
+                    pick = g
+                    readable = gap.replace("_", " ")
+                    pick_reason = f"You've made this mistake ({readable}) {pattern_counts[gap]} times. Let's fix it here."
+                    break
+            if pick:
+                break
+
+        # Priority 2: Thrown game (was winning, lost)
+        if not pick:
+            for g in unreviewed:
+                if g["result"] == "L" and g["was_winning"]:
+                    pick = g
+                    pick_reason = f"You were +{g['max_advantage']} and threw it. This is where rating points go to die."
+                    break
+
+        # Priority 3: Loss with single decisive blunder
+        if not pick:
+            for g in unreviewed:
+                if g["result"] == "L" and g["blunders"] >= 1:
+                    pick = g
+                    pick_reason = f"{g['blunders']} blunder{'s' if g['blunders'] > 1 else ''} decided this game. One lesson to learn."
+                    break
+
+        # Fallback: any unreviewed loss
+        if not pick:
+            for g in unreviewed:
+                if g["result"] == "L":
+                    pick = g
+                    pick_reason = "Your coach thinks this game has something to teach you."
+                    break
+
+        # Last resort: any unreviewed game
+        if not pick and unreviewed:
+            pick = unreviewed[0]
+            pick_reason = "Start with your most recent game."
+
+    # Verdict strip
+    recent = enriched[:15]
+    wins = sum(1 for g in recent if g["result"] == "W")
+    losses = sum(1 for g in recent if g["result"] == "L")
+    blunder_losses = sum(1 for g in recent if g["result"] == "L" and g["blunders"] >= 1)
+    throws = sum(1 for g in recent if g["result"] == "L" and g["was_winning"])
+
+    insight = ""
+    if throws >= 2:
+        insight = f"{throws} games thrown from winning positions. That's where your rating is leaking."
+    elif blunder_losses >= 3:
+        insight = f"{blunder_losses} losses from blunders — you're not being outplayed, you're beating yourself."
+    elif wins > losses * 2:
+        insight = "Strong form. Keep the momentum."
+    elif losses > wins:
+        insight = "Rough stretch. Review losses, don't just play more."
+    else:
+        insight = "Steady form. Room to sharpen."
+
+    return {
+        "pick": pick,
+        "pick_reason": pick_reason,
+        "verdict": {"wins": wins, "losses": losses, "total": len(recent), "insight": insight},
+        "games": enriched,
+        "reviewed_count": sum(1 for g in enriched if g["reviewed"]),
+        "total_count": len(enriched),
+    }
+
+
+@api_router.post("/lab-mark-reviewed/{game_id}")
+async def mark_game_reviewed(game_id: str, user: User = Depends(get_current_user)):
+    """Mark a game as reviewed by the user."""
+    result = await db.games.update_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"$set": {"reviewed": True, "reviewed_at": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()}}
+    )
+    return {"success": result.modified_count > 0}
+
+
 @api_router.get("/dashboard-stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics including player profile for the current user"""
