@@ -76,7 +76,7 @@ export default function AdminDashboard({ user }) {
       <div className="max-w-6xl mx-auto py-4 px-4 space-y-4" data-testid="admin-dashboard">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Admin Dashboard</h1>
-          <div className="flex gap-1 mt-3 bg-zinc-900 rounded-lg p-1 w-fit" data-testid="admin-tabs">
+          <div className="flex gap-1 mt-3 bg-card rounded-lg p-1 w-fit" data-testid="admin-tabs">
             {[
               { key: TAB.OVERVIEW, label: "Overview", icon: <BarChart3 className="w-3.5 h-3.5" /> },
               { key: TAB.USERS, label: "Users", icon: <Users className="w-3.5 h-3.5" /> },
@@ -85,7 +85,7 @@ export default function AdminDashboard({ user }) {
               <button
                 key={t.key}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  activeTab === t.key ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+                  activeTab === t.key ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
                 onClick={() => handleTab(t.key)}
                 data-testid={`admin-tab-${t.key}`}
@@ -133,14 +133,14 @@ const OverviewTab = () => {
     { label: "Analyses", value: data.total_analyses, icon: <Brain className="w-4 h-4 text-purple-400" /> },
     { label: "Community Pool", value: data.community_positions, icon: <BookOpen className="w-4 h-4 text-cyan-400" /> },
     { label: "Feedback Pending", value: data.feedback_pending, icon: <Flag className="w-4 h-4 text-red-400" /> },
-    { label: "Feedback Total", value: data.feedback_total, icon: <MessageSquareWarning className="w-4 h-4 text-zinc-400" /> },
+    { label: "Feedback Total", value: data.feedback_total, icon: <MessageSquareWarning className="w-4 h-4 text-muted-foreground" /> },
   ];
 
   return (
     <div className="space-y-6" data-testid="admin-overview">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <Card key={s.label} className="border-zinc-800 bg-zinc-900/50">
+          <Card key={s.label} className="border-border bg-card">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1">
                 {s.icon}
@@ -159,7 +159,7 @@ const OverviewTab = () => {
           <h3 className="text-sm font-medium mb-2 text-muted-foreground">Recent Signups</h3>
           <div className="space-y-1">
             {data.recent_users.map((u, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded bg-zinc-900/50 border border-zinc-800/50 text-sm">
+              <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded bg-card border border-border text-sm">
                 <span>{u.name || u.email || u.user_id}</span>
                 <div className="flex items-center gap-2">
                   <RoleBadge role={u.role} />
@@ -269,14 +269,14 @@ const UsersTab = ({ currentUser }) => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, email..."
-            className="pl-9 bg-zinc-900 border-zinc-800"
+            className="pl-9 bg-card border-border"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             data-testid="user-search"
           />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-32 bg-zinc-900 border-zinc-800" data-testid="role-filter">
+          <SelectTrigger className="w-32 bg-card border-border" data-testid="role-filter">
             <SelectValue placeholder="All roles" />
           </SelectTrigger>
           <SelectContent>
@@ -302,12 +302,12 @@ const UsersTab = ({ currentUser }) => {
           {users.map((u) => (
             <div
               key={u.user_id}
-              className="flex items-center justify-between py-2 px-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50 cursor-pointer hover:border-primary/30 transition-colors"
+              className="flex items-center justify-between py-2 px-3 rounded-lg bg-card border border-border cursor-pointer hover:border-primary/30 transition-colors"
               onClick={() => openDetail(u.user_id)}
               data-testid={`user-row-${u.user_id}`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold shrink-0">
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
                   {(u.name || "?")[0]}
                 </div>
                 <div className="min-w-0">
@@ -327,7 +327,7 @@ const UsersTab = ({ currentUser }) => {
 
       {/* Create User Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-zinc-900 border-zinc-800" data-testid="create-user-dialog">
+        <DialogContent className="bg-card border-border" data-testid="create-user-dialog">
           <DialogHeader>
             <DialogTitle>Create New User</DialogTitle>
           </DialogHeader>
@@ -336,7 +336,7 @@ const UsersTab = ({ currentUser }) => {
               placeholder="Name"
               value={createForm.name}
               onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-              className="bg-zinc-800 border-zinc-700"
+              className="bg-muted border-border"
               data-testid="create-name-input"
             />
             <Input
@@ -344,7 +344,7 @@ const UsersTab = ({ currentUser }) => {
               type="email"
               value={createForm.email}
               onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-              className="bg-zinc-800 border-zinc-700"
+              className="bg-muted border-border"
               data-testid="create-email-input"
             />
             <Input
@@ -352,11 +352,11 @@ const UsersTab = ({ currentUser }) => {
               type="number"
               value={createForm.rating}
               onChange={(e) => setCreateForm((f) => ({ ...f, rating: parseInt(e.target.value) || 1200 }))}
-              className="bg-zinc-800 border-zinc-700"
+              className="bg-muted border-border"
               data-testid="create-rating-input"
             />
             <Select value={createForm.role} onValueChange={(v) => setCreateForm((f) => ({ ...f, role: v }))}>
-              <SelectTrigger className="bg-zinc-800 border-zinc-700" data-testid="create-role-select">
+              <SelectTrigger className="bg-muted border-border" data-testid="create-role-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -383,12 +383,12 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
 
   return (
     <div className="space-y-4" data-testid="user-detail">
-      <button onClick={onBack} className="text-xs text-muted-foreground hover:text-white flex items-center gap-1" data-testid="back-to-users-btn">
+      <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1" data-testid="back-to-users-btn">
         <ArrowLeft className="w-3 h-3" /> Back to users
       </button>
 
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-lg font-bold">
+        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-lg font-bold">
           {(u.name || "?")[0]}
         </div>
         <div>
@@ -399,7 +399,7 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
           <RoleBadge role={u.role} />
           {isSuperAdmin && u.user_id !== currentUser.user_id && (
             <Select value={u.role || "user"} onValueChange={(v) => onChangeRole(u.user_id, v)}>
-              <SelectTrigger className="w-28 h-7 text-xs bg-zinc-800 border-zinc-700" data-testid="change-role-select">
+              <SelectTrigger className="w-28 h-7 text-xs bg-muted border-border" data-testid="change-role-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -419,7 +419,7 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
           { label: "Rating", value: u.rating || "-" },
           { label: "Joined", value: formatDate(u.created_at) },
         ].map((s) => (
-          <Card key={s.label} className="border-zinc-800 bg-zinc-900/50">
+          <Card key={s.label} className="border-border bg-card">
             <CardContent className="p-3">
               <p className="text-xs text-muted-foreground">{s.label}</p>
               <p className="text-lg font-bold" data-testid={`detail-${s.label.toLowerCase()}`}>{s.value}</p>
@@ -432,7 +432,7 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
       {data.habits && (
         <div>
           <h3 className="text-sm font-medium mb-2 text-muted-foreground">Player Habits</h3>
-          <Card className="border-zinc-800 bg-zinc-900/50">
+          <Card className="border-border bg-card">
             <CardContent className="p-3">
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {Object.entries(data.habits)
@@ -456,7 +456,7 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
           <h3 className="text-sm font-medium mb-2 text-muted-foreground">Recent Games ({data.game_count} total)</h3>
           <div className="space-y-1">
             {data.recent_games.map((g) => (
-              <div key={g.game_id} className="flex items-center justify-between py-1.5 px-3 rounded bg-zinc-900/50 border border-zinc-800/50 text-xs">
+              <div key={g.game_id} className="flex items-center justify-between py-1.5 px-3 rounded bg-card border border-border text-xs">
                 <span>{g.opening || "Unknown"}</span>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">{g.user_color}</Badge>
@@ -476,7 +476,7 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
           <h3 className="text-sm font-medium mb-2 text-muted-foreground">Opening Progress</h3>
           <div className="space-y-1">
             {data.opening_progress.map((op, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded bg-zinc-900/50 border border-zinc-800/50 text-xs">
+              <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded bg-card border border-border text-xs">
                 <span>{op.opening_key?.replace(/_/g, " ") || "Unknown"}</span>
                 <span className="text-muted-foreground">Mastery: {op.mastery_level || 0}%</span>
               </div>
@@ -540,7 +540,7 @@ const FeedbackTab = () => {
     pending: "text-amber-400 border-amber-500/30",
     acknowledged: "text-blue-400 border-blue-500/30",
     valid: "text-red-400 border-red-500/30",
-    dismissed: "text-zinc-500 border-zinc-700",
+    dismissed: "text-muted-foreground border-border",
   };
 
   const statusIcons = {
@@ -554,7 +554,7 @@ const FeedbackTab = () => {
     <div className="space-y-4" data-testid="admin-feedback">
       <div className="flex items-center gap-3">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-32 bg-zinc-900 border-zinc-800" data-testid="feedback-status-filter">
+          <SelectTrigger className="w-32 bg-card border-border" data-testid="feedback-status-filter">
             <SelectValue placeholder="All status" />
           </SelectTrigger>
           <SelectContent>
@@ -566,7 +566,7 @@ const FeedbackTab = () => {
           </SelectContent>
         </Select>
         <Select value={sourceFilter} onValueChange={setSourceFilter}>
-          <SelectTrigger className="w-28 bg-zinc-900 border-zinc-800" data-testid="feedback-source-filter">
+          <SelectTrigger className="w-28 bg-card border-border" data-testid="feedback-source-filter">
             <SelectValue placeholder="All sources" />
           </SelectTrigger>
           <SelectContent>
@@ -584,7 +584,7 @@ const FeedbackTab = () => {
         <LoadingSpinner />
       ) : feedback.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground" data-testid="feedback-empty">
-          <MessageSquareWarning className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
+          <MessageSquareWarning className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-sm">No feedback yet.</p>
           <p className="text-xs mt-1">Users can flag moves in Lab and Coach when coaching seems wrong.</p>
         </div>
@@ -593,7 +593,7 @@ const FeedbackTab = () => {
           {feedback.map((fb) => (
             <Card
               key={fb.feedback_id}
-              className={`border-zinc-800 bg-zinc-900/50 cursor-pointer transition-colors ${expandedId === fb.feedback_id ? "border-primary/30" : "hover:border-zinc-700"}`}
+              className={`border-border bg-card cursor-pointer transition-colors ${expandedId === fb.feedback_id ? "border-primary/30" : "hover:border-border"}`}
               onClick={() => setExpandedId(expandedId === fb.feedback_id ? null : fb.feedback_id)}
               data-testid={`feedback-item-${fb.feedback_id}`}
             >
@@ -610,14 +610,14 @@ const FeedbackTab = () => {
                   <span className="text-xs text-muted-foreground shrink-0">{formatDate(fb.created_at)}</span>
                 </div>
 
-                <p className="text-sm mt-2 text-zinc-300 line-clamp-2">{fb.user_note}</p>
+                <p className="text-sm mt-2 text-foreground line-clamp-2">{fb.user_note}</p>
 
                 {expandedId === fb.feedback_id && (
-                  <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="mt-3 space-y-2 border-t border-border pt-3" onClick={(e) => e.stopPropagation()}>
                     {fb.fen && (
                       <div className="text-xs">
                         <span className="text-muted-foreground">FEN: </span>
-                        <code className="bg-zinc-800 px-1 rounded text-xs">{fb.fen}</code>
+                        <code className="bg-muted px-1 rounded text-xs">{fb.fen}</code>
                       </div>
                     )}
                     {fb.move_san && (
@@ -628,33 +628,33 @@ const FeedbackTab = () => {
                       </div>
                     )}
                     {fb.coaching_text && (
-                      <div className="text-xs bg-zinc-800 p-2 rounded">
+                      <div className="text-xs bg-muted p-2 rounded">
                         <span className="text-muted-foreground">Coaching said: </span>
-                        <span className="text-zinc-300">{fb.coaching_text}</span>
+                        <span className="text-foreground">{fb.coaching_text}</span>
                       </div>
                     )}
                     {/* Developer Diagnostics */}
                     {fb.diagnostics && Object.values(fb.diagnostics).some(v => v != null) && (
-                      <div className="text-[10px] bg-zinc-800/50 p-2 rounded border border-zinc-700/50 space-y-0.5">
-                        <span className="text-zinc-500 uppercase tracking-wide text-[9px] font-medium">Diagnostics</span>
+                      <div className="text-[10px] bg-muted/50 p-2 rounded border border-border/50 space-y-0.5">
+                        <span className="text-muted-foreground uppercase tracking-wide text-[9px] font-medium">Diagnostics</span>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1">
-                          {fb.diagnostics.severity && <div><span className="text-zinc-500">Severity:</span> <span className={`font-medium ${fb.diagnostics.severity === 'blunder' ? 'text-red-400' : fb.diagnostics.severity === 'mistake' ? 'text-orange-400' : fb.diagnostics.severity === 'inaccuracy' ? 'text-amber-400' : 'text-emerald-400'}`}>{fb.diagnostics.severity}</span></div>}
-                          {fb.diagnostics.cp_loss != null && <div><span className="text-zinc-500">CP Loss:</span> <span className="text-zinc-300">{fb.diagnostics.cp_loss}</span></div>}
-                          {fb.diagnostics.best_move && <div><span className="text-zinc-500">Best Move:</span> <span className="text-emerald-400 font-mono">{fb.diagnostics.best_move}</span></div>}
-                          {fb.diagnostics.eval_before != null && <div><span className="text-zinc-500">Eval Before:</span> <span className="text-zinc-300">{fb.diagnostics.eval_before}</span></div>}
-                          {fb.diagnostics.eval_after != null && <div><span className="text-zinc-500">Eval After:</span> <span className="text-zinc-300">{fb.diagnostics.eval_after}</span></div>}
-                          {fb.diagnostics.phase && <div><span className="text-zinc-500">Phase:</span> <span className="text-zinc-300">{fb.diagnostics.phase}</span></div>}
-                          {fb.diagnostics.component && <div><span className="text-zinc-500">Component:</span> <span className="text-blue-400">{fb.diagnostics.component}</span></div>}
-                          {fb.diagnostics.concept_id && <div><span className="text-zinc-500">Concept:</span> <span className="text-zinc-300">{fb.diagnostics.concept_id}</span></div>}
+                          {fb.diagnostics.severity && <div><span className="text-muted-foreground">Severity:</span> <span className={`font-medium ${fb.diagnostics.severity === 'blunder' ? 'text-red-400' : fb.diagnostics.severity === 'mistake' ? 'text-orange-400' : fb.diagnostics.severity === 'inaccuracy' ? 'text-amber-400' : 'text-emerald-400'}`}>{fb.diagnostics.severity}</span></div>}
+                          {fb.diagnostics.cp_loss != null && <div><span className="text-muted-foreground">CP Loss:</span> <span className="text-foreground">{fb.diagnostics.cp_loss}</span></div>}
+                          {fb.diagnostics.best_move && <div><span className="text-muted-foreground">Best Move:</span> <span className="text-emerald-400 font-mono">{fb.diagnostics.best_move}</span></div>}
+                          {fb.diagnostics.eval_before != null && <div><span className="text-muted-foreground">Eval Before:</span> <span className="text-foreground">{fb.diagnostics.eval_before}</span></div>}
+                          {fb.diagnostics.eval_after != null && <div><span className="text-muted-foreground">Eval After:</span> <span className="text-foreground">{fb.diagnostics.eval_after}</span></div>}
+                          {fb.diagnostics.phase && <div><span className="text-muted-foreground">Phase:</span> <span className="text-foreground">{fb.diagnostics.phase}</span></div>}
+                          {fb.diagnostics.component && <div><span className="text-muted-foreground">Component:</span> <span className="text-blue-400">{fb.diagnostics.component}</span></div>}
+                          {fb.diagnostics.concept_id && <div><span className="text-muted-foreground">Concept:</span> <span className="text-foreground">{fb.diagnostics.concept_id}</span></div>}
                         </div>
-                        {fb.diagnostics.goal && <div className="mt-1"><span className="text-zinc-500">Goal:</span> <span className="text-zinc-300">{fb.diagnostics.goal}</span></div>}
-                        {fb.diagnostics.consequence && <div><span className="text-zinc-500">Consequence:</span> <span className="text-zinc-300">{fb.diagnostics.consequence}</span></div>}
-                        {fb.diagnostics.better_approach && <div><span className="text-zinc-500">Better Approach:</span> <span className="text-zinc-300">{fb.diagnostics.better_approach}</span></div>}
-                        {fb.diagnostics.your_plan_now && <div><span className="text-zinc-500">Your Plan Now:</span> <span className="text-zinc-300">{fb.diagnostics.your_plan_now}</span></div>}
+                        {fb.diagnostics.goal && <div className="mt-1"><span className="text-muted-foreground">Goal:</span> <span className="text-foreground">{fb.diagnostics.goal}</span></div>}
+                        {fb.diagnostics.consequence && <div><span className="text-muted-foreground">Consequence:</span> <span className="text-foreground">{fb.diagnostics.consequence}</span></div>}
+                        {fb.diagnostics.better_approach && <div><span className="text-muted-foreground">Better Approach:</span> <span className="text-foreground">{fb.diagnostics.better_approach}</span></div>}
+                        {fb.diagnostics.your_plan_now && <div><span className="text-muted-foreground">Your Plan Now:</span> <span className="text-foreground">{fb.diagnostics.your_plan_now}</span></div>}
                       </div>
                     )}
                     {fb.admin_notes && (
-                      <div className="text-xs bg-zinc-800 p-2 rounded border border-zinc-700">
+                      <div className="text-xs bg-muted p-2 rounded border border-border">
                         <span className="text-muted-foreground">Admin notes: </span>
                         <span>{fb.admin_notes}</span>
                       </div>
@@ -663,7 +663,7 @@ const FeedbackTab = () => {
                     <div className="flex items-center gap-2 pt-1">
                       <Input
                         placeholder="Admin notes (optional)..."
-                        className="text-xs h-7 bg-zinc-800 border-zinc-700 flex-1"
+                        className="text-xs h-7 bg-muted border-border flex-1"
                         value={adminNotes}
                         onChange={(e) => setAdminNotes(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
@@ -675,7 +675,7 @@ const FeedbackTab = () => {
                       <Button size="sm" variant="outline" className="h-7 text-xs text-red-400 border-red-500/30" onClick={() => updateStatus(fb.feedback_id, "valid")} data-testid="btn-valid">
                         <Flag className="w-3 h-3 mr-1" /> Valid
                       </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs text-zinc-400 border-zinc-700" onClick={() => updateStatus(fb.feedback_id, "dismissed")} data-testid="btn-dismiss">
+                      <Button size="sm" variant="outline" className="h-7 text-xs text-muted-foreground border-border" onClick={() => updateStatus(fb.feedback_id, "dismissed")} data-testid="btn-dismiss">
                         <X className="w-3 h-3 mr-1" /> Dismiss
                       </Button>
                     </div>
@@ -697,7 +697,7 @@ const RoleBadge = ({ role }) => {
   const config = {
     super_admin: { icon: <ShieldCheck className="w-3 h-3" />, color: "text-amber-400 border-amber-500/30", label: "Super Admin" },
     admin: { icon: <Shield className="w-3 h-3" />, color: "text-blue-400 border-blue-500/30", label: "Admin" },
-    user: { icon: <UserIcon className="w-3 h-3" />, color: "text-zinc-400 border-zinc-700", label: "User" },
+    user: { icon: <UserIcon className="w-3 h-3" />, color: "text-muted-foreground border-border", label: "User" },
   };
   const c = config[role] || config.user;
   return (
