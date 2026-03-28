@@ -9341,18 +9341,23 @@ class FlagMoveRequest(BaseModel):
     coaching_text: Optional[str] = None
     user_note: str
     # Developer-grade diagnostic fields
-    severity: Optional[str] = None           # good/inaccuracy/mistake/blunder
-    cp_loss: Optional[int] = None            # centipawn loss
-    best_move: Optional[str] = None          # what Stockfish recommended
-    eval_before: Optional[float] = None      # eval before the move
-    eval_after: Optional[float] = None       # eval after the move
-    phase: Optional[str] = None              # opening/middlegame/endgame
-    component: Optional[str] = None          # which UI component (V5CoachingCard, DecryptionV5, etc.)
-    concept_id: Optional[str] = None         # coaching concept that was shown
-    goal: Optional[str] = None               # V5 coaching goal text
-    consequence: Optional[str] = None        # V5 coaching consequence text
-    better_approach: Optional[str] = None    # V5 coaching better_approach text
-    your_plan_now: Optional[str] = None      # V5 your_plan_now text
+    severity: Optional[str] = None
+    cp_loss: Optional[int] = None
+    best_move: Optional[str] = None
+    eval_before: Optional[float] = None
+    eval_after: Optional[float] = None
+    phase: Optional[str] = None
+    component: Optional[str] = None
+    concept_id: Optional[str] = None
+    goal: Optional[str] = None
+    consequence: Optional[str] = None
+    better_approach: Optional[str] = None
+    your_plan_now: Optional[str] = None
+    # Extended debug fields
+    transferable_learning: Optional[str] = None
+    pv_after_played: Optional[str] = None
+    candidate_moves: Optional[str] = None
+    opening_name: Optional[str] = None
 
 
 @api_router.post("/feedback/flag")
@@ -9388,6 +9393,10 @@ async def flag_move(req: FlagMoveRequest, user: User = Depends(get_current_user)
             "consequence": req.consequence,
             "better_approach": req.better_approach,
             "your_plan_now": req.your_plan_now,
+            "transferable_learning": req.transferable_learning,
+            "pv_after_played": req.pv_after_played,
+            "candidate_moves": req.candidate_moves,
+            "opening_name": req.opening_name,
         }
     }
 

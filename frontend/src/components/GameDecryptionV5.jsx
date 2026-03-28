@@ -828,12 +828,12 @@ const MoveCoachingCardV5 = ({
     source: "lab",
     gameId,
     moveNumber: move.move_number,
-    fen: move.fen || "",
+    fen: move.fen_before || move.fen || "",
     moveSan: move.move_san,
     side: isUser ? "user" : "opponent",
     severity,
     cpLoss: move.cp_loss,
-    bestMove: move.best_move,
+    bestMove: move.best_move_san || move.best_move,
     evalBefore: move.eval_before,
     evalAfter: move.eval_after,
     phase: move.phase,
@@ -843,6 +843,9 @@ const MoveCoachingCardV5 = ({
     consequence: move.plan?.consequence,
     betterApproach: move.plan?.better_approach,
     yourPlanNow: move.your_plan_now,
+    transferableLearning: move.plan?.transferable_learning,
+    pvAfterPlayed: move.future_moves?.join(" "),
+    candidateMoves: move.plan?.candidate_moves?.map(c => `${c.move}: ${c.idea}`).join(" | "),
   };
 
   return (

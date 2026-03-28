@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 5  # v5: PV-based consequence analysis (captures > static piece checks)
+V5_COACHING_VERSION = 6  # v6: minor inaccuracy softening (close-to-best moves get gentler language)
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -1233,12 +1233,15 @@ def _generate_generic_plan(
     transferable_learning = _derive_transferable_learning(candidate_moves, piece_type, to_square)
     
     # Determine the type of issue and pick a MEMORABLE golden rule
+    # If the move is close to best (cp_loss < 50), don't be harsh — it's a minor inaccuracy
+    is_minor = cp_loss < 50
+    
     if piece_type == chess.KNIGHT:
         # Knight on the rim?
         if chess.square_file(to_square) in [0, 7] or chess.square_rank(to_square) in [0, 7]:
             return ChessPlan(
                 goal="Keep knights active",
-                current_problem=f"Your Horsey wandered to the edge with {played_san}!",
+                current_problem=f"Your Horsey wandered to the edge with {played_san}!" if not is_minor else f"{played_san} puts your knight on the edge — slightly passive.",
                 consequence=consequence,
                 better_approach=better_approach or f"{best_move} keeps the knight in the game",
                 transferable_learning=transferable_learning or "Knights on the rim are dim! They have fewer squares to jump to.",
@@ -1246,15 +1249,15 @@ def _generate_generic_plan(
                 concept_type="positional",
                 candidate_moves=candidate_moves
             )
-        # Knight with no purpose?
+        # Knight move
         else:
             return ChessPlan(
-                goal="Give pieces a job",
-                current_problem=f"Naughty Knight! {played_san} doesn't do anything useful.",
+                goal="Give pieces a job" if not is_minor else "Find the strongest square",
+                current_problem=f"Naughty Knight! {played_san} doesn't do anything useful." if not is_minor else f"{played_san} is fine, but {best_move} was slightly stronger here.",
                 consequence=consequence,
                 better_approach=better_approach or f"{best_move} was better",
-                transferable_learning=transferable_learning or "Every piece needs a job! Ask: what is this piece doing for me?",
-                concept_id="piece_without_purpose",
+                transferable_learning=transferable_learning or ("Every piece needs a job! Ask: what is this piece doing for me?" if not is_minor else "Both moves are reasonable — the difference is small."),
+                concept_id="piece_without_purpose" if not is_minor else "minor_inaccuracy",
                 concept_type="positional",
                 candidate_moves=candidate_moves
             )
@@ -1262,11 +1265,11 @@ def _generate_generic_plan(
     elif piece_type == chess.BISHOP:
         return ChessPlan(
             goal="Keep bishops active",
-            current_problem=f"Your Slicey Boi at {played_san} doesn't have good diagonals!",
+            current_problem=f"Your Slicey Boi at {played_san} doesn't have good diagonals!" if not is_minor else f"{played_san} is okay, but {best_move} gave your bishop better scope.",
             consequence=consequence,
             better_approach=better_approach or f"{best_move} gives the bishop more scope",
-            transferable_learning=transferable_learning or "Bishops need OPEN diagonals. If pawns block them, they're sad!",
-            concept_id="blocked_bishop",
+            transferable_learning=transferable_learning or ("Bishops need OPEN diagonals. If pawns block them, they're sad!" if not is_minor else "Both moves are playable — slight edge to the alternative."),
+            concept_id="blocked_bishop" if not is_minor else "minor_inaccuracy",
             concept_type="positional",
             candidate_moves=candidate_moves
         )
@@ -1274,11 +1277,11 @@ def _generate_generic_plan(
     elif piece_type == chess.PAWN:
         return ChessPlan(
             goal="Think before pushing pawns",
-            current_problem=f"That Little Soldier at {played_san} can't go backwards!",
+            current_problem=f"That Little Soldier at {played_san} can't go backwards!" if not is_minor else f"{played_san} is reasonable, but {best_move} was slightly more accurate.",
             consequence=consequence,
             better_approach=better_approach or f"{best_move} was safer",
-            transferable_learning=transferable_learning or "Pawns can NEVER go back! Every pawn move creates a weakness somewhere.",
-            concept_id="premature_pawn",
+            transferable_learning=transferable_learning or ("Pawns can NEVER go back! Every pawn move creates a weakness somewhere." if not is_minor else "A small difference — both are in the right direction."),
+            concept_id="premature_pawn" if not is_minor else "minor_inaccuracy",
             concept_type="positional",
             candidate_moves=candidate_moves
         )
@@ -1287,11 +1290,11 @@ def _generate_generic_plan(
         # Generic but still SPECIFIC
         return ChessPlan(
             goal="Think before you move",
-            current_problem=f"Hmm, {played_san} has a problem!",
+            current_problem=f"Hmm, {played_san} has a problem!" if not is_minor else f"{played_san} is playable, but {best_move} was slightly better.",
             consequence=consequence,
             better_approach=better_approach or f"{best_move} was the move here",
-            transferable_learning=transferable_learning or "Before EVERY move, ask: what can my opponent do after this?",
-            concept_id="generic_mistake",
+            transferable_learning=transferable_learning or ("Before EVERY move, ask: what can my opponent do after this?" if not is_minor else "Close to the best move — small improvement possible."),
+            concept_id="generic_mistake" if not is_minor else "minor_inaccuracy",
             concept_type="general",
             candidate_moves=candidate_moves
         )

@@ -67,6 +67,10 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
           consequence: context.consequence || null,
           better_approach: context.betterApproach || null,
           your_plan_now: context.yourPlanNow || null,
+          transferable_learning: context.transferableLearning || null,
+          pv_after_played: context.pvAfterPlayed || null,
+          candidate_moves: context.candidateMoves || null,
+          opening_name: context.opening || null,
         }),
       });
       if (res.ok) {
