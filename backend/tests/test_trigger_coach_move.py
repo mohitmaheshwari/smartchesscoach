@@ -15,7 +15,7 @@ Tests:
 import pytest
 import uuid
 
-BASE_URL = "https://json-body-issue.preview.emergentagent.com"
+BASE_URL = "https://guru-play-debug.preview.emergentagent.com"
 
 
 class TestTriggerCoachMoveEndpoint:

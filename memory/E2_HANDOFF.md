@@ -108,7 +108,7 @@ templates/
 - `POST /api/coach/play/start` - Start coaching session
 - `POST /api/coach/play/move` - Make a move (triggers Chess Brain analysis)
 - `GET /api/coach/play/feedback/{session_id}` - Get coaching feedback
-- Backend URL: `https://json-body-issue.preview.emergentagent.com`
+- Backend URL: `https://guru-play-debug.preview.emergentagent.com`
 
 ---
 

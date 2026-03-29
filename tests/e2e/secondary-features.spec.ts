@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://json-body-issue.preview.emergentagent.com';
+const BASE_URL = 'https://guru-play-debug.preview.emergentagent.com';
 
 test.describe('PostLossRecoveryCard Component', () => {
   

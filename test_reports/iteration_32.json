@@ -65,7 +65,7 @@
   },
 
   "test_credentials_used": {
-    "dev_login": "https://json-body-issue.preview.emergentagent.com/api/auth/dev-login",
+    "dev_login": "https://guru-play-debug.preview.emergentagent.com/api/auth/dev-login",
     "test_game_id": "game_c1658a380825"
   },
 

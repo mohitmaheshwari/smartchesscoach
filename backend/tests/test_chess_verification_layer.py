@@ -21,7 +21,7 @@ import sys
 # Add backend to path for direct imports
 sys.path.insert(0, '/app/backend')
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://json-body-issue.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://guru-play-debug.preview.emergentagent.com')
 
 # ============================================================================
 # TEST DATA - The specific test case from main agent

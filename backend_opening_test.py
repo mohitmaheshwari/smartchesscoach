@@ -24,7 +24,7 @@ from coach_engine.opening_plans import build_opening_coaching_context, get_openi
 from services.move_by_move_coach import get_variation_teaching
 
 # Test configuration
-BASE_URL = "https://json-body-issue.preview.emergentagent.com/api"
+BASE_URL = "https://guru-play-debug.preview.emergentagent.com/api"
 TEST_USER_ID = None
 TEST_SESSION_TOKEN = None
 
