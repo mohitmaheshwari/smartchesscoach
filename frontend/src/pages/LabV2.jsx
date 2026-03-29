@@ -59,6 +59,7 @@ import {
 import FeedbackModal from "@/components/FeedbackModal";
 import GameDecryptionV5 from "@/components/GameDecryptionV5";
 import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
+import CoachReview from "@/components/Lab/CoachReview";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -1042,12 +1043,12 @@ const LabV2 = ({ user }) => {
             </div>
           </div>
           
-          {/* Right: Coach Insight Panel — 3 tabs: Summary, Habits, Memory */}
-          <div className="w-[45%] flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4">
-              <CoachInsightPanel 
+          {/* Right: Coach Review — 5-section human coaching session */}
+          <div className="w-[45%] flex flex-col overflow-hidden bg-[#050505]">
+            <div className="flex-1 overflow-y-auto p-5">
+              <CoachReview 
                 gameId={gameId} 
-                onMoveClick={(moveNum) => navigateToMoveNumber(moveNum)}
+                onMoveClick={(moveNum, moveUci, bestUci) => navigateToMoveNumber(moveNum, moveUci, bestUci)}
               />
             </div>
           </div>

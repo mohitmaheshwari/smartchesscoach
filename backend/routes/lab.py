@@ -687,6 +687,43 @@ async def explain_mistake(req: MistakeExplanationRequest, user: User = Depends(g
 
 
 
+@router.get("/lab/{game_id}/coach-review")
+async def get_coach_review(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Human Coach Review — the 5-section coaching session.
+    
+    1. THE STORY — Game narrative
+    2. THE MIRROR — Personality insight
+    3. THE MOMENT — Critical decisions (2-3)
+    4. THE TAKEAWAY — One mantra
+    5. THE PROOF — Progress tracking
+    """
+    global db, call_llm
+    from services.coach_review_service import generate_coach_review
+
+    game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    user_color = game.get("user_color", "white")
+
+    review = await generate_coach_review(
+        db=db,
+        game=game,
+        analysis=analysis,
+        user_id=user.user_id,
+        user_color=user_color,
+        call_llm_func=call_llm,
+    )
+
+    return review
+
+
+
 @router.get("/lab/{game_id}/coach-insight")
 async def get_coach_insight(game_id: str, user: User = Depends(get_current_user)):
     """
