@@ -1,0 +1,31 @@
+# Chess Coach AI - Frontend Builder
+# Builds the React app and copies the output to /output (bind-mounted to host)
+#
+# This is a "run once" container: builds → copies → exits
+
+FROM node:20-slim AS builder
+
+WORKDIR /app/frontend
+
+# Copy package files
+COPY frontend/package.json frontend/package-lock.json* frontend/yarn.lock* ./
+
+# Install dependencies
+RUN yarn install
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build the React app (uses .env.production for REACT_APP_BACKEND_URL)
+RUN yarn build
+
+# ============================================
+# Output stage: copy build to /output
+# ============================================
+FROM alpine:latest
+
+COPY --from=builder /app/frontend/build /build
+
+# On startup, copy build output to the bind-mounted /output directory
+# This deploys the frontend to the host nginx directory
+CMD ["sh", "-c", "rm -rf /output/* && cp -r /build/* /output/ && echo '✅ Frontend deployed to /output successfully' && ls -la /output/"]

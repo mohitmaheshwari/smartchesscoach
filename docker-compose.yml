@@ -1,15 +1,13 @@
 # Chess Coach AI - Docker Compose Configuration
-# 
+#
 # Usage:
 #   docker compose up -d --build
 #
-# This runs the complete app (frontend + backend + nginx) in a single container,
-# plus MongoDB as a separate service.
+# This builds the frontend, deploys it to the host nginx directory,
+# and runs backend + MongoDB in Docker.
 #
-# Environment variables (set in .env file or export before running):
-#   - OPENAI_API_KEY: API key for LLM integration
-#   - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: For Google OAuth
-#   - GOOGLE_REDIRECT_URI: OAuth callback URL (default: https://chessguru.ai/api/auth/google/callback)
+# Host nginx serves the frontend static files from /var/www/html/SMART_CHESS_COACH
+# Host nginx proxies /api to localhost:8002 (backend container)
 
 services:
   # ============================================
@@ -34,20 +32,16 @@ services:
       retries: 5
 
   # ============================================
-  # App (Frontend + Backend + Nginx — single container)
+  # Backend API (FastAPI + Stockfish)
   # ============================================
-  # Uses the multi-stage Dockerfile:
-  #   Stage 1: Builds React frontend (yarn build)
-  #   Stage 2: Python runtime + nginx + supervisor
-  #   Nginx serves frontend static files + proxies /api/ to backend
-  app:
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: chess-coach-app
+      dockerfile: Dockerfile.backend
+    container_name: chess-coach-backend
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8002:8002"
     environment:
       - MONGO_URL=mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017
       - DB_NAME=chess_coach
@@ -59,7 +53,7 @@ services:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8002/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -69,6 +63,21 @@ services:
           memory: 2G
         reservations:
           memory: 512M
+
+  # ============================================
+  # Frontend Builder (builds React & deploys to host nginx dir)
+  # ============================================
+  # This service builds the frontend and copies it to the host path
+  # where nginx serves static files. It exits after the copy is done.
+  frontend-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend.build
+    container_name: chess-coach-frontend-builder
+    volumes:
+      - /var/www/html/SMART_CHESS_COACH:/output
+    # Runs once (build + copy), then exits — that's expected
+    restart: "no"
 
 volumes:
   mongodb_data:
