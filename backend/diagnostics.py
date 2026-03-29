@@ -255,7 +255,7 @@ def suggest_fixes(db):
     if games_not_in_queue > 0:
         suggestions.append(
             f"  {games_not_in_queue} game(s) imported but never queued for analysis.\n"
-            f"    Run: python requeue_missing.py  (see below)"
+            f"    Run: python requeue_missing.py --go"
         )
 
     if total_games == 0:
