@@ -1,13 +1,15 @@
 # Chess Coach AI - Docker Compose Configuration
 # 
 # Usage:
-#   Development: docker-compose up
-#   Production:  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   docker compose up -d --build
 #
-# Environment variables required:
-#   - MONGO_URL: MongoDB connection string
+# This runs the complete app (frontend + backend + nginx) in a single container,
+# plus MongoDB as a separate service.
+#
+# Environment variables (set in .env file or export before running):
 #   - OPENAI_API_KEY: API key for LLM integration
-#   - (Optional) GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET for OAuth
+#   - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: For Google OAuth
+#   - GOOGLE_REDIRECT_URI: OAuth callback URL (default: https://chessguru.ai/api/auth/google/callback)
 
 version: '3.8'
 
@@ -34,16 +36,20 @@ services:
       retries: 5
 
   # ============================================
-  # Backend API (FastAPI)
+  # App (Frontend + Backend + Nginx — single container)
   # ============================================
-  backend:
+  # Uses the multi-stage Dockerfile:
+  #   Stage 1: Builds React frontend (yarn build)
+  #   Stage 2: Python runtime + nginx + supervisor
+  #   Nginx serves frontend static files + proxies /api/ to backend
+  app:
     build:
       context: .
-      dockerfile: Dockerfile.backend
-    container_name: chess-coach-backend
+      dockerfile: Dockerfile
+    container_name: chess-coach-app
     restart: unless-stopped
     ports:
-      - "8002:8002"
+      - "80:80"
     environment:
       - MONGO_URL=mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017
       - DB_NAME=chess_coach
@@ -55,30 +61,16 @@ services:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-    volumes:
-      - ./backend:/app/backend:ro  # Mount for development hot-reload
-
-  # # ============================================
-  # # Frontend (React - Development)
-  # # ============================================
-  # frontend:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.frontend
-  #   container_name: chess-coach-frontend
-  #   restart: unless-stopped
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - REACT_APP_BACKEND_URL=http://localhost:8001
-  #   depends_on:
-  #     - backend
-  #   volumes:
-  #     - ./frontend/src:/app/frontend/src:ro  # Mount for development hot-reload
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
 
 volumes:
   mongodb_data:
