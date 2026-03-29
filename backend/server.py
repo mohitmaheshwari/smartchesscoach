@@ -1092,6 +1092,20 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
         doc['imported_at'] = doc['imported_at'].isoformat()
         await db.games.insert_one(doc)
         imported_count += 1
+        
+        # Queue for Stockfish analysis
+        try:
+            await db.analysis_queue.insert_one({
+                "game_id": doc["game_id"],
+                "user_id": user.user_id,
+                "pgn": doc.get("pgn", ""),
+                "user_color": doc.get("user_color", "white"),
+                "status": "pending",
+                "queued_at": datetime.now(timezone.utc).isoformat(),
+                "attempts": 0,
+            })
+        except Exception as q_err:
+            logger.error(f"Failed to queue game {doc['game_id']} for analysis: {q_err}")
     
     # GAMIFICATION: Award XP for importing games
     if imported_count > 0:

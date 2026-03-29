@@ -993,6 +993,7 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 logger.info(f"Extracted opening: {opening_info.get('opening')} (ECO: {opening_info.get('eco')})")
             
             await db.games.insert_one(game_doc)
+            imported_count += 1
             logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {platform}")
             
             # Queue the game for analysis by the worker
