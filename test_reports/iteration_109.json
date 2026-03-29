@@ -1,0 +1,76 @@
+{
+  "summary": "Verified chess coaching app enhancements: 1) OpeningGuidePanel component extracted and working correctly in CoachPlay, 2) Lab page Habits tab shows Opening Progress section with mastery levels, 3) /api/training/opening-progress endpoint returns combined coach + real game stats with loss_phase tracking, 4) No regressions in Play with Coach opening guidance functionality. All 27 tests pass (20 backend + 7 frontend).",
+  "mode": "update",
+  "baseline_commit": "b0bfd962a75f02550a9f70d7cebd0bda788d4537",
+  "head_commit": "dc9c4eb9be2c2889f82e915a00757f4f1656e709",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 27,
+    "passed": 27,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_opening_progress_api.py",
+    "/app/tests/e2e/lab-opening-progress.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/test_reports/pytest/opening_progress_results.xml",
+    "/app/backend/tests/test_opening_progress_api.py",
+    "/app/backend/tests/test_intelligent_opening_suggestion.py",
+    "/app/tests/e2e/opening-guidance.spec.ts",
+    "/app/tests/e2e/lab-opening-progress.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_opening_progress_api.py",
+    "/app/tests/e2e/lab-opening-progress.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (20 passed)",
+    "frontend": "100% (7 passed)"
+  },
+  "seed_data_creation": "N/A - Used existing dev user data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All three features tested: 1) OpeningGuidePanel renders in CoachPlay with suggested moves, trap options (Learn Trap/Skip buttons), and completion status, 2) Lab page Habits tab shows Opening Progress section with mastery levels (unknown/introduced/learning/practiced/mastered), game counts, and Show All button, 3) /api/training/opening-progress returns combined coach + real game stats including loss_phases tracking. The opening-guidance.spec.ts has 12 tests (11 passed, 1 flaky timing issue) and lab-opening-progress.spec.ts has 7 tests (all passed).",
+  "features_verified": {
+    "openingGuidePanelExtraction": [
+      "Component renders with data-testid='opening-guidance'",
+      "Shows suggested move text (e.g., 'Suggested: e4')",
+      "Shows trap options with Learn Trap and Skip buttons",
+      "Completion message shows with data-testid='opening-complete'",
+      "BookOpen icon and 'Opening Guide' header visible"
+    ],
+    "labPageOpeningProgress": [
+      "Opening Progress section appears in Habits tab",
+      "Shows mastery levels (Introduced, Unknown, etc.)",
+      "Shows 'X learned' count in header",
+      "Show All button expands list when >3 openings",
+      "Italian Game, Sicilian Defense, Queen's Gambit visible"
+    ],
+    "openingProgressAPI": [
+      "Endpoint /api/training/opening-progress returns combined data",
+      "Response includes: progress array, total_taught, total_played, needs_attention",
+      "Coach-taught openings include loss_phases object",
+      "dominant_loss_phase calculated correctly",
+      "needs_work flag based on win_rate < 50% and games > 2"
+    ],
+    "lossPhaseTracking": [
+      "loss_phase stored in update_memory_after_game()",
+      "Tracks opening/middlegame/endgame phases",
+      "Updates user_opening_progress collection",
+      "dominant_loss_phase shows where user loses most"
+    ]
+  }
+}

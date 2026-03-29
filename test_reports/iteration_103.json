@@ -1,0 +1,88 @@
+{
+  "summary": "Tested coach memory integration with postgame_analysis.py. Created 21 backend tests (10 API integration + 11 unit tests) and 9 frontend E2E tests. All tests verify that POST /api/coach/play/analysis returns memory section with games_together, coach_knows_you, and insights array. Memory insights show recurring patterns when weakness appears 3+ times.",
+  "mode": "generate",
+  "baseline_commit": "8962f1b4ef3a3611f74e779dd6c47f9aaa35738a",
+  "head_commit": "597964a1e42311e6d6d8b68dad29c4b56b96ab5a",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 30,
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_postgame_memory_integration.py",
+    "/app/backend/tests/test_memory_insights_logic.py",
+    "/app/tests/e2e/postgame-memory.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [
+    "/app/tests/e2e/coach-play.spec.ts - test 'should have flip board button' - flaky pre-existing test not related to memory integration"
+  ],
+  "test_report_links": [
+    "/app/test_reports/pytest/postgame_memory_results.xml",
+    "/app/backend/tests/test_postgame_memory_integration.py",
+    "/app/backend/tests/test_memory_insights_logic.py",
+    "/app/tests/e2e/postgame-memory.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_postgame_memory_integration.py",
+    "/app/backend/tests/test_memory_insights_logic.py",
+    "/app/tests/e2e/postgame-memory.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (21 passed)",
+    "frontend": "100% (9 passed)"
+  },
+  "seed_data_creation": "N/A - Used existing dev user",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Coach memory integration is fully tested. POST /api/coach/play/analysis returns memory section with games_together (int), coach_knows_you (bool), and insights (array). Each insight has type, message, pattern, count, improving fields. Memory insights include: recurring_pattern (when weakness appears 2+ times), improvement (when known weakness avoided), performance_comparison (after 3+ games), milestone (at game 5, 10, 25, 50), first_time (new pattern spotted). Unit tests verify the _generate_memory_insights function logic directly.",
+  "features_tested": {
+    "backend_api_integration": [
+      "POST /api/coach/play/analysis returns memory section with games_together, coach_knows_you, insights",
+      "Analysis returns coach_summary and encouragement strings",
+      "Analysis returns performance_rating with estimated, confidence, vs_actual, factors",
+      "Analysis returns mistakes breakdown with blunders, mistakes, inaccuracies, details",
+      "Analysis returns habits section with violations, improved, still_weak",
+      "Analysis returns recommendations with priority, suggestions, opening_to_learn",
+      "Analysis requires session_id (400 for missing)",
+      "Analysis returns 404 for invalid session_id",
+      "Memory insight types are valid (recurring_pattern, improvement, performance_comparison, milestone, first_time)",
+      "games_together counter increments after multiple games"
+    ],
+    "backend_unit_tests": [
+      "recurring_pattern shows when weakness count >= 3",
+      "recurring_pattern shown for count 2 with awareness message (less urgent)",
+      "recurring_pattern with 5+ count shows main habit severity",
+      "improvement insight when known weakness avoided",
+      "no improvement insight when habit not a known weakness",
+      "performance_comparison requires 3+ games together",
+      "performance_comparison shows when playing above level",
+      "first_time pattern for new habit violation",
+      "milestone at game 5, 10, 25, 50",
+      "no milestone at arbitrary counts",
+      "max 5 insights returned"
+    ],
+    "frontend_e2e": [
+      "Post-game analysis displays after game ends",
+      "Coach memory section visible in analysis (data-testid coach-memory-insights)",
+      "Game number indicator in memory section",
+      "Play again button after analysis",
+      "API returns memory section with games_together, coach_knows_you, insights",
+      "API returns performance_rating with estimated and confidence",
+      "API returns mistakes breakdown",
+      "API returns habits section",
+      "API returns recommendations"
+    ]
+  }
+}

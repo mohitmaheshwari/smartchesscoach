@@ -1,0 +1,95 @@
+{
+  "tactical_threats": {
+    "fork": {
+      "description": "Attacking two pieces at once with one piece",
+      "warning": "Watch out for knight forks especially - they can attack two valuable pieces simultaneously",
+      "defense": "Keep your valuable pieces (queen, rooks) on different colored squares from each other"
+    },
+    "pin": {
+      "description": "A piece cannot move because it would expose a more valuable piece behind it",
+      "warning": "Bishops and rooks love to create pins - watch the diagonals and files to your king",
+      "defense": "Break pins by moving the piece behind, blocking, or attacking the pinning piece"
+    },
+    "skewer": {
+      "description": "Forcing a valuable piece to move, exposing a piece behind it to capture",
+      "warning": "Keep your king and queen off the same diagonal or file",
+      "defense": "Interpose a less valuable piece or move to break the alignment"
+    },
+    "discovered_attack": {
+      "description": "Moving one piece reveals an attack from a piece behind it",
+      "warning": "Be careful when your opponent's pieces are lined up with a piece in front",
+      "defense": "Don't let your valuable pieces align with opponent's hidden attackers"
+    },
+    "double_attack": {
+      "description": "Creating two threats at once that can't both be defended",
+      "warning": "Queens are especially dangerous for double attacks",
+      "defense": "When you see one threat, always look for a second"
+    },
+    "back_rank": {
+      "description": "Checkmate threat on the back rank when the king has no escape",
+      "warning": "If your king is trapped behind pawns, a rook or queen can deliver mate",
+      "defense": "Create a 'luft' (escape square) by pushing h3/h6 or g3/g6"
+    },
+    "trapped_piece": {
+      "description": "A piece has no safe squares to move to",
+      "warning": "Knights on the edge and bishops without retreating squares are vulnerable",
+      "defense": "Always ensure your pieces have escape routes"
+    }
+  },
+  
+  "positional_threats": {
+    "pawn_storm": {
+      "description": "Advancing pawns toward your king to open lines for attack",
+      "warning": "When you castle opposite sides, expect a pawn storm",
+      "defense": "Counter-attack in the center or on your own wing"
+    },
+    "piece_invasion": {
+      "description": "Opponent's pieces penetrating into your territory",
+      "warning": "Rooks on the 7th rank and knights in your camp are very dangerous",
+      "defense": "Trade off invading pieces or create your own counterplay"
+    },
+    "weak_square": {
+      "description": "A square in your position that can no longer be defended by pawns",
+      "warning": "Opponent's pieces will try to occupy your weak squares",
+      "defense": "Use pieces to control weak squares if pawns can't"
+    },
+    "isolated_pawn": {
+      "description": "Targeting a pawn that has no neighboring pawns to defend it",
+      "warning": "Isolated pawns become targets in the endgame",
+      "defense": "Keep pieces active to compensate for the weakness"
+    },
+    "bishop_pair": {
+      "description": "Two bishops working together control many squares",
+      "warning": "In open positions, the bishop pair is very powerful",
+      "defense": "Keep the position closed or trade one of the bishops"
+    },
+    "space_advantage": {
+      "description": "Opponent controls more squares and has more room for pieces",
+      "warning": "Cramped positions make it hard to coordinate pieces",
+      "defense": "Look for pawn breaks to free your position"
+    }
+  },
+  
+  "common_opponent_plans": {
+    "kingside_attack": {
+      "signs": ["h4-h5 pawn advances", "pieces gathering on kingside", "rooks on g or h files"],
+      "counter": "Counter in the center or on the queenside"
+    },
+    "queenside_attack": {
+      "signs": ["a4-a5 or b4-b5 advances", "rooks on a or b files", "pieces shifted to queenside"],
+      "counter": "Attack in the center or on the kingside"
+    },
+    "central_breakthrough": {
+      "signs": ["d4-d5 or e4-e5 pawn breaks", "pieces aimed at center"],
+      "counter": "Control the center with pieces or prepare your own break"
+    },
+    "piece_exchange_simplification": {
+      "signs": ["offering trades", "clearing pieces off the board"],
+      "counter": "Avoid trades if behind, seek activity"
+    },
+    "squeeze_play": {
+      "signs": ["slowly improving piece positions", "prophylactic moves", "no direct threats"],
+      "counter": "Create counterplay before getting squeezed"
+    }
+  }
+}

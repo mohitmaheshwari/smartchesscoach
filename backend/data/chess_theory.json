@@ -1,0 +1,260 @@
+{
+  "_meta": {
+    "description": "Chess Theory Database - Opening and Endgame patterns with explanations",
+    "version": "1.0.0",
+    "last_updated": "2025-03-21",
+    "admin_editable": true,
+    "instructions": "Add patterns here. The system will match positions and provide explanations."
+  },
+
+  "opening_theory": {
+    "_description": "Opening patterns: position + mistake + correct move + explanation",
+    
+    "italian_two_knights_d5": {
+      "name": "Two Knights Defense - Premature d5",
+      "eco": "C55",
+      "fen_pattern": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq",
+      "bad_move": "d5",
+      "good_move": "d6",
+      "condition": "White knight on f3 (not g5)",
+      "explanation": "In the Two Knights Defense, d5 is premature when White hasn't played Ng5. After exd5, Black loses central control and faces tactical problems.",
+      "why_bad": "After exd5 Nxd5, Black's center crumbles. The e5 pawn becomes weak.",
+      "why_good": "d6 supports the e5 pawn, keeps the center solid, and prepares Be7 + O-O.",
+      "rule": "In the Italian/Two Knights, d5 is only good AFTER Ng5. Play d6 first.",
+      "category": "opening",
+      "difficulty": "beginner"
+    },
+
+    "italian_giuoco_piano_d5": {
+      "name": "Giuoco Piano - Premature d5",
+      "eco": "C53",
+      "fen_pattern": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq",
+      "bad_move": "d5",
+      "good_move": "d6",
+      "condition": "Both bishops developed",
+      "explanation": "In the Giuoco Piano, d5 gives up the center. d6 is the main line - solid and flexible.",
+      "why_bad": "d5 opens the position when you're not fully developed. White gets active play.",
+      "why_good": "d6 maintains tension, supports e5, and allows flexible development.",
+      "rule": "In the Italian Game, keep the center solid with d6 unless you have a specific tactical reason for d5.",
+      "category": "opening",
+      "difficulty": "beginner"
+    },
+
+    "sicilian_premature_d5": {
+      "name": "Sicilian Defense - Premature d5",
+      "eco": "B20",
+      "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq",
+      "bad_move": "d5",
+      "good_move": "d6",
+      "condition": "Early Sicilian position",
+      "explanation": "In the Sicilian, Black should play d6 first to support the c5 pawn. d5 is premature.",
+      "why_bad": "After exd5, Black has no central pawns and White controls the center.",
+      "why_good": "d6 prepares a solid structure. d5 comes later after proper preparation.",
+      "rule": "In the Sicilian, play d6 first. Prepare d5 with pieces, not rush it.",
+      "category": "opening",
+      "difficulty": "beginner"
+    },
+
+    "french_attack_chain": {
+      "name": "French Defense - Pawn Chain Attack",
+      "eco": "C00",
+      "fen_pattern": "rnbqkbnr/ppp2ppp/4p3/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq",
+      "bad_move": "f6",
+      "good_move": "c5",
+      "condition": "White has e5 pawn chain",
+      "explanation": "In the French, attack the BASE of the pawn chain (d4) with c5, not the HEAD (e5) with f6.",
+      "why_bad": "f6 attacks the strong part of the chain. After exf6, Black's kingside is weakened.",
+      "why_good": "c5 attacks d4, the base. If White doesn't defend properly, the whole chain collapses.",
+      "rule": "In the French, attack the pawn chain base with c5, not the head with f6.",
+      "category": "opening",
+      "difficulty": "intermediate"
+    },
+
+    "caro_kann_solid_d5": {
+      "name": "Caro-Kann Defense - Support d5",
+      "eco": "B10",
+      "fen_pattern": "rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR b KQkq",
+      "bad_move": "e6",
+      "good_move": "dxe4",
+      "condition": "Main line Caro-Kann",
+      "explanation": "In the main line Caro-Kann, capture dxe4 to challenge White's center. e6 is passive.",
+      "why_bad": "e6 blocks the light-squared bishop and gives White a space advantage.",
+      "why_good": "dxe4 forces White to recapture, then Bf5 develops with tempo.",
+      "rule": "In the Caro-Kann, capture dxe4 and develop Bf5 - that's the whole point of the opening.",
+      "category": "opening",
+      "difficulty": "beginner"
+    },
+
+    "queens_gambit_hold_d5": {
+      "name": "Queen's Gambit - Don't Grab c4",
+      "eco": "D06",
+      "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq",
+      "bad_move": "dxc4",
+      "good_move": "e6",
+      "condition": "Standard Queen's Gambit position",
+      "explanation": "In the Queen's Gambit, accepting with dxc4 gives up the center. e6 maintains central control.",
+      "why_bad": "After dxc4, White plays e4 and dominates the center. The c4 pawn is hard to hold.",
+      "why_good": "e6 supports d5, prepares Nf6 and Bd6. Black keeps equal chances.",
+      "rule": "In the Queen's Gambit, don't grab the pawn unless you know the theory. e6 or c6 are safe.",
+      "category": "opening",
+      "difficulty": "beginner"
+    },
+
+    "london_system_challenge": {
+      "name": "London System - Challenge the Bishop",
+      "eco": "D02",
+      "fen_pattern": "rnbqkb1r/ppp1pppp/5n2/3p4/3P1B2/5N2/PPP1PPPP/RN1QKB1R b KQkq",
+      "bad_move": "Bg4",
+      "good_move": "c5",
+      "condition": "Standard London position",
+      "explanation": "Against the London, challenge the center with c5 instead of pinning with Bg4.",
+      "why_bad": "Bg4 doesn't challenge White's setup. White plays e3 and has a comfortable position.",
+      "why_good": "c5 attacks d4 immediately and challenges White's central control.",
+      "rule": "Against the London, play c5 early to challenge the center. Don't just develop passively.",
+      "category": "opening",
+      "difficulty": "intermediate"
+    }
+  },
+
+  "endgame_theory": {
+    "_description": "Endgame patterns with rules to remember",
+
+    "king_and_pawn_opposition": {
+      "name": "King and Pawn - Opposition",
+      "pattern_type": "KP_vs_K",
+      "key_rule": "The attacking king must get in FRONT of the pawn to win.",
+      "explanation": "With king and pawn vs king, the attacker wins only if their king reaches the 6th rank in front of the pawn.",
+      "common_mistake": "Pushing the pawn before the king is in front",
+      "correct_technique": "Use the king to gain opposition, then advance the pawn",
+      "rule": "King in FRONT of the pawn wins. King BEHIND the pawn draws.",
+      "category": "endgame",
+      "difficulty": "beginner"
+    },
+
+    "rook_endgame_activity": {
+      "name": "Rook Endgames - Rook Activity",
+      "pattern_type": "rook_endgame",
+      "key_rule": "Rook activity is more important than material.",
+      "explanation": "In rook endgames, an active rook on the 7th rank is often worth more than a pawn.",
+      "common_mistake": "Defending passively to save material",
+      "correct_technique": "Activate your rook even if it costs a pawn",
+      "rule": "Active rook > extra pawn. Get your rook to the 7th rank.",
+      "category": "endgame",
+      "difficulty": "intermediate"
+    },
+
+    "rook_behind_passed_pawn": {
+      "name": "Rook Endgames - Rook Behind Passed Pawn",
+      "pattern_type": "rook_endgame",
+      "key_rule": "Place your rook BEHIND passed pawns (yours or opponent's).",
+      "explanation": "A rook behind a passed pawn gains activity as the pawn advances. A rook in front loses activity.",
+      "common_mistake": "Putting rook in front of passed pawn",
+      "correct_technique": "Rook behind your passed pawn to support. Rook behind opponent's to stop it.",
+      "rule": "Rooks belong BEHIND passed pawns, never in front.",
+      "category": "endgame",
+      "difficulty": "intermediate"
+    },
+
+    "lucena_position": {
+      "name": "Lucena Position - Building a Bridge",
+      "pattern_type": "rook_endgame",
+      "key_rule": "Win by building a bridge with your rook.",
+      "explanation": "With rook and pawn on the 7th rank and enemy king cut off, use your rook to block checks - the bridge technique.",
+      "common_mistake": "Trying to promote immediately without the bridge",
+      "correct_technique": "Rook to the 4th rank, then use it to shield the king from checks",
+      "rule": "Lucena: Build the bridge. Rook to 4th rank, then shield the king.",
+      "category": "endgame",
+      "difficulty": "advanced"
+    },
+
+    "philidor_position": {
+      "name": "Philidor Position - Third Rank Defense",
+      "pattern_type": "rook_endgame",
+      "key_rule": "Defend by keeping your rook on the 3rd rank until the pawn advances.",
+      "explanation": "With rook and pawn vs rook, the defender draws by keeping their rook on the 3rd rank, then going to the back rank when the pawn advances.",
+      "common_mistake": "Going to the back rank too early",
+      "correct_technique": "Stay on 3rd rank. Only go to back rank when pawn reaches 6th.",
+      "rule": "Philidor defense: 3rd rank until pawn advances, then back rank for checks.",
+      "category": "endgame",
+      "difficulty": "advanced"
+    },
+
+    "opposite_bishops_draw": {
+      "name": "Opposite Colored Bishops - Drawing Tendency",
+      "pattern_type": "bishop_endgame",
+      "key_rule": "Opposite colored bishops favor the defender.",
+      "explanation": "With opposite colored bishops, even a 2-pawn advantage may not be enough to win.",
+      "common_mistake": "Assuming material advantage wins",
+      "correct_technique": "Place pawns on squares your bishop controls, blockade on enemy bishop color",
+      "rule": "Opposite bishops: defense has huge drawing chances. Don't trade into this if you're winning!",
+      "category": "endgame",
+      "difficulty": "intermediate"
+    },
+
+    "knight_vs_bishop_endgame": {
+      "name": "Knight vs Bishop - Pawn Structure",
+      "pattern_type": "minor_piece_endgame",
+      "key_rule": "Knight prefers closed positions, bishop prefers open positions.",
+      "explanation": "Knights are better with locked pawns. Bishops are better in open positions with pawns on both sides.",
+      "common_mistake": "Not considering pawn structure when trading pieces",
+      "correct_technique": "Trade into knight endgame if position is closed. Trade into bishop endgame if open.",
+      "rule": "Knight = closed positions. Bishop = open positions with pawns on both sides.",
+      "category": "endgame",
+      "difficulty": "intermediate"
+    }
+  },
+
+  "tactical_patterns": {
+    "_description": "Common tactical patterns and their rules",
+
+    "undefended_piece": {
+      "name": "Undefended Pieces",
+      "pattern_type": "hanging_piece",
+      "trigger": "Piece attacked but not defended",
+      "rule": "Before EVERY move, check: Are any of my pieces undefended?",
+      "explanation": "Many tactics work because a piece was left undefended.",
+      "category": "tactical",
+      "difficulty": "beginner"
+    },
+
+    "pin_to_king": {
+      "name": "Pin to the King",
+      "pattern_type": "pin",
+      "trigger": "Piece on line between attacker and king",
+      "rule": "Avoid placing valuable pieces on lines with your king.",
+      "explanation": "A pinned piece cannot move without exposing the king to check.",
+      "category": "tactical",
+      "difficulty": "beginner"
+    },
+
+    "knight_fork": {
+      "name": "Knight Fork",
+      "pattern_type": "fork",
+      "trigger": "Knight attacks multiple valuable pieces",
+      "rule": "Watch for knight fork squares when your king and queen are on the same color complex.",
+      "explanation": "Knights can attack multiple pieces at once. The most deadly forks target king and queen.",
+      "category": "tactical",
+      "difficulty": "beginner"
+    },
+
+    "back_rank_weakness": {
+      "name": "Back Rank Mate",
+      "pattern_type": "back_rank",
+      "trigger": "King trapped on back rank with no escape squares",
+      "rule": "Give your king an escape square (luft) - push h6 or g6.",
+      "explanation": "If your king has no escape and your back rank is weak, opponent's rook or queen can deliver mate.",
+      "category": "tactical",
+      "difficulty": "beginner"
+    },
+
+    "discovered_attack": {
+      "name": "Discovered Attack",
+      "pattern_type": "discovered",
+      "trigger": "Piece moves to reveal an attack by another piece",
+      "rule": "Watch for pieces lined up behind your pieces - moving one might reveal an attack.",
+      "explanation": "Discovered attacks are powerful because you make two threats at once.",
+      "category": "tactical",
+      "difficulty": "intermediate"
+    }
+  }
+}

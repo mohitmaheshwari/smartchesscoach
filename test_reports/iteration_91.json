@@ -1,0 +1,73 @@
+{
+  "summary": "Focus Lock Mode (Step 9) fully tested - All 24 tests pass (15 backend + 9 frontend). Focus Lock endpoints work correctly with activation guardrails, state persistence, and frontend integration.",
+  "mode": "generate",
+  "baseline_commit": "d57f713df5f86797aeb1603d277646853c17dbe6",
+  "head_commit": "9e24db60c962fe1c02d610e61a4051132ea1ea7e",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 2,
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_focus_lock_api.py",
+    "/app/tests/e2e/focus-lock.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_focus_lock_api.py",
+    "/app/test_reports/pytest/focus_lock_api.xml",
+    "/app/tests/e2e/focus-lock.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_focus_lock_api.py",
+    "/app/tests/e2e/focus-lock.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 passed)",
+    "frontend": "100% (9/9 passed)"
+  },
+  "seed_data_creation": "Used existing test user user_bdd07038f9c0 (148 analyzed games) with session 37cfa3f6-90be-4a3d-a4b0-1a3b65e66680",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Focus Lock Mode (Step 9) is fully tested. Key endpoints: GET /api/coach/focus-lock (returns active state), POST /api/coach/focus-lock/activate (with guardrails: 10+ games needed, no duplicate locks), POST /api/coach/focus-lock/deactivate. Valid lesson_keys: FORCING_BLIND, STOPPED_CALCULATION_EARLY, THREAT_VERIFICATION. FocusLockCard component displays on dashboard when lock is active and overrides CoachWeeklySignalCard. CTA button navigates to /games or /deep-session based on should_trigger_deep_session flag.",
+  "features_tested": {
+    "backend": [
+      "GET /api/coach/focus-lock - returns {active: false} when no lock",
+      "GET /api/coach/focus-lock - returns full state when lock active (lesson_key, state, headline, progress, compliance, strict_mode, failed_cycles)",
+      "POST /api/coach/focus-lock/activate - activates FORCING_BLIND",
+      "POST /api/coach/focus-lock/activate - activates STOPPED_CALCULATION_EARLY",
+      "POST /api/coach/focus-lock/activate - activates THREAT_VERIFICATION",
+      "POST /api/coach/focus-lock/activate - rejects invalid lesson_key (400)",
+      "POST /api/coach/focus-lock/activate - rejects duplicate activation (400)",
+      "POST /api/coach/focus-lock/activate - uses default games=5 if not specified",
+      "POST /api/coach/focus-lock/deactivate - deactivates active lock",
+      "POST /api/coach/focus-lock/deactivate - handles no lock gracefully",
+      "GET /api/coach/breakthrough-signal - still returns weekly signal data",
+      "Focus lock state transitions (ACTIVE state, compliance colors, deep session flag)",
+      "Full activate->verify->deactivate cycle"
+    ],
+    "frontend": [
+      "Dashboard loads without FocusLockCard when no lock active",
+      "FocusLockCard displays when lock is active",
+      "FocusLockCard shows rule description and progress",
+      "FocusLockCard CTA button clickable and navigates correctly",
+      "Different lesson keys display appropriate content",
+      "Focus lock state persists across page reloads",
+      "Deactivating lock removes FocusLockCard from UI",
+      "Dashboard shows other content (stats cards) when no lock",
+      "FocusLockCard visual structure verified (label, progress, CTA)"
+    ]
+  }
+}

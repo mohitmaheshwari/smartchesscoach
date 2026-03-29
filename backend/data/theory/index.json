@@ -1,0 +1,57 @@
+{
+  "_meta": {
+    "description": "Chess Theory Knowledge Base — index and metadata",
+    "version": "2.0.0",
+    "last_updated": "2026-02-15",
+    "architecture": "Enterprise-grade split knowledge base"
+  },
+  "files": {
+    "opening_mistakes": {
+      "path": "opening_mistakes.json",
+      "description": "Opening-specific mistake patterns with FEN matching, golden rules, and explanations",
+      "match_strategy": "FEN board position + bad_move + good_move",
+      "purpose": "Power the Plateau Breaker Review page mistake explanations"
+    },
+    "endgame_principles": {
+      "path": "endgame_principles.json",
+      "description": "Endgame patterns matched by material count and piece configuration",
+      "match_strategy": "Material count + piece types on board",
+      "purpose": "Provide endgame-specific advice when mistakes occur in endgame positions"
+    },
+    "tactical_patterns": {
+      "path": "tactical_patterns.json",
+      "description": "Tactical motifs and patterns detected from PV line analysis",
+      "match_strategy": "Pattern type detected from Stockfish PV analysis",
+      "purpose": "Enrich tactical explanations with pattern-specific rules and prevention tips"
+    },
+    "positional_rules": {
+      "path": "positional_rules.json",
+      "description": "Generic rules mapped to PV line classification patterns (fallback)",
+      "match_strategy": "Pattern key from line_parser.py detect_pattern()",
+      "purpose": "Provide golden rules when no specific theory or tactical pattern matches"
+    }
+  },
+  "data_flow": {
+    "explain_mistake_endpoint": [
+      "1. chess_theory_service checks opening_mistakes.json for FEN + move match",
+      "2. chess_theory_service checks endgame_principles.json for material pattern match",
+      "3. line_parser.py parses Stockfish PV line for tactical patterns",
+      "4. line_parser.py maps detected pattern to positional_rules.json for golden rule",
+      "5. tactical_patterns.json enriches the explanation with prevention tips"
+    ],
+    "admin_workflow": [
+      "1. Admin edits JSON files directly or via future Admin UI",
+      "2. POST /api/coach/theory/reload refreshes the in-memory cache",
+      "3. New patterns are immediately available without server restart"
+    ]
+  },
+  "separation_from_coaching_data": {
+    "note": "This knowledge base is SEPARATE from the live coaching data",
+    "coaching_data_locations": {
+      "opening_plans.py": "Deep opening teaching content for Play with Coach mode",
+      "opening_teaching_db.py": "FEN-based curated teaching for position-specific coaching",
+      "verified_opening_traps.py": "Canonical trap registry for live coaching"
+    },
+    "why_separate": "Coaching data teaches HOW to play. Theory data explains WHY a mistake was bad."
+  }
+}

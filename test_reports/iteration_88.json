@@ -1,0 +1,62 @@
+{
+  "summary": "Adaptive Stockfish skill level and Evaluation bar features tested successfully. Backend (22/22 passed): rating_to_skill_level() function correctly maps ratings to skill levels (0-20), evaluation returned from /start, /move, /state endpoints. Frontend (9/9 passed): Eval bar displays with correct values, Coach skill level badge shows 'Level X' correctly.",
+  "mode": "generate",
+  "baseline_commit": "4238bf4d1ed1e5f308658bf60352be2b47b0a206",
+  "head_commit": "9f9ee92f9ae4343249141922e8bdbf37545b497b",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 3,
+    "passed": 44,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_adaptive_skill_eval.py",
+    "/app/tests/e2e/eval-bar-skill.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_adaptive_skill_eval.py",
+    "/app/test_reports/pytest/test_adaptive_skill_eval.xml",
+    "/app/tests/e2e/eval-bar-skill.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_adaptive_skill_eval.py",
+    "/app/tests/e2e/eval-bar-skill.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 passed)",
+    "frontend": "100% (22/22 passed - 9 new + 13 existing coach-play tests)"
+  },
+  "seed_data_creation": "No seed data needed - tests use dev login and create/cleanup own sessions",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Adaptive skill level and eval bar features fully tested. Key verifications: (1) rating_to_skill_level() maps user ratings to Stockfish skill levels correctly (e.g., 1200 rating → skill level 8). (2) Evaluation object with score and mate_in is returned from /api/coach/play/start, /api/coach/play/move, and /api/coach/play/state/{session_id}. (3) Frontend EvalBar component displays with data-testid='eval-bar' and 'eval-text', showing evaluation values (e.g., '+0.4'). (4) Coach skill level badge shows 'Level X' in coach info bar where X is the calculated skill level.",
+  "features_tested": {
+    "backend": [
+      "rating_to_skill_level() - Ratings <800 → skill 0, 800-999 → 3, 1000-1199 → 5, 1200-1399 → 8, 1400-1599 → 10, 1600-1799 → 12, 1800-1999 → 15, 2000-2199 → 17, 2200+ → 20",
+      "POST /api/coach/play/start - Returns evaluation object with score and mate_in",
+      "POST /api/coach/play/move - Returns evaluation object after move",
+      "GET /api/coach/play/state/{session_id} - Returns evaluation object",
+      "Session contains coach_skill_level and user_rating fields",
+      "CoachOpponent.get_evaluation() - Returns (score, mate_in) tuple, capped at ±10"
+    ],
+    "frontend": [
+      "EvalBar component visible with data-testid='eval-bar'",
+      "Eval text shows numeric value (e.g., '0.0', '+0.5', 'M3')",
+      "Eval bar has proper dimensions and title attribute",
+      "Coach skill level badge displays 'Level X' where X is 0-20",
+      "Coach info bar shows both Coach label and Level badge"
+    ]
+  }
+}

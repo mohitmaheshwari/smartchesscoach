@@ -1,0 +1,85 @@
+{
+  "summary": "Tested Human Coach frontend components: TrainingDashboard and EmotionalStateIndicator integration on Progress and CoachPlay pages. All 17 tests passed. Components render correctly with coach memory (sessions count), weekly curriculum (focus area, targets, exercises), emotional state indicator, and coach focus directive.",
+  "mode": "generate",
+  "baseline_commit": "99a3fc1de68bd258267c7196191992b86278d6d6",
+  "head_commit": "a01cdf75bc48ef4a56e168f4dedf2e04a36f0e6f",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 17,
+    "passed": 17,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/human-coach-components.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/human-coach-components.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A - frontend-only testing",
+    "frontend": "100% (17 passed, 0 failed)"
+  },
+  "seed_data_creation": "N/A - Used existing user session",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Human Coach frontend components tested successfully. TrainingDashboard shows weekly curriculum (Tactics focus, 5 Games / 20 Puzzles / 4 Sessions targets), coach memory (1 session), and emotional state (Ready to Learn). EmotionalStateIndicator available in CoachPlay when blunders occur. Progress page integrates Human Coach APIs correctly showing coach focus directive and main weakness card.",
+  "features_tested": {
+    "frontend": [
+      "Progress page loads with unified-progress-page testid",
+      "Accuracy and Blunders/Game stats display",
+      "Now/Journey/Trend tabs navigation",
+      "Training Dashboard with weekly curriculum (This Week's Focus)",
+      "Weekly targets display (Games, Puzzles, Sessions)",
+      "Weekly progress bar",
+      "Coach Memory card with sessions count",
+      "Emotional State indicator (Ready to Learn)",
+      "CoachPlay setup page loads",
+      "CoachPlay game page with Coach Chat panel",
+      "Teaching Insights panel in CoachPlay",
+      "Chat input and send button in CoachPlay",
+      "Coach Focus card with directive",
+      "Main weakness card with Train This Now button",
+      "Identity card toggle (when data available)"
+    ],
+    "test_coverage": {
+      "progress_page_integration": 4,
+      "training_dashboard": 4,
+      "emotional_state": 1,
+      "coach_play_integration": 4,
+      "coach_focus_card": 1,
+      "main_weakness_display": 2,
+      "identity_card": 1
+    }
+  },
+  "human_coach_components_verified": {
+    "TrainingDashboard": {
+      "weekly_curriculum": true,
+      "focus_area": "Tactics",
+      "weekly_targets": "5 Games, 20 Puzzles, 4 Sessions",
+      "progress_bar": true,
+      "exercises_list": "available via expand"
+    },
+    "EmotionalStateIndicator": {
+      "available_in_coachplay": true,
+      "shows_on_blunders": true,
+      "detected_state": "Ready to Learn (neutral)"
+    },
+    "CoachMemory": {
+      "sessions_tracked": "1 sessions",
+      "visible_on_progress": true
+    }
+  }
+}

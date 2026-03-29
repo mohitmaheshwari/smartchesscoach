@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 import { 
   Target,
@@ -27,6 +27,7 @@ import {
   SkipBack,
   SkipForward
 } from "lucide-react";
+import { formatCpLoss } from "@/utils/evalFormatter";
 
 const MistakeMastery = ({ token, onComplete }) => {
   const [session, setSession] = useState(null);
@@ -458,11 +459,11 @@ const MistakeMastery = ({ token, onComplete }) => {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 max-w-md mx-auto lg:mx-0">
             <div className="aspect-square">
-              <Chessboard 
-                position={boardPosition || currentCard.fen}
-                boardOrientation={getBoardOrientation()}
-                arePiecesDraggable={false}
-                customBoardStyle={{ borderRadius: "8px", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}
+              <LichessBoard 
+                fen={boardPosition || currentCard.fen}
+                orientation={getBoardOrientation()}
+                viewOnly={true}
+                interactive={false}
               />
             </div>
             <div className="mt-3 space-y-2">
@@ -483,7 +484,7 @@ const MistakeMastery = ({ token, onComplete }) => {
                   {currentCard.evaluation === "blunder" && " Discipline broke here"}
                   {currentCard.evaluation === "mistake" && " Discipline slipped"}
                   {currentCard.evaluation === "inaccuracy" && " Could be sharper"}
-                  {currentCard.cp_loss ? ` (-${(currentCard.cp_loss / 100).toFixed(1)})` : ""}
+                  {currentCard.cp_loss ? ` (${formatCpLoss(currentCard.cp_loss).text})` : ""}
                 </span>
               </div>
               {phase === "feedback" && playbackPositions.length > 0 && (

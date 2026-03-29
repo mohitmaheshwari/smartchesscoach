@@ -1,0 +1,107 @@
+{
+  "summary": "Tested Adaptive Performance Coach (Focus Page v2). All 12 backend tests passed. Frontend renders all 4 sections correctly with working interactive features.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_tested": {
+    "api_adaptive_coach": {
+      "endpoint": "GET /api/adaptive-coach",
+      "status": "PASS",
+      "verified": [
+        "Returns 200 with 4 sections: diagnosis, next_game_plan, plan_audit, skill_signals",
+        "diagnosis contains primary_leak with id, label, explanation, example_position (with FEN)",
+        "next_game_plan contains domains array with id, label, goal, intensity",
+        "plan_audit contains audit_cards with status (executed/partial/missed) and board_link_fen",
+        "skill_signals contains signals with trend (improving/declining/stable), trend_arrow, reason",
+        "Rating band correctly detected based on user rating (1200 -> 1000-1600)"
+      ]
+    },
+    "api_audit_game": {
+      "endpoint": "POST /api/adaptive-coach/audit-game/{game_id}",
+      "status": "PASS",
+      "verified": [
+        "Returns 200 for valid game_id",
+        "Returns error message for invalid game_id"
+      ]
+    },
+    "focus_page_ui": {
+      "status": "PASS",
+      "verified": [
+        "Focus page loads at /focus with title 'Focus' and rating band info",
+        "Coach Diagnosis section (data-testid='coach-diagnosis') shows primary leak 'Tactical Awareness'",
+        "Next Game Plan section (data-testid='next-game-plan') shows 3 domain cards",
+        "Plan Audit section (data-testid='plan-audit') shows audit cards with status icons",
+        "Skill Signals section (data-testid='skill-signals') shows 5 signals with trend arrows"
+      ]
+    },
+    "see_typical_pattern_button": {
+      "status": "PASS",
+      "verified": [
+        "Button (data-testid='view-leak-pattern') is present in Coach Diagnosis",
+        "Clicking button loads position on board",
+        "Board title updates to 'Typical Tactical Awareness Pattern'"
+      ]
+    },
+    "audit_cards_eye_icons": {
+      "status": "PASS",
+      "verified": [
+        "Missed audit cards have Eye icons for viewing positions",
+        "Clicking Eye icon loads board position with correct FEN",
+        "Board title updates (e.g., 'Middlegame Objective - Move 7')"
+      ]
+    },
+    "skill_signals_eye_icons": {
+      "status": "PASS",
+      "verified": [
+        "Signals with example_position have Eye icons (Tactical Awareness, Advantage Discipline)",
+        "Clicking Eye icon loads example position on board"
+      ]
+    },
+    "skill_signals_trends": {
+      "status": "PASS",
+      "verified": [
+        "Trend arrows: green ↑ for improving, red ↓ for declining, yellow → for stable",
+        "Opening Stability: declining",
+        "Tactical Awareness: improving",
+        "Advantage Discipline: declining",
+        "Endgame Technique: stable",
+        "Time Control: stable"
+      ]
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_adaptive_coach.py",
+    "/app/test_reports/pytest/pytest_adaptive_coach.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_adaptive_coach.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 passed)",
+    "frontend": "100% (All UI features verified via Playwright)"
+  },
+  "data_testid_verification": {
+    "present": [
+      "coach-diagnosis",
+      "next-game-plan",
+      "plan-domain-{id}",
+      "plan-audit",
+      "audit-card-{domain_id}",
+      "skill-signals",
+      "signal-{id}",
+      "view-leak-pattern"
+    ]
+  },
+  "seed_data_creation": "None - used existing dev user with session_token=test_session_356539ff12b1",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Adaptive Performance Coach (Focus Page v2) fully tested. The /focus page has 4 sections: (1) Coach Diagnosis with primary leak and 'See Typical Pattern' button, (2) Next Game Plan with 3-5 domain cards, (3) Plan Audit showing last game execution with audit cards (executed/partial/missed statuses), (4) Skill Signals with 5 trends. Eye icons throughout load positions on the interactive chessboard. Test file: /app/backend/tests/test_adaptive_coach.py"
+}

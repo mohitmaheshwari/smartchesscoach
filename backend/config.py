@@ -44,6 +44,10 @@ DAILY_SYNC_MAX_GAMES = 3          # Max games to analyze per day
 SYNC_INTERVAL_HOURS = 4           # Background sync interval (hours)
 BACKGROUND_SYNC_INTERVAL_SECONDS = 6 * 60 * 60  # Full background sync (6 hours)
 
+# Quick sync (real-time game monitoring)
+QUICK_SYNC_INTERVAL_SECONDS = 5 * 60  # Check for new games every 5 minutes
+QUICK_SYNC_MAX_GAMES = 3              # Max games to process per quick sync
+
 # Game preferences
 PREFERRED_TIME_CONTROLS = ["rapid", "classical", "blitz"]
 MIN_GAME_MOVES = 10               # Skip very short games

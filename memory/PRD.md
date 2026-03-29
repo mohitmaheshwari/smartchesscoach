@@ -1,110 +1,92 @@
-# Chess Coach - Product Requirements Document
+# ChessGuru — Product Requirements Document
 
-## Original Problem Statement
-Build an AI-powered chess coaching application that analyzes games, identifies patterns in player mistakes, and provides personalized coaching feedback.
+## Vision
+A hyper-personalized chess coaching platform that tracks who you are as a player across every game. Not another analysis tool — a coach that remembers your patterns, knows your weaknesses by name, and tells you exactly what to fix.
 
-## Core Features Implemented
+## Core Principles
+1. **One screen = one job** — each page has a single clear purpose
+2. **Teaching, not commenting** — every coaching text includes WHY and WHAT TO DO NEXT TIME
+3. **Adaptive difficulty** — 1100 players see blunders, 1600 players see inaccuracies
+4. **Identity over statistics** — "The Blind Spot" means more than "57% accuracy"
+5. **Coach-first UX** — the coach talks TO you, doesn't wait for you to ask
 
-### Game Analysis
-- Import games from Chess.com and Lichess
-- Stockfish engine analysis (depth 18) for accurate move evaluation
-- AI-powered coaching commentary with habit-based feedback
-- Phase-aware strategic coaching (opening/middlegame/endgame)
+## User Personas
+- **Primary**: 800-1500 rated chess.com/lichess players who want to improve but don't know HOW
+- **Language**: Many are non-native English speakers — simple, clear language
+- **Behavior**: They play games, lose, feel frustrated, want answers
 
-### Ask About This Move Feature
-- Interactive Q&A about specific positions
-- Stockfish-powered position evaluation
-- Context-aware conversation history for follow-up questions
-- **Analyzes position BEFORE the move** to correctly identify user's best alternative
-- Correctly distinguishes between user's best move and opponent's response
+## Features (Implemented)
 
-### Player Profile System
-- Tracks recurring mistake patterns
-- Identifies strengths and weaknesses
-- Provides personalized coaching based on history
+### Home Page — Coach Dashboard
+- Dynamic coach greeting based on streak/patterns/last game
+- Last game board with critical position
+- Contextual primary action (train/review/play based on state)
+- Patterns across games + Chess DNA
 
-### Authentication
-- Google OAuth integration via Emergent Auth
+### Lab — Coach's Review Queue  
+- Smart game picker (recurring pattern > thrown > decisive blunder)
+- 3-state review tracking (not started → in progress → reviewed)
+- Auto-review when reaching last move
+- Coach prompt to switch to Coach view after decrypt
 
-## Recent Changes (Feb 2026)
+### Game Review (Lab V2)
+- **Decrypt Mode**: Move-by-move coaching with adaptive filtering
+- **Coach Mode**: 3-tab panel (Summary / Habits / Memory)
+- Rich inline flagging for developer debugging
 
-### Bug Fixes - Feb 9, 2026
-1. **Fixed suggested question always showing "mistake"**
-   - Added `getCurrentMoveEvaluation()` function
-   - Questions now adapt based on actual move evaluation (blunder/mistake/good/etc.)
+### Play with Coach
+- Live game against AI with real-time coaching
+- Opponent plan reading from Stockfish PV
+- Pre-move checklist
 
-2. **Fixed LLM hallucinating illegal moves**
-   - Added position description with all pieces listed
-   - Added legal moves list to LLM context
-   - Explicit instructions to only mention legal moves
+### Training
+- Positions extracted from real games (community pool)
+- Pattern-filtered: calculation_depth, tactical_miss, etc.
+- Solve feedback with candidate moves + ideas
 
-3. **Fixed LLM confusing user moves with opponent moves**
-   - Now sends `fen_before` (position before move) to backend
-   - Backend analyzes BOTH positions: before (for user's best) and after (for opponent's response)
-   - LLM prompt clearly states which move belongs to which player
-   - Response includes `user_best_move` - what the user SHOULD have played
+### Progress
+- Accuracy journey chart
+- Win rate + blunder rate trends  
+- Danger zones (critical patterns)
+- Chess Identity (archetype + biggest leak)
 
-### Documentation & Deployment - Feb 9, 2026
-- Created Docker deployment files (Dockerfile, docker-compose.yml)
-- Created comprehensive DEVELOPER.md documentation
-- Added nginx and supervisor configuration for production
+## Design System
+- **Background**: Warm off-white `#F5F3F0`
+- **Cards**: White `#FFFFFF` with subtle border
+- **Primary**: Wine Red `#722F37`
+- **Accent**: Gold `#CBA135` (text: `#8B6F1F`)
+- **Fonts**: Playfair Display (serif headings), DM Sans (body), JetBrains Mono (mono)
+- **Logo**: Gold chess knight SVG (`/chessguru-logo.svg`)
 
-## Tech Stack
-- **Frontend**: React.js with Shadcn/UI components
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB
-- **Chess Engine**: Stockfish 15
-- **LLM**: Emergent LLM Key integration
+## Changelog
 
-## Key Files
-- `/app/backend/server.py` - Main backend with /ask endpoint
-- `/app/frontend/src/pages/GameAnalysis.jsx` - Game analysis page with Ask feature
-- `/app/frontend/src/components/ChessBoardViewer.jsx` - Chess board with FEN access
-- `/app/backend/stockfish_service.py` - Stockfish integration
-- `/app/DEVELOPER.md` - Developer documentation
-- `/app/Dockerfile` - Production container build
+### March 28, 2026
+- Home Page V4: coach-first design with dynamic messaging
+- Progress Page V2: trajectory + danger zones + chess identity
+- Lab rebuilt as coach's review queue with smart picker
+- Auto-mark reviewed when reaching last move + coach prompt
+- Training: solve feedback with candidate moves (board fix in progress)
+- Auto-extract training positions in analysis_worker
+- Opponent plan reading from PV (kingside attacks, pawn storms, exchanges)
 
-## Recent Changes - Feb 10-11, 2026
+### March 27, 2026
+- Coach Insight Panel: 3-tab system (Summary/Habits/Memory)
+- Adaptive game decryption V5: rating-based filtering
+- Habits fix: mate blunders excluded from hanging pieces check
+- V5 PV consequence analysis: walks PV for captures/checks
+- Teaching-focused coaching language (replaced cute nicknames)
+- Minor inaccuracy softening (cp_loss < 50)
+- Full light theme applied across all pages
+- ChessGuru branding (logo, name, favicon)
+- Premium landing page with coach persona section
+- Rich feedback diagnostics for debugging
 
-### Stockfish Fix (Feb 10)
-- Reinstalled Stockfish (was missing from environment)
-- Analyzed 10 games with Stockfish - all successful
-- Now 21 games have valid `stockfish_analysis.move_evaluations`
-
-### Interactive Badge Drill-Down (Feb 11 - Enhanced)
-Major feature overhaul for badge drill-down:
-
-**1. Interactive Chess Board**
-- Play through best move lines (PV) with Next/Prev/Reset buttons
-- Visual highlights for played vs best squares
-- "Show Best" instant demonstration
-
-**2. Ask AI Integration**
-- Chat interface for each position
-- Suggested questions + custom input
-- AI responses include playable lines
-
-**3. Deeper Explanations**
-- Context-aware: opening/tactical/focus/endgame specific advice
-- Includes PV lines in explanations
-- Actionable coaching tips
-
-**Files Modified:**
-- `frontend/src/components/BadgeDetailModal.jsx` - Complete rewrite with interactive features
-- `backend/badge_service.py` - Enhanced explanation generators, added pv_after_best to all moves
-
-## In Progress
-1. **Focus-aware Game Analysis** - When user clicks "View Game" from badge detail, commentary should focus on that badge category
-2. **Testing** - E2E testing of interactive badge drill-down needed
-
-## Known Issues / Backlog
-1. Missing `data-testid="get-started-btn"` on landing page (affects automated testing)
-2. Stockfish not persistent between environment restarts (temporary fix applied)
-3. 17 games still need Stockfish analysis
-
-## API Endpoints
-- `POST /api/game/{game_id}/ask` - Ask questions about a position (supports fen_before)
-- `POST /api/analyze-game` - Analyze a game with Stockfish + AI
-- `GET /api/analysis/{game_id}` - Get analysis for a game
-- `POST /api/import-games` - Import games from Chess.com/Lichess
-- `GET /api/health` - Health check endpoint
+### Earlier (Feb-March 2026)
+- Core V5 coaching engine
+- Book move false positives fixed
+- Checkmate blunder hallucination fixed
+- Inline flagging system
+- Community Intelligence Training
+- Opening World + Endgame Lessons
+- Play with Coach mode
+- SVG logo generation

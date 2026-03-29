@@ -1,0 +1,62 @@
+{
+  "summary": "P1.7 Mission Completion & Feedback Loop testing complete. Backend (19/19 passed): All mission lifecycle endpoints working correctly - POST /api/behavioral/mission/start creates STARTED record, POST /api/behavioral/mission/complete returns validation result with applicable/score/confidence, mission stays STARTED when validation not applicable (no games after mission), GET /api/behavioral/mission/active returns active missions, GET /api/behavioral/mission/history returns history with validation scores, GET /api/behavioral/mission/last-result returns last completed mission with confidence gating flags (can_reference_success, can_reference_failure). Validation uses 3-game window. Difficulty decay field present in complete response. Learning velocity integration verified.",
+  "mode": "generate",
+  "baseline_commit": "b111e7594a671c5b74191dd7557e90e206dd3c2b",
+  "head_commit": "651032f709a645d5c4be1556445c84ddd56fffbd",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 1,
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_mission_lifecycle_p17.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_mission_lifecycle_p17.py",
+    "/app/test_reports/pytest/pytest_mission_lifecycle.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_mission_lifecycle_p17.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 passed)",
+    "frontend": "N/A - No frontend tests requested"
+  },
+  "seed_data_creation": "N/A - Used dev login with existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P1.7 Mission Lifecycle fully tested. Key endpoints: POST /api/behavioral/mission/start (creates STARTED record), POST /api/behavioral/mission/complete (triggers validation, returns applicable/score/confidence/games_used/metrics/reason), GET /api/behavioral/mission/active (returns STARTED missions), GET /api/behavioral/mission/history (returns history with validation_score/validation_reason), GET /api/behavioral/mission/last-result (returns last completed/failed with can_reference_success/can_reference_failure flags). Validation uses VALIDATION_WINDOW_GAMES=3. Mission stays STARTED if validation not applicable. Difficulty decay triggers only on HARD failures with score<0.4. Narrative confidence gating: score>=0.6 for success, score<=0.3 for failure.",
+  "features_tested": {
+    "backend": [
+      "POST /api/behavioral/mission/start creates STARTED mission record",
+      "POST /api/behavioral/mission/complete returns validation result",
+      "Validation returns applicable=false when no games after mission",
+      "Mission stays STARTED when validation not applicable",
+      "GET /api/behavioral/mission/active returns active missions",
+      "GET /api/behavioral/mission/history returns mission history with validation scores",
+      "GET /api/behavioral/mission/last-result returns last completed mission",
+      "Validation response includes score, confidence, validation_games_used, metrics, reason",
+      "Difficulty decay field (difficulty_decay_triggered) present in complete response",
+      "Mission complete with self-rating accepted",
+      "Nonexistent mission returns error",
+      "Completed mission cannot be completed twice",
+      "Last-result includes can_reference_success and can_reference_failure flags",
+      "TIME_DECISION_DRILL validator returns expected structure",
+      "CANDIDATE_MOVE_DRILL validator returns expected structure"
+    ],
+    "frontend": []
+  }
+}

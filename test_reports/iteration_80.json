@@ -1,0 +1,64 @@
+{
+  "summary": "Tested Behavioral Analysis API P1 upgrade features. Backend tests (16/16 passed): root_cause/root_cause_label fields, stagnation/stagnation_info fields, scorecard with 5 dimensions, mission type matching root cause, historical anchors with real numbers. Frontend tests (5/5 passed): BehavioralInsightCard displays root cause badge, scorecard chips, headline with confidence/stagnation badge, and Review Game navigation.",
+  "mode": "generate",
+  "baseline_commit": "645dca93d46a526e74e82d6ca54397c519f79a3c",
+  "head_commit": "28f0d07041760de0d39485aa47cfd1785b3f1ba7",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 2,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_behavioral_analysis_api.py",
+    "/app/tests/e2e/behavioral-insight.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_behavioral_analysis_api.py",
+    "/app/tests/e2e/behavioral-insight.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_behavioral_analysis_api.py",
+    "/app/tests/e2e/behavioral-insight.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "N/A - Used dev login with existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Behavioral Analysis API P1 upgrade fully tested. The /api/behavioral/analyze/{game_id} and /api/behavioral/last-report endpoints now return root_cause, root_cause_label, stagnation, stagnation_info fields. Mission types correctly map to root causes (e.g., DEFENSIVE_STRESS -> DEFENSIVE_RESILIENCE_DRILL). BehavioralInsightCard on /home displays all fields correctly including scorecard chips and historical anchors.",
+  "features_tested": {
+    "backend": [
+      "/api/behavioral/analyze/{game_id} returns root_cause field (TIME_TRIGGERED|OVERCONFIDENCE|CALCULATION_GAP|DEFENSIVE_STRESS)",
+      "/api/behavioral/analyze/{game_id} returns root_cause_label field",
+      "/api/behavioral/analyze/{game_id} returns stagnation and stagnation_info fields",
+      "/api/behavioral/last-report returns same structure",
+      "Scorecard contains 5 dimensions: plan_discipline, decision_stability, pattern_persistence, coach_compliance, learning_velocity",
+      "next_mission.type matches root_cause mapping",
+      "rich_insight contains historical anchors with real numbers (e.g., '4 of your last 6 games')",
+      "Confidence scoring with labels (Low/Medium/High)"
+    ],
+    "frontend": [
+      "BehavioralInsightCard displays on /home page",
+      "Root cause badge shown with appropriate icon and color",
+      "Scorecard chips show Plan Discipline, Decision Stability, Pattern Persistence with scores",
+      "Headline and rich insight text displayed",
+      "Confidence badge or Stagnation badge shown",
+      "Review This Game button navigates to /game/{gameId}"
+    ]
+  }
+}

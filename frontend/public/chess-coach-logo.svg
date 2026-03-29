@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#93c5fd"/>
+    </linearGradient>
+    <filter id="knightShadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#3b82f6" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="72" fill="#0b1120"/>
+
+  <!-- Chess Knight - using the unicode glyph for perfect shape -->
+  <text x="256" y="345" 
+    font-family="serif" 
+    font-size="340" 
+    fill="#d8dce4" 
+    text-anchor="middle" 
+    filter="url(#knightShadow)"
+    style="font-weight: 400;">&#9816;</text>
+
+  <!-- Neural circuit overlay on the knight's head area -->
+  <g>
+    <!-- Main circuit arc -->
+    <path d="
+      M 300 130
+      C 322 115, 355 112, 372 128
+      C 390 145, 386 170, 370 184
+      C 354 198, 340 192, 334 206
+      C 328 220, 336 238, 356 244
+    " stroke="url(#glow)" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+
+    <!-- Pulsing nodes -->
+    <circle cx="300" cy="130" r="6" fill="#3b82f6">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="372" cy="128" r="5" fill="#60a5fa">
+      <animate attributeName="opacity" values="1;0.5;1" dur="2.5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="370" cy="184" r="5.5" fill="#3b82f6">
+      <animate attributeName="opacity" values="0.7;1;0.7" dur="1.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="356" cy="244" r="6" fill="#60a5fa">
+      <animate attributeName="opacity" values="0.5;0.9;0.5" dur="2.2s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Spark branches -->
+    <line x1="372" y1="128" x2="395" y2="102" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/>
+    <circle cx="395" cy="102" r="3" fill="#60a5fa" opacity="0.4">
+      <animate attributeName="opacity" values="0.2;0.55;0.2" dur="3s" repeatCount="indefinite"/>
+    </circle>
+
+    <line x1="370" y1="184" x2="400" y2="172" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+    <circle cx="400" cy="172" r="2.5" fill="#60a5fa" opacity="0.3"/>
+
+    <!-- Extra subtle branch -->
+    <line x1="356" y1="244" x2="378" y2="256" stroke="#3b82f6" stroke-width="1.2" stroke-linecap="round" opacity="0.25"/>
+    <circle cx="378" cy="256" r="2" fill="#60a5fa" opacity="0.2"/>
+  </g>
+
+  <!-- Subtle accent line at bottom -->
+  <line x1="180" y1="440" x2="332" y2="440" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" opacity="0.12"/>
+</svg>

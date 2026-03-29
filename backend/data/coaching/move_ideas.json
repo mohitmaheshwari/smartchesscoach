@@ -1,0 +1,107 @@
+{
+  "piece_intentions": {
+    "pawn": {
+      "push": "Gaining space and controlling key squares",
+      "capture": "Exchanging material or opening lines",
+      "advance_center": "Fighting for central control",
+      "advance_wing": "Creating attacking chances on the flank",
+      "block": "Restricting opponent's piece mobility"
+    },
+    "knight": {
+      "centralize": "Knights are strongest in the center where they control many squares",
+      "outpost": "Placing the knight on a square where it can't be attacked by pawns",
+      "attack": "Threatening opponent pieces or pawns",
+      "fork_setup": "Positioning for a potential fork",
+      "defend": "Protecting an important piece or square"
+    },
+    "bishop": {
+      "fianchetto": "Placing on the long diagonal for maximum influence",
+      "pin": "Restricting an opponent's piece by threatening what's behind it",
+      "open_diagonal": "Activating on an open diagonal",
+      "exchange": "Trading bishops (often good if you have knights)",
+      "defend": "Protecting key squares or pieces"
+    },
+    "rook": {
+      "open_file": "Controlling an open file for penetration",
+      "seventh_rank": "Invading the 7th rank to attack pawns from behind",
+      "double": "Doubling rooks for maximum pressure",
+      "defend": "Protecting the back rank or key pawns",
+      "connect": "Connecting rooks so they protect each other"
+    },
+    "queen": {
+      "centralize": "Placing the queen where it has many options",
+      "attack": "Creating direct threats",
+      "coordinate": "Working with other pieces for threats",
+      "retreat": "Moving to safety while maintaining activity",
+      "trade": "Simplifying into a favorable endgame"
+    },
+    "king": {
+      "castle": "Getting the king to safety and connecting rooks",
+      "activate": "In endgames, the king becomes a fighting piece",
+      "shelter": "Maintaining pawn protection for the king",
+      "centralize": "Moving to the center in endgames"
+    }
+  },
+  
+  "move_types": {
+    "development": {
+      "idea": "Getting pieces off their starting squares to active positions",
+      "principle": "Develop all pieces before attacking"
+    },
+    "castle": {
+      "idea": "Protecting the king and connecting the rooks",
+      "principle": "Castle early to ensure king safety"
+    },
+    "capture": {
+      "idea": "Winning material or exchanging pieces",
+      "principle": "Every capture should improve your position, not just win material"
+    },
+    "trade": {
+      "idea": "Simplifying the position",
+      "principle": "Trade when ahead in material, avoid trades when behind"
+    },
+    "prophylaxis": {
+      "idea": "Preventing opponent's plan before it becomes dangerous",
+      "principle": "Ask 'what does my opponent want to do?' before each move"
+    },
+    "attack": {
+      "idea": "Creating threats against opponent's pieces or king",
+      "principle": "Attack only when your pieces are ready"
+    },
+    "defense": {
+      "idea": "Protecting threatened pieces or squares",
+      "principle": "Defense is not passive - look for counterplay"
+    },
+    "pawn_break": {
+      "idea": "Opening lines by advancing and exchanging pawns",
+      "principle": "Pawn breaks create opportunities but also weaknesses"
+    }
+  },
+  
+  "common_mistakes": {
+    "hanging_piece": {
+      "what_happened": "You left a piece undefended",
+      "lesson": "Before every move, check: are all my pieces protected?"
+    },
+    "missed_threat": {
+      "what_happened": "You didn't see what your opponent was threatening",
+      "lesson": "Before moving, ask: what is my opponent trying to do?"
+    },
+    "early_queen": {
+      "what_happened": "You brought your queen out too early",
+      "lesson": "The queen is vulnerable to attacks from minor pieces - develop others first"
+    },
+    "undeveloped": {
+      "what_happened": "You moved a developed piece again instead of developing others",
+      "lesson": "Try to move each piece only once in the opening until all are developed"
+    },
+    "king_safety": {
+      "what_happened": "Your king became exposed to attack",
+      "lesson": "Castle early and keep pawns in front of your king"
+    },
+    "tactical_miss": {
+      "what_happened": "You missed a winning tactic",
+      "lesson": "Check for checks, captures, and threats on every move"
+    }
+  }
+}

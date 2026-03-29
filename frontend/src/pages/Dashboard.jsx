@@ -1,373 +1,237 @@
+/**
+ * LAB PAGE — Coach's Review Queue
+ * 
+ * Not a list. A queue fed by the coach.
+ * "Review this one because..." → review → mark done → next surfaces.
+ */
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import Layout from "@/components/Layout";
-import StatsDetailModal from "@/components/StatsDetailModal";
-import { 
-  StatCard,
-  ProgressRing,
-  SectionHeader,
-  AnimatedList,
-  AnimatedItem
-} from "@/components/ui/premium";
-import { 
-  Import, 
-  ChevronRight,
-  Gamepad2,
-  Target,
-  TrendingUp,
-  AlertTriangle,
-  Zap,
-  Loader2
-} from "lucide-react";
+import { Loader2, Import, ChevronRight, Check, RefreshCw } from "lucide-react";
+
+const WINE = "#722F37";
+const GOLD_TEXT = "#8B6F1F";
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(null);
 
-  const openStatsModal = (type) => {
-    setModalType(type);
-    setModalOpen(true);
+  useEffect(() => { fetchData(); }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+      if (res.ok) setData(await res.json());
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch(`${API}/dashboard-stats`, {
-          credentials: 'include'
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-        }
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+  const markReviewed = async (gameId) => {
+    try {
+      await fetch(`${API}/lab-mark-reviewed/${gameId}`, { method: "POST", credentials: "include" });
+      fetchData(); // Refresh — next game surfaces
+    } catch (e) {}
+  };
 
   if (loading) {
     return (
       <Layout user={user}>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="w-5 h-5 border border-border border-t-foreground/50 rounded-full animate-spin" />
         </div>
       </Layout>
     );
   }
 
-  const hasGames = stats && stats.total_games > 0;
-  const topWeaknesses = stats?.top_weaknesses || [];
-  const recentGames = stats?.recent_games || [];
-  const totalBlunders = stats?.stats?.total_blunders || 0;
-  const totalBestMoves = stats?.stats?.total_best_moves || 0;
-  const totalGames = stats?.total_games || 0;
-  const analyzedGames = stats?.analyzed_games || 0;
-  const analysisProgress = totalGames > 0 ? Math.round((analyzedGames / totalGames) * 100) : 0;
-
-  const firstName = user?.name?.split(' ')[0] || 'Player';
+  const pick = data?.pick;
+  const pickReason = data?.pick_reason;
+  const verdict = data?.verdict;
+  const games = data?.games || [];
+  const reviewedCount = data?.reviewed_count || 0;
+  const totalCount = data?.total_count || 0;
+  const unreviewedGames = games.filter(g => !g.reviewed);
+  const reviewedGames = games.filter(g => g.reviewed);
 
   return (
     <Layout user={user}>
-      <div className="space-y-8 max-w-5xl" data-testid="dashboard-page">
+      <div className="max-w-2xl mx-auto py-8 px-4" data-testid="lab-page">
+        
         {/* Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-end justify-between"
-        >
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <p className="label-caps mb-2">Dashboard</p>
-            <h1 className="text-3xl font-heading font-bold tracking-tight">
-              Welcome back, {firstName}
-            </h1>
+            <h1 className="text-3xl text-foreground tracking-tight font-heading">Lab</h1>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">
+              {reviewedCount}/{totalCount} reviewed
+            </p>
           </div>
-          {hasGames && (
-            <Button 
-              onClick={() => navigate('/journey')}
-              variant="outline"
-              className="btn-scale"
-            >
-              View Journey
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          )}
-        </motion.div>
-
-        {!hasGames ? (
-          /* Empty State */
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+          <button
+            onClick={() => navigate("/import")}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm border border-border text-foreground hover:bg-muted/50 transition-colors rounded-sm"
+            data-testid="lab-import-btn"
           >
-            <Card className="border-dashed border-2 border-muted-foreground/20">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
-                  <Import className="w-9 h-9 text-muted-foreground" />
-                </div>
-                <h3 className="font-heading font-semibold text-xl mb-2">No games imported yet</h3>
-                <p className="text-muted-foreground max-w-md text-center mb-6">
-                  Connect your Chess.com or Lichess account to import games 
-                  and start receiving personalized coaching.
-                </p>
-                <Button 
-                  size="lg" 
-                  onClick={() => navigate('/import')}
-                  className="btn-scale"
-                  data-testid="import-games-cta"
-                >
-                  <Import className="w-5 h-5 mr-2" />
-                  Import Your Games
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ) : (
-          <AnimatedList className="space-y-6">
-            {/* Stats Row - Clickable */}
-            <AnimatedItem>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard 
-                  label="Games" 
-                  value={totalGames}
-                  icon={Gamepad2}
-                />
-                <Card 
-                  className="surface p-4 card-hover cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all"
-                  onClick={() => openStatsModal("analyzed")}
-                  data-testid="analyzed-stat-card"
-                >
-                  <div className="flex items-center gap-4">
-                    <ProgressRing 
-                      progress={analysisProgress} 
-                      size={56} 
-                      strokeWidth={5}
-                      color="stroke-emerald-500"
-                    />
-                    <div>
-                      <p className="label-caps mb-1">Analyzed</p>
-                      <p className="text-xl font-heading font-semibold">{analyzedGames}</p>
-                    </div>
-                  </div>
-                </Card>
-                <Card 
-                  className="surface p-4 card-hover cursor-pointer hover:ring-1 hover:ring-red-500/50 transition-all"
-                  onClick={() => openStatsModal("blunders")}
-                  data-testid="blunders-stat-card"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
-                      <AlertTriangle className="w-5 h-5 text-red-500" />
-                    </div>
-                    <div>
-                      <p className="label-caps mb-1">Blunders</p>
-                      <p className="text-xl font-heading font-semibold">{totalBlunders}</p>
-                    </div>
-                  </div>
-                </Card>
-                <Card 
-                  className="surface p-4 card-hover cursor-pointer hover:ring-1 hover:ring-amber-500/50 transition-all"
-                  onClick={() => openStatsModal("best-moves")}
-                  data-testid="best-moves-stat-card"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-amber-500" />
-                    </div>
-                    <div>
-                      <p className="label-caps mb-1">Best Moves</p>
-                      <p className="text-xl font-heading font-semibold">{totalBestMoves}</p>
-                    </div>
-                  </div>
-                </Card>
+            <Import className="w-3.5 h-3.5" strokeWidth={1.5} />
+            Import
+          </button>
+        </div>
+
+        {/* ── VERDICT STRIP ── */}
+        {verdict && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+            <div className="bg-card border border-border rounded-sm p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-lg text-emerald-600 font-mono">{verdict.wins}W</span>
+                <span className="text-lg font-mono" style={{ color: WINE }}>{verdict.losses}L</span>
+                <span className="text-xs text-muted-foreground font-mono">last {verdict.total} games</span>
               </div>
-            </AnimatedItem>
-
-            {/* Two Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Games */}
-              <AnimatedItem>
-                <Card className="surface h-full">
-                  <CardContent className="py-6">
-                    <SectionHeader 
-                      label="Recent Games" 
-                      action={
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => navigate('/import')}
-                          className="text-muted-foreground hover:text-foreground -mr-2"
-                        >
-                          All
-                          <ChevronRight className="w-4 h-4 ml-1" />
-                        </Button>
-                      }
-                    />
-                    <div className="space-y-2">
-                      {recentGames.length > 0 ? (
-                        recentGames.slice(0, 5).map((game) => (
-                          <motion.div 
-                            key={game.game_id}
-                            whileHover={{ x: 4 }}
-                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer"
-                            onClick={() => navigate(`/game/${game.game_id}`)}
-                            data-testid={`game-item-${game.game_id}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className={`w-2 h-2 rounded-full ${game.is_analyzed ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                              <div>
-                                <p className="font-medium text-sm">
-                                  {game.white_player} vs {game.black_player}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {game.platform} · {game.result}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs px-2 py-0.5 rounded font-mono ${game.user_color === 'white' ? 'bg-white text-black border border-border' : 'bg-zinc-800 text-white'}`}>
-                                {game.user_color === 'white' ? 'W' : 'B'}
-                              </span>
-                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          </motion.div>
-                        ))
-                      ) : (
-                        <p className="text-muted-foreground text-sm text-center py-8">
-                          No games yet
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </AnimatedItem>
-
-              {/* Top Weaknesses */}
-              <AnimatedItem>
-                <Card className="surface h-full">
-                  <CardContent className="py-6">
-                    <SectionHeader 
-                      label="Focus Areas" 
-                      action={
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => navigate('/journey')}
-                          className="text-muted-foreground hover:text-foreground -mr-2"
-                        >
-                          Journey
-                          <ChevronRight className="w-4 h-4 ml-1" />
-                        </Button>
-                      }
-                    />
-                    <div className="space-y-2">
-                      {topWeaknesses.length > 0 ? (
-                        topWeaknesses.slice(0, 4).map((weakness, index) => (
-                          <div 
-                            key={index}
-                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                            data-testid={`weakness-item-${index}`}
-                          >
-                            <div>
-                              <p className="font-medium text-sm capitalize">
-                                {(weakness.subcategory || weakness.name || '').replace(/_/g, ' ')}
-                              </p>
-                              <p className="text-xs text-muted-foreground capitalize">
-                                {weakness.category}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono text-muted-foreground">
-                                {weakness.occurrences || weakness.decayed_score?.toFixed(1) || '—'}
-                              </span>
-                              <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-amber-500 rounded-full"
-                                  style={{ width: `${Math.min((weakness.occurrences || weakness.decayed_score || 0) * 10, 100)}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8">
-                          <p className="text-muted-foreground text-sm mb-3">
-                            Analyze games to discover patterns
-                          </p>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => navigate('/import')}
-                            className="btn-scale"
-                          >
-                            Import Games
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </AnimatedItem>
+              <p className="text-sm text-muted-foreground font-light">{verdict.insight}</p>
             </div>
+          </motion.div>
+        )}
 
-            {/* Quick Actions */}
-            <AnimatedItem>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-auto py-5 flex flex-col items-center gap-2"
-                    onClick={() => navigate('/import')}
-                    data-testid="quick-import-btn"
-                  >
-                    <Import className="w-5 h-5" />
-                    <span className="text-sm">Import Games</span>
-                  </Button>
-                </motion.div>
-                <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-auto py-5 flex flex-col items-center gap-2"
-                    onClick={() => navigate('/journey')}
-                    data-testid="quick-journey-btn"
-                  >
-                    <TrendingUp className="w-5 h-5" />
-                    <span className="text-sm">View Journey</span>
-                  </Button>
-                </motion.div>
-                <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-auto py-5 flex flex-col items-center gap-2"
-                    onClick={() => navigate('/challenge')}
-                    data-testid="quick-challenge-btn"
-                  >
-                    <Target className="w-5 h-5" />
-                    <span className="text-sm">Practice</span>
-                  </Button>
-                </motion.div>
+        {/* ── COACH'S PICK ── */}
+        {pick && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-2 font-mono" style={{ color: GOLD_TEXT }}>
+              Coach's Pick
+            </p>
+            <div
+              className="bg-card border border-border rounded-sm cursor-pointer transition-all duration-200 hover:shadow-sm"
+              style={{ borderLeft: `3px solid ${GOLD_TEXT}` }}
+              onClick={() => navigate(`/game/${pick.game_id}`)}
+              data-testid="coach-pick-card"
+            >
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base text-foreground font-heading">vs {pick.opponent}</span>
+                    <ResultBadge result={pick.result} />
+                    {pick.accuracy > 0 && (
+                      <span className="text-xs text-muted-foreground font-mono">{pick.accuracy}%</span>
+                    )}
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground/40" strokeWidth={1.5} />
+                </div>
+                {/* The reason — this is the coach talking */}
+                <p className="text-sm font-light" style={{ color: WINE }}>{pickReason}</p>
+                {pick.summary_headline && (
+                  <p className="text-xs text-muted-foreground mt-2 font-light">{pick.summary_headline}</p>
+                )}
               </div>
-            </AnimatedItem>
-          </AnimatedList>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── UNREVIEWED GAMES ── */}
+        {unreviewedGames.length > 1 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-2 font-mono" style={{ color: GOLD_TEXT }}>
+              To Review ({unreviewedGames.length - (pick ? 1 : 0)} more)
+            </p>
+            <div className="bg-card border border-border rounded-sm divide-y divide-border">
+              {unreviewedGames.filter(g => g.game_id !== pick?.game_id).map((game) => (
+                <div
+                  key={game.game_id}
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/30"
+                  onClick={() => navigate(`/game/${game.game_id}`)}
+                >
+                  <div className="w-1 h-8 flex-shrink-0 rounded-full" style={{
+                    background: game.result === "W" ? "#16a34a" : game.result === "L" ? WINE : "#ddd"
+                  }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-foreground font-light truncate">vs {game.opponent}</p>
+                      {game.review_status === "in_progress" && (
+                        <span className="text-[9px] px-1.5 py-0.5 font-mono rounded-sm bg-amber-50 text-amber-700 border border-amber-200">
+                          In Progress
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs mt-0.5">
+                      <ResultBadge result={game.result} small />
+                      {game.opening && (
+                        <>
+                          <span className="text-muted-foreground/40">·</span>
+                          <span className="text-muted-foreground truncate font-light">{game.opening}</span>
+                        </>
+                      )}
+                      {game.blunders > 0 && (
+                        <>
+                          <span className="text-muted-foreground/40">·</span>
+                          <span className="text-muted-foreground font-mono">{game.blunders}B</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); markReviewed(game.game_id); }}
+                    className="p-1.5 text-muted-foreground/30 hover:text-emerald-600 transition-colors"
+                    title="Mark as reviewed"
+                  >
+                    <Check className="w-4 h-4" strokeWidth={1.5} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── REVIEWED GAMES ── */}
+        {reviewedGames.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mt-6">
+            <p className="text-[10px] tracking-[0.2em] uppercase mb-2 font-mono text-muted-foreground/50">
+              Reviewed ({reviewedGames.length})
+            </p>
+            <div className="divide-y divide-border/50">
+              {reviewedGames.map((game) => (
+                <div
+                  key={game.game_id}
+                  className="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-muted/20 opacity-50"
+                  onClick={() => navigate(`/game/${game.game_id}`)}
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" strokeWidth={1.5} />
+                  <span className="text-sm text-muted-foreground font-light truncate">vs {game.opponent}</span>
+                  <ResultBadge result={game.result} small />
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Empty state */}
+        {games.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground mb-4 font-light">No games analyzed yet</p>
+            <button
+              onClick={() => navigate("/import")}
+              className="px-6 py-3 text-sm text-white rounded-sm"
+              style={{ background: WINE }}
+            >
+              Import your games
+            </button>
+          </div>
         )}
       </div>
-
-      {/* Stats Detail Modal */}
-      <StatsDetailModal 
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        type={modalType}
-      />
     </Layout>
+  );
+};
+
+const ResultBadge = ({ result, small }) => {
+  const base = small ? "text-[9px] px-1 py-0" : "text-[10px] px-1.5 py-0.5";
+  return (
+    <span className={`${base} font-mono rounded-sm`} style={{
+      background: result === "W" ? "rgba(22,163,74,0.1)" : result === "L" ? `${WINE}15` : "rgba(0,0,0,0.05)",
+      color: result === "W" ? "#16a34a" : result === "L" ? WINE : "#888",
+    }}>
+      {result === "W" ? "WON" : result === "L" ? "LOST" : "DRAW"}
+    </span>
   );
 };
 

@@ -12,8 +12,11 @@ Calculates 8 skill badges based on game analysis:
 8. Time Management - Clock usage patterns
 
 Each badge is rated 1-5 stars with trend tracking.
-NEW: Each badge now tracks relevant moves for drill-down.
-NEW: Uses position_analyzer for real tactical pattern detection.
+
+ARCHITECTURE (No LLM Hallucination):
+- Stockfish → raw eval + best move
+- Mistake Classifier → deterministic tags (HANGING_PIECE, BLUNDER_WHEN_AHEAD, etc.)
+- GPT → only verbalizes structured tags (cannot invent facts)
 """
 
 import logging
@@ -21,14 +24,159 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone, timedelta
 import statistics
 
-# Import position analyzer for real tactical explanations
+# Import the DETERMINISTIC mistake classifier - this is the TRUTH layer
 try:
-    from position_analyzer import analyze_position_tactics, explain_move_difference
-    HAS_POSITION_ANALYZER = True
+    from mistake_classifier import (
+        classify_mistake, 
+        ClassifiedMistake, 
+        MistakeType, 
+        GamePhase,
+        get_verbalization_template,
+        classify_for_badge,
+        find_forks,
+        find_pins,
+        find_skewers
+    )
+    HAS_MISTAKE_CLASSIFIER = True
 except ImportError:
-    HAS_POSITION_ANALYZER = False
+    HAS_MISTAKE_CLASSIFIER = False
+    logging.warning("mistake_classifier not available - falling back to heuristics")
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_tactical_ratio(analyses: List[Dict]) -> Dict:
+    """
+    Calculate Tactical Ratio - a motivating metric showing:
+    - Tactics executed successfully (forks, pins, skewers, discovered attacks, exploited overloaded)
+    - Tactics fallen into (walked into fork/pin/skewer/discovered attack)
+    
+    Returns a ratio and breakdown that shows improvement over time.
+    This uses the deterministic mistake classifier tags.
+    """
+    if not analyses or not HAS_MISTAKE_CLASSIFIER:
+        return {
+            "ratio": 0.5,
+            "percentage": 50,
+            "executed": {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "overloaded": 0, "total": 0},
+            "fallen_into": {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "total": 0},
+            "avoided": {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "total": 0},
+            "insight": "Not enough data yet",
+            "trend_message": "Play more games to see your tactical ratio!"
+        }
+    
+    # Count tactical patterns from analyses
+    executed = {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "overloaded": 0, "total": 0}
+    fallen_into = {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "total": 0}
+    avoided = {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "total": 0}
+    
+    for analysis in analyses:
+        # Check if analysis has mistake classification data
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        
+        for move in move_evals:
+            mistake_type = move.get("mistake_type", "")
+            
+            # Executed tactics (positive)
+            if mistake_type == "executed_fork":
+                executed["forks"] += 1
+                executed["total"] += 1
+            elif mistake_type == "executed_pin":
+                executed["pins"] += 1
+                executed["total"] += 1
+            elif mistake_type == "executed_skewer":
+                executed["skewers"] += 1
+                executed["total"] += 1
+            elif mistake_type == "executed_discovered_attack":
+                executed["discovered"] += 1
+                executed["total"] += 1
+            elif mistake_type == "exploited_overloaded_defender":
+                executed["overloaded"] += 1
+                executed["total"] += 1
+            
+            # Walked into tactics (negative)
+            elif mistake_type == "walked_into_fork":
+                fallen_into["forks"] += 1
+                fallen_into["total"] += 1
+            elif mistake_type == "walked_into_pin":
+                fallen_into["pins"] += 1
+                fallen_into["total"] += 1
+            elif mistake_type == "walked_into_skewer":
+                fallen_into["skewers"] += 1
+                fallen_into["total"] += 1
+            elif mistake_type == "walked_into_discovered_attack":
+                fallen_into["discovered"] += 1
+                fallen_into["total"] += 1
+            
+            # Avoided threats (positive defensive play)
+            elif mistake_type == "avoided_fork":
+                avoided["forks"] += 1
+                avoided["total"] += 1
+            elif mistake_type == "avoided_pin":
+                avoided["pins"] += 1
+                avoided["total"] += 1
+            elif mistake_type == "avoided_skewer":
+                avoided["skewers"] += 1
+                avoided["total"] += 1
+            elif mistake_type == "avoided_discovered_attack":
+                avoided["discovered"] += 1
+                avoided["total"] += 1
+    
+    # Calculate ratio: (executed + avoided) / (executed + avoided + fallen_into)
+    positive = executed["total"] + avoided["total"]
+    negative = fallen_into["total"]
+    total = positive + negative
+    
+    if total == 0:
+        ratio = 0.5
+        percentage = 50
+    else:
+        ratio = positive / total
+        percentage = round(ratio * 100)
+    
+    # Generate insight based on the data
+    if total < 5:
+        insight = "Keep playing! More games will reveal your tactical patterns."
+        trend_message = "🎯 Building your tactical profile..."
+    elif percentage >= 75:
+        insight = f"Excellent! You execute {executed['total']} tactics and avoid {avoided['total']} threats."
+        trend_message = "🔥 You're a tactical warrior! Keep up the great work!"
+    elif percentage >= 60:
+        insight = f"Good tactical awareness. You've avoided {avoided['total']} threats."
+        trend_message = "📈 Your tactical instincts are solid. Practice puzzles to level up!"
+    elif percentage >= 45:
+        insight = f"Balanced. Executed {executed['total']} tactics but fell for {fallen_into['total']}."
+        trend_message = "⚖️ Focus on checking opponent threats before moving."
+    else:
+        insight = f"Watch out! You've walked into {fallen_into['total']} tactics."
+        trend_message = "💡 Before each move, ask: what can my opponent do to me?"
+    
+    # Determine which tactic type needs most work
+    weakness = None
+    max_fallen = max(fallen_into["forks"], fallen_into["pins"], fallen_into["skewers"], fallen_into["discovered"])
+    if max_fallen > 0:
+        if fallen_into["forks"] == max_fallen:
+            weakness = "forks"
+        elif fallen_into["pins"] == max_fallen:
+            weakness = "pins"
+        elif fallen_into["skewers"] == max_fallen:
+            weakness = "skewers"
+        elif fallen_into["discovered"] == max_fallen:
+            weakness = "discovered_attacks"
+    
+    return {
+        "ratio": round(ratio, 2),
+        "percentage": percentage,
+        "executed": executed,
+        "fallen_into": fallen_into,
+        "avoided": avoided,
+        "insight": insight,
+        "trend_message": trend_message,
+        "weakness": weakness,
+        "total_tactical_moments": total
+    }
+
 
 # Badge definitions
 BADGES = {
@@ -656,13 +804,17 @@ async def calculate_all_badges(db, user_id: str) -> Dict:
     strengths = [b[0] for b in sorted_badges[:2]]
     weaknesses = [b[0] for b in sorted_badges[-2:]]
     
+    # Calculate tactical ratio (new motivating metric)
+    tactical_ratio = calculate_tactical_ratio(analyses)
+    
     return {
         "badges": badges,
         "overall_score": round(overall, 1),
         "strengths": strengths,
         "weaknesses": weaknesses,
         "games_analyzed": len(analyses),
-        "calculated_at": datetime.now(timezone.utc).isoformat()
+        "calculated_at": datetime.now(timezone.utc).isoformat(),
+        "tactical_ratio": tactical_ratio  # NEW: Motivating tactical metric
     }
 
 
@@ -711,6 +863,97 @@ def calculate_badge_trends(current: Dict, history: List[Dict]) -> Dict:
     
     return trends
 
+
+# ============================================================================
+# DETERMINISTIC MOVE CLASSIFICATION
+# This uses rule-based logic, NOT LLM guessing
+# ============================================================================
+
+def classify_move_deterministic(move_data: Dict, user_color: str, game_data: Dict = None) -> Dict:
+    """
+    Classify a single move using the DETERMINISTIC classifier.
+    
+    This is the TRUTH layer - no LLM involved.
+    Returns structured tags that GPT can only verbalize, not invent.
+    """
+    if not HAS_MISTAKE_CLASSIFIER:
+        # Fallback to basic heuristics if classifier not available
+        return _classify_move_fallback(move_data, user_color)
+    
+    try:
+        # Get FEN after the move (we need to compute it)
+        fen_before = move_data.get("fen_before", "")
+        move_played = move_data.get("move", "")
+        
+        # Try to get fen_after by applying the move
+        import chess
+        fen_after = ""
+        try:
+            board = chess.Board(fen_before)
+            board.push_san(move_played)
+            fen_after = board.fen()
+        except:
+            fen_after = fen_before  # Fallback
+        
+        # Classify the mistake
+        classified = classify_mistake(
+            fen_before=fen_before,
+            fen_after=fen_after,
+            move_played=move_played,
+            best_move=move_data.get("best_move", ""),
+            eval_before=move_data.get("eval_before", 0),
+            eval_after=move_data.get("eval_after", 0),
+            user_color=user_color,
+            move_number=move_data.get("move_number", 1),
+            threat=move_data.get("threat")
+        )
+        
+        # Convert to dict for storage/display
+        return {
+            "mistake_type": classified.mistake_type.value,
+            "phase": classified.context.phase.value,
+            "was_ahead": classified.context.was_ahead,
+            "was_behind": classified.context.was_behind,
+            "opponent_had_threat": classified.context.opponent_had_threat,
+            "material_balance": classified.context.material_balance,
+            "eval_drop": classified.eval_drop,
+            "hanging_piece": classified.hanging_piece,
+            "explanation": get_verbalization_template(classified),  # DETERMINISTIC explanation
+            "pattern_details": classified.pattern_details
+        }
+    except Exception as e:
+        logger.error(f"Classification error: {e}")
+        return _classify_move_fallback(move_data, user_color)
+
+
+def _classify_move_fallback(move_data: Dict, user_color: str) -> Dict:
+    """Fallback classification when deterministic classifier not available."""
+    eval_before = move_data.get("eval_before", 0)
+    eval_after = move_data.get("eval_after", 0)
+    cp_loss = move_data.get("cp_loss", 0)
+    
+    # Simple heuristics
+    if cp_loss > 300:
+        mistake_type = "material_blunder"
+    elif cp_loss > 150:
+        mistake_type = "missed_winning_tactic"
+    elif cp_loss > 50:
+        mistake_type = "positional_drift"
+    else:
+        mistake_type = "good_move"
+    
+    return {
+        "mistake_type": mistake_type,
+        "phase": "middlegame",
+        "was_ahead": eval_before > 150,
+        "was_behind": eval_before < -150,
+        "opponent_had_threat": False,
+        "material_balance": "equal",
+        "eval_drop": cp_loss / 100,
+        "hanging_piece": None,
+        "explanation": f"Move lost {cp_loss} centipawns.",
+        "pattern_details": {}
+    }
 
 
 # ============================================================================
@@ -785,6 +1028,7 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict, user_ratin
         game = games_map.get(game_id, {})
         sf = analysis.get("stockfish_analysis", {})
         move_evals = sf.get("move_evaluations", [])
+        user_color = game.get("user_color", "white")
         
         # Get moves in opening phase (first 10 moves)
         opening_moves = [m for m in move_evals if m.get("move_number", 0) <= 10]
@@ -793,7 +1037,7 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict, user_ratin
             "game_id": game_id,
             "opponent": game.get("opponent_name", "Unknown"),
             "result": game.get("result", ""),
-            "user_color": game.get("user_color", "white"),
+            "user_color": user_color,
             "played_at": game.get("played_at"),
             "moves": []
         }
@@ -812,35 +1056,63 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict, user_ratin
             
             # Track mistakes/blunders in opening
             if evaluation in ["blunder", "mistake", "inaccuracy"]:
+                # USE DETERMINISTIC CLASSIFIER
+                classified = classify_move_deterministic(m, user_color)
+                
+                # Compute fen_after
+                fen_after = ""
+                try:
+                    import chess
+                    board = chess.Board(m.get("fen_before", ""))
+                    board.push_san(m.get("move", ""))
+                    fen_after = board.fen()
+                except:
+                    fen_after = m.get("fen_before", "")
+                
                 move_data = {
                     "move_number": m.get("move_number"),
                     "move_played": m.get("move"),
                     "fen_before": m.get("fen_before", ""),
-                    "fen_after": m.get("fen_after", ""),  # Position AFTER the move
+                    "fen_after": fen_after,
                     "best_move": m.get("best_move"),
                     "evaluation": evaluation,
                     "cp_loss": cp_loss,
                     "type": "mistake",
                     "pv_after_best": m.get("pv_after_best", []),
                     "threat": m.get("threat"),
-                    "explanation": _generate_opening_explanation(m, evaluation, user_rating)
+                    # DETERMINISTIC DATA
+                    "mistake_type": classified["mistake_type"],
+                    "hanging_piece": classified["hanging_piece"],
+                    "was_ahead": classified["was_ahead"],
+                    # DETERMINISTIC EXPLANATION
+                    "explanation": classified["explanation"]
                 }
                 game_opening_data["moves"].append(move_data)
                 relevant_moves.append({**move_data, "game_id": game_id})
             
             # Track excellent opening moves
             elif evaluation in ["best", "excellent"]:
+                # Compute fen_after
+                fen_after = ""
+                try:
+                    import chess
+                    board = chess.Board(m.get("fen_before", ""))
+                    board.push_san(m.get("move", ""))
+                    fen_after = board.fen()
+                except:
+                    fen_after = m.get("fen_before", "")
+                
                 move_data = {
                     "move_number": m.get("move_number"),
                     "move_played": m.get("move"),
                     "fen_before": m.get("fen_before", ""),
-                    "fen_after": m.get("fen_after", ""),
+                    "fen_after": fen_after,
                     "best_move": m.get("best_move"),
                     "evaluation": evaluation,
                     "cp_loss": cp_loss,
                     "type": "good",
                     "pv_after_best": m.get("pv_after_best", []),
-                    "explanation": "Nice! This develops your pieces well."
+                    "explanation": "Good move! You found the right continuation."
                 }
                 # Only add to moves if it's notable
                 if m.get("move_number", 0) <= 5:  # First 5 moves are always relevant
@@ -870,7 +1142,11 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict, user_ratin
 
 
 def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
-    """Get detailed data for Tactical Vision badge."""
+    """
+    Get detailed data for Tactical Vision badge.
+    
+    NOW USES DETERMINISTIC CLASSIFIER - no LLM guessing.
+    """
     relevant_moves = []
     relevant_games = []
     
@@ -879,12 +1155,13 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rati
         game = games_map.get(game_id, {})
         sf = analysis.get("stockfish_analysis", {})
         move_evals = sf.get("move_evaluations", [])
+        user_color = game.get("user_color", "white")
         
         game_tactical_data = {
             "game_id": game_id,
             "opponent": game.get("opponent_name", "Unknown"),
             "result": game.get("result", ""),
-            "user_color": game.get("user_color", "white"),
+            "user_color": user_color,
             "played_at": game.get("played_at"),
             "moves": []
         }
@@ -899,11 +1176,24 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rati
                 is_found = evaluation in ["best", "excellent"]
                 
                 if is_missed or is_found:
+                    # USE DETERMINISTIC CLASSIFIER
+                    classified = classify_move_deterministic(m, user_color)
+                    
+                    # Compute fen_after
+                    fen_after = ""
+                    try:
+                        import chess
+                        board = chess.Board(m.get("fen_before", ""))
+                        board.push_san(m.get("move", ""))
+                        fen_after = board.fen()
+                    except:
+                        fen_after = m.get("fen_before", "")
+                    
                     move_data = {
                         "move_number": m.get("move_number"),
                         "move_played": m.get("move"),
                         "fen_before": m.get("fen_before", ""),
-                        "fen_after": m.get("fen_after", ""),
+                        "fen_after": fen_after,
                         "best_move": m.get("best_move"),
                         "evaluation": evaluation,
                         "cp_loss": m.get("cp_loss", 0),
@@ -911,7 +1201,13 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rati
                         "type": "missed" if is_missed else "found",
                         "threat": m.get("threat"),
                         "pv_after_best": m.get("pv_after_best", []),
-                        "explanation": _generate_tactical_explanation(m, is_missed, eval_diff, user_rating)
+                        # DETERMINISTIC DATA
+                        "mistake_type": classified["mistake_type"],
+                        "hanging_piece": classified["hanging_piece"],
+                        "was_ahead": classified["was_ahead"],
+                        "opponent_had_threat": classified["opponent_had_threat"],
+                        # DETERMINISTIC EXPLANATION (not LLM guess)
+                        "explanation": classified["explanation"]
                     }
                     game_tactical_data["moves"].append(move_data)
                     relevant_moves.append({**move_data, "game_id": game_id})
@@ -1468,18 +1764,10 @@ def _generate_tactical_explanation(move: Dict, is_missed: bool, eval_swing: int,
     """Generate tactical explanation using position analysis when available."""
     best = move.get("best_move", "")
     threat = move.get("threat", "")
-    played = move.get("move_played", move.get("move", ""))
-    fen_before = move.get("fen_before", "")
     level = _get_rating_level(rating)
     
-    # Try to get real explanation from position analyzer
-    if HAS_POSITION_ANALYZER and fen_before:
-        try:
-            analysis = explain_move_difference(fen_before, played, best, threat, "white")
-            if analysis.get("simple_explanation") and not analysis.get("error"):
-                return analysis["simple_explanation"]
-        except Exception as e:
-            logger.debug(f"Position analyzer error: {e}")
+    # NOTE: This function is now mostly a fallback. 
+    # Primary explanations come from classify_move_deterministic()
     
     # Fallback to template-based explanation
     if is_missed:

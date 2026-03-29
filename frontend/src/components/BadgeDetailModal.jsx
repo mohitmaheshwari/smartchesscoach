@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ import {
   Sparkles,
   ArrowRight
 } from "lucide-react";
+import { formatCpLoss } from "@/utils/evalFormatter";
 
 // Badge icon mapping
 const BADGE_ICONS = {
@@ -89,41 +90,57 @@ const InteractiveBoard = ({
   userColor = "white",
   onAskAI 
 }) => {
-  const chessRef = useRef(new Chess());
+  const chessRef = useRef(null);
   const [currentFen, setCurrentFen] = useState("start");
   const [lineIndex, setLineIndex] = useState(-1);
   const [isShowingLine, setIsShowingLine] = useState(false);
   const [highlightSquares, setHighlightSquares] = useState({});
   const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState("played"); // "played" = replay user's move, "best" = show best line
+  const [viewMode, setViewMode] = useState("before"); // "before" = starting position, "played" = user's move, "best" = best line
 
-  // Reset when props change
+  // Initialize chess instance once
   useEffect(() => {
+    if (!chessRef.current) {
+      chessRef.current = new Chess();
+    }
+  }, []);
+
+  // Helper function to play move and get result
+  const playMoveOnBoard = (fenToLoad, moveToPlay) => {
+    if (!chessRef.current) {
+      chessRef.current = new Chess();
+    }
     const chess = chessRef.current;
+    
+    try {
+      chess.load(fenToLoad);
+      const move = chess.move(moveToPlay);
+      return { success: !!move, move, fen: chess.fen() };
+    } catch (e) {
+      console.error("Move failed:", moveToPlay, "from FEN:", fenToLoad, e);
+      return { success: false, move: null, fen: fenToLoad };
+    }
+  };
+
+  // Reset when props change - show position BEFORE
+  useEffect(() => {
     setError(null);
-    setViewMode("played");
+    setViewMode("before");
     setIsShowingLine(false);
     setLineIndex(-1);
     setHighlightSquares({});
     
-    // Start by showing the position BEFORE, then we can replay the played move
+    // Start by showing the position BEFORE the move
     if (fenBefore && fenBefore.length > 10) {
       try {
-        chess.load(fenBefore);
+        if (!chessRef.current) chessRef.current = new Chess();
+        chessRef.current.load(fenBefore);
         setCurrentFen(fenBefore);
-        
-        // Auto-play the user's move to show what happened
-        if (playedMove) {
-          setTimeout(() => {
-            replayPlayedMove();
-          }, 300);
-        }
       } catch (e) {
         console.error("Invalid FEN:", fenBefore, e);
-        // Fallback to fen_after
         if (fen && fen.length > 10) {
           try {
-            chess.load(fen);
+            chessRef.current.load(fen);
             setCurrentFen(fen);
           } catch (e2) {
             setError("Invalid position");
@@ -133,7 +150,8 @@ const InteractiveBoard = ({
       }
     } else if (fen && fen.length > 10) {
       try {
-        chess.load(fen);
+        if (!chessRef.current) chessRef.current = new Chess();
+        chessRef.current.load(fen);
         setCurrentFen(fen);
       } catch (e) {
         setError("Invalid position");
@@ -142,77 +160,75 @@ const InteractiveBoard = ({
     } else {
       setCurrentFen("start");
     }
-  }, [fen, fenBefore, playedMove]);
+  }, [fen, fenBefore]);
 
   // Replay the user's played move (to show what they did wrong)
   const replayPlayedMove = useCallback(() => {
-    const chess = chessRef.current;
-    if (!fenBefore || !playedMove) return;
+    if (!fenBefore || !playedMove) {
+      console.log("Missing data for replay:", { fenBefore: !!fenBefore, playedMove });
+      return;
+    }
     
-    try {
-      chess.load(fenBefore);
-      const move = chess.move(playedMove);
+    const result = playMoveOnBoard(fenBefore, playedMove);
+    
+    if (result.success && result.move) {
+      // Build highlights: user's move in red, threat in orange
+      const highlights = {
+        [result.move.from]: { backgroundColor: "rgba(239, 68, 68, 0.5)" },  // Red for bad move
+        [result.move.to]: { backgroundColor: "rgba(239, 68, 68, 0.5)" }
+      };
       
-      if (move) {
-        // Build highlights: user's move in red, threat in orange
-        const highlights = {
-          [move.from]: { backgroundColor: "rgba(239, 68, 68, 0.5)" },  // Red for bad move
-          [move.to]: { backgroundColor: "rgba(239, 68, 68, 0.5)" }
+      // Show the threat on YOUR move view - this is when you should have seen it!
+      if (threat) {
+        highlights[threat] = { 
+          backgroundColor: "rgba(249, 115, 22, 0.6)",  // Orange for threat
+          boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.9)"
         };
-        
-        // Show the threat on YOUR move view - this is when you should have seen it!
-        if (threat) {
-          highlights[threat] = { 
-            backgroundColor: "rgba(249, 115, 22, 0.6)",  // Orange for threat
-            boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.9)"
-          };
-        }
-        
-        setCurrentFen(chess.fen());
-        setHighlightSquares(highlights);
-        setViewMode("played");
-        setIsShowingLine(false);
-        setLineIndex(-1);
       }
-    } catch (e) {
-      console.log("Could not replay move:", playedMove, e);
+      
+      setCurrentFen(result.fen);
+      setHighlightSquares(highlights);
+      setViewMode("played");
+      setIsShowingLine(false);
+      setLineIndex(-1);
+    } else {
+      console.log("Could not replay move:", playedMove);
     }
   }, [fenBefore, playedMove, threat]);
 
   // Show the best move (what should have been played)
   const showBestMove = useCallback(() => {
-    const chess = chessRef.current;
-    if (!fenBefore || !bestMove) return;
+    if (!fenBefore || !bestMove) {
+      console.log("Missing data for best move:", { fenBefore: !!fenBefore, bestMove });
+      return;
+    }
     
-    try {
-      chess.load(fenBefore);
-      const move = chess.move(bestMove);
+    const result = playMoveOnBoard(fenBefore, bestMove);
+    
+    if (result.success && result.move) {
+      // Best move in green only - no threat highlight here
+      const highlights = {
+        [result.move.from]: { backgroundColor: "rgba(34, 197, 94, 0.5)" },  // Green for best
+        [result.move.to]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
+      };
       
-      if (move) {
-        // Best move in green only - no threat highlight here
-        const highlights = {
-          [move.from]: { backgroundColor: "rgba(34, 197, 94, 0.5)" },  // Green for best
-          [move.to]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
-        };
-        
-        setCurrentFen(chess.fen());
-        setHighlightSquares(highlights);
-        setViewMode("best");
-        setIsShowingLine(true);
-        setLineIndex(0);
-      }
-    } catch (e) {
-      console.log("Could not show best move:", bestMove, e);
+      setCurrentFen(result.fen);
+      setHighlightSquares(highlights);
+      setViewMode("best");
+      setIsShowingLine(true);
+      setLineIndex(0);
+    } else {
+      console.log("Could not show best move:", bestMove);
     }
   }, [fenBefore, bestMove]);
 
   // Show position before any move (starting point)
   const showBeforePosition = useCallback(() => {
-    const chess = chessRef.current;
     if (!fenBefore) return;
     
     try {
-      chess.load(fenBefore);
+      if (!chessRef.current) chessRef.current = new Chess();
+      chessRef.current.load(fenBefore);
       setCurrentFen(fenBefore);
       
       // Highlight threat if present
@@ -234,13 +250,14 @@ const InteractiveBoard = ({
 
   // Play through the best line
   const playNextInLine = useCallback(() => {
-    const chess = chessRef.current;
     if (!pvLine || pvLine.length === 0 || !fenBefore) return;
     
     const nextIndex = lineIndex + 1;
     if (nextIndex >= pvLine.length) return;
 
     try {
+      if (!chessRef.current) chessRef.current = new Chess();
+      const chess = chessRef.current;
       chess.load(fenBefore);
       
       // Play all moves up to nextIndex
@@ -268,12 +285,13 @@ const InteractiveBoard = ({
 
   // Go back one move in line
   const playPrevInLine = useCallback(() => {
-    const chess = chessRef.current;
     if (lineIndex < 0 || !fenBefore) return;
     
     const prevIndex = lineIndex - 1;
     
     try {
+      if (!chessRef.current) chessRef.current = new Chess();
+      const chess = chessRef.current;
       chess.load(fenBefore);
       
       if (prevIndex >= 0) {
@@ -310,47 +328,6 @@ const InteractiveBoard = ({
 
   const hasPvLine = pvLine && pvLine.length > 0;
 
-  // Play through the best line (from the position BEFORE the mistake)
-  const playNextMove = useCallback(() => {
-    const chess = chessRef.current;
-    if (!pvLine || pvLine.length === 0 || !fenBefore) return;
-    
-    const nextIndex = lineIndex + 1;
-    if (nextIndex >= pvLine.length) return;
-
-    try {
-      // Reset to starting position (before the mistake)
-      chess.load(fenBefore);
-    
-      // Play all moves up to nextIndex
-      for (let i = 0; i <= nextIndex; i++) {
-        try {
-          chess.move(pvLine[i]);
-        } catch (e) {
-          console.error("Invalid move in PV:", pvLine[i]);
-          return;
-        }
-      }
-      
-      setCurrentFen(chess.fen());
-      setLineIndex(nextIndex);
-      setIsShowingLine(true);
-      setViewMode("line");
-      
-      // Highlight the last move
-      const history = chess.history({ verbose: true });
-      if (history.length > 0) {
-        const lastMove = history[history.length - 1];
-        setHighlightSquares({
-          [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
-          [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
-        });
-      }
-    } catch (e) {
-      console.error("Error going back:", e);
-    }
-  }, [fenBefore, pvLine, lineIndex, threat]);
-
   return (
     <div className="flex flex-col items-center">
       {/* Error State */}
@@ -375,15 +352,12 @@ const InteractiveBoard = ({
       
       {/* Chess Board */}
       <div className="w-full max-w-[320px] aspect-square rounded-lg overflow-hidden border-2 border-border shadow-lg">
-        <Chessboard 
-          position={currentFen}
-          boardWidth={320}
-          arePiecesDraggable={false}
-          boardOrientation={userColor === "black" ? "black" : "white"}
-          customSquareStyles={highlightSquares}
-          customBoardStyle={{
-            borderRadius: "4px"
-          }}
+        <LichessBoard 
+          fen={currentFen}
+          orientation={userColor === "black" ? "black" : "white"}
+          viewOnly={true}
+          interactive={false}
+          highlights={Object.keys(highlightSquares || {})}
         />
       </div>
       
@@ -811,8 +785,8 @@ const GameCard = ({ game, badgeKey, onViewGame }) => {
                                 </span>
                               </div>
                               {move.cp_loss > 0 && (
-                                <span className="text-xs text-red-500">
-                                  -{move.cp_loss} cp
+                                <span className={`text-xs ${formatCpLoss(move.cp_loss).className}`}>
+                                  {formatCpLoss(move.cp_loss).text}
                                 </span>
                               )}
                             </div>

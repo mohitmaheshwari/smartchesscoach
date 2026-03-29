@@ -1,0 +1,41 @@
+{
+  "summary": "Bug fix verification PASSED. The GET /api/coach/play/messages/{session_id} endpoint now correctly returns position_coaching fields (structure_name, structure_type, game_phase, key_characteristics, strategic_plans, tactical_features, tactical_insights, teaching_points, critical_squares, options). All 19 tests passed for intelligent position coach feature.",
+  "mode": "update",
+  "baseline_commit": "92d3fdbfd7285ca4cde247ef9430713055f63409",
+  "head_commit": "53ab3787dafa6cfd5a0e248744b0f8e612bf3a52",
+  "specs_created": [],
+  "specs_updated": ["/app/backend/tests/test_intelligent_position_coach.py"],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_intelligent_position_coach.py",
+    "/app/test_reports/pytest/test_intelligent_position_coach_iteration126.xml"
+  ],
+  "regression_results": {
+    "total_specs": 20,
+    "passed": 19,
+    "failed": 0,
+    "skipped": 1
+  },
+  "issues": [],
+  "action_items": [],
+  "updated_files": ["/app/backend/tests/test_intelligent_position_coach.py"],
+  "test_results": {
+    "backend": "100% (19/19 passed, 1 skipped conditionally)"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bug fix verified. GET /api/coach/play/messages/{session_id} endpoint now includes position_coaching fields correctly. The fix was adding an if-block at server.py lines 10111-10122 that mirrors the pattern used for opening_teaching_offer and endgame_teaching_offer types. All integration tests pass.",
+  "rca_of_issue": "Root cause was missing field extraction for position_coaching message type in get_coach_messages endpoint. Fix applied by adding similar if-block to extract all position_coaching specific fields.",
+  "bug_fix_verification": {
+    "bug_id": "BUG-001 from iteration_125",
+    "status": "FIXED",
+    "verification_method": "Ran all tests in test_intelligent_position_coach.py",
+    "tests_passed": [
+      "TestPositionCoachingIntegration::test_messages_endpoint_returns_position_coaching_fields",
+      "TestPositionCoachingMessageStorage::test_position_coaching_message_structure",
+      "TestPositionCoachingIntegration::test_start_coach_game_and_make_moves"
+    ],
+    "code_changes_verified": "server.py lines 10111-10122 now include position_coaching field extraction"
+  }
+}

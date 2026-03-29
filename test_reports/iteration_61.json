@@ -1,0 +1,81 @@
+{
+  "summary": "Avoidance Mode and Recognition Mode for Trick Library tested successfully. All backend APIs work correctly (19/19 tests passed). Frontend UI shows all 3 practice modes (Execution, Avoidance, Recognition) with proper UI components and integration with backend validation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_tested": {
+    "trick_library_traps_display": {
+      "status": "PASS",
+      "description": "Trick Library displays 18 traps organized by difficulty (Beginner 5, Intermediate 11)"
+    },
+    "practice_modes_ui": {
+      "status": "PASS",
+      "description": "All 3 practice modes accessible via UI cards: Learn the Trap (Execution), Avoidance Mode, Recognition Mode"
+    },
+    "avoidance_mode_api": {
+      "endpoint": "POST /api/training/tricks/validate-avoidance",
+      "status": "PASS",
+      "tests_passed": "5/5",
+      "description": "Uses Stockfish to validate if user's move avoids the trap. Safe moves (Qe7, g6) return is_safe=true"
+    },
+    "avoidance_mode_ui": {
+      "status": "PASS",
+      "description": "Shows 'Find a Safe Move!' panel with hints, avoidance badge, and Reset button"
+    },
+    "recognition_mode_api": {
+      "endpoint": "POST /api/training/tricks/validate-recognition",
+      "status": "PASS",
+      "tests_passed": "7/7",
+      "description": "Validates user answer for trap recognition with scoring: perfect, good, partial, missed"
+    },
+    "recognition_mode_ui": {
+      "status": "PASS",
+      "description": "Shows Yes/No buttons, optional move input (when Yes selected), and 'Check My Answer' button"
+    },
+    "recognition_mode_perfect_answer": {
+      "status": "PASS",
+      "description": "Entering 'Yes' + 'Qxf7' shows 'Perfect!' result with explanation, key squares, and why it works"
+    },
+    "execution_mode_api": {
+      "endpoint": "GET /api/training/tricks/{key}/practice?mode=execution",
+      "status": "PASS",
+      "description": "Returns trap data with setup_moves, user_moves, engine_moves for step-by-step learning"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_avoidance_recognition.py",
+    "/app/test_reports/pytest/pytest_avoidance_recognition.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Avoidance validation at lines 6270-6417 uses Stockfish with proper engine.start()/stop() lifecycle",
+    "Recognition validation at lines 6420-6475 normalizes move notation correctly (strips +/#/=)",
+    "Frontend OpeningTrainer.jsx lines 1424-1531 implement both Avoidance and Recognition mode UI correctly",
+    "data-testid attributes present: practice-avoidance, practice-recognition, recognition-yes, recognition-submit, recognition-move-input"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_avoidance_recognition.py (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 tests passed)",
+    "frontend": "100% (all practice modes working)"
+  },
+  "test_credentials": "session_token=test_session_356539ff12b1, Dev Login button on landing page",
+  "seed_data_creation": "None required - 18 hardcoded traps in trick_library_service.py",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Avoidance Mode and Recognition Mode fully implemented and tested. Backend uses Stockfish for avoidance validation (eval before/after comparison). Recognition mode uses simple string matching after normalizing move notation. UI accessible via Training > Opening Trainer > Trick Library > Select any trap > Click Avoidance Mode or Recognition Mode. Test file at /app/backend/tests/test_avoidance_recognition.py covers all validation scenarios.",
+  "screenshots": [
+    ".screenshots/trick_04_expanded.png - Trick Library with 18 traps shown",
+    ".screenshots/trick_05_scholars_selected.png - Scholar's Mate with 3 practice modes",
+    ".screenshots/trick_06_avoidance_mode.png - Avoidance mode 'Find a Safe Move!' UI",
+    ".screenshots/trick_07_recognition_mode.png - Recognition mode Yes/No UI",
+    ".screenshots/trick_09_recognition_result.png - Perfect score result with explanation"
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "summary": "Pattern Context feature testing complete. All APIs return SPECIFIC contextual insights (not vague labels) including rating_context, opening_context, time_context. Frontend Pattern Intelligence card displays recurring patterns with specific insights and Fix recommendations.",
+  "mode": "generate",
+  "baseline_commit": "fe45a78f9066148978f453330664c6f0621c56f2",
+  "head_commit": "338c96b972465b881c725a185aea4898720ae749",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 25,
+    "passed": 25,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_pattern_context_api.py",
+    "/app/tests/e2e/lab-pattern-context.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_pattern_context_api.py",
+    "/app/tests/e2e/lab-pattern-context.spec.ts",
+    "/app/test_reports/pytest/pytest_pattern_context.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_pattern_context_api.py",
+    "/app/tests/e2e/lab-pattern-context.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 pytest tests passed)",
+    "frontend": "100% (13/13 Playwright tests passed)"
+  },
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Pattern Context feature is fully implemented and tested. The /api/lab/{game_id} endpoint returns pattern_context with summary (coach_summary, recurring_patterns with specific_insights), history (most_recurring, improving_patterns, fixed_patterns), and global_insights (rating_vulnerable, time_vulnerable, opening_triggers). The /api/lab/{game_id}/mistake/{move_number}/context endpoint returns specific_insights and action_recommendation for individual mistakes. Frontend Lab.jsx displays Pattern Intelligence card with data-testid='pattern-insights-card' showing opening triggers, time control insights, vulnerability profile badges, and Fix recommendations.",
+  "features_tested": {
+    "pattern_context_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/lab/{game_id} returns pattern_context field",
+        "pattern_context has summary with coach_summary and recurring_patterns",
+        "pattern_context has global_insights with rating/time/opening vulnerable",
+        "recurring_patterns have specific_insights dict",
+        "pattern_context has history section with most_recurring, improving, fixed"
+      ]
+    },
+    "mistake_context_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/lab/{game_id}/mistake/{move_number}/context endpoint exists",
+        "Returns specific_insights for recurring patterns",
+        "Returns action_recommendation",
+        "Returns recurrence tracking (is_recurring, recurrence_count, trend, other_games)",
+        "Non-existent mistake returns empty context"
+      ]
+    },
+    "data_quality": {
+      "status": "PASS",
+      "tests": [
+        "coach_summary is NOT vague/generic",
+        "opening_triggers are specific opening names"
+      ]
+    },
+    "frontend_pattern_intelligence": {
+      "status": "PASS",
+      "tests": [
+        "Lab page loads with analysis data",
+        "Coach/Engine mode toggle works",
+        "Pattern Intelligence card displays on Summary tab",
+        "Shows specific opening context (Common in X / Trigger: X)",
+        "Shows time control context (Most issues in rapid/blitz)",
+        "Shows vulnerability profile badges",
+        "Shows actionable Fix recommendations",
+        "Shows trend indicator (Needs work / Getting better)"
+      ]
+    },
+    "lab_page_ui": {
+      "status": "PASS",
+      "tests": [
+        "Three tabs: Summary, Strategy, Milestones",
+        "Tab switching works",
+        "Chess board visible",
+        "Critical toggle works",
+        "Similar games section shows clickable entries"
+      ]
+    }
+  }
+}

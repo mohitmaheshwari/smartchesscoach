@@ -1,0 +1,67 @@
+{
+  "summary": "Coach State, Behavioral Maturity, and Deep Session features tested successfully. All 22 backend tests and 17 frontend E2E tests pass. The coaching architecture is working correctly with proper persistence, maturity calculation, tone adaptation, and deep session flow.",
+  "mode": "generate",
+  "baseline_commit": "c1ffc11fd89d00b5b467de89f0285f03d74bcdc1",
+  "head_commit": "d57f713df5f86797aeb1603d277646853c17dbe6",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 2,
+    "passed": 39,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_coach_state_maturity.py",
+    "/app/tests/e2e/coach-maturity.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_coach_state_maturity.py",
+    "/app/test_reports/pytest/coach_state_maturity.xml",
+    "/app/tests/e2e/coach-maturity.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_coach_state_maturity.py",
+    "/app/tests/e2e/coach-maturity.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 passed)",
+    "frontend": "100% (17/17 passed)"
+  },
+  "seed_data_creation": "Executed seed_test_data.py to create 3 test archetypes: test_novice_nina (Novice/ExplainMore), test_steady_sam (Developing/Balanced), test_disciplined_dana (Disciplined/ChallengeMore)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Coach State and Behavioral Maturity Layer fully tested. Key endpoints verified: /api/coach/state, /api/coach/maturity, /api/coach/maturity/update, /api/coach/maturity/adapt-message, /api/coach/theme-stats, /api/coach/deep-session/* (start, advance, reflection, complete), /api/coach/analytics/*. Three seeded test users exist with different maturity levels. Progress page displays coach focus card with theme, micro-rules, and maturity badge correctly.",
+  "features_tested": {
+    "backend": [
+      "CoachState persistence and retrieval (/api/coach/state)",
+      "Behavioral maturity level calculation (/api/coach/maturity)",
+      "Maturity update with transition detection (/api/coach/maturity/update)",
+      "Message adaptation based on maturity level (/api/coach/maturity/adapt-message)",
+      "Theme stats endpoint (/api/coach/theme-stats)",
+      "Analytics summary and progression (/api/coach/analytics/*)",
+      "Deep session complete flow (start → advance → reflection → complete)",
+      "Deep session trigger check",
+      "Seeded user maturity verification (Novice/Developing/Disciplined)",
+      "Analysis worker not stuck (no jobs in processing > 5 min)"
+    ],
+    "frontend": [
+      "Progress page loads and displays coach focus card",
+      "Maturity level badge displayed (Novice shown)",
+      "Theme name displayed (ThreatVerification)",
+      "Micro-rules displayed in focus card",
+      "Dashboard page loads correctly",
+      "Navigation from sidebar to Progress page"
+    ]
+  }
+}

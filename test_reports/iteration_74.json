@@ -1,0 +1,122 @@
+{
+  "summary": "Coach Pulse indicator and chip-based Reflect UI feature testing complete. All features working correctly including Coach Pulse in header, chip-based intent/confidence selection, and Mission Runner with real positions from user games.",
+  "mode": "generate",
+  "baseline_commit": "1ffc463da91d2403cb3fad9daf4fb9d33eb0ac81",
+  "head_commit": "fe45a78f9066148978f453330664c6f0621c56f2",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 48,
+    "passed": 48,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/coach-pulse-reflect.spec.ts",
+    "/app/backend/tests/test_coach_pulse_reflect_api.py"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/mission-flow.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/coach-pulse-reflect.spec.ts",
+    "/app/tests/e2e/mission-flow.spec.ts",
+    "/app/tests/e2e/coach-home.spec.ts",
+    "/app/backend/tests/test_coach_pulse_reflect_api.py",
+    "/app/test_reports/pytest/pytest_coach_pulse_reflect.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/coach-pulse-reflect.spec.ts",
+    "/app/tests/e2e/mission-flow.spec.ts",
+    "/app/backend/tests/test_coach_pulse_reflect_api.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 pytest tests passed)",
+    "frontend": "100% (36/36 Playwright tests passed: 13 coach-pulse-reflect + 8 mission-flow + 15 coach-home)"
+  },
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Coach Pulse indicator at data-testid='coach-pulse' shows when /api/reflect/pending/count returns count > 0 or /api/coach/fresh-loss returns has_fresh_loss: true. Clicking it navigates to /reflect or /recover/:game_id. Reflect page uses 3-step progressive flow: intent chips (step 0), confidence chips (step 1), optional quick tags (step 2). Board shows arrows via view mode toggle (Your Move/Better Move/Both). Mission Runner drill phase uses interactive board for move input (no answer buttons) - Show Answer reveals best move, then Next Position button appears.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  },
+  "features_tested": {
+    "coach_pulse_indicator": {
+      "status": "PASS",
+      "tests": [
+        "Coach Pulse appears in header when reflections pending",
+        "Coach Pulse shows Brain icon with pulsing indicator",
+        "Coach Pulse navigates to /reflect when clicked"
+      ]
+    },
+    "reflect_chip_ui": {
+      "status": "PASS",
+      "tests": [
+        "Reflect page loads with game info and moment count",
+        "Reflect page shows chip-based intent selection (step 0)",
+        "Selecting intent advances to confidence selection (step 1)",
+        "Selecting confidence advances to optional quick tags (step 2)",
+        "Reflect page shows optional quick tags as chips"
+      ]
+    },
+    "reflect_board_arrows": {
+      "status": "PASS",
+      "tests": [
+        "Reflect page shows chess board with position",
+        "Reflect page shows view mode toggle (Your Move / Better Move / Both)",
+        "View mode toggle changes displayed arrows",
+        "Reflect page shows move info (You played vs Better was)",
+        "Reflect page shows moment type badge (Blunder/Mistake/Critical)"
+      ]
+    },
+    "coach_home": {
+      "status": "PASS",
+      "tests": [
+        "Coach Home loads at /home route",
+        "Navigation shows 4 items: Home, Analyze, Train, Progress",
+        "Today's Mission card displays when user has mission",
+        "Mission card shows focus label, duration, and protocol steps",
+        "Start Mission button is visible and clickable",
+        "Start Mission navigates to mission runner",
+        "Weekly Proof card displays below mission",
+        "Quick action buttons are visible and functional",
+        "Navigation items navigate to correct routes"
+      ]
+    },
+    "mission_runner_positions": {
+      "status": "PASS",
+      "tests": [
+        "MissionRunner shows briefing phase with protocol steps",
+        "MissionRunner Start Mission transitions to drill phase",
+        "Exit button returns to home from MissionRunner",
+        "Drill phase shows score tracking after using Show Answer"
+      ]
+    },
+    "backend_apis": {
+      "status": "PASS",
+      "tests": [
+        "/api/reflect/pending/count returns count",
+        "/api/coach/fresh-loss returns has_fresh_loss",
+        "/api/coach/weekly-proof returns wins and streak info",
+        "/api/reflect/pending returns games list",
+        "/api/reflect/v1/profile returns adaptive profile",
+        "/api/reflect/v1/quick-tags returns position-specific tags",
+        "/api/reflect/game/{game_id}/moments returns moments",
+        "/api/missions/today returns today's mission",
+        "/api/missions/{mission_id}/positions returns real positions from user games",
+        "/api/missions/{mission_id}/start starts mission"
+      ]
+    }
+  }
+}

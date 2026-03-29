@@ -1,0 +1,82 @@
+{
+  "summary": "P1.6 Historical Re-Analysis + Adaptive Difficulty testing complete. Backend (18/18 passed): reanalysis enqueue endpoint creates job and returns job_id, idempotent behavior verified, reanalysis status endpoint returns progress fields, last-report returns difficulty (EASY/STANDARD/HARD), engine_version (P1.6), difficulty_reason fields, next_mission includes difficulty badge, difficulty adapts based on learner_type. Frontend (29/29 passed): BehavioralInsightCard displays difficulty badge on mission with correct coloring, CoachHome shows reanalysis progress banner when job running, API integration verified for P1.6 fields.",
+  "mode": "generate",
+  "baseline_commit": "02bf5229facd0c01ff317ce9221e68945a1a4ed4",
+  "head_commit": "b111e7594a671c5b74191dd7557e90e206dd3c2b",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 3,
+    "passed": 47,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_reanalysis_difficulty_p16.py"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/behavioral-insight.spec.ts",
+    "/app/tests/e2e/coach-home.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_reanalysis_difficulty_p16.py",
+    "/app/tests/e2e/behavioral-insight.spec.ts",
+    "/app/tests/e2e/coach-home.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_reanalysis_difficulty_p16.py",
+    "/app/tests/e2e/behavioral-insight.spec.ts",
+    "/app/tests/e2e/coach-home.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "N/A - Used dev login with existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P1.6 Historical Re-Analysis + Adaptive Difficulty features fully tested. Backend endpoints: POST /api/behavioral/reanalysis/enqueue (idempotent job creation), GET /api/behavioral/reanalysis/status (progress tracking). The behavioral report endpoints (/api/behavioral/last-report and /api/behavioral/analyze/{game_id}) now return P1.6 fields: difficulty (EASY/STANDARD/HARD), engine_version (P1.6), difficulty_reason, difficulty_guardrail. Mission structure includes difficulty badge and params from templates. Frontend BehavioralInsightCard shows difficulty badge with color coding (emerald=EASY, blue=STANDARD, orange=HARD). CoachHome shows reanalysis progress banner when job status is RUNNING. All features working correctly.",
+  "features_tested": {
+    "backend": [
+      "POST /api/behavioral/reanalysis/enqueue creates job and returns job_id",
+      "POST /api/behavioral/reanalysis/enqueue is idempotent (same job returned on duplicate)",
+      "POST /api/behavioral/reanalysis/enqueue returns status (PENDING/RUNNING/DONE/FAILED)",
+      "GET /api/behavioral/reanalysis/status returns job progress fields",
+      "GET /api/behavioral/reanalysis/status returns engine_version (P1.6)",
+      "/api/behavioral/last-report returns difficulty field (EASY/STANDARD/HARD)",
+      "/api/behavioral/last-report returns engine_version (P1.6)",
+      "/api/behavioral/last-report returns difficulty_reason",
+      "/api/behavioral/last-report next_mission has difficulty field",
+      "/api/behavioral/last-report next_mission has difficulty_reason",
+      "Difficulty correlates with learner_type (NOT_APPLYING gets EASY, HARD requires FAST_ADAPTER)",
+      "difficulty_guardrail field present when applicable",
+      "/api/behavioral/analyze/{game_id} returns P1.6 difficulty fields",
+      "/api/behavioral/analyze/{game_id} next_mission has difficulty badge",
+      "Mission has params field from templates",
+      "historical_mode field present in reports (False for live reports)"
+    ],
+    "frontend": [
+      "BehavioralInsightCard displays on /home page",
+      "Root cause badge shown with icon and color",
+      "Scorecard chips show Plan Discipline, Decision Stability, Pattern Persistence",
+      "Headline and rich insight text displayed",
+      "Confidence badge or Stagnation badge shown",
+      "Review This Game button navigates to /game/{gameId}",
+      "Coach Memory row conditionally displays (only when advice_stats.applicable > 0)",
+      "P1.6: Difficulty badge displayed on mission (EASY/STANDARD/HARD)",
+      "P1.6: Difficulty badge has correct color based on level",
+      "P1.6: API returns difficulty, engine_version, difficulty_reason fields",
+      "P1.6: Reanalysis banner appears when job is RUNNING",
+      "P1.6: Reanalysis status API returns correct fields including engine_version"
+    ]
+  }
+}

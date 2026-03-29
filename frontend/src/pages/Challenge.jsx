@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -311,17 +311,16 @@ const Challenge = ({ user }) => {
                 <div className="space-y-4">
                   {/* Chess Board */}
                   <div className="relative aspect-square w-full max-w-[500px] mx-auto">
-                    <Chessboard
-                      position={game.fen()}
-                      onPieceDrop={onDrop}
-                      boardOrientation={currentPuzzle.player_color || "white"}
-                      arePiecesDraggable={puzzleState === "playing"}
-                      customBoardStyle={{
-                        borderRadius: "8px",
-                        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
+                    <LichessBoard
+                      fen={game.fen()}
+                      onMove={(moveData) => {
+                        if (puzzleState === "playing" && moveData) {
+                          onDrop(moveData.from, moveData.to);
+                        }
                       }}
-                      customDarkSquareStyle={{ backgroundColor: "#4F46E5" }}
-                      customLightSquareStyle={{ backgroundColor: "#E0E7FF" }}
+                      orientation={currentPuzzle.player_color || "white"}
+                      interactive={puzzleState === "playing"}
+                      viewOnly={puzzleState !== "playing"}
                     />
                     
                     {/* Overlay for solved/failed */}
