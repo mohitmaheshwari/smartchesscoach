@@ -22,6 +22,17 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 
 ## What's Been Implemented
 
+### Human Coach Game Review — March 2026
+- **THE STORY**: Game narrative arc (opening → tension → climax → resolution), no engine numbers
+- **THE MIRROR**: Personality observation ("you play scared when winning", cross-game patterns)
+- **THE MOMENT**: 2-3 critical decisions with THINKING ERROR diagnosis (complacency, desperation, tunnel_vision, no_plan, tactical_blindness, fatigue, frustration_spiral)
+- **THE TAKEAWAY**: One memorable mantra for next game
+- **THE PROOF**: Progress tracking (blunder rate, accuracy, opening quality vs recent history)
+- **LLM Narrative Layer**: GPT-4o-mini generates human coaching language on top of deterministic analysis
+- Backend: `services/coach_review_service.py`, endpoint: `GET /api/lab/{game_id}/coach-review`
+- Frontend: `components/Lab/CoachReview.jsx`, integrated into LabV2.jsx Coach view mode
+- Testing: iteration_166 — 100% pass (13/13 backend, all frontend verified)
+
 ### Adaptive Game Decryption V5 — March 2026
 - Rating-based filtering: ~1100 player only sees mistakes (100+cp) and blunders (250+cp), not inaccuracies
 - Known weakness matching: moves matching player_identity patterns get priority boost ("Known pattern" badge)
@@ -82,7 +93,8 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 ```
 /app/backend/
   services/
-    shared_coaching_v5.py          # UPDATED: Fork detection + book move guard
+    coach_review_service.py            # NEW: 5-section Human Coach Review engine
+    shared_coaching_v5.py              # UPDATED: Fork detection + book move guard
     game_decryption_v5_service.py  # UPDATED: Book move guard + V5 versioning
     game_coach_summary.py          # NEW: 3-tab coach insight (summary/habits/memory)
     player_identity.py             # Core memory tracker for Chess DNA
@@ -98,11 +110,12 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
   pages/
     CoachPlay.jsx                  # UPDATED: P0 fixes
     Lab.jsx                        # UPDATED: Refresh Coaching button
-    LabV2.jsx                      # UPDATED: Coach Insight Panel integrated (replaces old 5-tab)
+    LabV2.jsx                      # UPDATED: Human Coach Review integrated in Coach view mode
     AdminDashboard.jsx             # UPDATED: Diagnostics display
   components/
     Lab/
-      CoachInsightPanel.jsx        # NEW: 3-tab insight panel (Summary, Habits, Memory)
+      CoachInsightPanel.jsx        # 3-tab insight panel (Summary, Habits, Memory) — preserved
+      CoachReview.jsx              # NEW: 5-section Human Coach Review (Story, Mirror, Moment, Takeaway, Proof)
     shared/
       FlagMoveDialog.jsx           # REWRITTEN: InlineFlag system
       V5CoachingCard.jsx           # UPDATED: Inline flags on every section
@@ -131,6 +144,7 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 ---
 
 ## Testing Status
+- Iteration 166: Human Coach Review — 100% (13/13 backend, all frontend verified)
 - Iteration 160: Endgame Lessons -- 100%
 - Iteration 161: Super Admin Dashboard -- 100%
 - Iteration 162: Player Profile Narrative -- 100%
@@ -145,7 +159,8 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 - **Mohit** (user_62852a1b64e7) = super_admin
 - **V5_COACHING_VERSION = 4**: Bump when coaching logic changes, old games auto-refresh
 - **Player profile cached**: `player_profiles` collection, regenerates every 5 games
-- **LLM**: GPT-4.1-mini via emergentintegrations (EMERGENT_LLM_KEY)
+- **LLM**: GPT-4o-mini via emergentintegrations (EMERGENT_LLM_KEY) — also used for Coach Review narrative layer
+- **llm_helper.py**: Updated to use `emergentintegrations` package properly (was previously a shim calling OpenAI directly)
 - **Never generic text**: All prompts demand specific, contextual output
 - **Adaptive by design**: No user-facing config dropdowns
 
