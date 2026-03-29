@@ -5131,7 +5131,7 @@ async def sync_games_now(background_tasks: BackgroundTasks, user: User = Depends
     if not user_doc:
         raise HTTPException(status_code=404, detail="User not found")
     
-    has_linked = user_doc.get("chesscom_username") or user_doc.get("lichess_username")
+    has_linked = user_doc.get("chess_com_username") or user_doc.get("chesscom_username") or user_doc.get("lichess_username")
     if not has_linked:
         raise HTTPException(status_code=400, detail="No chess accounts linked")
     
