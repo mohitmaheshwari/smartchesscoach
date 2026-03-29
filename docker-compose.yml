@@ -11,8 +11,6 @@
 #   - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: For Google OAuth
 #   - GOOGLE_REDIRECT_URI: OAuth callback URL (default: https://chessguru.ai/api/auth/google/callback)
 
-version: '3.8'
-
 services:
   # ============================================
   # MongoDB Database
