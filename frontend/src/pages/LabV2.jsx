@@ -902,6 +902,18 @@ const LabV2 = ({ user }) => {
               Coach
             </button>
             <button
+              onClick={() => setViewMode("habits")}
+              className="px-4 py-1.5 text-xs transition-all duration-200"
+              style={viewMode === "habits"
+                ? { background: "rgba(114,47,55,0.15)", color: "#fff", borderBottom: "2px solid #722F37" }
+                : { color: "#666", borderBottom: "2px solid transparent" }
+              }
+              data-testid="habits-view-btn"
+            >
+              <Target className="w-3 h-3 inline mr-1" strokeWidth={1.5} />
+              Habits
+            </button>
+            <button
               onClick={() => setViewMode("decrypt")}
               className="px-4 py-1.5 text-xs transition-all duration-200"
               style={viewMode === "decrypt"
@@ -1043,13 +1055,20 @@ const LabV2 = ({ user }) => {
             </div>
           </div>
           
-          {/* Right: Coach Review — 5-section human coaching session */}
-          <div className="w-[45%] flex flex-col overflow-hidden bg-[#050505]">
+          {/* Right Panel: Coach Review OR Habits based on viewMode */}
+          <div className={`w-[45%] flex flex-col overflow-hidden ${viewMode === "coach" ? "bg-[#050505]" : ""}`}>
             <div className="flex-1 overflow-y-auto p-5">
-              <CoachReview 
-                gameId={gameId} 
-                onMoveClick={(moveNum, moveUci, bestUci) => navigateToMoveNumber(moveNum, moveUci, bestUci)}
-              />
+              {viewMode === "coach" ? (
+                <CoachReview 
+                  gameId={gameId} 
+                  onMoveClick={(moveNum, moveUci, bestUci) => navigateToMoveNumber(moveNum, moveUci, bestUci)}
+                />
+              ) : (
+                <CoachInsightPanel 
+                  gameId={gameId} 
+                  onMoveClick={(moveNum) => navigateToMoveNumber(moveNum)}
+                />
+              )}
             </div>
           </div>
         </div>

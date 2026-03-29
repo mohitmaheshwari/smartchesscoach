@@ -164,4 +164,4 @@ Build a hyper-personalized chess coaching application "Thinking Simulator" focus
 - **Never generic text**: All prompts demand specific, contextual output
 - **Adaptive by design**: No user-facing config dropdowns
 
-*Last Updated: March 2026*
+*Last Updated: March 2026 (Human Coach Review + 3-mode toggle)*
