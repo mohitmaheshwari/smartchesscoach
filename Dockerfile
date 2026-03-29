@@ -11,10 +11,8 @@ WORKDIR /app/frontend
 # Copy package files first for better caching
 COPY frontend/package.json frontend/package-lock.json* frontend/yarn.lock* ./
 
-# Install dependencies (uses yarn.lock if present, otherwise package-lock.json)
-RUN if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
-    elif [ -f package-lock.json ]; then npm ci; \
-    else yarn install; fi
+# Install dependencies (yarn handles peer deps gracefully unlike npm ci)
+RUN yarn install
 
 # Copy frontend source
 COPY frontend/ ./
