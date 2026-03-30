@@ -1056,7 +1056,7 @@ const LabV2 = ({ user }) => {
           </div>
           
           {/* Right Panel: Coach Review OR Habits based on viewMode */}
-          <div className={`w-[45%] flex flex-col overflow-hidden ${viewMode === "coach" ? "bg-[#050505]" : ""}`}>
+          <div className="w-[45%] flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-5">
               {viewMode === "coach" ? (
                 <CoachReview 

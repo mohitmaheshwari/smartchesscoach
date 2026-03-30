@@ -32,11 +32,11 @@ const fadeUp = {
 
 const SectionHeader = ({ icon: Icon, label, number }) => (
   <div className="flex items-center gap-3 mb-4">
-    <div className="flex items-center justify-center w-7 h-7 border border-[#CBA135]/30 text-[#CBA135]">
+    <div className="flex items-center justify-center w-7 h-7 border border-primary/30 text-primary">
       <span className="text-[10px] font-mono tracking-widest">{number}</span>
     </div>
-    <Icon className="w-4 h-4 text-[#CBA135]/70" strokeWidth={1.5} />
-    <span className="text-[10px] font-mono tracking-[0.2em] uppercase text-[#A1A1AA]">
+    <Icon className="w-4 h-4 text-primary/70" strokeWidth={1.5} />
+    <span className="text-[10px] font-mono tracking-[0.2em] uppercase text-muted-foreground">
       {label}
     </span>
   </div>
@@ -53,27 +53,27 @@ const StorySection = ({ story, llmNarrative }) => {
       variants={fadeUp}
       initial="hidden"
       animate="visible"
-      className="pb-8 mb-8 border-b border-white/5"
+      className="pb-8 mb-8 border-b border-border"
       data-testid="coach-review-story"
     >
       <SectionHeader icon={BookOpen} label="What Happened" number="01" />
       
       {narrative ? (
-        <p className="text-base text-white/90 leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <p className="text-base text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
           {narrative}
         </p>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-white/80 leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {story.opening}
           </p>
-          <p className="text-sm text-white/70 leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-muted-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {story.tension}
           </p>
-          <p className="text-sm text-white/80 leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {story.climax}
           </p>
-          <p className="text-sm text-white/60 leading-relaxed italic" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-muted-foreground leading-relaxed italic" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {story.resolution}
           </p>
         </div>
@@ -93,21 +93,21 @@ const MirrorSection = ({ mirror, llmNarrative }) => {
       variants={fadeUp}
       initial="hidden"
       animate="visible"
-      className="pb-8 mb-8 border-b border-white/5"
+      className="pb-8 mb-8 border-b border-border"
       data-testid="coach-review-mirror"
     >
       <SectionHeader icon={Eye} label="About You" number="02" />
 
-      <div className="relative pl-4 border-l-2 border-[#722F37]/60">
-        <p className="text-base text-white/90 leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <div className="relative pl-4 border-l-2 border-primary/40">
+        <p className="text-base text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
           {narrative || mirror.observation}
         </p>
       </div>
 
       {mirror.pattern_insight && (
         <div className="mt-4 flex items-start gap-2">
-          <Repeat className="w-3.5 h-3.5 text-[#CBA135]/60 mt-0.5 shrink-0" strokeWidth={1.5} />
-          <p className="text-xs text-[#CBA135]/80" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          <Repeat className="w-3.5 h-3.5 text-primary/60 mt-0.5 shrink-0" strokeWidth={1.5} />
+          <p className="text-xs text-primary/80" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
             {mirror.pattern_insight}
           </p>
         </div>
@@ -124,7 +124,7 @@ const MomentCard = ({ moment, index, onNavigate, llmInsight }) => {
   const severityColor = {
     critical: "border-red-500/30 bg-red-500/5",
     significant: "border-amber-500/20 bg-amber-500/5",
-    minor: "border-white/10 bg-white/[0.02]",
+    minor: "border-border bg-muted/30",
   }[severity];
 
   return (
@@ -133,29 +133,29 @@ const MomentCard = ({ moment, index, onNavigate, llmInsight }) => {
       variants={fadeUp}
       initial="hidden"
       animate="visible"
-      className={`p-4 border ${severityColor} mb-3 cursor-pointer group transition-all duration-200 hover:border-[#CBA135]/30`}
+      className={`p-4 border ${severityColor} mb-3 cursor-pointer group transition-all duration-200 hover:border-primary/30`}
       onClick={() => onNavigate?.(moment.move_number, moment.move_uci, moment.best_move_uci)}
       data-testid={`coach-review-moment-${index}`}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono tracking-widest text-[#A1A1AA] uppercase">
+          <span className="text-[10px] font-mono tracking-widest text-muted-foreground uppercase">
             Move {moment.move_number}
           </span>
-          <span className="text-[10px] font-mono text-white/30">
+          <span className="text-[10px] font-mono text-muted-foreground/50">
             {moment.phase}
           </span>
         </div>
-        <ChevronRight className="w-3.5 h-3.5 text-white/20 group-hover:text-[#CBA135] transition-colors" strokeWidth={1.5} />
+        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-primary transition-colors" strokeWidth={1.5} />
       </div>
 
-      <p className="text-sm text-white/90 leading-relaxed mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <p className="text-sm text-foreground leading-relaxed mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
         {llmInsight || te.description || "A critical decision point."}
       </p>
 
       <div className="flex items-center gap-2">
-        <Brain className="w-3 h-3 text-[#722F37]/70" strokeWidth={1.5} />
-        <span className="text-[11px] text-[#722F37]/90 font-medium">
+        <Brain className="w-3 h-3 text-destructive/70" strokeWidth={1.5} />
+        <span className="text-[11px] text-destructive/90 font-medium">
           {te.label || "Thinking error"}
         </span>
       </div>
@@ -172,18 +172,18 @@ const MomentSection = ({ moments, llmNarrative, onNavigate }) => {
       variants={fadeUp}
       initial="hidden"
       animate="visible"
-      className="pb-8 mb-8 border-b border-white/5"
+      className="pb-8 mb-8 border-b border-border"
       data-testid="coach-review-moments"
     >
       <SectionHeader icon={Target} label="Behavior Insight" number="03" />
       
       {moments.length === 0 ? (
-        <p className="text-sm text-white/50" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <p className="text-sm text-muted-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
           No big mistakes. Clean game.
         </p>
       ) : (
         <div>
-          <p className="text-xs text-white/40 mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-xs text-muted-foreground mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {moments.length === 1 
               ? "This move decided the game. Tap to see it."
               : `These ${moments.length} moves decided the game. Tap to see them.`
@@ -215,15 +215,15 @@ const TakeawaySection = ({ takeaway, llmNarrative }) => {
       variants={fadeUp}
       initial="hidden"
       animate="visible"
-      className="pb-8 mb-8 border-b border-white/5"
+      className="pb-8 mb-8 border-b border-border"
       data-testid="coach-review-takeaway"
     >
       <SectionHeader icon={Lightbulb} label="Remember This" number="04" />
       
-      <div className="relative bg-[#CBA135]/[0.04] border border-[#CBA135]/20 p-5">
-        <Quote className="w-5 h-5 text-[#CBA135]/30 absolute top-3 left-3" strokeWidth={1} />
+      <div className="relative bg-primary/[0.06] border border-primary/20 p-5">
+        <Quote className="w-5 h-5 text-primary/30 absolute top-3 left-3" strokeWidth={1} />
         <p 
-          className="text-lg text-white/95 leading-relaxed text-center px-6"
+          className="text-lg text-foreground leading-relaxed text-center px-6"
           style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, fontStyle: "italic" }}
         >
           {mantra}
@@ -231,7 +231,7 @@ const TakeawaySection = ({ takeaway, llmNarrative }) => {
       </div>
 
       {takeaway.focus_area && (
-        <p className="text-[10px] font-mono tracking-widest text-white/30 mt-3 text-center uppercase">
+        <p className="text-[10px] font-mono tracking-widest text-muted-foreground/50 mt-3 text-center uppercase">
           Focus area: {takeaway.focus_area.replace(/_/g, " ")}
         </p>
       )}
@@ -255,7 +255,7 @@ const ProofSection = ({ proof, llmNarrative }) => {
         data-testid="coach-review-proof"
       >
         <SectionHeader icon={TrendingUp} label="Your Progress" number="05" />
-        <p className="text-sm text-white/40" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <p className="text-sm text-muted-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
           {proof.message}
         </p>
       </motion.div>
@@ -273,7 +273,7 @@ const ProofSection = ({ proof, llmNarrative }) => {
     >
       <SectionHeader icon={TrendingUp} label="Your Progress" number="05" />
       
-      <p className="text-sm text-white/70 mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <p className="text-sm text-muted-foreground mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
         {encouragement || proof.message}
       </p>
 
@@ -283,8 +283,8 @@ const ProofSection = ({ proof, llmNarrative }) => {
             <div key={i} className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/70 mt-1.5 shrink-0" />
               <div>
-                <span className="text-xs text-emerald-400/90 font-medium">{imp.area}</span>
-                <p className="text-xs text-white/50 mt-0.5">{imp.detail}</p>
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{imp.area}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{imp.detail}</p>
               </div>
             </div>
           ))}
@@ -297,8 +297,8 @@ const ProofSection = ({ proof, llmNarrative }) => {
             <div key={i} className="flex items-start gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-500/60 mt-1.5 shrink-0" />
               <div>
-                <span className="text-xs text-amber-400/80 font-medium">{item.area}</span>
-                <p className="text-xs text-white/50 mt-0.5">{item.detail}</p>
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">{item.area}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{item.detail}</p>
               </div>
             </div>
           ))}
@@ -338,8 +338,8 @@ const CoachReview = ({ gameId, onMoveClick }) => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20" data-testid="coach-review-loading">
-        <Loader2 className="w-6 h-6 animate-spin text-[#CBA135] mb-4" />
-        <span className="text-xs text-white/40 font-mono tracking-widest uppercase">
+        <Loader2 className="w-6 h-6 animate-spin text-primary mb-4" />
+        <span className="text-xs text-muted-foreground font-mono tracking-widest uppercase">
           Coach is thinking...
         </span>
       </div>
@@ -349,8 +349,8 @@ const CoachReview = ({ gameId, onMoveClick }) => {
   if (error || !data) {
     return (
       <div className="text-center py-16" data-testid="coach-review-error">
-        <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-[#722F37]/50" strokeWidth={1.5} />
-        <p className="text-sm text-white/40">{error || "No data available"}</p>
+        <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-destructive/50" strokeWidth={1.5} />
+        <p className="text-sm text-muted-foreground">{error || "No data available"}</p>
       </div>
     );
   }
@@ -364,15 +364,15 @@ const CoachReview = ({ gameId, onMoveClick }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="mb-8 pb-6 border-b border-white/5"
+        className="mb-8 pb-6 border-b border-border"
       >
         <h2 
-          className="text-2xl text-white/90 tracking-tight"
+          className="text-2xl text-foreground tracking-tight"
           style={{ fontFamily: "'Cormorant Garamond', serif" }}
         >
           Your Coach Says
         </h2>
-        <p className="text-xs text-white/30 mt-1 font-mono tracking-widest uppercase">
+        <p className="text-xs text-muted-foreground mt-1 font-mono tracking-widest uppercase">
           {story?.arc_type === "dominant" ? "Solid game" : 
            story?.arc_type === "thrown" ? "Tough lesson" :
            story?.arc_type === "outplayed" ? "Room to grow" :

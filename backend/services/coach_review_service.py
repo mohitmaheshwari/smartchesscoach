@@ -719,13 +719,36 @@ async def generate_coach_review(
     # 5. THE PROOF
     proof = await compute_proof(db, user_id, game.get("game_id", ""), diagnosis)
 
-    # LLM narrative layer (optional — works without it too)
+    # LLM narrative layer — cached in DB so we only call LLM once per game
     llm_narrative = None
-    if call_llm_func:
+    game_id = game.get("game_id", "")
+
+    # Check cache first
+    cached = await db.coach_reviews.find_one(
+        {"game_id": game_id, "user_id": user_id},
+        {"_id": 0, "llm_narrative": 1}
+    )
+    if cached and cached.get("llm_narrative"):
+        llm_narrative = cached["llm_narrative"]
+    elif call_llm_func:
         llm_narrative = await generate_coach_narrative(
             story, mirror, moments, takeaway, proof,
             user_rating or 1200, call_llm_func
         )
+        # Cache it
+        if llm_narrative:
+            try:
+                from datetime import datetime, timezone
+                await db.coach_reviews.update_one(
+                    {"game_id": game_id, "user_id": user_id},
+                    {"$set": {
+                        "llm_narrative": llm_narrative,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }},
+                    upsert=True,
+                )
+            except Exception as cache_err:
+                logger.warning(f"Failed to cache coach review: {cache_err}")
 
     return {
         "story": story,
