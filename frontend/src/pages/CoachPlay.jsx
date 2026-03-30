@@ -714,12 +714,6 @@ const CoachPlay = ({ user }) => {
   };
 
   const startGame = async () => {
-    // NEW: Show pre-game streak popup if streak data exists
-    if (streakData && streakData.current_streak >= 0) {
-      setShowPreGameStreakPopup(true);
-      return; // Will call actuallyStartGame when popup is dismissed
-    }
-    
     await actuallyStartGame();
   };
   
