@@ -2427,3 +2427,22 @@ async def get_opening_assessment(
 
     result = await assess_opening_knowledge(db, user.user_id, opening)
     return result
+
+
+@router.get("/pregame-intro")
+async def get_pregame_intro_endpoint(
+    opening: str = "london_system",
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the pre-game introduction for structured training.
+    
+    Shows before "Start Game":
+    - What opening we're learning
+    - What the user already knows
+    - What we'll focus on today
+    """
+    global db
+    from services.opening_assessment_service import get_pregame_intro
+
+    return await get_pregame_intro(db, user.user_id, opening)

@@ -313,3 +313,133 @@ def _build_assessment_message(games_played, score, mastered, weak, focus, openin
         return msg
     else:
         return f"The {opening_name} needs work ({score}% accuracy). Let's drill the key moves."
+
+
+
+async def get_pregame_intro(db, user_id: str, opening_key: str = "london_system") -> Dict:
+    """
+    Build the pre-game intro for structured training.
+    
+    Checks:
+    1. Has user played this opening in real games?
+    2. Has user practiced this with the coach before?
+    3. If practiced before, how did they do?
+    4. What should this session focus on?
+    
+    Returns a structured intro the frontend can display.
+    """
+    from services.opening_curriculum_engine import _load_curriculum, get_opening_summary
+
+    curriculum = _load_curriculum()
+    opening = curriculum.get(opening_key)
+    if not opening:
+        return {"error": "Opening not found"}
+
+    opening_name = opening.get("name", "Opening")
+    summary_data = get_opening_summary(opening_key) or {}
+
+    # 1. Get real game assessment
+    assessment = await assess_opening_knowledge(db, user_id, opening_key)
+
+    # 2. Check coach session history for this opening
+    past_sessions = await db.coach_sessions.find(
+        {"user_id": user_id, "teaching_opening": opening_key},
+        {"_id": 0, "session_id": 1, "created_at": 1, "status": 1, "result": 1}
+    ).sort("created_at", -1).limit(10).to_list(10)
+
+    sessions_played = len(past_sessions)
+
+    # 3. Build the intro
+    real_games = assessment.get("games_played", 0)
+    score = assessment.get("overall_score", 0)
+    weak = assessment.get("weak_moves", [])
+    mastered = assessment.get("moves_mastered", [])
+    never_seen = assessment.get("never_seen", [])
+
+    # Determine experience level
+    if real_games == 0 and sessions_played == 0:
+        level = "brand_new"
+    elif sessions_played > 0 and real_games == 0:
+        level = "practiced_only"
+    elif real_games > 0 and score >= 80:
+        level = "knows_well"
+    elif real_games > 0 and score >= 50:
+        level = "knows_basics"
+    else:
+        level = "needs_work"
+
+    # Build intro message
+    intro_lines = []
+    focus_area = None
+
+    if level == "brand_new":
+        intro_lines = [
+            f"Today we're learning the {opening_name}.",
+            summary_data.get("summary", "A great opening to add to your game."),
+        ]
+        rules = opening.get("golden_rules", [])
+        if rules:
+            intro_lines.append(f"The #1 rule: {rules[0]}")
+        focus_area = "Learn the basic setup"
+
+    elif level == "practiced_only":
+        intro_lines = [
+            f"We've practiced the {opening_name} {sessions_played} time{'s' if sessions_played > 1 else ''} together.",
+            "Let's keep drilling it until it feels natural.",
+        ]
+        focus_area = "Repetition — make the moves automatic"
+
+    elif level == "knows_well":
+        intro_lines = [
+            f"You know the {opening_name} well — {score}% accuracy from {real_games} games.",
+        ]
+        if never_seen:
+            intro_lines.append(f"But you haven't faced: {', '.join(never_seen[:2])}. Let's prepare for that.")
+            focus_area = f"New variation: {never_seen[0]}"
+        else:
+            intro_lines.append("Let's work on the middlegame plans that come from this opening.")
+            focus_area = "Middlegame plans"
+
+    elif level == "knows_basics":
+        intro_lines = [
+            f"You've played the {opening_name} {real_games} times — {score}% accuracy.",
+        ]
+        if weak:
+            w = weak[0]
+            intro_lines.append(f"You keep getting {w['position']} wrong. You played {', '.join(w.get('user_played', [])[:2])} but should play {w.get('expected', '?')}.")
+            intro_lines.append("Let's fix that today.")
+            focus_area = w["position"]
+        else:
+            intro_lines.append("Let's sharpen the moves you're unsure about.")
+            focus_area = "Consistency"
+
+    else:  # needs_work
+        intro_lines = [
+            f"The {opening_name} needs work — {score}% accuracy.",
+        ]
+        if sessions_played > 0:
+            intro_lines.append(f"We've practiced {sessions_played} times. Let's try a different approach today.")
+        else:
+            intro_lines.append("Let's go move by move and build it up.")
+        if weak:
+            focus_area = weak[0]["position"]
+        else:
+            focus_area = "Basic setup"
+
+    return {
+        "opening_key": opening_key,
+        "opening_name": opening_name,
+        "level": level,
+        "intro": " ".join(intro_lines),
+        "focus_area": focus_area,
+        "stats": {
+            "real_games": real_games,
+            "coach_sessions": sessions_played,
+            "score": score,
+            "mastered_count": len(mastered),
+            "weak_count": len(weak),
+        },
+        "golden_rules": opening.get("golden_rules", []),
+        "setup_order": opening.get("setup_order", []),
+        "assessment": assessment,
+    }
