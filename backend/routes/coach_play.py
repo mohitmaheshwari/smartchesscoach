@@ -2231,3 +2231,69 @@ def _generate_position_hint(board: chess.Board) -> str:
 
     # Endgame
     return "Endgame time. Push your passed pawns and activate your king."
+
+
+@router.post("/opening-guide")
+async def get_opening_guide(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get curriculum-based opening guidance for the current game position.
+    
+    Reads from the opening curriculum tree and tells the player:
+    - What to play next (and why)
+    - The plan going forward
+    - Any trap warnings
+    - A golden rule to remember
+    
+    Body:
+    - session_id: Current game session
+    - opening_key: Which opening curriculum to use (default: auto-detect)
+    """
+    global db
+    from services.opening_curriculum_engine import get_opening_guidance, get_available_openings
+
+    session_id = request.get("session_id")
+    opening_key = request.get("opening_key", "london_system")
+
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    user_color = session_doc.get("user_color", "white")
+
+    # Get move history as SAN list
+    move_history = session_doc.get("move_history", [])
+    moves_san = []
+    for m in move_history:
+        if isinstance(m, dict):
+            moves_san.append(m.get("san", m.get("move", "")))
+        elif isinstance(m, str):
+            moves_san.append(m)
+
+    guidance = get_opening_guidance(opening_key, moves_san, user_color)
+
+    if not guidance:
+        return {"has_guidance": False, "message": "No curriculum guidance for this position."}
+
+    return {"has_guidance": True, **guidance}
+
+
+@router.get("/curriculum/openings")
+async def get_curriculum_openings(user: User = Depends(get_current_user)):
+    """Get available opening curriculums."""
+    from services.opening_curriculum_engine import get_available_openings, get_opening_summary
+
+    openings = get_available_openings()
+    result = []
+    for o in openings:
+        summary = get_opening_summary(o["key"])
+        result.append({**o, **(summary or {})})
+
+    return {"openings": result}

@@ -1,0 +1,224 @@
+{
+  "london_system": {
+    "name": "London System",
+    "color": "white",
+    "summary": "A solid, easy-to-learn opening. You play the same setup almost every game. Bishop out before e3 — that's the golden rule.",
+    "difficulty": "beginner",
+    "setup_order": ["d4", "Bf4", "e3", "Nf3", "Bd3", "O-O", "Nbd2", "c3"],
+    "golden_rules": [
+      "Bishop to f4 BEFORE e3. Always.",
+      "Don't trade your dark bishop unless you get something big.",
+      "Your dream setup: d4, e3, Bf4, Nf3, Bd3, O-O. Memorize it.",
+      "After setup is done, push for e4 — that's your middlegame goal."
+    ],
+    "traps": [
+      {
+        "name": "Englund Gambit Trap",
+        "description": "They play 1...e5 trying to trick you. Don't fall for it — take the pawn and win.",
+        "moves": ["d4", "e5", "dxe5", "Nc6", "Nf3", "Qe7", "Bf4", "Qb4+", "Bd2", "Qxb2", "Nc3"],
+        "trap_idea": "They try to grab your b2 pawn. Let them — then trap their queen.",
+        "how_to_set": "Just play normal development. Their queen gets stuck.",
+        "avoid_as_white": "Don't panic when they check. Bd2 blocks and develops."
+      },
+      {
+        "name": "Bg4 Pin Trick",
+        "description": "They pin your knight with Bg4. You have a strong response.",
+        "moves": ["d4", "d5", "Bf4", "Nf6", "e3", "Bg4", "Nf3", "e6", "h3", "Bh5", "g4", "Bg6", "Ne5"],
+        "trap_idea": "Push g4 to kick their bishop, then jump Ne5 attacking everything.",
+        "how_to_set": "When they play Bg4, don't panic. h3 then g4 is strong.",
+        "avoid_as_white": "Only play g4 if your king is safe or you've already castled queenside."
+      },
+      {
+        "name": "Queen Trap after c5",
+        "description": "They play c5 early and you can win a pawn with a trick.",
+        "moves": ["d4", "d5", "Bf4", "c5", "e3", "Qb6", "Nc3", "Qxb2", "Nb5", "Na6", "Rb1"],
+        "trap_idea": "They take b2 with their queen. Nb5 threatens Nc7 fork and Rb1 traps the queen.",
+        "how_to_set": "Let them take b2. It looks free but their queen has no escape.",
+        "avoid_as_white": "Make sure you have Nb5 available before allowing Qxb2."
+      }
+    ],
+    "tree": {
+      "d4": {
+        "idea": "Take the center. This is your territory.",
+        "plan": "Next move: get your bishop to f4. That's the London identity.",
+        "responses": {
+          "d5": {
+            "name": "Main Line",
+            "frequency": "most common",
+            "idea_opponent": "They take their share of the center. Fair game.",
+            "next": "Bf4",
+            "next_idea": "THE London move. Bishop comes out BEFORE e3. If you play e3 first, the bishop is stuck forever.",
+            "responses": {
+              "Nf6": {
+                "name": "London Classical",
+                "frequency": "very common",
+                "idea_opponent": "Developing and aiming at your e4 square.",
+                "next": "e3",
+                "next_idea": "Now you lock in the solid center. d4+e3 is a wall.",
+                "responses": {
+                  "e6": {
+                    "name": "Solid Setup",
+                    "next": "Nf3",
+                    "next_idea": "Develop the knight. Aims at e5 — a great square.",
+                    "plan": "Finish development: Bd3, O-O, then push for e4.",
+                    "responses": {
+                      "c5": {
+                        "name": "Center Challenge",
+                        "next": "c3",
+                        "next_idea": "Support d4. Don't let them break your center.",
+                        "plan": "After c3, develop Nbd2. Your plan is to push e4 when ready."
+                      },
+                      "Bd6": {
+                        "name": "Bishop Trade Offer",
+                        "next": "Bg3",
+                        "next_idea": "Step back. Don't trade your bishop — it's your best piece.",
+                        "plan": "If they take on g3, you open the h-file for your rook. Attack!"
+                      },
+                      "Be7": {
+                        "name": "Quiet Development",
+                        "next": "Bd3",
+                        "next_idea": "Point your bishop at h7. Classic attacking setup.",
+                        "plan": "O-O, then Nbd2-e5 or push e4. You're in great shape."
+                      }
+                    }
+                  },
+                  "c5": {
+                    "name": "Early c5 Push",
+                    "next": "c3",
+                    "next_idea": "Hold the center. Don't panic about c5.",
+                    "plan": "They want to break your d4. c3 holds it. Then Nf3, Bd3, O-O.",
+                    "responses": {
+                      "Nc6": {
+                        "next": "Nf3",
+                        "next_idea": "Develop and eye e5.",
+                        "plan": "Bd3, O-O, then e4 is your dream."
+                      },
+                      "Qb6": {
+                        "name": "Queen Attack on b2",
+                        "next": "Qb3",
+                        "next_idea": "Trade queens or protect b2. Either way you're fine.",
+                        "plan": "If they trade queens, you get a great endgame. If not, you develop freely.",
+                        "warning": "Don't let them take b2 unless you have the Nb5 trick ready."
+                      }
+                    }
+                  },
+                  "Bg4": {
+                    "name": "Bishop Pin",
+                    "next": "Nf3",
+                    "next_idea": "Develop anyway. The pin isn't dangerous yet.",
+                    "plan": "Play h3 to ask the bishop what it wants. If Bh5, you can push g4 later.",
+                    "trap_reference": "Bg4 Pin Trick"
+                  }
+                }
+              },
+              "c5": {
+                "name": "Immediate c5",
+                "frequency": "common",
+                "idea_opponent": "Attacking your center right away.",
+                "next": "e3",
+                "next_idea": "Solidify. Don't rush to defend d4 — it's fine.",
+                "plan": "After e3, play c3 if needed, then develop normally. They can't really break d4.",
+                "responses": {
+                  "Nc6": {
+                    "next": "c3",
+                    "next_idea": "Extra support for d4. Now it's rock solid.",
+                    "plan": "Nf3, Bd3, O-O. Standard London setup. You're fine."
+                  },
+                  "Qb6": {
+                    "next": "Nc3",
+                    "next_idea": "Develop and set up the b2 trap.",
+                    "trap_reference": "Queen Trap after c5",
+                    "warning": "If they take b2, you have Nb5 and Rb1 — their queen is dead."
+                  }
+                }
+              },
+              "Bf5": {
+                "name": "Mirror London",
+                "frequency": "occasional",
+                "idea_opponent": "Copying your idea! Bishop out before e6.",
+                "next": "e3",
+                "next_idea": "Stick to the plan. Your setup still works.",
+                "plan": "Nf3, Bd3 (offer to trade bishops), c4 (challenge their center). You have more space."
+              }
+            }
+          },
+          "Nf6": {
+            "name": "Indian Setup",
+            "frequency": "common",
+            "idea_opponent": "Flexible — could go King's Indian or Queen's Indian.",
+            "next": "Bf4",
+            "next_idea": "Same plan. Bishop out first, always.",
+            "responses": {
+              "g6": {
+                "name": "King's Indian vs London",
+                "next": "e3",
+                "next_idea": "Solid center. They'll fianchetto — that's fine.",
+                "plan": "Nf3, Bd3, O-O. Against the fianchetto, your bishop on f4 controls e5. Plant a knight there."
+              },
+              "e6": {
+                "name": "Transpose to Main Line",
+                "next": "e3",
+                "next_idea": "We're back to the main London. Same plan.",
+                "plan": "Nf3, Bd3, O-O, c3, Nbd2, e4."
+              },
+              "d5": {
+                "name": "Delayed d5",
+                "next": "e3",
+                "next_idea": "Same as the main line. They just played Nf6 first.",
+                "plan": "Continue with normal development."
+              }
+            }
+          },
+          "f5": {
+            "name": "Dutch Defense",
+            "frequency": "rare",
+            "idea_opponent": "Aggressive — they want to attack your kingside.",
+            "next": "Bf4",
+            "next_idea": "Stay calm. Your London setup handles this well.",
+            "plan": "e3, Nf3, Bd3. Their kingside is weak because of f5. You can exploit e5 and the holes."
+          },
+          "e6": {
+            "name": "Passive Response",
+            "frequency": "occasional",
+            "idea_opponent": "Very passive. Locks in their light bishop.",
+            "next": "Bf4",
+            "next_idea": "You're already better. They made the bishop-lock mistake.",
+            "plan": "Standard setup. You have more space and better development."
+          },
+          "c5": {
+            "name": "Benoni Style",
+            "frequency": "occasional",
+            "idea_opponent": "Immediate fight for the center.",
+            "next": "d5",
+            "next_idea": "Grab space. Now it's a Benoni-like structure where you have more room.",
+            "plan": "Bf4, e3 (or e4 if possible), Nf3. You have a space advantage."
+          }
+        }
+      }
+    },
+    "middlegame_plans": {
+      "when_ahead": {
+        "plan": "Push e4 to open the center. Trade off their defensive pieces. Use your space.",
+        "ideas": ["Push e4 when your pieces are ready", "Trade bishops if it opens lines for your rooks", "Put a knight on e5 — it's a monster there"]
+      },
+      "when_equal": {
+        "plan": "Aim for e4 push. If that's not possible, play on the queenside with a4-a5 or switch to kingside with h4-h5.",
+        "ideas": ["e4 is always the dream", "If e4 isn't possible, try to open another file", "Keep your dark bishop — it's your best piece"]
+      },
+      "when_behind": {
+        "plan": "Keep the position closed. Your solid structure d4+e3 is hard to break. Wait for their mistake.",
+        "ideas": ["Don't panic — the London is solid", "Look for tactical tricks on the kingside", "Trade queens if you can — your endgame structure is usually good"]
+      },
+      "kingside_attack": {
+        "plan": "Bd3 aims at h7. Knight to e5. Push h4-h5 if they castled kingside.",
+        "ideas": ["Bd3 + knight on e5 = classic battery", "h4 push can open the h-file", "If their dark bishop is gone, your f4 bishop is king"]
+      }
+    },
+    "endgame_tips": [
+      "Your pawn structure (d4+e3) is very solid in endgames.",
+      "If you still have your dark bishop, it controls important squares.",
+      "Push your passed pawns. The London gives you a good pawn structure for endgames.",
+      "King to e2-d3 quickly in endgames — centralize."
+    ]
+  }
+}
