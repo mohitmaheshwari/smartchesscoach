@@ -182,7 +182,16 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
                     "is_in_book": True,
                     "position_name": position_name,
                 }
-            return None
+            # No known responses — opening book ended, transition to middlegame
+            mp = opening.get("middlegame_plans", {})
+            mid_plan = mp.get("when_equal", {}).get("plan", "Develop pieces and look for a plan.")
+            return {
+                "mode": "waiting",
+                "hint": "Opening phase done. See how they respond — then we'll figure out the plan.",
+                "plan": mid_plan,
+                "is_in_book": False,
+                "position_name": "Middlegame",
+            }
 
         trap_ref = node.get("trap_reference")
         warning = node.get("warning")
@@ -245,6 +254,40 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
             "middlegame_plan": middlegame_plan,
         }
 
+    # Tree ended but game continues — transition to middlegame guidance
+    if node:
+        setup = opening.get("setup_order", [])
+        played_moves = set(moves_played)
+        next_setup = None
+        for m in setup:
+            if m not in played_moves:
+                next_setup = m
+                break
+
+        mp = opening.get("middlegame_plans", {})
+        plan = mp.get("when_equal", {}).get("plan", "Develop your remaining pieces and look for a plan.")
+        ideas = mp.get("when_equal", {}).get("ideas", [])
+        tips = opening.get("endgame_tips", [])
+
+        total_moves = len(moves_played)
+        if total_moves >= 24 and tips:
+            plan = tips[0]
+
+        return {
+            "mode": "think",
+            "hint": "Opening phase is done. What's your plan now?" if not next_setup else f"You still haven't played {next_setup}. Is now a good time?",
+            "plan": plan,
+            "expected_move": next_setup,
+            "right_feedback": "Good choice." if next_setup else "Keep developing your plan.",
+            "wrong_feedback": f"{next_setup} was worth considering." if next_setup else "Think about your long-term plan.",
+            "is_in_book": False,
+            "trap_warning": None,
+            "golden_rule": ideas[0] if ideas else None,
+            "alternatives": [],
+            "position_name": "Middlegame",
+            "middlegame_plan": plan,
+        }
+
     return None
 
 
@@ -262,9 +305,12 @@ def _off_book_guidance(opening: Dict, moves: List[str], off_book_at: int, user_c
             break
 
     return {
-        "suggested_move": suggested,
-        "idea": f"You went off the main line. That's OK — stick to the setup: {', '.join(setup[:4])}.",
+        "mode": "think",
+        "hint": f"That's off the main line — but that's OK. What's the next piece in your setup that needs to come out?",
         "plan": general_plan,
+        "expected_move": suggested,
+        "right_feedback": "Good — back on track." if suggested else "Keep developing.",
+        "wrong_feedback": f"Consider {suggested} — it's part of your standard setup." if suggested else "Think about the position.",
         "is_in_book": False,
         "trap_warning": None,
         "golden_rule": opening.get("golden_rules", [""])[0] if opening.get("golden_rules") else None,
@@ -276,7 +322,6 @@ def _off_book_guidance(opening: Dict, moves: List[str], off_book_at: int, user_c
 
 def _opponent_surprise_guidance(opening: Dict, current_branch: Dict, opponent_move: str, moves: List[str], user_color: str) -> Dict:
     """Opponent played something unexpected. Give guidance."""
-    # Check if it's a known response we should handle
     setup = opening.get("setup_order", [])
     next_setup = None
     for m in setup:
@@ -284,16 +329,27 @@ def _opponent_surprise_guidance(opening: Dict, current_branch: Dict, opponent_mo
             next_setup = m
             break
 
+    mp = opening.get("middlegame_plans", {})
+    plan = mp.get("when_equal", {}).get("plan", "Develop your pieces and control the center.")
+
+    if next_setup:
+        hint = f"They played {opponent_move} — unusual, but don't worry. Think about your setup. What piece needs to come out next?"
+    else:
+        hint = f"They played {opponent_move}. Opening is done — what's your plan for the middlegame?"
+
     return {
-        "suggested_move": next_setup,
-        "idea": f"Your opponent played {opponent_move} — not the most common, but don't worry. Stick to your plan.",
-        "plan": f"Continue with your setup: {next_setup or 'develop normally'}.",
+        "mode": "think",
+        "hint": hint,
+        "plan": plan,
+        "expected_move": next_setup,
+        "right_feedback": "Good choice." if next_setup else "Keep developing your plan.",
+        "wrong_feedback": f"Consider {next_setup} — stick to your setup." if next_setup else "Think about the position carefully.",
         "is_in_book": False,
         "trap_warning": None,
         "golden_rule": None,
         "alternatives": [],
-        "position_name": "Surprise Move",
-        "middlegame_plan": None,
+        "position_name": "Off Book",
+        "middlegame_plan": plan,
     }
 
 
