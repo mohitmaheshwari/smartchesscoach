@@ -1732,29 +1732,84 @@ const CoachPlay = ({ user }) => {
     
     const { moveSan, timeSpent, riskType, chess, originalFen } = pendingMove;
     
-    // Store original FEN for potential revert
-    const fenBeforeMove = originalFen;
-    
     // Update board to show the move
     setCurrentFen(chess.fen());
     setIsPlayerTurn(false);
     
-    // Clear intervention state BEFORE the async call
+    // Clear intervention state
     setGuardianIntervention(null);
     setPendingMove(null);
     
-    // Execute with override
-    const success = await executeMove(moveSan, timeSpent, true, riskType);
-    
-    if (!success) {
-      // Revert to the position BEFORE the attempted move
-      setCurrentFen(fenBeforeMove);
-      setIsPlayerTurn(true);
+    // Clear coaching state for clean transition
+    setV5Coaching(null);
+    setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
+    setBehavioralCoaching(null);
+    setCurrentInsight(null);
+    setConsequenceFeedback(null);
+    setIsCoachThinking(true);
+    setLoadingFeedback(true);
+
+    try {
+      // Confirm endpoint processes the move AND triggers coach response
+      const confirmResponse = await fetch(`${API}/coach/play/move/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: session.session_id,
+          move: moveSan,
+          time_spent: timeSpent,
+          risk_acknowledged: riskType
+        })
+      });
+
+      const data = await confirmResponse.json();
       
-      // Also reset the board ref if available
-      if (boardRef.current?.setPosition) {
-        boardRef.current.setPosition(fenBeforeMove);
+      if (!confirmResponse.ok) {
+        toast.error(data.detail || "Move failed");
+        setCurrentFen(originalFen);
+        setIsPlayerTurn(true);
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+        return;
       }
+
+      // Update remaining interventions
+      if (data.remaining_interventions !== undefined) {
+        setRemainingInterventions(data.remaining_interventions);
+      }
+
+      // Update board with confirmed position
+      if (data.current_fen) {
+        setCurrentFen(data.current_fen);
+      }
+
+      // Check game over
+      if (data.game_over) {
+        setGameOver(true);
+        setGameResult(data.result);
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+        return;
+      }
+
+      // Coach is now thinking — poll for response
+      if (data.awaiting_coach) {
+        setCoachThinking(true);
+        setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
+        fetchUserMoveCoaching(session.session_id);
+        pollForCoachResponse();
+      } else {
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+      }
+    } catch (error) {
+      console.error("Confirm move error:", error);
+      toast.error("Connection error. Please try again.");
+      setCurrentFen(originalFen);
+      setIsPlayerTurn(true);
+      setIsCoachThinking(false);
+      setLoadingFeedback(false);
     }
   };
 
