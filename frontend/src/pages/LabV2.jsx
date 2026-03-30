@@ -59,7 +59,7 @@ import {
 import FeedbackModal from "@/components/FeedbackModal";
 import GameDecryptionV5 from "@/components/GameDecryptionV5";
 import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
-import CoachReview from "@/components/Lab/CoachReview";
+import CoachAction from "@/components/Lab/CoachAction";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -1059,7 +1059,7 @@ const LabV2 = ({ user }) => {
           <div className="w-[45%] flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-5">
               {viewMode === "coach" ? (
-                <CoachReview 
+                <CoachAction 
                   gameId={gameId} 
                   onMoveClick={(moveNum, moveUci, bestUci) => navigateToMoveNumber(moveNum, moveUci, bestUci)}
                 />

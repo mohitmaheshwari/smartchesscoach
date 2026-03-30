@@ -738,6 +738,27 @@ async def get_opening_walkthrough(opening: str = None, user: User = Depends(get_
     return result
 
 
+@router.get("/lab/{game_id}/coach-action")
+async def get_coach_action(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Coach Action — Diagnose → Drill → Track format.
+    What went wrong, practice positions to fix it, one rule, trend.
+    """
+    global db
+    from services.coach_action_service import generate_coach_action
+
+    game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    return await generate_coach_action(db, game, analysis, user.user_id, game.get("user_color", "white"))
+
+
+
 
 
 @router.get("/lab/{game_id}/coach-insight")
