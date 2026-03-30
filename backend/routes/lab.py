@@ -723,6 +723,22 @@ async def get_coach_review(game_id: str, user: User = Depends(get_current_user))
     return review
 
 
+@router.get("/opening-walkthrough")
+async def get_opening_walkthrough(opening: str = None, user: User = Depends(get_current_user)):
+    """
+    Opening Walkthrough — guided lesson from user's own games.
+    
+    Optional: ?opening=Scandinavian to pick a specific opening.
+    Without it, picks the user's most-played opening.
+    """
+    global db, call_llm
+    from services.opening_walkthrough_service import generate_walkthrough
+
+    result = await generate_walkthrough(db, user.user_id, opening_name=opening, call_llm_func=call_llm)
+    return result
+
+
+
 
 @router.get("/lab/{game_id}/coach-insight")
 async def get_coach_insight(game_id: str, user: User = Depends(get_current_user)):

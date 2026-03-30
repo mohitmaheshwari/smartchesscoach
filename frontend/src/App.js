@@ -18,6 +18,7 @@ import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles
 import OpeningQuizPage from "@/pages/OpeningQuizPage";  // Opening mastery quiz
 import OpeningRepertoire from "@/pages/OpeningRepertoire";  // Opening Training Lab
 import OpeningLesson from "@/pages/OpeningLesson";  // Individual opening lessons
+import OpeningWalkthrough from "@/pages/OpeningWalkthrough";  // Guided opening lesson from your games
 import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
@@ -273,6 +274,11 @@ function AppRouter() {
       <Route path="/openings/:openingKey" element={
         <ProtectedRoute>
           {({ user }) => <OpeningLesson user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/opening-walkthrough" element={
+        <ProtectedRoute>
+          {({ user }) => <OpeningWalkthrough user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin/openings" element={
