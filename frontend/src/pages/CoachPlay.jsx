@@ -2597,21 +2597,6 @@ const CoachPlay = ({ user }) => {
               </div>
             )}
             
-            {/* Candidate Moves — Smart coaching: 3 best moves with ideas */}
-            {session && isPlayerTurn && !gameOver && !isInTeachingMode && (
-              <div className="mt-2">
-                <CandidateMoves
-                  sessionId={session?.session_id}
-                  fen={currentFen}
-                  isPlayerTurn={isPlayerTurn}
-                  onHighlightMove={(moveSan) => {
-                    // Could highlight the move on the board in the future
-                    toast.info(`Consider ${moveSan}`, { duration: 2000 });
-                  }}
-                />
-              </div>
-            )}
-            
             {/* Coach turn prompt - shows when game is stuck on coach's turn */}
             {!isPlayerTurn && !gameOver && !coachThinking && session && (
               <div className="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
@@ -2701,6 +2686,18 @@ const CoachPlay = ({ user }) => {
               
               {/* Main Content - Scrollable */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Candidate Moves — Your 3 best options (shown when it's your turn) */}
+                {isPlayerTurn && !gameOver && (
+                  <CandidateMoves
+                    sessionId={session?.session_id}
+                    fen={currentFen}
+                    isPlayerTurn={isPlayerTurn}
+                    onHighlightMove={(moveSan) => {
+                      toast.info(`Consider ${moveSan}`, { duration: 2000 });
+                    }}
+                  />
+                )}
+                
                 {/* Guardian Intervention - Inline in coach panel (not overlay) */}
                 {guardianIntervention && pendingMove && (
                   <div 
