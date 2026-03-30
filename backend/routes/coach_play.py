@@ -2297,3 +2297,105 @@ async def get_curriculum_openings(user: User = Depends(get_current_user)):
         result.append({**o, **(summary or {})})
 
     return {"openings": result}
+
+
+@router.post("/smart-feedback")
+async def get_smart_move_feedback(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Smart coaching feedback — analyzes WHAT the player was trying to do,
+    acknowledges their intent, then explains if there's something better.
+    
+    Rating-filtered: doesn't comment on minor inaccuracies for low-rated players.
+    
+    Body:
+    - session_id: Current game session
+    - move_san: The move the player just made
+    - fen_before: Position before the move
+    """
+    global db
+    import chess
+    from services.smart_coach_feedback import generate_smart_feedback
+    from stockfish_service import StockfishEngine
+
+    session_id = request.get("session_id")
+    move_san = request.get("move_san")
+    fen_before = request.get("fen_before")
+
+    if not all([session_id, move_san, fen_before]):
+        raise HTTPException(status_code=400, detail="session_id, move_san, and fen_before required")
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    # Get user rating
+    user_rating = session_doc.get("user_rating", 1200)
+
+    # Get Stockfish evaluation
+    best_move_san = ""
+    cp_loss = 0
+    eval_before = 0
+    eval_after = 0
+    is_best = False
+    is_candidate = False
+
+    try:
+        engine = StockfishEngine()
+        engine.start()
+        try:
+            board = chess.Board(fen_before)
+            eval_before_cp, _ = engine.evaluate_position(board, depth=14)
+            eval_before = eval_before_cp / 100.0
+
+            # Get best move
+            best_info = engine.get_best_move(board, depth=14)
+            if best_info:
+                best_move_obj = best_info.get("move")
+                if best_move_obj:
+                    best_move_san = board.san(best_move_obj)
+
+            # Check top 3 for candidate
+            result = engine.analyze_multipv(board, depth=12, num_moves=3)
+            top_moves = [board.san(r["move"]) for r in (result or []) if "move" in r]
+            is_best = move_san == best_move_san
+            is_candidate = move_san in top_moves
+
+            # Eval after
+            user_move = board.parse_san(move_san)
+            board.push(user_move)
+            eval_after_cp, _ = engine.evaluate_position(board, depth=14)
+            eval_after = eval_after_cp / 100.0
+
+            # Calculate cp_loss from user's perspective
+            user_color = session_doc.get("user_color", "white")
+            if user_color == "white":
+                cp_loss = max(0, int(eval_before_cp - eval_after_cp))
+            else:
+                cp_loss = max(0, int(eval_after_cp - eval_before_cp))
+
+        finally:
+            engine.stop()
+    except Exception as e:
+        logger.warning(f"Stockfish eval failed: {e}")
+
+    feedback = generate_smart_feedback(
+        fen=fen_before,
+        move_san=move_san,
+        best_move_san=best_move_san,
+        cp_loss=cp_loss,
+        user_rating=user_rating,
+        eval_before=eval_before,
+        eval_after=eval_after,
+        is_best=is_best,
+        is_candidate=is_candidate,
+    )
+
+    if feedback is None:
+        return {"has_feedback": False, "message": ""}
+
+    return {"has_feedback": True, **feedback}
