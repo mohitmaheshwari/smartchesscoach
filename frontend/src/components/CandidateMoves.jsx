@@ -109,7 +109,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
   return (
     <div className="space-y-3" data-testid="candidate-moves">
       
-      {/* ─── CURRICULUM: Think Mode ─── */}
+      {/* ─── CURRICULUM: Think Mode — ONLY the question, nothing else ─── */}
       {guidance && guidance.mode === "think" && (
         <motion.div
           initial={{ opacity: 0, y: -5 }}
@@ -119,22 +119,14 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
           <div className="flex items-center gap-2 mb-3">
             <HelpCircle className="w-4 h-4 text-primary" strokeWidth={1.5} />
             <span className="text-xs font-medium text-foreground">Think first</span>
-            {guidance.position_name && (
-              <Badge variant="outline" className="text-[9px] ml-auto">{guidance.position_name}</Badge>
-            )}
           </div>
 
-          {/* The Question — NOT the answer */}
-          <p className="text-sm text-foreground leading-relaxed mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          {/* ONLY the question — no plan, no golden rule, no future moves */}
+          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {guidance.hint}
           </p>
 
-          {/* Plan hint */}
-          {guidance.plan && (
-            <p className="text-xs text-muted-foreground italic">{guidance.plan}</p>
-          )}
-
-          {/* Trap Warning */}
+          {/* Trap warning is OK to show — it's about the current position, not future moves */}
           {guidance.trap_warning && (
             <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20 mt-3">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" strokeWidth={1.5} />
@@ -145,11 +137,10 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
             </div>
           )}
 
-          {/* Golden Rule */}
-          {guidance.golden_rule && (
-            <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-primary/10">
-              <Lightbulb className="w-3 h-3 text-primary/60" strokeWidth={1.5} />
-              <p className="text-[11px] text-primary/70">{guidance.golden_rule}</p>
+          {/* Weak spot indicator — extra emphasis, no answer */}
+          {guidance.is_weak_spot && (
+            <div className="mt-2 text-xs text-destructive/80 font-medium">
+              You've gotten this wrong before. Take your time.
             </div>
           )}
         </motion.div>
