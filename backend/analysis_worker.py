@@ -1220,6 +1220,30 @@ def process_job(db, job):
             import traceback
             traceback.print_exc()
         
+        # ============ COMMUNITY TRAINING POSITIONS ============
+        # Extract training-worthy positions for the community pool
+        try:
+            import asyncio
+            from services.community_training_service import extract_training_positions
+            from motor.motor_asyncio import AsyncIOMotorClient
+            
+            mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+            db_name = os.environ.get("DB_NAME", "chess_coach")
+            async_client = AsyncIOMotorClient(mongo_url)
+            async_db = async_client[db_name]
+            
+            loop = asyncio.new_event_loop()
+            positions = loop.run_until_complete(
+                extract_training_positions(async_db, game_id, user_id)
+            )
+            loop.close()
+            async_client.close()
+            
+            if positions:
+                logger.info(f"[TRAINING] Extracted {len(positions)} training positions for {game_id}")
+        except Exception as train_err:
+            logger.warning(f"[TRAINING] Position extraction failed (non-critical): {train_err}")
+        
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         
