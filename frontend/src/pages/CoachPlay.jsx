@@ -738,7 +738,8 @@ const CoachPlay = ({ user }) => {
       // Build request body
       const requestBody = {
         user_color: selectedColor,
-        time_control: timeControl
+        time_control: timeControl,
+        opening_key: "london_system",  // TODO: let user pick from available curriculums
       };
       
       // If in practice mode, use custom starting position
@@ -2747,6 +2748,7 @@ const CoachPlay = ({ user }) => {
                     sessionId={session?.session_id}
                     fen={currentFen}
                     isPlayerTurn={isPlayerTurn}
+                    openingKey={session?.teaching_opening || openingGuidance?.opening_key}
                     onHighlightMove={(moveSan) => {
                       toast.info(`Consider ${moveSan}`, { duration: 2000 });
                     }}

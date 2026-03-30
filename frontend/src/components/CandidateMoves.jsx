@@ -74,7 +74,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ session_id: sessionId, opening_key: openingKey || "london_system" }),
+            body: JSON.stringify({ session_id: sessionId, opening_key: openingKey }),
           }).catch(() => null),
         ]);
 

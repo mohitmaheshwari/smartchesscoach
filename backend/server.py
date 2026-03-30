@@ -10286,6 +10286,7 @@ async def start_play_with_coach(
     starting_fen = request.get("starting_fen", None)
     practice_mode = request.get("practice_mode", False)
     source_game_id = request.get("source_game_id", None)
+    opening_key = request.get("opening_key", None)  # Curriculum opening to teach
     
     # Validate user_color
     if user_color not in ["white", "black"]:
@@ -10328,11 +10329,29 @@ async def start_play_with_coach(
             coaching_context = await get_coaching_context(db, user.user_id)
             personalized_greeting = await get_personalized_greeting(db, user.user_id)
             
-            # ALWAYS suggest an opening to learn at game start (proactive teaching)
+            # OPENING SELECTION: Use curriculum if specified, else old system
             if not practice_mode:
-                opening_guidance = await suggest_opening_for_session(
-                    db, user.user_id, user_color, session.user_rating
-                )
+                if opening_key:
+                    # Use our structured curriculum system
+                    from services.opening_assessment_service import get_pregame_intro
+                    pregame = await get_pregame_intro(db, user.user_id, opening_key)
+                    
+                    welcome_message = pregame.get("intro", personalized_greeting)
+                    
+                    # Store curriculum opening on the session
+                    await db.coach_sessions.update_one(
+                        {"session_id": session.session_id},
+                        {"$set": {
+                            "teaching_opening": opening_key,
+                            "opening_assessment": pregame.get("assessment"),
+                            "curriculum_active": True,
+                        }}
+                    )
+                else:
+                    # Fallback: old system picks an opening
+                    opening_guidance = await suggest_opening_for_session(
+                        db, user.user_id, user_color, session.user_rating
+                    )
                 
                 if opening_guidance:
                     # Store the opening guidance in the session for teaching
@@ -10402,6 +10421,7 @@ async def start_play_with_coach(
             "current_fen": session.current_fen,
             "is_player_turn": is_player_turn,
             "message": welcome_message,
+            "opening_key": opening_key,
             "evaluation": {
                 "score": eval_score,
                 "mate_in": mate_in
