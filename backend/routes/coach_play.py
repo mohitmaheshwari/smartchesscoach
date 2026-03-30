@@ -2122,3 +2122,112 @@ async def get_v5_session_moves_coaching(
             raise HTTPException(status_code=500, detail=str(e))
     
     return {"moves": [], "message": "Session still in progress"}
+
+
+@router.post("/candidates")
+async def get_candidate_moves(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get 3 best candidate moves for the current position with simple explanations.
+    
+    This is the CORE of smart coaching — shows the player what to think about
+    BEFORE they move. Each candidate has a plain-English explanation of its idea.
+    
+    Body:
+    - session_id: Current game session
+    
+    Returns:
+    - candidates: [{move, idea, move_type, is_best}]
+    - position_hint: A simple hint about what to look for in this position
+    """
+    global db
+    import chess
+    from services.shared_coaching_v5 import get_stockfish_candidates
+
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    session_id = request.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    current_fen = session_doc.get("current_fen")
+    if not current_fen:
+        raise HTTPException(status_code=400, detail="No position available")
+
+    try:
+        board = chess.Board(current_fen)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid position")
+
+    # Get top 3 moves from Stockfish with ideas
+    candidates = await get_stockfish_candidates(board, num_moves=3, depth=14)
+
+    result = []
+    for c in candidates:
+        result.append({
+            "move": c.move,
+            "idea": c.idea,
+            "move_type": c.move_type,
+            "is_best": c.is_best,
+        })
+
+    # Generate a simple position hint
+    hint = _generate_position_hint(board)
+
+    return {
+        "candidates": result,
+        "position_hint": hint,
+        "fen": current_fen,
+    }
+
+
+def _generate_position_hint(board: chess.Board) -> str:
+    """Simple hint about what to focus on in this position."""
+    import chess
+
+    move_count = board.fullmove_number
+
+    # Opening
+    if move_count <= 5:
+        undeveloped = 0
+        back_rank = 0 if board.turn == chess.WHITE else 7
+        for sq in chess.SQUARES:
+            piece = board.piece_at(sq)
+            if piece and piece.color == board.turn and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
+                if chess.square_rank(sq) == back_rank:
+                    undeveloped += 1
+
+        if undeveloped >= 2:
+            return "Get your pieces out! Develop knights and bishops toward the center."
+        if not board.has_castling_rights(board.turn):
+            return "Good — you've castled. Now think about what your pieces are aiming at."
+        if board.has_castling_rights(board.turn):
+            return "Think about castling soon. Get your king safe."
+        return "Control the center. Develop your pieces."
+
+    # Check if in check
+    if board.is_check():
+        return "You're in check. Deal with it first."
+
+    # Middlegame
+    if move_count <= 25:
+        # Check for hanging pieces
+        for sq in chess.SQUARES:
+            piece = board.piece_at(sq)
+            if piece and piece.color != board.turn and piece.piece_type != chess.KING:
+                if board.is_attacked_by(board.turn, sq) and not board.is_attacked_by(not board.turn, sq):
+                    return "Look carefully — your opponent has an undefended piece. Can you take it?"
+
+        return "Look for captures, checks, and threats. What's the most active move?"
+
+    # Endgame
+    return "Endgame time. Push your passed pawns and activate your king."

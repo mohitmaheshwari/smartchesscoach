@@ -82,6 +82,7 @@ import {
 
 // V5 Coaching Component
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
+import CandidateMoves from "@/components/CandidateMoves";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -2598,6 +2599,21 @@ const CoachPlay = ({ user }) => {
                   isPlayerTurn={isPlayerTurn}
                   onDismiss={() => setShowChecklist(false)}
                   compact={true}
+                />
+              </div>
+            )}
+            
+            {/* Candidate Moves — Smart coaching: 3 best moves with ideas */}
+            {session && isPlayerTurn && !gameOver && !isInTeachingMode && (
+              <div className="mt-2">
+                <CandidateMoves
+                  sessionId={session?.session_id}
+                  fen={currentFen}
+                  isPlayerTurn={isPlayerTurn}
+                  onHighlightMove={(moveSan) => {
+                    // Could highlight the move on the board in the future
+                    toast.info(`Consider ${moveSan}`, { duration: 2000 });
+                  }}
                 />
               </div>
             )}
