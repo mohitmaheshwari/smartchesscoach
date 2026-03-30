@@ -56,7 +56,7 @@ const StorySection = ({ story, llmNarrative }) => {
       className="pb-8 mb-8 border-b border-white/5"
       data-testid="coach-review-story"
     >
-      <SectionHeader icon={BookOpen} label="The Story" number="01" />
+      <SectionHeader icon={BookOpen} label="What Happened" number="01" />
       
       {narrative ? (
         <p className="text-base text-white/90 leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -96,7 +96,7 @@ const MirrorSection = ({ mirror, llmNarrative }) => {
       className="pb-8 mb-8 border-b border-white/5"
       data-testid="coach-review-mirror"
     >
-      <SectionHeader icon={Eye} label="The Mirror" number="02" />
+      <SectionHeader icon={Eye} label="About You" number="02" />
 
       <div className="relative pl-4 border-l-2 border-[#722F37]/60">
         <p className="text-base text-white/90 leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -175,18 +175,18 @@ const MomentSection = ({ moments, llmNarrative, onNavigate }) => {
       className="pb-8 mb-8 border-b border-white/5"
       data-testid="coach-review-moments"
     >
-      <SectionHeader icon={Target} label="The Moment" number="03" />
+      <SectionHeader icon={Target} label="Behavior Insight" number="03" />
       
       {moments.length === 0 ? (
         <p className="text-sm text-white/50" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          No critical mistakes in this game. Clean play.
+          No big mistakes. Clean game.
         </p>
       ) : (
         <div>
           <p className="text-xs text-white/40 mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {moments.length === 1 
-              ? "One decision defined this game. Click to see the position."
-              : `${moments.length} decisions defined this game. Click to see the positions.`
+              ? "This move decided the game. Tap to see it."
+              : `These ${moments.length} moves decided the game. Tap to see them.`
             }
           </p>
           {moments.map((m, i) => (
@@ -218,7 +218,7 @@ const TakeawaySection = ({ takeaway, llmNarrative }) => {
       className="pb-8 mb-8 border-b border-white/5"
       data-testid="coach-review-takeaway"
     >
-      <SectionHeader icon={Lightbulb} label="The Takeaway" number="04" />
+      <SectionHeader icon={Lightbulb} label="Remember This" number="04" />
       
       <div className="relative bg-[#CBA135]/[0.04] border border-[#CBA135]/20 p-5">
         <Quote className="w-5 h-5 text-[#CBA135]/30 absolute top-3 left-3" strokeWidth={1} />
@@ -254,7 +254,7 @@ const ProofSection = ({ proof, llmNarrative }) => {
         className="pb-4"
         data-testid="coach-review-proof"
       >
-        <SectionHeader icon={TrendingUp} label="The Proof" number="05" />
+        <SectionHeader icon={TrendingUp} label="Your Progress" number="05" />
         <p className="text-sm text-white/40" style={{ fontFamily: "'Outfit', sans-serif" }}>
           {proof.message}
         </p>
@@ -271,7 +271,7 @@ const ProofSection = ({ proof, llmNarrative }) => {
       className="pb-4"
       data-testid="coach-review-proof"
     >
-      <SectionHeader icon={TrendingUp} label="The Proof" number="05" />
+      <SectionHeader icon={TrendingUp} label="Your Progress" number="05" />
       
       <p className="text-sm text-white/70 mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
         {encouragement || proof.message}
@@ -340,7 +340,7 @@ const CoachReview = ({ gameId, onMoveClick }) => {
       <div className="flex flex-col items-center justify-center py-20" data-testid="coach-review-loading">
         <Loader2 className="w-6 h-6 animate-spin text-[#CBA135] mb-4" />
         <span className="text-xs text-white/40 font-mono tracking-widest uppercase">
-          Your coach is reviewing...
+          Coach is thinking...
         </span>
       </div>
     );
@@ -370,13 +370,13 @@ const CoachReview = ({ gameId, onMoveClick }) => {
           className="text-2xl text-white/90 tracking-tight"
           style={{ fontFamily: "'Cormorant Garamond', serif" }}
         >
-          Coach Review
+          Your Coach Says
         </h2>
         <p className="text-xs text-white/30 mt-1 font-mono tracking-widest uppercase">
-          {story?.arc_type === "dominant" ? "Clean performance" : 
-           story?.arc_type === "thrown" ? "Lessons to learn" :
-           story?.arc_type === "outplayed" ? "Growth opportunity" :
-           "Game breakdown"}
+          {story?.arc_type === "dominant" ? "Solid game" : 
+           story?.arc_type === "thrown" ? "Tough lesson" :
+           story?.arc_type === "outplayed" ? "Room to grow" :
+           "Game review"}
         </p>
       </motion.div>
 

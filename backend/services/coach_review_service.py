@@ -91,13 +91,13 @@ def compute_game_story(
     opening_eval_user = opening_eval if user_is_white else -opening_eval
 
     if not opening_mistakes and opening_eval_user >= -50:
-        opening_text = f"You came out of {opening_name} in good shape. No early mistakes, solid foundation."
+        opening_text = f"Good start out of {opening_name}. No early mistakes."
     elif opening_eval_user > 100:
-        opening_text = f"You got a strong position out of {opening_name}. You had an early edge."
+        opening_text = f"You got a nice edge from {opening_name}. Strong start."
     elif opening_mistakes:
-        opening_text = f"Trouble started early. You made {len(opening_mistakes)} mistake{'s' if len(opening_mistakes) > 1 else ''} in {opening_name} and were already under pressure."
+        opening_text = f"Rough start. {len(opening_mistakes)} mistake{'s' if len(opening_mistakes) > 1 else ''} in {opening_name} put you behind early."
     else:
-        opening_text = f"The opening was roughly equal. Neither side had a clear advantage after {opening_name}."
+        opening_text = f"Even opening. No one had a clear edge after {opening_name}."
 
     # --- Tension / middlegame chapter ---
     mid_moves = [m for m in user_moves if m["phase"] == "middlegame"]
@@ -115,15 +115,15 @@ def compute_game_story(
     was_losing = min_advantage <= -200
 
     if had_advantage and was_losing:
-        tension_text = f"This was a rollercoaster. You had a strong advantage at one point (+{max_advantage/100:.1f}) but the position swung against you too."
+        tension_text = "Wild game. You were winning at one point, then losing. Back and forth."
     elif had_advantage:
-        tension_text = "You built up a significant advantage in the middlegame. The position was in your hands."
+        tension_text = "You had a big advantage in the middlegame. The game was yours to win."
     elif was_losing:
-        tension_text = "You were under pressure for most of the middlegame. The position was uncomfortable."
+        tension_text = "You were struggling most of the middlegame. Tough position to play."
     elif mid_blunders:
-        tension_text = f"The middlegame was where things went wrong. {len(mid_blunders)} critical mistake{'s' if len(mid_blunders) > 1 else ''} changed the game."
+        tension_text = f"The middlegame is where it went wrong. {len(mid_blunders)} big mistake{'s' if len(mid_blunders) > 1 else ''}."
     else:
-        tension_text = "The middlegame was a balanced fight. Neither side gained a decisive edge."
+        tension_text = "Close fight in the middlegame. Nobody had a clear edge."
 
     # --- Climax: the turning point ---
     # Find the single most impactful user mistake
@@ -132,30 +132,30 @@ def compute_game_story(
 
     if climax_move:
         phase = _phase_label(climax_move["phase"])
-        climax_text = f"The game was decided at move {climax_move['move_number']} in {phase}. One decision changed everything."
+        climax_text = f"Move {climax_move['move_number']} in {phase} changed everything."
     elif user_won:
-        climax_text = "There was no single dramatic moment. You steadily outplayed your opponent."
+        climax_text = "No single big moment. You just outplayed them move by move."
     elif is_draw:
-        climax_text = "Neither player found the breakthrough. The game ended in equilibrium."
+        climax_text = "Nobody found the breakthrough. Even game throughout."
     else:
-        climax_text = "The advantage slipped away gradually. No single catastrophic moment, just accumulation."
+        climax_text = "No one big blunder. You just slowly lost ground."
 
     # --- Resolution ---
     if user_won and climax_move and climax_move["cp_loss"] >= 150:
-        resolution_text = f"You won, but it wasn't clean. That mistake at move {climax_move['move_number']} could have cost you against a stronger opponent."
+        resolution_text = f"You won, but that mistake at move {climax_move['move_number']} could cost you against better players."
     elif user_won:
-        resolution_text = f"You converted the advantage and won. Well played against {opponent}."
+        resolution_text = f"Clean win against {opponent}. Well done."
     elif is_draw:
-        resolution_text = "The game ended in a draw. Was there a moment where you could have pushed for more?"
+        resolution_text = "Draw. Could you have pushed harder at some point?"
     else:
         # Check termination
         termination = game.get("termination", "")
         if "time" in termination.lower():
-            resolution_text = "You ran out of time. The clock beat you, not just the position."
+            resolution_text = "You ran out of time. Work on using your clock better."
         elif "resign" in termination.lower():
-            resolution_text = "You resigned. The position felt hopeless, but was it really?"
+            resolution_text = "You resigned. Was it really over though?"
         else:
-            resolution_text = f"You lost this one against {opponent}. The question is: what did it teach you?"
+            resolution_text = f"You lost to {opponent}. What's the one thing to fix?"
 
     # Arc type classification
     if user_won and not climax_move:
@@ -202,17 +202,17 @@ def compute_mirror(
 
     # Build personality observation based on diagnosis + arc
     personality_observations = {
-        ("THROW", "thrown"): "You play differently when you're winning. The advantage makes you cautious instead of confident. You stop attacking and start protecting — and that's when you lose the thread.",
-        ("THROW", "scrappy_win"): "You have a tendency to let winning positions slip. Even when you recover, there's a pattern of relaxing when you shouldn't.",
-        ("MATE_BLIND", None): "You're not checking what your opponent is threatening before you move. This isn't a skill problem — it's a habit problem. You know how to see threats. You're just not looking.",
-        ("SLOW_BLEED", "outplayed"): "You weren't outskilled — you were outthought. Your opponent had a plan, and you were reacting. When there's no obvious move, you drift.",
-        ("OPENING_COLLAPSE", None): "You're running out of ideas early. Once the book moves end, you're not sure what to do — and the hesitation shows in your moves.",
-        ("PIECE_GIVEAWAY", None): "You're moving too fast on some moves. The piece you lost wasn't a calculation error — it was a focus error. You stopped checking basic safety.",
-        ("TACTICAL_MISS", None): "You had the position to win. The opportunity was there. But you didn't see it in time. Your positional play is ahead of your tactical vision.",
-        ("TIME_COLLAPSE", None): "You manage your clock well for most of the game, then panic at the end. The last few moves aren't played — they're survived.",
-        ("WON_CLEAN", "dominant"): "This is what happens when you play with a plan and stick to it. You didn't need tricks — you just played clean chess.",
-        ("WON_OPPONENT_BLUNDER", None): "You won, but your opponent handed it to you. Don't confuse their gift with your improvement. What would have happened if they played accurately?",
-        ("DRAW", None): "You survived, but did you try to win? Draws are sometimes good, but ask yourself: was there a moment you played safe when you could have pushed?",
+        ("THROW", "thrown"): "When you're winning, you get careful instead of staying sharp. You slow down, play safe, and the win slips away.",
+        ("THROW", "scrappy_win"): "You almost threw this one. When you're ahead, you relax too early. Stay sharp till the end.",
+        ("MATE_BLIND", None): "You forgot to check what your opponent was doing. Before every move: look at what THEY want to do first.",
+        ("SLOW_BLEED", "outplayed"): "No big mistake, but your opponent had a plan and you didn't. Small errors added up. Think about WHAT you want to do each move.",
+        ("OPENING_COLLAPSE", None): "You got lost early. After the first few moves, you didn't know what to do. Learn the IDEAS of your opening, not just the moves.",
+        ("PIECE_GIVEAWAY", None): "You left a piece hanging. Before you move, ask: is my piece safe where it's going? Takes 2 seconds.",
+        ("TACTICAL_MISS", None): "There was a winning move and you didn't see it. The good news: this gets better with practice. Do some puzzles.",
+        ("TIME_COLLAPSE", None): "You played well, then ran out of time and everything fell apart. Spend your time on the hard moves, not the easy ones.",
+        ("WON_CLEAN", "dominant"): "This is your best chess. You had a plan, you stuck to it, and you won. Remember how this feels.",
+        ("WON_OPPONENT_BLUNDER", None): "You won because your opponent messed up, not because you played great. Be honest — would you win this again?",
+        ("DRAW", None): "A draw. Not bad, but was there a moment where you could have pushed harder?",
     }
 
     # Try exact match first, then diagnosis-only
@@ -226,11 +226,11 @@ def compute_mirror(
     pattern_insight = ""
     count = pattern_counts.get(diagnosis, 0)
     if count >= 3:
-        pattern_insight = f"This is the {_ordinal(count)} time this has happened in your last {total_recent_games} games. This isn't a one-off — it's a pattern."
+        pattern_insight = f"This happened {count} times in your last {total_recent_games} games. It's a habit now, not a one-time thing."
     elif count == 2:
-        pattern_insight = "This happened once before recently. If it happens again, we're looking at a pattern — not a mistake."
+        pattern_insight = "This happened before. One more time and it's a pattern."
     elif count == 1:
-        pattern_insight = "This is the first time this specific issue showed up recently. Let's make sure it stays that way."
+        pattern_insight = "First time this showed up. Let's keep it that way."
 
     # Identity anchors from player identity doc
     style = "developing"
@@ -341,8 +341,8 @@ def _diagnose_thinking_error(move: Dict, index: int, all_evals: List[Dict], user
     if cp_loss >= 5000:
         return {
             "type": "tunnel_vision",
-            "label": "Didn't check opponent's threats",
-            "description": "You were focused on your own plan and forgot to check what your opponent was threatening. One quick scan of the board would have saved you.",
+            "label": "Didn't look at opponent's move",
+            "description": "You were thinking about YOUR plan and forgot to check what they're doing. Always look at their last move first.",
             "root_cause": "focus_on_own_plan",
         }
 
@@ -350,22 +350,22 @@ def _diagnose_thinking_error(move: Dict, index: int, all_evals: List[Dict], user
         if prev_cp_loss >= 50:
             return {
                 "type": "frustration_spiral",
-                "label": "Compounding mistakes",
-                "description": "You were already rattled from the previous move. When you're upset about one mistake, the next move gets worse. The spiral is what costs the game, not the first mistake.",
+                "label": "Mistake after mistake",
+                "description": "One bad move led to another. When you mess up, take a breath. Don't try to fix it immediately — just play solid.",
                 "root_cause": "emotional_recovery",
             }
         return {
             "type": "complacency",
-            "label": "Relaxed when winning",
-            "description": "You were in control. The position was yours. But winning positions require the same focus as losing ones. You let your guard down.",
+            "label": "Got lazy when ahead",
+            "description": "You were winning and stopped being careful. Winning doesn't mean you can relax. Stay focused till the end.",
             "root_cause": "concentration_in_winning_position",
         }
 
     if was_losing and cp_loss >= 150:
         return {
             "type": "desperation",
-            "label": "Panicked under pressure",
-            "description": "When you're behind, the instinct is to do something dramatic. But desperation moves usually make things worse. The best response to a bad position is a solid move, not a gamble.",
+            "label": "Panicked when losing",
+            "description": "You were behind and tried something risky. When you're losing, play your best solid move — don't gamble.",
             "root_cause": "emotional_decision_under_pressure",
         }
 
@@ -374,14 +374,14 @@ def _diagnose_thinking_error(move: Dict, index: int, all_evals: List[Dict], user
         if threat_info or (best_move and any(c in best_move.lower() for c in ['x', '+'])):
             return {
                 "type": "tactical_blindness",
-                "label": "Missed a tactic",
-                "description": "The tactic was there. You had the position for it. But the pattern didn't fire in your mind. This is trainable — it gets better with targeted practice.",
+                "label": "Missed a winning move",
+                "description": "There was a strong move and you didn't see it. Puzzles help with this — do a few every day.",
                 "root_cause": "pattern_recognition_gap",
             }
         return {
             "type": "no_plan",
-            "label": "Moved without a purpose",
-            "description": "In this position, you needed a plan. Instead, you played a move that looked reasonable but didn't accomplish anything. When you don't know what to do, ask: what are the 3 most important features of this position?",
+            "label": "No plan, just moved",
+            "description": "You didn't know what to do so you just played something. Next time, ask yourself: what's the most important thing in this position?",
             "root_cause": "strategic_thinking",
         }
 
@@ -390,16 +390,16 @@ def _diagnose_thinking_error(move: Dict, index: int, all_evals: List[Dict], user
         if index > total * 0.75:
             return {
                 "type": "fatigue",
-                "label": "Late-game fatigue",
-                "description": "This mistake came late in the game. Your focus was strong earlier, but it faded. The endgame requires a different kind of concentration — patient and precise.",
+                "label": "Tired at the end",
+                "description": "You played well early but lost focus near the end. Save your energy for the important moments.",
                 "root_cause": "stamina",
             }
 
     # Default
     return {
         "type": "inaccuracy",
-        "label": "Slight misjudgment",
-        "description": "This was a small inaccuracy. The position was subtle, and the difference between your move and the best one wasn't obvious. This kind of thing improves naturally with experience.",
+        "label": "Small slip",
+        "description": "A small mistake. Not a big deal on its own, but these add up over a game.",
         "root_cause": "experience",
     }
 
@@ -415,18 +415,18 @@ def compute_takeaway(
     """
     ONE sentence the player carries into their next game. A mantra.
     """
-    # Map diagnosis to memorable mantras
+    # Map diagnosis to memorable mantras — short, sticky, easy to remember
     mantras = {
-        "THROW": "Before every move in a winning position, ask yourself: am I playing to WIN, or playing not to LOSE?",
-        "MATE_BLIND": "Before you move: what is my opponent threatening? Spend 3 seconds. Every move. No exceptions.",
-        "SLOW_BLEED": "When there's no obvious move, stop and ask: what are the 3 most important squares on this board right now?",
-        "OPENING_COLLAPSE": "Know the IDEAS behind your opening moves, not just the moves themselves. Why are you playing this?",
-        "PIECE_GIVEAWAY": "Before you move a piece, check: is the square I'm going to safe? Is the square I'm leaving still defended?",
-        "TACTICAL_MISS": "When the position feels tense, slow down. Count to 5. Check every capture and every check. The tactic is hiding there.",
-        "TIME_COLLAPSE": "Spend your time when it matters. 30 seconds in a critical middlegame position is worth more than 2 minutes on move 3.",
-        "WON_CLEAN": "This is your level when you focus. Remember this feeling. This is what you're capable of.",
-        "WON_OPPONENT_BLUNDER": "You got lucky this time. Ask yourself: what would my coach say about the moves where I was worse?",
-        "DRAW": "Draws are fine. But before you agree to one, ask: was there a moment where I chose safety over ambition?",
+        "THROW": "When you're winning: stay sharp, don't coast.",
+        "MATE_BLIND": "Before you move, check: what is my opponent threatening?",
+        "SLOW_BLEED": "No obvious move? Ask: what's the most important square right now?",
+        "OPENING_COLLAPSE": "Learn WHY you play each opening move, not just the move itself.",
+        "PIECE_GIVEAWAY": "Before moving: is my piece safe where it's going?",
+        "TACTICAL_MISS": "When it feels tense, slow down. Check every capture and every check.",
+        "TIME_COLLAPSE": "Use your time on the hard moves, not the first 5 moves.",
+        "WON_CLEAN": "This is your real level. Remember how this felt.",
+        "WON_OPPONENT_BLUNDER": "You got lucky. What if they hadn't blundered?",
+        "DRAW": "Before accepting a draw: did you really try to win?",
     }
 
     mantra = mantras.get(diagnosis, "Every game teaches you something. What did this one teach you?")
@@ -467,7 +467,7 @@ async def compute_proof(
     if len(recent) < 3:
         return {
             "has_enough_data": False,
-            "message": "Play a few more games and I'll show you how you're improving.",
+            "message": "Play a few more games and I'll show your progress.",
             "improvements": [],
             "still_working_on": [],
         }
@@ -479,7 +479,7 @@ async def compute_proof(
     if not older:
         return {
             "has_enough_data": False,
-            "message": "Keep playing. After a few more games, I'll track your improvement trends.",
+            "message": "Keep playing. I need a few more games to track trends.",
             "improvements": [],
             "still_working_on": [],
         }
@@ -515,24 +515,24 @@ async def compute_proof(
     if recent_blunder_rate < older_blunder_rate * 0.7:
         improvements.append({
             "area": "Fewer blunders",
-            "detail": f"Your blunder rate dropped from {older_blunder_rate:.1f} to {recent_blunder_rate:.1f} per game. That's real progress.",
+            "detail": f"Blunders down from {older_blunder_rate:.1f} to {recent_blunder_rate:.1f} per game. Nice.",
         })
     elif recent_blunder_rate > older_blunder_rate * 1.3:
         still_working.append({
-            "area": "Blunder control",
-            "detail": f"Your blunder rate went up recently ({recent_blunder_rate:.1f} vs {older_blunder_rate:.1f}). Take a breath before each move.",
+            "area": "Blunders going up",
+            "detail": f"More blunders lately ({recent_blunder_rate:.1f} vs {older_blunder_rate:.1f}). Slow down.",
         })
 
     # Accuracy comparison
     if recent_accuracy > older_accuracy + 3:
         improvements.append({
-            "area": "Overall accuracy",
-            "detail": f"Your accuracy improved from {older_accuracy:.0f}% to {recent_accuracy:.0f}%. You're thinking better.",
+            "area": "Better accuracy",
+            "detail": f"Accuracy up from {older_accuracy:.0f}% to {recent_accuracy:.0f}%. You're getting sharper.",
         })
     elif older_accuracy > recent_accuracy + 3:
         still_working.append({
-            "area": "Accuracy",
-            "detail": f"Accuracy dipped from {older_accuracy:.0f}% to {recent_accuracy:.0f}%. Are you rushing?",
+            "area": "Accuracy dropped",
+            "detail": f"Accuracy went from {older_accuracy:.0f}% to {recent_accuracy:.0f}%. Rushing?",
         })
 
     # Opening play comparison
@@ -557,13 +557,13 @@ async def compute_proof(
 
     # Build encouraging message
     if improvements and not still_working:
-        message = "You're genuinely improving. The numbers back it up."
+        message = "You're getting better. The numbers show it."
     elif improvements and still_working:
-        message = "Progress is real — and so is the work still ahead. Both matter."
+        message = "Some things are improving, some need work. That's normal."
     elif still_working:
-        message = "Tough stretch recently, but awareness is the first step. You know what to work on."
+        message = "Tough stretch. But you know what to work on — that matters."
     else:
-        message = "Steady play. No dramatic changes — which means you're consistent."
+        message = "Steady play. No big changes — you're consistent."
 
     return {
         "has_enough_data": True,
@@ -594,59 +594,44 @@ async def generate_coach_narrative(
         return None
 
     try:
-        system_msg = "You are a brutally honest chess coach reviewing a student's game. You genuinely care about them improving. Return ONLY valid JSON. No markdown, no code blocks."
+        system_msg = "You are a friendly chess coach talking to your student after a game. Write like you're texting a friend — super simple, no fancy words. Return ONLY valid JSON. No markdown."
 
-        user_msg = f"""STUDENT INFO:
-- Rating: ~{user_rating}
-- Playing style: {mirror.get('style', 'developing')}
-- Known weakness: {mirror.get('weakness', 'various')}
-- Known strength: {mirror.get('strength', 'determination')}
+        user_msg = f"""STUDENT: Rating ~{user_rating}, style: {mirror.get('style', 'developing')}
 
-THE GAME STORY:
+WHAT HAPPENED:
 - Opening: {story.get('opening', '')}
 - Middle: {story.get('tension', '')}
-- Turning point: {story.get('climax', '')}
-- Ending: {story.get('resolution', '')}
+- Key moment: {story.get('climax', '')}
+- End: {story.get('resolution', '')}
 
-YOUR PERSONALITY OBSERVATION:
-{mirror.get('observation', '')}
+ABOUT THEM: {mirror.get('observation', '')}
+PATTERN: {mirror.get('pattern_insight', '')}
 
-PATTERN DATA:
-{mirror.get('pattern_insight', '')}
-
-THE KEY MISTAKES ({len(moments)} total):
+MISTAKES ({len(moments)}):
 """
         for i, m in enumerate(moments):
             te = m.get("thinking_error", {})
-            user_msg += f"""
-Mistake {i+1}: Move {m['move_number']} ({m['phase']})
-- Played: {m['move_san']}, Best: {m['best_move']}
-- Thinking error: {te.get('label', 'unknown')} — {te.get('description', '')}
-"""
+            user_msg += f"  {i+1}. Move {m['move_number']}: {te.get('label', '?')} — {te.get('description', '')}\n"
 
         user_msg += f"""
-THEIR MANTRA FOR NEXT GAME:
-{takeaway.get('mantra', '')}
+MANTRA: {takeaway.get('mantra', '')}
 
-PROGRESS:
-{proof.get('message', '')}
+Write a coaching review as JSON. Use DEAD SIMPLE English — like talking to a 12 year old. Short sentences. No big words.
 
-Now write a SHORT, POWERFUL coaching review as JSON:
 {{
-  "story_narrative": "2-3 sentences telling the game story in human terms. No move notation. Like telling a friend what happened.",
-  "mirror_narrative": "2-3 sentences about what this game reveals about them as a PLAYER (their psychology, tendencies, blind spots). This should feel personal.",
-  "moment_insights": ["For each critical moment, one sentence explaining WHY they decided the way they did — not what was right, but what their THINKING error was."],
-  "takeaway_refined": "One punchy, memorable sentence they can literally repeat to themselves before their next game.",
-  "encouragement": "One honest, warm sentence acknowledging something they're doing right or improving on."
+  "story_narrative": "What happened in this game in 2 simple sentences. Like telling a buddy.",
+  "mirror_narrative": "What this says about how they play. 2 short sentences. Personal, not generic.",
+  "moment_insights": ["One simple sentence per mistake — WHY they made it, not what was better."],
+  "takeaway_refined": "One short sentence to remember before next game. Easy to repeat in your head.",
+  "encouragement": "One warm sentence about something good."
 }}
 
 RULES:
-- NO chess notation (no Nf5, no e4, no +2.3)
-- NO centipawns, no evaluation numbers
-- Sound like a PERSON, not a computer
-- Be SPECIFIC to THIS game and THIS player
-- Maximum 15 words per sentence
-- Be warm but honest"""
+- NO chess moves (no Nf5, no e4)
+- NO numbers or percentages
+- Talk like a friend, not a teacher
+- Max 12 words per sentence
+- Simple words only"""
 
         raw = await call_llm_func(system_msg, user_msg)
         if not raw:
