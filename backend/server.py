@@ -10338,13 +10338,14 @@ async def start_play_with_coach(
                     
                     welcome_message = pregame.get("intro", personalized_greeting)
                     
-                    # Store curriculum opening on the session
+                    # Store curriculum opening on the session — DISABLE old teaching system
                     await db.coach_sessions.update_one(
                         {"session_id": session.session_id},
                         {"$set": {
                             "teaching_opening": opening_key,
                             "opening_assessment": pregame.get("assessment"),
                             "curriculum_active": True,
+                            "opening_teaching_active": False,  # Disable old system
                         }}
                     )
                 else:
@@ -10352,33 +10353,28 @@ async def start_play_with_coach(
                     opening_guidance = await suggest_opening_for_session(
                         db, user.user_id, user_color, session.user_rating
                     )
-                
-                if opening_guidance:
-                    # Store the opening guidance in the session for teaching
-                    await db.coach_sessions.update_one(
-                        {"session_id": session.session_id},
-                        {"$set": {
-                            "opening_to_teach": opening_guidance["opening_key"],
-                            "opening_teaching_moves": opening_guidance["full_moves"],
-                            "opening_teaching_index": 0,
-                            "opening_teaching_active": True,
-                            "suggested_trap": opening_guidance.get("suggested_trap"),
-                            "available_traps": opening_guidance.get("traps", [])
-                        }}
-                    )
                     
-                    # Build the welcome message with opening guidance
-                    welcome_message = f"{personalized_greeting}\n\n{opening_guidance['teaching_message']}"
-                    
-                    # Add first move guidance if it's user's turn
-                    if is_player_turn:
-                        first_move = opening_guidance["first_moves"][0] if opening_guidance["first_moves"] else None
-                        if first_move:
-                            welcome_message += f"\n\nYour first move: Play **{first_move}** to start."
-                else:
-                    welcome_message = personalized_greeting
-                    if coaching_context.get("focus_suggestion"):
-                        welcome_message += f" {coaching_context['focus_suggestion']}."
+                    if opening_guidance:
+                        await db.coach_sessions.update_one(
+                            {"session_id": session.session_id},
+                            {"$set": {
+                                "opening_to_teach": opening_guidance["opening_key"],
+                                "opening_teaching_moves": opening_guidance["full_moves"],
+                                "opening_teaching_index": 0,
+                                "opening_teaching_active": True,
+                                "suggested_trap": opening_guidance.get("suggested_trap"),
+                                "available_traps": opening_guidance.get("traps", [])
+                            }}
+                        )
+                        welcome_message = f"{personalized_greeting}\n\n{opening_guidance['teaching_message']}"
+                        if is_player_turn:
+                            first_move = opening_guidance["first_moves"][0] if opening_guidance["first_moves"] else None
+                            if first_move:
+                                welcome_message += f"\n\nYour first move: Play **{first_move}** to start."
+                    else:
+                        welcome_message = personalized_greeting
+                        if coaching_context.get("focus_suggestion"):
+                            welcome_message += f" {coaching_context['focus_suggestion']}."
             else:
                 # Practice mode - use standard personalized greeting
                 welcome_message = personalized_greeting
@@ -10393,22 +10389,23 @@ async def start_play_with_coach(
                 if top_weakness and top_weakness["count"] >= 3:
                     welcome_message += f"\n\nRemember: Watch out for {top_weakness['name']} - let's work on that today!"
             
-            # Try Human Coach as fallback/enhancement
-            try:
-                from services.human_coach_service import create_human_coach
-                coach = await create_human_coach(db, user.user_id, session.user_rating)
-                human_welcome = await coach.get_welcome_message()
-                
-                # Use human coach message if it's more personal
-                if len(human_welcome) > len(welcome_message):
-                    welcome_message = human_welcome
+            # Try Human Coach as fallback/enhancement — but NOT when curriculum is active
+            if not opening_key:
+                try:
+                    from services.human_coach_service import create_human_coach
+                    coach = await create_human_coach(db, user.user_id, session.user_rating)
+                    human_welcome = await coach.get_welcome_message()
                     
-                if starting_fen:
-                    memory_note = await coach.surface_relevant_memory(current_fen=starting_fen)
-                    if memory_note:
-                        welcome_message = f"{welcome_message}\n\n{memory_note}"
-            except Exception as e:
-                logger.warning(f"Human coach welcome failed: {e}")
+                    # Use human coach message if it's more personal
+                    if len(human_welcome) > len(welcome_message):
+                        welcome_message = human_welcome
+                        
+                    if starting_fen:
+                        memory_note = await coach.surface_relevant_memory(current_fen=starting_fen)
+                        if memory_note:
+                            welcome_message = f"{welcome_message}\n\n{memory_note}"
+                except Exception as e:
+                    logger.warning(f"Human coach welcome failed: {e}")
                 
         except Exception as e:
             logger.warning(f"Coach memory greeting failed: {e}")
