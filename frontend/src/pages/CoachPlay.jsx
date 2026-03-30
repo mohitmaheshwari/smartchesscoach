@@ -158,6 +158,9 @@ const CoachPlay = ({ user }) => {
   const [inlineOpening, setInlineOpening] = useState(null);
   const [inlineTrap, setInlineTrap] = useState(null);
   
+  // NEW: Coach intro message for the session
+  const [coachIntroMessage, setCoachIntroMessage] = useState(null);
+  
   // NEW: Position-based coaching (intelligent position analysis)
   const [positionCoaching, setPositionCoaching] = useState(null);
   
@@ -783,7 +786,10 @@ const CoachPlay = ({ user }) => {
         }
       }
       
-      toast.success(data.message);
+      // Store intro message for coach panel (don't toast — show in panel instead)
+      if (data.message) {
+        setCoachIntroMessage(data.message);
+      }
       
       // Fetch session state to get opening guidance info
       // (This is updated in DB after session creation)
@@ -2749,6 +2755,7 @@ const CoachPlay = ({ user }) => {
                     fen={currentFen}
                     isPlayerTurn={isPlayerTurn}
                     openingKey={session?.teaching_opening || openingGuidance?.opening_key}
+                    introMessage={coachIntroMessage}
                     onHighlightMove={(moveSan) => {
                       toast.info(`Consider ${moveSan}`, { duration: 2000 });
                     }}

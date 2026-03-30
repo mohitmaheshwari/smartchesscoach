@@ -23,12 +23,14 @@ const TYPE_ICONS = {
   positional: Target, engine_choice: Star,
 };
 
-const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, openingKey }) => {
+const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, openingKey, introMessage }) => {
   const [candidates, setCandidates] = useState([]);
   const [hint, setHint] = useState("");
   const [loading, setLoading] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
   const [lastFetchedFen, setLastFetchedFen] = useState(null);
+  const [introShown, setIntroShown] = useState(false);
+  const [introDismissed, setIntroDismissed] = useState(false);
   
   // Curriculum guidance (hint mode)
   const [guidance, setGuidance] = useState(null);
@@ -109,8 +111,31 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
   return (
     <div className="space-y-3" data-testid="candidate-moves">
       
+      {/* ─── INTRO: Show opening introduction before first move ─── */}
+      {introMessage && !introDismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border border-primary/30 rounded bg-primary/[0.05] p-4"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />
+            <span className="text-xs font-medium text-foreground">Today's Lesson</span>
+          </div>
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-line" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            {introMessage}
+          </p>
+          <button
+            onClick={() => setIntroDismissed(true)}
+            className="mt-3 text-xs text-primary hover:text-primary/80 font-medium"
+          >
+            Got it — let's start
+          </button>
+        </motion.div>
+      )}
+
       {/* ─── CURRICULUM: Think Mode — ONLY the question, nothing else ─── */}
-      {guidance && guidance.mode === "think" && (
+      {(!introMessage || introDismissed) && guidance && guidance.mode === "think" && (
         <motion.div
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
