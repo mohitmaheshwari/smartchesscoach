@@ -53,7 +53,7 @@ def get_available_openings(color: str = None) -> List[Dict]:
     return result
 
 
-def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: str) -> Optional[Dict]:
+def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: str, assessment: Dict = None) -> Optional[Dict]:
     """
     Given the moves played so far, return coaching guidance from the curriculum.
     
@@ -169,6 +169,27 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
             plan = node.get("plan", "")
             right_feedback = node.get("right_feedback", f"Good — {next_move} was the right move.")
             wrong_feedback = node.get("wrong_feedback", f"The curriculum move was {next_move}.")
+
+            # Adapt based on assessment — if user already knows this move, lighten the hint
+            mastered_moves = set(assessment.get("moves_mastered", [])) if assessment else set()
+            pos_key = f"move_{(total_moves // 2) + 1}"
+            user_knows_this = any(pos_key in m for m in mastered_moves)
+
+            if user_knows_this:
+                # They know this — quick confirmation instead of full hint
+                hint = "You know this one. What do you play?"
+                right_feedback = "Yep. You've got this down."
+            
+            # If this position is their WEAK spot, emphasize it
+            weak_moves = assessment.get("weak_moves", []) if assessment else []
+            is_weak_spot = False
+            for w in weak_moves:
+                if pos_key in str(w.get("position", "")):
+                    is_weak_spot = True
+                    wrong_moves_str = ", ".join(w.get("user_played", []))
+                    hint = f"This is where you usually go wrong. Last time you played {wrong_moves_str}. Think carefully — what's the right move?"
+                    wrong_feedback = f"You played this wrong {w.get('times_wrong', 0)} times before. The right move is {next_move}. {node.get('wrong_feedback', '')}"
+                    break
         else:
             # It's opponent's turn — tell user what to expect
             responses = node.get("responses", {})
@@ -247,6 +268,8 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
             "right_feedback": right_feedback,
             "wrong_feedback": wrong_feedback,
             "is_in_book": True,
+            "is_weak_spot": is_weak_spot if 'is_weak_spot' in dir() else False,
+            "user_knows_this": user_knows_this if 'user_knows_this' in dir() else False,
             "trap_warning": trap_warning,
             "golden_rule": golden_rule,
             "alternatives": alternatives[:2],
@@ -306,7 +329,7 @@ def _off_book_guidance(opening: Dict, moves: List[str], off_book_at: int, user_c
 
     return {
         "mode": "think",
-        "hint": f"That's off the main line — but that's OK. What's the next piece in your setup that needs to come out?",
+        "hint": "That's off the main line — but that's OK. What's the next piece in your setup that needs to come out?",
         "plan": general_plan,
         "expected_move": suggested,
         "right_feedback": "Good — back on track." if suggested else "Keep developing.",

@@ -2277,7 +2277,18 @@ async def get_opening_guide(
         elif isinstance(m, str):
             moves_san.append(m)
 
-    guidance = get_opening_guidance(opening_key, moves_san, user_color)
+    # Get user's assessment of this opening (cached per session)
+    assessment = session_doc.get("opening_assessment")
+    if not assessment:
+        from services.opening_assessment_service import assess_opening_knowledge
+        assessment = await assess_opening_knowledge(db, user.user_id, opening_key)
+        # Cache it on the session so we don't re-compute every move
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"opening_assessment": assessment}}
+        )
+
+    guidance = get_opening_guidance(opening_key, moves_san, user_color, assessment=assessment)
 
     if not guidance:
         return {"has_guidance": False, "message": "No curriculum guidance for this position."}
@@ -2399,3 +2410,20 @@ async def get_smart_move_feedback(
         return {"has_feedback": False, "message": ""}
 
     return {"has_feedback": True, **feedback}
+
+
+@router.get("/opening-assessment")
+async def get_opening_assessment(
+    opening: str = "london_system",
+    user: User = Depends(get_current_user)
+):
+    """
+    Assess user's knowledge of a specific opening from their game history.
+    
+    Returns what they know, what they don't, and what to train next.
+    """
+    global db
+    from services.opening_assessment_service import assess_opening_knowledge
+
+    result = await assess_opening_knowledge(db, user.user_id, opening)
+    return result
