@@ -103,9 +103,12 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
         if first_move:
             first_node = tree[first_move]
             return {
-                "suggested_move": first_move,
-                "idea": first_node.get("idea", f"Play {first_move} to start."),
+                "mode": "think",
+                "hint": first_node.get("hint", "What's the best way to start?"),
                 "plan": first_node.get("plan", ""),
+                "expected_move": first_move,
+                "right_feedback": first_node.get("right_feedback", f"Good — {first_move} is the right start."),
+                "wrong_feedback": first_node.get("wrong_feedback", f"The curriculum starts with {first_move}."),
                 "is_in_book": True,
                 "trap_warning": None,
                 "golden_rule": opening.get("golden_rules", [""])[0] if opening.get("golden_rules") else None,
@@ -160,26 +163,24 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
         next_is_ours = (total_moves % 2 == 0 and user_color == "white") or (total_moves % 2 == 1 and user_color == "black")
 
         if next_is_ours:
-            # It's our turn — suggest the "next" move from curriculum
+            # It's our turn — give a HINT (not the answer)
             next_move = node.get("next")
-            next_idea = node.get("next_idea", "")
+            hint = node.get("hint", "What's the best move here? Think about your plan.")
             plan = node.get("plan", "")
+            right_feedback = node.get("right_feedback", f"Good — {next_move} was the right move.")
+            wrong_feedback = node.get("wrong_feedback", f"The curriculum move was {next_move}.")
         else:
-            # It's opponent's turn — we're waiting. Tell the user what to expect.
+            # It's opponent's turn — tell user what to expect
             responses = node.get("responses", {})
             common_responses = list(responses.keys())[:3]
             plan = node.get("plan", "")
             if common_responses:
                 return {
-                    "suggested_move": None,
-                    "idea": f"Waiting for opponent. They'll likely play: {', '.join(common_responses)}.",
-                    "plan": plan or "Watch what they do and we'll guide you on the next move.",
+                    "mode": "waiting",
+                    "hint": f"Waiting for opponent. They'll likely play: {', '.join(common_responses)}.",
+                    "plan": plan or "Watch what they do and we'll guide you.",
                     "is_in_book": True,
-                    "trap_warning": None,
-                    "golden_rule": None,
-                    "alternatives": [],
                     "position_name": position_name,
-                    "middlegame_plan": None,
                 }
             return None
 
@@ -230,9 +231,12 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
             golden_rule = rules[rule_index]
 
         return {
-            "suggested_move": next_move,
-            "idea": next_idea,
+            "mode": "think",
+            "hint": hint,
             "plan": plan,
+            "expected_move": next_move,
+            "right_feedback": right_feedback,
+            "wrong_feedback": wrong_feedback,
             "is_in_book": True,
             "trap_warning": trap_warning,
             "golden_rule": golden_rule,

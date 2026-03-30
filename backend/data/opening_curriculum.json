@@ -40,44 +40,64 @@
     "tree": {
       "d4": {
         "idea": "Take the center. This is your territory.",
-        "plan": "Next move: get your bishop to f4. That's the London identity.",
+        "hint": "What's the strongest first move to grab the center?",
+        "plan": "Next: get your bishop to f4. That's the London identity.",
+        "right_feedback": "Good — d4 grabs the center. Now think about your bishop.",
         "responses": {
           "d5": {
             "name": "Main Line",
             "frequency": "most common",
             "idea_opponent": "They take their share of the center. Fair game.",
             "next": "Bf4",
-            "next_idea": "THE London move. Bishop comes out BEFORE e3. If you play e3 first, the bishop is stuck forever.",
+            "hint": "You have a bishop stuck behind your pawns. Which piece should come out BEFORE you play e3?",
+            "next_idea": "THE London move. Bishop comes out BEFORE e3.",
+            "right_feedback": "Exactly — Bf4 before e3. This is the golden rule of the London.",
+            "wrong_feedback": "In the London, the bishop MUST come to f4 before e3. Otherwise it's trapped inside.",
             "responses": {
               "Nf6": {
                 "name": "London Classical",
                 "frequency": "very common",
                 "idea_opponent": "Developing and aiming at your e4 square.",
                 "next": "e3",
-                "next_idea": "Now you lock in the solid center. d4+e3 is a wall.",
+                "hint": "Your bishop is out. Now how do you make your center solid without blocking any pieces?",
+                "next_idea": "Lock in the solid center. d4+e3 is a wall.",
+                "right_feedback": "e3 — solid. Your center is rock solid now. d4 and e3 can't be broken easily.",
+                "wrong_feedback": "e3 was the move here. It makes your d4 pawn impossible to attack.",
                 "responses": {
                   "e6": {
                     "name": "Solid Setup",
                     "next": "Nf3",
+                    "hint": "You need to develop another piece. Which knight controls the most important squares?",
                     "next_idea": "Develop the knight. Aims at e5 — a great square.",
+                    "right_feedback": "Nf3 — perfect. This knight can jump to e5 later, which is a monster square.",
+                    "wrong_feedback": "Nf3 was best — it develops toward the center and eyes e5.",
                     "plan": "Finish development: Bd3, O-O, then push for e4.",
                     "responses": {
                       "c5": {
                         "name": "Center Challenge",
                         "next": "c3",
+                        "hint": "They're attacking your d4 pawn. How do you support it cheaply?",
                         "next_idea": "Support d4. Don't let them break your center.",
+                        "right_feedback": "c3 holds everything. Simple and strong.",
+                        "wrong_feedback": "c3 was the move — it supports d4 and keeps your structure solid.",
                         "plan": "After c3, develop Nbd2. Your plan is to push e4 when ready."
                       },
                       "Bd6": {
                         "name": "Bishop Trade Offer",
                         "next": "Bg3",
+                        "hint": "They want to trade your dark bishop. Should you let them? Where does your bishop go?",
                         "next_idea": "Step back. Don't trade your bishop — it's your best piece.",
+                        "right_feedback": "Bg3 — keep your bishop alive. If they take, you open the h-file. Win-win.",
+                        "wrong_feedback": "Don't trade! Bg3 keeps your best piece. If they take on g3, hxg3 opens the h-file for attack.",
                         "plan": "If they take on g3, you open the h-file for your rook. Attack!"
                       },
                       "Be7": {
                         "name": "Quiet Development",
                         "next": "Bd3",
+                        "hint": "Where should your light bishop go to create the most pressure on their king?",
                         "next_idea": "Point your bishop at h7. Classic attacking setup.",
+                        "right_feedback": "Bd3 — aimed straight at h7. Classic London attacking battery.",
+                        "wrong_feedback": "Bd3 was best — it points at h7, setting up a potential kingside attack.",
                         "plan": "O-O, then Nbd2-e5 or push e4. You're in great shape."
                       }
                     }
@@ -85,18 +105,26 @@
                   "c5": {
                     "name": "Early c5 Push",
                     "next": "c3",
+                    "hint": "They're pushing c5 to attack your center. What's the simplest way to hold d4?",
                     "next_idea": "Hold the center. Don't panic about c5.",
+                    "right_feedback": "c3 — calm and solid. Your center holds.",
+                    "wrong_feedback": "c3 was the answer — simple support for d4.",
                     "plan": "They want to break your d4. c3 holds it. Then Nf3, Bd3, O-O.",
                     "responses": {
                       "Nc6": {
                         "next": "Nf3",
+                        "hint": "Time to develop. Which knight goes where?",
                         "next_idea": "Develop and eye e5.",
+                        "right_feedback": "Nf3 — develops and eyes e5. Textbook.",
                         "plan": "Bd3, O-O, then e4 is your dream."
                       },
                       "Qb6": {
                         "name": "Queen Attack on b2",
                         "next": "Qb3",
+                        "hint": "Their queen is eyeing b2. How do you deal with this threat?",
                         "next_idea": "Trade queens or protect b2. Either way you're fine.",
+                        "right_feedback": "Qb3 — offer the queen trade. If they trade, your endgame is great. If not, b2 is safe.",
+                        "wrong_feedback": "Qb3 defends b2 and offers a queen trade. You're better in the endgame.",
                         "plan": "If they trade queens, you get a great endgame. If not, you develop freely.",
                         "warning": "Don't let them take b2 unless you have the Nb5 trick ready."
                       }
@@ -105,7 +133,10 @@
                   "Bg4": {
                     "name": "Bishop Pin",
                     "next": "Nf3",
+                    "hint": "They pinned your knight spot with their bishop. Should you worry? What do you play?",
                     "next_idea": "Develop anyway. The pin isn't dangerous yet.",
+                    "right_feedback": "Nf3 — don't be scared of the pin. It's not dangerous yet. You'll deal with it later with h3.",
+                    "wrong_feedback": "Nf3 — develop normally. The Bg4 pin looks scary but it's fine. Later play h3 to kick it.",
                     "plan": "Play h3 to ask the bishop what it wants. If Bh5, you can push g4 later.",
                     "trap_reference": "Bg4 Pin Trick"
                   }
@@ -116,17 +147,25 @@
                 "frequency": "common",
                 "idea_opponent": "Attacking your center right away.",
                 "next": "e3",
+                "hint": "They attacked your center immediately. What's the calm, solid response?",
                 "next_idea": "Solidify. Don't rush to defend d4 — it's fine.",
-                "plan": "After e3, play c3 if needed, then develop normally. They can't really break d4.",
+                "right_feedback": "e3 — stay calm. Your center is solid. Don't overreact to c5.",
+                "wrong_feedback": "e3 was the move. Don't panic when they push c5 — your structure holds.",
+                "plan": "After e3, play c3 if needed, then develop normally.",
                 "responses": {
                   "Nc6": {
                     "next": "c3",
+                    "hint": "How do you give d4 extra support?",
                     "next_idea": "Extra support for d4. Now it's rock solid.",
-                    "plan": "Nf3, Bd3, O-O. Standard London setup. You're fine."
+                    "right_feedback": "c3 — d4 is untouchable now.",
+                    "plan": "Nf3, Bd3, O-O. Standard London setup."
                   },
                   "Qb6": {
                     "next": "Nc3",
+                    "hint": "Their queen is active. Develop a piece that also sets a trap.",
                     "next_idea": "Develop and set up the b2 trap.",
+                    "right_feedback": "Nc3 — develops AND sets up the queen trap if they take b2.",
+                    "wrong_feedback": "Nc3 was best — it develops and if they take b2, Nb5 and Rb1 traps their queen.",
                     "trap_reference": "Queen Trap after c5",
                     "warning": "If they take b2, you have Nb5 and Rb1 — their queen is dead."
                   }
@@ -137,7 +176,10 @@
                 "frequency": "occasional",
                 "idea_opponent": "Copying your idea! Bishop out before e6.",
                 "next": "e3",
+                "hint": "They copied your London idea! Should you change your plan? What do you play?",
                 "next_idea": "Stick to the plan. Your setup still works.",
+                "right_feedback": "e3 — stick to your plan. You have more space and better development.",
+                "wrong_feedback": "e3 — don't change your plan just because they mirrored you. Your setup is still better.",
                 "plan": "Nf3, Bd3 (offer to trade bishops), c4 (challenge their center). You have more space."
               }
             }
@@ -147,24 +189,33 @@
             "frequency": "common",
             "idea_opponent": "Flexible — could go King's Indian or Queen's Indian.",
             "next": "Bf4",
+            "hint": "Same question as always in the London — which piece comes out first?",
             "next_idea": "Same plan. Bishop out first, always.",
+            "right_feedback": "Bf4 — doesn't matter what they play, you always start with the bishop.",
+            "wrong_feedback": "Bf4 first — that's the London rule. Bishop before e3, always.",
             "responses": {
               "g6": {
                 "name": "King's Indian vs London",
                 "next": "e3",
+                "hint": "They're going for a fianchetto. How do you solidify your center?",
                 "next_idea": "Solid center. They'll fianchetto — that's fine.",
-                "plan": "Nf3, Bd3, O-O. Against the fianchetto, your bishop on f4 controls e5. Plant a knight there."
+                "right_feedback": "e3 — your center is rock solid against the fianchetto.",
+                "plan": "Nf3, Bd3, O-O. Your bishop on f4 controls e5. Plant a knight there."
               },
               "e6": {
                 "name": "Transpose to Main Line",
                 "next": "e3",
-                "next_idea": "We're back to the main London. Same plan.",
+                "hint": "We're back to the main London. What comes next?",
+                "next_idea": "Same plan as the main London.",
+                "right_feedback": "e3 — we're in the main London now. Same setup works.",
                 "plan": "Nf3, Bd3, O-O, c3, Nbd2, e4."
               },
               "d5": {
                 "name": "Delayed d5",
                 "next": "e3",
-                "next_idea": "Same as the main line. They just played Nf6 first.",
+                "hint": "They played d5. Same plan — what's your move?",
+                "next_idea": "Same as the main line.",
+                "right_feedback": "e3 — continue with normal development.",
                 "plan": "Continue with normal development."
               }
             }
@@ -174,15 +225,19 @@
             "frequency": "rare",
             "idea_opponent": "Aggressive — they want to attack your kingside.",
             "next": "Bf4",
+            "hint": "Unusual response. But what's your London rule?",
             "next_idea": "Stay calm. Your London setup handles this well.",
-            "plan": "e3, Nf3, Bd3. Their kingside is weak because of f5. You can exploit e5 and the holes."
+            "right_feedback": "Bf4 — whatever they play, your first job is the same. Bishop out.",
+            "plan": "e3, Nf3, Bd3. Their kingside is weak because of f5. You can exploit e5."
           },
           "e6": {
             "name": "Passive Response",
             "frequency": "occasional",
             "idea_opponent": "Very passive. Locks in their light bishop.",
             "next": "Bf4",
+            "hint": "They locked their bishop inside with e6. What's your standard move?",
             "next_idea": "You're already better. They made the bishop-lock mistake.",
+            "right_feedback": "Bf4 — you're already in a great position. Their bishop is stuck.",
             "plan": "Standard setup. You have more space and better development."
           },
           "c5": {
@@ -190,7 +245,10 @@
             "frequency": "occasional",
             "idea_opponent": "Immediate fight for the center.",
             "next": "d5",
-            "next_idea": "Grab space. Now it's a Benoni-like structure where you have more room.",
+            "hint": "They attacked your d4 pawn immediately. Should you defend it or push it forward?",
+            "next_idea": "Grab space. Now it's a Benoni structure where you have more room.",
+            "right_feedback": "d5 — grab the space! You now have a big center.",
+            "wrong_feedback": "d5 was strong here — push forward and claim space. Don't be defensive.",
             "plan": "Bf4, e3 (or e4 if possible), Nf3. You have a space advantage."
           }
         }

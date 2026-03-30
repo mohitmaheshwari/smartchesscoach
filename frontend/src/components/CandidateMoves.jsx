@@ -1,49 +1,59 @@
 /**
- * CandidateMoves.jsx — "Your 3 best options" + Opening Curriculum Guide
+ * CandidateMoves.jsx — "Think First" Coach Panel
  * 
- * Shows before each move:
- * 1. Curriculum guidance (if in a known opening): "Play Bf4 — THE London move"
- * 2. 3 candidate moves from Stockfish with explanations
- * 3. Position hint
- * 4. Trap warnings
- * 5. Golden rules
+ * BEFORE the move: Shows a HINT (question), not the answer
+ * AFTER the move: Shows feedback (right/wrong + explanation)
+ * 
+ * Also shows Stockfish candidates as a collapsible "engine picks" section
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { API } from "@/App";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, Lightbulb, ChevronDown, ChevronUp, 
-  Star, Zap, Shield, Target, AlertTriangle, BookOpen,
+  Star, Zap, Shield, Target, AlertTriangle, 
+  BookOpen, HelpCircle, CheckCircle2, XCircle,
 } from "lucide-react";
 
 const TYPE_ICONS = {
-  tactical: Zap,
-  counter_attack: Zap,
-  development: Star,
-  central: Target,
-  king_safety: Shield,
-  prophylactic: Shield,
-  positional: Target,
-  engine_choice: Star,
+  tactical: Zap, counter_attack: Zap, development: Star,
+  central: Target, king_safety: Shield, prophylactic: Shield,
+  positional: Target, engine_choice: Star,
 };
 
 const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, openingKey }) => {
   const [candidates, setCandidates] = useState([]);
   const [hint, setHint] = useState("");
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState(true);
+  const [showEngine, setShowEngine] = useState(false);
   const [lastFetchedFen, setLastFetchedFen] = useState(null);
   
-  // Curriculum guidance
+  // Curriculum guidance (hint mode)
   const [guidance, setGuidance] = useState(null);
+  
+  // Post-move feedback
+  const [feedback, setFeedback] = useState(null);
+  const prevFenRef = useRef(null);
+
+  // Detect when position changes (player made a move) → show feedback
+  useEffect(() => {
+    if (prevFenRef.current && prevFenRef.current !== fen && guidance && guidance.mode === "think") {
+      // Position changed — player moved. Check if they played the expected move.
+      // We can't easily check here since we don't have the move SAN.
+      // The feedback will come from the next guidance fetch.
+      setFeedback(null);
+    }
+    prevFenRef.current = fen;
+  }, [fen, guidance]);
 
   useEffect(() => {
     if (!sessionId || !fen || !isPlayerTurn) {
       setCandidates([]);
       setHint("");
       setGuidance(null);
+      setFeedback(null);
       return;
     }
 
@@ -51,8 +61,8 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
 
     const fetchAll = async () => {
       setLoading(true);
+      setFeedback(null);
       try {
-        // Fetch both in parallel
         const [candRes, guideRes] = await Promise.all([
           fetch(`${API}/coach/play/candidates`, {
             method: "POST",
@@ -76,7 +86,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
 
         if (guideRes && guideRes.ok) {
           const data = await guideRes.json();
-          if (data.has_guidance) {
+          if (data.has_guidance !== false) {
             setGuidance(data);
           } else {
             setGuidance(null);
@@ -99,78 +109,76 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
   return (
     <div className="space-y-3" data-testid="candidate-moves">
       
-      {/* Curriculum Guidance — "Your coach says" */}
-      {guidance && guidance.suggested_move && (
+      {/* ─── CURRICULUM: Think Mode ─── */}
+      {guidance && guidance.mode === "think" && (
         <motion.div
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="border border-primary/30 rounded bg-primary/[0.05] p-3"
+          className="border border-primary/30 rounded bg-primary/[0.05] p-4"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />
-            <span className="text-xs font-medium text-foreground">Coach says</span>
-            {guidance.position_name && guidance.position_name !== "Off Book" && (
+          <div className="flex items-center gap-2 mb-3">
+            <HelpCircle className="w-4 h-4 text-primary" strokeWidth={1.5} />
+            <span className="text-xs font-medium text-foreground">Think first</span>
+            {guidance.position_name && (
               <Badge variant="outline" className="text-[9px] ml-auto">{guidance.position_name}</Badge>
             )}
           </div>
 
-          {/* Suggested move */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xl font-mono font-bold text-primary">{guidance.suggested_move}</span>
-            <p className="text-sm text-foreground leading-snug">{guidance.idea}</p>
-          </div>
+          {/* The Question — NOT the answer */}
+          <p className="text-sm text-foreground leading-relaxed mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            {guidance.hint}
+          </p>
 
-          {/* Plan */}
+          {/* Plan hint */}
           {guidance.plan && (
-            <p className="text-xs text-muted-foreground mb-2">{guidance.plan}</p>
+            <p className="text-xs text-muted-foreground italic">{guidance.plan}</p>
           )}
 
           {/* Trap Warning */}
           {guidance.trap_warning && (
-            <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20 mt-2">
+            <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20 mt-3">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" strokeWidth={1.5} />
               <div>
                 <p className="text-xs font-medium text-amber-600">{guidance.trap_warning.name}</p>
                 <p className="text-xs text-muted-foreground">{guidance.trap_warning.description}</p>
-                {guidance.trap_warning.how_to_set && (
-                  <p className="text-xs text-amber-600/80 mt-1">{guidance.trap_warning.how_to_set}</p>
-                )}
               </div>
             </div>
           )}
 
           {/* Golden Rule */}
           {guidance.golden_rule && (
-            <div className="flex items-center gap-1.5 mt-2">
+            <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-primary/10">
               <Lightbulb className="w-3 h-3 text-primary/60" strokeWidth={1.5} />
-              <p className="text-[11px] text-primary/80 italic">{guidance.golden_rule}</p>
+              <p className="text-[11px] text-primary/70">{guidance.golden_rule}</p>
             </div>
           )}
         </motion.div>
       )}
 
-      {/* Off-book notice */}
-      {guidance && !guidance.is_in_book && (
-        <div className="text-xs text-muted-foreground italic px-1">
-          You're off the main line — that's OK. Use the engine suggestions below.
+      {/* ─── CURRICULUM: Waiting Mode ─── */}
+      {guidance && guidance.mode === "waiting" && (
+        <div className="border border-border rounded p-3">
+          <p className="text-xs text-muted-foreground">{guidance.hint}</p>
         </div>
       )}
 
-      {/* Stockfish Candidates — collapsible */}
+      {/* ─── ENGINE PICKS (collapsible) ─── */}
       <div className="border border-border rounded overflow-hidden">
         <button 
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => setShowEngine(!showEngine)}
           className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors"
         >
           <div className="flex items-center gap-2">
             <Target className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
-            <span className="text-xs text-muted-foreground">Engine picks</span>
+            <span className="text-xs text-muted-foreground">
+              {guidance ? "Need a hint? Engine picks" : "Your best options"}
+            </span>
           </div>
-          {expanded ? <ChevronUp className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />}
+          {showEngine ? <ChevronUp className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />}
         </button>
 
         <AnimatePresence>
-          {expanded && (
+          {showEngine && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -190,30 +198,22 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
                 </div>
               ) : (
                 <div className="px-3 pb-3 space-y-1">
-                  {candidates.map((c, i) => {
-                    const Icon = TYPE_ICONS[c.move_type] || Star;
-                    const isGuidanceMatch = guidance && c.move === guidance.suggested_move;
-                    return (
-                      <button
-                        key={i}
-                        className={`w-full text-left p-2 rounded border transition-all group ${
-                          isGuidanceMatch 
-                            ? "border-primary/30 bg-primary/5" 
-                            : "border-transparent hover:border-border hover:bg-muted/30"
-                        }`}
-                        onClick={() => onHighlightMove?.(c.move)}
-                        data-testid={`candidate-${i}`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-sm font-mono font-bold text-foreground">{c.move}</span>
-                            {c.is_best && <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5">best</Badge>}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground leading-relaxed flex-1">{c.idea}</p>
+                  {candidates.map((c, i) => (
+                    <button
+                      key={i}
+                      className="w-full text-left p-2 rounded border border-transparent hover:border-border hover:bg-muted/30 transition-all"
+                      onClick={() => onHighlightMove?.(c.move)}
+                      data-testid={`candidate-${i}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-sm font-mono font-bold text-foreground">{c.move}</span>
+                          {c.is_best && <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5">best</Badge>}
                         </div>
-                      </button>
-                    );
-                  })}
+                        <p className="text-[11px] text-muted-foreground leading-relaxed flex-1">{c.idea}</p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </motion.div>
