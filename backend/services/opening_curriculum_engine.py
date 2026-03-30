@@ -78,47 +78,27 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
     if not tree:
         return None
 
-    # Walk the tree following the moves played
+    # Walk the tree following moves played.
+    #
+    # Tree structure alternates:
+    #   Level 0 keys = White's first move (d4)
+    #   responses keys = Black's replies (d5, Nf6...)
+    #   "next" field = White's next move (Bf4)
+    #   responses keys under that = Black's replies to "next" (Nf6, c5...)
+    #
+    # So the pattern for a White curriculum is:
+    #   Move 0 (W): match key at top level
+    #   Move 1 (B): match key in responses
+    #   Move 2 (W): should equal current node's "next"
+    #   Move 3 (B): match key in current node's responses
+    #   Move 4 (W): should equal current node's "next"
+    #   ... and so on
+
     node = None
     position_name = opening.get("name", "Opening")
-    current_branch = tree
 
-    # The tree starts with White's first move as keys
-    # We need to walk: move1 -> response -> move2 -> response -> ...
-    for i, move in enumerate(moves_played):
-        is_our_move = (i % 2 == 0 and user_color == "white") or (i % 2 == 1 and user_color == "black")
-
-        if is_our_move:
-            # Our move — check if it matches the tree's expected move
-            if isinstance(current_branch, dict) and move in current_branch:
-                node = current_branch[move]
-                current_branch = node.get("responses", {})
-                if node.get("name"):
-                    position_name = node["name"]
-            elif isinstance(current_branch, dict):
-                # Check if any node's "next" matches
-                for key, branch_node in current_branch.items():
-                    if isinstance(branch_node, dict) and branch_node.get("next") == move:
-                        node = branch_node
-                        current_branch = branch_node.get("responses", {})
-                        break
-                else:
-                    # Off book
-                    return _off_book_guidance(opening, moves_played, i, user_color)
-        else:
-            # Opponent's move — look in current responses
-            if isinstance(current_branch, dict) and move in current_branch:
-                node = current_branch[move]
-                current_branch = node.get("responses", {})
-                if node.get("name"):
-                    position_name = node["name"]
-            else:
-                # Opponent played something unexpected
-                return _opponent_surprise_guidance(opening, current_branch, move, moves_played, user_color)
-
-    # Now build guidance for the NEXT move
-    if node is None and not moves_played:
-        # Game just started — suggest first move
+    # Handle empty moves — game just started
+    if not moves_played:
         first_move = list(tree.keys())[0] if tree else None
         if first_move:
             first_node = tree[first_move]
@@ -135,11 +115,74 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
             }
         return None
 
-    # We're at a node — what's the next move?
+    # Step 1: Match our first move at the top level
+    first_move = moves_played[0]
+    is_first_ours = (user_color == "white")  # In a White curriculum, move 0 is ours
+
+    if is_first_ours:
+        if first_move not in tree:
+            return _off_book_guidance(opening, moves_played, 0, user_color)
+        node = tree[first_move]
+        if node.get("name"):
+            position_name = node["name"]
+    else:
+        # We're Black playing a White curriculum — shouldn't happen normally
+        return _off_book_guidance(opening, moves_played, 0, user_color)
+
+    # Step 2: Walk remaining moves
+    for i in range(1, len(moves_played)):
+        move = moves_played[i]
+        is_our_move = (i % 2 == 0 and user_color == "white") or (i % 2 == 1 and user_color == "black")
+
+        if not is_our_move:
+            # Opponent's move — look in current node's "responses"
+            responses = node.get("responses", {})
+            if move in responses:
+                node = responses[move]
+                if node.get("name"):
+                    position_name = node["name"]
+            else:
+                return _opponent_surprise_guidance(opening, responses, move, moves_played, user_color)
+        else:
+            # Our move — should match current node's "next" field
+            expected = node.get("next")
+            if expected and move == expected:
+                # Good — we played the curriculum move. Stay on the same node
+                # (the node's responses are still the opponent's next possible replies)
+                pass
+            else:
+                # We played something different from the curriculum suggestion
+                return _off_book_guidance(opening, moves_played, i, user_color)
+
+    # We're at a node — build guidance for the NEXT move to be played
     if node:
-        next_move = node.get("next")
-        next_idea = node.get("next_idea", "")
-        plan = node.get("plan", "")
+        total_moves = len(moves_played)
+        next_is_ours = (total_moves % 2 == 0 and user_color == "white") or (total_moves % 2 == 1 and user_color == "black")
+
+        if next_is_ours:
+            # It's our turn — suggest the "next" move from curriculum
+            next_move = node.get("next")
+            next_idea = node.get("next_idea", "")
+            plan = node.get("plan", "")
+        else:
+            # It's opponent's turn — we're waiting. Tell the user what to expect.
+            responses = node.get("responses", {})
+            common_responses = list(responses.keys())[:3]
+            plan = node.get("plan", "")
+            if common_responses:
+                return {
+                    "suggested_move": None,
+                    "idea": f"Waiting for opponent. They'll likely play: {', '.join(common_responses)}.",
+                    "plan": plan or "Watch what they do and we'll guide you on the next move.",
+                    "is_in_book": True,
+                    "trap_warning": None,
+                    "golden_rule": None,
+                    "alternatives": [],
+                    "position_name": position_name,
+                    "middlegame_plan": None,
+                }
+            return None
+
         trap_ref = node.get("trap_reference")
         warning = node.get("warning")
 
@@ -161,10 +204,11 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
             else:
                 trap_warning = {"name": "Watch out", "description": warning}
 
-        # Build alternatives from sibling responses
+        # Build alternatives from current node's responses
         alternatives = []
-        if isinstance(current_branch, dict):
-            for alt_move, alt_node in current_branch.items():
+        responses = node.get("responses", {})
+        if isinstance(responses, dict):
+            for alt_move, alt_node in responses.items():
                 if isinstance(alt_node, dict) and alt_node.get("next"):
                     alternatives.append({
                         "move": alt_node["next"],
