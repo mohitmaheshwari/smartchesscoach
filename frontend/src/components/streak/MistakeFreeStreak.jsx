@@ -66,13 +66,13 @@ const MistakeFreeStreak = ({ userId, blockerDetected = false, blockerInfo = null
 
   if (loading) {
     return (
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="p-6">
           <div className="animate-pulse flex items-center gap-4">
-            <div className="w-16 h-16 bg-zinc-800 rounded-full" />
+            <div className="w-16 h-16 bg-muted rounded-full" />
             <div className="flex-1 space-y-2">
-              <div className="h-6 bg-zinc-800 rounded w-1/2" />
-              <div className="h-4 bg-zinc-800 rounded w-3/4" />
+              <div className="h-6 bg-muted rounded w-1/2" />
+              <div className="h-4 bg-muted rounded w-3/4" />
             </div>
           </div>
         </CardContent>
@@ -117,20 +117,20 @@ const MistakeFreeStreak = ({ userId, blockerDetected = false, blockerInfo = null
   // This should only happen if NO blocker was found anywhere
   if (needs_detection) {
     return (
-      <Card className="bg-zinc-900/50 border-zinc-700" data-testid="mistake-free-streak-needs-detection">
+      <Card className="bg-card border-border" data-testid="mistake-free-streak-needs-detection">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-full bg-zinc-800/50 flex items-center justify-center">
-              <Target className="w-8 h-8 text-zinc-500" />
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+              <Target className="w-8 h-8 text-muted-foreground" />
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-bold text-white mb-1">No Weakness Detected Yet</h3>
-              <p className="text-zinc-400 text-sm mb-3">
+              <p className="text-muted-foreground text-sm mb-3">
                 Play and analyze some games first. We'll identify your biggest mistake pattern.
               </p>
-              <div className="p-3 bg-zinc-800/50 rounded-lg">
-                <p className="text-xs text-zinc-500">HOW IT WORKS</p>
-                <p className="text-sm text-zinc-300 mt-1">
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground">HOW IT WORKS</p>
+                <p className="text-sm text-foreground mt-1">
                   Import games → We analyze → Detect your pattern → Start your streak
                 </p>
               </div>
@@ -168,9 +168,9 @@ const MistakeFreeStreak = ({ userId, blockerDetected = false, blockerInfo = null
       headline: "text-red-400"
     },
     neutral: {
-      bg: "bg-zinc-900/50",
-      border: "border-zinc-700",
-      icon: "text-zinc-400",
+      bg: "bg-card",
+      border: "border-border",
+      icon: "text-muted-foreground",
       headline: "text-white"
     }
   };
@@ -189,7 +189,7 @@ const MistakeFreeStreak = ({ userId, blockerDetected = false, blockerInfo = null
             className={`w-20 h-20 rounded-full flex items-center justify-center ${
               current_streak > 0 
                 ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20" 
-                : "bg-zinc-800/50"
+                : "bg-muted"
             }`}
           >
             {current_streak > 0 ? (
@@ -213,27 +213,27 @@ const MistakeFreeStreak = ({ userId, blockerDetected = false, blockerInfo = null
               )}
             </div>
             
-            <p className="text-zinc-400 text-sm mb-2">{message}</p>
+            <p className="text-muted-foreground text-sm mb-2">{message}</p>
             
             {/* Focus Mistake Name */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-500">TRACKING:</span>
+              <span className="text-xs text-muted-foreground">TRACKING:</span>
               <span className="text-sm font-medium text-white">{focus_mistake_name}</span>
             </div>
 
             {/* Best Streak */}
             {best_streak > 0 && current_streak < best_streak && (
               <div className="flex items-center gap-2 mt-1">
-                <Trophy className="w-3 h-3 text-zinc-500" />
-                <span className="text-xs text-zinc-500">Best: {best_streak} games</span>
+                <Trophy className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Best: {best_streak} games</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Rule Reminder */}
-        <div className="mt-4 p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
-          <p className="text-xs text-zinc-500 mb-1">YOUR RULE</p>
+        <div className="mt-4 p-3 bg-card rounded-lg border border-border">
+          <p className="text-xs text-muted-foreground mb-1">YOUR RULE</p>
           <p className="text-sm text-white font-medium">{rule}</p>
         </div>
 
@@ -253,7 +253,7 @@ const MistakeFreeStreak = ({ userId, blockerDetected = false, blockerInfo = null
               </span>
             </div>
             {trend.before_avg && trend.recent_avg && (
-              <p className="text-xs text-zinc-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Before: {trend.before_avg.toFixed(1)}/game → Now: {trend.recent_avg.toFixed(1)}/game
               </p>
             )}

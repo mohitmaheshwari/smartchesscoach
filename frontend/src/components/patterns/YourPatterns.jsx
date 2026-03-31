@@ -60,16 +60,16 @@ const YourPatterns = ({ user }) => {
 
   if (loading) {
     return (
-      <Card className="bg-zinc-900/50 border-zinc-800" data-testid="your-patterns-loading">
+      <Card className="bg-card border-border" data-testid="your-patterns-loading">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold text-zinc-300 flex items-center gap-2">
+          <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
             <Target className="w-4 h-4 text-red-400" />
             Your Patterns
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-6">
-            <RefreshCw className="w-5 h-5 text-zinc-500 animate-spin" />
+            <RefreshCw className="w-5 h-5 text-muted-foreground animate-spin" />
           </div>
         </CardContent>
       </Card>
@@ -78,15 +78,15 @@ const YourPatterns = ({ user }) => {
 
   if (error || patterns.length === 0) {
     return (
-      <Card className="bg-zinc-900/50 border-zinc-800" data-testid="your-patterns-empty">
+      <Card className="bg-card border-border" data-testid="your-patterns-empty">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold text-zinc-300 flex items-center gap-2">
+          <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
             <Target className="w-4 h-4 text-red-400" />
             Your Patterns
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-zinc-500 py-4">
+          <p className="text-sm text-muted-foreground py-4">
             {error || "Not enough data yet. Play and analyze more games to reveal your patterns."}
           </p>
         </CardContent>
@@ -95,13 +95,13 @@ const YourPatterns = ({ user }) => {
   }
 
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800" data-testid="your-patterns">
+    <Card className="bg-card border-border" data-testid="your-patterns">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold text-zinc-300 flex items-center gap-2">
+        <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
           <Target className="w-4 h-4 text-red-400" />
           Your Patterns
         </CardTitle>
-        <p className="text-xs text-zinc-500 mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           These keep happening. Fix them.
         </p>
       </CardHeader>
@@ -130,14 +130,14 @@ const PatternCard = ({ pattern, rank, onFixThis }) => {
     critical: "border-red-500/50 bg-red-950/20",
     high: "border-orange-500/50 bg-orange-950/20",
     medium: "border-yellow-500/50 bg-yellow-950/20",
-    low: "border-zinc-600 bg-zinc-900/50"
+    low: "border-border bg-card"
   };
   
   const iconColors = {
     critical: "text-red-400",
     high: "text-orange-400",
     medium: "text-yellow-400",
-    low: "text-zinc-400"
+    low: "text-muted-foreground"
   };
 
   return (
@@ -156,14 +156,14 @@ const PatternCard = ({ pattern, rank, onFixThis }) => {
           
           {/* Stats - sharp, direct */}
           <div className="space-y-0.5 ml-6">
-            <p className="text-sm text-zinc-300">
+            <p className="text-sm text-foreground">
               <span className="font-bold text-white">{recent_count}</span>
-              <span className="text-zinc-400"> times in last </span>
-              <span className="text-zinc-300">{recent_games}</span>
-              <span className="text-zinc-400"> games</span>
+              <span className="text-muted-foreground"> times in last </span>
+              <span className="text-foreground">{recent_games}</span>
+              <span className="text-muted-foreground"> games</span>
             </p>
             {total_count > recent_count && (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 {total_count} times overall
               </p>
             )}
