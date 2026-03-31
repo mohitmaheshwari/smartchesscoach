@@ -23,13 +23,12 @@ const TYPE_ICONS = {
   positional: Target, engine_choice: Star,
 };
 
-const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, openingKey, introMessage }) => {
+const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, openingKey, introMessage, curriculumFeedback }) => {
   const [candidates, setCandidates] = useState([]);
   const [hint, setHint] = useState("");
   const [loading, setLoading] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
   const [lastFetchedFen, setLastFetchedFen] = useState(null);
-  const [introShown, setIntroShown] = useState(false);
   const [introDismissed, setIntroDismissed] = useState(false);
   
   // Curriculum guidance (hint mode)
@@ -142,6 +141,24 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
           >
             Got it — let's start
           </button>
+        </motion.div>
+      )}
+
+      {/* ─── CURRICULUM FEEDBACK: Show after user plays a move ─── */}
+      {curriculumFeedback && (!introMessage || introDismissed) && (
+        <motion.div
+          key={`feedback-${curriculumFeedback}`}
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border border-emerald-500/30 rounded bg-emerald-500/[0.05] p-4"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" strokeWidth={1.5} />
+            <span className="text-xs font-medium text-emerald-600">Good move</span>
+          </div>
+          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            {curriculumFeedback}
+          </p>
         </motion.div>
       )}
 

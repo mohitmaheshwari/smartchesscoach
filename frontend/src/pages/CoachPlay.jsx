@@ -161,6 +161,9 @@ const CoachPlay = ({ user }) => {
   // NEW: Coach intro message for the session
   const [coachIntroMessage, setCoachIntroMessage] = useState(null);
   
+  // NEW: Curriculum feedback (right/wrong) from last move
+  const [curriculumFeedback, setCurriculumFeedback] = useState(null);
+  
   // NEW: Position-based coaching (intelligent position analysis)
   const [positionCoaching, setPositionCoaching] = useState(null);
   
@@ -1352,6 +1355,7 @@ const CoachPlay = ({ user }) => {
     setBehavioralCoaching(null);
     setCurrentInsight(null);
     setConsequenceFeedback(null);
+    setCurriculumFeedback(null);
     setIsCoachThinking(true);
     setLoadingFeedback(true);
 
@@ -1404,6 +1408,13 @@ const CoachPlay = ({ user }) => {
         setIsCoachThinking(false);
         setLoadingFeedback(false);
         return false;
+      }
+      
+      // Store curriculum feedback for display in right panel
+      if (data.curriculum_feedback) {
+        setCurriculumFeedback(data.curriculum_feedback);
+      } else {
+        setCurriculumFeedback(null);
       }
       
       // Handle consequence feedback from pedagogical opponent
@@ -2772,6 +2783,7 @@ const CoachPlay = ({ user }) => {
                     isPlayerTurn={isPlayerTurn}
                     openingKey={session?.teaching_opening || openingGuidance?.opening_key}
                     introMessage={coachIntroMessage}
+                    curriculumFeedback={curriculumFeedback}
                     onHighlightMove={(moveSan) => {
                       toast.info(`Consider ${moveSan}`, { duration: 2000 });
                     }}
