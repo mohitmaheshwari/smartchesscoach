@@ -623,66 +623,91 @@ async def get_user_pattern_stats(
 
 
 def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved: bool) -> Dict:
-    """Generate a WHY explanation for the best move, tied to the pattern focus."""
-    
-    # Use the move intent analyzer for position-specific explanation
+    """Generate a position-specific WHY explanation."""
+    import chess
+    from services.move_intent_analyzer import analyze_move_intent
+
+    # 1. What does the best move actually do in THIS position?
+    move_explanation = ""
     try:
-        from services.move_intent_analyzer import analyze_move_intent
         intent = analyze_move_intent(fen, best_move)
         move_explanation = intent.description
     except Exception:
         move_explanation = f"The best move was {best_move}."
 
-    # Pattern-specific teaching
-    pattern_lessons = {
-        "tactical_miss": {
-            "why": f"{best_move} wins material or creates an unstoppable threat. In this position, look for checks, captures, and threats — in that order.",
-            "lesson": "Before every move in a tense position: check all captures and all checks. The tactic is hiding there.",
-            "what_to_look_for": "Forks, pins, skewers, discovered attacks, back rank threats.",
-        },
-        "hanging_piece": {
-            "why": f"{best_move} takes advantage of an undefended piece. Your opponent left something unprotected.",
-            "lesson": "Scan the board for undefended pieces — yours AND theirs. Every move.",
-            "what_to_look_for": "Pieces with no defenders, pieces that just moved away from defending something.",
-        },
-        "calculation_depth": {
-            "why": f"{best_move} requires seeing 2-3 moves ahead. The first move sets up the real threat.",
-            "lesson": "Don't just look at the first move — ask 'what happens AFTER they respond?'",
-            "what_to_look_for": "Quiet moves that set up unstoppable threats on the next move.",
-        },
-        "checkmate_pattern": {
-            "why": f"{best_move} leads to checkmate or forces a winning attack on the king.",
-            "lesson": "When the opponent's king is exposed, check every possible check. Checkmate patterns repeat.",
-            "what_to_look_for": "Back rank mates, smothered mates, queen + knight combos, bishop + queen batteries.",
-        },
-        "positional": {
-            "why": f"{best_move} improves your position long-term — better piece placement, control of key squares.",
-            "lesson": "Not every good move is a tactic. Sometimes the best move makes your position stronger gradually.",
-            "what_to_look_for": "Open files for rooks, outposts for knights, weak squares in opponent's camp.",
-        },
-        "winning_position_collapse": {
-            "why": f"{best_move} keeps your advantage safe. When you're winning, the best move is often the simplest one.",
-            "lesson": "When ahead: simplify. Trade pieces, avoid complications. Don't give them chances.",
-            "what_to_look_for": "Trades that keep your advantage, prophylactic moves that prevent counterplay.",
-        },
-        "opening_principles": {
-            "why": f"{best_move} follows opening principles — develop pieces, control the center, get the king safe.",
-            "lesson": "In the opening: develop, control center, castle. Don't move the same piece twice.",
-            "what_to_look_for": "Undeveloped pieces, center control, king safety.",
-        },
-    }
+    # 2. What happens AFTER the best move? (the continuation)
+    continuation = ""
+    continuation_moves = []
+    try:
+        board = chess.Board(fen)
+        best_move_obj = board.parse_san(best_move)
+        board.push(best_move_obj)
 
-    info = pattern_lessons.get(pattern_type, {
-        "why": f"{best_move} was the strongest move in this position.",
-        "lesson": "Look for the most active move — the one that creates the most problems for your opponent.",
-        "what_to_look_for": "Checks, captures, threats.",
-    })
+        # Get opponent's best reply
+        from stockfish_service import StockfishEngine
+        engine = StockfishEngine()
+        engine.start()
+        try:
+            reply_info = engine.get_best_move(board, depth=10)
+            if reply_info and reply_info.get("move"):
+                reply_san = board.san(reply_info["move"])
+                continuation_moves.append({"move": best_move, "by": "you"})
+                continuation_moves.append({"move": reply_san, "by": "opponent"})
+
+                # Then YOUR follow-up
+                board.push(reply_info["move"])
+                follow_info = engine.get_best_move(board, depth=10)
+                if follow_info and follow_info.get("move"):
+                    follow_san = board.san(follow_info["move"])
+                    continuation_moves.append({"move": follow_san, "by": "you"})
+                    continuation = f"After {best_move}, they play {reply_san}, then you play {follow_san}."
+                else:
+                    continuation = f"After {best_move}, they're forced to respond with {reply_san}."
+        finally:
+            engine.stop()
+    except Exception:
+        pass
+
+    # 3. What was the "trap" or the obvious bad move?
+    trap_explanation = ""
+    try:
+        board = chess.Board(fen)
+        # Find the most natural-looking move that's NOT the best (the "trap")
+        legal = list(board.legal_moves)
+        captures = [m for m in legal if board.is_capture(m)]
+        checks = [m for m in legal if board.gives_check(m)]
+        tempting = captures + checks  # Captures and checks look tempting
+
+        tempting_sans = [board.san(m) for m in tempting]
+        if best_move in tempting_sans:
+            tempting_sans.remove(best_move)
+
+        if tempting_sans:
+            trap_move = tempting_sans[0]
+            # Show why the obvious move is bad
+            trap_intent = analyze_move_intent(fen, trap_move, best_move, 200)
+            trap_explanation = f"The tempting move {trap_move} looks good but {trap_intent.feedback}"
+    except Exception:
+        pass
+
+    # Simple pattern lesson (kept short)
+    lessons = {
+        "tactical_miss": "Always check captures and checks before playing.",
+        "hanging_piece": "Before moving, count attackers vs defenders.",
+        "calculation_depth": "Ask: what happens after they respond?",
+        "checkmate_pattern": "When their king is exposed, check every possible check.",
+        "positional": "Not every good move is a tactic. Sometimes improve your worst piece.",
+        "winning_position_collapse": "When ahead, simplify. Don't give chances.",
+        "opening_principles": "Develop, control center, castle.",
+    }
 
     return {
         "move_description": move_explanation,
-        "why_best": info["why"],
-        "lesson": info["lesson"],
-        "what_to_look_for": info["what_to_look_for"],
+        "why_best": f"{move_explanation} {continuation}" if continuation else move_explanation,
+        "continuation": continuation_moves,
+        "trap": trap_explanation,
+        "lesson": lessons.get(pattern_type, "Look for the most active move."),
+        "what_to_look_for": "Checks, captures, threats — in that order.",
         "pattern_type": pattern_type,
     }
 
