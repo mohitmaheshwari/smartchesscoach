@@ -164,6 +164,9 @@ const CoachPlay = ({ user }) => {
   // NEW: Curriculum feedback (right/wrong) from last move
   const [curriculumFeedback, setCurriculumFeedback] = useState(null);
   
+  // NEW: Last coach move SAN for opponent section display
+  const [lastCoachMoveSan, setLastCoachMoveSan] = useState(null);
+  
   // NEW: Position-based coaching (intelligent position analysis)
   const [positionCoaching, setPositionCoaching] = useState(null);
   
@@ -1544,6 +1547,10 @@ const CoachPlay = ({ user }) => {
             if (lastMove?.uci) {
               highlightMove(lastMove.uci);
             }
+            // Track coach move SAN for display
+            if (lastMove?.move || lastMove?.san) {
+              setLastCoachMoveSan(lastMove.san || lastMove.move);
+            }
             
             // Check if game over
             if (data.game_over || data.session.status === "completed") {
@@ -2784,6 +2791,7 @@ const CoachPlay = ({ user }) => {
                     openingKey={session?.teaching_opening || openingGuidance?.opening_key}
                     introMessage={coachIntroMessage}
                     curriculumFeedback={curriculumFeedback}
+                    lastCoachMove={lastCoachMoveSan}
                     onHighlightMove={(moveSan) => {
                       toast.info(`Consider ${moveSan}`, { duration: 2000 });
                     }}

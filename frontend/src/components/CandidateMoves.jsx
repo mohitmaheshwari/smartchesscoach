@@ -23,7 +23,7 @@ const TYPE_ICONS = {
   positional: Target, engine_choice: Star,
 };
 
-const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, openingKey, introMessage, curriculumFeedback }) => {
+const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, openingKey, introMessage, curriculumFeedback, lastCoachMove }) => {
   const [candidates, setCandidates] = useState([]);
   const [hint, setHint] = useState("");
   const [loading, setLoading] = useState(false);
@@ -162,15 +162,23 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
         </motion.div>
       )}
 
-      {/* ─── OPPONENT COMMENTARY: What they just played and why ─── */}
-      {(!introMessage || introDismissed) && guidance && guidance.opponent_commentary && (
+      {/* ─── OPPONENT MOVE: Highlighted section ─── */}
+      {(!introMessage || introDismissed) && lastCoachMove && guidance && guidance.opponent_commentary && (
         <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="border border-border rounded p-3"
+          key={`opp-${lastCoachMove}`}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="border-l-4 border-red-400/60 bg-red-500/[0.04] rounded-r p-4"
         >
-          <p className="text-xs text-muted-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            <span className="font-medium text-foreground">Opponent: </span>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded bg-red-500/10 flex items-center justify-center">
+              <span className="text-base font-mono font-bold text-red-400">{lastCoachMove}</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-widest text-red-400/70">Opponent played</p>
+            </div>
+          </div>
+          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {guidance.opponent_commentary}
           </p>
         </motion.div>
