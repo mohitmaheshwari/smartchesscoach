@@ -10338,14 +10338,18 @@ async def start_play_with_coach(
                     
                     welcome_message = pregame.get("intro", personalized_greeting)
                     
-                    # Store curriculum opening on the session — DISABLE old teaching system
+                    # Update both MongoDB AND in-memory session
+                    session.curriculum_active = True
+                    session.teaching_opening = opening_key
+                    session.opening_assessment = pregame.get("assessment")
+                    
                     await db.coach_sessions.update_one(
                         {"session_id": session.session_id},
                         {"$set": {
                             "teaching_opening": opening_key,
                             "opening_assessment": pregame.get("assessment"),
                             "curriculum_active": True,
-                            "opening_teaching_active": False,  # Disable old system
+                            "opening_teaching_active": False,
                         }}
                     )
                 else:
