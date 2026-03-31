@@ -10659,15 +10659,81 @@ async def _process_move_and_respond(
             
             # Try to get the coach's move from curriculum (instant — no Stockfish)
             if teaching_opening:
-                from services.opening_curriculum_engine import get_opening_guidance
+                from services.opening_curriculum_engine import get_opening_guidance, _load_curriculum
                 assessment = session_doc_check.get("opening_assessment")
                 guidance = get_opening_guidance(teaching_opening, moves_san, user_color, assessment=assessment)
                 
-                # If guidance says "waiting" and has expected responses, pick the first one
-                # (this is what opponent would likely play in this line)
-                if guidance and guidance.get("mode") == "waiting":
-                    # The curriculum tells us what responses are likely
-                    pass  # We don't have the exact response — fall through to simple Stockfish
+                curriculum_color = "white"  # London is a White opening
+                curriculum = _load_curriculum()
+                opening_data = curriculum.get(teaching_opening, {})
+                if opening_data:
+                    curriculum_color = opening_data.get("color", "white")
+                
+                user_plays_curriculum = (user_color == curriculum_color)
+                
+                if user_plays_curriculum:
+                    # User is White (curriculum color) — coach plays Black
+                    # Coach should pick from the curriculum's "responses" (main line first)
+                    # Walk the tree to find current node's responses
+                    tree = opening_data.get("tree", {})
+                    node = None
+                    if tree:
+                        first_key = list(tree.keys())[0]
+                        if moves_san and moves_san[0] == first_key:
+                            node = tree[first_key]
+                            for idx in range(1, len(moves_san)):
+                                mv = moves_san[idx]
+                                is_user = (idx % 2 == 0)
+                                if not is_user:
+                                    # Black's move — find in responses
+                                    responses = node.get("responses", {})
+                                    if mv in responses:
+                                        node = responses[mv]
+                                    else:
+                                        break
+                                else:
+                                    # White's move — match "next"
+                                    if node.get("next") == mv:
+                                        pass
+                                    else:
+                                        break
+                    
+                    if node:
+                        responses = node.get("responses", {})
+                        if responses:
+                            coach_move_san = list(responses.keys())[0]  # Pick main line
+                            logger.info(f"[CURRICULUM] Coach picks main line: {coach_move_san}")
+                else:
+                    # User is Black — coach plays White (curriculum color)
+                    # Coach should play the "next" move from curriculum
+                    tree = opening_data.get("tree", {})
+                    node = None
+                    if tree and not moves_san:
+                        # First move — coach plays the opening move
+                        coach_move_san = list(tree.keys())[0]
+                        logger.info(f"[CURRICULUM] Coach opens with: {coach_move_san}")
+                    elif tree and moves_san:
+                        first_key = list(tree.keys())[0]
+                        if moves_san[0] == first_key:
+                            node = tree[first_key]
+                            for idx in range(1, len(moves_san)):
+                                mv = moves_san[idx]
+                                is_black = (idx % 2 == 1)
+                                if is_black:
+                                    responses = node.get("responses", {})
+                                    if mv in responses:
+                                        node = responses[mv]
+                                    else:
+                                        break
+                                else:
+                                    if node.get("next") == mv:
+                                        pass
+                                    else:
+                                        break
+                        
+                        if node and node.get("next"):
+                            coach_move_san = node["next"]
+                            logger.info(f"[CURRICULUM] Coach plays curriculum: {coach_move_san}")
             
             # If curriculum didn't give us a move, use simple fast Stockfish (low depth)
             if not coach_move_san:
