@@ -82,7 +82,7 @@ import {
 
 // V5 Coaching Component
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
-import CandidateMoves from "@/components/CandidateMoves";
+import CoachPanel from "@/components/CoachPanel";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -2830,9 +2830,9 @@ const CoachPlay = ({ user }) => {
               
               {/* Main Content - Scrollable */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {/* Curriculum coaching — always show when active, regardless of turn */}
+                {/* Coach Panel — curriculum guidance, feedback, opponent moves */}
                 {!gameOver && (
-                  <CandidateMoves
+                  <CoachPanel
                     sessionId={session?.session_id}
                     fen={currentFen}
                     isPlayerTurn={isPlayerTurn}
@@ -2840,9 +2840,6 @@ const CoachPlay = ({ user }) => {
                     introMessage={coachIntroMessage}
                     curriculumFeedback={curriculumFeedback}
                     lastCoachMove={lastCoachMoveSan}
-                    onHighlightMove={(moveSan) => {
-                      toast.info(`Consider ${moveSan}`, { duration: 2000 });
-                    }}
                   />
                 )}
                 
