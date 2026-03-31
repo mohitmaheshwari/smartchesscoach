@@ -1398,6 +1398,19 @@ const CoachPlay = ({ user }) => {
         return false;
       }
       
+      // CURRICULUM ENFORCEMENT: Backend rejected the move
+      if (data.curriculum_redirect) {
+        toast.error(data.message || "That's not the right move for this lesson.", { duration: 4000 });
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+        return false;
+      }
+      
+      // Show curriculum feedback if the move was correct
+      if (data.curriculum_feedback) {
+        toast.success(data.curriculum_feedback, { duration: 3000 });
+      }
+      
       // Handle consequence feedback from pedagogical opponent
       if (data.consequence_feedback) {
         setConsequenceFeedback(data.consequence_feedback);

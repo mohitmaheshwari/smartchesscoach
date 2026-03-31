@@ -10479,7 +10479,6 @@ async def make_coach_play_move(
     # Store context - ensure FEN is never null
     fen_before = session_doc.get("current_fen")
     if not fen_before:
-        # Fall back to fen_history or default
         fen_history = session_doc.get("fen_history", [])
         if fen_history:
             fen_before = fen_history[-1]
@@ -10487,6 +10486,32 @@ async def make_coach_play_move(
             fen_before = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     user_rating = session_doc.get("user_rating", 1200)
     user_color = session_doc.get("user_color", "white")
+    
+    # CURRICULUM ENFORCEMENT: Check if move matches the curriculum's expected move
+    curriculum_active = session_doc.get("curriculum_active", False)
+    curriculum_feedback = None
+    if curriculum_active:
+        teaching_opening = session_doc.get("teaching_opening")
+        if teaching_opening:
+            from services.opening_curriculum_engine import get_opening_guidance
+            assessment = session_doc.get("opening_assessment")
+            move_history_san = [m.get("move", "") for m in session_doc.get("move_history", [])]
+            guidance = get_opening_guidance(teaching_opening, move_history_san, user_color, assessment=assessment)
+            
+            if guidance and guidance.get("mode") == "think" and guidance.get("expected_move"):
+                expected = guidance["expected_move"]
+                if move != expected:
+                    # User played the wrong move — redirect them
+                    return {
+                        "success": False,
+                        "curriculum_redirect": True,
+                        "message": guidance.get("wrong_feedback", f"We're learning the {teaching_opening.replace('_', ' ')}. The right move here is {expected}."),
+                        "expected_move": expected,
+                        "your_move": move,
+                    }
+                else:
+                    # Correct! Include right feedback
+                    curriculum_feedback = guidance.get("right_feedback", "Good move.")
     
     # Validate and record user's move ONLY (fast)
     try:
@@ -10555,7 +10580,8 @@ async def make_coach_play_move(
             "current_fen": fen_after_user,
             "awaiting_coach": not game_over,
             "game_over": game_over,
-            "result": result
+            "result": result,
+            "curriculum_feedback": curriculum_feedback,
         }
         
     except chess.InvalidMoveError:
