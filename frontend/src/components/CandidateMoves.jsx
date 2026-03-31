@@ -65,22 +65,27 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
       setLoading(true);
       setFeedback(null);
       try {
-        const [candRes, guideRes] = await Promise.all([
-          fetch(`${API}/coach/play/candidates`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ session_id: sessionId }),
-          }),
+        // Only fetch candidates when NOT in curriculum mode (saves a Stockfish call)
+        const promises = [
+          openingKey
+            ? Promise.resolve(null)  // Skip candidates during curriculum
+            : fetch(`${API}/coach/play/candidates`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ session_id: sessionId }),
+              }),
           fetch(`${API}/coach/play/opening-guide`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
             body: JSON.stringify({ session_id: sessionId, opening_key: openingKey }),
           }).catch(() => null),
-        ]);
+        ];
+        
+        const [candRes, guideRes] = await Promise.all(promises);
 
-        if (candRes.ok) {
+        if (candRes && candRes.ok) {
           const data = await candRes.json();
           setCandidates(data.candidates || []);
           setHint(data.position_hint || "");
@@ -178,7 +183,8 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
         </div>
       )}
 
-      {/* ─── ENGINE PICKS (collapsible) ─── */}
+      {/* ─── ENGINE PICKS — only show when NOT in curriculum mode ─── */}
+      {!guidance && (
       <div className="border border-border rounded overflow-hidden">
         <button 
           onClick={() => setShowEngine(!showEngine)}
@@ -236,6 +242,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
           )}
         </AnimatePresence>
       </div>
+      )}
     </div>
   );
 };
