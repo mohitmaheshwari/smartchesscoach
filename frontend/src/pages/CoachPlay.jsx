@@ -2932,7 +2932,7 @@ const CoachPlay = ({ user }) => {
                 )}
                 
                 {/* === COACH THINKING INDICATOR === */}
-                {isCoachThinking && !v5Coaching && !guardianIntervention && (
+                {isCoachThinking && !v5Coaching && !guardianIntervention && !session?.curriculum_active && (
                   <div data-testid="coach-thinking-indicator" className="p-4 rounded-lg bg-primary/5 border border-primary/10 animate-pulse">
                     <div className="flex items-center gap-3">
                       <Loader2 className="w-5 h-5 text-primary animate-spin" />
@@ -2944,8 +2944,8 @@ const CoachPlay = ({ user }) => {
                   </div>
                 )}
                 
-                {/* === USER'S MOVE FEEDBACK (Same V5CoachingCard as Lab!) === */}
-                {v5Coaching && (
+                {/* === USER'S MOVE FEEDBACK — hide during curriculum === */}
+                {v5Coaching && !session?.curriculum_active && (
                   <V5CoachingCard
                     coaching={v5Coaching}
                     moveSan={v5Coaching.move_san}
@@ -2958,8 +2958,8 @@ const CoachPlay = ({ user }) => {
                   />
                 )}
                 
-                {/* Behavioral Coaching - Smart Coach habits feedback */}
-                {behavioralCoaching && (
+                {/* Behavioral Coaching — hide during curriculum */}
+                {behavioralCoaching && !session?.curriculum_active && (
                   <div 
                     data-testid="behavioral-coaching"
                     className={`p-3 rounded-lg border ${
