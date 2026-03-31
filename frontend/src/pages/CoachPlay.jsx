@@ -1434,8 +1434,11 @@ const CoachPlay = ({ user }) => {
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
         
-        // Fetch V5 feedback for user's move IMMEDIATELY (don't wait for coach)
-        fetchUserMoveCoaching(session.session_id);
+        // Skip heavy V5 feedback when curriculum is handling coaching
+        // The curriculum provides its own feedback via the opening-guide endpoint
+        if (!session?.curriculum_active && !session?.teaching_opening) {
+          fetchUserMoveCoaching(session.session_id);
+        }
         
         // Add thinking message to chat
         setChatMessages(prev => [...prev.filter(m => m.type !== "thinking"), {
@@ -1536,8 +1539,10 @@ const CoachPlay = ({ user }) => {
             
             setCoachThinking(false);
             
-            // Fetch ONLY coach's move explanation (user feedback already shown)
-            fetchCoachMoveExplanation(session.session_id);
+            // Skip heavy coaching fetch when curriculum is active
+            if (!session?.curriculum_active && !session?.teaching_opening) {
+              fetchCoachMoveExplanation(session.session_id);
+            }
             
             return;
           }

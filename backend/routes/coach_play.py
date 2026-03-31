@@ -2169,7 +2169,7 @@ async def get_candidate_moves(
         raise HTTPException(status_code=400, detail="Invalid position")
 
     # Get top 3 moves from Stockfish with ideas
-    candidates = await get_stockfish_candidates(board, num_moves=3, depth=14)
+    candidates = await get_stockfish_candidates(board, num_moves=3, depth=10)
 
     result = []
     for c in candidates:
