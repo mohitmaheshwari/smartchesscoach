@@ -162,6 +162,20 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
         </motion.div>
       )}
 
+      {/* ─── OPPONENT COMMENTARY: What they just played and why ─── */}
+      {(!introMessage || introDismissed) && guidance && guidance.opponent_commentary && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border border-border rounded p-3"
+        >
+          <p className="text-xs text-muted-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <span className="font-medium text-foreground">Opponent: </span>
+            {guidance.opponent_commentary}
+          </p>
+        </motion.div>
+      )}
+
       {/* ─── CURRICULUM: Think Mode — ONLY the question, nothing else ─── */}
       {(!introMessage || introDismissed) && guidance && guidance.mode === "think" && (
         <motion.div

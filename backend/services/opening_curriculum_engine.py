@@ -327,6 +327,13 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
             rule_index = min(len(moves_played) // 4, len(rules) - 1)
             golden_rule = rules[rule_index]
 
+        # Get opponent's move commentary (what they just played and why)
+        opponent_commentary = None
+        if node.get("idea_opponent"):
+            opponent_commentary = node["idea_opponent"]
+        elif node.get("name"):
+            opponent_commentary = f"Your opponent played into the {node['name']} variation."
+
         return {
             "mode": "think",
             "hint": hint,
@@ -342,6 +349,7 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
             "alternatives": alternatives[:2],
             "position_name": position_name,
             "middlegame_plan": middlegame_plan,
+            "opponent_commentary": opponent_commentary,
         }
 
     # Tree ended but game continues — transition to middlegame guidance
