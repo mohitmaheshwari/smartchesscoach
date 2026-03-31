@@ -51,7 +51,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
   }, [fen, guidance]);
 
   useEffect(() => {
-    if (!sessionId || !fen || !isPlayerTurn) {
+    if (!sessionId || !fen) {
       setCandidates([]);
       setHint("");
       setGuidance(null);
@@ -116,7 +116,8 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
     fetchAll();
   }, [sessionId, fen, isPlayerTurn, lastFetchedFen, openingKey]);
 
-  if (!isPlayerTurn || (!loading && candidates.length === 0 && !guidance)) return null;
+  // Show nothing only if there's truly nothing to display
+  if (!loading && candidates.length === 0 && !guidance && !introMessage) return null;
 
   return (
     <div className="space-y-3" data-testid="candidate-moves">
