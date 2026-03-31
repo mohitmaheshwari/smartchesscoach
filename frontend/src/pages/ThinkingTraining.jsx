@@ -120,12 +120,15 @@ const ThinkingTraining = ({ user }) => {
   const currentFiltered = filteredPositions[currentIndex] || null;
 
   const handleMove = useCallback(
-    (from, to, promotion) => {
+    (moveData) => {
       if (!currentFiltered || solveState !== "ready") return false;
 
+      const from = moveData.from || moveData;
+      const to = moveData.to || arguments[1];
+      
       const chess = new Chess(currentFiltered.fen);
       try {
-        const move = chess.move({ from, to, promotion: promotion || "q" });
+        const move = chess.move({ from, to, promotion: "q" });
         if (!move) return false;
 
         const userMoveUci = `${from}${to}${promotion || ""}`;
