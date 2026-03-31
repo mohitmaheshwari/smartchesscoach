@@ -10645,6 +10645,84 @@ async def _process_move_and_respond(
         return bool(current_doc) and current_doc.get("action_revision", 0) == expected_action_revision
     
     try:
+        # FAST PATH: When curriculum is active, skip heavy analysis — just make the coach move
+        session_doc_check = await db.coach_sessions.find_one({"session_id": session_id})
+        if session_doc_check and session_doc_check.get("curriculum_active") and not game_over:
+            import chess as chess_lib
+            teaching_opening = session_doc_check.get("teaching_opening")
+            
+            # Get the move history to find the curriculum's expected opponent response
+            move_history = session_doc_check.get("move_history", [])
+            moves_san = [m.get("move", "") for m in move_history]
+            
+            coach_move_san = None
+            
+            # Try to get the coach's move from curriculum (instant — no Stockfish)
+            if teaching_opening:
+                from services.opening_curriculum_engine import get_opening_guidance
+                assessment = session_doc_check.get("opening_assessment")
+                guidance = get_opening_guidance(teaching_opening, moves_san, user_color, assessment=assessment)
+                
+                # If guidance says "waiting" and has expected responses, pick the first one
+                # (this is what opponent would likely play in this line)
+                if guidance and guidance.get("mode") == "waiting":
+                    # The curriculum tells us what responses are likely
+                    pass  # We don't have the exact response — fall through to simple Stockfish
+            
+            # If curriculum didn't give us a move, use simple fast Stockfish (low depth)
+            if not coach_move_san:
+                from coach_play.coach_opponent import CoachOpponent
+                opponent = CoachOpponent(user_rating=user_rating)
+                opponent.depth = 8  # Low depth for speed
+                opponent.skill_level = min(opponent.skill_level, 8)  # Cap strength
+                coach_move_san = await opponent.get_move(fen_after_user)
+            
+            if coach_move_san:
+                board = chess_lib.Board(fen_after_user)
+                try:
+                    chess_move = board.parse_san(coach_move_san)
+                    board.push(chess_move)
+                    fen_after_coach = board.fen()
+                    
+                    # Add coach move to history
+                    move_history.append({
+                        "move": coach_move_san,
+                        "uci": chess_move.uci(),
+                        "by": "coach",
+                        "fen_before": fen_after_user,
+                        "fen_after": fen_after_coach,
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    })
+                    
+                    # Check game over
+                    game_over_after = board.is_game_over()
+                    result_after = None
+                    if game_over_after:
+                        if board.is_checkmate():
+                            result_after = "loss"
+                        elif board.is_stalemate() or board.is_insufficient_material():
+                            result_after = "draw"
+                    
+                    update = {
+                        "current_fen": fen_after_coach,
+                        "move_history": move_history,
+                        "coach_move_pending": False,
+                    }
+                    if game_over_after:
+                        update["status"] = "completed"
+                        update["result"] = result_after
+                    
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$set": update}
+                    )
+                    logger.info(f"[CURRICULUM FAST] Coach played {coach_move_san} in {session_id}")
+                    return
+                except Exception as e:
+                    logger.warning(f"Curriculum fast path failed: {e}")
+                    # Fall through to normal path
+        
+        # NORMAL PATH: Full analysis + coaching
         # Step 1: Quick analysis of user's move
         analysis = await get_quick_analysis(
             fen_before=fen_before,
