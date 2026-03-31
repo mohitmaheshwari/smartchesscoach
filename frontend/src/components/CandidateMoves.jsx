@@ -65,39 +65,44 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
       setLoading(true);
       setFeedback(null);
       try {
-        // Only fetch candidates when NOT in curriculum mode (saves a Stockfish call)
-        const promises = [
-          openingKey
-            ? Promise.resolve(null)  // Skip candidates during curriculum
-            : fetch(`${API}/coach/play/candidates`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ session_id: sessionId }),
-              }),
-          fetch(`${API}/coach/play/opening-guide`, {
+        // First: always fetch curriculum guidance
+        let guidanceData = null;
+        try {
+          const guideRes = await fetch(`${API}/coach/play/opening-guide`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
             body: JSON.stringify({ session_id: sessionId, opening_key: openingKey }),
-          }).catch(() => null),
-        ];
-        
-        const [candRes, guideRes] = await Promise.all(promises);
-
-        if (candRes && candRes.ok) {
-          const data = await candRes.json();
-          setCandidates(data.candidates || []);
-          setHint(data.position_hint || "");
-        }
-
-        if (guideRes && guideRes.ok) {
-          const data = await guideRes.json();
-          if (data.has_guidance !== false) {
-            setGuidance(data);
-          } else {
-            setGuidance(null);
+          });
+          if (guideRes.ok) {
+            const data = await guideRes.json();
+            if (data.has_guidance !== false) {
+              guidanceData = data;
+              setGuidance(data);
+            } else {
+              setGuidance(null);
+            }
           }
+        } catch { setGuidance(null); }
+
+        // Second: fetch engine candidates ONLY when curriculum is not actively guiding
+        const curriculumActive = guidanceData && guidanceData.is_in_book && guidanceData.mode === "think";
+        if (!curriculumActive) {
+          try {
+            const candRes = await fetch(`${API}/coach/play/candidates`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ session_id: sessionId }),
+            });
+            if (candRes.ok) {
+              const data = await candRes.json();
+              setCandidates(data.candidates || []);
+              setHint(data.position_hint || "");
+            }
+          } catch { /* ok */ }
+        } else {
+          setCandidates([]);
         }
 
         setLastFetchedFen(fen);
@@ -183,8 +188,8 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
         </div>
       )}
 
-      {/* ─── ENGINE PICKS — only show when NOT in curriculum mode ─── */}
-      {!guidance && (
+      {/* ─── ENGINE PICKS — show when curriculum guidance has ended ─── */}
+      {(!guidance || !guidance.is_in_book) && candidates.length > 0 && (
       <div className="border border-border rounded overflow-hidden">
         <button 
           onClick={() => setShowEngine(!showEngine)}
