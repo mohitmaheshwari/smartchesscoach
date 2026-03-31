@@ -123,6 +123,10 @@ class CoachGameSession:
     opportunities_found: int = 0  # How many opportunities user has exploited
     opportunities_missed: int = 0  # How many opportunities user has missed
     
+    # Curriculum Training State
+    curriculum_active: bool = False  # Whether structured curriculum training is active
+    opening_assessment: Optional[Dict] = field(default_factory=dict)  # Cached assessment of user's opening knowledge
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
