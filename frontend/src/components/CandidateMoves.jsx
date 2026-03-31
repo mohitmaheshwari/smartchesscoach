@@ -116,7 +116,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
   }, [sessionId, fen, isPlayerTurn, lastFetchedFen, openingKey]);
 
   // Show nothing only if there's truly nothing to display
-  if (!loading && candidates.length === 0 && !guidance && !introMessage) return null;
+  if (!loading && candidates.length === 0 && !guidance && !introMessage && !curriculumFeedback) return null;
 
   return (
     <div className="space-y-3" data-testid="candidate-moves">
