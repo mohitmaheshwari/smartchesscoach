@@ -530,6 +530,10 @@ async def record_solve_attempt(
     except Exception as e:
         logger.warning(f"Could not generate candidates: {e}")
 
+    # Generate WHY explanation tied to the pattern/focus
+    pattern_type = position.get("pattern_type", "tactical")
+    explanation = _get_pattern_explanation(pattern_type, best_move_san, fen, solved)
+
     return {
         "solved": solved,
         "correct_move": best_move_san,
@@ -538,8 +542,9 @@ async def record_solve_attempt(
         "original_player_move": position.get("user_move_san", ""),
         "position_solve_rate": new_solve_rate,
         "miss_rate_at_your_level": miss_rate_at_level,
-        "pattern_type": position.get("pattern_type", "tactical"),
+        "pattern_type": pattern_type,
         "candidates": candidates,
+        "explanation": explanation,
     }
 
 
@@ -573,6 +578,72 @@ async def get_user_pattern_stats(
     
     stats = await db.training_solve_attempts.aggregate(pipeline).to_list(20)
     return stats
+
+
+
+def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved: bool) -> Dict:
+    """Generate a WHY explanation for the best move, tied to the pattern focus."""
+    
+    # Use the move intent analyzer for position-specific explanation
+    try:
+        from services.move_intent_analyzer import analyze_move_intent
+        intent = analyze_move_intent(fen, best_move)
+        move_explanation = intent.description
+    except Exception:
+        move_explanation = f"The best move was {best_move}."
+
+    # Pattern-specific teaching
+    pattern_lessons = {
+        "tactical_miss": {
+            "why": f"{best_move} wins material or creates an unstoppable threat. In this position, look for checks, captures, and threats — in that order.",
+            "lesson": "Before every move in a tense position: check all captures and all checks. The tactic is hiding there.",
+            "what_to_look_for": "Forks, pins, skewers, discovered attacks, back rank threats.",
+        },
+        "hanging_piece": {
+            "why": f"{best_move} takes advantage of an undefended piece. Your opponent left something unprotected.",
+            "lesson": "Scan the board for undefended pieces — yours AND theirs. Every move.",
+            "what_to_look_for": "Pieces with no defenders, pieces that just moved away from defending something.",
+        },
+        "calculation_depth": {
+            "why": f"{best_move} requires seeing 2-3 moves ahead. The first move sets up the real threat.",
+            "lesson": "Don't just look at the first move — ask 'what happens AFTER they respond?'",
+            "what_to_look_for": "Quiet moves that set up unstoppable threats on the next move.",
+        },
+        "checkmate_pattern": {
+            "why": f"{best_move} leads to checkmate or forces a winning attack on the king.",
+            "lesson": "When the opponent's king is exposed, check every possible check. Checkmate patterns repeat.",
+            "what_to_look_for": "Back rank mates, smothered mates, queen + knight combos, bishop + queen batteries.",
+        },
+        "positional": {
+            "why": f"{best_move} improves your position long-term — better piece placement, control of key squares.",
+            "lesson": "Not every good move is a tactic. Sometimes the best move makes your position stronger gradually.",
+            "what_to_look_for": "Open files for rooks, outposts for knights, weak squares in opponent's camp.",
+        },
+        "winning_position_collapse": {
+            "why": f"{best_move} keeps your advantage safe. When you're winning, the best move is often the simplest one.",
+            "lesson": "When ahead: simplify. Trade pieces, avoid complications. Don't give them chances.",
+            "what_to_look_for": "Trades that keep your advantage, prophylactic moves that prevent counterplay.",
+        },
+        "opening_principles": {
+            "why": f"{best_move} follows opening principles — develop pieces, control the center, get the king safe.",
+            "lesson": "In the opening: develop, control center, castle. Don't move the same piece twice.",
+            "what_to_look_for": "Undeveloped pieces, center control, king safety.",
+        },
+    }
+
+    info = pattern_lessons.get(pattern_type, {
+        "why": f"{best_move} was the strongest move in this position.",
+        "lesson": "Look for the most active move — the one that creates the most problems for your opponent.",
+        "what_to_look_for": "Checks, captures, threats.",
+    })
+
+    return {
+        "move_description": move_explanation,
+        "why_best": info["why"],
+        "lesson": info["lesson"],
+        "what_to_look_for": info["what_to_look_for"],
+        "pattern_type": pattern_type,
+    }
 
 
 async def get_community_position_count(db: AsyncIOMotorDatabase) -> int:

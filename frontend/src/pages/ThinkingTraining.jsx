@@ -456,6 +456,16 @@ const ThinkingTraining = ({ user }) => {
                         )}
                       </p>
 
+                      {/* WHY this was the best move */}
+                      {solveResult?.explanation && (
+                        <div className="space-y-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                          <p className="text-sm text-foreground">{solveResult.explanation.why_best}</p>
+                          <div className="border-t border-emerald-500/10 pt-2">
+                            <p className="text-xs text-muted-foreground"><span className="font-medium text-emerald-600">Lesson:</span> {solveResult.explanation.lesson}</p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Candidate Moves */}
                       <CandidateMoves candidates={solveResult?.candidates} />
 
@@ -518,6 +528,17 @@ const ThinkingTraining = ({ user }) => {
                           <span className="text-muted-foreground">. The original player also missed it — they played <span className="font-mono text-red-600">{solveResult.original_player_move}</span>.</span>
                         )}
                       </p>
+
+                      {/* WHY this was the best move */}
+                      {solveResult?.explanation && (
+                        <div className="space-y-2 p-3 rounded-lg bg-muted/50 border border-border">
+                          <p className="text-sm text-foreground">{solveResult.explanation.why_best}</p>
+                          <div className="border-t border-border pt-2">
+                            <p className="text-xs text-muted-foreground"><span className="font-medium text-primary">Lesson:</span> {solveResult.explanation.lesson}</p>
+                            <p className="text-xs text-muted-foreground mt-1"><span className="font-medium text-primary">Look for:</span> {solveResult.explanation.what_to_look_for}</p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Candidate Moves — show what was possible */}
                       <CandidateMoves candidates={solveResult?.candidates} />
