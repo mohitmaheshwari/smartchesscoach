@@ -285,24 +285,6 @@ const Layout = ({ children, user }) => {
             </Link>
           </div>
 
-          {/* Plateau Breaker */}
-          {lossStreak.show && (
-            <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
-              <Link to="/plateau-breaker">
-                <div
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-all ${
-                    sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  }`}
-                  style={{ color: "#722F37", border: "1px solid rgba(114,47,55,0.4)" }}
-                  data-testid="nav-plateau-breaker"
-                >
-                  <Zap className="w-4 h-4 flex-shrink-0 animate-pulse" strokeWidth={1.5} />
-                  {!sidebarCollapsed && <span className="font-light">{lossStreak.count} losses - Fix Now</span>}
-                </div>
-              </Link>
-            </div>
-          )}
-
           {/* Admin */}
           {isAdmin && (
             <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
@@ -506,15 +488,6 @@ const Layout = ({ children, user }) => {
                     Play with Coach
                   </Button>
                 </Link>
-
-                {lossStreak.show && (
-                  <Link to="/plateau-breaker" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" className="w-full justify-start gap-3 border-red-500/50 text-red-500 animate-pulse">
-                      <Zap className="w-4 h-4" />
-                      {lossStreak.count} losses - Fix Now
-                    </Button>
-                  </Link>
-                )}
 
                 <div className="border-t border-border my-2" />
 
