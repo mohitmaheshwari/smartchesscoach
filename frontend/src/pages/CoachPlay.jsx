@@ -1451,6 +1451,9 @@ const CoachPlay = ({ user }) => {
         // The curriculum provides its own feedback via the opening-guide endpoint
         if (!session?.curriculum_active && !session?.teaching_opening) {
           fetchUserMoveCoaching(session.session_id);
+        } else {
+          setLoadingFeedback(false);
+          setIsCoachThinking(false);
         }
         
         // Add thinking message to chat
