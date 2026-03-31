@@ -123,15 +123,15 @@ const ThinkingTraining = ({ user }) => {
     (moveData) => {
       if (!currentFiltered || solveState !== "ready") return false;
 
-      const from = moveData.from || moveData;
-      const to = moveData.to || arguments[1];
+      const from = moveData.from;
+      const to = moveData.to;
       
       const chess = new Chess(currentFiltered.fen);
       try {
         const move = chess.move({ from, to, promotion: "q" });
         if (!move) return false;
 
-        const userMoveUci = `${from}${to}${promotion || ""}`;
+        const userMoveUci = `${from}${to}`;
         setSessionTotal((p) => p + 1);
 
         // Submit to backend
@@ -152,16 +152,16 @@ const ThinkingTraining = ({ user }) => {
               setSolveState("correct");
               setSessionSolved((p) => p + 1);
               setLastMove([from, to]);
-              setArrows([{ orig: from, dest: to, brush: "green" }]);
+              setArrows([[from, to, "green"]]);
             } else {
               setSolveState("incorrect");
               // Show what was correct
               const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
               const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
               setArrows([
-                { orig: from, dest: to, brush: "red" },
+                [from, to, "red"],
                 ...(correctFrom && correctTo
-                  ? [{ orig: correctFrom, dest: correctTo, brush: "green" }]
+                  ? [[correctFrom, correctTo, "green"]]
                   : []),
               ]);
             }
@@ -174,15 +174,15 @@ const ThinkingTraining = ({ user }) => {
             if (isCorrect) {
               setSolveState("correct");
               setSessionSolved((p) => p + 1);
-              setArrows([{ orig: from, dest: to, brush: "green" }]);
+              setArrows([[from, to, "green"]]);
             } else {
               setSolveState("incorrect");
               const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
               const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
               setArrows([
-                { orig: from, dest: to, brush: "red" },
+                [from, to, "red"],
                 ...(correctFrom && correctTo
-                  ? [{ orig: correctFrom, dest: correctTo, brush: "green" }]
+                  ? [[correctFrom, correctTo, "green"]]
                   : []),
               ]);
             }
@@ -350,6 +350,8 @@ const ThinkingTraining = ({ user }) => {
                 fen={currentFiltered.fen}
                 orientation={currentFiltered.user_color || "white"}
                 viewOnly={solveState !== "ready"}
+                interactive={solveState === "ready"}
+                movableColor={solveState === "ready" ? (currentFiltered.fen?.split(" ")[1] === "w" ? "white" : "black") : undefined}
                 onMove={solveState === "ready" ? handleMove : undefined}
                 lastMove={lastMove}
                 arrows={arrows}
