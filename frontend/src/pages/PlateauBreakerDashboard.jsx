@@ -29,6 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { MistakeFreeStreak } from "@/components/streak";
 import YourPatterns from "@/components/patterns/YourPatterns";
+import Layout from "@/components/Layout";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -272,7 +273,7 @@ const PlateauBreakerDashboard = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -285,17 +286,18 @@ const PlateauBreakerDashboard = ({ user }) => {
   const isTrainingComplete = trainingStatus?.puzzlesCompleted >= trainingStatus?.puzzlesRequired;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      {/* Header - Minimal */}
-      <div className="border-b border-zinc-800 p-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-amber-500">Chess Coach</h1>
-          <span className="text-sm text-zinc-500">Plateau Breaker Mode</span>
-        </div>
-      </div>
-
+    <Layout user={user}>
+    <div className="min-h-screen">
       {/* Main Content - Focused */}
       <div className="max-w-2xl mx-auto p-6 space-y-8">
+        
+        {/* Page Title */}
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+            Plateau Breaker
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">Find your biggest weakness and fix it.</p>
+        </div>
         
         {/* MISTAKE-FREE STREAK - Proof of improvement */}
         {/* Only show if blocker is detected - prevents conflicting "no weakness" messages */}
@@ -334,7 +336,7 @@ const PlateauBreakerDashboard = ({ user }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <Card className="bg-red-950/30 border-red-500/50 overflow-hidden">
+            <Card className="bg-destructive/10 border-red-500/50 overflow-hidden">
               <CardContent className="p-0">
                 {/* Red Alert Header */}
               <div className="bg-red-500/20 px-6 py-4 border-b border-red-500/30">
@@ -355,12 +357,12 @@ const PlateauBreakerDashboard = ({ user }) => {
 
               {/* The Why */}
               <div className="px-6 py-5 space-y-4">
-                <p className="text-lg text-zinc-300">
+                <p className="text-lg text-foreground">
                   {blockerData?.why}
                 </p>
 
                 {/* Stats - Show based on data source */}
-                <div className="flex items-center gap-4 py-3 px-4 bg-zinc-900/50 rounded-lg">
+                <div className="flex items-center gap-4 py-3 px-4 bg-muted/50 rounded-lg">
                   <TrendingDown className="w-5 h-5 text-red-400" />
                   <div>
                     {blockerData?.source === "pattern" && blockerData?.count > 0 ? (
@@ -368,7 +370,7 @@ const PlateauBreakerDashboard = ({ user }) => {
                         <p className="text-white font-bold">
                           {blockerData?.count} times in your last {blockerData?.totalGames} games
                         </p>
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-muted-foreground">
                           ~{blockerData?.avgPerGame} mistakes per game on average
                         </p>
                       </>
@@ -377,7 +379,7 @@ const PlateauBreakerDashboard = ({ user }) => {
                         <p className="text-white font-bold">
                           This is your current training focus
                         </p>
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-muted-foreground">
                           Practice until you stop making this mistake
                         </p>
                       </>
@@ -386,7 +388,7 @@ const PlateauBreakerDashboard = ({ user }) => {
                         <p className="text-white font-bold">
                           No data yet
                         </p>
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-muted-foreground">
                           Play some games to identify your patterns
                         </p>
                       </>
@@ -397,9 +399,9 @@ const PlateauBreakerDashboard = ({ user }) => {
                 {/* The Rule */}
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <Target className="w-5 h-5 text-amber-400 mt-0.5" />
+                    <Target className="w-5 h-5 text-primary mt-0.5" />
                     <div>
-                      <p className="text-amber-400 text-sm font-medium mb-1">Your Rule</p>
+                      <p className="text-primary text-sm font-medium mb-1">Your Rule</p>
                       <p className="text-white font-semibold text-lg">
                         {blockerData?.rule}
                       </p>
@@ -409,7 +411,7 @@ const PlateauBreakerDashboard = ({ user }) => {
               </div>
 
               {/* CTA */}
-              <div className="px-6 py-4 bg-zinc-900/30 border-t border-zinc-800">
+              <div className="px-6 py-4 bg-muted/30 border-t border-border">
                 <Button 
                   onClick={handleFixNow}
                   className="w-full h-14 text-lg font-bold bg-red-600 hover:bg-red-700"
@@ -429,12 +431,12 @@ const PlateauBreakerDashboard = ({ user }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <Card className="bg-zinc-900/50 border-zinc-700">
+            <Card className="bg-muted/50 border-border">
               <CardContent className="p-6">
                 <div className="text-center py-8">
-                  <Target className="w-12 h-12 text-zinc-500 mx-auto mb-4" />
+                  <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-white mb-2">No Weakness Detected Yet</h3>
-                  <p className="text-zinc-400 mb-6 max-w-md mx-auto">
+                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                     We need to analyze your games to find your biggest mistake pattern. 
                     Import some games or play against the coach first.
                   </p>
@@ -442,7 +444,7 @@ const PlateauBreakerDashboard = ({ user }) => {
                     <Button
                       onClick={() => navigate("/import")}
                       variant="outline"
-                      className="border-zinc-700"
+                      className="border-border"
                     >
                       Import Games
                     </Button>
@@ -466,20 +468,20 @@ const PlateauBreakerDashboard = ({ user }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <Card className="bg-zinc-900/50 border-zinc-800">
+          <Card className="bg-muted/50 border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   {isTrainingComplete ? (
                     <Unlock className="w-5 h-5 text-green-400" />
                   ) : (
-                    <Lock className="w-5 h-5 text-zinc-500" />
+                    <Lock className="w-5 h-5 text-muted-foreground" />
                   )}
                   <span className="font-medium">
                     {isTrainingComplete ? "Training Complete" : "Training Required"}
                   </span>
                 </div>
-                <span className="text-sm text-zinc-500">
+                <span className="text-sm text-muted-foreground">
                   {trainingStatus?.puzzlesCompleted || 0} / {trainingStatus?.puzzlesRequired || 5} puzzles
                 </span>
               </div>
@@ -495,7 +497,7 @@ const PlateauBreakerDashboard = ({ user }) => {
                   <span>You can now play your next game!</span>
                 </div>
               ) : (
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-muted-foreground">
                   Complete {trainingStatus?.puzzlesRequired - trainingStatus?.puzzlesCompleted} more puzzles to unlock your next game analysis.
                 </p>
               )}
@@ -510,19 +512,19 @@ const PlateauBreakerDashboard = ({ user }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <Card className="bg-zinc-900/50 border-zinc-800">
+          <Card className="bg-muted/50 border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-white">Play with Enforced Coaching</h3>
-                  <p className="text-sm text-zinc-500 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Play a game where the coach blocks mistakes before they happen
                   </p>
                 </div>
                 <Button 
                   onClick={handlePlayCoached}
                   variant="outline"
-                  className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                  className="border-amber-500/50 text-primary hover:bg-amber-500/10"
                 >
                   Play Now
                 </Button>
@@ -531,17 +533,18 @@ const PlateauBreakerDashboard = ({ user }) => {
           </Card>
         </motion.div>
 
-        {/* Back to Classic Mode */}
+        {/* Back to Home */}
         <div className="text-center pt-4">
           <button 
             onClick={() => navigate("/home")}
-            className="text-sm text-zinc-600 hover:text-zinc-400 transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            Switch to Classic Mode →
+            Back to Home →
           </button>
         </div>
       </div>
     </div>
+    </Layout>
   );
 };
 
