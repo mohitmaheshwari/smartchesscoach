@@ -272,9 +272,9 @@ const CoachPlay = ({ user }) => {
     }
   };
 
-  // Poll for coach messages when game is active
+  // Poll for coach messages when game is active (skip during curriculum — curriculum handles coaching)
   useEffect(() => {
-    if (session && gameStarted && !gameOver) {
+    if (session && gameStarted && !gameOver && !session.curriculum_active && !session.teaching_opening) {
       // Start polling for coach messages
       pollIntervalRef.current = setInterval(pollCoachMessages, 2000);
       return () => {
