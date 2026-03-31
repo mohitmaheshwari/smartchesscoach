@@ -373,6 +373,22 @@ const LabV2 = ({ user }) => {
   const goToEnd = () => goToMove(moves.length - 1);
   const goToPrev = () => goToMove(currentMoveIndex - 1);
   const goToNext = () => goToMove(currentMoveIndex + 1);
+
+  // Keyboard arrow navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+      switch (e.key) {
+        case 'ArrowRight': e.preventDefault(); goToNext(); break;
+        case 'ArrowLeft': e.preventDefault(); goToPrev(); break;
+        case 'ArrowUp': e.preventDefault(); goToStart(); break;
+        case 'ArrowDown': e.preventDefault(); goToEnd(); break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentMoveIndex, moves.length]);
+
   
   // Navigate to a specific move number (from critical moments) with optional arrows
   const navigateToMoveNumber = (moveNum, yourMove = null, bestMove = null) => {

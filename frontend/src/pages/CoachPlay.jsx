@@ -515,6 +515,54 @@ const CoachPlay = ({ user }) => {
     }
   }, []);
 
+
+  // Keyboard arrow navigation — browse through move history
+  const [browseIndex, setBrowseIndex] = useState(-1); // -1 = live position
+  
+  useEffect(() => {
+    if (!session?.move_history) return;
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+      const history = session.move_history || [];
+      if (history.length === 0) return;
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setBrowseIndex(prev => {
+          const newIdx = prev === -1 ? history.length - 2 : Math.max(0, prev - 1);
+          const move = history[newIdx];
+          if (move?.fen_before) setCurrentFen(move.fen_before);
+          return newIdx;
+        });
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setBrowseIndex(prev => {
+          if (prev === -1) return -1;
+          const newIdx = prev + 1;
+          if (newIdx >= history.length) {
+            // Back to live position
+            const lastMove = history[history.length - 1];
+            if (lastMove?.fen_after) setCurrentFen(lastMove.fen_after);
+            else setCurrentFen(session.current_fen);
+            return -1;
+          }
+          const move = history[newIdx];
+          if (move?.fen_before) setCurrentFen(move.fen_before);
+          return newIdx;
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [session?.move_history, session?.current_fen]);
+
+  // Reset browse when new moves come in
+  useEffect(() => {
+    if (browseIndex !== -1) {
+      setBrowseIndex(-1);
+    }
+  }, [session?.move_history?.length]);
+
   // Track castling and development from move history
   useEffect(() => {
     if (!session?.move_history) return;
