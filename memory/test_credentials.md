@@ -12,4 +12,3 @@
 ## Test Data
 - Test game ID: `test_game_a793ed92` (Italian Game, White lost)
 - Test game ID: `test_game_dc1e2a28` (Scotch Game, White won)
-- Both in DB `test_database` under user_id `dev_user_local`
