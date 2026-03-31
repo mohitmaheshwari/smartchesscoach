@@ -1406,11 +1406,6 @@ const CoachPlay = ({ user }) => {
         return false;
       }
       
-      // Show curriculum feedback if the move was correct
-      if (data.curriculum_feedback) {
-        toast.success(data.curriculum_feedback, { duration: 3000 });
-      }
-      
       // Handle consequence feedback from pedagogical opponent
       if (data.consequence_feedback) {
         setConsequenceFeedback(data.consequence_feedback);
