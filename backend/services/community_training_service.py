@@ -534,6 +534,46 @@ async def record_solve_attempt(
     pattern_type = position.get("pattern_type", "tactical")
     explanation = _get_pattern_explanation(pattern_type, best_move_san, fen, solved)
 
+    # Analyze the user's wrong move — what's bad about it + opponent's punishment
+    your_move_analysis = None
+    if not solved and user_move_uci:
+        try:
+            from services.move_intent_analyzer import analyze_move_intent
+            board_copy = chess.Board(fen)
+            user_san = board_copy.san(chess.Move.from_uci(user_move_uci))
+
+            # What your move does
+            intent = analyze_move_intent(fen, user_san, best_move_san, 200)
+
+            # What opponent does after your move
+            board_copy.push(chess.Move.from_uci(user_move_uci))
+            opponent_response = None
+            try:
+                from stockfish_service import StockfishEngine
+                engine = StockfishEngine()
+                engine.start()
+                best_reply = engine.get_best_move(board_copy, depth=12)
+                if best_reply and best_reply.get("move"):
+                    reply_san = board_copy.san(best_reply["move"])
+                    reply_intent = analyze_move_intent(board_copy.fen(), reply_san)
+                    opponent_response = {
+                        "move": reply_san,
+                        "description": reply_intent.description,
+                        "threat": reply_intent.feedback,
+                    }
+                engine.stop()
+            except Exception:
+                pass
+
+            your_move_analysis = {
+                "your_move": user_san,
+                "what_it_does": intent.description,
+                "why_bad": intent.feedback,
+                "opponent_punishes": opponent_response,
+            }
+        except Exception as e:
+            logger.warning(f"User move analysis failed: {e}")
+
     return {
         "solved": solved,
         "correct_move": best_move_san,
@@ -545,6 +585,7 @@ async def record_solve_attempt(
         "pattern_type": pattern_type,
         "candidates": candidates,
         "explanation": explanation,
+        "your_move_analysis": your_move_analysis,
     }
 
 

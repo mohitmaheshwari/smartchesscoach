@@ -534,6 +534,23 @@ const ThinkingTraining = ({ user }) => {
                         )}
                       </p>
 
+                      {/* What's wrong with YOUR move */}
+                      {solveResult?.your_move_analysis && (
+                        <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20 space-y-2">
+                          <p className="text-xs font-medium text-red-500">Your move: <span className="font-mono">{solveResult.your_move_analysis.your_move}</span></p>
+                          <p className="text-sm text-foreground">{solveResult.your_move_analysis.what_it_does}</p>
+                          <p className="text-xs text-muted-foreground">{solveResult.your_move_analysis.why_bad}</p>
+                          {solveResult.your_move_analysis.opponent_punishes && (
+                            <div className="border-t border-red-500/10 pt-2">
+                              <p className="text-xs text-red-500 font-medium">
+                                Opponent responds: <span className="font-mono">{solveResult.your_move_analysis.opponent_punishes.move}</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">{solveResult.your_move_analysis.opponent_punishes.description}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* WHY this was the best move */}
                       {solveResult?.explanation && (
                         <div className="space-y-2 p-3 rounded-lg bg-muted/50 border border-border">
