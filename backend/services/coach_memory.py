@@ -503,6 +503,10 @@ def _get_focus_suggestion(memory: CoachMemory) -> Optional[str]:
 async def get_personalized_greeting(db, user_id: str) -> str:
     """Generate a personalized greeting based on memory."""
     memory = await get_or_create_memory(db, user_id)
+    
+    # Refresh patterns before generating greeting
+    _identify_recurring_patterns(memory)
+    
     context = _get_greeting_context(memory)
     
     greetings = {
