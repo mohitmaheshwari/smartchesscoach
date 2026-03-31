@@ -36,7 +36,35 @@ import {
   User as UserIcon,
   TrendingUp,
   Swords,
+  AlertTriangle,
 } from "lucide-react";
+
+// Known Trap Card
+const KnownTrapCard = ({ trap }) => {
+  if (!trap) return null;
+  return (
+    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+      <div className="flex items-center gap-2 mb-2">
+        <AlertTriangle className="w-4 h-4 text-amber-600" strokeWidth={1.5} />
+        <span className="text-sm font-medium text-amber-700">Known Trap: {trap.name}</span>
+        <Badge variant="outline" className="text-[10px] ml-auto">{trap.opening}</Badge>
+      </div>
+      <p className="text-sm text-foreground mb-2">{trap.explanation}</p>
+      <p className="text-xs text-muted-foreground">
+        <span className="font-medium text-amber-600">How to avoid:</span> {trap.refutation}
+      </p>
+      {trap.full_line?.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap mt-2">
+          {trap.full_line.map((m, i) => (
+            <span key={i} className="text-[10px] font-mono px-1 py-0.5 rounded bg-amber-500/10 text-amber-700">
+              {i % 2 === 0 ? `${Math.floor(i/2)+1}.` : ""}{m}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const formatPattern = (key) => {
   if (!key) return "Unknown";
@@ -493,6 +521,9 @@ const ThinkingTraining = ({ user }) => {
                       {/* Candidate Moves */}
                       <CandidateMoves candidates={solveResult?.candidates} />
 
+                      {/* Known Trap */}
+                      <KnownTrapCard trap={solveResult?.known_trap} />
+
                       {solveResult?.miss_rate_at_your_level != null && (
                         <div className="p-3 rounded-lg bg-muted/50 border border-border">
                           <p className="text-sm text-muted-foreground">
@@ -601,6 +632,9 @@ const ThinkingTraining = ({ user }) => {
 
                       {/* Candidate Moves — show what was possible */}
                       <CandidateMoves candidates={solveResult?.candidates} />
+
+                      {/* Known Trap */}
+                      <KnownTrapCard trap={solveResult?.known_trap} />
 
                       {solveResult?.miss_rate_at_your_level != null && (
                         <div className="p-3 rounded-lg bg-muted/50 border border-border">

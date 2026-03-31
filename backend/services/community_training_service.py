@@ -574,6 +574,9 @@ async def record_solve_attempt(
         except Exception as e:
             logger.warning(f"User move analysis failed: {e}")
 
+    # Check if this position matches a KNOWN TRAP
+    known_trap = _match_known_trap(fen)
+
     return {
         "solved": solved,
         "correct_move": best_move_san,
@@ -586,6 +589,7 @@ async def record_solve_attempt(
         "candidates": candidates,
         "explanation": explanation,
         "your_move_analysis": your_move_analysis,
+        "known_trap": known_trap,
     }
 
 
@@ -710,6 +714,63 @@ def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved
         "what_to_look_for": "Checks, captures, threats — in that order.",
         "pattern_type": pattern_type,
     }
+
+
+def _match_known_trap(fen: str) -> Optional[Dict]:
+    """Check if a FEN matches any known opening trap."""
+    import chess
+    from services.verified_opening_traps import VERIFIED_TRAP_REGISTRY
+
+    # For each trap, replay the setup_moves and check if FEN matches
+    for trap_id, trap in VERIFIED_TRAP_REGISTRY.items():
+        try:
+            board = chess.Board()
+            for move_san in trap.setup_moves:
+                board.push_san(move_san)
+
+            # Compare FEN (ignore move counters — just piece positions + turn)
+            trap_fen_parts = board.fen().split(" ")[:2]  # pieces + turn
+            pos_fen_parts = fen.split(" ")[:2]
+
+            if trap_fen_parts == pos_fen_parts:
+                return {
+                    "trap_id": trap.trap_id,
+                    "name": trap.name,
+                    "opening": trap.opening_name,
+                    "variation": trap.variation_name,
+                    "explanation": trap.explanation,
+                    "refutation": trap.refutation,
+                    "trap_move": trap.trap_move,
+                    "trap_for": trap.trap_for,
+                    "victim_color": trap.victim_color,
+                    "difficulty": trap.difficulty,
+                    "full_line": trap.full_line,
+                }
+
+            # Also check one move BEFORE (the position right before the trap move)
+            if len(trap.setup_moves) > 1:
+                board2 = chess.Board()
+                for move_san in trap.setup_moves[:-1]:
+                    board2.push_san(move_san)
+                pre_trap_fen = board2.fen().split(" ")[:2]
+                if pre_trap_fen == pos_fen_parts:
+                    return {
+                        "trap_id": trap.trap_id,
+                        "name": trap.name,
+                        "opening": trap.opening_name,
+                        "variation": trap.variation_name,
+                        "explanation": f"This position can lead to the {trap.name}. {trap.explanation}",
+                        "refutation": trap.refutation,
+                        "trap_move": trap.trap_move,
+                        "trap_for": trap.trap_for,
+                        "victim_color": trap.victim_color,
+                        "difficulty": trap.difficulty,
+                        "full_line": trap.full_line,
+                    }
+        except Exception:
+            continue
+
+    return None
 
 
 async def get_community_position_count(db: AsyncIOMotorDatabase) -> int:
