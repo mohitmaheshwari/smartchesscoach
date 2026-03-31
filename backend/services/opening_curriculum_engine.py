@@ -96,66 +96,100 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
 
     node = None
     position_name = opening.get("name", "Opening")
+    curriculum_color = opening.get("color", "white")  # The color this curriculum teaches
+    user_plays_curriculum_color = (user_color == curriculum_color)
 
     # Handle empty moves — game just started
     if not moves_played:
         first_move = list(tree.keys())[0] if tree else None
         if first_move:
             first_node = tree[first_move]
-            return {
-                "mode": "think",
-                "hint": first_node.get("hint", "What's the best way to start?"),
-                "plan": first_node.get("plan", ""),
-                "expected_move": first_move,
-                "right_feedback": first_node.get("right_feedback", f"Good — {first_move} is the right start."),
-                "wrong_feedback": first_node.get("wrong_feedback", f"The curriculum starts with {first_move}."),
-                "is_in_book": True,
-                "trap_warning": None,
-                "golden_rule": opening.get("golden_rules", [""])[0] if opening.get("golden_rules") else None,
-                "alternatives": [],
-                "position_name": opening.get("name"),
-                "middlegame_plan": None,
-            }
+            if user_plays_curriculum_color:
+                # User is White learning London — they play d4
+                return {
+                    "mode": "think",
+                    "hint": first_node.get("hint", "What's the best way to start?"),
+                    "plan": first_node.get("plan", ""),
+                    "expected_move": first_move,
+                    "right_feedback": first_node.get("right_feedback", f"Good — {first_move} is the right start."),
+                    "wrong_feedback": first_node.get("wrong_feedback", f"The curriculum starts with {first_move}."),
+                    "is_in_book": True,
+                    "trap_warning": None,
+                    "golden_rule": opening.get("golden_rules", [""])[0] if opening.get("golden_rules") else None,
+                    "alternatives": [],
+                    "position_name": opening.get("name"),
+                    "middlegame_plan": None,
+                }
+            else:
+                # User is Black — coach (White) plays first. User waits.
+                return {
+                    "mode": "waiting",
+                    "hint": f"Coach will play {first_move} to start the {opening.get('name', 'opening')}. Watch and get ready.",
+                    "plan": "",
+                    "is_in_book": True,
+                    "position_name": opening.get("name"),
+                }
         return None
 
-    # Step 1: Match our first move at the top level
+    # Step 1: First move must be the curriculum's opening move
     first_move = moves_played[0]
-    is_first_ours = (user_color == "white")  # In a White curriculum, move 0 is ours
+    expected_first = list(tree.keys())[0] if tree else None
 
-    if is_first_ours:
-        if first_move not in tree:
+    if first_move != expected_first:
+        if user_plays_curriculum_color:
             return _off_book_guidance(opening, moves_played, 0, user_color)
-        node = tree[first_move]
-        if node.get("name"):
-            position_name = node["name"]
-    else:
-        # We're Black playing a White curriculum — shouldn't happen normally
-        return _off_book_guidance(opening, moves_played, 0, user_color)
+        else:
+            # Coach played something unexpected — shouldn't happen
+            return _opponent_surprise_guidance(opening, {}, first_move, moves_played, user_color)
+
+    node = tree[first_move]
+    if node.get("name"):
+        position_name = node["name"]
 
     # Step 2: Walk remaining moves
+    # The tree alternates: first_move(White) → responses(Black) → next(White) → responses(Black)...
+    # When user is White: our moves match "next", opponent matches "responses" keys
+    # When user is Black: our moves match "responses" keys, opponent matches "next"
     for i in range(1, len(moves_played)):
         move = moves_played[i]
         is_our_move = (i % 2 == 0 and user_color == "white") or (i % 2 == 1 and user_color == "black")
 
-        if not is_our_move:
-            # Opponent's move — look in current node's "responses"
-            responses = node.get("responses", {})
-            if move in responses:
-                node = responses[move]
-                if node.get("name"):
-                    position_name = node["name"]
+        if user_plays_curriculum_color:
+            # User plays White (curriculum color)
+            if not is_our_move:
+                # Opponent (Black) move — match against responses
+                responses = node.get("responses", {})
+                if move in responses:
+                    node = responses[move]
+                    if node.get("name"):
+                        position_name = node["name"]
+                else:
+                    return _opponent_surprise_guidance(opening, responses, move, moves_played, user_color)
             else:
-                return _opponent_surprise_guidance(opening, responses, move, moves_played, user_color)
+                # Our (White) move — should match "next"
+                expected = node.get("next")
+                if expected and move == expected:
+                    pass
+                else:
+                    return _off_book_guidance(opening, moves_played, i, user_color)
         else:
-            # Our move — should match current node's "next" field
-            expected = node.get("next")
-            if expected and move == expected:
-                # Good — we played the curriculum move. Stay on the same node
-                # (the node's responses are still the opponent's next possible replies)
-                pass
+            # User plays Black (opposite of curriculum color)
+            if is_our_move:
+                # Our (Black) move — match against responses (Black's moves in the tree)
+                responses = node.get("responses", {})
+                if move in responses:
+                    node = responses[move]
+                    if node.get("name"):
+                        position_name = node["name"]
+                else:
+                    return _off_book_guidance(opening, moves_played, i, user_color)
             else:
-                # We played something different from the curriculum suggestion
-                return _off_book_guidance(opening, moves_played, i, user_color)
+                # Coach (White) move — should match "next"
+                expected = node.get("next")
+                if expected and move == expected:
+                    pass
+                else:
+                    return _opponent_surprise_guidance(opening, {}, move, moves_played, user_color)
 
     # We're at a node — build guidance for the NEXT move to be played
     if node:
@@ -163,12 +197,32 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
         next_is_ours = (total_moves % 2 == 0 and user_color == "white") or (total_moves % 2 == 1 and user_color == "black")
 
         if next_is_ours:
-            # It's our turn — give a HINT (not the answer)
-            next_move = node.get("next")
-            hint = node.get("hint", "What's the best move here? Think about your plan.")
-            plan = node.get("plan", "")
-            right_feedback = node.get("right_feedback", f"Good — {next_move} was the right move.")
-            wrong_feedback = node.get("wrong_feedback", f"The curriculum move was {next_move}.")
+            if user_plays_curriculum_color:
+                # User plays curriculum color (White) — our move = "next"
+                next_move = node.get("next")
+                hint = node.get("hint", "What's the best move here?")
+                plan = node.get("plan", "")
+                right_feedback = node.get("right_feedback", f"Good — {next_move} was the right move.")
+                wrong_feedback = node.get("wrong_feedback", f"The curriculum move was {next_move}.")
+            else:
+                # User plays opposite (Black) — our move = pick from responses
+                responses = node.get("responses", {})
+                if not responses:
+                    # No known responses — we're past the tree
+                    next_move = None
+                    hint = "Opening done. What feels right here?"
+                    plan = ""
+                    right_feedback = "Good choice."
+                    wrong_feedback = "Think about this position more carefully."
+                else:
+                    # Pick the main/first response as the expected move
+                    main_response = list(responses.keys())[0]
+                    resp_node = responses[main_response]
+                    next_move = main_response
+                    hint = resp_node.get("hint", node.get("hint", f"What's the best response here?"))
+                    plan = resp_node.get("plan", node.get("plan", ""))
+                    right_feedback = resp_node.get("right_feedback", f"Good — {main_response} is solid.")
+                    wrong_feedback = resp_node.get("wrong_feedback", f"The best response here is {main_response}.")
 
             # Adapt based on assessment — if user already knows this move, lighten the hint
             mastered_moves = set(assessment.get("moves_mastered", [])) if assessment else set()
@@ -191,18 +245,31 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
                     wrong_feedback = f"You played this wrong {w.get('times_wrong', 0)} times before. The right move is {next_move}. {node.get('wrong_feedback', '')}"
                     break
         else:
-            # It's opponent's turn — tell user what to expect
-            responses = node.get("responses", {})
-            common_responses = list(responses.keys())[:3]
-            plan = node.get("plan", "")
-            if common_responses:
-                return {
-                    "mode": "waiting",
-                    "hint": f"Waiting for opponent. They'll likely play: {', '.join(common_responses)}.",
-                    "plan": plan or "Watch what they do and we'll guide you.",
-                    "is_in_book": True,
-                    "position_name": position_name,
-                }
+            # It's opponent/coach's turn
+            if user_plays_curriculum_color:
+                # User is White — waiting for Black's response
+                responses = node.get("responses", {})
+                common_responses = list(responses.keys())[:3]
+                plan = node.get("plan", "")
+                if common_responses:
+                    return {
+                        "mode": "waiting",
+                        "hint": f"Waiting for opponent. They'll likely play: {', '.join(common_responses)}.",
+                        "plan": plan or "Watch what they do.",
+                        "is_in_book": True,
+                        "position_name": position_name,
+                    }
+            else:
+                # User is Black — waiting for coach (White) to play "next"
+                next_move = node.get("next")
+                if next_move:
+                    return {
+                        "mode": "waiting",
+                        "hint": f"Coach will play {next_move}. Get ready for your response.",
+                        "plan": node.get("plan", ""),
+                        "is_in_book": True,
+                        "position_name": position_name,
+                    }
             # No known responses — opening book ended, transition to middlegame
             mp = opening.get("middlegame_plans", {})
             mid_plan = mp.get("when_equal", {}).get("plan", "Develop pieces and look for a plan.")
