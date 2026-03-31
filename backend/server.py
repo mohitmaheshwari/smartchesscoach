@@ -10504,18 +10504,12 @@ async def make_coach_play_move(
             
             if guidance and guidance.get("mode") == "think" and guidance.get("expected_move"):
                 expected = guidance["expected_move"]
-                if move != expected:
-                    # User played the wrong move — redirect them
-                    return {
-                        "success": False,
-                        "curriculum_redirect": True,
-                        "message": guidance.get("wrong_feedback", f"We're learning the {teaching_opening.replace('_', ' ')}. The right move here is {expected}."),
-                        "expected_move": expected,
-                        "your_move": move,
-                    }
-                else:
-                    # Correct! Include right feedback
+                if move == expected:
                     curriculum_feedback = guidance.get("right_feedback", "Good move.")
+                else:
+                    # Not the curriculum move — accept it, but explain what was better
+                    wrong_fb = guidance.get("wrong_feedback", "")
+                    curriculum_feedback = f"{move} is playable, but {expected} was the curriculum move here. {wrong_fb}"
     
     # Validate and record user's move ONLY (fast)
     try:
