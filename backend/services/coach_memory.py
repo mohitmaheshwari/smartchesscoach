@@ -505,7 +505,7 @@ async def get_personalized_greeting(db, user_id: str) -> str:
     memory = await get_or_create_memory(db, user_id)
     
     # Refresh patterns before generating greeting
-    _identify_recurring_patterns(memory)
+    _detect_recurring_patterns(memory)
     
     context = _get_greeting_context(memory)
     

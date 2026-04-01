@@ -10327,7 +10327,11 @@ async def start_play_with_coach(
             from services.opening_mastery import suggest_opening_for_session
             
             coaching_context = await get_coaching_context(db, user.user_id)
-            personalized_greeting = await get_personalized_greeting(db, user.user_id)
+            try:
+                personalized_greeting = await get_personalized_greeting(db, user.user_id)
+            except Exception as greet_err:
+                logger.warning(f"Coach memory greeting failed: {greet_err}")
+                personalized_greeting = "Let's play!"
             
             # OPENING SELECTION: Use curriculum if specified, else old system
             if not practice_mode:
