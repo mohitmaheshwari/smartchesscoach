@@ -440,7 +440,7 @@ def _off_book_guidance(opening: Dict, moves: List[str], off_book_at: int, user_c
 
 
 def _opponent_surprise_guidance(opening: Dict, current_branch: Dict, opponent_move: str, moves: List[str], user_color: str) -> Dict:
-    """Opponent played something unexpected. Give guidance."""
+    """Opponent played something not in the curriculum tree. Analyze what they did."""
     setup = opening.get("setup_order", [])
     next_setup = None
     for m in setup:
@@ -451,10 +451,27 @@ def _opponent_surprise_guidance(opening: Dict, current_branch: Dict, opponent_mo
     mp = opening.get("middlegame_plans", {})
     plan = mp.get("when_equal", {}).get("plan", "Develop your pieces and control the center.")
 
+    # Analyze what the opponent's move actually does instead of calling it "unusual"
+    opp_description = ""
+    try:
+        # Rebuild the board to analyze
+        board = _chess.Board()
+        for mv in moves:
+            try:
+                board.push_san(mv)
+            except Exception:
+                break
+        # Now analyze the opponent's move on this board
+        from services.move_intent_analyzer import analyze_move_intent
+        intent = analyze_move_intent(board.fen(), opponent_move)
+        opp_description = intent.description
+    except Exception:
+        opp_description = f"They played {opponent_move}."
+
     if next_setup:
-        hint = f"They played {opponent_move} — unusual, but don't worry. Think about your setup. What piece needs to come out next?"
+        hint = f"{opp_description} Continue with your plan. What piece needs to come out next?"
     else:
-        hint = f"They played {opponent_move}. Opening is done — what's your plan for the middlegame?"
+        hint = f"{opp_description} Opening is done — what's your plan for the middlegame?"
 
     return {
         "mode": "think",
