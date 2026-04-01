@@ -142,10 +142,10 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
     doFetch();
   }, [sessionId, fen, openingKey]);
 
-  const showIntro = introMessage && !introDismissed && !curriculumFeedback && !coachMove;
-
   // Determine the coach's last move — from prop OR from guidance
   const coachMove = lastCoachMove || guidance?.last_opponent_move || null;
+
+  const showIntro = introMessage && !introDismissed && !curriculumFeedback && !coachMove;
 
   return (
     <div className="space-y-3" data-testid="coach-panel">
