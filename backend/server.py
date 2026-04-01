@@ -10801,6 +10801,11 @@ async def _process_move_and_respond(
                         "current_fen": fen_after_coach,
                         "move_history": move_history,
                         "coach_move_pending": False,
+                        "last_coach_move": {
+                            "move": coach_move_san,
+                            "san": coach_move_san,
+                            "uci": chess_move.uci(),
+                        },
                     }
                     if game_over_after:
                         update["status"] = "completed"
@@ -10831,7 +10836,12 @@ async def _process_move_and_respond(
                             })
                             await db.coach_sessions.update_one(
                                 {"session_id": session_id},
-                                {"$set": {"current_fen": board2.fen(), "move_history": move_history, "coach_move_pending": False}}
+                                {"$set": {
+                                    "current_fen": board2.fen(),
+                                    "move_history": move_history,
+                                    "coach_move_pending": False,
+                                    "last_coach_move": {"move": simple_move, "san": simple_move, "uci": m2.uci()},
+                                }}
                             )
                             logger.info(f"[CURRICULUM FALLBACK] Simple move {simple_move}")
                             return
