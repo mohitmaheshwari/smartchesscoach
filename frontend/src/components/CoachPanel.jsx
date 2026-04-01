@@ -14,7 +14,68 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, BookOpen, Brain, Eye,
   AlertTriangle, Target, ChevronDown, ChevronUp, Swords,
+  Shield, Crosshair, Crown, Columns, Zap,
 } from "lucide-react";
+
+const CATEGORY_CHIPS = {
+  king_safety: { icon: Crown, color: "text-red-500 bg-red-500/10 border-red-500/20" },
+  tactics: { icon: Zap, color: "text-amber-600 bg-amber-500/10 border-amber-500/20" },
+  piece_activity: { icon: Target, color: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
+  development: { icon: Columns, color: "text-purple-500 bg-purple-500/10 border-purple-500/20" },
+  center: { icon: Crosshair, color: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20" },
+  pawn_structure: { icon: Shield, color: "text-orange-500 bg-orange-500/10 border-orange-500/20" },
+};
+
+// Read the Board — tap-to-expand chips
+const ReadTheBoard = ({ features, evalText }) => {
+  const [expanded, setExpanded] = useState(null); // index of expanded chip
+
+  if (!features?.length) return null;
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="p-3 rounded-lg bg-muted/30 border border-border">
+      <div className="flex items-center gap-2 mb-2.5">
+        <Eye className="w-3.5 h-3.5 text-primary" strokeWidth={1.5} />
+        <span className="text-xs font-medium text-foreground">Read the Board</span>
+        <span className="text-[10px] text-muted-foreground ml-auto">{evalText}</span>
+      </div>
+
+      {/* Chips row */}
+      <div className="flex flex-wrap gap-1.5 mb-1">
+        {features.map((f, i) => {
+          const chip = CATEGORY_CHIPS[f.category] || CATEGORY_CHIPS.tactics;
+          const Icon = chip.icon;
+          const isOpen = expanded === i;
+
+          return (
+            <button
+              key={i}
+              onClick={() => setExpanded(isOpen ? null : i)}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-medium transition-all ${chip.color} ${isOpen ? 'ring-1 ring-primary/30' : 'hover:brightness-95'}`}
+            >
+              <Icon className="w-3 h-3" strokeWidth={1.5} />
+              <span>{f.title}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Expanded detail */}
+      {expanded !== null && features[expanded] && (
+        <motion.div
+          key={expanded}
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          className="mt-2 pt-2 border-t border-border"
+        >
+          <p className="text-xs text-foreground">{features[expanded].description}</p>
+          <p className="text-[11px] text-primary/80 mt-1 font-medium">{features[expanded].actionable}</p>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+};
 
 const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, curriculumFeedback, lastCoachMove }) => {
   const [guidance, setGuidance] = useState(null);
@@ -160,25 +221,9 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
         </motion.div>
       )}
 
-      {/* ─── READ THE BOARD ─── */}
+      {/* ─── READ THE BOARD: Icon chips + tap to expand ─── */}
       {!showIntro && positionRead && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          className="p-3 rounded-lg bg-muted/30 border border-border">
-          <div className="flex items-center gap-2 mb-2">
-            <Eye className="w-4 h-4 text-primary" strokeWidth={1.5} />
-            <span className="text-xs font-medium text-foreground">Read the Board</span>
-            <span className="text-[10px] text-muted-foreground ml-auto">{positionRead.eval_text}</span>
-          </div>
-          <div className="space-y-2">
-            {positionRead.features.map((f, i) => (
-              <div key={i} className="border-l-2 border-primary/30 pl-2.5">
-                <p className="text-xs font-medium text-foreground">{f.title}</p>
-                <p className="text-xs text-muted-foreground">{f.description}</p>
-                <p className="text-[11px] text-primary/70 mt-0.5">{f.actionable}</p>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+        <ReadTheBoard features={positionRead.features} evalText={positionRead.eval_text} />
       )}
 
       {/* ─── ENGINE PICKS (off-book) ─── */}
