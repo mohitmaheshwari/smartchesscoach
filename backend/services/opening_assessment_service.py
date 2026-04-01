@@ -426,12 +426,32 @@ async def get_pregame_intro(db, user_id: str, opening_key: str = "london_system"
         else:
             focus_area = "Basic setup"
 
+    # 4. Get player brain for additional context
+    from services.memory_brain import get_player_brain
+    brain = await get_player_brain(db, user_id)
+
+    # Add brain insights to intro
+    if brain.get("top_weakness") and level != "brand_new":
+        weakness_label = brain["top_weakness"]["label"]
+        weakness_fix = brain["top_weakness"]["fix"]
+        intro_lines.append(f"Your biggest weakness right now: {weakness_label}. {weakness_fix}")
+
+    if brain.get("momentum", {}).get("type") == "losing" and brain.get("momentum", {}).get("count", 0) >= 3:
+        intro_lines.append("Tough stretch — but every game is a chance to improve.")
+
     return {
         "opening_key": opening_key,
         "opening_name": opening_name,
         "level": level,
         "intro": " ".join(intro_lines),
         "focus_area": focus_area,
+        "brain": {
+            "focus_message": brain.get("focus_message"),
+            "top_weakness": brain.get("top_weakness"),
+            "drill_focus": brain.get("drill_focus"),
+            "momentum": brain.get("momentum"),
+            "rating": brain.get("rating"),
+        },
         "stats": {
             "real_games": real_games,
             "coach_sessions": sessions_played,

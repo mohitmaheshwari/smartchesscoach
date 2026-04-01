@@ -48,7 +48,7 @@ const CoachInsightPanel = ({ gameId, onMoveClick }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("summary");
+  const [activeTab, setActiveTab] = useState("habits");
 
   useEffect(() => {
     if (!gameId) return;
@@ -91,10 +91,6 @@ const CoachInsightPanel = ({ gameId, onMoveClick }) => {
     <div data-testid="coach-insight-panel">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full bg-gray-50 mb-4">
-          <TabsTrigger value="summary" className="flex-1 text-xs" data-testid="tab-summary">
-            <Crosshair className="w-3 h-3 mr-1.5" />
-            Summary
-          </TabsTrigger>
           <TabsTrigger value="habits" className="flex-1 text-xs" data-testid="tab-habits">
             <Shield className="w-3 h-3 mr-1.5" />
             Habits
@@ -106,13 +102,9 @@ const CoachInsightPanel = ({ gameId, onMoveClick }) => {
           </TabsTrigger>
           <TabsTrigger value="memory" className="flex-1 text-xs" data-testid="tab-memory">
             <Brain className="w-3 h-3 mr-1.5" />
-            Memory
+            Chess DNA
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="summary" className="mt-0">
-          <SummaryTab summary={data.summary} onMoveClick={onMoveClick} />
-        </TabsContent>
 
         <TabsContent value="habits" className="mt-0">
           <HabitsTab habits={data.habits} />

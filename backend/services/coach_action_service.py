@@ -133,6 +133,10 @@ async def generate_coach_action(
     blunders = sf.get("blunders", 0)
     mistakes = sf.get("mistakes", 0)
 
+    # 6. BRAIN — player's overall context
+    from services.memory_brain import get_player_brain
+    brain = await get_player_brain(db, user_id)
+
     return {
         "diagnosis": {
             "type": diagnosis,
@@ -151,6 +155,12 @@ async def generate_coach_action(
             "accuracy": accuracy,
             "blunders": blunders,
             "mistakes": mistakes,
+        },
+        "brain": {
+            "focus_message": brain.get("focus_message"),
+            "top_weakness": brain.get("top_weakness"),
+            "drill_focus": brain.get("drill_focus"),
+            "rating": brain.get("rating"),
         },
     }
 

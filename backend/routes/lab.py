@@ -761,6 +761,14 @@ async def get_coach_action(game_id: str, user: User = Depends(get_current_user))
 
 
 
+@router.get("/player-brain")
+async def get_player_brain_endpoint(user: User = Depends(get_current_user)):
+    """Get the player's memory brain — everything we know + what to do about it."""
+    global db
+    from services.memory_brain import get_player_brain
+    return await get_player_brain(db, user.user_id)
+
+
 @router.get("/lab/{game_id}/coach-insight")
 async def get_coach_insight(game_id: str, user: User = Depends(get_current_user)):
     """
