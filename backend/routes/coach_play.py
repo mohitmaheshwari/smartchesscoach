@@ -2292,17 +2292,19 @@ async def get_opening_guide(
 
     # ALWAYS include commentary about the coach's last move
     coach_move_commentary = None
+    # Track the last coach move SAN for frontend display
+    last_opponent_move_san = None
     if move_history:
         last_move = move_history[-1]
         if isinstance(last_move, dict) and last_move.get("by") == "coach":
             last_san = last_move.get("san", last_move.get("move", ""))
             last_fen = last_move.get("fen_before", "")
+            last_opponent_move_san = last_san
             
             # Use curriculum commentary if available
             if guidance and guidance.get("opponent_commentary"):
                 coach_move_commentary = guidance["opponent_commentary"]
             elif last_san and last_fen:
-                # Fallback: use move intent analyzer
                 try:
                     from services.move_intent_analyzer import analyze_move_intent
                     intent = analyze_move_intent(last_fen, last_san)
@@ -2313,17 +2315,17 @@ async def get_opening_guide(
                 coach_move_commentary = f"Opponent played {last_san}."
 
     if not guidance:
-        # No curriculum guidance, but still return coach move commentary
         return {
             "has_guidance": coach_move_commentary is not None,
             "message": "Past the opening — play your best.",
             "opponent_commentary": coach_move_commentary,
+            "last_opponent_move": last_opponent_move_san,
             "mode": "free",
         }
 
-    # Override opponent_commentary with our always-present version
     if coach_move_commentary:
         guidance["opponent_commentary"] = coach_move_commentary
+    guidance["last_opponent_move"] = last_opponent_move_san
 
     return {"has_guidance": True, **guidance}
 

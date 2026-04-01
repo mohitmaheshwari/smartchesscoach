@@ -142,7 +142,10 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
     doFetch();
   }, [sessionId, fen, openingKey]);
 
-  const showIntro = introMessage && !introDismissed && !curriculumFeedback && !lastCoachMove;
+  const showIntro = introMessage && !introDismissed && !curriculumFeedback && !coachMove;
+
+  // Determine the coach's last move — from prop OR from guidance
+  const coachMove = lastCoachMove || guidance?.last_opponent_move || null;
 
   return (
     <div className="space-y-3" data-testid="coach-panel">
@@ -179,9 +182,9 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
               )}
 
               {/* Opponent move */}
-              {lastCoachMove && guidance?.opponent_commentary && (
+              {coachMove && guidance?.opponent_commentary && (
                 <div className="border-l-2 border-red-400/50 pl-2.5">
-                  <span className="text-xs font-mono font-bold text-red-500">{lastCoachMove}</span>
+                  <span className="text-xs font-mono font-bold text-red-500">{coachMove}</span>
                   <span className="text-xs text-muted-foreground ml-1.5">— {guidance.opponent_commentary}</span>
                 </div>
               )}
@@ -192,7 +195,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
               )}
 
               {/* Hint fallback — show even if isPlayerTurn is not set yet (first render after intro) */}
-              {guidance?.hint && !isPlayerTurn && !lastCoachMove && !curriculumFeedback && (
+              {guidance?.hint && !isPlayerTurn && !coachMove && !curriculumFeedback && (
                 <p className="text-foreground font-medium">{guidance.hint}</p>
               )}
 
@@ -205,7 +208,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
               )}
 
               {/* Waiting for coach */}
-              {!isPlayerTurn && !lastCoachMove && !curriculumFeedback && !guidance?.hint && (
+              {!isPlayerTurn && !coachMove && !curriculumFeedback && !guidance?.hint && (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
                   <span className="text-muted-foreground">Coach is thinking...</span>
@@ -213,7 +216,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
               )}
 
               {/* Empty state — truly nothing */}
-              {!curriculumFeedback && !lastCoachMove && !guidance?.hint && isPlayerTurn && (
+              {!curriculumFeedback && !coachMove && !guidance?.hint && isPlayerTurn && (
                 <p className="text-muted-foreground">Your turn — make a move.</p>
               )}
             </div>
