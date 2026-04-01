@@ -2308,7 +2308,9 @@ async def get_opening_guide(
                 try:
                     from services.move_intent_analyzer import analyze_move_intent
                     intent = analyze_move_intent(last_fen, last_san)
-                    coach_move_commentary = f"{intent.description} {intent.feedback}"
+                    # Fix perspective — analyzer says "You" but this is the opponent
+                    desc = intent.description.replace("You ", "Opponent ").replace("Your ", "Their ")
+                    coach_move_commentary = desc
                 except Exception:
                     coach_move_commentary = f"Opponent played {last_san}."
             elif last_san:

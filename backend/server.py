@@ -10523,7 +10523,7 @@ async def make_coach_play_move(
                 else:
                     # First time off-book — explain what the curriculum wanted, then let it go
                     wrong_fb = guidance.get("wrong_feedback", "")
-                    curriculum_feedback = f"The curriculum move was {expected} here. {wrong_fb} But that's OK — let's see how your choice works out."
+                    curriculum_feedback = f"{wrong_fb}" if wrong_fb else f"The curriculum move was {expected} here. But that's OK."
             
             # If already off-book, don't nag. Use move intent analyzer instead.
             elif guidance and not guidance.get("is_in_book"):
