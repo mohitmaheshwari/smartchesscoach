@@ -2478,3 +2478,30 @@ async def get_pregame_intro_endpoint(
     from services.opening_assessment_service import get_pregame_intro
 
     return await get_pregame_intro(db, user.user_id, opening)
+
+
+@router.post("/read-position")
+async def read_position_endpoint(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Read a position — what should the player NOTICE?
+    Returns top 2-3 features adapted to rating.
+    """
+    global db
+    from services.position_reader import read_position
+
+    session_id = request.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id required")
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    fen = session_doc.get("current_fen")
+    user_color = session_doc.get("user_color", "white")
+    user_rating = session_doc.get("user_rating", 1200)
+
+    return read_position(fen, user_color, user_rating)

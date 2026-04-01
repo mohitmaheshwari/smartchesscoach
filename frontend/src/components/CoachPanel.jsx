@@ -17,7 +17,7 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, BookOpen, HelpCircle, CheckCircle2, Brain,
-  AlertTriangle, Target, ChevronDown, ChevronUp, Swords,
+  AlertTriangle, Target, ChevronDown, ChevronUp, Swords, Eye,
 } from "lucide-react";
 
 // Coach message card — matches the original blue/primary style
@@ -48,6 +48,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
   const [lastFetchedFen, setLastFetchedFen] = useState(null);
   const [introDismissed, setIntroDismissed] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
+  const [positionRead, setPositionRead] = useState(null);
 
   useEffect(() => {
     if (!sessionId || !fen) return;
@@ -85,6 +86,21 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
       } else {
         setCandidates([]);
       }
+
+      // Position reader — what to notice
+      try {
+        const posRes = await fetch(`${API}/coach/play/read-position`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+        if (posRes.ok) {
+          const data = await posRes.json();
+          if (data.features?.length > 0) setPositionRead(data);
+          else setPositionRead(null);
+        }
+      } catch {}
 
       setLastFetchedFen(fen);
       setLoading(false);
@@ -135,6 +151,27 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
         >
           <p>{guidance.opponent_commentary}</p>
         </CoachCard>
+      )}
+
+      {/* ─── READ THE BOARD — position features ─── */}
+      {!showIntro && positionRead && positionRead.features?.length > 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="p-3 rounded-lg bg-muted/30 border border-border">
+          <div className="flex items-center gap-2 mb-2">
+            <Eye className="w-4 h-4 text-primary" strokeWidth={1.5} />
+            <span className="text-xs font-medium text-foreground">Read the Board</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">{positionRead.eval_text}</span>
+          </div>
+          <div className="space-y-2">
+            {positionRead.features.map((f, i) => (
+              <div key={i} className="border-l-2 border-primary/30 pl-2.5">
+                <p className="text-xs font-medium text-foreground">{f.title}</p>
+                <p className="text-xs text-muted-foreground">{f.description}</p>
+                <p className="text-[11px] text-primary/70 mt-0.5">{f.actionable}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       )}
 
       {/* ─── THINK FIRST ─── */}
