@@ -10502,9 +10502,9 @@ async def make_coach_play_move(
             move_history_san = [m.get("move", "") for m in session_doc.get("move_history", [])]
             guidance = get_opening_guidance(teaching_opening, move_history_san, user_color, assessment=assessment)
             
-            if guidance and guidance.get("mode") == "think" and guidance.get("expected_move"):
+            # Only compare to curriculum when we're IN the book
+            if guidance and guidance.get("is_in_book") and guidance.get("mode") == "think" and guidance.get("expected_move"):
                 expected = guidance["expected_move"]
-                # Compare by UCI (from-to squares) to avoid SAN disambiguation issues (Nd2 vs Nbd2)
                 moves_match = False
                 try:
                     check_board = chess.Board(fen_before)
@@ -10512,13 +10512,26 @@ async def make_coach_play_move(
                     expected_uci = check_board.parse_san(expected).uci()
                     moves_match = (user_uci == expected_uci)
                 except Exception:
-                    moves_match = (move == expected)  # Fallback to string compare
+                    moves_match = (move == expected)
                 
                 if moves_match:
                     curriculum_feedback = guidance.get("right_feedback", "Good move.")
                 else:
+                    # First time off-book — explain what the curriculum wanted, then let it go
                     wrong_fb = guidance.get("wrong_feedback", "")
-                    curriculum_feedback = f"{move} is playable, but {expected} was the curriculum move here. {wrong_fb}"
+                    curriculum_feedback = f"The curriculum move was {expected} here. {wrong_fb} But that's OK — let's see how your choice works out."
+            
+            # If already off-book, don't nag. Use move intent analyzer instead.
+            elif guidance and not guidance.get("is_in_book"):
+                try:
+                    from services.move_intent_analyzer import analyze_move_intent
+                    intent = analyze_move_intent(fen_before, move)
+                    if intent.is_reasonable:
+                        curriculum_feedback = intent.feedback
+                    else:
+                        curriculum_feedback = f"{intent.description} {intent.feedback}"
+                except Exception:
+                    pass  # No feedback is better than bad feedback
     
     # Validate and record user's move ONLY (fast)
     try:
