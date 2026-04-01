@@ -84,6 +84,63 @@ import {
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
 import CoachPanel from "@/components/CoachPanel";
 
+
+// Opening suggestions for pre-game screen
+const OpeningSuggestions = () => {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    fetch(`${process.env.REACT_APP_BACKEND_URL}/api/coach/play/opening-suggestions`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setData(d))
+      .catch(() => {});
+  }, []);
+
+  if (!data || data.total_games === 0) return null;
+
+  const statusColors = {
+    strong: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20",
+    learning: "text-amber-600 bg-amber-500/10 border-amber-500/20",
+    weak: "text-red-500 bg-red-500/10 border-red-500/20",
+    new: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+  };
+
+  const renderOpenings = (openings, label) => {
+    if (!openings?.length) return null;
+    return (
+      <div>
+        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">{label}</p>
+        <div className="space-y-1">
+          {openings.slice(0, 3).map((o, i) => (
+            <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded border border-border">
+              <span className="text-foreground font-medium truncate max-w-[140px]">{o.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">{o.games}g</span>
+                <span className="text-muted-foreground">{o.win_rate}%</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] border ${statusColors[o.status]}`}>
+                  {o.status_label}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-3 p-3 rounded-lg bg-muted/30 border border-border">
+      <p className="text-xs font-medium text-foreground">Your Openings</p>
+      {renderOpenings(data.white, "As White")}
+      {renderOpenings(data.black, "As Black")}
+      {data.suggestion && (
+        <div className="pt-2 border-t border-border">
+          <p className="text-xs text-primary">{data.suggestion.message}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -2469,6 +2526,9 @@ const CoachPlay = ({ user }) => {
                   )}
                 </div>
               )}
+
+              {/* Opening Suggestions */}
+              <OpeningSuggestions />
 
               {/* Start Button */}
               <Button

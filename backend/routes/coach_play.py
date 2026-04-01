@@ -2505,3 +2505,97 @@ async def read_position_endpoint(
     user_rating = session_doc.get("user_rating", 1200)
 
     return read_position(fen, user_color, user_rating)
+
+
+@router.get("/opening-suggestions")
+async def get_opening_suggestions(user: User = Depends(get_current_user)):
+    """
+    Get personalized opening suggestions for Play with Coach.
+    Shows what the user plays, how well, and what to learn next.
+    """
+    global db
+    from services.opening_walkthrough_service import get_user_top_openings
+    from services.opening_curriculum_engine import get_available_openings
+
+    # Get user's actual opening stats from their games
+    white_openings = []
+    black_openings = []
+
+    games = await db.games.find(
+        {"user_id": user.user_id, "opening_name": {"$exists": True, "$nin": [None, ""]}},
+        {"_id": 0, "game_id": 1, "opening_name": 1, "opening": 1, "result": 1, "user_color": 1}
+    ).sort("imported_at", -1).limit(100).to_list(100)
+
+    # Group by color and opening
+    for color_label, color_list in [("white", white_openings), ("black", black_openings)]:
+        color_games = [g for g in games if g.get("user_color") == color_label]
+        opening_map = {}
+
+        for g in color_games:
+            name = g.get("opening_name") or g.get("opening") or "Unknown"
+            short = " ".join(name.split()[:3])
+            if short not in opening_map:
+                opening_map[short] = {"name": name, "games": 0, "wins": 0, "losses": 0, "draws": 0}
+
+            opening_map[short]["games"] += 1
+            result = g.get("result", "")
+            user_won = (result == "1-0" and color_label == "white") or (result == "0-1" and color_label == "black")
+            user_lost = (result == "0-1" and color_label == "white") or (result == "1-0" and color_label == "black")
+            if user_won:
+                opening_map[short]["wins"] += 1
+            elif user_lost:
+                opening_map[short]["losses"] += 1
+            else:
+                opening_map[short]["draws"] += 1
+
+        sorted_openings = sorted(opening_map.values(), key=lambda x: x["games"], reverse=True)
+
+        for o in sorted_openings[:5]:
+            total = o["games"]
+            win_rate = round(o["wins"] / total * 100) if total > 0 else 0
+            
+            # Determine status
+            if total >= 5 and win_rate >= 60:
+                status = "strong"
+                status_label = "You play this well"
+            elif total >= 3 and win_rate >= 40:
+                status = "learning"
+                status_label = "Getting there"
+            elif total >= 3 and win_rate < 40:
+                status = "weak"
+                status_label = "Needs work"
+            else:
+                status = "new"
+                status_label = "Just started"
+
+            color_list.append({
+                "name": o["name"],
+                "games": total,
+                "wins": o["wins"],
+                "losses": o["losses"],
+                "win_rate": win_rate,
+                "status": status,
+                "status_label": status_label,
+            })
+
+    # Available curriculums
+    available = get_available_openings()
+
+    # Suggest what to learn
+    suggestion = None
+    if not white_openings:
+        suggestion = {"message": "You haven't played many games yet. Start with the London System — it's solid and easy to learn.", "opening_key": "london_system"}
+    else:
+        weak = [o for o in white_openings if o["status"] == "weak"]
+        if weak:
+            suggestion = {"message": f"Your {weak[0]['name']} needs work ({weak[0]['win_rate']}% win rate). Let's fix that.", "opening_key": None}
+        elif len(white_openings) <= 2:
+            suggestion = {"message": "You only play 1-2 openings. Adding the London System gives you a backup.", "opening_key": "london_system"}
+
+    return {
+        "white": white_openings,
+        "black": black_openings,
+        "available_curriculums": [{"key": a["key"], "name": a["name"], "color": a["color"]} for a in available],
+        "suggestion": suggestion,
+        "total_games": len(games),
+    }
