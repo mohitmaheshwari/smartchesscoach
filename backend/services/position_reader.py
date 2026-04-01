@@ -113,28 +113,29 @@ def _analyze_king_safety(board, user_color, opp_color) -> List[PositionFeature]:
         opp_pawn_shield = _has_pawn_shield(board, opp_color, opp_king_sq)
         
         if not opp_castled:
-            # King in the center — genuinely exposed
-            king_name = chess.square_name(opp_king_sq)
-            escape_squares = _count_escape_squares(board, opp_color, opp_king_sq, user_color)
+            # King in the center — only flag if game is far enough along
+            if board.fullmove_number >= 8:
+                king_name = chess.square_name(opp_king_sq)
+                escape_squares = _count_escape_squares(board, opp_color, opp_king_sq, user_color)
             
-            if len(escape_squares) <= 1:
-                features.append(PositionFeature(
-                    priority=1,
-                    category="king_safety",
-                    title="Opponent's king hasn't castled",
-                    description=f"Their king is stuck on {king_name} with {'only 1 escape: ' + escape_squares[0] if escape_squares else 'almost no escape squares'}. It's vulnerable in the center.",
-                    min_rating=800,
-                    actionable="Open the center! An uncastled king hates open lines. Look for checks.",
-                ))
-            elif board.fullmove_number >= 8:
-                features.append(PositionFeature(
-                    priority=3,
-                    category="king_safety",
-                    title="Opponent still hasn't castled",
-                    description=f"Their king is still on {king_name} after {board.fullmove_number} moves. This is a target.",
-                    min_rating=800,
-                    actionable="Open the center and look for checks. Their king is uncomfortable.",
-                ))
+                if len(escape_squares) <= 1:
+                    features.append(PositionFeature(
+                        priority=1,
+                        category="king_safety",
+                        title="Opponent's king hasn't castled",
+                        description=f"Their king is stuck on {king_name} with {'only 1 escape: ' + escape_squares[0] if escape_squares else 'almost no escape squares'}. It's vulnerable in the center.",
+                        min_rating=800,
+                        actionable="Open the center! An uncastled king hates open lines. Look for checks.",
+                    ))
+                else:
+                    features.append(PositionFeature(
+                        priority=3,
+                        category="king_safety",
+                        title="Opponent still hasn't castled",
+                        description=f"Their king is still on {king_name} after {board.fullmove_number} moves. This is a target.",
+                        min_rating=800,
+                        actionable="Open the center and look for checks. Their king is uncomfortable.",
+                    ))
         elif opp_castled and not opp_pawn_shield:
             # Castled but pawn shield is broken
             king_name = chess.square_name(opp_king_sq)
@@ -280,7 +281,7 @@ def _analyze_development(board, user_color) -> List[PositionFeature]:
         if piece and piece.color == user_color and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
             undeveloped.append(chess.piece_name(piece.piece_type) + " on " + chess.square_name(sq))
 
-    if len(undeveloped) >= 2 and board.fullmove_number <= 15:
+    if len(undeveloped) >= 2 and board.fullmove_number >= 5 and board.fullmove_number <= 15:
         features.append(PositionFeature(
             priority=4,
             category="development",
@@ -335,10 +336,13 @@ def _analyze_open_files(board, user_color) -> List[PositionFeature]:
 def _analyze_piece_activity(board, user_color, opp_color) -> List[PositionFeature]:
     features = []
 
-    # Knights on the rim
+    # Knights on the rim — but NOT on starting squares (b1, g1, b8, g8)
+    starting_squares = {chess.B1, chess.G1, chess.B8, chess.G8}
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
         if piece and piece.color == user_color and piece.piece_type == chess.KNIGHT:
+            if sq in starting_squares:
+                continue  # Knight hasn't moved yet, don't flag
             file_idx = chess.square_file(sq)
             rank_idx = chess.square_rank(sq)
             if file_idx in [0, 7] or rank_idx in [0, 7]:
@@ -352,10 +356,12 @@ def _analyze_piece_activity(board, user_color, opp_color) -> List[PositionFeatur
                 ))
                 break
 
-    # Opponent's passive pieces
+    # Opponent's passive knights — not on starting squares
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
         if piece and piece.color == opp_color and piece.piece_type == chess.KNIGHT:
+            if sq in starting_squares:
+                continue
             file_idx = chess.square_file(sq)
             rank_idx = chess.square_rank(sq)
             if file_idx in [0, 7] or rank_idx in [0, 7]:
