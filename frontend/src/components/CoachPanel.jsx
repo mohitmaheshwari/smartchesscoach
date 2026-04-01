@@ -167,7 +167,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
 
       {/* ─── COACH MESSAGE: One unified card per state ─── */}
       {!showIntro && (
-        <motion.div key={`coach-${fen}`} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+        <motion.div key={`coach-${fen}-${introDismissed}`} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
           className="p-4 rounded-lg bg-primary/10 border border-primary/20">
           <div className="flex items-start gap-2">
             <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" strokeWidth={1.5} />
@@ -186,8 +186,13 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
                 </div>
               )}
 
-              {/* Hint for next move */}
-              {isPlayerTurn && guidance?.hint && (
+              {/* Hint — show whenever guidance has one and it's user's turn */}
+              {guidance?.hint && isPlayerTurn && (
+                <p className="text-foreground font-medium">{guidance.hint}</p>
+              )}
+
+              {/* Hint fallback — show even if isPlayerTurn is not set yet (first render after intro) */}
+              {guidance?.hint && !isPlayerTurn && !lastCoachMove && !curriculumFeedback && (
                 <p className="text-foreground font-medium">{guidance.hint}</p>
               )}
 
@@ -199,20 +204,15 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
                 </div>
               )}
 
-              {/* Weak spot */}
-              {guidance?.is_weak_spot && (
-                <p className="text-xs text-destructive/80 font-medium">You've gotten this wrong before.</p>
-              )}
-
               {/* Waiting for coach */}
-              {!isPlayerTurn && !lastCoachMove && !curriculumFeedback && (
+              {!isPlayerTurn && !lastCoachMove && !curriculumFeedback && !guidance?.hint && (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
                   <span className="text-muted-foreground">Coach is thinking...</span>
                 </div>
               )}
 
-              {/* Nothing to show */}
+              {/* Empty state — truly nothing */}
               {!curriculumFeedback && !lastCoachMove && !guidance?.hint && isPlayerTurn && (
                 <p className="text-muted-foreground">Your turn — make a move.</p>
               )}
