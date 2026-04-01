@@ -10764,9 +10764,9 @@ async def _process_move_and_respond(
                 coach_move_san = await opponent.get_move(fen_after_user)
             
             if coach_move_san:
-                # 3-second delay — gives user time to read their move feedback
+                # Brief pause — gives user time to see their move feedback
                 import asyncio as _asyncio
-                await _asyncio.sleep(3)
+                await _asyncio.sleep(1.5)
                 
                 board = chess_lib.Board(fen_after_user)
                 try:
