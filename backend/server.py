@@ -10810,7 +10810,30 @@ async def _process_move_and_respond(
                     return
                 except Exception as e:
                     logger.warning(f"Curriculum fast path failed: {e}")
-                    # Fall through to normal path
+                    # Don't fall through to heavy normal path — just make a simple move
+                    try:
+                        from coach_play.coach_opponent import CoachOpponent
+                        simple_opp = CoachOpponent(user_rating=user_rating)
+                        simple_opp.depth = 6
+                        simple_move = await simple_opp.get_move(fen_after_user)
+                        if simple_move:
+                            board2 = chess_lib.Board(fen_after_user)
+                            m2 = board2.parse_san(simple_move)
+                            board2.push(m2)
+                            move_history.append({
+                                "move": simple_move, "uci": m2.uci(), "by": "coach",
+                                "fen_before": fen_after_user, "fen_after": board2.fen(),
+                                "timestamp": datetime.now(timezone.utc).isoformat()
+                            })
+                            await db.coach_sessions.update_one(
+                                {"session_id": session_id},
+                                {"$set": {"current_fen": board2.fen(), "move_history": move_history, "coach_move_pending": False}}
+                            )
+                            logger.info(f"[CURRICULUM FALLBACK] Simple move {simple_move}")
+                            return
+                    except Exception as e2:
+                        logger.error(f"Curriculum fallback also failed: {e2}")
+                    return  # Don't fall through to the 10-second normal path
         
         # NORMAL PATH: Full analysis + coaching
         # Step 1: Quick analysis of user's move
