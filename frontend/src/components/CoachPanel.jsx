@@ -1,14 +1,10 @@
 /**
- * CoachPanel.jsx — Right panel for Play with Coach
+ * CoachPanel.jsx — Single conversational coach voice
  * 
- * Styled like the original coach chat — primary/blue background cards with Brain icon.
- * 
- * Sections:
- * 1. INTRO — "Today we're learning London..."
- * 2. YOUR MOVE — Feedback after user plays
- * 3. OPPONENT MOVE — What coach played + why
- * 4. THINK FIRST — Hint for next move
- * 5. ENGINE PICKS — Off-book candidates
+ * One flow, not separate cards:
+ * - After your move: feedback
+ * - After opponent: what they did + what to notice + your hint (all in one)
+ * - Read the Board: position features
  */
 
 import { useState, useEffect } from "react";
@@ -16,30 +12,9 @@ import { API } from "@/App";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Loader2, BookOpen, HelpCircle, CheckCircle2, Brain,
-  AlertTriangle, Target, ChevronDown, ChevronUp, Swords, Eye,
+  Loader2, BookOpen, Brain, Eye,
+  AlertTriangle, Target, ChevronDown, ChevronUp, Swords,
 } from "lucide-react";
-
-// Coach message card — matches the original blue/primary style
-const CoachCard = ({ icon: Icon, label, labelColor, bgColor, borderColor, children }) => (
-  <motion.div 
-    initial={{ opacity: 0, y: -5 }} 
-    animate={{ opacity: 1, y: 0 }}
-    className={`p-3 rounded-lg ${bgColor || "bg-primary/10"} border ${borderColor || "border-primary/20"}`}
-  >
-    <div className="flex items-start gap-2">
-      <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${labelColor || "text-primary"}`} strokeWidth={1.5} />
-      <div className="text-sm flex-1">
-        {label && (
-          <Badge variant="outline" className={`text-xs mb-1.5 ${labelColor ? `border-current ${labelColor}` : "border-primary/30 text-primary"}`}>
-            {label}
-          </Badge>
-        )}
-        <div className="text-foreground leading-relaxed">{children}</div>
-      </div>
-    </div>
-  </motion.div>
-);
 
 const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, curriculumFeedback, lastCoachMove }) => {
   const [guidance, setGuidance] = useState(null);
@@ -57,16 +32,14 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
     const doFetch = async () => {
       setLoading(true);
       try {
+        // Guidance
         const res = await fetch(`${API}/coach/play/opening-guide`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ session_id: sessionId, opening_key: openingKey || "" }),
         });
-        if (res.ok) {
-          const data = await res.json();
-          setGuidance(data);
-        }
+        if (res.ok) setGuidance(await res.json());
       } catch {}
 
       // Engine candidates when off-book
@@ -87,7 +60,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
         setCandidates([]);
       }
 
-      // Position reader — what to notice
+      // Position reader
       try {
         const posRes = await fetch(`${API}/coach/play/read-position`, {
           method: "POST",
@@ -97,8 +70,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
         });
         if (posRes.ok) {
           const data = await posRes.json();
-          if (data.features?.length > 0) setPositionRead(data);
-          else setPositionRead(null);
+          setPositionRead(data.features?.length > 0 ? data : null);
         }
       } catch {}
 
@@ -116,45 +88,80 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
 
       {/* ─── INTRO ─── */}
       {showIntro && (
-        <CoachCard icon={BookOpen} label="Today's Lesson">
-          <p className="whitespace-pre-line">{introMessage}</p>
-          <button onClick={() => setIntroDismissed(true)}
-            className="mt-3 text-xs text-primary hover:text-primary/80 font-medium block">
-            Got it — let's start
-          </button>
-        </CoachCard>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+          <div className="flex items-start gap-2">
+            <BookOpen className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+            <div className="text-sm flex-1">
+              <Badge variant="outline" className="text-xs border-primary/30 text-primary mb-1.5">Today's Lesson</Badge>
+              <p className="text-foreground whitespace-pre-line">{introMessage}</p>
+              <button onClick={() => setIntroDismissed(true)}
+                className="mt-3 text-xs text-primary hover:text-primary/80 font-medium">
+                Got it — let's start
+              </button>
+            </div>
+          </div>
+        </motion.div>
       )}
 
-      {/* ─── YOUR MOVE ─── */}
-      {!showIntro && curriculumFeedback && (
-        <CoachCard 
-          key={`fb-${fen}`}
-          icon={CheckCircle2} 
-          label="Your Move"
-          labelColor="text-emerald-600"
-          bgColor="bg-emerald-50 dark:bg-emerald-500/10"
-          borderColor="border-emerald-200 dark:border-emerald-500/20"
-        >
-          <p>{curriculumFeedback}</p>
-        </CoachCard>
+      {/* ─── COACH MESSAGE: One unified card per state ─── */}
+      {!showIntro && (
+        <motion.div key={`coach-${fen}`} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+          className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+          <div className="flex items-start gap-2">
+            <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+            <div className="text-sm flex-1 space-y-2">
+
+              {/* Your move feedback */}
+              {curriculumFeedback && (
+                <p className="text-foreground">{curriculumFeedback}</p>
+              )}
+
+              {/* Opponent move */}
+              {lastCoachMove && guidance?.opponent_commentary && (
+                <div className="border-l-2 border-red-400/50 pl-2.5">
+                  <span className="text-xs font-mono font-bold text-red-500">{lastCoachMove}</span>
+                  <span className="text-xs text-muted-foreground ml-1.5">— {guidance.opponent_commentary}</span>
+                </div>
+              )}
+
+              {/* Hint for next move */}
+              {isPlayerTurn && guidance?.hint && (
+                <p className="text-foreground font-medium">{guidance.hint}</p>
+              )}
+
+              {/* Trap warning */}
+              {guidance?.trap_warning && (
+                <div className="flex items-start gap-1.5 text-xs text-amber-600">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
+                  <span><span className="font-medium">{guidance.trap_warning.name}:</span> {guidance.trap_warning.description}</span>
+                </div>
+              )}
+
+              {/* Weak spot */}
+              {guidance?.is_weak_spot && (
+                <p className="text-xs text-destructive/80 font-medium">You've gotten this wrong before.</p>
+              )}
+
+              {/* Waiting for coach */}
+              {!isPlayerTurn && !lastCoachMove && !curriculumFeedback && (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                  <span className="text-muted-foreground">Coach is thinking...</span>
+                </div>
+              )}
+
+              {/* Nothing to show */}
+              {!curriculumFeedback && !lastCoachMove && !guidance?.hint && isPlayerTurn && (
+                <p className="text-muted-foreground">Your turn — make a move.</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
       )}
 
-      {/* ─── OPPONENT MOVE ─── */}
-      {!showIntro && lastCoachMove && guidance?.opponent_commentary && (
-        <CoachCard 
-          key={`opp-${lastCoachMove}`}
-          icon={Swords} 
-          label={`Opponent played ${lastCoachMove}`}
-          labelColor="text-red-500 dark:text-red-400"
-          bgColor="bg-red-50 dark:bg-red-500/10"
-          borderColor="border-red-200 dark:border-red-500/20"
-        >
-          <p>{guidance.opponent_commentary}</p>
-        </CoachCard>
-      )}
-
-      {/* ─── READ THE BOARD — position features ─── */}
-      {!showIntro && positionRead && positionRead.features?.length > 0 && (
+      {/* ─── READ THE BOARD ─── */}
+      {!showIntro && positionRead && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           className="p-3 rounded-lg bg-muted/30 border border-border">
           <div className="flex items-center gap-2 mb-2">
@@ -174,33 +181,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
         </motion.div>
       )}
 
-      {/* ─── THINK FIRST ─── */}
-      {!showIntro && isPlayerTurn && guidance?.hint && (
-        <CoachCard icon={Brain} label="Think First">
-          <p>{guidance.hint}</p>
-          {guidance.trap_warning && (
-            <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20 mt-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" strokeWidth={1.5} />
-              <div>
-                <p className="text-xs font-medium text-amber-600">{guidance.trap_warning.name}</p>
-                <p className="text-xs text-muted-foreground">{guidance.trap_warning.description}</p>
-              </div>
-            </div>
-          )}
-          {guidance.is_weak_spot && (
-            <p className="mt-2 text-xs text-destructive/80 font-medium">You've gotten this wrong before.</p>
-          )}
-        </CoachCard>
-      )}
-
-      {/* ─── WAITING ─── */}
-      {!showIntro && !isPlayerTurn && !lastCoachMove && (
-        <CoachCard icon={Loader2}>
-          <p className="text-muted-foreground">Coach is thinking...</p>
-        </CoachCard>
-      )}
-
-      {/* ─── ENGINE PICKS ─── */}
+      {/* ─── ENGINE PICKS (off-book) ─── */}
       {!showIntro && candidates.length > 0 && (
         <div className="border border-border rounded-lg overflow-hidden">
           <button onClick={() => setShowEngine(!showEngine)}
@@ -229,16 +210,10 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
 
       {/* ─── LOADING ─── */}
       {loading && !guidance && !curriculumFeedback && (
-        <CoachCard icon={Loader2}>
-          <p className="text-muted-foreground">Loading...</p>
-        </CoachCard>
-      )}
-
-      {/* ─── EMPTY STATE ─── */}
-      {!showIntro && !curriculumFeedback && !lastCoachMove && !guidance?.hint && !loading && candidates.length === 0 && (
-        <CoachCard icon={Brain}>
-          <p className="text-muted-foreground">Your turn — make a move on the board.</p>
-        </CoachCard>
+        <div className="flex items-center justify-center py-3">
+          <Loader2 className="w-4 h-4 animate-spin text-primary mr-2" />
+          <span className="text-xs text-muted-foreground">Loading...</span>
+        </div>
       )}
     </div>
   );
