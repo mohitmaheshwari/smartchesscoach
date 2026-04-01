@@ -106,59 +106,122 @@ def read_position(fen: str, user_color: str = "white", user_rating: int = 1200) 
 def _analyze_king_safety(board, user_color, opp_color) -> List[PositionFeature]:
     features = []
 
-    # Opponent's king escape squares
+    # Opponent's king analysis
     opp_king_sq = board.king(opp_color)
     if opp_king_sq is not None:
-        escape_squares = []
-        for sq in chess.SQUARES:
-            if chess.square_distance(opp_king_sq, sq) == 1:
-                piece = board.piece_at(sq)
-                if piece is None or piece.color != opp_color:
-                    if not board.is_attacked_by(user_color, sq):
-                        escape_squares.append(chess.square_name(sq))
-
-        king_name = chess.square_name(opp_king_sq)
-        if len(escape_squares) <= 1:
-            features.append(PositionFeature(
-                priority=1,
-                category="king_safety",
-                title="Opponent's king is trapped",
-                description=f"Their king on {king_name} has {'only 1 escape: ' + escape_squares[0] if escape_squares else 'NO escape squares'}. Look for checks — it could be checkmate.",
-                min_rating=800,
-                actionable="Check every possible check. With so few escapes, one check could end the game.",
-            ))
-        elif len(escape_squares) == 2:
-            features.append(PositionFeature(
-                priority=3,
-                category="king_safety",
-                title="Opponent's king is cramped",
-                description=f"Their king on {king_name} only has 2 escape squares: {', '.join(escape_squares)}. Their king is uncomfortable.",
-                min_rating=1000,
-                actionable="If you can control one more square around their king, it gets dangerous for them.",
-            ))
-
-    # User's own king safety
-    user_king_sq = board.king(user_color)
-    if user_king_sq is not None:
-        user_escapes = []
-        for sq in chess.SQUARES:
-            if chess.square_distance(user_king_sq, sq) == 1:
-                piece = board.piece_at(sq)
-                if piece is None or piece.color != user_color:
-                    if not board.is_attacked_by(opp_color, sq):
-                        user_escapes.append(sq)
-
-        if len(user_escapes) <= 1:
+        opp_castled = _is_castled(board, opp_color, opp_king_sq)
+        opp_pawn_shield = _has_pawn_shield(board, opp_color, opp_king_sq)
+        
+        if not opp_castled:
+            # King in the center — genuinely exposed
+            king_name = chess.square_name(opp_king_sq)
+            escape_squares = _count_escape_squares(board, opp_color, opp_king_sq, user_color)
+            
+            if len(escape_squares) <= 1:
+                features.append(PositionFeature(
+                    priority=1,
+                    category="king_safety",
+                    title="Opponent's king hasn't castled",
+                    description=f"Their king is stuck on {king_name} with {'only 1 escape: ' + escape_squares[0] if escape_squares else 'almost no escape squares'}. It's vulnerable in the center.",
+                    min_rating=800,
+                    actionable="Open the center! An uncastled king hates open lines. Look for checks.",
+                ))
+            elif board.fullmove_number >= 8:
+                features.append(PositionFeature(
+                    priority=3,
+                    category="king_safety",
+                    title="Opponent still hasn't castled",
+                    description=f"Their king is still on {king_name} after {board.fullmove_number} moves. This is a target.",
+                    min_rating=800,
+                    actionable="Open the center and look for checks. Their king is uncomfortable.",
+                ))
+        elif opp_castled and not opp_pawn_shield:
+            # Castled but pawn shield is broken
+            king_name = chess.square_name(opp_king_sq)
             features.append(PositionFeature(
                 priority=2,
                 category="king_safety",
-                title="Your king is exposed",
-                description=f"Your king on {chess.square_name(user_king_sq)} has very few safe squares. Be careful — your opponent might have a dangerous check.",
+                title="Opponent's pawn shield is broken",
+                description=f"Their king castled but the pawns in front are damaged. This creates attack opportunities.",
+                min_rating=1000,
+                actionable="Look for ways to open lines toward their king. A broken pawn shield = attacking chances.",
+            ))
+
+    # User's own king — only warn if genuinely exposed
+    user_king_sq = board.king(user_color)
+    if user_king_sq is not None:
+        user_castled = _is_castled(board, user_color, user_king_sq)
+        
+        if not user_castled and board.fullmove_number >= 8:
+            features.append(PositionFeature(
+                priority=2,
+                category="king_safety",
+                title="Your king hasn't castled yet",
+                description=f"It's move {board.fullmove_number} and your king is still in the center. Castle soon.",
                 min_rating=800,
-                actionable="Before anything else: is my king safe? Can they check me?",
+                actionable="Castle as soon as possible. Your king is not safe in the center.",
             ))
 
     return features
+
+
+def _is_castled(board, color, king_sq) -> bool:
+    """Check if king is in a castled position."""
+    file_idx = chess.square_file(king_sq)
+    rank_idx = chess.square_rank(king_sq)
+    
+    expected_rank = 0 if color == chess.WHITE else 7
+    if rank_idx != expected_rank:
+        return False  # King moved off back rank — could be castled or not
+    
+    # Kingside castle: king on g1/g8
+    if file_idx == 6:
+        return True
+    # Queenside castle: king on c1/c8
+    if file_idx == 2:
+        return True
+    # King still on e-file: hasn't castled
+    if file_idx == 4:
+        return False
+    # King on h-file (rare but possible after castling + moves)
+    if file_idx in [5, 6, 7]:
+        return True
+    
+    return False
+
+
+def _has_pawn_shield(board, color, king_sq) -> bool:
+    """Check if castled king has intact pawn shield."""
+    file_idx = chess.square_file(king_sq)
+    rank_idx = chess.square_rank(king_sq)
+    
+    pawn_rank = rank_idx + (1 if color == chess.WHITE else -1)
+    if pawn_rank < 0 or pawn_rank > 7:
+        return False
+    
+    # Check pawns on the 3 files around the king
+    shield_files = [max(0, file_idx - 1), file_idx, min(7, file_idx + 1)]
+    pawns_present = 0
+    
+    for f in shield_files:
+        sq = chess.square(f, pawn_rank)
+        piece = board.piece_at(sq)
+        if piece and piece.piece_type == chess.PAWN and piece.color == color:
+            pawns_present += 1
+    
+    return pawns_present >= 2  # At least 2 of 3 shield pawns intact
+
+
+def _count_escape_squares(board, king_color, king_sq, attacker_color) -> List[str]:
+    """Count safe escape squares for a king."""
+    escapes = []
+    for sq in chess.SQUARES:
+        if chess.square_distance(king_sq, sq) == 1:
+            piece = board.piece_at(sq)
+            if piece is None or piece.color != king_color:
+                if not board.is_attacked_by(attacker_color, sq):
+                    escapes.append(chess.square_name(sq))
+    return escapes
 
 
 def _analyze_hanging_pieces(board, user_color, opp_color) -> List[PositionFeature]:
