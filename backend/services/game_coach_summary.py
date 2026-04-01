@@ -276,93 +276,187 @@ def compute_game_habits(
 
     habits = []
 
-    # 1. Checked opponent threats (mate-level blunders = missed threats)
+    # 1. Checked opponent threats
     missed_mate = any(m["cp_loss"] >= 5000 for m in user_moves)
-    # For threat checking, only count blunders that aren't just general inaccuracy
     missed_tactics = [m for m in user_moves if m["cp_loss"] >= 200]
+    if missed_mate:
+        evidence = f"Move {next(m['move_number'] for m in user_moves if m['cp_loss'] >= 5000)}: you missed a checkmate threat and lost immediately."
+        impact = "This lost the game on the spot."
+    elif missed_tactics:
+        worst = max(missed_tactics, key=lambda m: m["cp_loss"])
+        evidence = f"Move {worst['move_number']}: you played {worst['san']} but missed {worst['best_move']}. That one mistake cost you about {_cp_to_pieces(worst['cp_loss'])}."
+        impact = f"You missed {len(missed_tactics)} threat{'s' if len(missed_tactics) > 1 else ''}. This is the #1 thing to fix."
+    else:
+        evidence = "You checked what your opponent was doing before every move. No threats missed."
+        impact = None
     habits.append({
-        "name": "Checked opponent threats before moving",
+        "name": "Checked opponent threats",
         "passed": not missed_mate and len(missed_tactics) == 0,
-        "evidence": "Missed mate in 1" if missed_mate else
-                    f"Missed {len(missed_tactics)} tactical threat{'s' if len(missed_tactics) > 1 else ''}" if missed_tactics else
-                    "No threats missed",
-        "impact": "Game lost immediately" if missed_mate else
-                  f"Lost {sum(m['cp_loss'] for m in missed_tactics)} centipawns" if missed_tactics else
-                  None,
+        "evidence": evidence,
+        "impact": impact,
     })
 
-    # 2. Followed opening theory (threshold: 100cp = real mistake, not just inaccuracy)
-    opening_moves = [m for m in user_moves if m["phase"] == "opening"]
-    opening_blunders = [m for m in opening_moves if m["cp_loss"] >= 100]
+    # 2. Castled early (before move 12)
+    all_moves = []
+    for i, m in enumerate(move_evaluations):
+        all_moves.append(m.get("san", m.get("move", "")))
+    user_move_sans = [all_moves[i] for i in range(len(all_moves)) if (i % 2 == 0 and user_is_white) or (i % 2 == 1 and not user_is_white)]
+    castled = any("O-O" in m for m in user_move_sans[:12])
+    castle_move = None
+    for idx, m in enumerate(user_move_sans[:12]):
+        if "O-O" in m:
+            castle_move = idx + 1
+            break
+    if castled:
+        evidence = f"You castled on move {castle_move}. King is safe."
+        impact = None
+    else:
+        evidence = "You didn't castle in the first 12 moves. Your king was exposed the whole game."
+        impact = "An exposed king is the #1 reason beginners lose games they're winning."
     habits.append({
-        "name": "Followed opening principles",
+        "name": "Castled early",
+        "passed": castled,
+        "evidence": evidence,
+        "impact": impact,
+    })
+
+    # 3. Developed pieces (didn't move same piece twice in opening)
+    opening_user_moves = [m for m in user_moves if m["phase"] == "opening"]
+    pieces_moved = {}
+    repeated_piece = None
+    for m in opening_user_moves:
+        san = m["san"]
+        if san.startswith("O") or san[0].islower():
+            continue  # Castle or pawn
+        piece_letter = san[0]  # N, B, R, Q, K
+        pieces_moved[piece_letter] = pieces_moved.get(piece_letter, 0) + 1
+        if pieces_moved[piece_letter] >= 3 and not repeated_piece:
+            repeated_piece = {"N": "knight", "B": "bishop", "R": "rook", "Q": "queen", "K": "king"}.get(piece_letter, "piece")
+    
+    unique_pieces = len([p for p in pieces_moved if pieces_moved[p] >= 1])
+    if repeated_piece:
+        evidence = f"You moved your {repeated_piece} 3+ times in the opening instead of developing other pieces."
+        impact = "Every move you spend on one piece is a move your other pieces aren't developing."
+    elif unique_pieces >= 3:
+        evidence = f"You developed {unique_pieces} different pieces in the opening. Good variety."
+        impact = None
+    else:
+        evidence = "Your opening development was limited. Try to get knights and bishops out early."
+        impact = "Undeveloped pieces can't help you attack or defend."
+    habits.append({
+        "name": "Developed pieces before attacking",
+        "passed": repeated_piece is None and unique_pieces >= 2,
+        "evidence": evidence,
+        "impact": impact,
+    })
+
+    # 4. Followed opening principles
+    opening_blunders = [m for m in opening_user_moves if m["cp_loss"] >= 100]
+    if opening_blunders:
+        worst = max(opening_blunders, key=lambda m: m["cp_loss"])
+        evidence = f"Move {worst['move_number']}: {worst['san']} was a mistake. {worst['best_move']} was better. You lost about {_cp_to_pieces(worst['cp_loss'])} of advantage."
+        impact = f"You made {len(opening_blunders)} opening mistake{'s' if len(opening_blunders) > 1 else ''}. Starting behind makes the whole game harder."
+    else:
+        evidence = "No mistakes in the opening. You came out of the opening in good shape."
+        impact = None
+    habits.append({
+        "name": "Clean opening play",
         "passed": len(opening_blunders) == 0,
-        "evidence": f"{len(opening_blunders)} opening mistake{'s' if len(opening_blunders) > 1 else ''}" if opening_blunders else
-                    "Clean opening play",
-        "impact": f"Lost {sum(m['cp_loss'] for m in opening_blunders)} centipawns in opening" if opening_blunders else None,
+        "evidence": evidence,
+        "impact": impact,
     })
 
-    # 3. No hanging pieces (exclude mate-level blunders — those are threat misses, not hung pieces)
+    # 5. No hanging pieces
     hanging = [m for m in user_moves if 250 <= m["cp_loss"] < 5000 and m["phase"] != "opening"]
+    if hanging:
+        worst = max(hanging, key=lambda m: m["cp_loss"])
+        evidence = f"Move {worst['move_number']}: you played {worst['san']} and left material undefended. Lost about {_cp_to_pieces(worst['cp_loss'])}."
+        impact = f"Hung material {len(hanging)} time{'s' if len(hanging) > 1 else ''}. Before every move: is my piece safe where it's going?"
+    else:
+        evidence = "You kept all your pieces safe. No material left hanging."
+        impact = None
     habits.append({
-        "name": "Avoided hanging pieces",
+        "name": "Kept pieces safe",
         "passed": len(hanging) == 0,
-        "evidence": f"Hung material {len(hanging)} time{'s' if len(hanging) > 1 else ''}" if hanging else
-                    "No pieces left hanging",
-        "impact": f"Lost {sum(m['cp_loss'] for m in hanging)} centipawns from hanging material" if hanging else None,
+        "evidence": evidence,
+        "impact": impact,
     })
 
-    # 4. Played with a plan (consecutive moves with cp_loss >= 50 = truly aimless)
-    # Exclude mate-level blunders — a single catastrophic miss isn't "aimlessness"
+    # 6. Played with a plan
     aimless_count = 0
+    aimless_stretch_start = None
     for j in range(1, len(user_moves)):
         cp_j = user_moves[j]["cp_loss"] if user_moves[j]["cp_loss"] < 5000 else 0
         cp_prev = user_moves[j-1]["cp_loss"] if user_moves[j-1]["cp_loss"] < 5000 else 0
         if cp_j >= 50 and cp_prev >= 50:
             aimless_count += 1
+            if not aimless_stretch_start:
+                aimless_stretch_start = user_moves[j-1]["move_number"]
+    if aimless_count > 2:
+        evidence = f"From move {aimless_stretch_start}, you made {aimless_count} small mistakes in a row. That usually means you didn't have a clear plan."
+        impact = "Without a plan, you just react to what the opponent does. Ask: what are my next 3 moves?"
+    else:
+        evidence = "Your moves had direction. You weren't just shuffling pieces around."
+        impact = None
     habits.append({
         "name": "Played with a plan",
         "passed": aimless_count <= 2,
-        "evidence": f"{aimless_count} stretches of inaccurate play" if aimless_count > 2 else
-                    "Moves showed consistent direction",
-        "impact": "Multiple inaccuracies suggest no clear plan" if aimless_count > 2 else None,
+        "evidence": evidence,
+        "impact": impact,
     })
 
-    # 5. Maintained focus in critical moments (exclude mate blunders — already in #1)
+    # 7. Focus in critical moments
     critical_moments = [m for m in user_moves if abs(m["eval_before"]) >= 200]
     critical_blunders = [m for m in critical_moments if 100 <= m["cp_loss"] < 5000]
+    if len(critical_blunders) > 1:
+        evidence = f"You had {len(critical_moments)} critical positions and blundered in {len(critical_blunders)} of them. When the game is on the line, slow down."
+        impact = "Critical moments decide the game. One extra second of thought can save everything."
+    elif len(critical_blunders) == 1:
+        cb = critical_blunders[0]
+        evidence = f"Move {cb['move_number']}: one slip in a critical position. {cb['san']} instead of {cb['best_move']}."
+        impact = "One mistake in a tense moment. Close to passing."
+    else:
+        if critical_moments:
+            evidence = f"You had {len(critical_moments)} critical positions and handled them all. Strong nerves."
+        else:
+            evidence = "No critical moments in this game. Smooth sailing."
+        impact = None
     habits.append({
-        "name": "Maintained focus in critical moments",
+        "name": "Stayed focused under pressure",
         "passed": len(critical_blunders) <= 1,
-        "evidence": f"Blundered in {len(critical_blunders)} critical position{'s' if len(critical_blunders) > 1 else ''}" if len(critical_blunders) > 1 else
-                    "1 slip in a critical position" if len(critical_blunders) == 1 else
-                    "Handled pressure well",
-        "impact": "Converted advantage to loss" if any(m["eval_before"] >= 200 and m["cp_loss"] >= 200 for m in critical_blunders) else
-                  "Lost concentration when it mattered" if len(critical_blunders) > 1 else None,
+        "evidence": evidence,
+        "impact": impact,
     })
 
-    # 6. Endgame technique (if game reached endgame)
+    # 8. Endgame technique
     endgame_moves = [m for m in user_moves if m["phase"] == "endgame"]
     if endgame_moves:
         eg_blunders = [m for m in endgame_moves if m["cp_loss"] >= 100]
+        if eg_blunders:
+            worst = max(eg_blunders, key=lambda m: m["cp_loss"])
+            evidence = f"Move {worst['move_number']}: endgame mistake. {worst['san']} instead of {worst['best_move']}. Endgames require patience."
+            impact = f"{len(eg_blunders)} endgame error{'s' if len(eg_blunders) > 1 else ''}. In endgames: activate your king and push passed pawns."
+        else:
+            evidence = "Clean endgame play. You converted the position correctly."
+            impact = None
         habits.append({
             "name": "Endgame technique",
             "passed": len(eg_blunders) == 0,
-            "evidence": f"{len(eg_blunders)} endgame error{'s' if len(eg_blunders) > 1 else ''}" if eg_blunders else
-                        "Clean endgame play",
-            "impact": f"Endgame errors cost {sum(m['cp_loss'] for m in eg_blunders)} centipawns" if eg_blunders else None,
+            "evidence": evidence,
+            "impact": impact,
         })
 
-    # Determine FOCUS HABIT — the one that cost the game
+    # Determine FOCUS HABIT
     failed_habits = [h for h in habits if not h["passed"]]
     focus_habit = None
     if failed_habits:
-        # Priority: threats > hanging > critical moments > opening > plan > endgame
         priority_order = [
-            "Checked opponent threats before moving",
-            "Avoided hanging pieces",
-            "Maintained focus in critical moments",
-            "Followed opening principles",
+            "Checked opponent threats",
+            "Castled early",
+            "Kept pieces safe",
+            "Stayed focused under pressure",
+            "Clean opening play",
+            "Developed pieces before attacking",
             "Played with a plan",
             "Endgame technique",
         ]
@@ -500,6 +594,21 @@ async def compute_game_memory(
 
 
 # ─── HELPERS ──────────────────────────────────────────────────────
+
+
+def _cp_to_pieces(cp: int) -> str:
+    """Convert centipawns to human-readable piece equivalent."""
+    if cp >= 900:
+        return "a queen"
+    elif cp >= 500:
+        return "a rook"
+    elif cp >= 300:
+        return "a piece (knight or bishop)"
+    elif cp >= 100:
+        return "a pawn"
+    else:
+        return "a small advantage"
+
 
 def _get_phase(move_index: int) -> str:
     half_move = move_index
