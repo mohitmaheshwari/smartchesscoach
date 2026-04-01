@@ -142,7 +142,7 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
     doFetch();
   }, [sessionId, fen, openingKey]);
 
-  const showIntro = introMessage && !introDismissed;
+  const showIntro = introMessage && !introDismissed && !curriculumFeedback && !lastCoachMove;
 
   return (
     <div className="space-y-3" data-testid="coach-panel">
