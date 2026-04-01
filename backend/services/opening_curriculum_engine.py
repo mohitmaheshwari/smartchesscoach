@@ -18,6 +18,27 @@ import os
 import logging
 from typing import Dict, List, Optional, Tuple
 
+import chess as _chess
+
+
+def _moves_match(san1: str, san2: str, fen: str = None) -> bool:
+    """Compare two SAN moves, handling disambiguation differences (Nd2 vs Nbd2)."""
+    if san1 == san2:
+        return True
+    if not fen:
+        # Strip disambiguation: Nbd2 -> Nd2, Rae1 -> Re1
+        def _strip(s):
+            if len(s) >= 3 and s[0].isupper() and s[1].islower() and s[2].islower():
+                return s[0] + s[2:]  # Nbd2 -> Nd2
+            return s
+        return _strip(san1) == _strip(san2)
+    try:
+        board = _chess.Board(fen)
+        return board.parse_san(san1).uci() == board.parse_san(san2).uci()
+    except Exception:
+        return san1 == san2
+
+
 logger = logging.getLogger(__name__)
 
 CURRICULUM_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "opening_curriculum.json")

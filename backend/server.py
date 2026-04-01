@@ -10504,10 +10504,19 @@ async def make_coach_play_move(
             
             if guidance and guidance.get("mode") == "think" and guidance.get("expected_move"):
                 expected = guidance["expected_move"]
-                if move == expected:
+                # Compare by UCI (from-to squares) to avoid SAN disambiguation issues (Nd2 vs Nbd2)
+                moves_match = False
+                try:
+                    check_board = chess.Board(fen_before)
+                    user_uci = check_board.parse_san(move).uci()
+                    expected_uci = check_board.parse_san(expected).uci()
+                    moves_match = (user_uci == expected_uci)
+                except Exception:
+                    moves_match = (move == expected)  # Fallback to string compare
+                
+                if moves_match:
                     curriculum_feedback = guidance.get("right_feedback", "Good move.")
                 else:
-                    # Not the curriculum move — accept it, but explain what was better
                     wrong_fb = guidance.get("wrong_feedback", "")
                     curriculum_feedback = f"{move} is playable, but {expected} was the curriculum move here. {wrong_fb}"
     
