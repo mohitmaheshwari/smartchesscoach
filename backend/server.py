@@ -10635,6 +10635,66 @@ def _classify_move(eval_before: float, eval_after: float, user_color: str) -> st
         return "good"
 
 
+async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, move_history: list) -> bool:
+    """
+    ONE function to apply a coach move. ALL paths use this.
+    Sets: current_fen, move_history, coach_move_pending, last_coach_move, status.
+    Returns True if successful.
+    """
+    import chess as _chess
+    try:
+        board = _chess.Board(fen)
+        chess_move = board.parse_san(coach_move_san)
+        board.push(chess_move)
+        fen_after = board.fen()
+
+        move_history.append({
+            "move": coach_move_san,
+            "san": coach_move_san,
+            "uci": chess_move.uci(),
+            "by": "coach",
+            "fen_before": fen,
+            "fen_after": fen_after,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+        update = {
+            "current_fen": fen_after,
+            "move_history": move_history,
+            "coach_move_pending": False,
+            "last_coach_move": {
+                "move": coach_move_san,
+                "san": coach_move_san,
+                "uci": chess_move.uci(),
+            },
+        }
+
+        # Check game over
+        if board.is_game_over():
+            if board.is_checkmate():
+                update["status"] = "completed"
+                update["result"] = "loss"
+            elif board.is_stalemate() or board.is_insufficient_material():
+                update["status"] = "completed"
+                update["result"] = "draw"
+
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": update}
+        )
+        logger.info(f"[COACH MOVE] {coach_move_san} applied to {session_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"[COACH MOVE] Failed to apply {coach_move_san}: {e}")
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"coach_move_pending": False}}
+        )
+        return False
+
+
+
 async def _process_move_and_respond(
     session_id: str,
     user_move: str,
@@ -10772,82 +10832,21 @@ async def _process_move_and_respond(
                 import asyncio as _asyncio
                 await _asyncio.sleep(1.5)
                 
-                board = chess_lib.Board(fen_after_user)
-                try:
-                    chess_move = board.parse_san(coach_move_san)
-                    board.push(chess_move)
-                    fen_after_coach = board.fen()
-                    
-                    # Add coach move to history
-                    move_history.append({
-                        "move": coach_move_san,
-                        "uci": chess_move.uci(),
-                        "by": "coach",
-                        "fen_before": fen_after_user,
-                        "fen_after": fen_after_coach,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    })
-                    
-                    # Check game over
-                    game_over_after = board.is_game_over()
-                    result_after = None
-                    if game_over_after:
-                        if board.is_checkmate():
-                            result_after = "loss"
-                        elif board.is_stalemate() or board.is_insufficient_material():
-                            result_after = "draw"
-                    
-                    update = {
-                        "current_fen": fen_after_coach,
-                        "move_history": move_history,
-                        "coach_move_pending": False,
-                        "last_coach_move": {
-                            "move": coach_move_san,
-                            "san": coach_move_san,
-                            "uci": chess_move.uci(),
-                        },
-                    }
-                    if game_over_after:
-                        update["status"] = "completed"
-                        update["result"] = result_after
-                    
-                    await db.coach_sessions.update_one(
-                        {"session_id": session_id},
-                        {"$set": update}
-                    )
-                    logger.info(f"[CURRICULUM FAST] Coach played {coach_move_san} in {session_id}")
+                success = await _apply_coach_move(db, session_id, fen_after_user, coach_move_san, move_history)
+                if success:
                     return
-                except Exception as e:
-                    logger.warning(f"Curriculum fast path failed: {e}")
-                    # Don't fall through to heavy normal path — just make a simple move
-                    try:
-                        from coach_play.coach_opponent import CoachOpponent
-                        simple_opp = CoachOpponent(user_rating=user_rating)
-                        simple_opp.depth = 6
-                        simple_move = await simple_opp.get_move(fen_after_user)
-                        if simple_move:
-                            board2 = chess_lib.Board(fen_after_user)
-                            m2 = board2.parse_san(simple_move)
-                            board2.push(m2)
-                            move_history.append({
-                                "move": simple_move, "uci": m2.uci(), "by": "coach",
-                                "fen_before": fen_after_user, "fen_after": board2.fen(),
-                                "timestamp": datetime.now(timezone.utc).isoformat()
-                            })
-                            await db.coach_sessions.update_one(
-                                {"session_id": session_id},
-                                {"$set": {
-                                    "current_fen": board2.fen(),
-                                    "move_history": move_history,
-                                    "coach_move_pending": False,
-                                    "last_coach_move": {"move": simple_move, "san": simple_move, "uci": m2.uci()},
-                                }}
-                            )
-                            logger.info(f"[CURRICULUM FALLBACK] Simple move {simple_move}")
-                            return
-                    except Exception as e2:
-                        logger.error(f"Curriculum fallback also failed: {e2}")
-                    return  # Don't fall through to the 10-second normal path
+                    
+                # _apply_coach_move failed — try simple Stockfish fallback
+                try:
+                    from coach_play.coach_opponent import CoachOpponent
+                    simple_opp = CoachOpponent(user_rating=user_rating)
+                    simple_opp.depth = 6
+                    simple_move = await simple_opp.get_move(fen_after_user)
+                    if simple_move:
+                        await _apply_coach_move(db, session_id, fen_after_user, simple_move, move_history)
+                except Exception as e2:
+                    logger.error(f"Curriculum fallback failed: {e2}")
+                return  # Never fall through to heavy path
         
         # NORMAL PATH: Full analysis + coaching
         # Step 1: Quick analysis of user's move
