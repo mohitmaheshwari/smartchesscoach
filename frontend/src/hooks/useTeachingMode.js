@@ -109,6 +109,43 @@ const useTeachingMode = ({
         ]);
       }
 
+      // Handle multiple auto-played moves (trap lessons)
+      if (lessonData.auto_played_moves?.length > 0 && !lessonData.auto_played_move) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            type: "coach",
+            trigger: "teaching",
+            message: `Opponent played ${lessonData.auto_played_moves.join(", ")}. Your turn!`,
+            timestamp: Date.now(),
+          },
+        ]);
+      }
+
+      // Show endgame/trap-specific info
+      if (lessonData.endgame_info?.rule) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            type: "coach",
+            trigger: "teaching",
+            message: `Key rule: ${lessonData.endgame_info.rule}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      }
+      if (lessonData.trap_info?.why_it_works) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            type: "coach",
+            trigger: "teaching",
+            message: `Goal: ${lessonData.trap_info.why_it_works}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      }
+
       toast.success(`Starting lesson: ${lessonData.lesson_name}`);
     },
     [setChatMessages, setCurrentFen, setCurrentInsight]
@@ -181,6 +218,19 @@ const useTeachingMode = ({
           timestamp: Date.now(),
         },
       ]);
+
+      // Show additional info for trap completions
+      if (completion.why_it_works) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            type: "coach",
+            trigger: "teaching",
+            message: `Why it works: ${completion.why_it_works}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      }
 
       toast.success("Lesson complete!");
     },

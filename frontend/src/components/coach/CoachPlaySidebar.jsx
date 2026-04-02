@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { useState } from "react";
+import LessonPicker from "@/components/coach/LessonPicker";
 import CoachPanel from "@/components/CoachPanel";
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
 import DeepMemoryPanel from "@/components/DeepMemoryPanel";
@@ -671,6 +673,30 @@ const CoachPlaySidebar = ({
   /* actions */
   newGame,
 }) => {
+  const [showLessonPicker, setShowLessonPicker] = useState(false);
+
+  // When lesson picker starts a lesson, pass through to parent handler
+  const handleLessonFromPicker = (lessonData) => {
+    setShowLessonPicker(false);
+    handleStartLesson(lessonData);
+  };
+
+  // Show lesson picker overlay
+  if (showLessonPicker && session && !gameOver && !isInTeachingMode) {
+    return (
+      <div
+        className="w-[380px] border-l border-border flex flex-col h-full"
+        data-testid="coach-chat-panel"
+      >
+        <LessonPicker
+          sessionId={session.session_id}
+          onStartLesson={handleLessonFromPicker}
+          onClose={() => setShowLessonPicker(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className="w-[380px] border-l border-border flex flex-col h-full"
@@ -686,12 +712,25 @@ const CoachPlaySidebar = ({
                 <span className="text-lg">🎯</span>
                 <span className="text-sm font-medium">Your Coach</span>
               </div>
-              {openingGuidance?.opening_key && (
-                <span className="text-xs text-muted-foreground">
-                  Opening:{" "}
-                  {openingGuidance.opening_key.replace(/_/g, " ")}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {!isInTeachingMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setShowLessonPicker(true)}
+                    data-testid="open-lessons-btn"
+                  >
+                    <BookOpen className="w-3 h-3 mr-1" />
+                    Lessons
+                  </Button>
+                )}
+                {openingGuidance?.opening_key && (
+                  <span className="text-xs text-muted-foreground">
+                    {openingGuidance.opening_key.replace(/_/g, " ")}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

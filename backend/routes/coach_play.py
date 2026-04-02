@@ -1320,24 +1320,25 @@ async def confirm_risky_move(
 # ========================================
 
 @router.post("/teaching/start")
-async def start_opening_teaching(
+async def start_teaching(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
 ):
     """
-    Start an interactive opening lesson during the game.
-    
-    Called when user clicks a teaching option (e.g., "Learn the Fried Liver").
+    Start an interactive lesson during the game.
     
     Body:
     - session_id: Current game session
-    - lesson_type: "learn_trap" | "learn_main_line"
+    - lesson_type: "learn_trap" | "learn_main_line" | "trap" | "endgame"
+    - trap_key: (for lesson_type=trap) Key of the trap to practice
+    - category: (for lesson_type=endgame) Endgame category
+    - lesson_key: (for lesson_type=endgame) Specific lesson
     """
     global db
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    from services.opening_teaching_integration import start_opening_lesson
+    from services.teaching_engine import start_lesson
     
     session_id = request.get("session_id")
     lesson_type = request.get("lesson_type", "learn_trap")
@@ -1351,7 +1352,7 @@ async def start_opening_teaching(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
     
-    result = await start_opening_lesson(db, session_id, user.user_id, lesson_type)
+    result = await start_lesson(db, session_id, user.user_id, lesson_type, request)
     
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
@@ -1365,19 +1366,14 @@ async def process_teaching_move(
     user: User = Depends(get_current_user)
 ):
     """
-    Process a move during opening teaching mode.
-    
-    Validates the move, provides feedback, and advances the lesson.
-    
-    Body:
-    - session_id: Current game session
-    - move: Move played by user (SAN notation)
+    Process a move during any teaching mode (opening, trap, endgame).
+    Dispatches to the correct handler based on session's lesson_type.
     """
     global db
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    from services.opening_teaching_integration import process_teaching_move as process_move
+    from services.teaching_engine import process_lesson_move
     
     session_id = request.get("session_id")
     move = request.get("move")
@@ -1393,7 +1389,7 @@ async def process_teaching_move(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
     
-    result = await process_move(db, session_id, move)
+    result = await process_lesson_move(db, session_id, move)
     
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
@@ -1407,17 +1403,13 @@ async def exit_teaching_mode(
     user: User = Depends(get_current_user)
 ):
     """
-    Exit teaching mode after lesson completion.
-    
-    Body:
-    - session_id: Current game session
-    - choice: "continue_game" | "new_game" | "try_another"
+    Exit any teaching mode and optionally restore the game.
     """
     global db
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    from services.opening_teaching_integration import exit_teaching_mode as exit_mode
+    from services.teaching_engine import exit_lesson
     
     session_id = request.get("session_id")
     choice = request.get("choice", "continue_game")
@@ -1431,7 +1423,7 @@ async def exit_teaching_mode(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
     
-    result = await exit_mode(db, session_id, choice)
+    result = await exit_lesson(db, session_id, choice)
     
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
@@ -1471,6 +1463,15 @@ async def skip_opening_offer(
     )
     
     return {"success": True, "message": "Got it! Let's play on."}
+
+
+@router.get("/teaching/catalog")
+async def get_teaching_catalog(
+    user: User = Depends(get_current_user)
+):
+    """Return all available lesson types for the lesson picker UI."""
+    from services.teaching_engine import get_lesson_catalog
+    return get_lesson_catalog()
 
 
 @router.get("/opening-plan")
