@@ -1,16 +1,14 @@
 /**
  * PROGRESS PAGE — Coaching Progress Report
  * 
- * Not a dashboard. A coach telling you: "Here's how you're doing."
+ * Not a stats dashboard. A coach telling you how you're growing.
  * 
  * Sections:
- * 1. Header with coaching headline
- * 2. Accuracy Journey chart (clickable dots)
- * 3. Win Rate + Blunder Trend (with correct insights)
- * 4. Danger Zones (clickable patterns)
- * 5. Review Progress (games reviewed, concepts learned)
- * 6. Chess Identity
- * 7. Last 10 Games bar chart
+ * 1. Coaching headline + recent form vs big picture
+ * 2. Weakness control (are patterns shrinking?)
+ * 3. Phase understanding (opening/middlegame/endgame)
+ * 4. Review impact (did reviewing help?)
+ * 5. Game timeline (accuracy dots, clickable)
  */
 
 import { useState, useEffect } from "react";
@@ -18,19 +16,21 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, ChevronRight, FlaskConical, Check } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, Minus, AlertTriangle,
+  ChevronRight, FlaskConical, Check, Shield,
+  Crosshair, Crown, Swords
+} from "lucide-react";
 
 const UnifiedProgress = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(null);
-  const [homeData, setHomeData] = useState(null);
+  const [report, setReport] = useState(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${API}/progress/journey`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/home/dashboard-v2`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
-    ]).then(([j, h]) => { setData(j); setHomeData(h); })
+    fetch(`${API}/progress/coaching-report`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setReport(d))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -45,283 +45,226 @@ const UnifiedProgress = ({ user }) => {
     );
   }
 
-  const journey = data?.journey || [];
-  const winTrend = data?.win_trend;
-  const currentAccuracy = data?.current_accuracy || 0;
-  const gamesAnalyzed = data?.games_analyzed || 0;
-  const patterns = homeData?.patterns || [];
-  const dna = homeData?.chess_dna;
-  const review = homeData?.review_progress || {};
+  if (!report?.has_data) {
+    return (
+      <Layout user={user}>
+        <div className="max-w-xl mx-auto px-4 py-16 text-center" data-testid="progress-page">
+          <h1 className="text-2xl text-foreground tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>Progress</h1>
+          <p className="text-sm text-muted-foreground mb-6">Play and analyze a few games to see your coaching report.</p>
+          <button onClick={() => navigate("/import")} className="px-5 py-2.5 text-sm bg-foreground text-background rounded-lg hover:opacity-90 transition-opacity">
+            Import Games
+          </button>
+        </div>
+      </Layout>
+    );
+  }
 
-  // Accuracy trend
-  const recentAcc = journey.slice(-10).map(g => g.accuracy);
-  const olderAcc = journey.slice(-20, -10).map(g => g.accuracy);
-  const recentAvg = recentAcc.length ? recentAcc.reduce((a, b) => a + b, 0) / recentAcc.length : 0;
-  const olderAvg = olderAcc.length ? olderAcc.reduce((a, b) => a + b, 0) / olderAcc.length : 0;
-  const accDelta = recentAvg - olderAvg;
-  const accImproving = accDelta > 2;
-  const accDeclining = accDelta < -2;
-
-  // Blunder trend
-  const recentGames = journey.slice(-10);
-  const prevGames = journey.slice(-20, -10);
-  const recentBlunderAvg = recentGames.length ? recentGames.reduce((s, g) => s + (g.blunders || 0), 0) / recentGames.length : 0;
-  const prevBlunderAvg = prevGames.length ? prevGames.reduce((s, g) => s + (g.blunders || 0), 0) / prevGames.length : 0;
-  const blundersRising = recentBlunderAvg > prevBlunderAvg + 0.2;
-  const blundersDropping = recentBlunderAvg < prevBlunderAvg - 0.2;
-
-  // Win rate — compare RATES not absolutes
-  const recentWinRate = winTrend?.recent?.total ? (winTrend.recent.wins / winTrend.recent.total * 100) : 0;
-  const prevWinRate = winTrend?.previous?.total ? (winTrend.previous.wins / winTrend.previous.total * 100) : 0;
-  const winRateImproving = recentWinRate > prevWinRate + 5;
-  const winRateDeclining = recentWinRate < prevWinRate - 5;
-
-  // Headline — the coaching insight
-  const headline = accImproving
-    ? "Your accuracy is climbing. Keep this up."
-    : accDeclining
-      ? "Your accuracy has dipped. Slow down, review more."
-      : blundersRising
-        ? "Blunders are creeping up. Check threats before every move."
-        : winRateDeclining
-          ? "Win rate is dropping. Focus on the Lab before playing more."
-          : "Steady progress. Keep reviewing your games.";
-
-  const last10 = journey.slice(-10);
+  const { headline, recent_form, big_picture, weakness_control, habits_evolution, phase_understanding, review_impact, game_stats } = report;
 
   return (
     <Layout user={user}>
       <div className="max-w-3xl mx-auto px-4 py-6" data-testid="progress-page">
 
-        {/* ── HEADER ── */}
+        {/* ── HEADLINE ── */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl text-foreground tracking-tight mb-1.5" style={{ fontFamily: "'Playfair Display', serif" }}>
-                Progress
-              </h1>
-              <p className="text-sm text-muted-foreground leading-relaxed" data-testid="progress-headline">{headline}</p>
-            </div>
-            {currentAccuracy > 0 && (
-              <div className="text-right flex-shrink-0 ml-4">
-                <p className="text-2xl text-foreground font-light" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  {currentAccuracy.toFixed(0)}%
-                </p>
-                <div className="flex items-center gap-1 justify-end">
-                  {accImproving && <TrendingUp className="w-3 h-3 text-emerald-500" />}
-                  {accDeclining && <TrendingDown className="w-3 h-3 text-red-500" />}
-                  {!accImproving && !accDeclining && <Minus className="w-3 h-3 text-muted-foreground/40" />}
-                  <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    avg accuracy
-                  </span>
-                </div>
-              </div>
-            )}
+          <h1 className="text-2xl text-foreground tracking-tight mb-1.5" style={{ fontFamily: "'Playfair Display', serif" }}>
+            Progress
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed" data-testid="coaching-headline">{headline}</p>
+        </motion.div>
+
+        {/* ── RECENT FORM vs BIG PICTURE ── */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
+          <div className="grid grid-cols-2 gap-3">
+            <FormCard
+              title="Last 5 Games"
+              form={recent_form}
+              isCurrent
+            />
+            <FormCard
+              title="Overall"
+              form={big_picture}
+            />
           </div>
         </motion.div>
 
-        {/* ── ACCURACY JOURNEY ── */}
-        {journey.length > 3 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
-            <Label>Your Accuracy Journey</Label>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <JourneyChart journey={journey} onGameClick={(g) => navigate(`/game/${g.game_id}`)} />
-            </div>
-            {olderAcc.length > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {accImproving
-                  ? `${olderAvg.toFixed(0)}% → ${recentAvg.toFixed(0)}% last 10 games`
-                  : accDeclining
-                    ? `${olderAvg.toFixed(0)}% → ${recentAvg.toFixed(0)}% — slipping`
-                    : `~${recentAvg.toFixed(0)}% steady`
-                }
-              </p>
-            )}
-          </motion.div>
-        )}
-
-        {/* ── WIN RATE + BLUNDERS ── */}
-        {journey.length > 3 && (
+        {/* ── WEAKNESS CONTROL ── */}
+        {weakness_control.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Win Rate */}
-              {winTrend && (
-                <div>
-                  <Label>Win Rate</Label>
-                  <div className="bg-card border border-border rounded-lg p-4 h-full">
-                    <div className="flex items-center gap-3 mb-2.5">
-                      <span className="text-foreground font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        <span className="text-emerald-600">{winTrend.recent.wins}W</span>{" "}
-                        <span className="text-red-500">{winTrend.recent.losses}L</span>
-                      </span>
-                      <span className="text-xs text-muted-foreground/40">last {winTrend.recent.total}</span>
-                      {winRateImproving && <TrendingUp className="w-3.5 h-3.5 text-emerald-500 ml-auto" />}
-                      {winRateDeclining && <TrendingDown className="w-3.5 h-3.5 text-red-500 ml-auto" />}
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {winRateImproving
-                        ? "You're winning more. Lessons are translating to results."
-                        : winRateDeclining
-                          ? `Win rate dropped from ${prevWinRate.toFixed(0)}% to ${recentWinRate.toFixed(0)}%. Review losses before playing more.`
-                          : "Win rate is holding. Consistency matters."
-                      }
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Blunder Trend */}
-              <div>
-                <Label style={blundersRising ? { color: "rgb(239 68 68)" } : {}}>
-                  {blundersRising ? "Blunders Rising" : "Blunder Rate"}
-                </Label>
-                <div className={`bg-card border rounded-lg p-4 h-full ${blundersRising ? "border-red-500/30" : "border-border"}`}>
-                  <div className="flex items-center gap-3 mb-2.5">
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      <span className="text-muted-foreground">{prevBlunderAvg.toFixed(1)}/g</span>
-                      <span className="text-muted-foreground/30 mx-1.5">→</span>
-                      <span className={blundersRising ? "text-red-500 font-medium" : "text-foreground"}>
-                        {recentBlunderAvg.toFixed(1)}/g
-                      </span>
-                    </span>
-                    {blundersRising && <AlertTriangle className="w-3.5 h-3.5 text-red-500 ml-auto" />}
-                    {blundersDropping && <TrendingDown className="w-3.5 h-3.5 text-emerald-500 ml-auto" />}
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {blundersRising
-                      ? "Blunders are climbing. Slow down. Check threats before every move."
-                      : blundersDropping
-                        ? "Blunders dropping. Your awareness is improving."
-                        : "Blunder rate steady. Awareness drills could help."
-                    }
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── DANGER ZONES ── */}
-        {patterns.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-8">
-            <Label>Danger Zones</Label>
-            <div className="bg-card border border-border rounded-lg divide-y divide-border overflow-hidden">
-              {patterns.map((p) => (
+            <Label>Your Weaknesses — Are They Shrinking?</Label>
+            <div className="space-y-2.5">
+              {weakness_control.map((w) => (
                 <div
-                  key={p.pattern_type}
-                  className="flex items-center justify-between px-4 py-3 cursor-pointer transition-colors hover:bg-muted/30"
-                  onClick={() => navigate(`/training?focus=${p.pattern_type}`)}
-                  data-testid={`danger-${p.pattern_type}`}
+                  key={w.pattern}
+                  className={`bg-card border rounded-lg p-4 cursor-pointer transition-all hover:shadow-sm ${
+                    w.direction === "worsening" ? "border-red-500/30 hover:border-red-500/50" :
+                    w.direction === "improving" ? "border-emerald-500/30 hover:border-emerald-500/50" :
+                    "border-border hover:border-border"
+                  }`}
+                  onClick={() => navigate(`/training?focus=${w.pattern}`)}
+                  data-testid={`weakness-${w.pattern}`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <AlertTriangle className={`w-3.5 h-3.5 flex-shrink-0 ${p.severity === "critical" || p.severity === "high" ? "text-red-500" : "text-amber-500"}`} strokeWidth={1.5} />
-                    <span className="text-sm text-foreground">{p.label}</span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <DirectionIcon direction={w.direction} />
+                      <span className="text-sm font-medium text-foreground">{w.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <WeaknessBar total={w.total} recent={w.recent} direction={w.direction} />
+                      <span className="text-xs text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{w.total}x total</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{p.recent_count}x</span>
-                    <SeverityBadge severity={p.severity} />
-                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20" strokeWidth={1.5} />
-                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{w.message}</p>
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-muted-foreground/50 mt-1.5">Click a pattern to train it.</p>
           </motion.div>
         )}
 
-        {/* ── REVIEW PROGRESS ── */}
-        {review.total > 0 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="mb-8">
-            <Label>Review Progress</Label>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <FlaskConical className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
-                  <span className="text-sm text-foreground">
-                    <strong>{review.reviewed}</strong> of {review.total} games reviewed
-                  </span>
-                </div>
-                {review.pending > 0 && (
-                  <button
-                    onClick={() => navigate("/lab")}
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                    data-testid="go-to-lab-btn"
+        {/* ── PHASE UNDERSTANDING ── */}
+        {phase_understanding && Object.keys(phase_understanding).length > 1 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-8">
+            <Label>Chess Understanding by Phase</Label>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { key: "opening", label: "Opening", icon: Crown },
+                { key: "middlegame", label: "Middlegame", icon: Swords },
+                { key: "endgame", label: "Endgame", icon: Shield },
+              ].map(({ key, label, icon: Icon }) => {
+                const phase = phase_understanding[key];
+                if (!phase) return null;
+                const isWeakest = phase_understanding.weakest === key;
+                return (
+                  <div
+                    key={key}
+                    className={`bg-card border rounded-lg p-4 text-center ${isWeakest ? "border-red-500/30" : "border-border"}`}
+                    data-testid={`phase-${key}`}
                   >
-                    {review.pending} pending <ChevronRight className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-              {/* Progress bar */}
-              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all"
-                  style={{ width: `${(review.reviewed / review.total) * 100}%` }}
-                />
-              </div>
-              {review.reviewed === review.total && review.total > 0 && (
-                <div className="flex items-center gap-1.5 mt-2.5">
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">All caught up!</span>
-                </div>
-              )}
+                    <Icon className={`w-4 h-4 mx-auto mb-2 ${isWeakest ? "text-red-500" : "text-muted-foreground"}`} strokeWidth={1.5} />
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-1">{label}</p>
+                    {phase.score > 0 ? (
+                      <>
+                        <p className={`text-xl font-light ${
+                          phase.score >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+                          phase.score >= 60 ? "text-foreground" :
+                          "text-red-500"
+                        }`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          {phase.score.toFixed(0)}%
+                        </p>
+                        <DirectionIcon direction={phase.direction} small />
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground/50 mt-1">No data yet</p>
+                    )}
+                    {isWeakest && phase.score > 0 && (
+                      <span className="text-[8px] uppercase text-red-500 font-bold tracking-wider mt-1 block">weakest</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}
 
-        {/* ── CHESS IDENTITY ── */}
-        {dna && (
+        {/* ── REVIEW IMPACT ── */}
+        {review_impact?.has_data && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
-            <Label>Your Chess Identity</Label>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-start justify-between mb-2">
-                <span className="text-sm text-muted-foreground">{dna.archetype || "Developing"}</span>
-                <div className="text-right">
-                  <span className="text-[9px] tracking-[0.15em] uppercase font-bold text-red-600 dark:text-red-400">Biggest Leak</span>
-                  <p className="text-sm text-foreground tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-                    {dna.diagnosis?.replace(/_/g, " ") || "—"}
-                  </p>
+            <Label>Review Impact</Label>
+            <div className={`bg-card border rounded-lg p-5 ${review_impact.improving ? "border-emerald-500/20" : "border-border"}`} data-testid="review-impact">
+              <div className="flex items-center gap-2 mb-3">
+                <FlaskConical className={`w-4 h-4 ${review_impact.improving ? "text-emerald-500" : "text-muted-foreground"}`} strokeWidth={1.5} />
+                <span className="text-sm text-foreground font-medium">
+                  {review_impact.games_reviewed} games reviewed
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Blunder Rate</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{review_impact.before_blunders}/g</span>
+                    <span className="text-muted-foreground/30">→</span>
+                    <span className={`text-sm font-medium ${review_impact.after_blunders < review_impact.before_blunders ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {review_impact.after_blunders}/g
+                    </span>
+                    {review_impact.blunder_change_pct !== 0 && (
+                      <span className={`text-[10px] ${review_impact.blunder_change_pct < 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        ({review_impact.blunder_change_pct > 0 ? "+" : ""}{review_impact.blunder_change_pct.toFixed(0)}%)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Accuracy</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{review_impact.before_accuracy.toFixed(0)}%</span>
+                    <span className="text-muted-foreground/30">→</span>
+                    <span className={`text-sm font-medium ${review_impact.accuracy_change > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {review_impact.after_accuracy.toFixed(0)}%
+                    </span>
+                    {review_impact.accuracy_change !== 0 && (
+                      <span className={`text-[10px] ${review_impact.accuracy_change > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        ({review_impact.accuracy_change > 0 ? "+" : ""}{review_impact.accuracy_change.toFixed(1)})
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              {dna.after_line && <p className="text-xs text-muted-foreground leading-relaxed mt-1">{dna.after_line}</p>}
+              
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {review_impact.improving
+                  ? "Reviewing is working. Your play is measurably better after reviews."
+                  : "Keep reviewing. The impact takes a few more games to show."
+                }
+              </p>
             </div>
           </motion.div>
         )}
 
-        {/* ── LAST 10 GAMES ── */}
-        {last10.length > 0 && (
+        {/* ── GAME TIMELINE ── */}
+        {game_stats.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-8">
-            <Label>Last {last10.length} Games</Label>
+            <Label>Game Timeline</Label>
             <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-end justify-between gap-1.5" style={{ height: 100 }}>
-                {last10.map((g, i) => {
-                  const h = Math.max((g.accuracy / 100) * 80, 8);
-                  const isWin = g.result === "W";
-                  const barColor = isWin ? "#16a34a" : g.result === "D" ? "#888" : "#EF4444";
+              <div className="space-y-1">
+                {game_stats.slice(-15).map((g, i) => {
+                  const barWidth = Math.max(g.accuracy, 8);
+                  const barColor = g.result === "W" ? "#16a34a" : g.result === "L" ? "#EF4444" : "#888";
                   return (
                     <div
-                      key={g.game_id || i}
-                      className="flex-1 flex flex-col items-center cursor-pointer group"
+                      key={g.game_id}
+                      className="flex items-center gap-2 cursor-pointer group py-1 hover:bg-muted/20 rounded px-1 -mx-1 transition-colors"
                       onClick={() => navigate(`/game/${g.game_id}`)}
-                      data-testid={`bar-game-${i}`}
+                      data-testid={`timeline-game-${i}`}
                     >
-                      <div
-                        className="w-full rounded-t transition-all group-hover:opacity-100"
-                        style={{ height: h, background: barColor, minWidth: 12, maxWidth: 36, opacity: 0.7 }}
-                      />
+                      <span className="text-[10px] text-muted-foreground w-14 truncate" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {g.opponent.substring(0, 8)}
+                      </span>
+                      <div className="flex-1 h-5 bg-muted/30 rounded overflow-hidden relative">
+                        <div
+                          className="h-full rounded transition-all"
+                          style={{ width: `${barWidth}%`, background: barColor, opacity: 0.7 }}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-foreground/60" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          {g.accuracy.toFixed(0)}%
+                        </span>
+                      </div>
+                      <span className={`text-[9px] w-5 text-center font-bold ${g.result === "W" ? "text-emerald-600" : g.result === "L" ? "text-red-500" : "text-muted-foreground"}`}>
+                        {g.result}
+                      </span>
+                      {g.lesson_label && (
+                        <span className="text-[8px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-bold w-28 truncate hidden sm:block">
+                          {g.lesson_label}
+                        </span>
+                      )}
+                      {g.reviewed && <Check className="w-3 h-3 text-emerald-500/50 flex-shrink-0" />}
                     </div>
                   );
                 })}
               </div>
-              <div className="flex items-center justify-between gap-1.5 mt-1">
-                {last10.map((g, i) => (
-                  <span key={i} className="flex-1 text-center text-[9px] text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    {g.accuracy.toFixed(0)}
-                  </span>
-                ))}
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-[9px] text-muted-foreground/40" style={{ fontFamily: "'JetBrains Mono', monospace" }}>older</span>
-                <span className="text-[9px] text-muted-foreground/40" style={{ fontFamily: "'JetBrains Mono', monospace" }}>recent</span>
+              <div className="flex justify-between mt-2 text-[9px] text-muted-foreground/30" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <span>older</span>
+                <span>recent</span>
               </div>
             </div>
           </motion.div>
@@ -329,7 +272,7 @@ const UnifiedProgress = ({ user }) => {
 
         {/* ── FOOTER ── */}
         <div className="text-center text-[10px] text-muted-foreground/40 pb-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-          {gamesAnalyzed} games analyzed
+          {report.total_games} games analyzed
         </div>
       </div>
     </Layout>
@@ -339,79 +282,46 @@ const UnifiedProgress = ({ user }) => {
 
 // ── Components ──
 
-const Label = ({ children, style }) => (
-  <p className="text-[10px] tracking-[0.15em] uppercase mb-2 font-bold text-muted-foreground" style={style}>{children}</p>
+const Label = ({ children }) => (
+  <p className="text-[10px] tracking-[0.15em] uppercase mb-2.5 font-bold text-muted-foreground">{children}</p>
 );
 
-const SeverityBadge = ({ severity }) => {
-  const high = severity === "critical" || severity === "high";
+const FormCard = ({ title, form, isCurrent }) => {
+  if (!form?.games) return null;
   return (
-    <span className={`text-[9px] px-1.5 py-0.5 uppercase font-semibold rounded ${
-      high ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-    }`}>
-      {high ? "HIGH" : "MED"}
-    </span>
+    <div className={`bg-card border rounded-lg p-4 ${isCurrent ? "border-primary/20" : "border-border"}`} data-testid={`form-${form.label}`}>
+      <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-2">{title}</p>
+      <div className="flex items-baseline gap-1.5 mb-2">
+        <span className="text-xl font-light text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          {form.accuracy > 0 ? `${form.accuracy.toFixed(0)}%` : "—"}
+        </span>
+        <span className="text-[10px] text-muted-foreground/50">accuracy</span>
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-emerald-600 font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{form.wins}W</span>
+        <span className="text-red-500 font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{form.losses}L</span>
+        {form.draws > 0 && <span className="text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{form.draws}D</span>}
+        <span className="text-muted-foreground/30 mx-0.5">·</span>
+        <span className="text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{form.blunder_rate}/g blunders</span>
+      </div>
+    </div>
   );
 };
 
-// ── Accuracy Journey Chart ──
+const DirectionIcon = ({ direction, small }) => {
+  const size = small ? "w-3 h-3" : "w-3.5 h-3.5";
+  if (direction === "improving") return <TrendingDown className={`${size} text-emerald-500`} strokeWidth={1.5} />;
+  if (direction === "worsening") return <TrendingUp className={`${size} text-red-500`} strokeWidth={1.5} />;
+  return <Minus className={`${size} text-muted-foreground/40`} strokeWidth={1.5} />;
+};
 
-const GOLD = "#CBA135";
-
-const JourneyChart = ({ journey, onGameClick }) => {
-  if (journey.length < 3) return null;
-
-  const HEIGHT = 140;
-  const PAD_Y = 20;
-  const PAD_X = 10;
-  const usableH = HEIGHT - PAD_Y * 2;
-
-  const accs = journey.map(g => g.accuracy);
-  const minA = Math.max(Math.min(...accs) - 10, 0);
-  const maxA = Math.min(Math.max(...accs) + 10, 100);
-  const range = maxA - minA || 1;
-
-  const W = Math.max(journey.length * 26, 400);
-  const getX = (i) => PAD_X + (i / Math.max(journey.length - 1, 1)) * (W - PAD_X * 2);
-  const getY = (acc) => PAD_Y + usableH - ((acc - minA) / range) * usableH;
-
-  let pathD = "";
-  journey.forEach((g, i) => {
-    const x = getX(i);
-    const y = getY(g.accuracy);
-    if (i === 0) pathD += `M ${x} ${y}`;
-    else pathD += ` L ${x} ${y}`;
-  });
-
-  const areaD = pathD + ` L ${getX(journey.length - 1)} ${HEIGHT - PAD_Y} L ${getX(0)} ${HEIGHT - PAD_Y} Z`;
-
+const WeaknessBar = ({ total, recent, direction }) => {
+  const maxWidth = 80;
+  const recentWidth = Math.min((recent / Math.max(total, 1)) * maxWidth, maxWidth);
+  const color = direction === "improving" ? "#16a34a" : direction === "worsening" ? "#EF4444" : "#888";
   return (
-    <div className="overflow-x-auto" style={{ scrollbarWidth: "thin" }}>
-      <svg width={W} height={HEIGHT} className="block" data-testid="journey-chart">
-        <defs>
-          <linearGradient id="areaGradProgress" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={GOLD} stopOpacity={0.25} />
-            <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <path d={areaD} fill="url(#areaGradProgress)" />
-        <path d={pathD} fill="none" stroke={GOLD} strokeWidth={1.5} opacity={0.6} />
-        {journey.map((g, i) => {
-          const x = getX(i);
-          const y = getY(g.accuracy);
-          const fill = g.result === "W" ? "#16a34a" : g.result === "L" ? "#EF4444" : "#888";
-          return (
-            <g key={g.game_id || i} className="cursor-pointer" onClick={() => onGameClick(g)}>
-              <circle cx={x} cy={y} r={4} fill={fill} stroke="white" strokeWidth={1.5} opacity={0.9} />
-              {i % 5 === 0 && (
-                <text x={x} y={y - 10} textAnchor="middle" fill="#999" fontSize={8} fontFamily="'JetBrains Mono', monospace">
-                  {g.accuracy.toFixed(0)}%
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
+    <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+      <div className="h-full rounded-full transition-all" style={{ width: `${recentWidth}px`, background: color }} />
     </div>
   );
 };

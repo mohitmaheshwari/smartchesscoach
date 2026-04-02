@@ -4336,6 +4336,18 @@ async def get_coach_today(user: User = Depends(get_current_user)):
 # NOTE: /training/session, /training/due-cards, /training/attempt, /training/progress, /training/set-habit, /training/habits moved to routes/training.py
 
 
+
+@api_router.get("/progress/coaching-report")
+async def get_coaching_progress_report(user: User = Depends(get_current_user)):
+    """
+    Coaching-oriented progress report.
+    Tracks weakness control, habits evolution, phase understanding, review impact.
+    """
+    from services.progress_report_service import build_coaching_report
+    report = await build_coaching_report(db, user.user_id)
+    return report
+
+
 @api_router.get("/progress/journey")
 async def get_progress_journey(user: User = Depends(get_current_user)):
     """
