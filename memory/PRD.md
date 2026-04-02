@@ -5,73 +5,77 @@ A personalized chess coaching platform that teaches players HOW TO THINK about c
 
 ## Core Pages
 
-### Home (`/home`) — REDESIGNED
-- Coach message hero: Top pattern shown prominently ("Leaving Pieces Hanging is showing up in almost every game")
-- Review progress strip: Shows pending reviews with progress bar, links to Lab
-- Last game card: Behavioral insight + opening + result (not just stats)
-- Actions: Primary CTA tied to top weakness + Play with Coach, Study Openings, Review in Lab
-- Patterns Across Games: Frequency + severity badges
-- Chess DNA: Archetype + biggest leak
+### Home (`/home`)
+- Coach message hero: Top pattern shown prominently
+- Review progress strip: Pending reviews with progress bar → Lab
+- Last game card: Behavioral insight + opening + result
+- Actions: Primary CTA tied to weakness + Play with Coach, Study Openings, Review in Lab
+- Patterns Across Games + Chess DNA
 
-### Lab Queue (`/lab`) — REDESIGNED
+### Lab Queue (`/lab`)
 - Coach's Pick with meaningful "why" tied to recurring patterns
 - Game cards with behavioral story (lesson_label + behavioral_insight)
 - Auto-rotates Coach's Pick after completing a review
 
-### Game Review (`/game/:gameId`) — REDESIGNED
+### Game Review (`/game/:gameId`)
 - Accuracy ring header, result badge, consistent tab system
 - Coach tab: Hero diagnosis, stat bar, worst move card, drill section
 - Decrypt tab: Story-driven landing with core lesson narrative
-- "Done reviewing" → completion overlay with summary + next game CTA
+- "Done reviewing" → completion overlay → next game CTA
 
-### Progress (`/progress`) — REDESIGNED
-- Coaching headline based on actual trends (not generic)
-- Accuracy Journey chart with clickable colored dots
-- Win Rate with correct insight (compares rates, not absolutes)
-- Blunders Rising: Red alert when blunders increase
-- Danger Zones: Clickable patterns with severity badges
-- Review Progress: Games reviewed / total with progress bar
-- Chess Identity + Last 10 Games bar chart
+### Progress (`/progress`) — COACHING PROGRESS REPORT
+Not a stats dashboard. A coach telling you how you're growing:
+- **Recent Form (Last 5) vs Big Picture**: Side-by-side accuracy, W/L, blunder rate
+- **Weakness Control**: Each pattern tracked over time — improving/worsening/stable with visual indicators
+- **Chess Understanding by Phase**: Opening/Middlegame/Endgame scores, weakest flagged only if < 75%
+- **Review Impact**: Before/after blunder rate and accuracy proving reviews work
+- **Game Timeline**: Horizontal bars per game with opponent, accuracy, result, lesson label, reviewed check
 
-### Play with Coach — Structured Opening Training
+### Play with Coach
 Guided game with curriculum enforcement, Think First approach, 9 openings
 
+## Architecture
+```
+/app/backend/
+  routes/coach_play.py
+  services/
+    progress_report_service.py     # NEW: Coaching progress computation
+    opening_curriculum_engine.py
+    coach_action_service.py
+    coach_review_service.py
+    memory_brain.py
+    position_reader.py
+    coach_move_pipeline.py
+  data/opening_curriculum.json
+  tests/
+    test_all_flows.py              # 38-test E2E suite
+    test_coaching_progress_report.py  # NEW: Progress report tests
+  server.py
+
+/app/frontend/
+  pages/
+    Dashboard.jsx                  # Lab queue
+    LabV2.jsx                      # Game review + ReviewCompleteOverlay
+    HomePage.jsx                   # Home
+    UnifiedProgress.jsx            # Coaching Progress Report
+    CoachPlay.jsx                  # Play with Coach
+```
+
 ## Key Endpoints
+- GET /api/progress/coaching-report (NEW: weakness control, habits, phases, review impact)
 - GET /api/home/dashboard-v2 (accuracy fallback, review_progress, behavioral data)
-- GET /api/progress/journey (win_trend, accuracy journey, blunder stats)
 - GET /api/lab-coach-pick (behavioral game cards, rotating pick)
 - POST /api/lab/{game_id}/complete-review (review stats, summary, next game)
-- POST /api/lab-mark-reviewed/{game_id}
-- GET /api/lab/{game_id}/coach-action, /api/lab/{game_id}/coach-insight
-- GET /api/coach/decryption/v5/{game_id}
 
 ## Testing Status
 - All pages: 100% pass rate (backend + frontend verified)
-- Backend E2E: 38/38 PASSING (test_all_flows.py)
-
-## Completed (April 2026)
-- Home page redesign: coach message, review progress strip, behavioral last game card
-- Progress page redesign: coaching headlines, fixed win rate insight, blunders rising alert
-- Lab queue redesign: behavioral game cards, Coach's Pick with pattern-based reasoning
-- Game review redesign: accuracy ring, coach tab hero, story-driven decrypt landing
-- Review completion flow: "Done reviewing" → summary overlay → next game CTA
-- Fixed: 0% accuracy bug (fallback to game_analyses), misleading "Holding steady" insight
+- Backend E2E: 38/38 PASSING
 
 ## Pending Tasks
 ### P0 — Fix Frontend API URL Imports (~24 files)
-~24 files use process.env.REACT_APP_BACKEND_URL directly instead of API import.
-
 ### P1 — Dead Code Removal
-Delete orphaned backend/chess_coach_core/, dead coach_engine modules, dead frontend components.
-
 ### P2 — Dependency & Script Cleanup
-Remove unused deps, move utility scripts to backend/scripts/.
-
-### Upcoming
-- Wire extracted components into CoachPlay.jsx (break 3,669-line monolith)
-- Deeper opening variation trees
-
-### Future
-- Position summary improvements, Frontend E2E tests, endgame expansion, voice coaching
+### Upcoming — CoachPlay.jsx monolith refactor, deeper opening trees
+### Future — E2E tests, endgame expansion, voice coaching
 
 *Last Updated: April 2026*
