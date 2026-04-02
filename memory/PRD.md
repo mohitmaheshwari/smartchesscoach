@@ -23,11 +23,14 @@ A highly personalized, "coach-first" chess application that teaches structured c
 
 ### Frontend
 - React 18 + Tailwind CSS + Framer Motion + chess.js + LichessBoard
-- CoachPlay page refactored into modular components:
-  - `CoachPlay.jsx` (2,430 lines - orchestrator with state/logic)
-  - `CoachPlaySetup.jsx` (pre-game screen)
-  - `CoachPlayBoard.jsx` (board + eval + controls)
-  - `CoachPlaySidebar.jsx` (coaching panels)
+- CoachPlay refactored architecture:
+  - `CoachPlay.jsx` (2,050 lines - orchestrator with core session/coaching state)
+  - `useTeachingMode.js` - Pluggable teaching lesson system hook
+  - `usePlayerData.js` - Pre-game data, streak, development tracking hook
+  - `useGuardian.js` - Move intervention system hook
+  - `CoachPlaySetup.jsx` - Pre-game screen component
+  - `CoachPlayBoard.jsx` - Board + eval + controls component
+  - `CoachPlaySidebar.jsx` - Coaching panels component
 
 ### Key API Endpoints
 - POST /api/coach/play/start, POST /api/coach/play/move
@@ -42,39 +45,40 @@ A highly personalized, "coach-first" chess application that teaches structured c
 
 ## What's Been Implemented
 
-### April 2, 2026
-- **P0 Fix: API URL Imports** — Fixed ~24 frontend files using `process.env.REACT_APP_BACKEND_URL` directly. All now use centralized `import { API } from "@/App"`.
-- **P0 Refactor: CoachPlay.jsx** — Broke down the 3,669-line monolith into modular components:
-  - Extracted `CoachPlaySetup.jsx` (pre-game screen with color selection, opening suggestions, past games memory)
-  - Extracted `CoachPlayBoard.jsx` (board + eval bar + teaching overlays + controls)
-  - Extracted `CoachPlaySidebar.jsx` (coaching panels: clean UI mode, legacy chat, guardian, feedback)
-  - CoachPlay.jsx reduced from 3,669 → 2,430 lines (34% reduction)
-  - Testing: 100% pass (backend 38/38, frontend all UI elements verified)
+### April 2, 2026 (Session 2)
+- **P0: Hook Extraction** — Extracted 3 focused hooks from CoachPlay.jsx:
+  - `useTeachingMode.js` (~250 lines) — All teaching lesson state + handlers. Pluggable for new lesson types.
+  - `usePlayerData.js` (~200 lines) — Pre-game data fetching, streak tracking, development tracking.
+  - `useGuardian.js` (~100 lines) — Guardian intervention state, evaluateMove, cancelRiskyMove.
+  - CoachPlay.jsx: 3,669 → 2,050 lines (44% total reduction across both sessions)
+- **P1: Dead Code Cleanup** — Deleted 5 dead backend modules (coach_engine/coach_personality.py, interactive_coach.py, lichess_explorer.py, opening_knowledge_builder.py, opening_teaching_db.py). Deleted 6 dead frontend components (RatingTrajectory, LearningPath, MemoryLane, HabitChallenge, NotificationBell, DailyMissionCard).
+- **P1: Dependency Cleanup** — Removed unused packages: boto3, botocore, s3transfer, huggingface_hub, fastuuid from backend. Removed axios from frontend.
+- Testing: 100% pass (backend 38/38, frontend all pages verified)
+
+### April 2, 2026 (Session 1)
+- **P0: API URL Fix** — Fixed ~24 frontend files using process.env.REACT_APP_BACKEND_URL directly → centralized import { API } from "@/App"
+- **P0: JSX Extraction** — Extracted render JSX from CoachPlay into CoachPlaySetup, CoachPlayBoard, CoachPlaySidebar
 
 ### Previous Sessions
 - Built 5-section Human Coach Game Review
 - Built Coach Play with 9-opening curriculum engine
 - Built Think First coaching, Move Intent Analyzer, Read the Board, Memory Brain
 - Refactored server.py from 14.5k → 10.8k lines
-- Redesigned Lab (/lab, /game/:gameId) for narrative-driven behavioral insights
-- Rebuilt Home (/home) and Progress (/progress) pages
+- Redesigned Lab, Home, Progress pages for narrative-driven behavioral insights
 - Built progress_report_service.py and complete-review endpoint
 
 ## Prioritized Backlog
 
 ### P0 - Next Up
-- Extract remaining state/logic from CoachPlay.jsx into focused hooks (second phase of refactor)
-- Implement new Play with Coach lesson modes (openings, traps, tactics, short wins, commentary)
+- Implement new Play with Coach lesson modes (traps, tactics, short wins, commentary) using the refactored architecture + useTeachingMode hook
 
 ### P1
-- Dead code cleanup: Delete orphaned backend/chess_coach_core/, dead coach_engine modules, dead frontend components
-- Dependency cleanup: Remove unused packages (boto3, huggingface_hub, etc.)
-
-### P2 — Backlog
 - "Count Squares" teaching mode: Coach teaches users to count escape squares as a calculation technique
 - Review data timing: Verify behavioral data attaches at analysis time, not just review time
 - Training puzzle improvement tracking: Ensure solving puzzles updates metrics
-- Dynamic error profile updates: If user wins 3 consecutive games, dashboard mood/data should shift to reflect improvement (don't forget training data, but update the "mood")
+
+### P2
+- Dynamic error profile updates: If user wins 3 consecutive games, dashboard mood/data should shift (don't forget historical data, but update the "mood")
 - Deeper opening variation trees for existing 9 curriculums
 - Frontend E2E tests (Playwright)
 
