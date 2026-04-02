@@ -9,7 +9,7 @@ Tests:
 import pytest
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-curriculum-1.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coaching-board.preview.emergentagent.com')
 
 
 class TestPracticeModeStart:

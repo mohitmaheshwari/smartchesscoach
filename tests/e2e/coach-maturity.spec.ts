@@ -9,7 +9,7 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'https://chess-curriculum-1.preview.emergentagent.com';
+const BASE_URL = 'https://coaching-board.preview.emergentagent.com';
 
 // Helper to login via dev login API
 async function devLogin(page) {
