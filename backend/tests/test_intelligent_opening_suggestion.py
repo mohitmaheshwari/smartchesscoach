@@ -20,7 +20,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://guru-play-debug.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-curriculum-1.preview.emergentagent.com')
 
 
 class TestOpeningColorMatching:

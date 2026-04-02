@@ -32,7 +32,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Test configuration
-BACKEND_URL = "https://guru-play-debug.preview.emergentagent.com/api"
+BACKEND_URL = "https://chess-curriculum-1.preview.emergentagent.com/api"
 
 class RouterFixTester:
     def __init__(self):
