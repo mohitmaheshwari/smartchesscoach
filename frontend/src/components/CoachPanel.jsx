@@ -168,6 +168,21 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
         </motion.div>
       )}
 
+      {/* ─── OPENING INFO: What opening + your score ─── */}
+      {!showIntro && guidance?.opening_info && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 border border-border">
+          <span className="text-xs font-medium text-foreground">{guidance.opening_info.name}</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+            guidance.opening_info.status === "strong" ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/20" :
+            guidance.opening_info.status === "learning" ? "text-amber-600 bg-amber-500/10 border-amber-500/20" :
+            guidance.opening_info.status === "weak" ? "text-red-500 bg-red-500/10 border-red-500/20" :
+            "text-blue-500 bg-blue-500/10 border-blue-500/20"
+          }`}>
+            {guidance.opening_info.message}
+          </span>
+        </div>
+      )}
+
       {/* ─── OPPONENT MOVE: Separate prominent card ─── */}
       {!showIntro && coachMove && guidance?.opponent_commentary && (
         <motion.div key={`opp-${coachMove}`}

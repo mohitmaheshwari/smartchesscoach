@@ -2290,6 +2290,39 @@ async def get_opening_guide(
 
     guidance = get_opening_guidance(opening_key, moves_san, user_color, assessment=assessment)
 
+    # Detect opening + user's performance after 2+ moves
+    opening_info = None
+    if len(moves_san) >= 2:
+        from services.opening_curriculum_engine import _load_curriculum
+        curriculum = _load_curriculum()
+        opening_data = curriculum.get(opening_key, {})
+        opening_name = opening_data.get("name", "")
+        
+        # Get user's stats for this opening from their games
+        games_played = assessment.get("games_played", 0) if assessment else 0
+        score = assessment.get("overall_score", 0) if assessment else 0
+        
+        if games_played == 0:
+            status = "new"
+            message = f"New opening! Let's learn the {opening_name} together."
+        elif score >= 80:
+            status = "strong"
+            message = f"You know this well — {score}% accuracy from {games_played} games. Let's sharpen it."
+        elif score >= 50:
+            status = "learning"
+            message = f"Getting there — {score}% accuracy from {games_played} games. Let's improve."
+        else:
+            status = "weak"
+            message = f"Needs work — {score}% accuracy from {games_played} games. Focus time."
+        
+        opening_info = {
+            "name": opening_name,
+            "games_played": games_played,
+            "score": score,
+            "status": status,
+            "message": message,
+        }
+
     # ALWAYS include commentary about the coach's last move
     coach_move_commentary = None
     # Track the last coach move SAN for frontend display
@@ -2317,19 +2350,25 @@ async def get_opening_guide(
                 coach_move_commentary = f"Opponent played {last_san}."
 
     if not guidance:
-        return {
+        result = {
             "has_guidance": coach_move_commentary is not None,
             "message": "Past the opening — play your best.",
             "opponent_commentary": coach_move_commentary,
             "last_opponent_move": last_opponent_move_san,
             "mode": "free",
         }
+        if opening_info:
+            result["opening_info"] = opening_info
+        return result
 
     if coach_move_commentary:
         guidance["opponent_commentary"] = coach_move_commentary
     guidance["last_opponent_move"] = last_opponent_move_san
 
-    return {"has_guidance": True, **guidance}
+    result = {"has_guidance": True, **guidance}
+    if opening_info:
+        result["opening_info"] = opening_info
+    return result
 
 
 @router.get("/curriculum/openings")
