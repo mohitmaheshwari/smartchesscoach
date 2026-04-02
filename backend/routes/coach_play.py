@@ -58,6 +58,55 @@ import chess
 
 logger = logging.getLogger(__name__)
 
+def _detect_opening_from_moves(moves: list, user_color: str) -> str:
+    """Detect which curriculum opening matches these moves."""
+    from services.opening_curriculum_engine import _load_curriculum
+    curriculum = _load_curriculum()
+
+    best_match = None
+    best_depth = 0
+
+    for key, opening in curriculum.items():
+        if opening.get("color") != user_color:
+            continue
+        tree = opening.get("tree", {})
+        if not tree:
+            continue
+
+        # Try to walk the tree with these moves
+        first_key = list(tree.keys())[0]
+        if not moves or moves[0] != first_key:
+            continue
+
+        # Walk as deep as possible
+        depth = 1
+        node = tree[first_key]
+        for i in range(1, len(moves)):
+            move = moves[i]
+            is_user = (i % 2 == 0 and user_color == "white") or (i % 2 == 1 and user_color == "black")
+
+            if not is_user:
+                responses = node.get("responses", {})
+                if move in responses:
+                    node = responses[move]
+                    depth += 1
+                else:
+                    break
+            else:
+                expected = node.get("next")
+                if expected and move == expected:
+                    depth += 1
+                else:
+                    break
+
+        if depth > best_depth:
+            best_depth = depth
+            best_match = key
+
+    return best_match
+
+
+
 # Create router for coach play endpoints
 router = APIRouter(prefix="/coach/play", tags=["Coach Play"])
 
@@ -2255,7 +2304,7 @@ async def get_opening_guide(
     from services.opening_curriculum_engine import get_opening_guidance, get_available_openings
 
     session_id = request.get("session_id")
-    opening_key = request.get("opening_key", "london_system")
+    opening_key = request.get("opening_key") or session_doc.get("teaching_opening") if session_id else None
 
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
@@ -2277,6 +2326,19 @@ async def get_opening_guide(
         elif isinstance(m, str):
             moves_san.append(m)
 
+    # Auto-detect opening from moves (after 3+ moves)
+    if not opening_key and len(moves_san) >= 3:
+        opening_key = _detect_opening_from_moves(moves_san, user_color)
+        if opening_key:
+            await db.coach_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"teaching_opening": opening_key}}
+            )
+    
+    # Still no opening detected — too early or unknown
+    if not opening_key:
+        opening_key = session_doc.get("teaching_opening")
+
     # Get user's assessment of this opening (cached per session)
     assessment = session_doc.get("opening_assessment")
     if not assessment:
@@ -2292,7 +2354,7 @@ async def get_opening_guide(
 
     # Detect opening + user's performance after 2+ moves
     opening_info = None
-    if len(moves_san) >= 2:
+    if len(moves_san) >= 3 and opening_key:
         from services.opening_curriculum_engine import _load_curriculum
         curriculum = _load_curriculum()
         opening_data = curriculum.get(opening_key, {})

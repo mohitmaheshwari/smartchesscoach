@@ -853,7 +853,8 @@ const CoachPlay = ({ user }) => {
       const requestBody = {
         user_color: selectedColor,
         time_control: timeControl,
-        opening_key: "london_system",  // TODO: let user pick from available curriculums
+        // Don't hardcode opening — let the backend detect from moves
+        // opening_key will be set after moves are played
       };
       
       // If in practice mode, use custom starting position
