@@ -40,7 +40,7 @@ import os
 import uuid
 import logging
 import asyncio
-from typing import Dict, List, Optional
+from typing import Dict, List
 from dotenv import load_dotenv
 
 load_dotenv()

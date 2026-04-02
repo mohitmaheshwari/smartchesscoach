@@ -17,8 +17,8 @@ When to call:
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone, timedelta
+from typing import Dict, List, Any
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,6 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
     - Coach context for personalized advice
     - Behavioral pattern detection
     """
-    from services.player_identity import BlunderType, GamePhase as IdentityGamePhase
     
     current_time = datetime.now(timezone.utc)
     COLLECTION = "player_identities"

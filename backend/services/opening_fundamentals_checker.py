@@ -22,7 +22,7 @@ Each violation generates a teaching moment that can be shown in Lab.
 
 import chess
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from dataclasses import dataclass
 from enum import Enum
 
@@ -303,7 +303,6 @@ def analyze_opening_fundamentals(
         ))
     
     # Calculate score (0-100)
-    max_violations = 5  # Normalize
     score = max(0, 100 - (len(violations) * 20))
     
     return {

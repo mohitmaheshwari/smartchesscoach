@@ -11,8 +11,7 @@ Replaces the narrative Coach Review with an ACTION-ORIENTED format:
 """
 
 import logging
-from typing import Dict, List, Optional
-from datetime import datetime, timezone
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 

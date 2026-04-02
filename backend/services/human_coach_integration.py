@@ -13,11 +13,10 @@ This is the SOUL of the coaching app - making it feel like a real human coach.
 """
 
 import random
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 import logging
-import chess
 
 logger = logging.getLogger(__name__)
 
@@ -386,7 +385,7 @@ class HumanCoachIntegration:
         try:
             # Look for similar positions/situations in past games
             # This is a simplified version - could be enhanced with position similarity
-            similar_games = await self.db.games.find({
+            await self.db.games.find({
                 "user_id": ctx.user_id,
                 "opening_name": {"$exists": True}
             }).sort("created_at", -1).limit(10).to_list(10)

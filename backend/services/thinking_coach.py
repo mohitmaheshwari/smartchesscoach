@@ -14,7 +14,7 @@ The goal is to transform knowledge into active thinking habits.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from dataclasses import dataclass
 from enum import Enum
 import chess

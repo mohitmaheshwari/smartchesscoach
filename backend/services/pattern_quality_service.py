@@ -12,8 +12,7 @@ Features:
 """
 
 import logging
-from typing import Dict, List, Optional
-from datetime import datetime, timezone
+from typing import Dict, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)

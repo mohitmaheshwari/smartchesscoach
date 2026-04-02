@@ -11,9 +11,8 @@ Handles all database operations for the self-learning pattern system:
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient
-from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 

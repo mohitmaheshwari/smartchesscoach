@@ -8,7 +8,7 @@ Supports all teaching modes with randomized selection to avoid repetition.
 
 import random
 from typing import Dict, Any, Optional, List
-from ..enums import TeachingMode, TacticalPattern, StrategicConcept
+from ..enums import TeachingMode
 
 from .tactical_patterns import get_tactical_template
 from .strategic_concepts import get_strategic_template

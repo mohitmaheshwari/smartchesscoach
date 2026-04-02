@@ -24,7 +24,6 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)

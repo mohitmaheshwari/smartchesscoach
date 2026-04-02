@@ -38,12 +38,11 @@ Usage:
 
 import chess
 import chess.engine
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Set
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
 import random
-import os
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ These extend the base detectors in detector_registry.py
 
 import chess
 import logging
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 
 from .detector_registry import DetectorResult

@@ -142,17 +142,12 @@ from mistake_explanation_service import (
 )
 
 from services.turning_point_explainer import (
-    get_turning_point_explainer,
-    TurningPointExplanation
+    get_turning_point_explainer
 )
 
 # Import Coach Personality Service for personalized language
 from services.coach_personality import (
-    get_player_level,
-    get_level_display_name,
-    get_level_emoji,
     get_personalized_coaching_context,
-    CoachLanguage,
     CoachVoice,
     PlayerLevel
 )
@@ -160,10 +155,7 @@ from services.coach_personality import (
 # Import Chess Understanding Service for multi-dimensional analysis
 from services.chess_understanding import (
     get_chess_understanding,
-    update_chess_understanding,
-    get_coaching_context_from_understanding,
-    UnderstandingBasedCoaching,
-    ChessUnderstanding
+    get_coaching_context_from_understanding
 )
 
 

@@ -13,7 +13,6 @@ Returns:
 
 import chess
 import logging
-from typing import Dict, Optional, List
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -114,7 +113,7 @@ def analyze_move_intent(fen: str, move_san: str, best_move_san: str = "", cp_los
         best_target = new_attacks[0]
         target_name = _piece_name(best_target[1])
         target_sq = chess.square_name(best_target[0])
-        target_defended = best_target[2]
+        best_target[2]
 
         if len(new_attacks) >= 2:
             names = [_piece_name(a[1]) for a in new_attacks[:2]]

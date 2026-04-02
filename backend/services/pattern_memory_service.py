@@ -214,7 +214,7 @@ async def get_pattern_summary(
                 game_patterns.add(pattern)
                 
                 # Get phase if available
-                phase = move.get("phase", "middlegame")
+                move.get("phase", "middlegame")
         
         # Add primary issue if we didn't find specific patterns
         if not game_patterns and primary_issue:

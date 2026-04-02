@@ -27,7 +27,7 @@ Usage:
 
 import chess
 from typing import Dict, List, Optional, Set, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 import logging
 
@@ -479,8 +479,8 @@ class MoveEffectAnalyzer:
         opened = []
         closed = []
         
-        from_file = chess.square_file(move.from_square)
-        to_file = chess.square_file(move.to_square)
+        chess.square_file(move.from_square)
+        chess.square_file(move.to_square)
         
         # Check if a file was opened (piece moved off it)
         old_open = before["open_files"]

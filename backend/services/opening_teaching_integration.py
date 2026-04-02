@@ -14,12 +14,11 @@ Flow:
 6. After teaching complete, continue normal game or offer to restart
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from datetime import datetime, timezone
 import logging
 
 from services.verified_opening_traps import (
-    get_applicable_traps_for_moves,
     get_verified_trap_by_name,
     get_verified_traps_for_opening,
     select_preferred_trap,
@@ -29,7 +28,6 @@ from services.opening_theory_json_service import (
     get_opening_theory,
     get_available_variations,
     get_variation_lesson_moves,
-    get_move_teaching_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -165,7 +163,6 @@ async def start_opening_lesson(
     All lesson data comes from the JSON theory file.
     """
     from services.opening_mastery import get_user_opening_progress
-    import chess
 
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
@@ -307,7 +304,6 @@ async def _start_main_line_lesson(db, session_id, session_doc, opening_key, open
 async def _start_trap_lesson(db, session_id, session_doc, opening_key, opening_name, user_plays_white, progress):
     """Start a trap lesson (unchanged logic, uses verified_opening_traps)."""
     from services.opening_correction_service import get_trap_override
-    import chess
 
     move_history = session_doc.get("move_history", [])
     moves_played_san = [m.get("move", "") for m in move_history if m.get("move")]

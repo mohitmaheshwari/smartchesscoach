@@ -25,8 +25,7 @@ Usage:
     message = coach.get_message_for_student_move(fen, student_move, eval_data)
 """
 
-import chess
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging

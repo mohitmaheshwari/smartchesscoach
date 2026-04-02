@@ -1,59 +1,25 @@
 """
-Coach Play Routes
-=================
+Coach Play Routes — ALL coach/play endpoints live here.
+=========================================================
 
 Handles the "Play with Coach" feature including:
-- Starting/ending coach play sessions
-- Making moves and getting coach responses
-- Real-time feedback and evaluation
+- Starting/ending sessions (start, end)
+- Making moves (move, move/confirm, undo)
+- Real-time feedback (messages, state, feedback, behaviors)
+- Coaching (reflect, chat, evaluate, analysis)
+- Opening curriculum (opening-guide, opening-assessment, pregame-intro)
+- Candidate moves + position reader
 - Endgame lessons
-- Opening teaching integration
+- Teaching mode
 
-NOTE: This is the first phase of refactoring. The main routes are still in server.py
-but will be progressively moved here.
-
-Routes to be migrated from server.py:
-- POST /coach/play/start (line ~8778)
-- POST /coach/play/move (line ~8935)
-- GET /coach/play/messages/{session_id} (line ~9696)
-- POST /coach/play/reflect (line ~9767)
-- POST /coach/play/chat (line ~9855)
-- POST /coach/play/evaluate (line ~9969)
-- POST /coach/play/move/confirm (line ~10080)
-- GET /coach/play/state/{session_id} (line ~10228)
-- GET /coach/play/feedback/{session_id} (line ~10260)
-- POST /coach/play/end (line ~10291)
-- POST /coach/play/analysis (line ~10341)
-- GET /coach/play/active (line ~10466)
-- GET /coach/play/history (line ~10486)
-- GET /coach/play/identity (line ~10520)
-- GET /coach/play/cpr/history (line ~10555)
-- GET /coach/play/behaviors/{session_id} (line ~10582)
-- POST /coach/play/feedback (line ~10624)
-- POST /coach/play/endgame/start (line ~10701)
-- POST /coach/play/endgame/move (line ~10740)
-- GET /coach/play/opening-plan (line ~11072)
-- POST /coach/play/teaching/start (line ~11154)
-- POST /coach/play/teaching/move (line ~11197)
-- POST /coach/play/teaching/exit (line ~11242)
-- POST /coach/play/teaching/skip (line ~11281)
-
-Helper functions to migrate:
-- _is_common_opening_move (line ~8559)
-- _get_coach_move_explanation (line ~8588)
-- _get_teaching_explanation (line ~8677)
-- _classify_move (line ~9061)
-- _process_move_and_respond (line ~9079)
-
-Total: ~2500 lines to migrate from server.py
+Fully extracted from server.py (April 2026).
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Body, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict
 from datetime import datetime, timezone
 import logging
-import uuid
 import chess
 
 logger = logging.getLogger(__name__)
@@ -1951,7 +1917,7 @@ async def get_interactive_coaching(
             # "You've missed forks 3 times this week" — makes the coach feel like it remembers
             if coaching.severity in ("mistake", "blunder", "inaccuracy") and cp_loss >= 100:
                 try:
-                    from services.pattern_memory_service import get_pattern_for_mistake, normalize_pattern
+                    from services.pattern_memory_service import get_pattern_for_mistake
                     
                     # Map coaching concept_id or severity to a cognitive gap
                     cognitive_gap = coaching.concept_id or coaching.severity
@@ -2301,7 +2267,7 @@ async def get_opening_guide(
     - opening_key: Which opening curriculum to use (default: auto-detect)
     """
     global db
-    from services.opening_curriculum_engine import get_opening_guidance, get_available_openings
+    from services.opening_curriculum_engine import get_opening_guidance
 
     session_id = request.get("session_id")
     opening_key = request.get("opening_key") or session_doc.get("teaching_opening") if session_id else None
@@ -2619,7 +2585,6 @@ async def get_opening_suggestions(user: User = Depends(get_current_user)):
     Shows what the user plays, how well, and what to learn next.
     """
     global db
-    from services.opening_walkthrough_service import get_user_top_openings
     from services.opening_curriculum_engine import get_available_openings
 
     # Get user's actual opening stats from their games
@@ -2919,7 +2884,6 @@ async def make_coach_play_move(
     - awaiting_coach: True (coach will respond async)
     """
     import asyncio
-    from coach_play.coach_game_session import CoachGameSession, SessionStatus
     import chess
     from datetime import datetime, timezone
     
@@ -3170,7 +3134,7 @@ async def _process_move_and_respond(
     3. Make coach's responding move
     4. Store everything for frontend to poll
     """
-    from coach_play.coach_commentary import get_quick_analysis, generate_coach_chat_message
+    from coach_play.coach_commentary import get_quick_analysis
     from coach_play.coaching_triggers import should_coach_speak
     from coach_play.coach_opponent import CoachOpponent
     from datetime import datetime, timezone
@@ -3187,7 +3151,6 @@ async def _process_move_and_respond(
         # FAST PATH: When curriculum is active, skip heavy analysis — just make the coach move
         session_doc_check = await db.coach_sessions.find_one({"session_id": session_id})
         if session_doc_check and session_doc_check.get("curriculum_active") and not game_over:
-            import chess as chess_lib
             teaching_opening = session_doc_check.get("teaching_opening")
             
             # Get the move history to find the curriculum's expected opponent response
@@ -3200,7 +3163,7 @@ async def _process_move_and_respond(
             if teaching_opening:
                 from services.opening_curriculum_engine import get_opening_guidance, _load_curriculum
                 assessment = session_doc_check.get("opening_assessment")
-                guidance = get_opening_guidance(teaching_opening, moves_san, user_color, assessment=assessment)
+                get_opening_guidance(teaching_opening, moves_san, user_color, assessment=assessment)
                 
                 curriculum_color = "white"  # London is a White opening
                 curriculum = _load_curriculum()
@@ -3570,13 +3533,13 @@ async def _process_move_and_respond(
                 
                 # Determine position type for Socratic engine
                 if abs(delta) >= 200:
-                    position_type = "blunder"
+                    pass
                 elif abs(delta) >= 100:
-                    position_type = "mistake"
+                    pass
                 elif analysis.get("missed_tactic"):
-                    position_type = "missed_tactic"
+                    pass
                 else:
-                    position_type = "strategic"
+                    pass
                 
                 # Get Socratic response with emotional adaptation
                 try:

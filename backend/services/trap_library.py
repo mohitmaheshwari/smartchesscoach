@@ -677,7 +677,6 @@ def find_relevant_trap(fen: str, move_history: List[str]) -> Optional[Dict]:
     Returns:
         Trap data if a trap setup matches, None otherwise
     """
-    import chess
     
     # Convert move history to a comparable format (lowercase, no annotations)
     normalized_history = [m.replace("+", "").replace("#", "").lower() for m in move_history]
@@ -718,7 +717,6 @@ def get_trap_for_position(move_history: List[str]) -> Optional[Dict]:
     Returns:
         Trap info if position matches, None otherwise
     """
-    import chess
     
     history_str = " ".join(move_history).lower()
     
@@ -793,7 +791,6 @@ def analyze_game_for_traps(moves: List[str], user_color: str) -> Dict:
         - traps_fallen_into: Traps the user fell into
         - trap_opportunities_missed: Traps that were available but not played
     """
-    import chess
     
     traps_executed = []
     traps_fallen_into = []

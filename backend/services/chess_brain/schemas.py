@@ -14,9 +14,6 @@ from .enums import (
     TeachingMode,
     GamePhase,
     MistakeCategory,
-    TacticalPattern,
-    StrategicConcept,
-    BehavioralPattern,
     LessonPriority,
     MoveQuality,
     ExplanationType

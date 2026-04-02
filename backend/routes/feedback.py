@@ -515,7 +515,6 @@ async def process_pending_feedback(
     - dry_run: If true, analyze but don't save patterns (default: false)
     """
     global db
-    import uuid
     from datetime import datetime, timezone
     
     limit = request.get("limit", 10)
@@ -762,7 +761,7 @@ async def get_available_tags(user: User = Depends(get_current_user)):
     
     Returns the 33 comprehensive tags with their labels and descriptions.
     """
-    from services.game_tagging_service import GAME_TAGS, get_tag_label, get_tag_description
+    from services.game_tagging_service import GAME_TAGS
     
     tags = []
     for tag_id, tag_info in GAME_TAGS.items():

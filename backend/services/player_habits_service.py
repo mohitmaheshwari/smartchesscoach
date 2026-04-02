@@ -13,7 +13,6 @@ This goes beyond move quality — it understands the PLAYER:
 Used by BOTH Play with Coach (live) and Lab (post-game).
 """
 
-import chess
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
@@ -44,7 +43,7 @@ def generate_behavioral_coaching(
     
     # Get recent player moves (last 5)
     recent_player_moves = [m for m in move_history if m.get("by") == "player"][-5:]
-    current_move_index = len([m for m in move_history if m.get("by") == "player"])
+    len([m for m in move_history if m.get("by") == "player"])
     
     # Check for behaviors detected on THIS move
     latest_behaviors = []

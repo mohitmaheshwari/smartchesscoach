@@ -31,7 +31,7 @@ Author: Built for truly personalized coaching
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Any
 from datetime import datetime, timezone
 from enum import Enum
 import logging

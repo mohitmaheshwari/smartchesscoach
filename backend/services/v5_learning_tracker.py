@@ -14,8 +14,8 @@ Key Features:
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone, timedelta
+from typing import Dict, List
+from datetime import datetime, timezone
 from collections import Counter
 
 logger = logging.getLogger(__name__)

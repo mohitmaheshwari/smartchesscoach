@@ -11,7 +11,7 @@ Tags each critical moment with patterns that help the coach understand:
 Tags are rating-appropriate - different tags for different skill levels.
 """
 
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -438,7 +438,6 @@ def detect_tactical_pattern(
                     move = test_board.parse_san(next_move)
                     if test_board.is_capture(move):
                         # Check if it's an undefended piece
-                        to_square = move.to_square
                         # This is likely a hung piece
                         return "hung_piece"
                 except:
@@ -505,7 +504,7 @@ def tag_critical_moment(
     severity = get_severity(abs(cp_loss))
     
     # Get rating-appropriate tags
-    available_tags = filter_tags_for_rating(user_rating)
+    filter_tags_for_rating(user_rating)
     
     primary_tag = "unknown"
     secondary_tags = []

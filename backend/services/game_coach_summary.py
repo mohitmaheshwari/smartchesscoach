@@ -13,9 +13,7 @@ Everything is derived from Stockfish eval + existing analysis data.
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict
-import chess
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

@@ -127,7 +127,7 @@ def generate_coach_prompt(moment_data):
     primary_tag = tags.get("primary_tag", "")
     threat = moment_data.get("threat", "")
     cp_loss = abs(moment_data.get("cp_loss", 0))
-    insight = moment_data.get("insight", {})
+    moment_data.get("insight", {})
     position = moment_data.get("position_analysis", {})
 
     # Check for specific threats
@@ -198,7 +198,7 @@ def generate_thinking_questions(moment_data):
     """Generate 2-3 guiding questions based on the position."""
     tags = moment_data.get("tags", {})
     primary_tag = tags.get("primary_tag", "")
-    position = moment_data.get("position_analysis", {})
+    moment_data.get("position_analysis", {})
     threat = moment_data.get("threat", "")
 
     questions = []
@@ -306,7 +306,7 @@ def generate_lesson_takeaway(moment_data):
     tags = moment_data.get("tags", {})
     primary_tag = tags.get("primary_tag", "")
     insight = moment_data.get("insight", {})
-    cp_loss = abs(moment_data.get("cp_loss", 0))
+    abs(moment_data.get("cp_loss", 0))
 
     # Use the pattern_to_remember if available
     pattern = insight.get("pattern_to_remember", "")

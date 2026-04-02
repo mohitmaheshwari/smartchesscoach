@@ -12,20 +12,17 @@ Provides comprehensive game analysis including:
 This integrates with coach memory to provide continuity across sessions.
 """
 
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
 import logging
-import chess
 
 # Import coach memory for personalization
 from services.coach_memory import (
     get_or_create_memory,
     get_coaching_context,
-    update_memory_after_game,
-    CoachMemory,
-    DETECTABLE_WEAKNESSES
+    update_memory_after_game
 )
 
 logger = logging.getLogger(__name__)
@@ -161,7 +158,7 @@ async def analyze_postgame(
     # ========== STEP 0: FETCH COACH MEMORY ==========
     # This is what makes the coach REMEMBER the player
     memory_context = await get_coaching_context(db, user_id)
-    memory = await get_or_create_memory(db, user_id)
+    await get_or_create_memory(db, user_id)
     
     games_together = memory_context.get("games_played", 0)
     known_weaknesses = memory_context.get("watch_for", [])
@@ -276,7 +273,7 @@ def _generate_memory_insights(
     
     # Count current game stats
     current_blunders = len([m for m in mistakes if m.mistake_type == MistakeType.BLUNDER])
-    current_accuracy = 100 - (len(mistakes) * 5)  # Rough estimate
+    100 - (len(mistakes) * 5)  # Rough estimate
     
     # ===== RECURRING PATTERN CHECK =====
     # Check if current mistakes match known weaknesses
@@ -947,7 +944,7 @@ async def _update_coach_memory_after_game(
         if move_history and len(move_history) > 0:
             first_player_move = next((m for m in move_history if m.get("by") == "player"), None)
             if first_player_move:
-                move_num = first_player_move.get("move_number", 1)
+                first_player_move.get("move_number", 1)
                 # If first player move has even index in history, they're black
                 idx = move_history.index(first_player_move)
                 user_color = "white" if idx % 2 == 0 else "black"

@@ -24,7 +24,7 @@ import logging
 from typing import Dict, List, Callable, Optional, Any, Tuple
 from dataclasses import dataclass
 
-from .schemas import DetectorResult, PositionInsightObject
+from .schemas import DetectorResult
 from .enums import (
     TacticalPattern,
     StrategicConcept,

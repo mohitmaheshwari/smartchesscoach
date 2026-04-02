@@ -14,12 +14,10 @@ Puzzle sources:
 3. Community patterns (other users with similar weaknesses)
 """
 
-import os
-import json
 import random
 import logging
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 import aiohttp
 
 logger = logging.getLogger(__name__)

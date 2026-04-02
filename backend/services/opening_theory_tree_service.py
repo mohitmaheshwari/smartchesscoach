@@ -9,7 +9,6 @@ Handles variations, sub-variations, and critical position detection.
 import json
 import os
 import logging
-import chess
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 

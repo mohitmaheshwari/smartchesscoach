@@ -14,7 +14,6 @@ Key features:
 
 import logging
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -115,8 +114,8 @@ def infer_behavioral_tag(
     tags = []
     
     cp_loss = move_data.get("cp_loss", 0)
-    move_number = game_context.get("move_number", 0)
-    game_phase = game_context.get("game_phase", "middlegame")
+    game_context.get("move_number", 0)
+    game_context.get("game_phase", "middlegame")
     eval_before = position_eval.get("eval_before", 0)
     time_left = game_context.get("time_left_seconds")
     previous_blunders = game_context.get("previous_blunders_in_game", 0)
@@ -215,7 +214,7 @@ def generate_moment_insight(
     
     Instead of "Something important is happening", we say exactly what and why.
     """
-    fen = position.get("fen", "")
+    position.get("fen", "")
     eval_change = position.get("eval_change", 0)
     your_move = position.get("your_move", "")
     best_move = position.get("best_move", "")
@@ -461,7 +460,6 @@ async def get_aggregated_patterns(
     
     # Aggregate by category
     category_stats = {}
-    pattern_examples = {}
     
     for a in analyses:
         tp = a.get("turning_point")

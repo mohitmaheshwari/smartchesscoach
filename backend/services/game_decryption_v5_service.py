@@ -38,7 +38,7 @@ import io
 import re
 import logging
 import asyncio
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 
@@ -1371,7 +1371,7 @@ def analyze_opponent_move(
     
     Returns: (narrative, your_plan_now, highlight_squares)
     """
-    move_san = board.san(move)
+    board.san(move)
     
     # Calculate eval swing from user's perspective
     eval_swing = 0
@@ -1704,11 +1704,10 @@ def _explain_response_idea(
     is_capture = board.is_capture(move)
     sim.push(move)
     
-    piece_name = get_piece_name(piece)
+    get_piece_name(piece)
     to_sq = move.to_square
     to_file = chess.square_file(to_sq)
     to_rank = chess.square_rank(to_sq)
-    from_sq = move.from_square
     
     # ─── PAWN MOVES - Often the most instructive ───
     if piece.piece_type == chess.PAWN:
@@ -1719,7 +1718,7 @@ def _explain_response_idea(
         
         # Central pawn break (d5, e5, d4, e4 type moves)
         if to_sq in [chess.D5, chess.E5, chess.D4, chess.E4, chess.E6, chess.D6]:
-            sq_name = chess.square_name(to_sq)
+            chess.square_name(to_sq)
             # Check what it opens
             if sim.is_check():
                 return f"{response_san} breaks through with check! The center is torn open."
@@ -2693,7 +2692,7 @@ async def generate_game_decryption_v5(
         # ─── LLM ENHANCEMENT PASS ────────────────────────────────────
         # Enhance mistakes/inaccuracies with LLM for more natural language
         try:
-            from services.v5_llm_narrator import generate_concise_narrative, generate_opponent_narrative, generate_good_move_praise
+            from services.v5_llm_narrator import generate_concise_narrative
             
             mistakes_to_enhance = [
                 (i, m) for i, m in enumerate(decryption_data)

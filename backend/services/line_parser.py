@@ -15,7 +15,7 @@ Golden rules and opening patterns live in /data/theory/*.json — NOT hardcoded 
 """
 
 import chess
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 import logging
 

@@ -15,7 +15,7 @@ Flow:
 import chess
 import os
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from dataclasses import dataclass
 

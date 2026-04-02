@@ -34,7 +34,7 @@ import chess
 import chess.engine
 import random
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 from motor.motor_asyncio import AsyncIOMotorDatabase

@@ -15,7 +15,7 @@ import chess
 import chess.pgn
 import io
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)

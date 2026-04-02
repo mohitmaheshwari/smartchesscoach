@@ -12,7 +12,7 @@ which is stored as coaching data for personalization.
 """
 
 import chess
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List
 
 
 # Piece values for material counting

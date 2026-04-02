@@ -139,7 +139,6 @@ async def _gather_profile_data(db, user_id: str) -> dict:
             tp = analysis.get("turning_point")
             if isinstance(tp, dict) and tp.get("move_number"):
                 move_num = tp["move_number"]
-                total_moves_approx = 30
                 if move_num <= 12:
                     phase_mistakes["opening"] += 1
                 elif move_num <= 25:
@@ -178,10 +177,10 @@ async def _gather_profile_data(db, user_id: str) -> dict:
     community_games = await db.games.count_documents({"user_id": {"$ne": user_id}})
 
     # --- Opening diversity ---
-    unique_openings = len(openings)
-    total_games_with_openings = sum(openings.values())
+    len(openings)
+    sum(openings.values())
     most_played = top_openings[0] if top_openings else ("Unknown", 0)
-    most_played_pct = round(most_played[1] / max(total, 1) * 100) if total > 0 else 0
+    round(most_played[1] / max(total, 1) * 100) if total > 0 else 0
 
     # --- User rating ---
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "rating": 1, "name": 1})

@@ -32,13 +32,12 @@ Usage:
 
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 
 from .learning_db import LearningDB
-from .feedback_collector import FeedbackCollector, UserFeedback
-from .pattern_learner import PatternLearner, LearnedRule
-from .rule_validator import RuleValidator, ValidationResult
+from .feedback_collector import FeedbackCollector
+from .pattern_learner import PatternLearner
+from .rule_validator import RuleValidator
 from .rule_executor import RuleExecutor, ClassificationResult
 
 logger = logging.getLogger(__name__)

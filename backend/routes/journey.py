@@ -504,7 +504,7 @@ async def get_rolling_evolution(user: User = Depends(get_current_user)):
     - overall: Overall direction (improving/declining/stable)
     """
     global db
-    from baseline_service import calculate_rolling_evolution, ROLLING_WINDOW_SIZE
+    from baseline_service import calculate_rolling_evolution
     
     # Get all analyses
     all_analyses = await db.game_analyses.find(

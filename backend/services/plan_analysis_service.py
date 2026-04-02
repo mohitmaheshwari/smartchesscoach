@@ -19,11 +19,9 @@ Example:
 
 import chess
 import chess.engine
-import asyncio
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 import logging
-import os
 
 logger = logging.getLogger(__name__)
 

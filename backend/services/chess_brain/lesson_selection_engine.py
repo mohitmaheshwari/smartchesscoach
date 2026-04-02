@@ -23,8 +23,7 @@ Higher score wins. Ties broken by:
 
 import logging
 import uuid
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 from .schemas import (
     PositionInsightObject,

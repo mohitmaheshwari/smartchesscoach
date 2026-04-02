@@ -8,8 +8,8 @@ Implements decay scoring to weight recent mistakes more heavily.
 
 import os
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional
+from datetime import datetime, timezone
+from typing import Dict, Any
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from .schemas import MistakeFingerprint

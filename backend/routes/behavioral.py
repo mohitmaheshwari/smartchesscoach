@@ -16,10 +16,9 @@ Endpoints:
 - GET /behavioral/mission/last-result - Get last mission result
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional, Dict
-from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)

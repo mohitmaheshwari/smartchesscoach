@@ -27,8 +27,6 @@ import io
 import re
 import logging
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict, field
-from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -478,7 +476,7 @@ def generate_game_decryption(
                 if md.get("is_forced_recapture"):
                     # Forced recapture — acknowledge it as the natural move
                     piece = board.piece_at(md["move"].from_square)
-                    piece_name = get_piece_name(piece) if piece else "piece"
+                    get_piece_name(piece) if piece else "piece"
                     captured = board.piece_at(md["move"].to_square)
                     captured_name = get_piece_name(captured) if captured else "piece"
                     move_output["narrative"] = f"Forced recapture — {md['move_san']} takes back the {captured_name}. This is the only way to recover the material."

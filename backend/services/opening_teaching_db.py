@@ -19,8 +19,8 @@ Usage:
     teaching = db.get_move_teaching(opening_id, move_number, move)
 """
 
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+from dataclasses import dataclass
 import re
 
 

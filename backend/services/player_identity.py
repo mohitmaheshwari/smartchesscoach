@@ -24,8 +24,8 @@ Author: Built for 9/10 memory system
 """
 
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timezone, timedelta
+from typing import Dict, List, Optional, Any
+from datetime import datetime, timezone
 from enum import Enum
 import logging
 import chess
@@ -702,8 +702,6 @@ class PlayerIdentityService:
         # 2. ANALYZE BLUNDERS (THE CORE)
         # ===========================================
         blunders_this_game = []
-        time_trouble_detected = False
-        post_blunder_moves = []
         
         for i, move in enumerate(moves_analysis):
             cp_loss = move.get("cp_loss", 0)
@@ -712,7 +710,6 @@ class PlayerIdentityService:
             if cp_loss < 100:
                 continue
             
-            is_blunder = cp_loss >= 200
             
             # Classify the blunder type
             blunder_type = self._classify_blunder(
@@ -763,7 +760,7 @@ class PlayerIdentityService:
             
             # Track time trouble
             if move.get("time_remaining", 300) < 60:
-                time_trouble_detected = True
+                pass
             
             # Add to pattern history
             pattern_entry = PatternHistoryEntry(
@@ -972,7 +969,7 @@ class PlayerIdentityService:
         """Detect the tactical theme of the best move"""
         try:
             board = chess.Board(fen)
-            m = board.parse_san(best_move)
+            board.parse_san(best_move)
             
             if self._is_missed_fork(board, best_move):
                 return "fork"

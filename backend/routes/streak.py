@@ -8,7 +8,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Request
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime, timezone
 import logging
 

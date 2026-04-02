@@ -25,27 +25,25 @@ Usage:
 
 import chess
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
 
 from .schemas import (
     PositionInsightObject,
     SelectedLesson,
     MistakeFingerprint,
-    LessonMemory,
-    DetectorResult
+    LessonMemory
 )
 from .enums import (
     TeachingMode,
     GamePhase,
-    MoveQuality,
-    MistakeCategory
+    MoveQuality
 )
 from .detector_registry import get_detector_registry
 from .lesson_selection_engine import LessonSelectionEngine
 
 # Import existing services
-from services.game_phase_service import GamePhaseCalculator, get_phase_coaching
+from services.game_phase_service import GamePhaseCalculator
 
 logger = logging.getLogger(__name__)
 

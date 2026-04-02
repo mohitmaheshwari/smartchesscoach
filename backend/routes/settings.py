@@ -245,7 +245,7 @@ async def settings_link_account(req: LinkAccountRequest, user: User = Depends(ge
     Link chess account and calculate assessed skill rating.
     """
     global db
-    from skill_calibration_service import calculate_performance_rating, classify_time_control
+    from skill_calibration_service import classify_time_control
     from journey_service import fetch_recent_chesscom_games, fetch_recent_lichess_games
     
     platform = req.platform.lower()

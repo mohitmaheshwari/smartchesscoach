@@ -109,7 +109,7 @@ def check_move(category_key: str, lesson_key: str, position_index: int, user_mov
     # Additional check: try to parse the user's UCI move and see if it matches
     if not is_correct:
         try:
-            board = chess.Board(pos["fen"])
+            chess.Board(pos["fen"])
             user_chess_move = chess.Move.from_uci(user_uci)
             correct_chess_move = chess.Move.from_uci(correct_uci_norm)
             is_correct = user_chess_move == correct_chess_move

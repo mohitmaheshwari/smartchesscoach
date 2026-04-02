@@ -27,7 +27,7 @@ Author: Built for hyper-personalized coaching
 
 from enum import Enum
 from dataclasses import dataclass
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional, Any
 import logging
 
 logger = logging.getLogger(__name__)

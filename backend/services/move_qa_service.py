@@ -13,7 +13,7 @@ Flow:
 import chess
 import chess.engine
 import asyncio
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple
 import logging
 import os
 import re

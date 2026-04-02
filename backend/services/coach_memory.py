@@ -17,7 +17,7 @@ Uses this data during coaching to provide personalized feedback.
 
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from enum import Enum
 import logging
 

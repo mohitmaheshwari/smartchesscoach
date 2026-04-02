@@ -15,7 +15,7 @@ import uuid
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field, asdict
 
 import chess

@@ -20,9 +20,7 @@ Design Principles:
 """
 
 import logging
-import chess
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone, timedelta
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -766,7 +764,6 @@ async def generate_coach_review(
 
 def _count_pattern_occurrences(analyses: List[Dict], user_color: str) -> Dict:
     """Count how many games had each diagnosis type."""
-    from services.game_coach_summary import compute_game_summary
     counts = {}
     for a in analyses:
         sf = a.get("stockfish_analysis", {})

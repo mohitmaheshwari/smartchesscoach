@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, BackgroundTasks, Body
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, BackgroundTasks, Body
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -13,17 +13,12 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
 import re
-import io
 
 # Import centralized config
 from config import (
-    LLM_PROVIDER, LLM_MODEL, TTS_MODEL, TTS_VOICE,
     STOCKFISH_DEPTH, STOCKFISH_MAX_RETRIES,
-    SESSION_EXPIRY_DAYS, COOKIE_MAX_AGE_SECONDS,
-    PLAY_SESSION_LOOKBACK_HOURS, DEFAULT_RATING,
-    BACKGROUND_SYNC_INTERVAL_SECONDS, FIRST_SYNC_MONTHS,
-    DAILY_SYNC_MAX_GAMES, SYNC_INTERVAL_HOURS,
-    QUICK_SYNC_INTERVAL_SECONDS, QUICK_SYNC_MAX_GAMES
+    DEFAULT_RATING,
+    BACKGROUND_SYNC_INTERVAL_SECONDS, QUICK_SYNC_INTERVAL_SECONDS
 )
 
 # Import RAG service
@@ -40,11 +35,8 @@ from player_profile_service import (
     get_or_create_profile,
     update_profile_after_analysis,
     record_challenge_result,
-    build_profile_context_for_prompt,
-    build_explanation_prompt_contract,
     validate_explanation,
     categorize_weakness,
-    normalize_weakness_key,
     WEAKNESS_CATEGORIES,
     LearningStyle,
     CoachingTone
@@ -54,27 +46,20 @@ from player_profile_service import (
 from cqs_service import (
     calculate_cqs,
     get_stricter_prompt_constraints,
-    should_accept_after_regenerations,
     log_cqs_result,
     MAX_REGENERATIONS
 )
 
 # Import Journey Dashboard service
 from journey_service import (
-    generate_journey_dashboard_data,
-    run_background_sync,
-    fetch_recent_chesscom_games,
-    fetch_recent_lichess_games,
-    select_games_for_analysis
+    run_background_sync
 )
 
 # Import Rating & Training service
 from rating_service import (
     predict_rating_trajectory,
     calculate_improvement_velocity,
-    calculate_performance_rating,
     analyze_time_usage,
-    generate_training_session,
     generate_calculation_analysis,
     fetch_platform_ratings
 )
@@ -82,16 +67,12 @@ from rating_service import (
 # Import Stockfish engine service
 from stockfish_service import (
     analyze_game_with_stockfish,
-    get_position_evaluation,
     get_best_moves_for_position
 )
 
 # Import Phase Theory service for strategic coaching
 from phase_theory_service import (
     analyze_game_phases,
-    get_phase_theory,
-    detect_game_phase,
-    detect_endgame_type,
     get_rating_bracket
 )
 
@@ -104,21 +85,11 @@ from auto_coach_service import (
 
 # Import Notification service
 from notification_service import (
-    create_notification,
-    get_user_notifications,
-    get_unread_count,
-    mark_notification_read,
-    dismiss_notification,
-    notify_game_analyzed,
-    notify_focus_updated,
-    get_push_notification_payload,
-    NotificationType,
-    NotificationPriority
+    notify_game_analyzed
 )
 
 # Import Subscription service
 from subscription_service import (
-    get_user_plan,
     get_effective_plan,
     can_analyze_game,
     increment_analysis_count,
@@ -128,22 +99,10 @@ from subscription_service import (
 
 # Import Mistake Card service for the Mistake Mastery System
 from mistake_card_service import (
-    extract_mistake_cards_from_analysis,
-    get_training_session,
-    get_due_cards,
-    get_post_game_card,
-    record_card_attempt,
-    get_user_habit_progress,
-    update_user_habit_progress,
-    set_active_habit,
-    get_training_stats,
-    get_card_by_id,
-    generate_why_question,
-    HABIT_DEFINITIONS
+    extract_mistake_cards_from_analysis
 )
 
 # Import Chess Journey service for comprehensive progress tracking
-from chess_journey_service import get_chess_journey
 
 # Import Coach Game Review Service
 from coach_game_review_service import (
@@ -154,7 +113,6 @@ from coach_game_review_service import (
 
 # Import Blunder Intelligence Service for the Blunder Reduction System
 from blunder_intelligence_service import (
-    get_core_lesson,
     get_dominant_weakness_ranking,
     get_win_state_analysis,
     get_mistake_heatmap,
@@ -163,53 +121,24 @@ from blunder_intelligence_service import (
     get_mission,
     check_milestones,
     get_focus_data,
-    get_journey_data,
-    get_lab_data,
-    get_lab_data_async,
-    get_drill_positions,
-    find_similar_pattern_games
+    get_drill_positions
 )
 
 # Import Pattern Context Service for longitudinal tracking
-from pattern_context_service import (
-    build_pattern_history,
-    get_pattern_context_for_mistake,
-    get_game_pattern_summary,
-    extract_mistake_patterns,
-)
 
 # Import Badge Service
-from badge_service import calculate_all_badges, get_badge_history, calculate_badge_trends
 
 # Import Mistake Explanation Service for educational commentary
-from mistake_explanation_service import (
-    generate_mistake_explanation,
-    analyze_mistake_position,
-    get_quick_explanation
-)
 
 # Import Discipline Check Service for sharp, data-driven analysis
 from discipline_check_service import get_discipline_check
 
 # === REFLECTION ENGINE V1 IMPORTS ===
 from reflect_constants import (
-    REFLECT_RULES_VERSION,
-    get_intent_options,
-    get_confidence_options,
-    Intent,
-    Confidence,
     RewardEventType,
-    ReflectionStyle,
-    get_reflection_style,
-    get_rating_band,
-    INTENT_BY_RATING,
-    INTENT_LABELS,
 )
-from quick_tag_registry import generate_quick_tags
-from awareness_gap_rules import evaluate_awareness_gap
-from adaptive_profile_engine import get_adaptive_profile, get_adaptive_profile_sync
-from reward_message_service import get_reward_message, get_post_loss_message, generate_weekly_proof
-from reflect_predicates import BoardFacts
+from adaptive_profile_engine import get_adaptive_profile_sync
+from reward_message_service import get_reward_message, get_post_loss_message
 
 # === TIME ANALYSIS SERVICE ===
 from time_analysis_service import (
@@ -219,35 +148,19 @@ from time_analysis_service import (
 )
 
 # === COACH PERSONALITY SERVICE ===
-from services.coach_personality import (
-    get_player_level,
-    get_level_display_name,
-    get_level_emoji,
-    get_personalized_coaching_context,
-    CoachLanguage,
-    CoachVoice,
-    PlayerLevel
-)
 
 # === MISSION ENGINE IMPORTS ===
 from mission_generation_service import (
     generate_daily_mission,
     start_mission,
-    complete_mission,
+    complete_mission as complete_mission_service,
     PATTERN_FOCUS_MAP,
 )
 
 # === FOCUS MASTERY SERVICE ===
-from focus_mastery_service import (
-    get_user_focus_mastery,
-    calculate_pattern_mastery,
-    get_pattern_drill_positions,
-    FOCUS_PATTERNS,
-)
 
 # === MOVE INTENT SERVICE (Position-specific hypotheses) ===
 from move_intent_service import (
-    analyze_move_intent,
     get_move_intent_summary,
 )
 
@@ -255,43 +168,26 @@ from move_intent_service import (
 from cognitive_gap_service import (
     analyze_cognitive_gap,
     get_coaching_message,
-    CognitiveGap,
 )
 
 # === COGNITIVE GAP INTELLIGENCE SERVICE (Full tracking & training) ===
 from cognitive_gap_intelligence_service import (
     persist_cognitive_gap,
     check_recurrence_alerts,
-    get_all_recurring_patterns,
-    get_drills_for_gap,
-    get_recommended_drills,
-    get_gap_progress,
-    get_gap_summary,
-    analyze_plan_quality,
-    update_training_from_gaps,
-    COGNITIVE_GAP_CONFIG,
 )
 
 # === BREAKTHROUGH & PLATEAU DETECTION SERVICE (Step 8) ===
 from coach_state.breakthrough_service import (
     get_breakthrough_signal_for_user,
-    BreakthroughSignal,
-    WindowMetrics,
-    build_window_metrics,
 )
 
 # === FOCUS LOCK SERVICE (Step 9) ===
 from coach_state.focus_lock_service import (
     create_focus_lock,
-    calculate_compliance,
-    update_lock_after_game,
-    calculate_compliance_trend,
     focus_lock_from_db,
     focus_lock_to_db,
     get_lock_ui_state,
-    should_activate_lock,
     should_trigger_deep_session,
-    FocusLock,
     RULE_DESCRIPTIONS,
     DEFAULT_LOCK_GAMES,
 )
@@ -299,8 +195,6 @@ from coach_state.focus_lock_service import (
 # === THEORY MODULES (Step 10) ===
 from coach_state.theory_modules import (
     ALL_MODULES,
-    get_module,
-    get_modules_for_rating,
 )
 from coach_state.module_trigger_service import (
     get_module_injection_stats,
@@ -650,7 +544,7 @@ DEV_USER_ID = os.environ.get("DEV_USER_ID", "dev_user_local")
 
 async def get_current_user(request: Request) -> User:
     """Get current user from session token in cookie or Authorization header"""
-    print(f"[AUTH] === get_current_user called ===")
+    print("[AUTH] === get_current_user called ===")
     print(f"[AUTH] Request URL: {request.url}")
     print(f"[AUTH] Request method: {request.method}")
     print(f"[AUTH] Origin header: {request.headers.get('origin')}")
@@ -917,7 +811,6 @@ def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Di
     games = []
     current_game = {}
     moves = []
-    in_moves = False
     
     for line in pgn_text.split('\n'):
         line = line.strip()
@@ -927,7 +820,6 @@ def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Di
                 games.append(current_game)
                 current_game = {}
                 moves = []
-                in_moves = False
             continue
         
         if line.startswith('['):
@@ -935,9 +827,7 @@ def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Di
             if match:
                 key, value = match.groups()
                 current_game[key.lower()] = value
-                in_moves = False
         else:
-            in_moves = True
             moves.append(line)
     
     if current_game and moves:
@@ -1253,7 +1143,7 @@ Move {m.get('move_number')}: {m.get('move')} ({eval_type.upper()})
     
     # Step 2: Build RAG context (SUPPORTS memory, doesn't define habits)
     logger.info(f"Building RAG context for game {req.game_id}")
-    rag_context = await build_rag_context(db, user.user_id, game)
+    await build_rag_context(db, user.user_id, game)
     
     # Step 3: Get user's first name
     first_name = user.name.split()[0] if user.name else "friend"
@@ -2561,14 +2451,6 @@ async def generate_move_voice(req: MoveVoiceRequest, user: User = Depends(get_cu
 
 # ==================== REFLECTION ROUTES ====================
 
-from reflect_service import (
-    get_games_needing_reflection,
-    get_pending_reflection_count,
-    get_game_moments,
-    process_reflection,
-    mark_game_reflected,
-    generate_contextual_tags
-)
 
 # NOTE: Reflect endpoints moved to routes/reflect.py:
 # - GET /reflect/pending
@@ -3870,10 +3752,9 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     top_weaknesses = profile.get("top_weaknesses", []) if profile else []
     
     # ===== SECTION 1: CORRECT THIS =====
-    correction = None
     if top_weaknesses:
         top = top_weaknesses[0]
-        subcategory = top.get("subcategory", "").replace("_", " ").title()
+        top.get("subcategory", "").replace("_", " ").title()
         occurrences = top.get("occurrence_count", 0)
         
         # Calculate recent frequency
@@ -3893,18 +3774,12 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         
         # Build context message
         if recent_count > 0 and total_recent > 0:
-            context = f"This appeared in {recent_count} of your last {total_recent} games."
+            pass
         else:
-            context = f"This has occurred {occurrences} times in your recent games."
+            pass
         
-        correction = {
-            "title": subcategory,
-            "context": context,
-            "severity": "This remains your biggest rating leak." if occurrences > 5 else "Focus here to see improvement."
-        }
     
     # ===== SECTION 2: KEEP DOING THIS (Reinforcement) =====
-    reinforcement = None
     
     # Check for strengths in profile
     strengths = profile.get("strengths", []) if profile else []
@@ -3913,14 +3788,14 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     # Look for genuine improvement or strength
     if improving_areas:
         area = improving_areas[0]
-        reinforcement = {
+        {
             "title": area.get("name", "Positional Play").replace("_", " ").title(),
             "context": "Recent games show improvement here.",
             "trend": "Earlier this was unstable — now improving."
         }
     elif strengths:
         strength = strengths[0] if isinstance(strengths[0], dict) else {"name": strengths[0]}
-        reinforcement = {
+        {
             "title": strength.get("name", "Solid Play").replace("_", " ").title(),
             "context": "You've maintained consistency in this area.",
             "trend": "Keep this discipline."
@@ -3935,18 +3810,10 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         
         recent_blunders = [get_blunders(a) for a in recent_analyses[:3]]
         if recent_blunders and sum(recent_blunders) == 0:
-            reinforcement = {
-                "title": "Clean Calculation",
-                "context": "Your last few games had no major blunders.",
-                "trend": "This focus is paying off."
-            }
+            pass
         elif len(recent_analyses) >= 2:
             # Default neutral reinforcement
-            reinforcement = {
-                "title": "Steady Progress",
-                "context": "You maintained discipline this week.",
-                "trend": "Consistency builds long-term strength."
-            }
+            pass
     
     # ===== SECTION 3: REMEMBER THIS RULE =====
     habit_rules = {
@@ -4149,7 +4016,6 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             else:
                 won = result == "0-1"
                 lost = result == "1-0"
-            draw = "1/2" in result
             
             # Check if repeated habit
             repeated_habit = False
@@ -4276,7 +4142,6 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 else:
                     won = result == "0-1"
                     lost = result == "1-0"
-                draw = "1/2" in result
                 
                 # Track stats
                 if user_color == "white":
@@ -4684,7 +4549,7 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
     
     # Track how many valid vs failed analyses
     valid_count = len(valid_analyses)
-    failed_count = len(recent_analyses) - valid_count
+    len(recent_analyses) - valid_count
     
     # Get habits from profile
     profile = await db.player_profiles.find_one(
@@ -5383,7 +5248,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         "user_id": user.user_id,
         "status": {"$in": ["pending", "processing"]}
     })
-    queued_games = await db.analysis_queue.count_documents({
+    await db.analysis_queue.count_documents({
         "user_id": user.user_id,
         "status": {"$in": ["pending", "processing", "failed"]}
     })
@@ -5790,7 +5655,6 @@ async def get_loss_streak_status(user: User = Depends(get_current_user)):
             # Determine if user won, lost, or drew
             is_white_win = result == "1-0"
             is_black_win = result == "0-1"
-            is_draw = result == "1/2-1/2"
             
             user_won = (user_color == "white" and is_white_win) or (user_color == "black" and is_black_win)
             user_lost = (user_color == "white" and is_black_win) or (user_color == "black" and is_white_win)
@@ -5862,7 +5726,6 @@ async def get_blind_spots(user: User = Depends(get_current_user)):
     
     # Count turning point categories
     category_counts = {}
-    pattern_examples = {}
     games_with_tp = 0
     
     for analysis in analyses:
@@ -6323,7 +6186,7 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         # Extract evaluation
         eval_score = current_result.get("eval_cp", 0)
         is_mate = current_result.get("eval_mate") is not None
-        mate_in = current_result.get("eval_mate")
+        current_result.get("eval_mate")
         
         # Extract best move for CURRENT position (opponent's best response)
         opponent_best_move = current_result.get("best_move_san", "")
@@ -6362,7 +6225,7 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
                         "opponent_best_response": alt_result.get("best_move_san"),
                         "continuation": alt_result.get("pv_san", [])[:5]
                     }
-            except Exception as e:
+            except Exception:
                 alternative_analysis = {"error": f"Invalid move: {req.alternative_move}"}
         
         # Store played move analysis
@@ -6417,7 +6280,7 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
             try:
                 from mistake_classifier import (
                     classify_mistake, get_verbalization_template,
-                    find_forks, find_pins, find_skewers
+                    find_forks, find_pins
                 )
                 
                 mistake = classify_mistake(
@@ -7377,8 +7240,8 @@ async def describe_plan_moves(
     """
     fen = plan_data.get("fen")
     moves = plan_data.get("moves", [])
-    user_playing_color = plan_data.get("user_playing_color", "white")
-    turn_to_move = plan_data.get("turn_to_move", "white")
+    plan_data.get("user_playing_color", "white")
+    plan_data.get("turn_to_move", "white")
     user_move = plan_data.get("user_move", "")
     best_move = plan_data.get("best_move", "")
     
@@ -7731,7 +7594,6 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
     answers = data.get("answers", [])
     
     from opening_trainer_service import get_opening_quiz, OPENINGS_DATABASE
-    from services.coach_memory import update_memory_after_game
     
     opening = OPENINGS_DATABASE.get(opening_key)
     if not opening:
@@ -8093,7 +7955,7 @@ async def validate_avoidance_move(data: dict):
     
     fen = data.get("fen")
     user_move = data.get("user_move")
-    trap_key = data.get("trap_key")
+    data.get("trap_key")
     winning_move = data.get("winning_move")  # The trap move opponent would play if allowed
     
     if not fen or not user_move:
@@ -8117,13 +7979,12 @@ async def validate_avoidance_move(data: dict):
     
     # Check if opponent can still play the winning/trap move after user's move
     try:
-        trap_still_possible = False
         if winning_move:
             try:
                 trap_move_obj = board.parse_san(winning_move)
                 # If the trap move is still legal, check if it's still winning
                 if trap_move_obj in board.legal_moves:
-                    trap_still_possible = True
+                    pass
             except Exception:
                 pass
         
@@ -8605,7 +8466,6 @@ async def get_pattern_prescription(
     For the Home page: "You've missed forks 4 times → 3 fork positions waiting in Training"
     """
     from services.pattern_memory_service import get_top_patterns
-    from services.community_training_service import get_community_position_count
     
     patterns = await get_top_patterns(db, user.user_id, limit=3)
     
@@ -9282,8 +9142,7 @@ async def audit_specific_game(game_id: str, user: User = Depends(get_current_use
     """
     from deterministic_coach_service import (
         audit_game_against_plan,
-        generate_round_preparation,
-        get_coaching_profile
+        generate_round_preparation
     )
     
     # Get the active plan
@@ -9460,59 +9319,6 @@ async def get_all_imbalances(user: User = Depends(get_current_user)):
 
 
 # NOTE: /training/prescribed/{weakness}, /training/puzzle-attempt, /training/weekly-plan moved to routes/training.py
-
-@api_router.get("/training/progress")
-async def get_training_progress(user: User = Depends(get_current_user)):
-    """
-    Get user's training progress and improvement metrics.
-    
-    Shows:
-    - Puzzles solved by weakness type
-    - Solve rates over time
-    - Improvement trends
-    """
-    # Get puzzle attempts
-    attempts = await db.puzzle_attempts.find(
-        {"user_id": user.user_id}
-    ).sort("attempted_at", -1).limit(100).to_list(100)
-    
-    if not attempts:
-        return {
-            "has_data": False,
-            "message": "No training data yet. Start solving puzzles!"
-        }
-    
-    # Group by weakness pattern
-    by_weakness = {}
-    for attempt in attempts:
-        pattern = attempt.get("weakness_pattern", "unknown")
-        if pattern not in by_weakness:
-            by_weakness[pattern] = {"total": 0, "solved": 0, "times": []}
-        by_weakness[pattern]["total"] += 1
-        if attempt.get("solved"):
-            by_weakness[pattern]["solved"] += 1
-        if attempt.get("time_taken"):
-            by_weakness[pattern]["times"].append(attempt["time_taken"])
-    
-    # Calculate stats
-    progress = {}
-    for pattern, data in by_weakness.items():
-        progress[pattern] = {
-            "total_attempts": data["total"],
-            "solved": data["solved"],
-            "solve_rate": round(data["solved"] / data["total"] * 100, 1) if data["total"] > 0 else 0,
-            "avg_time": round(sum(data["times"]) / len(data["times"]), 1) if data["times"] else None
-        }
-    
-    return {
-        "has_data": True,
-        "progress_by_weakness": progress,
-        "total_puzzles_solved": sum(d["solved"] for d in by_weakness.values()),
-        "total_attempts": sum(d["total"] for d in by_weakness.values())
-    }
-
-
-# NOTE: /lab/{game_id}/deep-strategy moved to routes/lab.py
 
 @api_router.get("/weakness-ranking")
 async def get_weakness_ranking(user: User = Depends(get_current_user)):
@@ -9892,94 +9698,6 @@ class UserThoughtRequest(BaseModel):
     cp_loss: Optional[int] = None
 
 
-@api_router.post("/games/{game_id}/thought")
-async def save_user_thought(
-    game_id: str,
-    request: UserThoughtRequest,
-    user: User = Depends(get_current_user)
-):
-    """
-    Save a user's thought on a specific mistake in a game.
-    
-    This is "Gold Data" - the user's own understanding of what they
-    were thinking when they made a mistake. Used for future pattern
-    analysis to identify recurring thought patterns.
-    
-    Stored with full context:
-    - game_id, move_number, fen
-    - user_rating at time of game
-    - the thought text
-    - what move was played vs what was best
-    - evaluation type and cp loss
-    """
-    # Verify game exists and belongs to user
-    game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
-        {"_id": 0}
-    )
-    
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
-    
-    # Get user's rating (current or from game if available)
-    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "rating": 1})
-    user_rating = user_doc.get("rating", 1200) if user_doc else 1200
-    
-    # Create thought document
-    thought_id = f"thought_{uuid.uuid4().hex[:12]}"
-    thought_doc = {
-        "thought_id": thought_id,
-        "user_id": user.user_id,
-        "game_id": game_id,
-        "move_number": request.move_number,
-        "fen": request.fen,
-        "thought_text": request.thought_text,
-        "move_played": request.move_played,
-        "best_move": request.best_move,
-        "evaluation_type": request.evaluation_type,
-        "cp_loss": request.cp_loss,
-        "user_rating": user_rating,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        # Additional context from game
-        "platform": game.get("platform"),
-        "opponent": game.get("black_player") if game.get("user_color") == "white" else game.get("white_player"),
-        "result": game.get("result"),
-    }
-    
-    # Check if thought already exists for this game/move
-    existing = await db.user_thoughts.find_one({
-        "user_id": user.user_id,
-        "game_id": game_id,
-        "move_number": request.move_number
-    })
-    
-    if existing:
-        # Update existing thought
-        await db.user_thoughts.update_one(
-            {"thought_id": existing["thought_id"]},
-            {"$set": {
-                "thought_text": request.thought_text,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }}
-        )
-        return {
-            "success": True,
-            "thought_id": existing["thought_id"],
-            "message": "Thought updated"
-        }
-    
-    # Insert new thought
-    await db.user_thoughts.insert_one(thought_doc)
-    
-    logger.info(f"Saved user thought for game {game_id}, move {request.move_number}")
-    
-    return {
-        "success": True,
-        "thought_id": thought_id,
-        "message": "Thought saved - thank you for sharing!"
-    }
-
-
 @api_router.get("/games/{game_id}/thoughts")
 async def get_game_thoughts(game_id: str, user: User = Depends(get_current_user)):
     """
@@ -10184,7 +9902,7 @@ def _get_teaching_explanation(move_san: str, fen_before: str, fen_after: str, mo
             chess.QUEEN: "queen",
             chess.KING: "king"
         }
-        piece_name = piece_names.get(piece.piece_type, "piece")
+        piece_names.get(piece.piece_type, "piece")
         
         # Is it a pawn move?
         if piece.piece_type == chess.PAWN:
@@ -10222,26 +9940,26 @@ def _get_teaching_explanation(move_san: str, fen_before: str, fen_after: str, mo
         # Bishop moves  
         if piece.piece_type == chess.BISHOP:
             if to_sq in [chess.G2, chess.B2, chess.G7, chess.B7]:
-                return f"Fianchetto! The bishop on this diagonal is a long-range sniper. See how it controls the whole diagonal?"
+                return "Fianchetto! The bishop on this diagonal is a long-range sniper. See how it controls the whole diagonal?"
             elif to_sq in [chess.C4, chess.F4, chess.C5, chess.F5]:
-                return f"Active bishop! It's pointing right at your position. What targets can you see?"
+                return "Active bishop! It's pointing right at your position. What targets can you see?"
             else:
-                return f"Developing the bishop. Bishops are strongest on long, open diagonals."
+                return "Developing the bishop. Bishops are strongest on long, open diagonals."
         
         # Queen moves
         if piece.piece_type == chess.QUEEN:
             if move_number <= 5:
-                return f"Early queen move! Usually risky - can you think of ways to attack it and gain time?"
+                return "Early queen move! Usually risky - can you think of ways to attack it and gain time?"
             else:
-                return f"The queen joins the attack. This is the most powerful piece - watch where it points!"
+                return "The queen joins the attack. This is the most powerful piece - watch where it points!"
         
         # Rook moves
         if piece.piece_type == chess.ROOK:
             file = chess.square_file(to_sq)
             if file in [3, 4]:  # d or e file
-                return f"Rook to the center! Rooks love open files. Is there an open file for your rook too?"
+                return "Rook to the center! Rooks love open files. Is there an open file for your rook too?"
             else:
-                return f"The rook is repositioning. Rooks are most powerful on open files and the 7th rank."
+                return "The rook is repositioning. Rooks are most powerful on open files and the 7th rank."
         
         # Default
         return f"See this {move_san}? Think about what it accomplishes. What's the idea?"
@@ -11091,7 +10809,7 @@ missions_routes.set_db(db)
 missions_routes.set_mission_services(
     generate_daily_mission_fn=generate_daily_mission,
     start_mission_fn=start_mission,
-    complete_mission_fn=complete_mission,
+    complete_mission_fn=complete_mission_service,
     extract_drill_positions_fn=extract_drill_positions,
     get_sample_drill_positions_fn=get_sample_drill_positions,
     pattern_focus_map=PATTERN_FOCUS_MAP,

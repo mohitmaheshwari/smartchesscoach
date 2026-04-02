@@ -13,7 +13,7 @@ Features:
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 

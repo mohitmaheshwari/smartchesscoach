@@ -13,7 +13,7 @@ When a user flags a wrong explanation:
 import uuid
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Dict, List
 from dataclasses import dataclass, field, asdict
 
 logger = logging.getLogger(__name__)

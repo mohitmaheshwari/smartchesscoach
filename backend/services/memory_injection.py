@@ -24,8 +24,7 @@ WHAT IT PROVIDES:
 5. Priority focus: "Remember we're working on X"
 """
 
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timezone
+from typing import Dict, Any, Optional
 from enum import Enum
 import logging
 
@@ -33,7 +32,6 @@ from services.player_identity import (
     PlayerIdentityService,
     BlunderType,
     PlayStyle,
-    TiltTrigger,
     GamePhase
 )
 

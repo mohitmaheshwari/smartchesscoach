@@ -27,7 +27,7 @@ import chess
 import re
 import os
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 
@@ -302,7 +302,6 @@ Always output valid JSON with these exact field names."""
         """Use LLM to extract features when keyword matching isn't enough"""
         try:
             from llm_helper import UserMessage
-            import json
             
             prompt = f"""Extract concrete, queryable features from this chess feedback.
 

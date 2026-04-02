@@ -35,14 +35,13 @@ Usage:
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
 from enum import Enum
 import random
 
 # Import coach memory for deep personalization
-from services.coach_memory import get_coaching_context, get_or_create_memory
+from services.coach_memory import get_coaching_context
 
 logger = logging.getLogger(__name__)
 

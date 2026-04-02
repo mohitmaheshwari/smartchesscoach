@@ -16,7 +16,6 @@ This is a large module - ~60 endpoints covering all training features.
 from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
 from typing import Optional, List, Dict
-from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)

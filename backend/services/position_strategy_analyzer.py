@@ -12,7 +12,7 @@ Uses Stockfish data + position analysis + LLM for human-readable explanations.
 """
 
 import chess
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 import logging
 
 logger = logging.getLogger(__name__)

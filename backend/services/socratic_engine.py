@@ -42,11 +42,10 @@ Usage:
 """
 
 import chess
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 import random
-import re
 
 
 class DialogueState(str, Enum):
@@ -510,13 +509,13 @@ class SocraticEngine:
         try:
             move = board.parse_san(best_move)
             to_square = chess.square_name(move.to_square)
-            from_square = chess.square_name(move.from_square)
+            chess.square_name(move.from_square)
             piece = board.piece_at(move.from_square)
             piece_name = self._piece_name(piece) if piece else "piece"
             
             # Get area descriptions
             to_file = to_square[0]
-            to_rank = to_square[1]
+            to_square[1]
             area = "kingside" if to_file in "fgh" else ("queenside" if to_file in "abc" else "center")
             
         except:
@@ -524,7 +523,6 @@ class SocraticEngine:
             piece_name = "a piece"
             area = "an important area"
             to_file = ""
-            to_rank = ""
         
         template = random.choice(templates)
         
@@ -632,7 +630,7 @@ class SocraticEngine:
         
         try:
             best = board.parse_san(context.best_move)
-            played = board.parse_san(context.move_played)
+            board.parse_san(context.move_played)
             
             # Build explanation
             explanation = f"{context.best_move}"

@@ -484,14 +484,13 @@ async def record_solve_attempt(
     candidates = []
     try:
         board = chess.Board(fen)
-        from services.game_decryption_v5_service import _get_stockfish_candidates, _analyze_candidate_moves
+        from services.game_decryption_v5_service import _get_stockfish_candidates
 
         sf_candidates = await _get_stockfish_candidates(board, num_moves=3, depth=14)
         
         # Analyze each candidate with explanation
         if sf_candidates:
             user_color_bool = board.turn  # whose turn it is = user
-            played_move_obj = None
             if user_move_uci:
                 try:
                     chess.Move.from_uci(user_move_uci)

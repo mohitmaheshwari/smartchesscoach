@@ -16,7 +16,7 @@ Given the current move sequence, returns:
 import json
 import os
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import chess as _chess
 

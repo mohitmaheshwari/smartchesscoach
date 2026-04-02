@@ -8,10 +8,8 @@ Creates HABIT_BREAKTHROUGH lesson candidates to celebrate improvements.
 
 import logging
 from typing import Dict, Any, Optional, List
-import chess
 
 from .schemas import (
-    DetectorResult,
     LessonCandidate,
     PositionInsightObject,
     MistakeFingerprint
@@ -19,8 +17,7 @@ from .schemas import (
 from .enums import (
     TeachingMode,
     ExplanationType,
-    LessonPriority,
-    MistakeCategory
+    LessonPriority
 )
 from .fingerprint_service import FingerprintService
 

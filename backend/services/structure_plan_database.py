@@ -19,9 +19,8 @@ Usage:
     teaching = db.get_teaching_content("isolated_queen_pawn")
 """
 
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
-from enum import Enum
+from typing import Dict, List, Optional
+from dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)

@@ -20,11 +20,10 @@ Collections:
 - user_opening_progress: What each user knows, has practiced, mastered
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 from enum import Enum
 from datetime import datetime, timezone
-import chess
 import logging
 
 from services.verified_opening_traps import get_verified_traps_for_opening

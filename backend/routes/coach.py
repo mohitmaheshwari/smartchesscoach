@@ -18,7 +18,6 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
 import logging
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -2156,7 +2155,7 @@ async def get_game_teaching_summary(
     Returns:
         Structured lesson summary from the game
     """
-    from services.conversational_coach import ConversationalCoach, GameContext
+    from services.conversational_coach import ConversationalCoach
     from services.opening_teaching_db import OpeningTeachingDatabase
     
     result = request.get("result", "1/2-1/2")
@@ -2306,7 +2305,7 @@ async def continue_socratic_dialogue(
         - hint_level: Level of hint given (if any)
     """
     from services.socratic_engine import (
-        SocraticEngine, DialogueContext, DialogueState, continue_dialogue
+        DialogueContext, DialogueState, continue_dialogue
     )
     
     dialogue_id = request.get("dialogue_id", "")
@@ -2664,7 +2663,7 @@ async def detect_emotional_state(
     Returns:
         Detected emotional state with coaching recommendations.
     """
-    from services.human_coach_service import create_human_coach, EmotionalState
+    from services.human_coach_service import create_human_coach
     
     user_doc = await db.users.find_one({"user_id": user.user_id})
     user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
@@ -3201,8 +3200,7 @@ async def mark_opening_practiced(
     from services.opening_mastery import (
         get_user_opening_progress,
         update_user_opening_progress,
-        MasteryLevel,
-        OPENING_DATABASE
+        MasteryLevel
     )
     from datetime import datetime, timezone
     
@@ -3406,7 +3404,6 @@ async def get_memory_lane(user: User = Depends(get_current_user)):
     """
     global db
     import random
-    from datetime import timedelta
     
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
@@ -3678,7 +3675,7 @@ async def check_habit_challenge(
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    challenge_id = request.get("challenge_id")
+    request.get("challenge_id")
     user_move = request.get("user_move", "")
     fen = request.get("fen", "")
     correct_move = request.get("correct_move", "")

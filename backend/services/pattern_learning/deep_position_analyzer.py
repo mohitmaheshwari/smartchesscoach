@@ -23,9 +23,8 @@ import chess
 import chess.engine
 import os
 import logging
-import json
-from typing import Dict, List, Optional, Tuple, Any, Set
-from dataclasses import dataclass, field, asdict
+from typing import Dict, List, Optional, Set
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -381,7 +380,7 @@ class DeepPositionAnalyzer:
     def _analyze_pawn_shield(self, board: chess.Board, king_sq: int, color: bool) -> Dict:
         """Analyze the pawn shield in front of the king"""
         king_file = chess.square_file(king_sq)
-        king_rank = chess.square_rank(king_sq)
+        chess.square_rank(king_sq)
         
         # Expected pawn shield squares (2nd/7th rank for white/black)
         if color == chess.WHITE:
@@ -430,7 +429,7 @@ class DeepPositionAnalyzer:
             piece = board.piece_at(sq)
             if piece and piece.color != color and piece.piece_type in [chess.ROOK, chess.QUEEN]:
                 # Check if it can reach the back rank
-                piece_file = chess.square_file(sq)
+                chess.square_file(sq)
                 piece_rank = chess.square_rank(sq)
                 
                 # Rook/Queen on same file or can slide to back rank
@@ -573,7 +572,7 @@ class DeepPositionAnalyzer:
             
             # Count attacker/defender values
             attacker_value = sum(PIECE_VALUES.get(board.piece_at(a).piece_type, 0) for a in attackers)
-            defender_value = sum(PIECE_VALUES.get(board.piece_at(d).piece_type, 0) for d in defenders)
+            sum(PIECE_VALUES.get(board.piece_at(d).piece_type, 0) for d in defenders)
             
             is_hanging = len(attackers) > 0 and len(defenders) == 0
             can_be_captured_free = is_hanging or (len(attackers) > len(defenders))

@@ -20,7 +20,7 @@ This ensures: Improve one place → Both pages get smarter!
 import chess
 import chess.engine
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 
@@ -1001,7 +1001,7 @@ def generate_coach_move_explanation(
     """
     move_san = board_before.san(move)
     piece = board_before.piece_at(move.from_square)
-    piece_name = get_fun_piece_name(piece) if piece else "piece"
+    get_fun_piece_name(piece) if piece else "piece"
     
     board_after = board_before.copy()
     board_after.push(move)

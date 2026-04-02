@@ -6,7 +6,7 @@ All enumeration types for the deterministic coaching engine.
 These define the vocabulary of the coaching system.
 """
 
-from enum import Enum, auto
+from enum import Enum
 
 
 class TeachingMode(str, Enum):

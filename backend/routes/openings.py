@@ -352,10 +352,9 @@ async def start_practice_session(
     
     # Get expected move for user
     expected_idx = session["current_main_line_index"]
-    expected_move = None
     expected_explanation = None
     if expected_idx < len(opening["main_line"]):
-        expected_move = opening["main_line"][expected_idx]["move"]
+        opening["main_line"][expected_idx]["move"]
         expected_explanation = opening["main_line"][expected_idx]["explanation"]
     
     return {
@@ -382,7 +381,6 @@ async def make_practice_move(
     Returns Socratic feedback if the move is incorrect,
     or plays the opponent's response if correct.
     """
-    from services.opening_library_service import get_opening_data
     
     # Get session
     session = await db.opening_practice_sessions.find_one({
@@ -513,7 +511,7 @@ async def make_practice_move(
             }
         
         # Get hint for next move
-        next_move_data = main_line[final_idx]
+        main_line[final_idx]
         
         return {
             "valid": True,

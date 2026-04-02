@@ -17,7 +17,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict, Optional
+from typing import Dict
 from datetime import datetime, timezone
 import logging
 import uuid
@@ -395,7 +395,7 @@ async def get_focus_mastery(user: User = Depends(get_current_user)):
     global db, _PATTERN_FOCUS_MAP
     
     # Get all game analyses for this user
-    game_analyses = await db.game_analyses.find(
+    await db.game_analyses.find(
         {"user_id": user.user_id},
         {"_id": 0}
     ).to_list(100)

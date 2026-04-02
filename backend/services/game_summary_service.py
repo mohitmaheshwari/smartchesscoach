@@ -12,7 +12,7 @@ Example outputs:
 - "Lost the exchange to a discovered attack"
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict, field
 import logging
 
@@ -238,8 +238,8 @@ def _get_short_description(move_data: Dict, plan: Dict) -> str:
     concept_id = plan.get("concept_id", "")
     concept_type = plan.get("concept_type", "")
     current_problem = plan.get("current_problem", "")
-    goal = plan.get("goal", "")
-    move_san = move_data.get("move_san", "")
+    plan.get("goal", "")
+    move_data.get("move_san", "")
     move_number = move_data.get("move_number", 0)
     severity = move_data.get("severity", "mistake")
     phase = move_data.get("phase", "middlegame")
