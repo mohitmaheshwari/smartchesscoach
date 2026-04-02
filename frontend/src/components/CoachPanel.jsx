@@ -168,54 +168,52 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
         </motion.div>
       )}
 
-      {/* ─── COACH MESSAGE: One unified card per state ─── */}
-      {!showIntro && (
-        <motion.div key={`coach-${fen}-${introDismissed}`} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+      {/* ─── OPPONENT MOVE: Separate prominent card ─── */}
+      {!showIntro && coachMove && guidance?.opponent_commentary && (
+        <motion.div key={`opp-${coachMove}`}
+          initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+          className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/20 flex items-center justify-center shrink-0">
+              <span className="text-lg font-mono font-bold text-red-600 dark:text-red-400">{coachMove}</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-red-500/70 mb-0.5">Opponent played</p>
+              <p className="text-sm text-foreground">{guidance.opponent_commentary}</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ─── COACH CARD: Your feedback + hint ─── */}
+      {!showIntro && (curriculumFeedback || (guidance?.hint && isPlayerTurn) || (!isPlayerTurn && !coachMove) || (guidance?.hint && !isPlayerTurn && !coachMove && !curriculumFeedback)) && (
+        <motion.div key={`coach-${fen}`}
+          initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
           className="p-4 rounded-lg bg-primary/10 border border-primary/20">
           <div className="flex items-start gap-2">
             <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" strokeWidth={1.5} />
             <div className="text-sm flex-1 space-y-2">
-
-              {/* Your move feedback */}
               {curriculumFeedback && (
                 <p className="text-foreground">{curriculumFeedback}</p>
               )}
-
-              {/* Opponent move */}
-              {coachMove && guidance?.opponent_commentary && (
-                <div className="border-l-2 border-red-400/50 pl-2.5">
-                  <span className="text-xs font-mono font-bold text-red-500">{coachMove}</span>
-                  <span className="text-xs text-muted-foreground ml-1.5">— {guidance.opponent_commentary}</span>
-                </div>
-              )}
-
-              {/* Hint — show whenever guidance has one and it's user's turn */}
               {guidance?.hint && isPlayerTurn && (
                 <p className="text-foreground font-medium">{guidance.hint}</p>
               )}
-
-              {/* Hint fallback — show even if isPlayerTurn is not set yet (first render after intro) */}
               {guidance?.hint && !isPlayerTurn && !coachMove && !curriculumFeedback && (
                 <p className="text-foreground font-medium">{guidance.hint}</p>
               )}
-
-              {/* Trap warning */}
               {guidance?.trap_warning && (
                 <div className="flex items-start gap-1.5 text-xs text-amber-600">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
                   <span><span className="font-medium">{guidance.trap_warning.name}:</span> {guidance.trap_warning.description}</span>
                 </div>
               )}
-
-              {/* Waiting for coach */}
               {!isPlayerTurn && !coachMove && !curriculumFeedback && !guidance?.hint && (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
                   <span className="text-muted-foreground">Coach is thinking...</span>
                 </div>
               )}
-
-              {/* Empty state — truly nothing */}
               {!curriculumFeedback && !coachMove && !guidance?.hint && isPlayerTurn && (
                 <p className="text-muted-foreground">Your turn — make a move.</p>
               )}
