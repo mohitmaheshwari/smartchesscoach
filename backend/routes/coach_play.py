@@ -3148,140 +3148,32 @@ async def _process_move_and_respond(
         return bool(current_doc) and current_doc.get("action_revision", 0) == expected_action_revision
     
     try:
-        # FAST PATH: When curriculum is active, skip heavy analysis — just make the coach move
+        # FAST PATH: When curriculum is active, skip heavy analysis
         session_doc_check = await db.coach_sessions.find_one({"session_id": session_id})
         if session_doc_check and session_doc_check.get("curriculum_active") and not game_over:
-            teaching_opening = session_doc_check.get("teaching_opening")
+            from services.coach_move_pipeline import get_curriculum_coach_move, get_simple_coach_move
+            import asyncio as _asyncio
             
-            # Get the move history to find the curriculum's expected opponent response
             move_history = session_doc_check.get("move_history", [])
-            moves_san = [m.get("move", "") for m in move_history]
             
-            coach_move_san = None
+            # Try curriculum first (instant)
+            coach_move_san = await get_curriculum_coach_move(db, session_doc_check, user_color)
             
-            # Try to get the coach's move from curriculum (instant — no Stockfish)
-            if teaching_opening:
-                from services.opening_curriculum_engine import get_opening_guidance, _load_curriculum
-                assessment = session_doc_check.get("opening_assessment")
-                get_opening_guidance(teaching_opening, moves_san, user_color, assessment=assessment)
-                
-                curriculum_color = "white"  # London is a White opening
-                curriculum = _load_curriculum()
-                opening_data = curriculum.get(teaching_opening, {})
-                if opening_data:
-                    curriculum_color = opening_data.get("color", "white")
-                
-                user_plays_curriculum = (user_color == curriculum_color)
-                
-                if user_plays_curriculum:
-                    # User is White (curriculum color) — coach plays Black
-                    # Coach should pick from the curriculum's "responses" (main line first)
-                    # Walk the tree to find current node's responses
-                    tree = opening_data.get("tree", {})
-                    node = None
-                    if tree:
-                        first_key = list(tree.keys())[0]
-                        if moves_san and moves_san[0] == first_key:
-                            node = tree[first_key]
-                            for idx in range(1, len(moves_san)):
-                                mv = moves_san[idx]
-                                is_user = (idx % 2 == 0)
-                                if not is_user:
-                                    # Black's move — find in responses
-                                    responses = node.get("responses", {})
-                                    if mv in responses:
-                                        node = responses[mv]
-                                    else:
-                                        break
-                                else:
-                                    # White's move — match "next"
-                                    if node.get("next") == mv:
-                                        pass
-                                    else:
-                                        break
-                    
-                    if node:
-                        responses = node.get("responses", {})
-                        if responses:
-                            # Pick response — sometimes play trap lines for teaching
-                            import random
-                            response_keys = list(responses.keys())
-                            
-                            # Check if any response triggers a known trap
-                            traps = opening_data.get("traps", [])
-                            trap_moves = []
-                            for trap in traps:
-                                trigger = trap.get("trigger_move")
-                                if trigger and trigger in response_keys:
-                                    trap_moves.append(trigger)
-                            
-                            # 30% chance to play a trap line (for teaching), 70% main line
-                            if trap_moves and random.random() < 0.3:
-                                coach_move_san = random.choice(trap_moves)
-                                logger.info(f"[CURRICULUM] Coach plays trap line: {coach_move_san}")
-                            else:
-                                coach_move_san = response_keys[0]  # Main line
-                                logger.info(f"[CURRICULUM] Coach picks main line: {coach_move_san}")
-                else:
-                    # User is Black — coach plays White (curriculum color)
-                    # Coach should play the "next" move from curriculum
-                    tree = opening_data.get("tree", {})
-                    node = None
-                    if tree and not moves_san:
-                        # First move — coach plays the opening move
-                        coach_move_san = list(tree.keys())[0]
-                        logger.info(f"[CURRICULUM] Coach opens with: {coach_move_san}")
-                    elif tree and moves_san:
-                        first_key = list(tree.keys())[0]
-                        if moves_san[0] == first_key:
-                            node = tree[first_key]
-                            for idx in range(1, len(moves_san)):
-                                mv = moves_san[idx]
-                                is_black = (idx % 2 == 1)
-                                if is_black:
-                                    responses = node.get("responses", {})
-                                    if mv in responses:
-                                        node = responses[mv]
-                                    else:
-                                        break
-                                else:
-                                    if node.get("next") == mv:
-                                        pass
-                                    else:
-                                        break
-                        
-                        if node and node.get("next"):
-                            coach_move_san = node["next"]
-                            logger.info(f"[CURRICULUM] Coach plays curriculum: {coach_move_san}")
-            
-            # If curriculum didn't give us a move, use simple fast Stockfish (low depth)
+            # Fallback to simple Stockfish
             if not coach_move_san:
-                from coach_play.coach_opponent import CoachOpponent
-                opponent = CoachOpponent(user_rating=user_rating)
-                opponent.depth = 8  # Low depth for speed
-                opponent.skill_level = min(opponent.skill_level, 8)  # Cap strength
-                coach_move_san = await opponent.get_move(fen_after_user)
+                coach_move_san = await get_simple_coach_move(db, fen_after_user, user_rating)
             
             if coach_move_san:
-                # Brief pause — gives user time to see their move feedback
-                import asyncio as _asyncio
-                await _asyncio.sleep(1.5)
-                
+                await _asyncio.sleep(1.5)  # Brief pause for UX
                 success = await _apply_coach_move(db, session_id, fen_after_user, coach_move_san, move_history)
                 if success:
                     return
-                    
-                # _apply_coach_move failed — try simple Stockfish fallback
-                try:
-                    from coach_play.coach_opponent import CoachOpponent
-                    simple_opp = CoachOpponent(user_rating=user_rating)
-                    simple_opp.depth = 6
-                    simple_move = await simple_opp.get_move(fen_after_user)
-                    if simple_move:
-                        await _apply_coach_move(db, session_id, fen_after_user, simple_move, move_history)
-                except Exception as e2:
-                    logger.error(f"Curriculum fallback failed: {e2}")
-                return  # Never fall through to heavy path
+            
+            # Both failed — don't fall through to heavy path
+            logger.warning(f"Curriculum: no move found for {session_id}")
+            await db.coach_sessions.update_one(
+                {"session_id": session_id}, {"$set": {"coach_move_pending": False}})
+            return
         
         # NORMAL PATH: Full analysis + coaching
         # Step 1: Quick analysis of user's move
