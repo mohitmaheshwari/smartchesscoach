@@ -10785,8 +10785,25 @@ async def _process_move_and_respond(
                     if node:
                         responses = node.get("responses", {})
                         if responses:
-                            coach_move_san = list(responses.keys())[0]  # Pick main line
-                            logger.info(f"[CURRICULUM] Coach picks main line: {coach_move_san}")
+                            # Pick response — sometimes play trap lines for teaching
+                            import random
+                            response_keys = list(responses.keys())
+                            
+                            # Check if any response triggers a known trap
+                            traps = opening_data.get("traps", [])
+                            trap_moves = []
+                            for trap in traps:
+                                trigger = trap.get("trigger_move")
+                                if trigger and trigger in response_keys:
+                                    trap_moves.append(trigger)
+                            
+                            # 30% chance to play a trap line (for teaching), 70% main line
+                            if trap_moves and random.random() < 0.3:
+                                coach_move_san = random.choice(trap_moves)
+                                logger.info(f"[CURRICULUM] Coach plays trap line: {coach_move_san}")
+                            else:
+                                coach_move_san = response_keys[0]  # Main line
+                                logger.info(f"[CURRICULUM] Coach picks main line: {coach_move_san}")
                 else:
                     # User is Black — coach plays White (curriculum color)
                     # Coach should play the "next" move from curriculum
