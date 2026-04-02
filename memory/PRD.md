@@ -1,96 +1,65 @@
 # ChessGuru PRD
 
 ## Vision
-A personalized chess coaching platform that teaches players HOW TO THINK about chess — not just what moves to play. The coach knows the player, adapts to their level, and provides structured training through real games.
+A personalized chess coaching platform that teaches players HOW TO THINK about chess. The coach knows the player, adapts to their level, and provides structured training through real games.
 
-## Core Product
+## Core Pages
 
-### Play with Coach (Structured Training)
-Flagship feature. Guided game where coach picks an opening, teaches via "Think First" approach, enforces curriculum moves, and explains every move.
+### Home (`/home`) — REDESIGNED
+- Coach message hero: Top pattern shown prominently ("Leaving Pieces Hanging is showing up in almost every game")
+- Review progress strip: Shows pending reviews with progress bar, links to Lab
+- Last game card: Behavioral insight + opening + result (not just stats)
+- Actions: Primary CTA tied to top weakness + Play with Coach, Study Openings, Review in Lab
+- Patterns Across Games: Frequency + severity badges
+- Chess DNA: Archetype + biggest leak
 
-### Game Review (Lab) — `/game/:gameId`
-Three view modes with redesigned header:
-- **Coach tab** — Diagnose → Drill → Track (hero diagnosis, stat bar, worst move card)
-- **Habits tab** — Pass/fail habit checklist + Chess DNA
-- **Decrypt tab** — Move-by-move AI walkthrough with story-driven landing
-- **"Done reviewing" button** — Triggers review completion flow
+### Lab Queue (`/lab`) — REDESIGNED
+- Coach's Pick with meaningful "why" tied to recurring patterns
+- Game cards with behavioral story (lesson_label + behavioral_insight)
+- Auto-rotates Coach's Pick after completing a review
 
-### Lab Queue — `/lab`
-Coach-driven game review queue:
-- **Verdict strip**: W/L record with behavioral insight
-- **Coach's Pick**: Most educational game with meaningful "why" tied to actual patterns
-- **Game cards**: Each shows player's behavioral story (lesson_label + behavioral_insight)
-- **Auto-rotation**: After completing a review, Coach's Pick rotates to next game
+### Game Review (`/game/:gameId`) — REDESIGNED
+- Accuracy ring header, result badge, consistent tab system
+- Coach tab: Hero diagnosis, stat bar, worst move card, drill section
+- Decrypt tab: Story-driven landing with core lesson narrative
+- "Done reviewing" → completion overlay with summary + next game CTA
 
-### Review Completion Flow
-When user clicks "Done reviewing":
-1. Backend saves review stats (concepts learned, drills solved, tabs visited, moves viewed)
-2. Game marked as reviewed with timestamp
-3. Completion overlay shows: lesson summary, takeaway, stats
-4. "Next game: vs {opponent}" button navigates to next unreviewed game
-5. Lab queue auto-rotates Coach's Pick
+### Progress (`/progress`) — REDESIGNED
+- Coaching headline based on actual trends (not generic)
+- Accuracy Journey chart with clickable colored dots
+- Win Rate with correct insight (compares rates, not absolutes)
+- Blunders Rising: Red alert when blunders increase
+- Danger Zones: Clickable patterns with severity badges
+- Review Progress: Games reviewed / total with progress bar
+- Chess Identity + Last 10 Games bar chart
 
-## Architecture
-```
-/app/backend/
-  routes/coach_play.py             # Coach play routes
-  services/                        # Core logic modules
-  data/opening_curriculum.json     # Opening teaching trees
-  tests/test_all_flows.py          # 38-test E2E backend suite
-  tests/test_review_completion.py  # Review completion tests
-  server.py                        # Main FastAPI app
-
-/app/frontend/
-  components/Lab/                  # Lab sub-components
-  components/GameDecryptionV5.jsx  # Move-by-move walkthrough
-  pages/Dashboard.jsx              # Lab queue page
-  pages/LabV2.jsx                  # Game review page + ReviewCompleteOverlay
-  pages/CoachPlay.jsx              # Play with Coach
-```
+### Play with Coach — Structured Opening Training
+Guided game with curriculum enforcement, Think First approach, 9 openings
 
 ## Key Endpoints
-- POST /api/coach/play/start, /api/coach/play/move
-- GET /api/lab-coach-pick (returns behavior, lesson_label, lesson per game)
-- POST /api/lab/{game_id}/complete-review (saves stats, marks reviewed, returns summary + next_game)
+- GET /api/home/dashboard-v2 (accuracy fallback, review_progress, behavioral data)
+- GET /api/progress/journey (win_trend, accuracy journey, blunder stats)
+- GET /api/lab-coach-pick (behavioral game cards, rotating pick)
+- POST /api/lab/{game_id}/complete-review (review stats, summary, next game)
 - POST /api/lab-mark-reviewed/{game_id}
 - GET /api/lab/{game_id}/coach-action, /api/lab/{game_id}/coach-insight
 - GET /api/coach/decryption/v5/{game_id}
-- GET /api/analysis/{game_id}/enriched
 
 ## Testing Status
+- All pages: 100% pass rate (backend + frontend verified)
 - Backend E2E: 38/38 PASSING (test_all_flows.py)
-- Review completion flow: 100% (9 backend + frontend verified)
-- Lab queue redesign: 100%
-- Game review redesign: 100%
 
-## Completed Work
-
-### Review Completion Flow (April 2026)
-- "Done reviewing" button in game review header
-- POST /api/lab/{game_id}/complete-review endpoint (saves stats, marks reviewed, returns summary + next_game)
-- ReviewCompleteOverlay: lesson summary, takeaway, next game CTA, lab queue link
-- Coach's Pick auto-rotates after completing a review
-- Button hidden for already-reviewed games
-
-### Lab Queue Redesign (April 2026)
-- Game cards show behavioral story per game (lesson_label, behavioral_insight)
-- Coach's Pick uses actual recurring patterns for pick_reason
-- Verdict strip with W/L + behavioral trend insight
-
-### Game Review Redesign (April 2026)
-- Header with accuracy ring, result badge, opening info
-- Coach tab: hero diagnosis, stat bar, worst move card
-- Decrypt tab: story-driven landing with core lesson narrative
-
-### Previous Work (March 2026)
-- 5-section Human Coach Game Review, opening curriculum engine (9 openings)
-- Think First coaching, move intent analyzer, position reader, memory brain
-- server.py refactor (14.5k → 10.8k lines), 38-test E2E suite
+## Completed (April 2026)
+- Home page redesign: coach message, review progress strip, behavioral last game card
+- Progress page redesign: coaching headlines, fixed win rate insight, blunders rising alert
+- Lab queue redesign: behavioral game cards, Coach's Pick with pattern-based reasoning
+- Game review redesign: accuracy ring, coach tab hero, story-driven decrypt landing
+- Review completion flow: "Done reviewing" → summary overlay → next game CTA
+- Fixed: 0% accuracy bug (fallback to game_analyses), misleading "Holding steady" insight
 
 ## Pending Tasks
-
 ### P0 — Fix Frontend API URL Imports (~24 files)
-~24 files use process.env.REACT_APP_BACKEND_URL directly instead of import { API } from "@/App". Some missing /api suffix.
+~24 files use process.env.REACT_APP_BACKEND_URL directly instead of API import.
 
 ### P1 — Dead Code Removal
 Delete orphaned backend/chess_coach_core/, dead coach_engine modules, dead frontend components.
