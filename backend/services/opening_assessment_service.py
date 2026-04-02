@@ -43,23 +43,47 @@ async def assess_opening_knowledge(db, user_id: str, opening_key: str = "london_
     if not opening:
         return {"error": "Opening not found", "games_played": 0}
 
-    # Get user's games
+    # Opening name aliases — Chess.com uses different names than our curriculum
+    OPENING_ALIASES = {
+        "london_system": ["london", "queen's pawn game", "queen pawn", "london system"],
+        "italian_game": ["italian", "giuoco piano", "two knights", "italian game"],
+        "italian_game_black": ["italian", "giuoco piano", "two knights", "italian game"],
+        "sicilian_defense": ["sicilian", "sicilian defense"],
+        "caro_kann": ["caro-kann", "caro kann"],
+        "french_defense": ["french", "french defense"],
+        "queens_gambit": ["queen's gambit", "queens gambit", "queen gambit"],
+        "scandinavian_defense": ["scandinavian", "scandinavian defense", "mieses", "kotrc"],
+        "ruy_lopez": ["ruy lopez", "spanish", "spanish game"],
+    }
+
+    aliases = OPENING_ALIASES.get(opening_key, [opening.get("name", "").lower()])
+
+    # Get user's games — match by aliases
     user_color = opening.get("color", "white")
     games = await db.games.find(
         {"user_id": user_id, "user_color": user_color},
         {"_id": 0, "game_id": 1, "pgn": 1, "opening_name": 1, "opening": 1, "result": 1}
-    ).sort("imported_at", -1).limit(50).to_list(50)
+    ).sort("imported_at", -1).limit(100).to_list(100)
 
-    if not games:
+    # Filter games that match this opening by name aliases
+    def _matches_opening(game):
+        name = (game.get("opening_name") or game.get("opening") or "").lower()
+        return any(alias in name for alias in aliases)
+
+    matched_games = [g for g in games if _matches_opening(g)]
+
+    if not matched_games:
+        total_games = len(games)
         return {
             "games_played": 0,
+            "games_total": total_games,
             "moves_mastered": [],
             "weak_moves": [],
             "never_seen": [],
             "overall_score": 0,
             "focus_variation": None,
             "ready_for_middlegame": False,
-            "message": "No games found. Play some games first.",
+            "message": f"You have {total_games} games but none in the {opening.get('name', 'opening')}. New territory — let's learn it!" if total_games > 0 else "Play some games first.",
         }
 
     # Parse the curriculum tree to get all expected move sequences
@@ -70,7 +94,7 @@ async def assess_opening_knowledge(db, user_id: str, opening_key: str = "london_
     opponent_responses_seen = set()
     games_in_opening = 0
 
-    for game in games:
+    for game in matched_games:
         pgn = game.get("pgn", "")
         if not pgn:
             continue
@@ -97,14 +121,14 @@ async def assess_opening_knowledge(db, user_id: str, opening_key: str = "london_
     if games_in_opening == 0:
         return {
             "games_played": 0,
-            "games_total": len(games),
+            "games_total": len(matched_games),
             "moves_mastered": [],
             "weak_moves": [],
             "never_seen": [],
             "overall_score": 0,
             "focus_variation": None,
             "ready_for_middlegame": False,
-            "message": f"You have {len(games)} games but none in the {opening.get('name', 'opening')}. Let's start learning it!",
+            "message": f"You have {len(matched_games)} games but none in the {opening.get('name', 'opening')}. Let's start learning it!",
         }
 
     # Build results
@@ -149,7 +173,7 @@ async def assess_opening_knowledge(db, user_id: str, opening_key: str = "london_
 
     return {
         "games_played": games_in_opening,
-        "games_total": len(games),
+        "games_total": len(matched_games),
         "moves_mastered": mastered,
         "weak_moves": weak[:5],
         "never_seen": never_seen[:5],
@@ -166,23 +190,14 @@ def _parse_pgn_moves(pgn: str) -> List[str]:
         game = chess.pgn.read_game(io.StringIO(pgn))
         if not game:
             return []
-        return [move.uci() for move in game.mainline_moves()]
+        board = game.board()
+        moves = []
+        for move in game.mainline_moves():
+            moves.append(board.san(move))
+            board.push(move)
+        return moves
     except Exception:
-        pass
-
-    # Fallback: try to parse move text directly
-    try:
-        game = chess.pgn.read_game(io.StringIO(pgn))
-        if game:
-            board = game.board()
-            moves = []
-            for move in game.mainline_moves():
-                moves.append(board.san(move))
-                board.push(move)
-            return moves
-    except Exception:
-        pass
-    return []
+        return []
 
 
 def _analyze_game_against_curriculum(
