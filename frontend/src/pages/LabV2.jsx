@@ -42,7 +42,9 @@ import {
   BookOpen,
   MessageSquare,
   ChevronDown,
-  History
+  History,
+  Check,
+  ArrowRight
 } from "lucide-react";
 
 // Import new coach-style components
@@ -199,6 +201,100 @@ const fenToPositionObject = (fen) => {
   return position;
 };
 
+// Review completion overlay — shown after clicking "Done reviewing"
+const ReviewCompleteOverlay = ({ summary, nextGame, navigate }) => {
+  const { lesson_label, lesson, takeaway, concepts_learned, drills_solved } = summary || {};
+  
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="absolute inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center"
+      data-testid="review-complete-overlay"
+    >
+      <motion.div 
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 0.1, duration: 0.3 }}
+        className="max-w-md w-full mx-4"
+      >
+        {/* Check circle */}
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+            <Check className="w-7 h-7 text-emerald-500" strokeWidth={2} />
+          </div>
+          <h2 className="text-xl font-semibold text-foreground tracking-tight" data-testid="review-complete-title">Review complete</h2>
+        </div>
+        
+        {/* What you learned */}
+        {(lesson || lesson_label) && (
+          <div className="bg-card border border-border rounded-lg p-5 mb-4">
+            {lesson_label && (
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-400 block mb-1.5">
+                {lesson_label}
+              </span>
+            )}
+            {lesson && (
+              <p className="text-sm text-foreground leading-relaxed">{lesson}</p>
+            )}
+            {takeaway && (
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{takeaway}</p>
+            )}
+          </div>
+        )}
+        
+        {/* Stats row */}
+        {(concepts_learned > 0 || drills_solved > 0) && (
+          <div className="flex gap-3 mb-6">
+            {concepts_learned > 0 && (
+              <div className="flex-1 bg-muted/40 rounded-lg py-3 text-center">
+                <p className="text-lg font-bold text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{concepts_learned}</p>
+                <p className="text-[10px] text-muted-foreground">concepts learned</p>
+              </div>
+            )}
+            {drills_solved > 0 && (
+              <div className="flex-1 bg-muted/40 rounded-lg py-3 text-center">
+                <p className="text-lg font-bold text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{drills_solved}</p>
+                <p className="text-[10px] text-muted-foreground">drills solved</p>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Actions */}
+        <div className="space-y-2.5">
+          {nextGame ? (
+            <button
+              onClick={() => navigate(`/game/${nextGame.game_id}`)}
+              className="w-full py-3 rounded-lg bg-foreground text-background font-medium text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              data-testid="review-next-game-btn"
+            >
+              Next game: vs {nextGame.opponent}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/lab")}
+              className="w-full py-3 rounded-lg bg-foreground text-background font-medium text-sm hover:opacity-90 transition-opacity"
+              data-testid="review-back-to-lab-btn"
+            >
+              Back to Lab
+            </button>
+          )}
+          
+          <button
+            onClick={() => navigate("/lab")}
+            className="w-full py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="review-go-lab-btn"
+          >
+            Go to Lab queue
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 // Result badge with semantic colors
 const ResultBadge = ({ result, userColor }) => {
   const isWin = (result.includes("1-0") && userColor === "white") || (result.includes("0-1") && userColor === "black");
@@ -253,6 +349,17 @@ const LabV2 = ({ user }) => {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState(null);
   const [viewMode, setViewMode] = useState("decrypt"); // "decrypt" (primary) or "coach" (overview)
+  
+  // Review completion tracking
+  const [reviewComplete, setReviewComplete] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState(null);
+  const [completingReview, setCompletingReview] = useState(false);
+  const tabsVisitedRef = useRef(new Set(["decrypt"])); // Track which tabs user visited
+  
+  // Track tab visits
+  useEffect(() => {
+    tabsVisitedRef.current.add(viewMode);
+  }, [viewMode]);
   
   // Derived data
   const userColor = game?.user_color || "white";
@@ -458,6 +565,37 @@ const LabV2 = ({ user }) => {
       newArrows.push([from, to, "green"]);
     }
     setBoardArrows(newArrows);
+  };
+  
+  // Complete review — save what was learned, mark as reviewed, get next game
+  const completeReview = async (stats = {}) => {
+    if (completingReview) return;
+    setCompletingReview(true);
+    try {
+      const res = await fetch(`${API}/lab/${gameId}/complete-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          concepts_learned: stats.conceptsLearned || 0,
+          drills_solved: stats.drillsSolved || 0,
+          tabs_visited: Array.from(tabsVisitedRef.current),
+          moves_viewed: currentMoveIndex + 1,
+          total_moves: moves.length,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReviewSummary(data);
+        setReviewComplete(true);
+      } else {
+        toast.error("Failed to save review");
+      }
+    } catch (e) {
+      toast.error("Failed to save review");
+    } finally {
+      setCompletingReview(false);
+    }
   };
   
   // Play Best Line - Shows the continuation after the best move
@@ -931,27 +1069,47 @@ const LabV2 = ({ user }) => {
               </div>
             </div>
             
-            {/* View Mode Toggle */}
-            <div className="flex items-center bg-muted/60 rounded-lg p-0.5" data-testid="view-mode-tabs">
-              {[
-                { key: "coach", label: "Coach", icon: Brain },
-                { key: "habits", label: "Habits", icon: Target },
-                { key: "decrypt", label: "Decrypt", icon: BookOpen },
-              ].map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setViewMode(key)}
-                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-1.5 ${
-                    viewMode === key
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  data-testid={`${key}-view-btn`}
+            {/* View Mode Toggle + Done Button */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center bg-muted/60 rounded-lg p-0.5" data-testid="view-mode-tabs">
+                {[
+                  { key: "coach", label: "Coach", icon: Brain },
+                  { key: "habits", label: "Habits", icon: Target },
+                  { key: "decrypt", label: "Decrypt", icon: BookOpen },
+                ].map(({ key, label, icon: Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setViewMode(key)}
+                    className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-1.5 ${
+                      viewMode === key
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid={`${key}-view-btn`}
+                  >
+                    <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              
+              {!game?.reviewed && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => completeReview()}
+                  disabled={completingReview}
+                  className="text-xs gap-1.5"
+                  data-testid="done-reviewing-btn"
                 >
-                  <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  {label}
-                </button>
-              ))}
+                  {completingReview ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Check className="w-3 h-3" />
+                  )}
+                  Done reviewing
+                </Button>
+              )}
             </div>
           </div>
           
@@ -1128,6 +1286,15 @@ const LabV2 = ({ user }) => {
           onClose={() => setFeedbackOpen(false)}
           context={feedbackContext}
         />
+        
+        {/* Review Completion Overlay */}
+        {reviewComplete && reviewSummary && (
+          <ReviewCompleteOverlay 
+            summary={reviewSummary.summary}
+            nextGame={reviewSummary.next_game}
+            navigate={navigate}
+          />
+        )}
       </div>
     </Layout>
   );

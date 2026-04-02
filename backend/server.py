@@ -5255,6 +5255,88 @@ async def mark_game_reviewed(game_id: str, user: User = Depends(get_current_user
     return {"success": result.modified_count > 0}
 
 
+@api_router.post("/lab/{game_id}/complete-review")
+async def complete_game_review(game_id: str, request: Request, user: User = Depends(get_current_user)):
+    """
+    Complete a game review session. Saves what was learned, marks as reviewed,
+    and returns a summary + next game recommendation.
+    """
+    from datetime import datetime, timezone
+
+    body = await request.json()
+    concepts_learned = body.get("concepts_learned", 0)
+    drills_solved = body.get("drills_solved", 0)
+    tabs_visited = body.get("tabs_visited", [])
+    moves_viewed = body.get("moves_viewed", 0)
+    total_moves = body.get("total_moves", 0)
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # 1. Mark game as reviewed
+    await db.games.update_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"$set": {
+            "reviewed": True,
+            "reviewed_at": now,
+            "review_stats": {
+                "concepts_learned": concepts_learned,
+                "drills_solved": drills_solved,
+                "tabs_visited": tabs_visited,
+                "moves_viewed": moves_viewed,
+                "total_moves": total_moves,
+                "completed_at": now,
+            },
+        }}
+    )
+
+    # 2. Get the lesson and coach summary for this game
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "coach_summary": 1, "decryption_v5_data.core_lesson": 1}
+    )
+    coach_sum = (analysis or {}).get("coach_summary", {}) or {}
+    decrypt_data = (analysis or {}).get("decryption_v5_data", {})
+    if isinstance(decrypt_data, list):
+        decrypt_data = {}
+    core_les = (decrypt_data or {}).get("core_lesson", {}) or {}
+
+    # Build the takeaway
+    takeaway = coach_sum.get("actionable_takeaway") or core_les.get("behavioral_fix") or ""
+    lesson = core_les.get("lesson") or coach_sum.get("key_observation") or ""
+    lesson_label = core_les.get("short_label", "")
+
+    # 3. Find the next unreviewed game (next Coach's Pick)
+    next_game = await db.games.find_one(
+        {"user_id": user.user_id, "is_analyzed": True, "reviewed": {"$ne": True}, "game_id": {"$ne": game_id}},
+        {"_id": 0, "game_id": 1, "opponent_name": 1, "result": 1, "user_color": 1, "opening": 1},
+        sort=[("imported_at", -1)]
+    )
+
+    next_rec = None
+    if next_game:
+        uc = next_game.get("user_color", "white")
+        res = next_game.get("result", "")
+        won = (res == "1-0" and uc == "white") or (res == "0-1" and uc == "black")
+        next_rec = {
+            "game_id": next_game["game_id"],
+            "opponent": next_game.get("opponent_name", ""),
+            "result": "W" if won else ("D" if "1/2" in res else "L"),
+            "opening": next_game.get("opening", ""),
+        }
+
+    return {
+        "success": True,
+        "summary": {
+            "lesson_label": lesson_label,
+            "lesson": lesson,
+            "takeaway": takeaway,
+            "concepts_learned": concepts_learned,
+            "drills_solved": drills_solved,
+        },
+        "next_game": next_rec,
+    }
+
+
 @api_router.get("/dashboard-stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics including player profile for the current user"""
