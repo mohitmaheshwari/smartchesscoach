@@ -5085,7 +5085,8 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     analyses_cursor = db.game_analyses.find(
         {"user_id": user.user_id},
         {"_id": 0, "game_id": 1, "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1,
-         "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.accuracy": 1}
+         "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.accuracy": 1,
+         "coach_summary": 1, "decryption_v5_data.core_lesson": 1}
     )
     analyses = {a["game_id"]: a async for a in analyses_cursor}
 
@@ -5125,6 +5126,14 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
 
         opp = g.get("opponent_name") or (g.get("white_player") if uc == "black" else g.get("black_player")) or ""
 
+        # Behavioral data from enriched analysis
+        coach_sum = a.get("coach_summary", {}) or {}
+        # Handle decryption_v5_data being either dict or list
+        decrypt_data = a.get("decryption_v5_data", {})
+        if isinstance(decrypt_data, list):
+            decrypt_data = {}  # Fallback if it's a list
+        core_les = (decrypt_data or {}).get("core_lesson", {}) or {}
+
         enriched.append({
             "game_id": gid,
             "opponent": opp,
@@ -5139,6 +5148,9 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "cognitive_gaps": cognitive_gaps,
             "opening": g.get("opening", ""),
             "summary_headline": g.get("summary", {}).get("headline") if isinstance(g.get("summary"), dict) else None,
+            "behavior": coach_sum.get("behavioral_insight") or coach_sum.get("key_observation") or "",
+            "lesson_label": core_les.get("short_label", ""),
+            "lesson": core_les.get("lesson", ""),
         })
 
     # ── SMART PICK: find the best unreviewed game ──
@@ -5161,7 +5173,10 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                 if pattern_counts.get(gap, 0) >= 3:
                     pick = g
                     readable = gap.replace("_", " ")
-                    pick_reason = f"You've made this mistake ({readable}) {pattern_counts[gap]} times. Let's fix it here."
+                    if g.get("lesson"):
+                        pick_reason = f'This game shows a pattern I keep seeing: "{g["lesson"]}" You\'ve done this {pattern_counts[gap]} times now.'
+                    else:
+                        pick_reason = f"You've made this mistake ({readable}) {pattern_counts[gap]} times. Let's fix it here."
                     break
             if pick:
                 break
@@ -5171,7 +5186,10 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             for g in unreviewed:
                 if g["result"] == "L" and g["was_winning"]:
                     pick = g
-                    pick_reason = f"You were +{g['max_advantage']} and threw it. This is where rating points go to die."
+                    if g.get("behavior"):
+                        pick_reason = f"You were +{g['max_advantage']} and lost. {g['behavior']}"
+                    else:
+                        pick_reason = f"You were +{g['max_advantage']} and threw it. This is where rating points go to die."
                     break
 
         # Priority 3: Loss with single decisive blunder
@@ -5179,7 +5197,10 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             for g in unreviewed:
                 if g["result"] == "L" and g["blunders"] >= 1:
                     pick = g
-                    pick_reason = f"{g['blunders']} blunder{'s' if g['blunders'] > 1 else ''} decided this game. One lesson to learn."
+                    if g.get("lesson"):
+                        pick_reason = g["lesson"]
+                    else:
+                        pick_reason = f"{g['blunders']} blunder{'s' if g['blunders'] > 1 else ''} decided this game. One lesson to learn."
                     break
 
         # Fallback: any unreviewed loss
@@ -5187,13 +5208,13 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             for g in unreviewed:
                 if g["result"] == "L":
                     pick = g
-                    pick_reason = "Your coach thinks this game has something to teach you."
+                    pick_reason = g.get("behavior") or "Your coach thinks this game has something to teach you."
                     break
 
         # Last resort: any unreviewed game
         if not pick and unreviewed:
             pick = unreviewed[0]
-            pick_reason = "Start with your most recent game."
+            pick_reason = g.get("behavior") or "Start with your most recent game."
 
     # Verdict strip
     recent = enriched[:15]
