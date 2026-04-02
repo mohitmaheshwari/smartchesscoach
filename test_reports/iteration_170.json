@@ -1,0 +1,83 @@
+{
+  "summary": "Tested Home page (/home) and Progress page (/progress) redesign for ChessGuru. All features working correctly: accuracy > 0% (fixed fallback), review progress tracking, behavioral insights, win trend with correct insight (NOT 'Holding steady'), blunders rising detection, danger zones with severity badges.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/home/dashboard-v2",
+        "issue": "last_battle.lesson_label is empty string (should have a label from decryption_v5_data.core_lesson.short_label)",
+        "priority": "LOW"
+      },
+      {
+        "endpoint": "/api/home/dashboard-v2",
+        "issue": "last_battle.fen is empty when no critical position found (fallback case)",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_home_progress_redesign.py",
+    "/app/test_reports/pytest/test_home_progress_redesign.xml",
+    ".screenshots/home_page_test.png",
+    ".screenshots/home_page_full.png",
+    ".screenshots/progress_page_test.png",
+    ".screenshots/progress_page_full.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "✅ /api/home/dashboard-v2 accuracy now correctly falls back to computing from game_analyses when player_profiles.average_accuracy is 0",
+    "✅ review_progress correctly returns total/reviewed/pending counts",
+    "✅ last_battle includes 'behavior' field with behavioral insight from coach_summary",
+    "✅ patterns include severity badges (critical/high/medium/low)",
+    "✅ /api/progress/journey returns win_trend with recent/previous/improving fields",
+    "✅ Frontend Progress page correctly compares win RATES (not absolute wins) for insight text",
+    "✅ 'Win rate dropped from 33% to 14%' shown correctly instead of misleading 'Holding steady'",
+    "✅ 'BLUNDERS RISING' label shown in red when blunders are increasing",
+    "✅ Accuracy Journey chart renders with colored dots (green=win, red=loss, gray=draw)",
+    "✅ Danger Zones patterns are clickable and navigate to /training?focus={pattern_type}",
+    "✅ Review Progress shows progress bar and pending count with link to Lab",
+    "✅ Review progress strip on Home page navigates to /lab when clicked"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_home_progress_redesign.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15 passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "seed_data_creation": "Reset test_game_70e322f8 to unreviewed to test review progress strip visibility",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Home and Progress page redesign fully tested. Key findings: (1) Accuracy > 0% working via fallback from game_analyses, (2) Review progress strip shows when pending > 0, (3) Last game card shows behavioral insight, (4) Win trend insight correctly shows 'Win rate dropped' instead of 'Holding steady', (5) Blunders Rising label shown in red, (6) Danger Zones clickable with severity badges, (7) Accuracy Journey chart has colored dots. Test games: test_game_70e322f8 (GrandMaster42, unreviewed), test_game_16290c47 (BlitzKing99), test_game_ea746565 (QuietPawn), test_game_dc583d68 (SicilianFan), test_game_e023dca3 (EndgameNerd). Dev login: GET /api/auth/dev-login.",
+  "features_verified": {
+    "home_page": {
+      "coach_message": "WORKING - Shows 'Leaving Pieces Hanging is showing up in almost every game.'",
+      "accuracy_footer": "WORKING - Shows '72% avg accuracy' (> 0%)",
+      "review_progress_strip": "WORKING - Shows '1 game waiting for review' with 4/5 progress bar",
+      "last_game_card": "WORKING - Shows opponent (GrandMaster42), result badge (LOST), opening (Italian Game), behavioral insight",
+      "actions_section": "WORKING - Primary CTA 'Train Leaving Pieces Hanging' + Play with Coach + Study Openings + Review in Lab",
+      "patterns_section": "WORKING - Shows pattern names with frequency (3x) and severity badges (HIGH/MED)",
+      "chess_dna_section": "WORKING - Shows archetype (Developing) and biggest leak (OPENING COLLAPSE)"
+    },
+    "progress_page": {
+      "headline": "WORKING - Shows coaching-style insight based on accuracy/blunder trends",
+      "accuracy_top_right": "WORKING - Shows '72%' with trend indicator",
+      "accuracy_journey_chart": "WORKING - Renders with colored dots (green=win, red=loss, gray=draw)",
+      "win_rate_section": "WORKING - Shows '1W 5L' with correct insight 'Win rate dropped from 33% to 14%'",
+      "blunders_rising": "WORKING - Red label 'BLUNDERS RISING' with '0.0/g → 1.7/g' trend",
+      "danger_zones": "WORKING - Shows patterns with severity badges, clickable to /training?focus=",
+      "review_progress": "WORKING - Shows '4 of 5 games reviewed' with progress bar and '1 pending' link",
+      "chess_identity": "WORKING - Shows archetype and biggest leak",
+      "last_n_games_chart": "WORKING - Bar chart with colored bars for last 7 games"
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}

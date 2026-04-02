@@ -8472,11 +8472,40 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
                         "result": game_result,
                         "user_color": user_color,
                         "fen": worst.get("fen_before", ""),
-                        "your_move": worst.get("move", ""),
+                        "your_move": worst.get("move_san") or worst.get("move", ""),
                         "best_move": worst.get("best_move", ""),
                         "cp_loss": worst.get("cp_loss", 0),
                         "move_number": worst.get("move_number", 0),
+                        "opening": last_game.get("opening", ""),
                     }
+                
+                # Fallback: if no worst move found or no FEN, still show the game
+                if not result["last_battle"]:
+                    result["last_battle"] = {
+                        "game_id": game_id,
+                        "opponent": last_game.get("opponent_name") or (last_game.get("white_player") if user_color == "black" else last_game.get("black_player")),
+                        "result": game_result,
+                        "user_color": user_color,
+                        "fen": "",
+                        "your_move": "",
+                        "best_move": "",
+                        "cp_loss": 0,
+                        "move_number": 0,
+                        "opening": last_game.get("opening", ""),
+                    }
+                
+                # Add behavioral data from analysis
+                last_analysis = await db.game_analyses.find_one(
+                    {"game_id": game_id, "user_id": user.user_id},
+                    {"_id": 0, "coach_summary": 1, "decryption_v5_data.core_lesson": 1}
+                )
+                if last_analysis and result["last_battle"]:
+                    cs = last_analysis.get("coach_summary", {}) or {}
+                    dd = last_analysis.get("decryption_v5_data", {})
+                    if isinstance(dd, list): dd = {}
+                    cl = (dd or {}).get("core_lesson", {}) or {}
+                    result["last_battle"]["behavior"] = cs.get("behavioral_insight") or cs.get("key_observation") or ""
+                    result["last_battle"]["lesson_label"] = cl.get("short_label", "")
 
                 # Compute summary + memory
                 summary = compute_game_summary(evals, game_result, user_color, last_game.get("opening", ""))
@@ -8502,10 +8531,22 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
                         "rating_gain": impact.get("estimated_rating_gain", 0),
                     }
 
-        # Accuracy from profile
+        # Accuracy — compute from analyses if profile doesn't have it
         profile = await db.player_profiles.find_one({"user_id": user.user_id}, {"_id": 0})
-        if profile:
-            result["accuracy"] = profile.get("average_accuracy", 0)
+        profile_accuracy = profile.get("average_accuracy", 0) if profile else 0
+        if not profile_accuracy:
+            # Fallback: compute from game_analyses
+            acc_cursor = db.game_analyses.find(
+                {"user_id": user.user_id, "stockfish_analysis.accuracy": {"$exists": True}},
+                {"_id": 0, "stockfish_analysis.accuracy": 1}
+            )
+            accs = []
+            async for a in acc_cursor:
+                acc_val = a.get("stockfish_analysis", {}).get("accuracy")
+                if acc_val and acc_val > 0:
+                    accs.append(acc_val)
+            profile_accuracy = sum(accs) / len(accs) if accs else 0
+        result["accuracy"] = profile_accuracy
 
         # Games count
         result["games_analyzed"] = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
@@ -8553,6 +8594,16 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
             }
             for p in patterns
         ]
+
+        # ── REVIEW PROGRESS ──
+        total_analyzed = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
+        total_reviewed = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True, "reviewed": True})
+        pending_review = total_analyzed - total_reviewed
+        result["review_progress"] = {
+            "total": total_analyzed,
+            "reviewed": total_reviewed,
+            "pending": pending_review,
+        }
 
     except Exception as e:
         logger.error(f"Home dashboard V2 error: {e}")
