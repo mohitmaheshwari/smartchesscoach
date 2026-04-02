@@ -73,6 +73,12 @@ def read_position(fen: str, user_color: str = "white", user_rating: int = 1200) 
     # ─── CHECKS AVAILABLE (all levels) ───
     features.extend(_analyze_checks(board, user_color_bool))
 
+    # ─── CASTLING STATUS (always relevant) ───
+    features.extend(_analyze_castling(board, user_color_bool, opp_color_bool))
+
+    # ─── SPACE + PIECE COUNT (always something to say) ───
+    features.extend(_analyze_general(board, user_color_bool, opp_color_bool))
+
     # Filter by rating
     filtered = [f for f in features if f.min_rating <= user_rating]
 
@@ -540,3 +546,129 @@ def _get_phase(board) -> str:
     elif pieces >= 14:
         return "middlegame"
     return "endgame"
+
+
+
+def _analyze_castling(board, user_color, opp_color) -> List[PositionFeature]:
+    """Castling opportunities and status."""
+    features = []
+
+    user_can_castle = board.has_castling_rights(user_color)
+    opp_can_castle = board.has_castling_rights(opp_color)
+    user_castled = _is_castled(board, user_color, board.king(user_color))
+    opp_castled = _is_castled(board, opp_color, board.king(opp_color))
+
+    if user_can_castle and not user_castled and board.fullmove_number >= 4:
+        features.append(PositionFeature(
+            priority=6,
+            category="king_safety",
+            title="You can still castle",
+            description="Your king is still in the center. Castling gets it safe and connects your rooks.",
+            min_rating=800,
+            actionable="Look for a chance to castle soon.",
+        ))
+
+    if not opp_castled and not opp_can_castle and board.fullmove_number >= 6:
+        features.append(PositionFeature(
+            priority=5,
+            category="king_safety",
+            title="Opponent lost castling rights",
+            description="They can't castle anymore. Their king is stuck in the center permanently.",
+            min_rating=1000,
+            actionable="Open the center! Their king is a target.",
+        ))
+
+    return features
+
+
+def _analyze_general(board, user_color, opp_color) -> List[PositionFeature]:
+    """General position assessment — always has something to say."""
+    features = []
+
+    # Count developed pieces (not on back rank)
+    user_back = 0 if user_color == chess.WHITE else 7
+    opp_back = 0 if opp_color == chess.WHITE else 7
+
+    user_developed = 0
+    opp_developed = 0
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if not piece or piece.piece_type in [chess.PAWN, chess.KING]:
+            continue
+        rank = chess.square_rank(sq)
+        if piece.color == user_color and rank != user_back:
+            user_developed += 1
+        elif piece.color == opp_color and rank != opp_back:
+            opp_developed += 1
+
+    if user_developed > opp_developed + 1:
+        features.append(PositionFeature(
+            priority=8,
+            category="development",
+            title="You have better development",
+            description=f"You have {user_developed} pieces developed vs their {opp_developed}. Use this lead before they catch up.",
+            min_rating=800,
+            actionable="Open the position while you're ahead in development.",
+        ))
+    elif opp_developed > user_developed + 1:
+        features.append(PositionFeature(
+            priority=5,
+            category="development",
+            title="Opponent has better development",
+            description=f"They have {opp_developed} pieces out vs your {user_developed}. Catch up before they attack.",
+            min_rating=800,
+            actionable="Develop your remaining pieces. Don't start an attack yet.",
+        ))
+
+    # Space — count squares controlled in opponent's half
+    user_space = 0
+    opp_space = 0
+    for sq in chess.SQUARES:
+        rank = chess.square_rank(sq)
+        if rank >= 4 and board.is_attacked_by(user_color, sq):
+            user_space += 1
+        if rank <= 3 and board.is_attacked_by(opp_color, sq):
+            opp_space += 1
+
+    if user_space > opp_space + 5:
+        features.append(PositionFeature(
+            priority=9,
+            category="center",
+            title="You have more space",
+            description="Your pieces control more of the board. This means better mobility.",
+            min_rating=1000,
+            actionable="Use your space — maneuver pieces to their best squares.",
+        ))
+    elif opp_space > user_space + 5:
+        features.append(PositionFeature(
+            priority=7,
+            category="center",
+            title="Opponent has more space",
+            description="They control more squares. Your pieces feel cramped.",
+            min_rating=1000,
+            actionable="Look for a pawn break (c5, d5, e5, f5) to challenge their space.",
+        ))
+
+    # If nothing else — piece count summary
+    if not features:
+        total_pieces = len(board.piece_map())
+        if total_pieces <= 12:
+            features.append(PositionFeature(
+                priority=10,
+                category="piece_activity",
+                title="Endgame approaching",
+                description="Few pieces left. King activity and pawn promotion are key now.",
+                min_rating=800,
+                actionable="Activate your king! In endgames, the king is a fighting piece.",
+            ))
+        else:
+            features.append(PositionFeature(
+                priority=10,
+                category="piece_activity",
+                title="Position is balanced",
+                description="No immediate threats or imbalances. Look for ways to improve your worst piece.",
+                min_rating=800,
+                actionable="Find your least active piece and give it a better job.",
+            ))
+
+    return features
