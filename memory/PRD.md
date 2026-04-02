@@ -1,85 +1,79 @@
 # ChessGuru PRD
 
 ## Original Problem Statement
-A highly personalized, "coach-first" chess application that teaches structured concepts through gameplay, remembers user patterns (Chess DNA), and explains intent clearly. The architecture must be perfectly modular to support various lesson types (openings, traps, tactics, short wins, position commentary).
+A highly personalized, "coach-first" chess application with a modular, pedagogical chess engine with pluggable teaching modes (openings, traps, tactics, short wins, endgames). The platform teaches structured concepts, remembers user patterns, and explains intent clearly using a generic teaching engine and dynamic front-end UI.
 
-## Core Requirements
-- Human Coach Game Review (Lab): 5-section narrative review (Diagnose → Drill → Track)
-- Play with Coach: Dynamic teaching via 9-opening curriculum engine with trap detection
-- Memory Brain: Tracks user weaknesses and habits across games
-- Move Intent Analyzer: Explains moves in plain English
-- Read the Board: Position analysis with tap-to-expand UI
-- Progress Report: Behavioral coaching report focusing on weakness control
-
-## Architecture
-
-### Backend
-- FastAPI + Motor (Async MongoDB) + Stockfish
-- Modular routes in `/backend/routes/` (coach_play.py)
-- Services: memory_brain.py, position_reader.py, move_intent_analyzer.py, coach_move_pipeline.py, progress_report_service.py, coach_review_service.py
-- Data: opening_curriculum.json (9 openings, 14 traps)
-- Tests: test_all_flows.py (38/38 E2E tests passing)
-- LLM: OpenAI/GPT-4o-mini via emergentintegrations/EMERGENT_LLM_KEY
-
-### Frontend
-- React 18 + Tailwind CSS + Framer Motion + chess.js + LichessBoard
-- CoachPlay refactored architecture:
-  - `CoachPlay.jsx` (2,050 lines - orchestrator with core session/coaching state)
-  - `useTeachingMode.js` - Pluggable teaching lesson system hook
-  - `usePlayerData.js` - Pre-game data, streak, development tracking hook
-  - `useGuardian.js` - Move intervention system hook
-  - `CoachPlaySetup.jsx` - Pre-game screen component
-  - `CoachPlayBoard.jsx` - Board + eval + controls component
-  - `CoachPlaySidebar.jsx` - Coaching panels component
-
-### Key API Endpoints
-- POST /api/coach/play/start, POST /api/coach/play/move
-- POST /api/coach/play/opening-guide, POST /api/coach/play/read-position
-- GET /api/player-brain
-- GET /api/lab-coach-pick
-- POST /api/lab/{game_id}/complete-review
-- GET /api/progress/journey
-
-### Key DB Collections
-- `games`, `game_analyses`, `coach_sessions`, `analysis_queue`
+## Core Architecture
+```
+/app/
+├── backend/
+│   ├── routes/               # coach_play.py (teaching, escape-squares endpoints)
+│   ├── services/             # teaching_engine.py, escape_squares_service.py, postgame_analysis.py
+│   ├── data/                 # opening_curriculum.json, traps.json, endgames.json
+│   ├── coach_play/           # coach_game_session.py (session management)
+│   ├── home_intelligence_service.py  # Dashboard intelligence with win streak
+│   ├── tests/                # test_all_flows.py (38 tests), test_p1_features.py (16 tests)
+├── frontend/
+│   ├── src/
+│   │   ├── components/coach/ # LessonPicker, CoachPlaySetup, CoachPlayBoard, CoachPlaySidebar, EscapeSquaresQuiz
+│   │   ├── hooks/            # useTeachingMode, usePlayerData, useGuardian
+│   │   └── pages/            # CoachPlay, CoachHome (with win streak), Dashboard
+```
 
 ## What's Been Implemented
 
-### April 2, 2026 (Session 2)
-- **P0: Hook Extraction** — Extracted 3 focused hooks from CoachPlay.jsx:
-  - `useTeachingMode.js` (~250 lines) — All teaching lesson state + handlers. Pluggable for new lesson types.
-  - `usePlayerData.js` (~200 lines) — Pre-game data fetching, streak tracking, development tracking.
-  - `useGuardian.js` (~100 lines) — Guardian intervention state, evaluateMove, cancelRiskyMove.
-  - CoachPlay.jsx: 3,669 → 2,050 lines (44% total reduction across both sessions)
-- **P1: Dead Code Cleanup** — Deleted 5 dead backend modules (coach_engine/coach_personality.py, interactive_coach.py, lichess_explorer.py, opening_knowledge_builder.py, opening_teaching_db.py). Deleted 6 dead frontend components (RatingTrajectory, LearningPath, MemoryLane, HabitChallenge, NotificationBell, DailyMissionCard).
-- **P1: Dependency Cleanup** — Removed unused packages: boto3, botocore, s3transfer, huggingface_hub, fastuuid from backend. Removed axios from frontend.
-- Testing: 100% pass (backend 38/38, frontend all pages verified)
+### Phase 1 — Core Coaching Platform (Complete)
+- Real-time coaching feedback during games
+- Opening curriculum with progression tracking
+- Postgame analysis with blunder/mistake detection
+- Coach memory that persists across sessions
+- Import pipeline from Chess.com/Lichess
 
-### April 2, 2026 (Session 1)
-- **P0: API URL Fix** — Fixed ~24 frontend files using process.env.REACT_APP_BACKEND_URL directly → centralized import { API } from "@/App"
-- **P0: JSX Extraction** — Extracted render JSX from CoachPlay into CoachPlaySetup, CoachPlayBoard, CoachPlaySidebar
+### Phase 2 — Pluggable Teaching Modes (Complete)
+- Generic teaching engine dispatcher (teaching_engine.py)
+- 18 Trap lessons with interactive board teaching
+- 10 Endgame lessons with guided practice
+- LessonPicker UI in coaching sidebar
+- Hook-based frontend orchestration (useTeachingMode, useGuardian)
 
-### Previous Sessions
-- Built 5-section Human Coach Game Review
-- Built Coach Play with 9-opening curriculum engine
-- Built Think First coaching, Move Intent Analyzer, Read the Board, Memory Brain
-- Refactored server.py from 14.5k → 10.8k lines
-- Redesigned Lab, Home, Progress pages for narrative-driven behavioral insights
-- Built progress_report_service.py and complete-review endpoint
+### Phase 3 — P1 Features (Complete - April 2, 2026)
+1. **Count Escape Squares** — Interactive quiz that prompts users to count opponent's king escape squares during tactical moments (checks, restricted kings, back-rank threats). Backend service detects teaching moments, frontend shows number-picker quiz with validation and detailed feedback.
+2. **Immediate Review Data Attachment** — Game analysis (postgame_analysis.py) now runs automatically when a coach game ends, attaching detailed mistake patterns and habits to the user's profile immediately without waiting for manual "Review" click.
+3. **Dynamic Dashboard Mood via Win Streaks** — Home intelligence service calculates consecutive win streaks. When 3+ consecutive wins, the dashboard suppresses negative pattern profiling and shows a positive momentum banner with streak count.
+
+## Key API Endpoints
+- `POST /api/coach/play/teaching/start` — Start a trap/endgame lesson
+- `POST /api/coach/play/teaching/move` — Make a move in a lesson
+- `POST /api/coach/play/teaching/exit` — Exit a lesson
+- `GET /api/coach/play/teaching/catalog` — Get all available lessons (18 traps, 10 endgames)
+- `POST /api/coach/play/escape-squares/check` — Check if position is a teaching moment for escape squares
+- `POST /api/coach/play/escape-squares/answer` — Validate user's escape squares answer
+- `GET /api/coach/home-intelligence` — Dashboard data with win_streak and mood_override fields
+
+## Key DB Collections
+- `coach_sessions`: {session_id, current_fen, teaching_mode, teaching_state, escape_square_quizzes, result}
+- `games`, `game_analyses`: Source of truth for dashboard mood
+- `postgame_analyses`: Detailed game analysis data
+
+## Testing
+- Backend: 38/38 core tests passing (test_all_flows.py)
+- Backend: 16/16 P1 feature tests passing (test_p1_features.py)
+- Frontend: LessonPicker verified via testing agent (iteration_174)
+- P1 features verified via testing agent (iteration_175)
 
 ## Prioritized Backlog
 
-### P0 - Next Up
-- Implement new Play with Coach lesson modes (traps, tactics, short wins, commentary) using the refactored architecture + useTeachingMode hook
-
-### P1
-- "Count Squares" teaching mode: Coach teaches users to count escape squares as a calculation technique
-- Review data timing: Verify behavioral data attaches at analysis time, not just review time
-- Training puzzle improvement tracking: Ensure solving puzzles updates metrics
-
 ### P2
-- Dynamic error profile updates: If user wins 3 consecutive games, dashboard mood/data should shift (don't forget historical data, but update the "mood")
-- Deeper opening variation trees for existing 9 curriculums
-- Frontend E2E tests (Playwright)
+- Track community training puzzles to improve user error profiles
+
+### Future
+- Add "Tactics" pluggable lesson mode to teaching_engine.py
+- Add "Short Wins" pluggable lesson mode
+- Deeper opening variation trees for existing curriculums
+
+## 3rd Party Integrations
+- OpenAI/GPT-4o-mini via Emergent LLM Key
+- Chess.com / Lichess APIs (open/external)
+- Google OAuth (Emergent-managed)
 
 *Last Updated: April 2, 2026*

@@ -213,7 +213,7 @@ function AppRouter() {
       } />
       <Route path="/home" element={
         <ProtectedRoute>
-          {({ user }) => <HomePage user={user} />}
+          {({ user }) => <CoachHome user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/lab" element={
