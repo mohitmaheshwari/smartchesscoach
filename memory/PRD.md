@@ -16,11 +16,15 @@ The flagship feature. A guided game where:
 - Explains every opponent move in the right panel
 - Transitions to engine picks after opening ends
 
-### Game Review (Lab)
-Three view modes:
-- **Coach tab** — Diagnose → Drill → Track (action-oriented)
-- **Habits tab** — Summary/Habits/Memory panel
-- **Decrypt tab** — Move-by-move analysis
+### Game Review (Lab) — REDESIGNED
+Three view modes with a redesigned header and improved UX:
+- **Coach tab** — Diagnose → Drill → Track (action-oriented, hero diagnosis section)
+- **Habits tab** — Pass/fail habit checklist + Chess DNA
+- **Decrypt tab** — Move-by-move AI walkthrough with story-driven landing state
+
+**Lab Header**: Accuracy ring (SVG), result badge (Won/Lost/Draw), opponent name, opening + time control
+**Tab System**: Consistent pill-style tabs (Coach / Habits / Decrypt) with bg-muted container
+**Coach Narrative Strip**: Shows key observation under header on Coach/Habits tabs
 
 ### Opening Walkthrough
 Guided replay of user's actual game in their opening with coach commentary.
@@ -28,86 +32,103 @@ Guided replay of user's actual game in their opening with coach commentary.
 ## Architecture
 ```
 /app/backend/
+  routes/                          # Modular API routes
+    coach_play.py                  # All coach play routes
   services/
-    opening_curriculum_engine.py     # Walks the curriculum tree, returns guidance
-    opening_assessment_service.py    # Assesses user's opening knowledge from games
-    coach_action_service.py          # Diagnose → Drill → Track for game review
-    coach_review_service.py          # 5-section narrative review (preserved)
-    move_intent_analyzer.py          # Analyzes WHAT a move does on the board
-    smart_coach_feedback.py          # Rating-filtered feedback
-    opening_walkthrough_service.py   # Guided opening replay
+    opening_curriculum_engine.py   # Walks the curriculum tree
+    opening_assessment_service.py  # Assesses user's opening knowledge
+    coach_action_service.py        # Diagnose → Drill → Track
+    coach_review_service.py        # 5-section narrative review
+    move_intent_analyzer.py        # Analyzes WHAT a move does
+    smart_coach_feedback.py        # Rating-filtered feedback
+    memory_brain.py                # Central brain for user patterns
+    position_reader.py             # Read the Board features
+    coach_move_pipeline.py         # Unified coach move pipeline
   data/
-    opening_curriculum.json          # THE source of truth for opening teaching
+    opening_curriculum.json        # THE source of truth for opening teaching
+  tests/
+    test_all_flows.py              # 38-test E2E backend suite
 
 /app/frontend/
   components/
-    CandidateMoves.jsx              # Right panel: intro → feedback → opponent → hint → engine picks
-    Lab/CoachAction.jsx             # Diagnose → Drill → Track
-    Lab/CoachReview.jsx             # 5-section narrative (preserved)
+    Lab/
+      CoachAction.jsx              # Diagnose → Drill → Track (enhanced)
+      CoachInsightPanel.jsx        # Habits + Chess DNA
+    GameDecryptionV5.jsx           # Move-by-move walkthrough (enhanced landing)
+    CandidateMoves.jsx             # Right panel coaching
+    coach/                         # Extracted coach play components
+  hooks/
+    useCoachGame.js
   pages/
-    CoachPlay.jsx                   # Play with Coach (3500+ lines, needs refactor)
-    OpeningWalkthrough.jsx          # Guided opening replay
+    LabV2.jsx                      # Main Lab page (redesigned)
+    CoachPlay.jsx                  # Play with Coach (3500+ lines, needs refactor)
 ```
 
 ## Key Endpoints
 - POST /api/coach/play/start — Start game with opening_key
 - POST /api/coach/play/move — Play move (with curriculum enforcement)
 - POST /api/coach/play/opening-guide — Curriculum guidance per position
-- POST /api/coach/play/candidates — Stockfish top 3 (off-book only)
-- POST /api/coach/play/smart-feedback — Intent-aware move feedback
-- GET /api/coach/play/pregame-intro — Pre-game intro based on assessment
-- GET /api/coach/play/opening-assessment — User's opening knowledge
 - GET /api/lab/{game_id}/coach-action — Diagnose → Drill → Track
-- GET /api/lab/{game_id}/coach-review — 5-section narrative
+- GET /api/lab/{game_id}/coach-insight — Habits + Chess DNA
+- GET /api/coach/decryption/v5/{game_id} — Move-by-move V5 analysis
+- GET /api/analysis/{game_id}/enriched — Full analysis with coach_summary
 
 ## Testing Status
-- Backend curriculum flow: PASSING (end-to-end test verified)
-- Frontend integration: NEEDS TESTING on server
-- Coach timeout fix: Applied (dataclass field + fast path)
-- Old coaching system conflicts: Partially resolved
+- Backend E2E: 38/38 PASSING (test_all_flows.py)
+- Lab page redesign: TESTED (100% frontend pass, both test games verified)
+- Coach timeout fix: Applied
+- Curriculum fast path: Working
 
 ## DO NOT TOUCH
-1. backend/.env (Contains OpenAI Key, Google Keys, DB credentials)
+1. backend/.env (Contains keys, DB credentials)
 2. backend/llm_service.py (Emergent vs Direct OpenAI switch logic)
 3. frontend/.env (Backend URLs)
 4. backend/routes/auth.py (Google OAuth)
 
-## Upcoming Features (Priority Order)
+## Completed Work
 
-### P0 — Fix & Stabilize
-- Deploy and test full London curriculum on server
-- Fix any remaining coach timeout issues
-- Ensure right panel always shows content (feedback + opponent + hints)
-- Fix Chess.com rating during onboarding
+### Lab Page Redesign (April 2026)
+- Redesigned header with accuracy ring (SVG), result badge, opening info
+- Consistent pill-style tab system (Coach/Habits/Decrypt)
+- Coach tab: Hero diagnosis section with stat bar, worst move card, improved drill empty state
+- Decrypt tab: Story-driven landing with core lesson narrative hook, Begin walkthrough CTA
+- Coach narrative strip showing key observation on non-decrypt tabs
 
-### P1 — Position Summary Section (NEXT FEATURE)
-- New section in the right panel showing overall position assessment
-- Updates every move during middlegame and endgame
-- Shows: who's better, key features (open files, weak squares, piece activity), what to focus on
-- Opponent move highlighted in its own dedicated section (separated from hints)
-- Uses Stockfish eval + position analysis, not LLM
+### Previous Work (March 2026)
+- Built 5-section "Human Coach" Game Review
+- Built CoachAction.jsx for Lab (Diagnose → Drill → Track)
+- Rebuilt "Play with Coach" with opening_curriculum_engine.py (9 openings, 14 traps)
+- "Think First" coaching, move_intent_analyzer.py, position_reader.py, memory_brain.py
+- MAJOR REFACTOR: server.py from 14.5k to 10.8k lines
+- 38-test E2E backend test suite
 
-### P1 — More Opening Curriculums
-- Italian Game curriculum
-- Scandinavian Defense curriculum
-- Auto-select opening based on user's weakest area
+## Pending Tasks
 
-### P2 — Deeper Features
-- Track improvement per session (re-assess after each coach game)
-- Bot deliberately steers into user's weak variations
-- "Fix It" drills connected to coach review insights
-- Refactor CoachPlay.jsx (3500+ lines → smaller components)
-- Refactor server.py (14k+ lines → modular routes)
+### P0 — Fix Frontend API URL Imports (~24 files)
+- ~24 files use process.env.REACT_APP_BACKEND_URL directly instead of import { API } from "@/App"
+- Some missing /api suffix — causes broken API calls in production
 
-### P3 — Future
-- Endgame expansion
-- Voice coaching mode
-- "Your Week in Chess" digest
-- Pre-game briefing
+### P1 — Dead Code Removal
+- Delete orphaned backend/chess_coach_core/ directory
+- Delete dead backend modules in coach_engine/
+- Delete dead frontend components (RatingTrajectory, LearningPath, MemoryLane, etc.)
+
+### P2 — Dependency & Script Cleanup
+- Remove unused backend deps (boto3, huggingface_hub, scikit-learn, etc.)
+- Remove axios from frontend package.json
+- Move root-level utility scripts to backend/scripts/
+
+### Upcoming
+- Wire extracted components into CoachPlay.jsx (break down 3,669-line monolith)
+- Deeper opening variation trees for existing 9 curriculums
+
+### Future
+- Position summary improvements in middlegame
+- Frontend E2E tests (Playwright)
+- Endgame expansion, voice coaching, weekly digest
 
 ## Deployment
 - Docker multi-container: backend + mongodb + frontend-builder
 - Host: Hostinger VPS with Nginx proxy
-- Utility scripts: diagnostics.py, requeue_missing.py, fix_indexes.py, backfill_training.py
 
-*Last Updated: March 2026*
+*Last Updated: April 2026*
