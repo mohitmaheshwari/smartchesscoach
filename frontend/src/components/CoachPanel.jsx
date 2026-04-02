@@ -172,13 +172,13 @@ const CoachPanel = ({ sessionId, fen, isPlayerTurn, openingKey, introMessage, cu
       {!showIntro && coachMove && guidance?.opponent_commentary && (
         <motion.div key={`opp-${coachMove}`}
           initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-          className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
+          className="p-3 rounded-lg bg-primary/10 border border-primary/20">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/20 flex items-center justify-center shrink-0">
-              <span className="text-lg font-mono font-bold text-red-600 dark:text-red-400">{coachMove}</span>
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+              <span className="text-lg font-mono font-bold text-primary">{coachMove}</span>
             </div>
             <div className="flex-1">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-red-500/70 mb-0.5">Opponent played</p>
+              <Badge variant="outline" className="text-[10px] border-primary/30 text-primary mb-1">Opponent played</Badge>
               <p className="text-sm text-foreground">{guidance.opponent_commentary}</p>
             </div>
           </div>
