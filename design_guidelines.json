@@ -1,88 +1,77 @@
 {
-  "theme": "Dark",
-  "archetype": "5 (Jewel & Luxury)",
+  "theme": "dark",
+  "archetype": "2 (Performance Pro)",
+  "rationale": "Chess coaching requires elite focus and precision. The Performance Pro archetype provides a command-center aesthetic, utilizing tactical minimalism and high contrast to help users analyze games efficiently without distraction.",
   "colors": {
-    "background": "#050505",
-    "surface": "#0a0a0a",
-    "surface_hover": "#111111",
-    "border": "rgba(255, 255, 255, 0.05)",
-    "border_active": "rgba(114, 47, 55, 0.5)",
-    "primary": "#722F37",
-    "primary_hover": "#8C3A44",
-    "accent": "#CBA135",
-    "accent_hover": "#DCC170",
+    "background_primary": "#0A0A0A",
+    "background_secondary": "#1A1A1A",
+    "surface": "#242424",
+    "surface_hover": "#2E2E2E",
     "text_primary": "#FFFFFF",
     "text_secondary": "#A1A1AA",
-    "text_accent": "#CBA135",
-    "success": "#276F4B",
-    "error": "#722F37"
+    "border": "#333333",
+    "accent_primary": "#007AFF",
+    "accent_hover": "#3B82F6",
+    "success": "#10B981",
+    "error": "#FF3B30",
+    "warning": "#F59E0B"
   },
   "typography": {
-    "headings": {
-      "family": "Cormorant Garamond, serif",
-      "weight": "font-normal",
-      "style": "tracking-tight leading-none"
+    "fonts": {
+      "headings": "Chivo, sans-serif",
+      "body": "IBM Plex Sans, sans-serif"
     },
-    "body": {
-      "family": "Outfit, sans-serif",
-      "weight": "font-light",
-      "style": "tracking-normal leading-relaxed"
+    "scales": {
+      "h1": "text-5xl sm:text-6xl font-black tracking-tighter leading-none",
+      "h2": "text-3xl sm:text-4xl font-bold tracking-tight leading-tight",
+      "h3": "text-xl sm:text-2xl font-bold tracking-tight",
+      "h4": "text-lg sm:text-xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "small_label": "text-xs font-bold uppercase tracking-[0.2em]"
     },
-    "mono": {
-      "family": "JetBrains Mono, monospace",
-      "weight": "font-normal",
-      "style": "tracking-[0.1em] uppercase text-xs"
+    "rules": "Never use Inter for headings. Use tracking-tight or tracking-tighter on all headings above 32px. Use Chivo for all numeric data (accuracy, score) to give it weight."
+  },
+  "spacing_and_layout": {
+    "scale": "p-1, p-2, p-4, p-6, p-8, p-12",
+    "global_rule": "Containers with borders MUST have internal padding of p-6 or p-8. Use generous spacing between sections.",
+    "page_structure": "Left panel (Board + Controls): 55% width. Right panel (Tabs content): 45% width. Decrypt tab must override to full width (100%) for cinematic immersion.",
+    "grid_modes": {
+      "coach_and_habits": "MODE B: The 'Control Room' Grid. Dense. grid-cols-1 md:grid-cols-2 lg:grid-cols-3 with gap-4 or gap-6.",
+      "decrypt_landing": "MODE A: The 'Tetris' Grid. Asymmetrical hero spanning 12 cols with gap-8."
     }
   },
-  "layout_strategies": {
-    "spacing": "Generous spacing philosophy (p-6, p-8, p-12). Containers with borders must have internal padding. Grid items must be direct children.",
-    "home_dashboard": {
-      "grid": "Control Room Grid layout. Use grid-cols-1 md:grid-cols-3 lg:grid-cols-4 with gap-6.",
-      "cards": "Flat solid surfaces with sharp edges (rounded-none). 1px solid stroke (border-white/5), no soft shadows. Hover brings slight translation (-translate-y-1) and subtle Wine Red border glow."
-    },
-    "lab_page": {
-      "list_layout": "Dense row-based list for games instead of full tables. This allows narrative control. Hover state on row: bg-white/5 or bg-[#722F37]/10.",
-      "priority_game": "Col-span-full layout for 'Start here' game, utilizing 'Tracing Beam' inspired border (gold or wine red highlight on the edge) to draw focus.",
-      "clean_games": "Collapsible section using Shadcn Accordion, customized to have no background, just top/bottom subtle borders."
-    },
-    "game_review": {
-      "split_view": "55% left (board), 45% right (coaching panel). Left-align dense text in the panel.",
-      "board_area": "Dark monochrome board design. No wooden textures—keep it digital, sleek, and premium. Use Wine Red for last move highlight, Gold for suggested move/coach annotations.",
-      "coaching_panel": "Uses customized Shadcn tabs. Solid background, no glassmorphism to ensure data clarity. High contrast metrics in JetBrains Mono."
-    },
-    "sidebar": {
-      "layout": "Fixed on desktop, highly constrained grid. Dark luxury feel.",
-      "active_state": "Left border highlight (border-l-2 border-[#CBA135]), bg-white/5, text-white. No full block background colors.",
-      "play_with_coach_cta": "Solid Gold (#CBA135) text-black to stand out as the premium upsell, placed prominently in the sidebar."
-    }
+  "components": {
+    "cards": "Cardless feel or strict max 8px border-radius (rounded-sm). Flat solid backgrounds with 1px border-border/40. No soft drop shadows. Rely on 1px solid strokes or 2px inner glow highlights for emphasis.",
+    "buttons": "Primary CTA uses Volt Blue (#007AFF) background with pure white text. Secondary actions use transparent backgrounds with borders. Focus states must have higher contrast (e.g., ring-2 ring-blue-300).",
+    "glassmorphism": "Use 'Crystal Glass' strictly for sticky headers or bottom action bars (e.g., 'I understand' panel in Decrypt). backdrop-blur-xl bg-black/60 with a subtle border-white/10 top border.",
+    "icons": "Use Phosphor Icons (@phosphor-icons/react) with Duotone or Bold weights for clear, tactical legibility.",
+    "charts": "Use Shadcn/Recharts for 'Track' and 'Chess DNA'. Limit gridlines to improve clarity. Use Emerald and Volt Blue for data lines."
   },
-  "component_rules": {
-    "cards": "DO NOT use standard Shadcn Card default styles. Use raw divs or customize extensively: `bg-[#0a0a0a] border border-white/5 rounded-none`. Go cardless/sharp.",
-    "buttons": "Primary buttons: `bg-[#722F37] hover:bg-[#8C3A44] text-white rounded-none`. Premium CTA: `bg-[#CBA135] text-black hover:bg-[#DCC170] rounded-none`. Ghost buttons: `hover:bg-white/5 text-white`.",
-    "tabs": "Override Shadcn tabs. Use `h-auto` to prevent cutoff. Active tab: `border-b-2 border-[#CBA135] text-white rounded-none bg-transparent`. Inactive tab: `text-[#A1A1AA] border-transparent bg-transparent`.",
-    "lists": "Use crisp dividers (`border-b border-white/5`) for all lists.",
-    "data_display": "Use JetBrains Mono for all chess notation (e4, Nf3) and raw numbers/percentages."
-  },
-  "accessibility_and_testing": {
-    "test_ids": "All interactive elements MUST have `data-testid` attributes (e.g., `play-coach-btn`, `lab-import-btn`, `game-review-next-move`).",
-    "contrast": "Text over backgrounds must meet APCA ratios. Never use `#A1A1AA` text on anything lighter than `#111111`."
+  "interactions": {
+    "hover_states": "Interactive elements must translate-y-[-2px] with an increased border brightness and explicit text color change.",
+    "animations": "Subtle entrance animations for Habit checklist. Smooth transitions (0.2s ease) on transforms and opacities.",
+    "testing": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case, role-based (e.g., 'board-next-move-button', 'coach-tab-trigger')."
   },
   "media": {
-    "avatar_placeholder": {
-      "url": "https://images.unsplash.com/photo-1670837521721-f41418689d19?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBjaGVzcyUyMHBsYXllciUyMHBvcnRyYWl0JTIwZGFya3xlbnwwfHx8fDE3NzQ2MTkxMTJ8MA&ixlib=rb-4.1.0&q=85",
-      "description": "Professional chess player portrait to be used for user avatar and coach profile pictures."
-    },
-    "dashboard_texture_overlay": {
-      "url": "https://images.unsplash.com/photo-1771226281605-f1e505ade901?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHwyfHxkYXJrJTIwbHV4dXJ5JTIwYWJzdHJhY3QlMjB0ZXh0dXJlfGVufDB8fHx8MTc3NDYxOTExM3ww&ixlib=rb-4.1.0&q=85",
-      "description": "Dark abstract geometric pattern with golden accents, used sparingly with extremely low opacity (e.g., 5%) to texture the background."
-    }
+    "images": [
+      {
+        "category": "decrypt_hero_bg",
+        "url": "https://static.prod-images.emergentagent.com/jobs/0cbcc1ba-28a4-44c1-9fd3-d5149333ad0b/images/75d2bab8ea3ea93f28b89b6fde296f3b8b01db0508455a2a1fbe940626ce3186.png",
+        "description": "Abstract tactical grid background for the Decrypt tab immersive landing page."
+      },
+      {
+        "category": "coach_header_bg",
+        "url": "https://static.prod-images.emergentagent.com/jobs/0cbcc1ba-28a4-44c1-9fd3-d5149333ad0b/images/b1a0062c65d5e26e80ae2ff87fb58f1339c287fca1846c21b9399cb93c6a5215.png",
+        "description": "Dramatic dark slate texture for the Coach tab summary banner."
+      }
+    ],
+    "rules": "Never use placeholder images. Render overlay opacity at bg-black/40 over hero images."
   },
-  "animations": {
-    "interactions": "Hover states must transition smoothly: `transition-all duration-200 ease-in-out`.",
-    "page_load": "Staggered fade-up entrance for Lab game lists and Home dashboard cards."
-  },
-  "icons_library": {
-    "name": "lucide-react",
-    "instructions": "Use Lucide React icons with strokeWidth={1} to match the elegant, thin typography of Cormorant Garamond."
+  "specific_page_instructions": {
+    "global_header": "Show Opponent vs You with Won/Lost badge. Accuracy % should be dominant, using a circular progress ring.",
+    "board_area": "Render board left 55%. Place Neumorphic playback controls (prev/next/play) directly beneath.",
+    "coach_tab": "Split into Diagnose, Drill, Track. 'Diagnose' lists blunders in Red. 'Drill' presents an interactive challenge. 'Track' displays trend charts.",
+    "habits_tab": "Pass/fail checklist using Phosphor CheckCircle (Emerald) and XCircle (Red). Include a Chess DNA radar chart or stats block.",
+    "decrypt_tab": "Landing state is a cinematic full-width hero with 'decrypt_hero_bg'. Clicking 'Start' expands to a move-by-move coaching session with an AI explanation box. The 'I understand' button must be primary (Volt Blue)."
   }
 }
