@@ -210,6 +210,11 @@ const CoachHome = ({ user }) => {
   const progressTrend = homeData?.progress_trend;
   const lastSession = homeData?.last_session;
   
+  // P1-3: Win streak & mood override
+  const winStreak = homeData?.win_streak;
+  const moodOverride = homeData?.mood_override;
+  const momentumOverride = homeData?.development_phase?.momentum_override;
+  
   // Determine the primary state
   const getPrimaryState = () => {
     if (hasGamesToReflect) return "REFLECT";
@@ -226,6 +231,28 @@ const CoachHome = ({ user }) => {
         
         {/* Deep Session Banner - Shows when coaching review is due */}
         <DeepSessionBanner onStartSession={() => setShowDeepSession(true)} />
+        
+        {/* P1-3: Win Streak Momentum Banner */}
+        {moodOverride?.type === "positive_momentum" && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3"
+            data-testid="win-streak-banner"
+          >
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+              <Trophy className="w-5 h-5 text-emerald-500" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                {moodOverride.streak}-Game Win Streak
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {moodOverride.message}
+              </p>
+            </div>
+          </motion.div>
+        )}
         
         {/* ============================================ */}
         {/* HERO SECTION - Personal Coaching Greeting   */}
@@ -257,8 +284,17 @@ const CoachHome = ({ user }) => {
           {/* Focus area indicator */}
           {focusStage && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 pl-0.5">
-              <Target className="w-4 h-4 text-primary" />
-              <span>This week's focus: <span className="text-primary font-medium">{focusStage.replace(/([A-Z])/g, ' $1').trim()}</span></span>
+              {momentumOverride ? (
+                <>
+                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  <span>Current vibe: <span className="text-emerald-500 font-medium">{momentumOverride.name}</span></span>
+                </>
+              ) : (
+                <>
+                  <Target className="w-4 h-4 text-primary" />
+                  <span>This week's focus: <span className="text-primary font-medium">{focusStage.replace(/([A-Z])/g, ' $1').trim()}</span></span>
+                </>
+              )}
             </div>
           )}
           
@@ -266,7 +302,7 @@ const CoachHome = ({ user }) => {
           {primaryState === "REFLECT" && (
             <div className="space-y-3">
               {/* Specific Pattern Insight from API - the key "95/100" improvement */}
-              {specificPatterns?.has_pattern && (
+              {specificPatterns?.has_pattern && !moodOverride?.suppress_negative && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
                   <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                   <div>

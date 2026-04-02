@@ -177,6 +177,30 @@ const CoachPlay = ({ user }) => {
   // Pedagogical state (not in hooks)
   const [consequenceFeedback, setConsequenceFeedback] = useState(null);
 
+  // Escape Squares Quiz state
+  const [escapeSquaresQuiz, setEscapeSquaresQuiz] = useState(null);
+
+  // Check for escape squares teaching moment
+  const checkEscapeSquares = useCallback(async () => {
+    if (!session?.session_id || isInTeachingMode || gameOver) return;
+    try {
+      const res = await fetch(`${API}/coach/play/escape-squares/check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ session_id: session.session_id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.has_quiz) {
+          setEscapeSquaresQuiz(data.quiz);
+        }
+      }
+    } catch (e) {
+      // Silently fail — quiz is optional
+    }
+  }, [session?.session_id, isInTeachingMode, gameOver]);
+
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1191,6 +1215,7 @@ const CoachPlay = ({ user }) => {
     setCurriculumFeedback(null);
     setIsCoachThinking(true);
     setLoadingFeedback(true);
+    setEscapeSquaresQuiz(null);
 
     try {
       // If this is an override (user confirmed risky move), first log the confirmation
@@ -1394,6 +1419,8 @@ const CoachPlay = ({ user }) => {
             } else {
               setIsPlayerTurn(true);
               setMoveStartTime(Date.now());
+              // Check for escape squares teaching moment
+              checkEscapeSquares();
             }
             
             setCoachThinking(false);
@@ -1795,6 +1822,7 @@ const CoachPlay = ({ user }) => {
     setBehavioralCoaching(null);
     setChatMessages([]);
     resetPlayerData();
+    setEscapeSquaresQuiz(null);
   };
 
   const canUndoLastMove = () => {
@@ -2023,6 +2051,8 @@ const CoachPlay = ({ user }) => {
           handleAcknowledgeConcept={handleAcknowledgeConcept}
           blundersThisGame={blundersThisGame}
           recentResults={recentResults}
+          escapeSquaresQuiz={escapeSquaresQuiz}
+          onEscapeQuizComplete={() => setEscapeSquaresQuiz(null)}
           newGame={newGame}
         />
       </div>

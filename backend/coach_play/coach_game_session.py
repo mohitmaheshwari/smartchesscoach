@@ -164,7 +164,13 @@ class CoachGameSession:
             else:
                 data['current_fen'] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         
-        return cls(**data)
+        # Filter out unknown fields that may have been added to DB but not to dataclass
+        # This prevents TypeError when new fields are added to DB documents
+        import dataclasses
+        valid_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered_data = {k: v for k, v in data.items() if k in valid_fields}
+        
+        return cls(**filtered_data)
 
 
 async def start_coach_session(

@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import LessonPicker from "@/components/coach/LessonPicker";
+import EscapeSquaresQuiz from "@/components/coach/EscapeSquaresQuiz";
 import CoachPanel from "@/components/CoachPanel";
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
 import DeepMemoryPanel from "@/components/DeepMemoryPanel";
@@ -670,6 +671,9 @@ const CoachPlaySidebar = ({
   /* emotional */
   blundersThisGame,
   recentResults,
+  /* escape squares quiz */
+  escapeSquaresQuiz,
+  onEscapeQuizComplete,
   /* actions */
   newGame,
 }) => {
@@ -765,6 +769,15 @@ const CoachPlaySidebar = ({
                 trap={activeTrapAlert}
                 onShowLine={() => {}}
                 onDismiss={() => setActiveTrapAlert(null)}
+              />
+            )}
+
+            {/* Escape Squares Quiz */}
+            {escapeSquaresQuiz && !isInTeachingMode && !gameOver && (
+              <EscapeSquaresQuiz
+                quiz={escapeSquaresQuiz}
+                sessionId={session?.session_id}
+                onComplete={onEscapeQuizComplete}
               />
             )}
 

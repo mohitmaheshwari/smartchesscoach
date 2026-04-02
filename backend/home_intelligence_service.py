@@ -507,6 +507,27 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     # NEW: Get last session info for continuity
     last_session_info = await get_last_session_info(db, user_id)
     
+    # P1-3: Calculate win streak from recent coach sessions
+    win_streak_data = await _calculate_win_streak(db, user_id)
+    
+    # If user has 3+ consecutive wins, suppress negative profiling
+    mood_override = None
+    if win_streak_data["current_streak"] >= 3:
+        mood_override = {
+            "type": "positive_momentum",
+            "streak": win_streak_data["current_streak"],
+            "message": f"You're on a {win_streak_data['current_streak']}-game win streak! Your recent form is strong.",
+            "suppress_negative": True,
+        }
+        # Soften the development phase description
+        if development_phase.get("phase_key") in ("tactical_discipline", "pattern_control"):
+            development_phase["momentum_override"] = {
+                "name": "Building Momentum",
+                "description": f"Your {win_streak_data['current_streak']}-game win streak shows real improvement. Keep this energy going!",
+                "color": "emerald",
+                "icon": "trending-up",
+            }
+    
     return {
         "has_data": True,
         "games_analyzed": total_games,
@@ -517,15 +538,50 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         "games_needing_reflection": games_needing_reflection,
         "recommended_drill": recommended_drill,
         "recurring_patterns": recurring_patterns[:3],
-        "specific_patterns": specific_patterns,  # NEW: e.g., "3 knight forks this week"
-        "progress_trend": progress_trend,  # NEW: "2 fewer blunders than last week"
-        "last_session": last_session_info,  # NEW: What we worked on last time
+        "specific_patterns": specific_patterns,
+        "progress_trend": progress_trend,
+        "last_session": last_session_info,
+        "win_streak": win_streak_data,
+        "mood_override": mood_override,
         "stats": {
             "blunders_per_game": round(blunders_per_game, 2),
             "mistakes_per_game": round(mistakes_per_game, 2),
             "time_trouble_rate": round(time_trouble_rate * 100, 1),
         },
     }
+
+
+async def _calculate_win_streak(db, user_id: str) -> Dict:
+    """
+    Calculate the user's current consecutive win streak from coach sessions.
+
+    Looks at the most recent completed sessions (up to 20) and counts
+    consecutive wins from the latest game backward.
+    """
+    sessions = await db.coach_sessions.find(
+        {
+            "user_id": user_id,
+            "status": {"$in": ["completed", "resigned"]},
+            "result": {"$exists": True},
+        },
+        {"_id": 0, "result": 1, "created_at": 1},
+    ).sort("created_at", -1).limit(20).to_list(20)
+
+    current_streak = 0
+    for s in sessions:
+        if s.get("result") == "win":
+            current_streak += 1
+        else:
+            break
+
+    total_wins = sum(1 for s in sessions if s.get("result") == "win")
+
+    return {
+        "current_streak": current_streak,
+        "recent_wins": total_wins,
+        "recent_total": len(sessions),
+    }
+
 
 
 async def get_specific_mistake_patterns(db, user_id: str, recent_games: List[Dict]) -> Dict:

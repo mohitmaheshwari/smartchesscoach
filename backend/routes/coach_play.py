@@ -1474,6 +1474,101 @@ async def get_teaching_catalog(
     return get_lesson_catalog()
 
 
+@router.post("/escape-squares/check")
+async def check_escape_squares(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Check if the current position is a good moment for escape squares quiz.
+
+    Body:
+    - session_id: Current game session
+    - fen: (optional) Override FEN. If not provided, uses session's current_fen.
+
+    Returns:
+    - has_quiz: bool
+    - quiz: Quiz data if has_quiz is True
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    from services.escape_squares_service import is_escape_squares_teaching_moment
+
+    session_id = request.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    fen = request.get("fen") or session_doc.get("current_fen")
+    user_color = session_doc.get("user_color", "white")
+
+    if not fen:
+        return {"has_quiz": False}
+
+    quiz = is_escape_squares_teaching_moment(fen, user_color)
+    if quiz:
+        return {"has_quiz": True, "quiz": quiz}
+    return {"has_quiz": False}
+
+
+@router.post("/escape-squares/answer")
+async def answer_escape_squares(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Validate user's answer to the escape squares quiz.
+
+    Body:
+    - session_id: Current game session
+    - answer: int (user's count of escape squares)
+    - quiz_data: The quiz object returned from /escape-squares/check
+
+    Returns:
+    - result: Validation result with feedback message
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    from services.escape_squares_service import validate_escape_squares_answer
+
+    session_id = request.get("session_id")
+    answer = request.get("answer")
+    quiz_data = request.get("quiz_data")
+
+    if session_id is None or answer is None or quiz_data is None:
+        raise HTTPException(status_code=400, detail="session_id, answer, and quiz_data are required")
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    result = validate_escape_squares_answer(quiz_data, int(answer))
+
+    # Track quiz results in session for stats
+    await db.coach_sessions.update_one(
+        {"session_id": session_id},
+        {"$push": {"escape_square_quizzes": {
+            "correct": result["correct"],
+            "user_answer": int(answer),
+            "correct_answer": result["correct_answer"],
+            "fen": session_doc.get("current_fen"),
+        }}}
+    )
+
+    return {"result": result}
+
+
 @router.get("/opening-plan")
 async def get_opening_plan(
     session_id: str,
@@ -3961,6 +4056,32 @@ async def _process_move_and_respond(
                         loss_phase=loss_phase
                     )
                     logger.info(f"Updated coach memory after game {session_id}")
+
+                    # P1-2: Auto-trigger full postgame analysis immediately
+                    # This attaches detailed review data to the user's profile
+                    # right when the game ends, not when the user clicks "Review"
+                    try:
+                        from services.postgame_analysis import analyze_postgame
+                        user_id = session_doc.get("user_id")
+                        move_history = session_doc.get("move_history", [])
+                        evaluations = session_doc.get("evaluations", [])
+
+                        if move_history and len(move_history) >= 4:
+                            await analyze_postgame(
+                                db=db,
+                                session_id=session_id,
+                                user_id=user_id,
+                                move_history=move_history,
+                                evaluations=evaluations,
+                                game_result=result,
+                                user_rating=session_doc.get("user_rating", 1200),
+                                user_color=session_doc.get("user_color", "white"),
+                                time_controls=session_doc.get("time_controls"),
+                            )
+                            logger.info(f"Auto-analysis completed for session {session_id}")
+                    except Exception as analysis_err:
+                        logger.warning(f"Auto-analysis failed for {session_id}: {analysis_err}")
+
             except Exception as e:
                 logger.warning(f"Failed to update coach memory: {e}")
             
