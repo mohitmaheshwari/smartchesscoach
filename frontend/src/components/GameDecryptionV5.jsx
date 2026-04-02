@@ -49,7 +49,7 @@ import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
+const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName }) => {
   const [decryptionData, setDecryptionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -567,7 +567,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
       {/* RIGHT: Coaching */}
       <div className="lg:w-1/2 space-y-4">
         {currentMoveIndex === -1 ? (
-          <GameStartCard decryptionData={decryptionData} habitsReport={habitsReport} />
+          <GameStartCard 
+            decryptionData={decryptionData} 
+            habitsReport={habitsReport}
+            coachSummary={coachSummary}
+            coreLesson={coreLesson}
+            gameResult={gameResult}
+            opponentName={opponentName}
+            onBegin={goForward}
+          />
         ) : (
           <MoveCoachingCardV5 
             move={currentMove}
@@ -622,134 +630,96 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
 
 // ─── GAME START CARD ────────────────────────────────────────────────
 
-const GameStartCard = ({ decryptionData, habitsReport }) => {
+const GameStartCard = ({ decryptionData, habitsReport, coachSummary, coreLesson, gameResult, opponentName, onBegin }) => {
   if (!decryptionData?.length) return null;
   
   // Calculate stats
   const userMoves = decryptionData.filter(m => m.is_user_move);
   const mistakes = userMoves.filter(m => m.severity === 'mistake' || m.severity === 'blunder').length;
-  const goodMoves = userMoves.filter(m => m.severity === 'good').length;
   const bestMoves = userMoves.filter(m => m.is_best_move).length;
   const openingName = decryptionData[0]?.opening_name;
   
+  // Build story hook from available data
+  const storyHook = coachSummary?.opening_line || coachSummary?.key_observation || null;
+  const lessonLabel = coreLesson?.short_label || null;
+  const lessonText = coreLesson?.lesson || null;
+  const takeaway = coachSummary?.actionable_takeaway || null;
+  
   return (
-    <Card className="bg-white border-gray-200" data-testid="game-start-card">
-      <CardContent className="p-5 space-y-4">
-        <div className="flex items-center gap-2 mb-2">
-          <BookOpen className="w-5 h-5 text-emerald-400" />
-          <h3 className="font-semibold text-gray-900">Game Overview</h3>
+    <div className="space-y-4" data-testid="game-start-card">
+      {/* Story hook — the narrative intro */}
+      {(storyHook || lessonLabel) && (
+        <div className="rounded-lg border border-border bg-muted/30 p-5">
+          {lessonLabel && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-600 dark:text-amber-400 mb-2 block">
+              {lessonLabel}
+            </span>
+          )}
+          {lessonText && (
+            <p className="text-base font-semibold text-foreground leading-relaxed mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+              {lessonText}
+            </p>
+          )}
+          {storyHook && !lessonText && (
+            <p className="text-sm text-foreground leading-relaxed">
+              {storyHook}
+            </p>
+          )}
+          {takeaway && lessonText && (
+            <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+              {takeaway}
+            </p>
+          )}
         </div>
-        
+      )}
+
+      {/* Opening + Stats row */}
+      <div className="flex items-stretch gap-3">
         {openingName && (
-          <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20">
-            <p className="text-xs text-emerald-400 mb-1">Opening</p>
-            <p className="text-gray-900 font-medium">{openingName}</p>
+          <div className="flex-1 rounded-lg bg-emerald-500/8 border border-emerald-500/15 p-3.5">
+            <p className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">Opening</p>
+            <p className="text-sm font-medium text-foreground">{openingName}</p>
           </div>
         )}
-        
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-2xl font-bold text-gray-900">{userMoves.length}</p>
-            <p className="text-xs text-gray-500">Your Moves</p>
+        <div className="flex gap-2">
+          <div className="w-16 rounded-lg bg-muted/50 border border-border p-3 text-center">
+            <p className="text-lg font-bold text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{userMoves.length}</p>
+            <p className="text-[10px] text-muted-foreground">Moves</p>
           </div>
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-2xl font-bold text-emerald-400">{bestMoves}</p>
-            <p className="text-xs text-gray-500">Best Moves</p>
+          <div className="w-16 rounded-lg bg-emerald-500/8 border border-emerald-500/15 p-3 text-center">
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{bestMoves}</p>
+            <p className="text-[10px] text-muted-foreground">Best</p>
           </div>
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-2xl font-bold text-red-400">{mistakes}</p>
-            <p className="text-xs text-gray-500">Mistakes</p>
+          <div className="w-16 rounded-lg bg-red-500/8 border border-red-500/15 p-3 text-center">
+            <p className="text-lg font-bold text-red-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{mistakes}</p>
+            <p className="text-[10px] text-muted-foreground">Errors</p>
           </div>
         </div>
-        
-        {/* Player Habits Report */}
-        {habitsReport && (
-          <div className="space-y-3" data-testid="habits-report">
-            <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4 text-violet-400" />
-              <h4 className="text-sm font-semibold text-violet-400">Your Habits This Game</h4>
-              <span className="ml-auto text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
-                Score: {habitsReport.overall_habits_score}/100
-              </span>
-            </div>
-            
-            {/* Time Management */}
-            {habitsReport.time_management && (
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-500 font-medium">Time Management</span>
-                  <span className={`text-xs font-bold ${
-                    habitsReport.time_management.score >= 70 ? "text-emerald-400" :
-                    habitsReport.time_management.score >= 50 ? "text-amber-400" : "text-red-400"
-                  }`}>{habitsReport.time_management.score}/100</span>
-                </div>
-                <p className="text-xs text-gray-600">{habitsReport.time_management.insight}</p>
-                <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                  <span>Avg: {habitsReport.time_management.avg_move_time}s</span>
-                  <span>Fast: {habitsReport.time_management.fast_moves}</span>
-                  <span>Slow: {habitsReport.time_management.slow_moves}</span>
-                </div>
-              </div>
-            )}
-            
-            {/* Phase Performance */}
-            {habitsReport.phase_performance && (
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <span className="text-xs text-gray-500 font-medium block mb-2">Phase Accuracy</span>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  {["opening", "middlegame", "endgame"].map(phase => {
-                    const data = habitsReport.phase_performance[phase];
-                    if (!data || !data.moves) return null;
-                    const isWeakest = habitsReport.phase_performance.weakest_phase === phase;
-                    return (
-                      <div key={phase} className={`rounded p-2 ${isWeakest ? "bg-red-500/10 border border-red-500/20" : "bg-zinc-700/30"}`}>
-                        <p className={`text-lg font-bold ${
-                          data.accuracy >= 70 ? "text-emerald-400" :
-                          data.accuracy >= 50 ? "text-amber-400" : "text-red-400"
-                        }`}>{data.accuracy}%</p>
-                        <p className="text-xs text-gray-500 capitalize">{phase}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-gray-600 mt-2">{habitsReport.phase_performance.insight}</p>
-              </div>
-            )}
-            
-            {/* Recommendations */}
-            {habitsReport.recommendations?.length > 0 && (
-              <div className="bg-violet-500/10 rounded-lg p-3 border border-violet-500/20">
-                <span className="text-xs text-violet-400 font-medium block mb-2">Recommendations</span>
-                {habitsReport.recommendations.map((rec, i) => (
-                  <div key={i} className="flex items-start gap-2 mb-2 last:mb-0">
-                    <span className="text-xs mt-0.5 shrink-0">
-                      {rec.priority === 1 ? "🔴" : "🟡"}
-                    </span>
-                    <div>
-                      <span className="text-xs font-medium text-gray-900">{rec.area}: </span>
-                      <span className="text-xs text-gray-600">{rec.message}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-gray-600 text-sm">
-            This analysis coaches you on <strong>every move</strong> — yours and your opponent's.
-            Look for the <span className="text-amber-400">"I understand"</span> buttons to track your learning.
-          </p>
-        </div>
-        
-        <div className="pt-2 border-t border-gray-200">
-          <p className="text-sm text-emerald-400 flex items-center gap-2">
-            <ChevronRight className="w-4 h-4" /> Press right arrow to begin
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      
+      {/* What this analysis does */}
+      <div className="rounded-lg border border-border p-4 bg-background">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Your coach will walk you through <strong className="text-foreground">every move</strong> — yours and your opponent's.
+          Tap <span className="text-amber-600 dark:text-amber-400 font-medium">"I understand"</span> on each concept to track what you've learned.
+        </p>
+      </div>
+      
+      {/* CTA */}
+      <button 
+        onClick={onBegin}
+        className="w-full py-3.5 rounded-lg bg-foreground text-background font-medium text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+        data-testid="begin-decrypt-btn"
+      >
+        <ChevronRight className="w-4 h-4" />
+        Begin walkthrough
+      </button>
+      
+      {/* Keyboard hint */}
+      <p className="text-[10px] text-muted-foreground/60 text-center">
+        or press the right arrow key
+      </p>
+    </div>
   );
 };
 

@@ -160,77 +160,100 @@ const CoachAction = ({ gameId, onMoveClick }) => {
     );
   }
 
-  const { diagnosis, drill, rule, trend, game_stats } = data;
+  const { diagnosis, drill, rule, trend, game_stats, brain } = data;
   const diagColors = DIAGNOSIS_COLORS[diagnosis.type] || DIAGNOSIS_COLORS.DRAW;
   const worstMove = diagnosis.worst_move;
   const isWin = diagnosis.type === "WON_CLEAN" || diagnosis.type === "WON_OPPONENT_BLUNDER";
 
   return (
-    <div className="px-1" data-testid="coach-action-panel">
+    <div className="space-y-6" data-testid="coach-action-panel">
 
-      {/* ─── 1. DIAGNOSIS ─────────────────────────────── */}
+      {/* ─── 1. DIAGNOSIS — Hero Section ──────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
       >
-        <div className={`border rounded p-4 ${diagColors}`}>
-          <p className="text-lg font-medium mb-1">{diagnosis.label}</p>
-          <p className="text-sm opacity-80">{diagnosis.short}</p>
+        <div className={`border rounded-lg overflow-hidden ${diagColors}`}>
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className="w-4 h-4 opacity-70" strokeWidth={1.5} />
+              <span className="text-[10px] font-bold uppercase tracking-[0.15em] opacity-60">Diagnosis</span>
+            </div>
+            <p className="text-xl font-bold tracking-tight mb-1.5">{diagnosis.label}</p>
+            <p className="text-sm opacity-80 leading-relaxed">{diagnosis.short}</p>
+          </div>
+          
+          {/* Quick stats bar */}
+          {game_stats && (
+            <div className="flex items-center gap-0 border-t border-current/10 divide-x divide-current/10 text-xs">
+              {game_stats.accuracy != null && (
+                <div className="flex-1 text-center py-2.5">
+                  <span className="font-bold text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{game_stats.accuracy.toFixed(0)}%</span>
+                  <span className="block text-[10px] opacity-50 mt-0.5">Accuracy</span>
+                </div>
+              )}
+              <div className="flex-1 text-center py-2.5">
+                <span className="font-bold text-sm text-red-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{game_stats.blunders || 0}</span>
+                <span className="block text-[10px] opacity-50 mt-0.5">Blunders</span>
+              </div>
+              <div className="flex-1 text-center py-2.5">
+                <span className="font-bold text-sm text-amber-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{game_stats.mistakes || 0}</span>
+                <span className="block text-[10px] opacity-50 mt-0.5">Mistakes</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Worst move (clickable) */}
+        {/* Worst move — clickable with position context */}
         {worstMove && worstMove.cp_loss >= 100 && (
           <button
             onClick={() => onMoveClick?.(worstMove.move_number, worstMove.move_uci, worstMove.best_move_uci)}
-            className="mt-3 w-full text-left p-3 border border-border rounded hover:bg-muted/50 transition-colors group"
+            className="mt-3 w-full text-left p-4 border border-border rounded-lg hover:border-primary/40 hover:bg-primary/5 transition-all group"
             data-testid="worst-move-btn"
           >
             <div className="flex items-center justify-between">
-              <div>
-                <span className="text-xs text-muted-foreground font-mono">Move {worstMove.move_number}</span>
-                <span className="mx-2 text-foreground font-mono font-medium">{worstMove.move_san}</span>
-                <span className="text-xs text-muted-foreground">→ better: </span>
-                <span className="text-xs font-mono text-primary">{worstMove.best_move}</span>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                  <span className="text-xs font-bold text-red-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{worstMove.move_number}</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-foreground">{worstMove.move_san}</span>
+                    <span className="text-xs text-muted-foreground">→</span>
+                    <span className="font-mono text-sm text-primary font-medium">{worstMove.best_move}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Lost {(worstMove.cp_loss / 100).toFixed(1)} pawns of advantage
+                  </p>
+                </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
             </div>
           </button>
-        )}
-
-        {/* Quick stats */}
-        {game_stats && (
-          <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-            {game_stats.accuracy && <span>Accuracy: <span className="text-foreground font-medium">{game_stats.accuracy.toFixed(0)}%</span></span>}
-            {game_stats.blunders > 0 && <span>Blunders: <span className="text-red-500 font-medium">{game_stats.blunders}</span></span>}
-            {game_stats.mistakes > 0 && <span>Mistakes: <span className="text-amber-500 font-medium">{game_stats.mistakes}</span></span>}
-          </div>
         )}
       </motion.div>
 
       {/* ─── 2. FIX IT NOW ────────────────────────────── */}
-      {drill.count > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="w-4 h-4 text-primary" strokeWidth={1.5} />
-            <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Fix It Now</span>
-            {drillsSolved > 0 && (
-              <Badge variant="outline" className="text-[10px] ml-auto">
-                {drillsSolved}/{drill.count} solved
-              </Badge>
-            )}
-          </div>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Target className="w-4 h-4 text-primary" strokeWidth={1.5} />
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Fix It Now</span>
+          {drill.count > 0 && drillsSolved > 0 && (
+            <Badge variant="outline" className="text-[10px] ml-auto">
+              {drillsSolved}/{drill.count} solved
+            </Badge>
+          )}
+        </div>
 
-          <p className="text-xs text-muted-foreground mb-3">
-            Solve these positions. Same mistake type — train your brain to see it.
-          </p>
-
+        {drill.count > 0 ? (
           <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Solve these positions — same mistake type. Train your pattern recognition.
+            </p>
             {drill.positions.map((pos, i) => (
               <DrillPosition
                 key={pos.position_id || i}
@@ -239,51 +262,61 @@ const CoachAction = ({ gameId, onMoveClick }) => {
                 onSolved={() => setDrillsSolved(prev => prev + 1)}
               />
             ))}
+
+            {drillsSolved === drill.count && drill.count > 0 && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-center">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+                <p className="text-sm text-emerald-600 font-medium">All solved. Nice work.</p>
+              </div>
+            )}
           </div>
-
-          {drillsSolved === drill.count && drill.count > 0 && (
-            <div className="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded text-center">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-              <p className="text-sm text-emerald-600 font-medium">All solved. Nice work.</p>
-            </div>
-          )}
-        </motion.div>
-      )}
-
-      {/* No drills available */}
-      {drill.count === 0 && !isWin && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6 p-3 border border-border rounded"
-        >
-          <p className="text-xs text-muted-foreground">
-            No practice positions available yet. They'll appear as more games get analyzed.
-          </p>
-        </motion.div>
-      )}
+        ) : (
+          <div className="p-4 border border-dashed border-border rounded-lg text-center">
+            <Target className="w-5 h-5 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-xs text-muted-foreground">
+              {isWin ? "No drill needed — you played well!" : "Practice positions will appear as you play more games with similar patterns."}
+            </p>
+          </div>
+        )}
+      </motion.div>
 
       {/* ─── 3. BEFORE NEXT GAME ──────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="mb-6"
       >
         <div className="flex items-center gap-2 mb-3">
-          <Lightbulb className="w-4 h-4 text-primary" strokeWidth={1.5} />
-          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Before Next Game</span>
+          <Lightbulb className="w-4 h-4 text-amber-500" strokeWidth={1.5} />
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Before Next Game</span>
         </div>
 
-        <div className="bg-primary/5 border border-primary/20 rounded p-4">
-          <p className="text-sm text-foreground font-medium leading-relaxed">{rule}</p>
+        <div className="relative bg-amber-500/5 border border-amber-500/20 rounded-lg p-5">
+          <div className="absolute top-0 left-5 w-0.5 h-full bg-amber-500/20 -translate-y-3" />
+          <p className="text-sm text-foreground font-medium leading-relaxed pl-4">{rule}</p>
         </div>
       </motion.div>
 
-      {/* ─── 4. YOUR TREND ────────────────────────────── */}
+      {/* ─── 4. BRAIN FOCUS (if available) ─────────────── */}
+      {brain?.focus_message && brain.top_weakness && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Brain className="w-4 h-4 text-purple-500" strokeWidth={1.5} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Your Brain Says</span>
+          </div>
+          <div className="bg-purple-500/5 border border-purple-500/15 rounded-lg p-4">
+            <p className="text-sm text-foreground leading-relaxed">{brain.focus_message}</p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ─── 5. YOUR TREND ────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
@@ -295,7 +328,7 @@ const CoachAction = ({ gameId, onMoveClick }) => {
           ) : (
             <Minus className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
           )}
-          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Your Trend</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Your Trend</span>
         </div>
 
         <p className="text-sm text-muted-foreground">{trend.message}</p>

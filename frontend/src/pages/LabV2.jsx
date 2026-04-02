@@ -199,6 +199,23 @@ const fenToPositionObject = (fen) => {
   return position;
 };
 
+// Result badge with semantic colors
+const ResultBadge = ({ result, userColor }) => {
+  const isWin = (result.includes("1-0") && userColor === "white") || (result.includes("0-1") && userColor === "black");
+  const isDraw = result === "1/2-1/2";
+  const label = isWin ? "Won" : isDraw ? "Draw" : "Lost";
+  const cls = isWin 
+    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+    : isDraw 
+      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
+      : "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30";
+  return (
+    <span className={`px-2 py-0.5 text-xs font-semibold rounded border ${cls}`} data-testid="result-badge">
+      {label}
+    </span>
+  );
+};
+
 const LabV2 = ({ user }) => {
   const { gameId } = useParams();
   const navigate = useNavigate();
@@ -242,6 +259,8 @@ const LabV2 = ({ user }) => {
   const result = game?.result || "1/2-1/2";
   const accuracy = analysis?.stockfish_analysis?.accuracy || labData?.accuracy;
   const currentFen = allFens[currentMoveIndex + 1] || START_FEN;
+  const coachSummary = analysis?.coach_summary || null;
+  const coreLesson = labData?.core_lesson || null;
   
   // Fetch all data
   useEffect(() => {
@@ -864,84 +883,86 @@ const LabV2 = ({ user }) => {
   return (
     <Layout user={user} hideNav>
       <div className="h-screen flex flex-col overflow-hidden bg-background">
-        {/* Top Bar - Clean, simple */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/lab")}
-              className="gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-            
-            <div className="flex items-center gap-3">
-              <h1 className="text-lg text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Game Review</h1>
-              <span className="text-gray-500 text-sm font-light">
-                vs {game?.opponent_name || "Opponent"}
-              </span>
-              <Badge 
-                variant={result.includes("1-0") && userColor === "white" || result.includes("0-1") && userColor === "black" 
-                  ? "default" 
-                  : result === "1/2-1/2" 
-                    ? "secondary" 
-                    : "destructive"
-                }
+        {/* Top Bar */}
+        <div className="shrink-0 border-b border-border">
+          {/* Main header row */}
+          <div className="flex items-center justify-between px-5 py-3">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/lab")}
+                className="h-8 w-8"
+                data-testid="lab-back-btn"
               >
-                {result.includes("1-0") && userColor === "white" || result.includes("0-1") && userColor === "black"
-                  ? "Won"
-                  : result === "1/2-1/2"
-                    ? "Draw"
-                    : "Lost"
-                }
-              </Badge>
-              <span className="text-xs text-gray-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {accuracy ? `${accuracy.toFixed(0)}%` : ""}
-              </span>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              
+              <div className="flex items-center gap-4">
+                {/* Accuracy ring */}
+                {accuracy != null && (
+                  <div className="relative w-11 h-11" data-testid="accuracy-ring">
+                    <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-200 dark:text-gray-700" />
+                      <circle 
+                        cx="18" cy="18" r="15.5" fill="none" strokeWidth="2.5" strokeLinecap="round"
+                        stroke={accuracy >= 80 ? '#10B981' : accuracy >= 60 ? '#F59E0B' : '#EF4444'}
+                        strokeDasharray={`${accuracy * 0.975} 97.5`}
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {accuracy.toFixed(0)}
+                    </span>
+                  </div>
+                )}
+                
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h1 className="text-base font-semibold tracking-tight">
+                      vs {game?.opponent_name || "Opponent"}
+                    </h1>
+                    <ResultBadge result={result} userColor={userColor} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {game?.opening_name || game?.opening || ""} 
+                    {game?.time_control && <span className="ml-2 opacity-60">{game.time_control}s</span>}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-muted/60 rounded-lg p-0.5" data-testid="view-mode-tabs">
+              {[
+                { key: "coach", label: "Coach", icon: Brain },
+                { key: "habits", label: "Habits", icon: Target },
+                { key: "decrypt", label: "Decrypt", icon: BookOpen },
+              ].map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setViewMode(key)}
+                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-1.5 ${
+                    viewMode === key
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`${key}-view-btn`}
+                >
+                  <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
           
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-0" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-            <button
-              onClick={() => setViewMode("coach")}
-              className="px-4 py-1.5 text-xs transition-all duration-200"
-              style={viewMode === "coach" 
-                ? { background: "rgba(114,47,55,0.2)", color: "#fff", borderBottom: "2px solid #722F37" }
-                : { color: "#666", borderBottom: "2px solid transparent" }
-              }
-              data-testid="coach-view-btn"
-            >
-              <Brain className="w-3 h-3 inline mr-1" strokeWidth={1.5} />
-              Coach
-            </button>
-            <button
-              onClick={() => setViewMode("habits")}
-              className="px-4 py-1.5 text-xs transition-all duration-200"
-              style={viewMode === "habits"
-                ? { background: "rgba(114,47,55,0.15)", color: "#fff", borderBottom: "2px solid #722F37" }
-                : { color: "#666", borderBottom: "2px solid transparent" }
-              }
-              data-testid="habits-view-btn"
-            >
-              <Target className="w-3 h-3 inline mr-1" strokeWidth={1.5} />
-              Habits
-            </button>
-            <button
-              onClick={() => setViewMode("decrypt")}
-              className="px-4 py-1.5 text-xs transition-all duration-200"
-              style={viewMode === "decrypt"
-                ? { background: "rgba(203,161,53,0.1)", color: "#fff", borderBottom: "2px solid #CBA135" }
-                : { color: "#666", borderBottom: "2px solid transparent" }
-              }
-              data-testid="decrypt-view-btn"
-            >
-              <BookOpen className="w-3 h-3 inline mr-1" strokeWidth={1.5} />
-              Decrypt
-            </button>
-          </div>
+          {/* Coach narrative strip — only on coach/habits tabs */}
+          {viewMode !== "decrypt" && coachSummary?.key_observation && (
+            <div className="px-5 pb-2.5">
+              <p className="text-xs text-muted-foreground italic leading-relaxed pl-14" data-testid="coach-narrative-strip">
+                {coachSummary.key_observation}
+              </p>
+            </div>
+          )}
         </div>
         
         {/* MAIN CONTENT - Conditional based on viewMode */}
@@ -954,6 +975,10 @@ const LabV2 = ({ user }) => {
               pgn={game?.pgn}
               userColor={userColor}
               onBack={() => navigate(-1)}
+              coachSummary={coachSummary}
+              coreLesson={coreLesson}
+              gameResult={result}
+              opponentName={game?.opponent_name}
             />
           </div>
         ) : (
@@ -1013,54 +1038,61 @@ const LabV2 = ({ user }) => {
             </div>
             
             {/* Move controls */}
-            <div className="p-4 border-t border-border flex items-center justify-center gap-2">
-              <Button variant="ghost" size="sm" onClick={goToStart}>
-                <SkipBack className="w-4 h-4" />
+            <div className="px-4 py-3 border-t border-border flex items-center justify-center gap-1.5">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToStart} data-testid="board-start-btn">
+                <SkipBack className="w-3.5 h-3.5" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={goToPrev}>
-                <ChevronLeft className="w-4 h-4" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPrev} data-testid="board-prev-btn">
+                <ChevronLeft className="w-3.5 h-3.5" />
               </Button>
               <Button 
                 variant={isPlaying ? "secondary" : "default"} 
-                size="sm"
+                size="icon"
+                className="h-8 w-8"
                 onClick={() => setIsPlaying(!isPlaying)}
+                data-testid="board-play-btn"
               >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
               </Button>
-              <Button variant="ghost" size="sm" onClick={goToNext}>
-                <ChevronRight className="w-4 h-4" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNext} data-testid="board-next-btn">
+                <ChevronRight className="w-3.5 h-3.5" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={goToEnd}>
-                <SkipForward className="w-4 h-4" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToEnd} data-testid="board-end-btn">
+                <SkipForward className="w-3.5 h-3.5" />
               </Button>
               <Button 
                 variant="ghost" 
-                size="sm"
+                size="icon"
+                className="h-8 w-8 ml-2"
                 onClick={() => setBoardOrientation(o => o === "white" ? "black" : "white")}
+                data-testid="board-flip-btn"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3.5 h-3.5" />
               </Button>
               
-              <span className="ml-4 text-sm text-muted-foreground">
-                Move {currentMoveIndex + 1} / {moves.length}
+              <span className="ml-3 text-xs text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                {currentMoveIndex + 1} / {moves.length}
               </span>
             </div>
             
             {/* Move list (compact) */}
-            <div className="h-32 overflow-y-auto p-3 border-t border-border bg-muted/20">
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-mono">
+            <div className="h-28 overflow-y-auto px-4 py-2.5 border-t border-border bg-muted/20">
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {moves.map((move, idx) => {
                   const isWhite = idx % 2 === 0;
                   const moveNum = Math.floor(idx / 2) + 1;
                   
                   return (
                     <span key={idx} className="inline-flex items-center">
-                      {isWhite && <span className="text-muted-foreground mr-1">{moveNum}.</span>}
+                      {isWhite && <span className="text-muted-foreground/50 mr-0.5 text-xs">{moveNum}.</span>}
                       <button
                         onClick={() => goToMove(idx)}
-                        className={`px-1 rounded hover:bg-primary/20 ${
-                          idx === currentMoveIndex ? "bg-primary/30 text-primary" : ""
+                        className={`px-1 py-0.5 rounded text-xs transition-colors ${
+                          idx === currentMoveIndex 
+                            ? "bg-primary/20 text-primary font-semibold" 
+                            : "text-foreground/80 hover:bg-primary/10"
                         }`}
+                        data-testid={`move-btn-${idx}`}
                       >
                         {move.san}
                       </button>
@@ -1073,7 +1105,7 @@ const LabV2 = ({ user }) => {
           
           {/* Right Panel: Coach Review OR Habits based on viewMode */}
           <div className="w-[45%] flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto p-6">
               {viewMode === "coach" ? (
                 <CoachAction 
                   gameId={gameId} 
