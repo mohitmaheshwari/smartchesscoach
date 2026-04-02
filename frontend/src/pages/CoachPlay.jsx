@@ -2994,7 +2994,7 @@ const CoachPlay = ({ user }) => {
                 )}
                 
                 {/* === COACH'S MOVE EXPLANATION === */}
-                {interactiveCoaching.coachMoveCoaching && !session?.curriculum_active && (
+                {interactiveCoaching.coachMoveCoaching && (
                   <div data-testid="coach-move-explanation" className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-blue-700 font-bold text-sm tracking-wide uppercase">Coach played</span>
