@@ -136,6 +136,8 @@ const CoachPlay = ({ user }) => {
     playerWeaknesses,
     showChecklist, setShowChecklist,
     hideEvalBar, setHideEvalBar,
+    opportunitiesFound, setOpportunitiesFound,
+    opportunitiesMissed, setOpportunitiesMissed,
     resetPlayerData,
   } = playerData;
 
