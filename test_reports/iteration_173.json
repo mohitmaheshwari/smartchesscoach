@@ -1,0 +1,81 @@
+{
+  "summary": "Tested major refactoring: 3 hooks extracted from CoachPlay.jsx (useTeachingMode, usePlayerData, useGuardian). Found and FIXED 1 critical bug: setLessonComplete was not destructured from teaching hook. Backend tests pass 38/38. All pages load correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "Some background APIs", "issue": "500 errors in console during game start (non-blocking)", "priority": "LOW"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "bugs_fixed": [
+    {
+      "file": "/app/frontend/src/pages/CoachPlay.jsx",
+      "line": 114,
+      "issue": "setLessonComplete was not destructured from teaching hook, causing 'setLessonComplete is not defined' runtime error when starting new game",
+      "fix": "Added setLessonComplete to destructuring: 'lessonComplete, setLessonComplete,'"
+    }
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_all_flows.py",
+    ".screenshots/landing_page.png",
+    ".screenshots/after_login.png",
+    ".screenshots/new_game_success.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "✅ useTeachingMode.js (NEW) - Teaching lesson system hook extracted correctly, exports all required state and handlers",
+    "✅ usePlayerData.js (NEW) - Pre-game data, streak, development tracking hook extracted correctly",
+    "✅ useGuardian.js (NEW) - Move intervention system hook extracted correctly",
+    "✅ CoachPlay.jsx reduced from 3,669 to ~2,050 lines (44% reduction)",
+    "✅ All hooks properly integrated with CoachPlay.jsx",
+    "✅ Backend tests pass 38/38 (test_all_flows.py)",
+    "⚠️ ESLint warnings for missing dependencies in useEffect/useCallback - not blocking but should be addressed"
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/CoachPlay.jsx"
+  ],
+  "success_rate": {
+    "backend": "100% (38/38 tests passed)",
+    "frontend": "100% (all pages load, game flow works after fix)"
+  },
+  "test_credentials": "Dev Login button on landing page, auto-authenticates as dev_user_local",
+  "seed_data_creation": "None - used existing dev_user_local sessions",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Major refactoring verified. 3 new hooks extracted: useTeachingMode.js, usePlayerData.js, useGuardian.js. Fixed missing setLessonComplete destructuring. Route is /play-with-coach (not /play-coach). Backend tests: cd /app/backend && python tests/test_all_flows.py (38/38 pass). All pages verified: Landing, Home, Lab, Progress, Play with Coach.",
+  "features_verified": {
+    "backend_api": {
+      "test_all_flows": "WORKING - 38/38 tests pass",
+      "coach_play_start": "WORKING",
+      "coach_play_move": "WORKING"
+    },
+    "frontend_ui": {
+      "landing_page": "WORKING - Dev Login button visible and functional",
+      "dashboard": "WORKING - Shows patterns, actions, chess DNA after login",
+      "home_page": "WORKING - Loads with content",
+      "lab_page": "WORKING - Shows games for review",
+      "progress_page": "WORKING - Shows weaknesses, accuracy, game timeline",
+      "play_with_coach": "WORKING - Pre-game setup, game board, coaching sidebar all functional"
+    },
+    "refactored_hooks": {
+      "useTeachingMode.js": "WORKING - Teaching lesson system",
+      "usePlayerData.js": "WORKING - Pre-game data, streak tracking",
+      "useGuardian.js": "WORKING - Move intervention system"
+    },
+    "game_flow": {
+      "start_game": "WORKING - After fix",
+      "resign_game": "WORKING",
+      "new_game": "WORKING - Setup screen shows correctly",
+      "color_selection": "WORKING",
+      "coaching_sidebar": "WORKING - Shows Today's Lesson, opening guidance"
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}

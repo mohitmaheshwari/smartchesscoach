@@ -19,6 +19,9 @@ import EnforcementCheckboxModal from "@/components/coach-play/EnforcementCheckbo
 import CoachPlaySetup from "@/components/coach/CoachPlaySetup";
 import CoachPlayBoard from "@/components/coach/CoachPlayBoard";
 import CoachPlaySidebar from "@/components/coach/CoachPlaySidebar";
+import useTeachingMode from "@/hooks/useTeachingMode";
+import usePlayerData from "@/hooks/usePlayerData";
+import useGuardian from "@/hooks/useGuardian";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -68,43 +71,83 @@ const CoachPlay = ({ user }) => {
   const chatEndRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
-  // NEW: Past games memory and identity state
-  const [pastGamesHistory, setPastGamesHistory] = useState(null);
-  const [playerIdentityData, setPlayerIdentityData] = useState(null);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  
   // NEW: Visual move hints state
   const [moveHints, setMoveHints] = useState([]);
   
-  // NEW: Emotional state tracking for Human Coach
-  const [blundersThisGame, setBlundersThisGame] = useState(0);
-  const [recentResults, setRecentResults] = useState([]);
-  
-  // NEW: Opening Teaching State
-  const [teachingOffer, setTeachingOffer] = useState(null);
-  const [activeLesson, setActiveLesson] = useState(null);
-  const [lessonInstruction, setLessonInstruction] = useState(null);
-  const [lessonComplete, setLessonComplete] = useState(null);
-  const [isInTeachingMode, setIsInTeachingMode] = useState(false);
-  
-  // NEW: Live Opening Guidance (from session state)
-  const [openingGuidance, setOpeningGuidance] = useState(null);
-  
-  // NEW: Inline lessons (non-disruptive teaching)
-  const [inlineOpening, setInlineOpening] = useState(null);
-  const [inlineTrap, setInlineTrap] = useState(null);
-  
-  // NEW: Coach intro message for the session
-  const [coachIntroMessage, setCoachIntroMessage] = useState(null);
-  
-  // NEW: Curriculum feedback (right/wrong) from last move
-  const [curriculumFeedback, setCurriculumFeedback] = useState(null);
-  
-  // NEW: Last coach move SAN for opponent section display
-  const [lastCoachMoveSan, setLastCoachMoveSan] = useState(null);
-  
-  // NEW: Position-based coaching (intelligent position analysis)
-  const [positionCoaching, setPositionCoaching] = useState(null);
+  // ── Hooks: Teaching, Player Data, Guardian ──
+  const teaching = useTeachingMode({
+    session,
+    currentFen,
+    setChatMessages,
+    setCurrentFen,
+    setCurrentInsight: (v) => setCurrentInsight(v),
+    newGameFn: () => newGame(),
+    startGameFn: () => startGame(),
+  });
+
+  const playerData = usePlayerData({
+    user,
+    session,
+    gameOver,
+    selectedColor,
+  });
+
+  const handleCancelRestore = useCallback((originalFen) => {
+    setCurrentFen(originalFen);
+    setLastMove(null);
+    setIsPlayerTurn(true);
+    if (boardRef.current?.setPosition) {
+      boardRef.current.setPosition(originalFen);
+    }
+  }, []);
+
+  const guardian = useGuardian({
+    session,
+    onCancelRestore: handleCancelRestore,
+  });
+
+  // Destructure for backwards compatibility with existing code
+  const {
+    teachingOffer, setTeachingOffer,
+    activeLesson, setActiveLesson,
+    lessonInstruction, setLessonInstruction,
+    lessonComplete, setLessonComplete,
+    isInTeachingMode, setIsInTeachingMode,
+    openingGuidance, setOpeningGuidance,
+    inlineOpening, setInlineOpening,
+    inlineTrap, setInlineTrap,
+    coachIntroMessage, setCoachIntroMessage,
+    curriculumFeedback, setCurriculumFeedback,
+    lastCoachMoveSan, setLastCoachMoveSan,
+    positionCoaching, setPositionCoaching,
+    openingCorrectionCount, setOpeningCorrectionCount,
+    handleStartLesson, handleSkipTeachingOffer, handleExitLesson,
+    handleTeachingMove, resetTeachingState,
+  } = teaching;
+
+  const {
+    pastGamesHistory, playerIdentityData,
+    blundersThisGame, setBlundersThisGame,
+    recentResults,
+    showPreGameStreakPopup, setShowPreGameStreakPopup,
+    showPostGameStreakResult, setShowPostGameStreakResult,
+    postGameStreakResult,
+    hasCastled, developedPieces,
+    playerWeaknesses,
+    showChecklist, setShowChecklist,
+    hideEvalBar, setHideEvalBar,
+    resetPlayerData,
+  } = playerData;
+
+  const {
+    guardianIntervention, setGuardianIntervention,
+    pendingMove,
+    remainingInterventions, setRemainingInterventions,
+    evaluateMove,
+    cancelRiskyMove,
+    setIntervention: setGuardianPending,
+    clearIntervention: clearGuardian,
+  } = guardian;
   
   // NEW: Real-time move feedback state
   const [moveFeedback, setMoveFeedback] = useState(null);
@@ -123,96 +166,19 @@ const CoachPlay = ({ user }) => {
   // Behavioral Coaching State - Smart Coach habits feedback
   const [behavioralCoaching, setBehavioralCoaching] = useState(null);
   
-  // NEW: Clean UX State - One insight at a time
+  // Clean UX State
   const [currentInsight, setCurrentInsight] = useState(null);
   const [isCoachThinking, setIsCoachThinking] = useState(false);
   const [activeTrapAlert, setActiveTrapAlert] = useState(null);
-  const [cleanUIMode, setCleanUIMode] = useState(true); // Enable new clean UI
-  const [openingCorrectionCount, setOpeningCorrectionCount] = useState(0);
+  const [cleanUIMode, setCleanUIMode] = useState(true);
   
-  // Pre-move checklist state
-  const [hasCastled, setHasCastled] = useState(false);
-  const [developedPieces, setDevelopedPieces] = useState(0);
-  const [playerWeaknesses, setPlayerWeaknesses] = useState([]);
-  const [showChecklist, setShowChecklist] = useState(true);
-  
-  // Pedagogical Opponent State
-  const [hideEvalBar, setHideEvalBar] = useState(false);
+  // Pedagogical state (not in hooks)
   const [consequenceFeedback, setConsequenceFeedback] = useState(null);
-  const [opportunitiesFound, setOpportunitiesFound] = useState(0);
-  const [opportunitiesMissed, setOpportunitiesMissed] = useState(0);
-  
-  // NEW: Streak integration state (Plateau Breaker)
-  const [streakData, setStreakData] = useState(null);
-  const [showPreGameStreakPopup, setShowPreGameStreakPopup] = useState(false);
-  const [showPostGameStreakResult, setShowPostGameStreakResult] = useState(false);
-  const [postGameStreakResult, setPostGameStreakResult] = useState(null);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
-  
-  // NEW: Update streak when game ends
-  useEffect(() => {
-    if (gameOver && session && user?.user_id && !postGameStreakResult) {
-      // Wait a moment for backend to process, then fetch result
-      setTimeout(fetchStreakResultAfterGame, 1500);
-    }
-  }, [gameOver, session?.session_id]);
-  
-  // NEW: Fetch streak result after game (backend is source of truth)
-  // The actual streak update happens in backend analysis_worker.py
-  // Frontend only fetches the result for display
-  const fetchStreakResultAfterGame = async () => {
-    if (!session?.session_id || !user?.user_id) return;
-    
-    try {
-      // Fetch the latest streak status (backend has already updated it)
-      const response = await fetch(`${API}/streak/status?user_id=${user.user_id}`, {
-        credentials: "include"
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Check if last game had mistake to determine result
-        const hadMistake = data.last_game_had_mistake;
-        const currentStreak = data.current_streak || 0;
-        const bestStreak = data.best_streak || 0;
-        
-        // Build post-game result from status
-        let result;
-        if (hadMistake) {
-          result = {
-            result: "broken",
-            headline: "❌ Streak Broken",
-            message: "You repeated your core mistake. This is exactly why you're stuck.",
-            streak: 0,
-            best: bestStreak,
-            previous_streak: currentStreak,
-            tone: "warning"
-          };
-        } else if (currentStreak > 0) {
-          result = {
-            result: currentStreak === bestStreak ? "new_best" : "continued",
-            headline: currentStreak === bestStreak ? `🔥 New Best: ${currentStreak} Games!` : `✅ Streak: ${currentStreak} Games`,
-            message: "Clean game. This is how your rating improves.",
-            streak: currentStreak,
-            best: bestStreak,
-            tone: currentStreak === bestStreak ? "celebration" : "success"
-          };
-        }
-        
-        if (result) {
-          setPostGameStreakResult(result);
-          setShowPostGameStreakResult(true);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching streak result:", error);
-    }
-  };
 
   // Poll for coach messages when game is active (skip during curriculum — curriculum handles coaching)
   useEffect(() => {
@@ -371,65 +337,7 @@ const CoachPlay = ({ user }) => {
   // Check for active session on mount
   useEffect(() => {
     checkActiveSession();
-    fetchPastGamesAndIdentity();
   }, []);
-
-  // NEW: Fetch past games history and player identity
-  const fetchPastGamesAndIdentity = async () => {
-    setLoadingHistory(true);
-    try {
-      const [historyRes, identityRes, streakRes] = await Promise.all([
-        fetch(`${API}/coach/play/history?limit=5`, { credentials: "include" }),
-        fetch(`${API}/coach/play/identity`, { credentials: "include" }),
-        fetch(`${API}/streak/status?user_id=${user?.user_id}`, { credentials: "include" })
-      ]);
-      
-      if (historyRes.ok) {
-        const historyData = await historyRes.json();
-        setPastGamesHistory(historyData);
-      }
-      
-      if (identityRes.ok) {
-        const identityData = await identityRes.json();
-        if (identityData.has_identity) {
-          setPlayerIdentityData(identityData.identity);
-          // Extract player weaknesses for pre-move checklist
-          if (identityData.identity?.behavioral_patterns) {
-            const weaknesses = identityData.identity.behavioral_patterns
-              .filter(p => p.pattern && p.frequency >= 2)
-              .map(p => p.pattern);
-            setPlayerWeaknesses(weaknesses);
-          }
-        }
-      }
-      
-      // NEW: Fetch streak data for Plateau Breaker integration
-      if (streakRes.ok) {
-        const data = await streakRes.json();
-        setStreakData(data);
-        
-        // Map focus mistake to player weaknesses for pre-move checklist
-        const focusToWeakness = {
-          "THREAT_VERIFICATION": "hope_chess",
-          "FORCING_BLIND": "missed_tactics",
-          "STOPPED_CALCULATION_EARLY": "impulsive_play",
-          "HANGING_PIECE": "hanging_pieces",
-          "TACTICAL_MISS": "missed_tactics"
-        };
-        
-        const focusMistake = data.focus_mistake_type;
-        const mappedWeakness = focusToWeakness[focusMistake];
-        
-        if (mappedWeakness && !playerWeaknesses.includes(mappedWeakness)) {
-          setPlayerWeaknesses(prev => [mappedWeakness, ...prev.filter(w => w !== mappedWeakness)]);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching coach play history:", error);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
 
   // Check for practice mode from Lab alternate timeline
   useEffect(() => {
@@ -499,38 +407,14 @@ const CoachPlay = ({ user }) => {
     }
   }, [session?.move_history?.length]);
 
-  // Track castling and development from move history
+  // Auto-dismiss opening suggestions once past the opening phase
   useEffect(() => {
-    if (!session?.move_history) return;
-    
-    const moves = session.move_history.map(m => m.move);
-    const userMoves = moves.filter((_, i) => {
-      const isWhite = i % 2 === 0;
-      return (selectedColor === "white" && isWhite) || (selectedColor === "black" && !isWhite);
-    });
-    
-    // Check for castling (O-O or O-O-O)
-    const castled = userMoves.some(m => m === "O-O" || m === "O-O-O");
-    setHasCastled(castled);
-    
-    // Count developed minor pieces (simple heuristic)
-    const knightMoves = userMoves.filter(m => m.startsWith("N")).length;
-    const bishopMoves = userMoves.filter(m => m.startsWith("B")).length;
-    // Rough estimate: each unique knight/bishop move counts as development
-    const developed = Math.min(knightMoves, 2) + Math.min(bishopMoves, 2);
-    setDevelopedPieces(developed);
-    
-    // Reset checklist visibility when new game starts
-    if (moves.length === 0) {
-      setShowChecklist(true);
-    }
-    
-    // Auto-dismiss opening suggestions once past the opening phase (~14 half-moves)
+    const moves = session?.move_history || [];
     if (moves.length >= 14 && (inlineOpening || inlineTrap)) {
       setInlineOpening(null);
       setInlineTrap(null);
     }
-  }, [session?.move_history, selectedColor]);
+  }, [session?.move_history?.length, inlineOpening, inlineTrap, setInlineOpening, setInlineTrap]);
 
   const checkActiveSession = async () => {
     try {
@@ -1280,47 +1164,6 @@ const CoachPlay = ({ user }) => {
     setFeedbackCorrectPattern("");
   };
 
-  // Guardian intervention state
-  const [guardianIntervention, setGuardianIntervention] = useState(null);
-  const [pendingMove, setPendingMove] = useState(null);
-  const [showEnforcementCheckbox, setShowEnforcementCheckbox] = useState(false);
-  const [remainingInterventions, setRemainingInterventions] = useState(3);
-
-  // Evaluate move with guardian before making it
-  const evaluateMove = async (moveSan) => {
-    try {
-      const response = await fetch(`${API}/coach/play/evaluate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          session_id: session.session_id,
-          move: moveSan
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        // If Stockfish approved a "risky-looking" move, show positive feedback!
-        if (result.tactical_awareness) {
-          toast.success(result.tactical_message || "Good tactical awareness!");
-          setChatMessages(prev => [...prev, {
-            type: "coach",
-            trigger: "encouragement",
-            message: `Nice capture! Stockfish confirms this is a good trade. That's tactical awareness! 👏`,
-            timestamp: Date.now()
-          }]);
-        }
-        
-        return result;
-      }
-    } catch (error) {
-      console.error("Guardian evaluation error:", error);
-    }
-    return null;
-  };
-
   // Fun thinking messages for coach
   const THINKING_MESSAGES = [
     "Coach is studying your move...",
@@ -1763,8 +1606,7 @@ const CoachPlay = ({ user }) => {
     setIsPlayerTurn(false);
     
     // Clear intervention state
-    setGuardianIntervention(null);
-    setPendingMove(null);
+    clearGuardian();
     
     // Clear coaching state for clean transition
     setV5Coaching(null);
@@ -1839,27 +1681,6 @@ const CoachPlay = ({ user }) => {
     }
   };
 
-  // Handle user canceling a risky move
-  const cancelRiskyMove = () => {
-    // Reset the board to the position before the attempted move
-    if (pendingMove?.originalFen) {
-      const originalFen = pendingMove.originalFen;
-      // Directly set the FEN - LichessBoard will update
-      setCurrentFen(originalFen);
-      setLastMove(null); // Clear last move highlight
-      setIsPlayerTurn(true);
-      
-      // Force LichessBoard to re-render by using ref if needed
-      if (boardRef.current?.setPosition) {
-        boardRef.current.setPosition(originalFen);
-      }
-    }
-    
-    setGuardianIntervention(null);
-    setPendingMove(null);
-    toast.info("Move cancelled. Choose a different move.");
-  };
-
   const makeMove = useCallback(async (sourceSquare, targetSquare, piece) => {
     // If in teaching mode, use teaching move handler
     if (isInTeachingMode && activeLesson) {
@@ -1892,14 +1713,13 @@ const CoachPlay = ({ user }) => {
     if (guardianResult?.should_intervene) {
       // Show intervention modal - don't make the move yet
       // Store the original FEN so we can reset if user cancels
-      setGuardianIntervention(guardianResult);
-      setPendingMove({
+      setGuardianPending(guardianResult, {
         moveSan: moveObj.san,
         moveObj: moveObj,
         timeSpent: timeSpent,
         riskType: guardianResult.risk_type,
         chess: chess,
-        originalFen: currentFen  // Store original position to reset if cancelled
+        originalFen: currentFen
       });
       return false; // Don't complete the move yet
     }
@@ -1964,24 +1784,15 @@ const CoachPlay = ({ user }) => {
     setCurrentFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     setLastMove(null);
     setIsPlayerTurn(true);
-    setGuardianIntervention(null);
-    setPendingMove(null);
-    // Reset teaching state
-    setTeachingOffer(null);
-    setActiveLesson(null);
-    setLessonInstruction(null);
-    setLessonComplete(null);
-    setIsInTeachingMode(false);
+    clearGuardian();
+    resetTeachingState();
     // Reset move feedback
     setMoveFeedback(null);
-    setV5Coaching(null);  // Reset V5 coaching
+    setV5Coaching(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
     setChatMessages([]);
-    // Reset pre-move checklist state
-    setHasCastled(false);
-    setDevelopedPieces(0);
-    setShowChecklist(true);
+    resetPlayerData();
   };
 
   const canUndoLastMove = () => {
@@ -2077,197 +1888,6 @@ const CoachPlay = ({ user }) => {
       setUndoLoading(false);
     }
   };
-
-  // ========================================
-  // OPENING TEACHING HANDLERS
-  // ========================================
-  
-  const handleStartLesson = (lessonData) => {
-    setTeachingOffer(null);
-    setActiveLesson(lessonData);
-    setLessonInstruction(lessonData.instruction);
-    setIsInTeachingMode(true);
-    
-    // Update board position - use teaching_fen which may include auto-played moves
-    if (lessonData.teaching_fen) {
-      setCurrentFen(lessonData.teaching_fen);
-    }
-    setLastMove(null);
-    
-    // Update CoachInsightCard with teaching content
-    setCurrentInsight({
-      quality: "teaching",
-      main_insight: `Let's learn the ${lessonData.lesson_name}! ${lessonData.instruction?.message || "Follow along and play the moves."}`,
-      why: lessonData.opening_name ? `Part of the ${lessonData.opening_name}` : null,
-      next_idea: lessonData.instruction?.is_user_move 
-        ? `Your turn: play ${lessonData.instruction.move}`
-        : `Watch: I'll play ${lessonData.instruction?.move}`,
-      has_better_move: false,
-      can_explain: true,
-      teaching_mode: true,
-      lesson_name: lessonData.lesson_name,
-      remaining_moves: lessonData.instruction?.remaining
-    });
-    
-    // Add lesson start message to chat
-    setChatMessages(prev => [...prev, {
-      type: "coach",
-      trigger: "teaching",
-      message: `Let's learn the ${lessonData.lesson_name}! Follow along and play the moves.`,
-      timestamp: Date.now()
-    }]);
-    
-    // If coach auto-played a move, show it
-    if (lessonData.auto_played_move) {
-      setChatMessages(prev => [...prev, {
-        type: "coach",
-        trigger: "teaching",
-        message: `I played ${lessonData.auto_played_move}. Now your turn!`,
-        timestamp: Date.now()
-      }]);
-    }
-    
-    toast.success(`Starting lesson: ${lessonData.lesson_name}`);
-  };
-  
-  const handleSkipTeachingOffer = () => {
-    setTeachingOffer(null);
-    setChatMessages(prev => [...prev, {
-      type: "coach",
-      trigger: "encouragement",
-      message: "No problem! Let's continue playing. I'll guide you as we go.",
-      timestamp: Date.now()
-    }]);
-  };
-  
-  const handleTeachingMoveValidated = (result) => {
-    // Update instruction for next move
-    if (result.next_instruction) {
-      setLessonInstruction(result.next_instruction);
-      
-      // Update CoachInsightCard with teaching feedback
-      setCurrentInsight({
-        quality: result.correct ? "good" : "teaching",
-        main_insight: result.message || (result.correct ? "Good! Keep going." : "That's not quite right. Try again."),
-        why: result.explanation,
-        next_idea: result.next_instruction?.is_user_move 
-          ? `Your turn: play ${result.next_instruction.move}`
-          : `Watch: I'll play ${result.next_instruction?.move}`,
-        has_better_move: !result.correct,
-        can_explain: true,
-        teaching_mode: true,
-        remaining_moves: result.next_instruction?.remaining
-      });
-    }
-    
-    // Update board position
-    if (result.teaching_fen) {
-      setCurrentFen(result.teaching_fen);
-    }
-    
-    // If there was an auto-play (opponent move), show it
-    if (result.auto_played) {
-      setChatMessages(prev => [...prev, {
-        type: "coach",
-        trigger: "teaching",
-        message: result.message,
-        timestamp: Date.now()
-      }]);
-    }
-  };
-  
-  const handleLessonComplete = (completion) => {
-    setLessonInstruction(null);
-    setLessonComplete(completion);
-    
-    // Add celebration message to chat
-    setChatMessages(prev => [...prev, {
-      type: "coach",
-      trigger: "encouragement",
-      message: completion.message,
-      timestamp: Date.now()
-    }]);
-    
-    toast.success("Lesson complete!");
-  };
-  
-  const handleExitLesson = async (choice, result) => {
-    setActiveLesson(null);
-    setLessonComplete(null);
-    setIsInTeachingMode(false);
-    
-    if (choice === "continue_game" && result?.restored_fen) {
-      // Restore original game position
-      setCurrentFen(result.restored_fen);
-      setChatMessages(prev => [...prev, {
-        type: "coach",
-        trigger: "teaching",
-        message: "Game restored! Your turn to continue.",
-        timestamp: Date.now()
-      }]);
-    } else if (choice === "new_game") {
-      // Start a fresh game
-      newGame();
-      // Auto-start after a brief delay
-      setTimeout(() => startGame(), 500);
-    }
-  };
-  
-  // Handle moves during teaching mode
-  const handleTeachingMove = async (from, to) => {
-    if (!activeLesson || !session) return false;
-    
-    // Build the move SAN
-    const chess = new Chess(currentFen);
-    let moveObj;
-    try {
-      moveObj = chess.move({ from, to, promotion: "q" });
-    } catch {
-      return false;
-    }
-    
-    if (!moveObj) return false;
-    
-    // Validate with backend
-    try {
-      const response = await fetch(`${API}/coach/play/teaching/move`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          session_id: session.session_id,
-          move: moveObj.san
-        })
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        
-        if (result.complete) {
-          handleLessonComplete(result);
-        } else if (result.correct) {
-          // Update board
-          setCurrentFen(result.teaching_fen);
-          handleTeachingMoveValidated(result);
-          return true;
-        } else {
-          // Wrong move - show hint
-          toast.error(result.message);
-          setChatMessages(prev => [...prev, {
-            type: "coach",
-            trigger: "teaching",
-            message: `${result.message} ${result.hint || ""}`,
-            timestamp: Date.now()
-          }]);
-        }
-      }
-    } catch (error) {
-      console.error("Teaching move error:", error);
-    }
-    
-    return false;
-  };
-
 
   // ========================================
   // RENDER
