@@ -42,8 +42,7 @@ import {
   Sparkles,
   Zap
 } from "lucide-react";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const GameDecryption = ({ gameId, analysis, pgn, userColor, onBack }) => {
   const [decryptionData, setDecryptionData] = useState(null);

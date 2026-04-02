@@ -34,8 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import LichessBoard from "@/components/LichessBoard";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 // Coach personality messages for different situations
 const COACH_INTROS = {

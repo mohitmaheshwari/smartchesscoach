@@ -21,8 +21,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const PreGameStreakPopup = ({ 
   userId, 

@@ -16,8 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API } from "@/App";
 
 // Pattern correction options - same as in pattern_learning
 const PATTERN_OPTIONS = [
@@ -78,7 +77,7 @@ export default function FeedbackModal({
 
     try {
       // Submit to pattern learning API
-      const response = await fetch(`${API}/api/coach/pattern-learning/feedback`, {
+      const response = await fetch(`${API}/coach/pattern-learning/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

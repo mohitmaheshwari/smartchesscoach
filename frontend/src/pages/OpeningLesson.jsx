@@ -35,8 +35,7 @@ import InteractivePractice from "@/components/openings/InteractivePractice";
 import TrapPractice from "@/components/openings/TrapPractice";
 import GuidedOpeningLesson from "@/components/openings/GuidedOpeningLesson";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const OpeningLesson = () => {
   const { openingKey } = useParams();

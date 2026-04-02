@@ -2,6 +2,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { ChevronRight, Moon, Sun, Code } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "framer-motion";
+import { API } from "@/App";
 
 const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/c9263ac5c3e6cf8ed2eaf315c1308e2fe6cb6feafe328f091610d7fae02abf30.png";
 const COACH_EYES = "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/c88d28423f6c01a8e6fe222c26163e3840080d26944deba24ae81b4d029001ed.png";
@@ -15,29 +16,28 @@ const Landing = () => {
   const { theme, toggleTheme } = useTheme();
   const [devMode, setDevMode] = useState(false);
   const [devLoading, setDevLoading] = useState(false);
-  const API_URL = process.env.REACT_APP_BACKEND_URL || "";
 
   const getPostAuthRedirect = () => window.sessionStorage.getItem("post_auth_redirect") || "/dashboard";
 
   useEffect(() => {
     const checkDevMode = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/auth/status`);
+        const response = await fetch(`${API}/auth/status`);
         const data = await response.json();
         setDevMode(data.dev_mode === true);
       } catch (e) {}
     };
     checkDevMode();
-  }, [API_URL]);
+  }, []);
 
   const handleLogin = async () => {
-    const isEmergentEnv = window.location.hostname.includes("emergentagent") || window.location.hostname.includes("preview") || API_URL.includes("emergentagent") || API_URL.includes("preview");
+    const isEmergentEnv = window.location.hostname.includes("emergentagent") || window.location.hostname.includes("preview") || API.includes("emergentagent") || API.includes("preview");
     if (isEmergentEnv) {
       const redirectUrl = window.location.origin + getPostAuthRedirect();
       window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
     } else {
       try {
-        const response = await fetch(`${API_URL}/api/auth/google/login`);
+        const response = await fetch(`${API}/auth/google/login`);
         const data = await response.json();
         if (data.auth_url) window.location.href = data.auth_url;
         else alert("Login failed. Please try again.");
@@ -50,7 +50,7 @@ const Landing = () => {
   const handleDevLogin = async () => {
     setDevLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/dev-login`, { credentials: "include" });
+      const response = await fetch(`${API}/auth/dev-login`, { credentials: "include" });
       const data = await response.json();
       if (data.status === "ok") window.location.href = getPostAuthRedirect();
       else alert("Dev login failed");

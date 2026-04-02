@@ -18,8 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, BookOpen, Brain, Loader2, RefreshCw, Target } from "lucide-react";
 import { toast } from "sonner";
 import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const Lab = ({ user }) => {
   const { gameId } = useParams();

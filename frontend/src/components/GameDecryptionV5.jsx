@@ -46,8 +46,7 @@ import {
   Check
 } from "lucide-react";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName }) => {
   const [decryptionData, setDecryptionData] = useState(null);

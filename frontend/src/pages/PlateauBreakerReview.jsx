@@ -35,8 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import LichessBoard from "@/components/LichessBoard";
 import ClickableLine from "@/components/ClickableLine";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const PlateauBreakerReview = ({ user }) => {
   const { gameId } = useParams();

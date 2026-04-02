@@ -28,8 +28,7 @@ import { toast } from "sonner";
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const HabitChallenge = ({ onClose }) => {
   const boardRef = useRef(null);

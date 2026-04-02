@@ -30,8 +30,7 @@ import { Progress } from "@/components/ui/progress";
 import { MistakeFreeStreak } from "@/components/streak";
 import YourPatterns from "@/components/patterns/YourPatterns";
 import Layout from "@/components/Layout";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 // Map mistake types to user-friendly messages - HARSH but true
 const BLOCKER_MESSAGES = {

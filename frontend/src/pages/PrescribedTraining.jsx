@@ -32,8 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API } from "@/App";
 
 // Encouraging messages for puzzle completion
 const PUZZLE_ENCOURAGEMENTS = {
@@ -99,7 +98,7 @@ export default function PrescribedTraining() {
       setLoading(true);
       try {
         const response = await fetch(
-          `${API}/api/training/prescribed/${weakness}?num_puzzles=5`,
+          `${API}/training/prescribed/${weakness}?num_puzzles=5`,
           { credentials: "include" }
         );
         if (response.ok) {
@@ -190,7 +189,7 @@ export default function PrescribedTraining() {
   // Record puzzle attempt
   const recordAttempt = async (puzzle, solved) => {
     try {
-      await fetch(`${API}/api/training/puzzle-attempt`, {
+      await fetch(`${API}/training/puzzle-attempt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

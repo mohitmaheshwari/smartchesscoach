@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+import { API } from "@/App";
 
 // XP Progress Bar Component
 export const XPProgressBar = ({ progress, compact = false }) => {
@@ -324,8 +323,8 @@ export const GamificationDashboard = () => {
   const fetchData = async () => {
     try {
       const [progressRes, achievementsRes] = await Promise.all([
-        fetch(`${API_URL}/api/gamification/progress`, { credentials: 'include' }),
-        fetch(`${API_URL}/api/gamification/achievements`, { credentials: 'include' })
+        fetch(`${API}/gamification/progress`, { credentials: 'include' }),
+        fetch(`${API}/gamification/achievements`, { credentials: 'include' })
       ]);
       
       if (progressRes.ok) setProgress(await progressRes.json());
@@ -339,7 +338,7 @@ export const GamificationDashboard = () => {
   
   const claimDailyReward = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/gamification/daily-reward`, {
+      const res = await fetch(`${API}/gamification/daily-reward`, {
         method: 'POST',
         credentials: 'include'
       });

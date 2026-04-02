@@ -34,8 +34,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-const API = process.env.REACT_APP_BACKEND_URL || "";
+import { API } from "@/App";
 
 const BehavioralInsightCard = ({ gameId, lastGame }) => {
   const navigate = useNavigate();
@@ -51,7 +50,7 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
       }
       
       try {
-        const res = await fetch(`${API}/api/behavioral/analyze/${gameId}`, {
+        const res = await fetch(`${API}/behavioral/analyze/${gameId}`, {
           credentials: "include",
         });
         

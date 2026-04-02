@@ -15,8 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { AlertCircle, Target, ChevronRight, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const YourPatterns = ({ user }) => {
   const navigate = useNavigate();

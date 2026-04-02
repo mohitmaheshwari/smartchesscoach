@@ -7,8 +7,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { API } from "@/App";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 const useCoachGame = (user) => {

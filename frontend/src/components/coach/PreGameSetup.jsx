@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { Crown, Swords, RotateCcw } from "lucide-react";
-
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+import { API } from "@/App";
 
 const OpeningSuggestions = () => {
   const [data, setData] = useState(null);

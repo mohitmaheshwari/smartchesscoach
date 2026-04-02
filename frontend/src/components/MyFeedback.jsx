@@ -18,8 +18,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API } from "@/App";
 
 export default function MyFeedback() {
   const [feedback, setFeedback] = useState([]);
@@ -32,7 +31,7 @@ export default function MyFeedback() {
 
   const fetchFeedback = async () => {
     try {
-      const response = await fetch(`${API}/api/coach/pattern-learning/my-feedback`, {
+      const response = await fetch(`${API}/coach/pattern-learning/my-feedback`, {
         credentials: "include"
       });
       if (response.ok) {
