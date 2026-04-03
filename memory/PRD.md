@@ -40,6 +40,10 @@ A highly personalized, "coach-first" chess application with a modular, pedagogic
 4. **"Practice [pattern] puzzles"** button on Lab Coach's Pick card.
 5. **Merged coaching intelligence into HomePage** — Win streak banner, progress trend, mood suppression.
 
+### Phase 5 — Bug Fixes (April 3, 2026)
+1. **Inaccuracy Tone Fix** — Inaccuracies no longer get dramatic problem-focused language. Gentle educational messages only ("e5 is okay, but most players here go Nc6. Worth remembering!"). Mistakes/blunders keep full coaching.
+2. **Admin Feedback Export** — Export JSON button on Admin Dashboard → Feedback tab. Generates server-side file, shows inline preview, Copy JSON to clipboard.
+
 ## Key API Endpoints
 - `GET /api/lab-coach-pick` — Lab dashboard with decay-model pick_pattern
 - `GET /api/training/pattern-puzzles/:pattern` — Pattern puzzles (auto-backfills on first call)

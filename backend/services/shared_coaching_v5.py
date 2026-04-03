@@ -645,7 +645,20 @@ async def generate_move_coaching(
             best_move=best_move_san
         )
     
-    # ─── MISTAKE/INACCURACY ───
+    # ─── INACCURACY: gentle, educational tone ───
+    # Don't treat small deviations like major problems
+    if severity == "inaccuracy":
+        common_move = best_move_san or "another move"
+        return V5Coaching(
+            narrative=f"{board_before.san(move)} is fine, but most players here go {common_move}. Worth remembering!",
+            severity="inaccuracy",
+            better_approach=f"{common_move} is the more common choice here.",
+            candidate_moves=None,
+            is_user_move=True,
+            best_move=best_move_san
+        )
+    
+    # ─── MISTAKE / BLUNDER ───
     
     # ─── MATE BLUNDER CHECK (highest priority) ───
     if cp_loss >= 5000 or (pv_after_played and any("#" in m for m in pv_after_played[:4])):
@@ -852,6 +865,25 @@ def generate_piece_specific_coaching(
     # Derive learning from candidate types
     candidate_types = [c.get("type", "") for c in candidate_moves]
     transferable_learning = derive_transferable_learning(candidate_types, piece_type)
+    
+    # ── INACCURACY: gentle, educational tone ──
+    # Just mention what's commonly played — no dramatic language
+    if severity == "inaccuracy":
+        common_move = best_move_san or "another move"
+        return V5Coaching(
+            narrative=f"{move_san} is okay, but most players here go {common_move}. Worth remembering!",
+            severity=severity,
+            goal=None,
+            current_problem=None,
+            consequence=None,
+            better_approach=f"{common_move} is the more common choice here.",
+            transferable_learning=transferable_learning,
+            concept_id="common_alternative",
+            concept_type="general",
+            candidate_moves=candidate_moves
+        )
+    
+    # ── MISTAKE / BLUNDER: full coaching with problem + consequence ──
     
     # Knight mistakes
     if piece_type == chess.KNIGHT:

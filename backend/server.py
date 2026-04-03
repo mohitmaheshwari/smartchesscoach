@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, BackgroundTasks, Body
+from fastapi.responses import Response as FastAPIResponse
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -9127,13 +9128,7 @@ async def admin_export_feedback(
     source: str = None,
     user: User = Depends(require_admin),
 ):
-    """Export all feedback as structured JSON for developer handoff.
-    
-    Returns a developer-friendly array where each item contains:
-    - page, issue, expected, severity, steps_to_reproduce
-    - full diagnostics (FEN, move, CP loss, eval, best move)
-    - admin notes and status
-    """
+    """Export all feedback as a downloadable JSON file for developer handoff."""
     query = {}
     if status and status != "all":
         query["status"] = status
@@ -9179,13 +9174,40 @@ async def admin_export_feedback(
         }
         items.append(item)
 
-    return {
+    import json as json_lib
+    export_data = {
         "export_version": "1.0",
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "filters": {"status": status or "all", "source": source or "all"},
         "total": len(items),
         "feedback": items,
     }
+
+    # Write file to disk
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
+    filename = f"feedback-export-{today}.json"
+    export_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(export_dir, exist_ok=True)
+    filepath = os.path.join(export_dir, filename)
+    with open(filepath, "w") as f:
+        json_lib.dump(export_data, f, indent=2, ensure_ascii=False)
+
+    return {"file_url": f"/admin/feedback/download/{filename}", "filename": filename, "total": len(items)}
+
+
+@api_router.get("/admin/feedback/download/{filename}")
+async def admin_download_feedback_file(filename: str):
+    """Serve an exported feedback JSON file."""
+    from fastapi.responses import FileResponse
+    export_dir = os.path.join(os.path.dirname(__file__), "exports")
+    filepath = os.path.join(export_dir, filename)
+    if not os.path.exists(filepath) or ".." in filename:
+        raise HTTPException(status_code=404, detail="Export file not found")
+    return FileResponse(
+        path=filepath,
+        filename=filename,
+        media_type="application/octet-stream",
+    )
 
 
 # ============================================================================

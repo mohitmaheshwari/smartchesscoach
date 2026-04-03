@@ -13,7 +13,7 @@ import Layout from "@/components/Layout";
 import {
   Loader2, Users, BarChart3, MessageSquareWarning, Search,
   UserPlus, ShieldCheck, Shield, User as UserIcon, ChevronRight,
-  ArrowLeft, Flag, X, Clock, Eye, Gamepad2, Brain, BookOpen, Download,
+  ArrowLeft, Flag, X, Clock, Eye, Gamepad2, Brain, BookOpen, Download, Copy, Check,
 } from "lucide-react";
 
 const WINE = "#722F37";
@@ -459,7 +459,6 @@ const FeedbackTab = () => {
   const [sourceFilter, setSourceFilter] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [adminNotes, setAdminNotes] = useState("");
-  const [exporting, setExporting] = useState(false);
 
   const fetchFeedback = useCallback(async () => {
     setLoading(true);
@@ -481,6 +480,10 @@ const FeedbackTab = () => {
 
   useEffect(() => { fetchFeedback(); }, [fetchFeedback]);
 
+  const [exportJson, setExportJson] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -488,21 +491,29 @@ const FeedbackTab = () => {
       if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
       if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
       const res = await fetch(`${API}/admin/feedback/export?${params}`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `feedback-export-${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+      if (!res.ok) {
+        alert(`Export failed: ${(await res.json().catch(() => ({}))).detail || res.statusText}`);
+        return;
       }
+      const meta = await res.json();
+      // Fetch the actual file
+      const fileRes = await fetch(`${API}${meta.file_url}`, { credentials: "include" });
+      if (!fileRes.ok) { alert("Failed to fetch export file"); return; }
+      const text = await fileRes.text();
+      setExportJson(text);
+      setCopied(false);
+    } catch (e) {
+      alert(`Export error: ${e.message}`);
     } finally {
       setExporting(false);
     }
+  };
+
+  const handleCopy = async () => {
+    if (!exportJson) return;
+    await navigator.clipboard.writeText(exportJson);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const updateStatus = async (feedbackId, status) => {
@@ -555,13 +566,41 @@ const FeedbackTab = () => {
           className="px-3 py-2 text-sm text-white rounded-sm flex items-center gap-1.5 font-light disabled:opacity-50"
           style={{ background: WINE }}
           onClick={handleExport}
-          disabled={exporting || total === 0}
+          disabled={total === 0 || exporting}
           data-testid="export-feedback-btn"
         >
           {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
           Export JSON
         </button>
+        {exportJson && (
+          <button
+            className="px-3 py-2 text-sm rounded-sm flex items-center gap-1.5 font-light border"
+            style={{ color: copied ? "#16a34a" : WINE, borderColor: copied ? "#16a34a" : WINE }}
+            onClick={handleCopy}
+            data-testid="copy-feedback-btn"
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? "Copied!" : "Copy JSON"}
+          </button>
+        )}
       </div>
+
+      {/* Export JSON Preview */}
+      {exportJson && (
+        <Card data-testid="export-preview">
+          <div className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] tracking-[0.15em] uppercase font-mono" style={{ color: GOLD_TEXT }}>Export Preview</span>
+              <button className="text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setExportJson(null)}>
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            <pre className="text-[11px] font-mono bg-zinc-50 border rounded-sm p-3 max-h-64 overflow-auto whitespace-pre-wrap" style={{ borderColor: BORDER }} data-testid="export-json-preview">
+              {exportJson}
+            </pre>
+          </div>
+        </Card>
+      )}
 
       {loading ? <Spinner /> : feedback.length === 0 ? (
         <div className="text-center py-16" data-testid="feedback-empty">
