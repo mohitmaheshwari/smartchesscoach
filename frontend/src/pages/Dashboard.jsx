@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import { Loader2, Import, ChevronRight, Check, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { Loader2, Import, ChevronRight, Check, TrendingDown, TrendingUp, Minus, Target } from "lucide-react";
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
@@ -50,6 +50,7 @@ const Dashboard = ({ user }) => {
 
   const pick = data?.pick;
   const pickReason = data?.pick_reason;
+  const pickPattern = data?.pick_pattern;
   const verdict = data?.verdict;
   const games = data?.games || [];
   const reviewedCount = data?.reviewed_count || 0;
@@ -138,6 +139,22 @@ const Dashboard = ({ user }) => {
 
                 {/* The reason — this is the coach talking */}
                 <p className="text-sm leading-relaxed text-foreground/80" data-testid="coach-pick-reason">{pickReason}</p>
+
+                {/* Train this pattern button */}
+                {pickPattern && (
+                  <button
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/training/pattern/${pickPattern}`);
+                    }}
+                    data-testid="train-pattern-btn"
+                  >
+                    <Target className="w-3 h-3" />
+                    Practice {pickPattern.replace(/_/g, " ")} puzzles
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>

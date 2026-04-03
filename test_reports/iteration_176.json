@@ -1,0 +1,88 @@
+{
+  "summary": "Decay Model & Pattern Training Testing - All backend APIs pass (15/15). Frontend Lab page shows Coach Pick with realistic counts (2 times, not 100+), train pattern button works, PatternTraining page loads correctly with 'No puzzles' message. Home page loads with progress trend and pattern data.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_decay_model_puzzles.py",
+    "/app/test_reports/pytest/test_decay_model_puzzles.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Decay model correctly uses DECAY_RATE=0.85 and RECOVERY_CREDIT=0.3 to produce realistic counts",
+    "Pattern training page handles empty puzzle state gracefully with 'No training puzzles' message",
+    "Lab page pick_reason shows '2 times recently' instead of inflated 100+ counts - decay model working"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_decay_model_puzzles.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed, 1 skipped)",
+    "frontend": "100% (Lab page, PatternTraining page, Home page all load correctly)"
+  },
+  "test_credentials": "Dev mode: DEV_MODE=true, dev_user_local via dev_mode cookie",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Decay model and pattern training features are fully implemented. The lab-coach-pick endpoint returns pick_pattern field. PatternTraining page at /training/pattern/:pattern shows 'No puzzles' message when no puzzles are available (expected - puzzles need to be extracted from analyzed games with move_evaluations containing fen_before, best_move_san, and cognitive_gap fields). The puzzle extraction happens via POST /api/training/extract-puzzles but requires game_analyses to have proper stockfish_analysis.move_evaluations data.",
+  "backend_test_results": {
+    "TestLabCoachPick": {
+      "test_lab_coach_pick_returns_200": "PASS",
+      "test_lab_coach_pick_has_pick_pattern_field": "PASS",
+      "test_lab_coach_pick_realistic_counts": "PASS",
+      "test_lab_coach_pick_verdict_structure": "PASS",
+      "test_lab_coach_pick_games_list": "PASS"
+    },
+    "TestPatternPuzzles": {
+      "test_pattern_puzzles_piece_safety": "PASS",
+      "test_pattern_puzzles_missed_tactic": "PASS",
+      "test_pattern_puzzles_unknown_pattern": "PASS"
+    },
+    "TestExtractPuzzles": {
+      "test_extract_puzzles_returns_200": "PASS"
+    },
+    "TestPuzzleAttempt": {
+      "test_puzzle_attempt_records_success": "PASS",
+      "test_puzzle_attempt_records_failure": "PASS"
+    },
+    "TestCoachHomeIntelligence": {
+      "test_coach_home_intelligence_returns_200": "PASS"
+    },
+    "TestDecayModelService": {
+      "test_decay_model_import": "PASS",
+      "test_compute_pattern_scores_empty": "PASS",
+      "test_compute_pattern_scores_with_gaps": "PASS"
+    }
+  },
+  "frontend_test_results": {
+    "Lab_page_loads": "PASS - data-testid='lab-page' found",
+    "Coach_Pick_card": "PASS - data-testid='coach-pick-card' found",
+    "Pick_reason_realistic_count": "PASS - Shows '2 times recently' not 100+",
+    "Train_pattern_button": "PASS - data-testid='train-pattern-btn' found with text 'Practice piece safety puzzles'",
+    "Pattern_training_navigation": "PASS - Navigates to /training/pattern/piece_safety",
+    "Pattern_training_page": "PASS - data-testid='pattern-training-page' found",
+    "No_puzzles_message": "PASS - data-testid='no-puzzles-message' displayed (expected)",
+    "Home_page_loads": "PASS - data-testid='home-page' found",
+    "Progress_trend_data": "PASS - Shows 'Steady progress' message",
+    "Pattern_counts": "PASS - Shows 'Leaving Pieces Hanging 3x', 'Missing Tactics 2x'"
+  },
+  "features_verified": {
+    "BACKEND_lab_coach_pick_returns_pick_pattern": "VERIFIED - pick_pattern field returned",
+    "BACKEND_lab_coach_pick_realistic_counts": "VERIFIED - Shows '2 times recently' not 100+",
+    "BACKEND_pattern_puzzles_returns_structure": "VERIFIED - Returns pattern, own_puzzles, community_puzzles, total_available, unsolved_count, solved_count",
+    "BACKEND_extract_puzzles_returns_count": "VERIFIED - Returns puzzles_created count",
+    "BACKEND_puzzle_attempt_records": "VERIFIED - Returns success=true",
+    "FRONTEND_lab_page_coach_pick": "VERIFIED - Shows pick_reason text",
+    "FRONTEND_train_pattern_button": "VERIFIED - data-testid='train-pattern-btn' present",
+    "FRONTEND_pattern_training_navigation": "VERIFIED - Navigates to /training/pattern/piece_safety",
+    "FRONTEND_pattern_training_page": "VERIFIED - data-testid='pattern-training-page' loads",
+    "FRONTEND_no_puzzles_message": "VERIFIED - Shows 'No training puzzles' when empty",
+    "FRONTEND_home_page_loads": "VERIFIED - Progress trend and win streak data displayed"
+  }
+}

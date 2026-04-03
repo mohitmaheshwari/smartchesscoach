@@ -15,6 +15,7 @@ import WeaknessTracker from "@/pages/WeaknessTracker";
 import Training from "@/pages/TrainingNew";  // Legacy training
 import ThinkingTraining from "@/pages/ThinkingTraining";  // NEW: Thinking-focused training
 import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles based on weaknesses
+import PatternTraining from "@/pages/PatternTraining";  // Pattern-specific puzzle training
 import OpeningQuizPage from "@/pages/OpeningQuizPage";  // Opening mastery quiz
 import OpeningRepertoire from "@/pages/OpeningRepertoire";  // Opening Training Lab
 import OpeningLesson from "@/pages/OpeningLesson";  // Individual opening lessons
@@ -259,6 +260,11 @@ function AppRouter() {
       <Route path="/training/prescribed" element={
         <ProtectedRoute>
           {({ user }) => <PrescribedTraining user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/training/pattern/:pattern" element={
+        <ProtectedRoute>
+          {({ user }) => <PatternTraining user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/training/quiz/:openingKey" element={

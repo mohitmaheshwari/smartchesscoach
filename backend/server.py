@@ -5169,29 +5169,20 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     unreviewed = [g for g in enriched if not g["reviewed"]]
     pick = None
     pick_reason = ""
+    pick_pattern = ""
 
     if unreviewed:
-        # Count pattern frequency across all games
-        pattern_counts = {}
-        for g in enriched:
-            for gap in g["cognitive_gaps"]:
-                pattern_counts[gap] = pattern_counts.get(gap, 0) + 1
+        # Use recency-weighted decay model instead of raw counts
+        from services.pattern_decay_service import compute_pattern_scores, pick_best_game
 
-        # Priority 1: Recurring pattern (game has a pattern that appears 3+ times across games)
-        for g in unreviewed:
-            if g["result"] == "W" and g["blunders"] == 0:
-                continue  # skip clean wins
-            for gap in g["cognitive_gaps"]:
-                if pattern_counts.get(gap, 0) >= 3:
-                    pick = g
-                    readable = gap.replace("_", " ")
-                    if g.get("lesson"):
-                        pick_reason = f'This game shows a pattern I keep seeing: "{g["lesson"]}" You\'ve done this {pattern_counts[gap]} times now.'
-                    else:
-                        pick_reason = f"You've made this mistake ({readable}) {pattern_counts[gap]} times. Let's fix it here."
-                    break
-            if pick:
-                break
+        pattern_scores = compute_pattern_scores(enriched)
+
+        # Priority 1: Pattern-based pick using decay model
+        picked, reason, pattern_key, score_data = pick_best_game(unreviewed, pattern_scores)
+        if picked:
+            pick = picked
+            pick_reason = reason
+            pick_pattern = pattern_key
 
         # Priority 2: Thrown game (was winning, lost)
         if not pick:
@@ -5250,6 +5241,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     return {
         "pick": pick,
         "pick_reason": pick_reason,
+        "pick_pattern": pick_pattern,
         "verdict": {"wins": wins, "losses": losses, "total": len(recent), "insight": insight},
         "games": enriched,
         "reviewed_count": sum(1 for g in enriched if g["reviewed"]),
@@ -5265,6 +5257,31 @@ async def mark_game_reviewed(game_id: str, user: User = Depends(get_current_user
         {"$set": {"reviewed": True, "reviewed_at": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()}}
     )
     return {"success": result.modified_count > 0}
+
+
+@api_router.get("/training/pattern-puzzles/{pattern}")
+async def get_pattern_puzzles(
+    pattern: str,
+    limit: int = 15,
+    user: User = Depends(get_current_user),
+):
+    """
+    Get training puzzles for a specific cognitive gap pattern.
+    Returns user's own game positions first, then community puzzles.
+    Excludes already-solved puzzles.
+    """
+    from services.puzzle_extraction_service import get_pattern_training_puzzles
+    return await get_pattern_training_puzzles(db, user.user_id, pattern, limit)
+
+
+@api_router.post("/training/extract-puzzles")
+async def extract_puzzles_endpoint(user: User = Depends(get_current_user)):
+    """
+    Backfill/extract puzzles from user's analyzed games into the community pool.
+    """
+    from services.puzzle_extraction_service import backfill_puzzles_for_user
+    count = await backfill_puzzles_for_user(db, user.user_id)
+    return {"puzzles_created": count, "message": f"Extracted {count} training positions from your games."}
 
 
 @api_router.post("/lab/{game_id}/complete-review")

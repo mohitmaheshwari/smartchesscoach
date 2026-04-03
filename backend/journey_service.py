@@ -758,6 +758,13 @@ RULES:
             {"game_id": game_id},
             {"$set": {"is_analyzed": True}}
         )
+
+        # Auto-extract training puzzles from blunders
+        try:
+            from services.puzzle_extraction_service import extract_puzzles_from_game
+            await extract_puzzles_from_game(db, game_id, user_id)
+        except Exception as puzzle_err:
+            logger.warning(f"Puzzle extraction failed for {game_id}: {puzzle_err}")
         
         # Update player profile
         await update_profile_after_analysis(
