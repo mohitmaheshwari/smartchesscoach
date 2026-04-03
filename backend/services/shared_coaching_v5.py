@@ -635,6 +635,50 @@ async def generate_move_coaching(
             future_moves=pv_after_played[:3] if pv_after_played else None
         )
     
+    # ─── BRILLIANT USER MOVE ───
+    # Check if the move data contains brilliant/sacrifice flags
+    is_sacrifice = False
+    is_brilliant = False
+    if hasattr(board_before, '_move_meta'):
+        is_sacrifice = board_before._move_meta.get('is_sacrifice', False)
+        is_brilliant = board_before._move_meta.get('is_brilliant', False)
+
+    # Also detect inline: sacrifice = giving up more material than capturing
+    if not is_sacrifice and board_before.is_capture(move):
+        moving_piece = board_before.piece_at(move.from_square)
+        captured_piece = board_before.piece_at(move.to_square)
+        if moving_piece and captured_piece:
+            piece_vals = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9, 6: 0}
+            mv = piece_vals.get(moving_piece.piece_type, 0)
+            cv = piece_vals.get(captured_piece.piece_type, 0)
+            if mv > cv + 1 and cp_loss <= 10:
+                is_sacrifice = True
+
+    if is_brilliant or (is_sacrifice and cp_loss <= 0):
+        sac_piece = piece_name
+        narratives = [
+            f"Wow! {move_san} — a brilliant sacrifice! You gave up your {sac_piece} and it works perfectly.",
+            f"Incredible! {move_san} is a brilliant move. Sacrificing the {sac_piece} here takes real vision.",
+            f"This is the kind of move that wins games. {move_san} — a calculated sacrifice that your opponent can't handle.",
+            f"Beautiful! {move_san} — you saw deeper than the obvious. The {sac_piece} sacrifice is the only way to win here.",
+        ]
+        import random
+        return V5Coaching(
+            narrative=random.choice(narratives),
+            severity="brilliant",
+            is_user_move=True,
+            best_move=best_move_san,
+            transferable_learning=f"You found a sacrifice that was the only winning move. This shows strong tactical vision and calculation depth.",
+        )
+
+    if is_sacrifice and cp_loss <= 30:
+        return V5Coaching(
+            narrative=f"Bold! {move_san} — sacrificing the {piece_name}. A creative decision that keeps you in the fight.",
+            severity="good",
+            is_user_move=True,
+            best_move=best_move_san,
+        )
+
     # ─── GOOD USER MOVE ───
     if severity == "good":
         narrative = generate_good_move_narrative(board_before, move, best_move_san, piece_name)

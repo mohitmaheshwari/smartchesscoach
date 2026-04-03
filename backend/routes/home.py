@@ -399,7 +399,7 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
                 # Add behavioral data from analysis
                 last_analysis = await db.game_analyses.find_one(
                     {"game_id": game_id, "user_id": user.user_id},
-                    {"_id": 0, "coach_summary": 1, "decryption_v5_data.core_lesson": 1}
+                    {"_id": 0, "coach_summary": 1, "decryption_v5_data.core_lesson": 1, "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.brilliant_moves": 1, "stockfish_analysis.sacrifices": 1}
                 )
                 if last_analysis and result["last_battle"]:
                     cs = last_analysis.get("coach_summary", {}) or {}
@@ -408,6 +408,24 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
                     cl = (dd or {}).get("core_lesson", {}) or {}
                     result["last_battle"]["behavior"] = cs.get("behavioral_insight") or cs.get("key_observation") or ""
                     result["last_battle"]["lesson_label"] = cl.get("short_label", "")
+
+                    # Add brilliant/sacrifice data
+                    sf = last_analysis.get("stockfish_analysis", {})
+                    brilliant_count = sf.get("brilliant_moves", 0)
+                    sacrifice_count = sf.get("sacrifices", 0)
+
+                    # Also count from move evaluations if top-level stats not yet populated
+                    if not brilliant_count:
+                        me = sf.get("move_evaluations", [])
+                        brilliant_count = sum(1 for e in me if e.get("is_brilliant"))
+                        sacrifice_count = sum(1 for e in me if e.get("is_sacrifice"))
+
+                    result["last_battle"]["brilliant_moves"] = brilliant_count
+                    result["last_battle"]["sacrifices"] = sacrifice_count
+
+                    # Override lesson_label for brilliant games
+                    if brilliant_count > 0 and not result["last_battle"]["lesson_label"]:
+                        result["last_battle"]["lesson_label"] = "Brilliant sacrifice" if sacrifice_count > 0 else "Brilliant play"
 
                 # Compute summary + memory
                 summary = compute_game_summary(evals, game_result, user_color, last_game.get("opening", ""))
@@ -506,6 +524,26 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
             "reviewed": total_reviewed,
             "pending": pending_review,
         }
+
+        # ── STRENGTH PROFILE ──
+        try:
+            strength = await db.player_strength_profiles.find_one(
+                {"user_id": user.user_id}, {"_id": 0}
+            )
+            if strength:
+                result["strength_profile"] = {
+                    "overall_score": strength.get("overall_score", 0),
+                    "overall_label": strength.get("overall_label", "emerging"),
+                    "strongest": strength.get("strongest"),
+                    "weakest": strength.get("weakest"),
+                    "headline_stats": strength.get("headline_stats", {}),
+                    "domains": {
+                        k: {"score": v.get("score", 0), "label": v.get("label", "emerging")}
+                        for k, v in (strength.get("domains") or {}).items()
+                    },
+                }
+        except Exception as sp_err:
+            logger.debug(f"Strength profile not available: {sp_err}")
 
     except Exception as e:
         logger.error(f"Home dashboard V2 error: {e}")

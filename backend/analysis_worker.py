@@ -945,6 +945,8 @@ def process_job(db, job):
                 "inaccuracies": sf_stats.get("inaccuracies", 0),
                 "best_moves": sf_stats.get("best_moves", 0),
                 "excellent_moves": sf_stats.get("excellent_moves", 0),
+                "brilliant_moves": sf_stats.get("brilliant_moves", 0),
+                "sacrifices": sf_stats.get("sacrifices", 0),
                 "avg_cp_loss": sf_stats.get("avg_cp_loss", 0),
                 "move_evaluations": move_evaluations
             },
@@ -1000,6 +1002,17 @@ def process_job(db, job):
             move_evaluations
         )
         
+        # =========================================================================
+        # PHASE 3.3b: UPDATE STRENGTH PROFILE
+        # Tracks what user is GOOD at (tactics, calculation, positional, etc.)
+        # =========================================================================
+        try:
+            from services.strength_profile_service import build_strength_profile_sync
+            build_strength_profile_sync(db, user_id, max_games=30)
+            logger.info(f"[STRENGTH] Updated strength profile for {user_id}")
+        except Exception as strength_err:
+            logger.warning(f"[STRENGTH] Failed to update (non-fatal): {strength_err}")
+
         # =========================================================================
         # PHASE 3.4: CALCULATE AND STORE TURNING POINT
         # For blind spots tracking on home page

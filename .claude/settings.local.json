@@ -2,6 +2,8 @@
   "permissions": {
     "allow": [
       "Read",
+      "Glob",
+      "Grep",
       "Bash(ls -1 test_*.py)",
       "Bash(wc -l test_*.py)",
       "Bash(python -c ':*)",

@@ -88,6 +88,14 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             if gap and e.get("cp_loss", 0) >= 100:
                 cognitive_gaps.append(gap)
 
+        # Count brilliant moves and sacrifices in this game
+        brilliant_count = sum(1 for e in evals if e.get("is_brilliant"))
+        sacrifice_count = sum(1 for e in evals if e.get("is_sacrifice"))
+        brilliant_moves_detail = [
+            {"move": e.get("move", ""), "move_number": e.get("move_number", 0)}
+            for e in evals if e.get("is_brilliant")
+        ]
+
         opp = g.get("opponent_name") or (g.get("white_player") if uc == "black" else g.get("black_player")) or ""
 
         # Behavioral data from enriched analysis
@@ -97,6 +105,11 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         if isinstance(decrypt_data, list):
             decrypt_data = {}  # Fallback if it's a list
         core_les = (decrypt_data or {}).get("core_lesson", {}) or {}
+
+        # Override lesson_label for games with brilliant play
+        lesson_label = core_les.get("short_label", "")
+        if brilliant_count > 0 and not lesson_label:
+            lesson_label = f"Brilliant sacrifice" if sacrifice_count > 0 else "Brilliant play"
 
         enriched.append({
             "game_id": gid,
@@ -113,8 +126,11 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "opening": g.get("opening", ""),
             "summary_headline": g.get("summary", {}).get("headline") if isinstance(g.get("summary"), dict) else None,
             "behavior": coach_sum.get("behavioral_insight") or coach_sum.get("key_observation") or "",
-            "lesson_label": core_les.get("short_label", ""),
+            "lesson_label": lesson_label,
             "lesson": core_les.get("lesson", ""),
+            "brilliant_moves": brilliant_count,
+            "sacrifices": sacrifice_count,
+            "brilliant_detail": brilliant_moves_detail,
         })
 
     # ── SMART PICK: find the best unreviewed game ──

@@ -721,6 +721,28 @@ async def get_player_strengths(user: User = Depends(get_current_user)):
         "estimated_elo": profile.get("estimated_elo", 1200)
     }
 
+@router.get("/profile/strength-profile")
+async def get_strength_profile(user: User = Depends(get_current_user)):
+    """
+    Get comprehensive strength profile — what the user is GOOD at.
+
+    Returns per-domain scores (0-100):
+    - tactical_vision: brilliant moves, sacrifices, tactical accuracy
+    - calculation_depth: deep calculation, defense under pressure
+    - positional_sense: quiet position accuracy, middlegame quality
+    - endgame_technique: endgame accuracy
+    - opening_knowledge: opening accuracy
+    - pressure_handling: performance when winning/losing/equal
+
+    Each domain includes a score, estimated rating, and evidence.
+    """
+    from services.strength_profile_service import build_strength_profile_for_user
+
+    profile = await build_strength_profile_for_user(db, user.user_id, max_games=30)
+
+    return profile
+
+
 @router.patch("/profile/preferences")
 async def update_coaching_preferences(
     req: UpdateCoachingPreferencesRequest,

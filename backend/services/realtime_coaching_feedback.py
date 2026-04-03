@@ -71,6 +71,10 @@ class MoveFeedback:
     consequence: Optional[str] = None  # Specific consequence of the move
     fen_before: Optional[str] = None  # Position before the move
     piece_moved: Optional[str] = None  # Which piece moved
+
+    # Brilliant/sacrifice detection
+    is_sacrifice: bool = False
+    is_brilliant: bool = False
     
     def to_dict(self) -> Dict:
         result = {
@@ -263,6 +267,24 @@ def _generate_coaching_message(
     name = user_name or "friend"
     is_beginner = user_rating < 1000
     
+    # ========== BRILLIANT MOVES ==========
+    if quality == "brilliant":
+        brilliant_phrases = [
+            f"BRILLIANT! {user_move} — that sacrifice is absolutely stunning! You saw what the engine sees!",
+            f"Wow {name}! {user_move} is a BRILLIANT sacrifice! This is the kind of move that makes chess beautiful!",
+            f"Incredible! {user_move} — giving up material to win. This shows real calculation depth, {name}!",
+            f"That's a world-class move! {user_move} — a sacrifice that was the only way to win. Outstanding vision!",
+            f"BRILLIANT {name}! {user_move} — you calculated deeper than the surface. This is elite-level play!",
+        ]
+        result["coaching_message"] = random.choice(brilliant_phrases)
+        result["encouragement"] = random.choice([
+            "That was genuinely impressive.",
+            "Moves like this show real chess understanding.",
+            "Your tactical vision is sharp today!",
+            "Remember this moment — this is your best chess.",
+        ])
+        return result
+
     # ========== EXCELLENT MOVES ==========
     if quality == "excellent":
         excellent_phrases = [
@@ -499,6 +521,32 @@ async def generate_move_feedback(
             logger.warning(f"Chess Brain feedback failed, falling back: {e}")
     # ===== END CHESS BRAIN INTEGRATION =====
     
+    # ===== SACRIFICE & BRILLIANT DETECTION =====
+    is_sacrifice = False
+    is_brilliant = False
+    if fen_before and user_move and quality in ("best", "excellent", "good"):
+        try:
+            sac_board = chess.Board(fen_before)
+            move_obj = sac_board.parse_san(user_move)
+            if sac_board.is_capture(move_obj):
+                piece_vals = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9, 6: 0}
+                moving = sac_board.piece_at(move_obj.from_square)
+                captured = sac_board.piece_at(move_obj.to_square)
+                if moving and captured:
+                    mv = piece_vals.get(moving.piece_type, 0)
+                    cv = piece_vals.get(captured.piece_type, 0)
+                    if mv > cv + 1:
+                        is_sacrifice = True
+                        # Check if it was the only good move (eval improved or stayed)
+                        cp_diff = eval_after - eval_before
+                        if user_color == "black":
+                            cp_diff = -cp_diff
+                        if cp_diff >= -10:  # Position stayed good or improved
+                            is_brilliant = True
+                            quality = "brilliant"
+        except Exception:
+            pass
+
     # Tactical analysis
     tactical = {}
     if fen_before and user_move:
@@ -741,7 +789,9 @@ async def generate_move_feedback(
         golden_rule=golden_rule,
         consequence=consequence,
         fen_before=fen_before,
-        piece_moved=piece_moved
+        piece_moved=piece_moved,
+        is_sacrifice=is_sacrifice,
+        is_brilliant=is_brilliant
     )
 
 

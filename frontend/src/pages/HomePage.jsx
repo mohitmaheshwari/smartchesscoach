@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
-import { ChevronRight, Swords, Target, Import, BookOpen, FlaskConical, Check, Trophy, TrendingUp, ArrowRight } from "lucide-react";
+import { ChevronRight, Swords, Target, Import, BookOpen, FlaskConical, Check, Trophy, TrendingUp, ArrowRight, Zap, Brain, Shield, Crown, Clock } from "lucide-react";
 
 const HomePage = ({ user }) => {
   const navigate = useNavigate();
@@ -50,6 +50,8 @@ const HomePage = ({ user }) => {
   const moodOverride = coachIntel?.mood_override;
   const progressTrend = coachIntel?.progress_trend;
   const suppressNegative = moodOverride?.suppress_negative;
+
+  const strengthProfile = data?.strength_profile;
 
   const topPattern = patterns[0];
   const coachMessage = topPattern
@@ -200,6 +202,12 @@ const HomePage = ({ user }) => {
                             <span className="text-xs text-muted-foreground/40 hidden sm:inline">{battle.opening}</span>
                           )}
                         </div>
+                        {battle.brilliant_moves > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md border border-amber-500/20 mr-1.5 mb-1">
+                            <Zap className="w-2.5 h-2.5" strokeWidth={2.5} />
+                            {battle.brilliant_moves > 1 ? `${battle.brilliant_moves} brilliant` : "brilliant"}
+                          </span>
+                        )}
                         {battle.lesson_label && (
                           <span className="inline-block text-[9px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/10 px-1.5 py-0.5 rounded mr-1.5 mb-1">
                             {battle.lesson_label}
@@ -294,8 +302,68 @@ const HomePage = ({ user }) => {
           </div>
         </motion.div>
 
+        {/* ── STRENGTH PROFILE ── */}
+        {strengthProfile && strengthProfile.domains && Object.keys(strengthProfile.domains).length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <Label>Your Strengths</Label>
+              {strengthProfile.headline_stats?.brilliant_moves > 0 && (
+                <div className="flex items-center gap-1.5 text-xs font-mono text-primary">
+                  <Zap className="w-3 h-3" strokeWidth={2} />
+                  {strengthProfile.headline_stats.brilliant_moves} brilliant move{strengthProfile.headline_stats.brilliant_moves !== 1 ? "s" : ""}
+                </div>
+              )}
+            </div>
+            <div className="bg-card border border-border rounded-xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2" />
+              <div className="relative">
+                {/* Domain bars */}
+                <div className="space-y-3">
+                  {STRENGTH_DOMAINS.map(({ key, label, icon: Icon }) => {
+                    const domain = strengthProfile.domains[key];
+                    if (!domain) return null;
+                    const isStrongest = strengthProfile.strongest === key;
+                    return (
+                      <div key={key} className="flex items-center gap-3">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${isStrongest ? "bg-emerald-500/15" : "bg-muted/50"}`}>
+                          <Icon className={`w-3.5 h-3.5 ${isStrongest ? "text-emerald-500" : "text-muted-foreground"}`} strokeWidth={1.5} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs font-medium ${isStrongest ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground">{domain.score}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${isStrongest ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                              style={{ width: `${Math.max(domain.score, 3)}%` }}
+                            />
+                          </div>
+                        </div>
+                        {isStrongest && (
+                          <span className="text-[8px] font-bold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded flex-shrink-0">best</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Headline */}
+                {strengthProfile.strongest && strengthProfile.weakest && (
+                  <div className="mt-4 pt-3 border-t border-border/50 text-xs text-muted-foreground">
+                    <span className="text-emerald-500 font-medium">{DOMAIN_LABELS[strengthProfile.strongest]}</span>
+                    {" is your strongest area. "}
+                    <span className="text-amber-400 font-medium">{DOMAIN_LABELS[strengthProfile.weakest]}</span>
+                    {" needs the most work."}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── FOOTER STATS ── */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.22 }}
           className="flex items-center justify-between text-muted-foreground/40 mt-8 pt-4 border-t border-border/50"
         >
           <span className="text-[11px] font-mono">{gamesAnalyzed} games</span>
@@ -304,6 +372,26 @@ const HomePage = ({ user }) => {
       </div>
     </Layout>
   );
+};
+
+// ── Strength Profile Config ──
+
+const STRENGTH_DOMAINS = [
+  { key: "tactical_vision", label: "Tactical Vision", icon: Zap },
+  { key: "calculation_depth", label: "Calculation", icon: Brain },
+  { key: "positional_sense", label: "Positional Sense", icon: Target },
+  { key: "endgame_technique", label: "Endgame", icon: Crown },
+  { key: "opening_knowledge", label: "Openings", icon: BookOpen },
+  { key: "pressure_handling", label: "Under Pressure", icon: Shield },
+];
+
+const DOMAIN_LABELS = {
+  tactical_vision: "Tactical Vision",
+  calculation_depth: "Calculation",
+  positional_sense: "Positional Sense",
+  endgame_technique: "Endgame",
+  opening_knowledge: "Openings",
+  pressure_handling: "Pressure Handling",
 };
 
 // ── Reusable Components ──

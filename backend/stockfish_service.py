@@ -51,6 +51,16 @@ CP_THRESHOLDS = {
     "blunder": float('inf')  # > 300 cp loss
 }
 
+# Piece values for sacrifice detection
+PIECE_VALUES = {
+    chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+    chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0
+}
+
+# Minimum eval gap between best and 2nd-best move to qualify as "only good move" (cp)
+BRILLIANT_MULTIPV_GAP = 150
+
+
 @dataclass
 class MoveEvaluation:
     """Evaluation result for a single move"""
@@ -62,7 +72,7 @@ class MoveEvaluation:
     eval_before: int        # Centipawn evaluation before the move (from white's perspective)
     eval_after: int         # Centipawn evaluation after the move
     cp_loss: int            # Centipawn loss (always positive, 0 = best move)
-    classification: str     # blunder, mistake, inaccuracy, good, excellent, best
+    classification: str     # blunder, mistake, inaccuracy, good, excellent, best, brilliant
     best_move_san: str      # What Stockfish recommended
     best_move_uci: str
     is_mate_before: bool    # Was there a forced mate before this move?
@@ -77,6 +87,8 @@ class MoveEvaluation:
     fen_after: str = None                # FEN position after the move
     is_turning_point: bool = False       # Eval swing >= 120cp
     eval_swing: int = 0                  # Absolute eval change
+    is_sacrifice: bool = False           # Material sacrifice detected
+    is_brilliant: bool = False           # Brilliant move (sacrifice + only good move)
 
 @dataclass
 class GameAnalysis:
@@ -225,7 +237,7 @@ class StockfishEngine:
         """Classify a move based on centipawn loss"""
         if missed_mate:
             return MoveClassification.BLUNDER
-        
+
         if cp_loss <= 0:
             return MoveClassification.BEST
         elif cp_loss <= CP_THRESHOLDS["excellent"]:
@@ -238,6 +250,101 @@ class StockfishEngine:
             return MoveClassification.MISTAKE
         else:
             return MoveClassification.BLUNDER
+
+    def is_sacrifice(self, board: chess.Board, move: chess.Move) -> bool:
+        """
+        Detect if a move is a material sacrifice.
+
+        A sacrifice means giving up more material than you capture.
+        Examples: Queen takes pawn, Rook takes pawn, piece for pawn.
+        Does NOT count equal exchanges (knight takes knight).
+        """
+        if not board.is_capture(move):
+            return False
+
+        moving_piece = board.piece_at(move.from_square)
+        captured_piece = board.piece_at(move.to_square)
+
+        # En passant
+        if captured_piece is None and moving_piece and moving_piece.piece_type == chess.PAWN:
+            return False
+
+        if not moving_piece or not captured_piece:
+            return False
+
+        moving_value = PIECE_VALUES.get(moving_piece.piece_type, 0)
+        captured_value = PIECE_VALUES.get(captured_piece.piece_type, 0)
+
+        # Sacrifice = giving up strictly more material (at least 2 points gap)
+        return moving_value > captured_value + 1
+
+    def detect_brilliant(self, board: chess.Board, move: chess.Move, depth: int = DEFAULT_DEPTH) -> bool:
+        """
+        Detect if a move qualifies as brilliant.
+
+        Chess.com criteria (simplified):
+        1. The move is a sacrifice (gives up material)
+        2. The move is the ONLY good move (all alternatives are significantly worse)
+        3. The move is not a simple recapture
+
+        Uses MultiPV analysis to check if alternatives are much worse.
+        """
+        if not self.engine:
+            return False
+
+        # Must be a sacrifice
+        if not self.is_sacrifice(board, move):
+            return False
+
+        # Skip simple recaptures (if opponent just captured on the same square)
+        if board.move_stack:
+            last_move = board.move_stack[-1]
+            if last_move.to_square == move.to_square:
+                return False
+
+        try:
+            # MultiPV analysis: get top 3 moves
+            infos = self.engine.analyse(
+                board,
+                chess.engine.Limit(depth=max(depth, 18)),
+                multipv=3
+            )
+
+            if not infos or len(infos) < 2:
+                return False
+
+            # Get eval of best and second-best move
+            best_score = infos[0]["score"].white()
+            second_score = infos[1]["score"].white()
+
+            # Check that our move IS the best move (or very close)
+            best_pv = infos[0].get("pv", [])
+            if not best_pv or best_pv[0] != move:
+                # Our move isn't the engine's top choice — not brilliant
+                # (could still be excellent but not the "only good move")
+                return False
+
+            # Calculate gap between best and second-best
+            if best_score.is_mate() and not second_score.is_mate():
+                # Best move leads to mate but alternative doesn't — brilliant
+                return True
+
+            if best_score.is_mate() and second_score.is_mate():
+                # Both lead to mate — the sacrifice wasn't necessary
+                return False
+
+            if not best_score.is_mate() and not second_score.is_mate():
+                gap = best_score.score() - second_score.score()
+                # For the side making the move: gap should be large
+                if board.turn == chess.BLACK:
+                    gap = -gap
+                return gap >= BRILLIANT_MULTIPV_GAP
+
+            return False
+
+        except Exception as e:
+            logger.debug(f"Brilliant detection failed: {e}")
+            return False
 
 
 def calculate_accuracy(cp_losses: List[int], classifications: List[str] = None) -> float:
@@ -403,16 +510,33 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 
                 # Classify the move
                 classification = engine.classify_move(cp_loss, missed_mate)
-                
+
+                # Detect sacrifice and brilliant moves
+                move_is_sacrifice = False
+                move_is_brilliant = False
+                if classification in (MoveClassification.BEST, MoveClassification.EXCELLENT):
+                    # Only check user's moves for brilliant (saves analysis time)
+                    is_user_move = (user_color == "white" and is_white_move) or (user_color == "black" and not is_white_move)
+                    if is_user_move:
+                        board.pop()  # undo to check position before move
+                        move_is_sacrifice = engine.is_sacrifice(board, move)
+                        if move_is_sacrifice:
+                            move_is_brilliant = engine.detect_brilliant(board, move, depth)
+                            if move_is_brilliant:
+                                classification = MoveClassification.BRILLIANT
+                        board.push(move)  # redo
+
                 # Track classifications for CAPS2-style accuracy
                 classification_str = classification.value if hasattr(classification, 'value') else str(classification)
                 if is_white_move:
                     white_classifications.append(classification_str)
                 else:
                     black_classifications.append(classification_str)
-                
+
                 # Count classifications
-                if classification == MoveClassification.BLUNDER:
+                if classification == MoveClassification.BRILLIANT:
+                    best_moves += 1  # brilliant counts as best for stats
+                elif classification == MoveClassification.BLUNDER:
                     blunders += 1
                 elif classification == MoveClassification.MISTAKE:
                     mistakes += 1
@@ -493,7 +617,9 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         threat_after_played=threat_after_played,
                         fen_after=fen_after,
                         is_turning_point=is_turning_point,
-                        eval_swing=eval_swing
+                        eval_swing=eval_swing,
+                        is_sacrifice=move_is_sacrifice,
+                        is_brilliant=move_is_brilliant
                     )
                     moves_analysis.append(move_eval)
                 
@@ -510,12 +636,14 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
         user_blunders = sum(1 for m in user_moves if m.classification == MoveClassification.BLUNDER)
         user_mistakes = sum(1 for m in user_moves if m.classification == MoveClassification.MISTAKE)
         user_inaccuracies = sum(1 for m in user_moves if m.classification == MoveClassification.INACCURACY)
-        user_best_moves = sum(1 for m in user_moves if m.classification == MoveClassification.BEST)
+        user_best_moves = sum(1 for m in user_moves if m.classification in (MoveClassification.BEST, MoveClassification.BRILLIANT))
         user_excellent = sum(1 for m in user_moves if m.classification == MoveClassification.EXCELLENT)
-        
+        user_brilliant = sum(1 for m in user_moves if m.classification == MoveClassification.BRILLIANT)
+        user_sacrifices = sum(1 for m in user_moves if m.is_sacrifice)
+
         user_cp_losses = white_cp_losses if user_color == "white" else black_cp_losses
         user_accuracy = accuracy_white if user_color == "white" else accuracy_black
-        
+
         return {
             "success": True,
             "moves": [
@@ -540,8 +668,11 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                     } if m.is_mate_before or m.is_mate_after else None,
                     # PV data for explaining WHY moves are good/bad
                     "pv_after_played": m.pv_after_played,   # Line showing the problem
-                    "pv_after_best": m.pv_after_best,       # Line showing better continuation  
-                    "threat": m.threat_after_played         # Immediate threat opponent has
+                    "pv_after_best": m.pv_after_best,       # Line showing better continuation
+                    "threat": m.threat_after_played,        # Immediate threat opponent has
+                    # Brilliant move data
+                    "is_sacrifice": m.is_sacrifice,
+                    "is_brilliant": m.is_brilliant
                 }
                 for m in moves_analysis
             ],
@@ -551,6 +682,8 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 "inaccuracies": user_inaccuracies,
                 "best_moves": user_best_moves,
                 "excellent_moves": user_excellent,
+                "brilliant_moves": user_brilliant,
+                "sacrifices": user_sacrifices,
                 "accuracy": user_accuracy,
                 "avg_cp_loss": round(sum(user_cp_losses) / len(user_cp_losses), 1) if user_cp_losses else 0
             },
