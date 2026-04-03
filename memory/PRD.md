@@ -8,16 +8,18 @@ A highly personalized, "coach-first" chess application with a modular, pedagogic
 /app/
 ├── backend/
 │   ├── routes/               # coach_play.py (teaching, escape-squares endpoints)
-│   ├── services/             # teaching_engine.py, escape_squares_service.py, postgame_analysis.py
+│   ├── services/             # teaching_engine.py, escape_squares_service.py, pattern_decay_service.py, puzzle_extraction_service.py
 │   ├── data/                 # opening_curriculum.json, traps.json, endgames.json
 │   ├── coach_play/           # coach_game_session.py (session management)
 │   ├── home_intelligence_service.py  # Dashboard intelligence with win streak
-│   ├── tests/                # test_all_flows.py (38 tests), test_p1_features.py (16 tests)
+│   ├── community_learning_service.py # Community puzzle sharing
+│   ├── server.py             # Lab coach-pick (decay model), pattern-puzzles, extract-puzzles endpoints
+│   ├── tests/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/coach/ # LessonPicker, CoachPlaySetup, CoachPlayBoard, CoachPlaySidebar, EscapeSquaresQuiz
 │   │   ├── hooks/            # useTeachingMode, usePlayerData, useGuardian
-│   │   └── pages/            # CoachPlay, CoachHome (with win streak), Dashboard
+│   │   └── pages/            # CoachPlay, CoachHome, Dashboard (Lab), PatternTraining, HomePage
 ```
 
 ## What's Been Implemented
@@ -31,49 +33,51 @@ A highly personalized, "coach-first" chess application with a modular, pedagogic
 
 ### Phase 2 — Pluggable Teaching Modes (Complete)
 - Generic teaching engine dispatcher (teaching_engine.py)
-- 18 Trap lessons with interactive board teaching
-- 10 Endgame lessons with guided practice
+- 18 Trap lessons, 10 Endgame lessons
 - LessonPicker UI in coaching sidebar
-- Hook-based frontend orchestration (useTeachingMode, useGuardian)
+- Hook-based frontend orchestration
 
 ### Phase 3 — P1 Features (Complete - April 2, 2026)
-1. **Count Escape Squares** — Interactive quiz that prompts users to count opponent's king escape squares during tactical moments (checks, restricted kings, back-rank threats). Backend service detects teaching moments, frontend shows number-picker quiz with validation and detailed feedback.
-2. **Immediate Review Data Attachment** — Game analysis (postgame_analysis.py) now runs automatically when a coach game ends, attaching detailed mistake patterns and habits to the user's profile immediately without waiting for manual "Review" click.
-3. **Dynamic Dashboard Mood via Win Streaks** — Home intelligence service calculates consecutive win streaks. When 3+ consecutive wins, the dashboard suppresses negative pattern profiling and shows a positive momentum banner with streak count.
+1. **Count Escape Squares** — Interactive quiz during tactical moments
+2. **Immediate Review Data Attachment** — Auto-analysis on game end
+3. **Dynamic Dashboard Mood via Win Streaks** — Momentum banner + negative profiling suppression
+
+### Phase 4 — Pattern Decay & Community Puzzles (Complete - April 3, 2026)
+1. **Recency-Weighted Decay Model** — Mistake counts use exponential decay (0.85/game) + recovery credit (0.3/clean game). States: active/declining/fading. The Lab Coach's Pick now shows realistic counts ("2 times recently") instead of inflated raw counts.
+2. **Auto Puzzle Extraction Pipeline** — When games are analyzed, blunder positions are automatically extracted as community training puzzles tagged with cognitive gap patterns.
+3. **Pattern Training Page** (`/training/pattern/:pattern`) — Shows user's own game positions first, then community puzzles. Tracks solve progress, never shows already-solved puzzles.
+4. **"Practice [pattern] puzzles" button** on Lab Coach's Pick card to navigate directly to pattern-specific training.
+5. **Merged coaching intelligence into HomePage** — Win streak banner, progress trend, mood suppression on the existing `/home` page.
 
 ## Key API Endpoints
-- `POST /api/coach/play/teaching/start` — Start a trap/endgame lesson
-- `POST /api/coach/play/teaching/move` — Make a move in a lesson
-- `POST /api/coach/play/teaching/exit` — Exit a lesson
-- `GET /api/coach/play/teaching/catalog` — Get all available lessons (18 traps, 10 endgames)
-- `POST /api/coach/play/escape-squares/check` — Check if position is a teaching moment for escape squares
-- `POST /api/coach/play/escape-squares/answer` — Validate user's escape squares answer
-- `GET /api/coach/home-intelligence` — Dashboard data with win_streak and mood_override fields
+- `GET /api/lab-coach-pick` — Lab dashboard with decay-model pick_pattern field
+- `GET /api/training/pattern-puzzles/:pattern` — Pattern-specific puzzles (own + community, excludes solved)
+- `POST /api/training/extract-puzzles` — Backfill puzzles from analyzed games
+- `POST /api/training/puzzle-attempt` — Record puzzle solve attempt
+- `POST /api/coach/play/escape-squares/check` — Escape squares quiz check
+- `POST /api/coach/play/escape-squares/answer` — Validate escape squares answer
+- `GET /api/coach/home-intelligence` — Dashboard data with win_streak + mood_override
 
 ## Key DB Collections
-- `coach_sessions`: {session_id, current_fen, teaching_mode, teaching_state, escape_square_quizzes, result}
-- `games`, `game_analyses`: Source of truth for dashboard mood
-- `postgame_analyses`: Detailed game analysis data
-
-## Testing
-- Backend: 38/38 core tests passing (test_all_flows.py)
-- Backend: 16/16 P1 feature tests passing (test_p1_features.py)
-- Frontend: LessonPicker verified via testing agent (iteration_174)
-- P1 features verified via testing agent (iteration_175)
+- `coach_sessions`: {session_id, current_fen, teaching_mode, escape_square_quizzes, result}
+- `games`, `game_analyses`: Source of truth for patterns + puzzle extraction
+- `community_puzzles`: {fen, best_move_san, issue_type, shared_by, source, approved, solve_rate}
+- `puzzle_attempts`: {user_id, puzzle_id, correct, time_taken_ms, weakness_type}
 
 ## Prioritized Backlog
 
 ### P2
 - Track community training puzzles to improve user error profiles
+- More sophisticated puzzle matching (rating-aware, difficulty progression)
 
 ### Future
-- Add "Tactics" pluggable lesson mode to teaching_engine.py
-- Add "Short Wins" pluggable lesson mode
-- Deeper opening variation trees for existing curriculums
+- Add "Tactics" and "Short Wins" pluggable lesson modes
+- Deeper opening variation trees
+- Streak leaderboard / daily challenge system
 
 ## 3rd Party Integrations
 - OpenAI/GPT-4o-mini via Emergent LLM Key
 - Chess.com / Lichess APIs (open/external)
 - Google OAuth (Emergent-managed)
 
-*Last Updated: April 2, 2026*
+*Last Updated: April 3, 2026*
