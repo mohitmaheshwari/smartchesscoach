@@ -480,16 +480,26 @@ const FeedbackTab = () => {
 
   useEffect(() => { fetchFeedback(); }, [fetchFeedback]);
 
-  const handleExport = () => {
-    const params = new URLSearchParams();
-    if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
-    if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
-    // Use hidden iframe to trigger native browser download with cookies
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = `${API}/admin/feedback/export?${params}`;
-    document.body.appendChild(iframe);
-    setTimeout(() => document.body.removeChild(iframe), 10000);
+  const [downloadUrl, setDownloadUrl] = useState(null);
+
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+      if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
+      const res = await fetch(`${API}/admin/feedback/export?${params}`, { credentials: "include" });
+      if (!res.ok) {
+        alert(`Export failed: ${(await res.json().catch(() => ({}))).detail || res.statusText}`);
+        return;
+      }
+      const text = await res.text();
+      const blob = new Blob([text], { type: "application/octet-stream" });
+      // Revoke old URL if exists
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+      setDownloadUrl(URL.createObjectURL(blob));
+    } catch (e) {
+      alert(`Export error: ${e.message}`);
+    }
   };
 
   const updateStatus = async (feedbackId, status) => {
@@ -546,8 +556,20 @@ const FeedbackTab = () => {
           data-testid="export-feedback-btn"
         >
           <Download className="w-3.5 h-3.5" />
-          Export JSON
+          {downloadUrl ? "Refresh Export" : "Export JSON"}
         </button>
+        {downloadUrl && (
+          <a
+            href={downloadUrl}
+            download={`feedback-export-${new Date().toISOString().slice(0, 10)}.json`}
+            className="px-3 py-2 text-sm rounded-sm flex items-center gap-1.5 font-light border animate-pulse"
+            style={{ color: WINE, borderColor: WINE }}
+            data-testid="download-feedback-link"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Download File
+          </a>
+        )}
       </div>
 
       {loading ? <Spinner /> : feedback.length === 0 ? (
