@@ -459,7 +459,6 @@ const FeedbackTab = () => {
   const [sourceFilter, setSourceFilter] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [adminNotes, setAdminNotes] = useState("");
-  const [exporting, setExporting] = useState(false);
 
   const fetchFeedback = useCallback(async () => {
     setLoading(true);
@@ -481,45 +480,11 @@ const FeedbackTab = () => {
 
   useEffect(() => { fetchFeedback(); }, [fetchFeedback]);
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
-      if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
-      const res = await fetch(`${API}/admin/feedback/export?${params}`, { credentials: "include" });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(`Export failed: ${err.detail || res.statusText}`);
-        return;
-      }
-      const data = await res.json();
-      const jsonStr = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonStr], { type: "application/json" });
-      const filename = `feedback-export-${new Date().toISOString().slice(0, 10)}.json`;
-
-      // Try native download
-      if (window.navigator?.msSaveOrOpenBlob) {
-        window.navigator.msSaveOrOpenBlob(blob, filename);
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.style.display = "none";
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        // Delay cleanup for Safari
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 200);
-      }
-    } catch (e) {
-      alert(`Export error: ${e.message}`);
-    } finally {
-      setExporting(false);
-    }
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+    if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
+    window.open(`${API}/admin/feedback/export?${params}`, "_blank");
   };
 
   const updateStatus = async (feedbackId, status) => {
@@ -572,10 +537,10 @@ const FeedbackTab = () => {
           className="px-3 py-2 text-sm text-white rounded-sm flex items-center gap-1.5 font-light disabled:opacity-50"
           style={{ background: WINE }}
           onClick={handleExport}
-          disabled={exporting || total === 0}
+          disabled={total === 0}
           data-testid="export-feedback-btn"
         >
-          {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          <Download className="w-3.5 h-3.5" />
           Export JSON
         </button>
       </div>

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, BackgroundTasks, Body
+from fastapi.responses import Response as FastAPIResponse
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -9127,13 +9128,7 @@ async def admin_export_feedback(
     source: str = None,
     user: User = Depends(require_admin),
 ):
-    """Export all feedback as structured JSON for developer handoff.
-    
-    Returns a developer-friendly array where each item contains:
-    - page, issue, expected, severity, steps_to_reproduce
-    - full diagnostics (FEN, move, CP loss, eval, best move)
-    - admin notes and status
-    """
+    """Export all feedback as a downloadable JSON file for developer handoff."""
     query = {}
     if status and status != "all":
         query["status"] = status
@@ -9179,13 +9174,20 @@ async def admin_export_feedback(
         }
         items.append(item)
 
-    return {
+    import json as json_lib
+    export_data = {
         "export_version": "1.0",
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "filters": {"status": status or "all", "source": source or "all"},
         "total": len(items),
         "feedback": items,
     }
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return FastAPIResponse(
+        content=json_lib.dumps(export_data, indent=2, ensure_ascii=False),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="feedback-export-{today}.json"'},
+    )
 
 
 # ============================================================================
