@@ -45,6 +45,7 @@ A highly personalized, "coach-first" chess application with a modular, pedagogic
 - `GET /api/training/pattern-puzzles/:pattern` — Pattern puzzles (auto-backfills on first call)
 - `POST /api/training/extract-puzzles` — Manual backfill trigger
 - `POST /api/training/puzzle-attempt` — Record puzzle solve
+- `GET /api/admin/feedback/export` — Export feedback as structured JSON for developer handoff
 
 ## Key DB Collections
 - `community_puzzles`: {fen, best_move_san, issue_type, shared_by, source, approved, solve_rate, difficulty}

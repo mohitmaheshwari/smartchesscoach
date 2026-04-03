@@ -13,7 +13,7 @@ import Layout from "@/components/Layout";
 import {
   Loader2, Users, BarChart3, MessageSquareWarning, Search,
   UserPlus, ShieldCheck, Shield, User as UserIcon, ChevronRight,
-  ArrowLeft, Flag, X, Clock, Eye, Gamepad2, Brain, BookOpen,
+  ArrowLeft, Flag, X, Clock, Eye, Gamepad2, Brain, BookOpen, Download,
 } from "lucide-react";
 
 const WINE = "#722F37";
@@ -459,6 +459,7 @@ const FeedbackTab = () => {
   const [sourceFilter, setSourceFilter] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [adminNotes, setAdminNotes] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const fetchFeedback = useCallback(async () => {
     setLoading(true);
@@ -479,6 +480,30 @@ const FeedbackTab = () => {
   }, [statusFilter, sourceFilter]);
 
   useEffect(() => { fetchFeedback(); }, [fetchFeedback]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+      if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
+      const res = await fetch(`${API}/admin/feedback/export?${params}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `feedback-export-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const updateStatus = async (feedbackId, status) => {
     const res = await fetch(`${API}/admin/feedback/${feedbackId}`, {
@@ -526,6 +551,16 @@ const FeedbackTab = () => {
         <span className="text-[10px] text-muted-foreground ml-auto font-mono">
           {pending} pending · {total} total
         </span>
+        <button
+          className="px-3 py-2 text-sm text-white rounded-sm flex items-center gap-1.5 font-light disabled:opacity-50"
+          style={{ background: WINE }}
+          onClick={handleExport}
+          disabled={exporting || total === 0}
+          data-testid="export-feedback-btn"
+        >
+          {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          Export JSON
+        </button>
       </div>
 
       {loading ? <Spinner /> : feedback.length === 0 ? (
