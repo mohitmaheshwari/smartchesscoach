@@ -883,17 +883,17 @@ def generate_piece_specific_coaching(
             candidate_moves=candidate_moves
         )
     
-    # ── MISTAKE / BLUNDER: full coaching with problem + consequence ──
+    # ── MISTAKE / BLUNDER: use actual consequence in narrative ──
+    short_consequence = consequence.split("!")[0].strip() if consequence else ""
     
     # Knight mistakes
     if piece_type == chess.KNIGHT:
-        # Knight on the rim
         if chess.square_file(to_square) in [0, 7] or chess.square_rank(to_square) in [0, 7]:
             return V5Coaching(
-                narrative=f"Naughty Knight! {move_san} goes to the edge!",
+                narrative=f"{move_san} puts your knight on the edge where it controls fewer squares. {short_consequence}!" if short_consequence else f"{move_san} puts your knight on the rim — fewer squares to jump to.",
                 severity=severity,
                 goal="Keep knights active",
-                current_problem=f"Your Horsey wandered to the edge with {move_san}!",
+                current_problem=f"Your knight on the rim after {move_san} has half the influence.",
                 consequence=consequence,
                 better_approach=better_approach,
                 transferable_learning=transferable_learning or "Knights on the rim are dim! They have fewer squares to jump to.",
@@ -901,12 +901,11 @@ def generate_piece_specific_coaching(
                 concept_type="positional",
                 candidate_moves=candidate_moves
             )
-        # Knight without purpose
         return V5Coaching(
-            narrative=f"Hmm, {move_san} - what's your Horsey doing there?",
+            narrative=f"The problem with {move_san}: {short_consequence}!" if short_consequence else f"{move_san} doesn't improve your position here.",
             severity=severity,
             goal="Give pieces a job",
-            current_problem=f"Naughty Knight! {move_san} doesn't have a clear purpose.",
+            current_problem=f"{move_san} doesn't have a clear purpose here.",
             consequence=consequence,
             better_approach=better_approach,
             transferable_learning=transferable_learning or "Every piece needs a job! Ask: what is this piece doing for me?",
@@ -918,14 +917,14 @@ def generate_piece_specific_coaching(
     # Bishop mistakes
     if piece_type == chess.BISHOP:
         return V5Coaching(
-            narrative=f"Your Slicey Boi looks sad after {move_san}!",
+            narrative=f"The problem with {move_san}: {short_consequence}!" if short_consequence else f"{move_san} misplaces your bishop here.",
             severity=severity,
             goal="Keep bishops active",
-            current_problem=f"Your Slicey Boi at {move_san} doesn't have good diagonals!",
+            current_problem=f"{move_san} doesn't use the bishop's full potential here.",
             consequence=consequence,
             better_approach=better_approach,
-            transferable_learning=transferable_learning or "Bishops need OPEN diagonals. If pawns block them, they're sad!",
-            concept_id="blocked_bishop",
+            transferable_learning=transferable_learning or "Bishops need OPEN diagonals. Place them where they cut across the board.",
+            concept_id="bishop_placement",
             concept_type="positional",
             candidate_moves=candidate_moves
         )
@@ -933,10 +932,10 @@ def generate_piece_specific_coaching(
     # Pawn mistakes
     if piece_type == chess.PAWN:
         return V5Coaching(
-            narrative=f"Careful with {move_san} - pawns can't go back!",
+            narrative=f"{move_san} creates a weakness: {short_consequence}!" if short_consequence else f"Careful with {move_san} — pawns can't go back!",
             severity=severity,
             goal="Think before pushing pawns",
-            current_problem=f"That Little Soldier at {move_san} can't retreat!",
+            current_problem=f"{move_san} weakens your structure — and pawns can't retreat.",
             consequence=consequence,
             better_approach=better_approach,
             transferable_learning=transferable_learning or "Pawns can NEVER go back! Every pawn move creates a weakness somewhere.",
@@ -948,10 +947,10 @@ def generate_piece_specific_coaching(
     # Queen mistakes
     if piece_type == chess.QUEEN:
         return V5Coaching(
-            narrative=f"Your Queen might be in danger after {move_san}!",
+            narrative=f"The problem with {move_san}: {short_consequence}!" if short_consequence else f"{move_san} exposes your queen here.",
             severity=severity,
             goal="Keep your Queen safe",
-            current_problem=f"The Queen is your most powerful piece - {move_san} might expose her!",
+            current_problem=f"{move_san} puts your most powerful piece at risk.",
             consequence=consequence,
             better_approach=better_approach,
             transferable_learning=transferable_learning or "Don't bring the Queen out too early - she'll get chased around!",
@@ -963,10 +962,10 @@ def generate_piece_specific_coaching(
     # Rook mistakes  
     if piece_type == chess.ROOK:
         return V5Coaching(
-            narrative=f"Is your Tower happy at {move_san}?",
+            narrative=f"The problem with {move_san}: {short_consequence}!" if short_consequence else f"{move_san} doesn't activate your rook.",
             severity=severity,
             goal="Activate your rooks",
-            current_problem=f"{move_san} - your Tower needs open files to shine!",
+            current_problem=f"{move_san} — your rook needs open files to be effective.",
             consequence=consequence,
             better_approach=better_approach,
             transferable_learning=transferable_learning or "Rooks love open files and the 7th rank! Put them where they can see far.",
@@ -977,10 +976,10 @@ def generate_piece_specific_coaching(
     
     # Generic
     return V5Coaching(
-        narrative=f"Let's think about {move_san}...",
+        narrative=f"The problem with {move_san}: {short_consequence}!" if short_consequence else f"{move_san} has a problem — let's see why.",
         severity=severity,
         goal="Think before you move",
-        current_problem=f"Hmm, {move_san} has a problem!",
+        current_problem=f"{move_san} — {short_consequence}." if short_consequence else f"{move_san} has an issue here.",
         consequence=consequence,
         better_approach=better_approach,
         transferable_learning=transferable_learning or "Before EVERY move, ask: what can my opponent do after this?",

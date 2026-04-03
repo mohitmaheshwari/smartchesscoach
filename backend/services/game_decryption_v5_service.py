@@ -1176,8 +1176,9 @@ def _detect_tactical_issue(
                             concept_type="tactical"
                         )
             
-            # Check for back rank issues
-            if sim.is_check():
+            # Check for back rank issues (only in middlegame/endgame, not opening)
+            move_count = len(sim.move_stack) // 2
+            if sim.is_check() and move_count > 15:
                 king_sq = sim.king(user_color)
                 if king_sq and chess.square_rank(king_sq) in [0, 7]:
                     pattern = tactical_patterns.get("back_rank_weakness", {})
