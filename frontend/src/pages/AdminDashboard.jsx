@@ -484,7 +484,12 @@ const FeedbackTab = () => {
     const params = new URLSearchParams();
     if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
     if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
-    window.open(`${API}/admin/feedback/export?${params}`, "_blank");
+    // Use hidden iframe to trigger native browser download with cookies
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = `${API}/admin/feedback/export?${params}`;
+    document.body.appendChild(iframe);
+    setTimeout(() => document.body.removeChild(iframe), 10000);
   };
 
   const updateStatus = async (feedbackId, status) => {
