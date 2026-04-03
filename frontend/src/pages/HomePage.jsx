@@ -9,17 +9,20 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
-import { ChevronRight, Swords, Target, Import, BookOpen, FlaskConical, Check } from "lucide-react";
+import { ChevronRight, Swords, Target, Import, BookOpen, FlaskConical, Check, Trophy, TrendingUp } from "lucide-react";
 
 const HomePage = ({ user }) => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [coachIntel, setCoachIntel] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/home/dashboard-v2`, { credentials: "include" })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setData(d))
+    Promise.all([
+      fetch(`${API}/home/dashboard-v2`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
+      fetch(`${API}/coach/home-intelligence`, { credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ])
+      .then(([d, intel]) => { setData(d); setCoachIntel(intel); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -42,6 +45,12 @@ const HomePage = ({ user }) => {
   const accuracy = data?.accuracy || 0;
   const gamesAnalyzed = data?.games_analyzed || 0;
   const review = data?.review_progress || {};
+
+  // Coaching intelligence (win streak, progress trend, mood)
+  const winStreak = coachIntel?.win_streak;
+  const moodOverride = coachIntel?.mood_override;
+  const progressTrend = coachIntel?.progress_trend;
+  const suppressNegative = moodOverride?.suppress_negative;
 
   const topPattern = patterns[0];
   const coachMessage = topPattern
@@ -91,7 +100,7 @@ const HomePage = ({ user }) => {
 
         {/* ── COACH MESSAGE ── */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          {streak && streak.count >= 2 && (
+          {streak && streak.count >= 2 && !moodOverride && (
             <p className="text-xs mb-2" style={{ fontFamily: "'JetBrains Mono', monospace", color: streak.type === "W" ? "#16a34a" : streak.type === "L" ? "#EF4444" : "#888" }}>
               {streak.count} {streak.type === "W" ? "wins" : streak.type === "L" ? "losses" : "draws"} in a row
             </p>
@@ -101,6 +110,46 @@ const HomePage = ({ user }) => {
           </h1>
           {coachSub && <p className="text-sm text-muted-foreground">{coachSub}</p>}
         </motion.div>
+
+        {/* ── WIN STREAK BANNER ── */}
+        {moodOverride?.type === "positive_momentum" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.03 }}
+            className="mb-6 flex items-center gap-3 p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/8"
+            data-testid="win-streak-banner"
+          >
+            <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+              <Trophy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                {moodOverride.streak}-game win streak
+              </p>
+              <p className="text-xs text-muted-foreground">{moodOverride.message}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── PROGRESS TREND ── */}
+        {progressTrend?.has_trend && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 }}
+            className="mb-6"
+          >
+            <div className={`flex items-center gap-2 text-sm ${
+              progressTrend.trend === "improving" ? "text-emerald-600 dark:text-emerald-400" :
+              progressTrend.trend === "declining" ? "text-red-500" : "text-muted-foreground"
+            }`}>
+              {progressTrend.trend === "improving" && <TrendingUp className="w-4 h-4" strokeWidth={1.5} />}
+              {progressTrend.trend === "stable" && <Check className="w-4 h-4" strokeWidth={1.5} />}
+              <span>{progressTrend.message}</span>
+            </div>
+          </motion.div>
+        )}
 
         {/* ── REVIEW PROGRESS STRIP ── */}
         {review.pending > 0 && (
@@ -213,7 +262,7 @@ const HomePage = ({ user }) => {
         {/* ── PATTERNS + CHESS DNA ── */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {patterns.length > 0 && (
+            {patterns.length > 0 && !suppressNegative && (
               <div>
                 <Label>Patterns Across Games</Label>
                 <div className="bg-card border border-border rounded-lg overflow-hidden divide-y divide-border">
