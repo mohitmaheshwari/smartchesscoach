@@ -1,0 +1,45 @@
+{
+  "export_version": "1.0",
+  "exported_at": "2026-04-03T10:24:22.784310+00:00",
+  "filters": {
+    "status": "all",
+    "source": "all"
+  },
+  "total": 1,
+  "feedback": [
+    {
+      "feedback_id": "fb_165b91bf681d",
+      "page": "coach",
+      "issue": "i don't undrestand, what is this problem?\nCan we stop showing inaccuracies like major mistakes, but just tell what is rather played commonly and a thing to remmeber mostly?",
+      "coaching_text_flagged": "That Little Soldier at e5 can't retreat!",
+      "severity": "inaccuracy",
+      "status": "pending",
+      "user": "Mohit Maheshwari",
+      "user_rating": null,
+      "created_at": "2026-04-02T02:05:29.300495+00:00",
+      "position": {
+        "fen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 2",
+        "move_san": "e5",
+        "move_number": null,
+        "best_move": "Nc6",
+        "cp_loss": null,
+        "eval_before": null,
+        "eval_after": null,
+        "phase": null
+      },
+      "context": {
+        "game_id": null,
+        "session_id": "7c7a6830-88d3-47d5-8a7a-22e174280a66",
+        "component": "V5CoachingCard",
+        "concept_id": "current_problem",
+        "goal": "Think before pushing pawns",
+        "consequence": "After Bc4, you're behind in development!",
+        "better_approach": "e6 fights for central space!",
+        "your_plan_now": null
+      },
+      "admin_notes": null,
+      "reviewed_by": null,
+      "reviewed_at": null
+    }
+  ]
+}
