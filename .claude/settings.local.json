@@ -1,8 +1,11 @@
 {
   "permissions": {
     "allow": [
+      "Read",
       "Bash(ls -1 test_*.py)",
-      "Bash(wc -l test_*.py)"
+      "Bash(wc -l test_*.py)",
+      "Bash(python -c ':*)",
+      "Bash(python3 -m py_compile routes/voice.py)"
     ]
   }
 }

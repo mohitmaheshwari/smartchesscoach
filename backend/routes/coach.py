@@ -60,11 +60,6 @@ class CoachFeedbackRequest(BaseModel):
     comment: Optional[str] = ""
 
 
-class FocusLockActivateRequest(BaseModel):
-    focus_type: str  # e.g., "piece_safety", "tactics"
-    duration_hours: int = 24
-
-
 # ==================== CORE STATE ENDPOINTS ====================
 
 @router.get("/state")
@@ -98,54 +93,7 @@ async def get_coach_state(user: User = Depends(get_current_user)):
     }
 
 
-@router.get("/today")
-async def get_coach_today(user: User = Depends(get_current_user)):
-    """Get coach's daily briefing."""
-    global db
-    from datetime import date
-    
-    today = date.today().isoformat()
-    
-    # Get today's stats
-    games_today = await db.games.count_documents({
-        "user_id": user.user_id,
-        "imported_at": {"$regex": f"^{today}"}
-    })
-    
-    reflections_today = await db.reflections.count_documents({
-        "user_id": user.user_id,
-        "created_at": {"$regex": f"^{today}"}
-    })
-    
-    puzzles_today = await db.puzzle_attempts.count_documents({
-        "user_id": user.user_id,
-        "created_at": {"$regex": f"^{today}"}
-    })
-    
-    return {
-        "date": today,
-        "games_played": games_today,
-        "reflections_done": reflections_today,
-        "puzzles_solved": puzzles_today,
-        "message": "Keep up the good work!" if games_today > 0 else "Ready for some chess?"
-    }
-
-
-@router.get("/habits")
-async def get_coach_habits(user: User = Depends(get_current_user)):
-    """Get user's chess habits and patterns."""
-    global db
-    
-    # Get habit data
-    habits = await db.user_habits.find_one({"user_id": user.user_id})
-    
-    if not habits:
-        return {"habits": [], "message": "Play more games to discover your habits"}
-    
-    return {
-        "habits": habits.get("patterns", []),
-        "last_updated": habits.get("updated_at")
-    }
+# /today and /habits moved to routes/coach_advanced.py
 
 
 # ==================== MEMORY & SUMMARIES ====================
@@ -180,32 +128,7 @@ async def get_memory_summary(user: User = Depends(get_current_user)):
     }
 
 
-@router.get("/game-summary/{game_id}")
-async def get_game_summary(game_id: str, user: User = Depends(get_current_user)):
-    """Get coach's summary for a specific game."""
-    global db
-    
-    analysis = await db.game_analyses.find_one({
-        "game_id": game_id,
-        "user_id": user.user_id
-    }, {"_id": 0})
-    
-    if not analysis:
-        raise HTTPException(status_code=404, detail="Game analysis not found")
-    
-    game = await db.games.find_one({
-        "game_id": game_id,
-        "user_id": user.user_id
-    }, {"_id": 0})
-    
-    return {
-        "game_id": game_id,
-        "result": game.get("result") if game else "unknown",
-        "blunders": analysis.get("blunders", 0),
-        "mistakes": analysis.get("mistakes", 0),
-        "accuracy": analysis.get("stockfish_analysis", {}).get("accuracy", 0),
-        "lesson": analysis.get("lesson", {})
-    }
+# /game-summary/{game_id} moved to routes/coach_advanced.py
 
 
 # ==================== MISTAKE EXPLANATION ====================
@@ -1207,77 +1130,7 @@ async def update_coach_maturity(
     }
 
 
-# ==================== FOCUS LOCK ====================
-
-@router.get("/focus-lock")
-async def get_focus_lock(user: User = Depends(get_current_user)):
-    """Get current focus lock status."""
-    global db
-    
-    lock = await db.focus_locks.find_one({
-        "user_id": user.user_id,
-        "active": True
-    }, {"_id": 0})
-    
-    if not lock:
-        return {"active": False, "focus_type": None}
-    
-    return {
-        "active": True,
-        "focus_type": lock.get("focus_type"),
-        "started_at": lock.get("started_at"),
-        "expires_at": lock.get("expires_at"),
-        "puzzles_completed": lock.get("puzzles_completed", 0)
-    }
-
-
-@router.post("/focus-lock/activate")
-async def activate_focus_lock(
-    request: FocusLockActivateRequest,
-    user: User = Depends(get_current_user)
-):
-    """Activate a focus lock on a specific weakness."""
-    global db
-    from datetime import timedelta
-    
-    now = datetime.now(timezone.utc)
-    expires = now + timedelta(hours=request.duration_hours)
-    
-    lock = {
-        "user_id": user.user_id,
-        "focus_type": request.focus_type,
-        "active": True,
-        "started_at": now.isoformat(),
-        "expires_at": expires.isoformat(),
-        "puzzles_completed": 0
-    }
-    
-    # Deactivate any existing locks
-    await db.focus_locks.update_many(
-        {"user_id": user.user_id, "active": True},
-        {"$set": {"active": False}}
-    )
-    
-    await db.focus_locks.insert_one(lock)
-    
-    return {
-        "success": True,
-        "focus_type": request.focus_type,
-        "expires_at": expires.isoformat()
-    }
-
-
-@router.post("/focus-lock/deactivate")
-async def deactivate_focus_lock(user: User = Depends(get_current_user)):
-    """Deactivate current focus lock."""
-    global db
-    
-    result = await db.focus_locks.update_many(
-        {"user_id": user.user_id, "active": True},
-        {"$set": {"active": False, "deactivated_at": datetime.now(timezone.utc).isoformat()}}
-    )
-    
-    return {"success": True, "deactivated": result.modified_count}
+# Focus lock endpoints moved to routes/coach_advanced.py
 
 
 # ==================== PLAY WITH COACH ====================
@@ -1289,51 +1142,7 @@ async def deactivate_focus_lock(user: User = Depends(get_current_user)):
 # Legacy endpoints removed - use server.py's /coach/play/start and /coach/play/move
 
 
-@router.get("/play/identity")
-async def get_play_identity(user: User = Depends(get_current_user)):
-    """Get user's playing identity based on past games."""
-    global db
-    
-    # Get recent play sessions
-    sessions = await db.play_sessions.find(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    ).sort("started_at", -1).limit(10).to_list(10)
-    
-    if not sessions:
-        return {"identity": "explorer", "description": "Still discovering your style"}
-    
-    # Simple identity calculation
-    total_moves = sum(len(s.get("moves", [])) for s in sessions)
-    avg_thinking = 0
-    
-    return {
-        "identity": "thoughtful" if avg_thinking > 5000 else "intuitive",
-        "games_analyzed": len(sessions),
-        "total_moves": total_moves
-    }
-
-
-@router.post("/play/feedback")
-async def submit_play_feedback(
-    request: CoachFeedbackRequest,
-    user: User = Depends(get_current_user)
-):
-    """Submit feedback on coach's comments during play."""
-    global db
-    
-    feedback = {
-        "user_id": user.user_id,
-        "session_id": request.session_id,
-        "move_number": request.move_number,
-        "feedback_type": request.feedback_type,
-        "comment": request.comment,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    await db.coach_feedback.insert_one(feedback)
-    
-    return {"success": True, "message": "Thank you for the feedback!"}
+# /play/identity and /play/feedback moved to routes/coach_play.py
 
 
 # ==================== ANALYTICS ====================
