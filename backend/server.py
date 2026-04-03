@@ -9192,7 +9192,7 @@ async def admin_export_feedback(
     with open(filepath, "w") as f:
         json_lib.dump(export_data, f, indent=2, ensure_ascii=False)
 
-    return {"file_url": f"/api/admin/feedback/download/{filename}", "filename": filename, "total": len(items)}
+    return {"file_url": f"/admin/feedback/download/{filename}", "filename": filename, "total": len(items)}
 
 
 @api_router.get("/admin/feedback/download/{filename}")

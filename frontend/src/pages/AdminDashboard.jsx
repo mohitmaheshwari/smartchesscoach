@@ -488,14 +488,25 @@ const FeedbackTab = () => {
       const params = new URLSearchParams();
       if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
       if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
+      // Step 1: Generate the file on the server
       const res = await fetch(`${API}/admin/feedback/export?${params}`, { credentials: "include" });
       if (!res.ok) {
         alert(`Export failed: ${(await res.json().catch(() => ({}))).detail || res.statusText}`);
         return;
       }
-      const data = await res.json();
-      setDownloadUrl(`${API}${data.file_url}`);
-      setDownloadName(data.filename);
+      const meta = await res.json();
+      // Step 2: Fetch the actual file content
+      const fileRes = await fetch(`${API}${meta.file_url}`, { credentials: "include" });
+      if (!fileRes.ok) {
+        alert("Failed to fetch export file");
+        return;
+      }
+      const fileBlob = await fileRes.blob();
+      // Revoke old URL
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+      // Step 3: Create same-origin blob URL (download attribute works on same-origin)
+      setDownloadUrl(URL.createObjectURL(fileBlob));
+      setDownloadName(meta.filename);
     } catch (e) {
       alert(`Export error: ${e.message}`);
     }
