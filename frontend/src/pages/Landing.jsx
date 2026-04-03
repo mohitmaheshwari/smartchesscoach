@@ -1,12 +1,8 @@
 import { useTheme } from "@/context/ThemeContext";
-import { ChevronRight, Moon, Sun, Code } from "lucide-react";
+import { ChevronRight, Moon, Sun, Code, Zap, Brain, Target, TrendingUp, MessageSquare, Shield } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { API } from "@/App";
-
-const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/c9263ac5c3e6cf8ed2eaf315c1308e2fe6cb6feafe328f091610d7fae02abf30.png";
-const COACH_EYES = "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/c88d28423f6c01a8e6fe222c26163e3840080d26944deba24ae81b4d029001ed.png";
-const WINE_TEXTURE = "https://static.prod-images.emergentagent.com/jobs/55020d83-23ce-4764-a37f-0abe803378b2/images/d7c061453f7782ee85190ad5328b89d3d498bd026d789180f54299ac5a0a4304.png";
 
 const Landing = () => {
   const { theme, toggleTheme } = useTheme();
@@ -58,23 +54,21 @@ const Landing = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#09090F] text-gray-100 overflow-hidden">
+
       {/* ═══ NAVBAR ═══ */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090F]/80 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2.5">
               <img src="/chessguru-logo.svg" alt="ChessGuru" className="w-7 h-7" />
-              <span className="text-lg font-heading font-semibold text-foreground">ChessGuru</span>
+              <span className="text-[15px] font-heading font-bold tracking-tight text-white">ChessGuru</span>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={toggleTheme} className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50" data-testid="theme-toggle">
-                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
               <button
                 onClick={handleLogin}
                 data-testid="login-button"
-                className="px-5 py-2 text-sm text-white font-medium transition-all hover:opacity-90 rounded-md bg-wine"
+                className="px-5 py-2 text-sm font-medium text-black rounded-lg bg-amber-400 hover:bg-amber-300 transition-colors"
               >
                 Get Started
               </button>
@@ -82,11 +76,11 @@ const Landing = () => {
                 <button
                   onClick={handleDevLogin}
                   disabled={devLoading}
-                  className="px-4 py-2 text-sm border border-primary/40 text-primary rounded-md transition-all flex items-center gap-1.5 hover:bg-primary/5"
+                  className="px-4 py-2 text-sm border border-white/10 text-gray-400 rounded-lg hover:border-white/20 hover:text-white transition-all flex items-center gap-1.5"
                   data-testid="dev-login-button"
                 >
                   <Code className="w-3.5 h-3.5" />
-                  {devLoading ? "..." : "Dev Login"}
+                  {devLoading ? "..." : "Dev"}
                 </button>
               )}
             </div>
@@ -95,187 +89,325 @@ const Landing = () => {
       </header>
 
       {/* ═══ HERO ═══ */}
-      <section className="relative min-h-screen flex items-center overflow-hidden pt-16">
-        <div className="absolute inset-0 z-0">
-          <img src={HERO_IMG} alt="" className="w-full h-full object-cover object-center" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/30" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/30" />
-        </div>
+      <section className="relative min-h-screen flex items-center pt-16">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '60px 60px'
+        }} />
+        {/* Gradient orbs */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/5 rounded-full blur-[100px]" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-24 w-full">
-          <div className="max-w-2xl">
-            <motion.p
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-              className="text-xs tracking-[0.25em] uppercase mb-6 font-mono text-primary"
+        <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 w-full">
+          <div className="text-center max-w-3xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs font-mono mb-8"
             >
-              AI Chess Coaching
-            </motion.p>
+              <Zap className="w-3 h-3" strokeWidth={2.5} />
+              AI-Powered Chess Coaching
+            </motion.div>
 
             <motion.h1
-              initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-              className="text-5xl sm:text-6xl lg:text-7xl font-heading tracking-tighter leading-[0.9] text-foreground mb-8"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-5xl sm:text-6xl lg:text-7xl font-heading font-bold tracking-tighter leading-[0.95] text-white mb-6"
             >
               Your coach
               <br />
-              <span className="text-wine font-bold">remembers</span>
+              <span className="text-amber-400">remembers</span>
               <br />
-              everything.
+              every mistake.
             </motion.h1>
 
             <motion.p
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-              className="text-lg text-muted-foreground leading-relaxed max-w-lg mb-10"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-lg text-gray-400 leading-relaxed max-w-xl mx-auto mb-10"
             >
-              Not another analysis tool. A coach that tracks your patterns across games,
-              knows your weaknesses by name, and tells you exactly what to fix.
+              Not another analysis tool. A coach that tracks your patterns across every game, knows your weaknesses by name, and builds training around exactly what you get wrong.
             </motion.p>
 
             <motion.div
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
-              className="flex flex-col sm:flex-row gap-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center"
             >
               <button
                 onClick={handleLogin}
                 data-testid="hero-cta-button"
-                className="px-8 py-4 text-base text-white font-medium transition-all hover:opacity-90 flex items-center justify-center gap-2 rounded-lg bg-wine"
+                className="px-8 py-4 text-base font-semibold text-black rounded-xl bg-amber-400 hover:bg-amber-300 transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 flex items-center justify-center gap-2"
               >
                 Start Free
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
-                onClick={() => document.getElementById("coach-section")?.scrollIntoView({ behavior: "smooth" })}
-                className="px-8 py-4 text-base text-foreground border border-border transition-all hover:border-foreground/30 rounded-lg"
+                onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                className="px-8 py-4 text-base text-gray-300 border border-white/10 rounded-xl hover:border-white/20 hover:text-white transition-all"
                 data-testid="learn-more-button"
               >
-                See how it works
+                How it works
               </button>
             </motion.div>
+          </div>
+
+          {/* ── Product Preview ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
+            className="mt-16 max-w-4xl mx-auto"
+          >
+            <div className="relative rounded-xl border border-white/10 bg-[#0E0E16] overflow-hidden shadow-2xl shadow-black/50">
+              {/* Mock app header */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
+                <div className="w-3 h-3 rounded-full bg-white/10" />
+                <div className="w-3 h-3 rounded-full bg-white/10" />
+                <div className="w-3 h-3 rounded-full bg-white/10" />
+                <span className="text-xs text-gray-600 ml-2 font-mono">chessguru.ai/home</span>
+              </div>
+              {/* Mock coaching dashboard */}
+              <div className="p-6 sm:p-8">
+                <div className="flex items-start gap-6">
+                  {/* Left: Coach message */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-amber-400 text-xs font-mono mb-2">3 losses in a row</p>
+                    <h2 className="text-xl sm:text-2xl font-heading font-bold text-white mb-2 tracking-tight">
+                      Piece safety is showing up in almost every game.
+                    </h2>
+                    <p className="text-sm text-gray-500 mb-6">7 times recently. This is your biggest leak right now.</p>
+
+                    {/* Mock pattern cards */}
+                    <div className="space-y-2">
+                      {[
+                        { name: "Piece Safety", count: "7x", severity: "HIGH", color: "bg-red-400" },
+                        { name: "Missed Tactics", count: "4x", severity: "MED", color: "bg-amber-400" },
+                        { name: "Time Pressure", count: "3x", severity: "MED", color: "bg-amber-400" },
+                      ].map((p) => (
+                        <div key={p.name} className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-white/5 bg-white/[0.02]">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-1.5 h-1.5 rounded-full ${p.color}`} />
+                            <span className="text-sm text-gray-300">{p.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-gray-500">{p.count}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                              p.severity === "HIGH" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"
+                            }`}>{p.severity}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right: Mock strength radar */}
+                  <div className="hidden sm:block w-48 flex-shrink-0">
+                    <div className="border border-white/5 rounded-lg p-4 bg-white/[0.02]">
+                      <p className="text-[9px] uppercase tracking-widest text-gray-500 mb-3 font-bold">Your Strengths</p>
+                      {[
+                        { name: "Tactics", score: 72, best: true },
+                        { name: "Calculation", score: 58 },
+                        { name: "Positional", score: 45 },
+                        { name: "Endgame", score: 34 },
+                      ].map((s) => (
+                        <div key={s.name} className="mb-2.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-[10px] ${s.best ? "text-emerald-400" : "text-gray-500"}`}>{s.name}</span>
+                            <span className="text-[10px] font-mono text-gray-600">{s.score}</span>
+                          </div>
+                          <div className="w-full h-1 bg-white/5 rounded-full">
+                            <div className={`h-full rounded-full ${s.best ? "bg-emerald-500" : "bg-white/10"}`} style={{ width: `${s.score}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══ HOW IT WORKS ═══ */}
+      <section id="how-it-works" className="py-32 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#09090F] via-[#0A0A12] to-[#09090F]" />
+        <div className="relative z-10 max-w-5xl mx-auto px-6">
+          <FadeIn>
+            <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">How it works</p>
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold tracking-tight text-white text-center mb-16">
+              Three steps to better chess.
+            </h2>
+          </FadeIn>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                step: "01",
+                title: "Import your games",
+                desc: "Connect Chess.com or Lichess. We analyze every game with Stockfish and behavioral AI.",
+                icon: Target,
+              },
+              {
+                step: "02",
+                title: "See your patterns",
+                desc: "Not just blunders — recurring thinking errors. The same mistake in game 5 and game 50? We track it.",
+                icon: Brain,
+              },
+              {
+                step: "03",
+                title: "Train what matters",
+                desc: "Puzzles from YOUR games. Training plans for YOUR weaknesses. Progress you can measure.",
+                icon: TrendingUp,
+              },
+            ].map((item, i) => (
+              <FadeIn key={item.step} delay={i * 0.15}>
+                <div className="border border-white/5 rounded-xl p-6 bg-white/[0.02] hover:border-amber-500/20 transition-colors h-full">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-amber-400/40 font-mono text-sm font-bold">{item.step}</span>
+                    <item.icon className="w-4 h-4 text-amber-400" strokeWidth={1.5} />
+                  </div>
+                  <h3 className="text-lg font-heading font-semibold text-white mb-2">{item.title}</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
+                </div>
+              </FadeIn>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ═══ COACH PERSONA ═══ */}
-      <section id="coach-section" className="relative py-32 overflow-hidden bg-gray-950">
-        <div className="absolute inset-0 z-0">
-          <img src={COACH_EYES} alt="" className="w-full h-full object-cover object-top opacity-30" />
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-950 via-gray-950/60 to-gray-950" />
-        </div>
-
-        <div className="relative z-10 max-w-5xl mx-auto px-6 lg:px-8 text-center">
+      {/* ═══ KEY DIFFERENTIATORS ═══ */}
+      <section className="py-32 relative">
+        <div className="relative z-10 max-w-5xl mx-auto px-6">
           <FadeIn>
-            <p className="text-xs tracking-[0.25em] uppercase mb-8 font-mono text-amber-400">
-              Meet Your Coach
-            </p>
-          </FadeIn>
-          <FadeIn delay={0.2}>
-            <blockquote className="text-3xl sm:text-4xl lg:text-5xl italic text-gray-200 leading-tight mb-10 font-heading">
-              "You didn't lose over many mistakes.
-              <br />
-              <span className="text-red-400/80">You lost in one moment</span>
-              <br />
-              of inattention."
-            </blockquote>
-          </FadeIn>
-          <FadeIn delay={0.4}>
-            <p className="text-base text-gray-500 max-w-xl mx-auto leading-relaxed">
-              No generic advice. No engine dumps. Your coach identifies the ONE thing
-              that cost you the game and tells you exactly how to fix it.
-            </p>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* ═══ BENTO FEATURES ═══ */}
-      <section className="py-32 bg-background">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <FadeIn>
-            <p className="text-xs tracking-[0.25em] uppercase mb-4 font-mono text-primary">
-              What Makes This Different
-            </p>
-            <h2 className="text-4xl sm:text-5xl tracking-tighter text-foreground mb-16 font-heading">
-              Built around <span className="text-wine">you</span>, not the engine.
+            <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">Why this is different</p>
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold tracking-tight text-white text-center mb-4">
+              Chess.com shows you the blunder.
             </h2>
+            <p className="text-xl text-gray-500 text-center mb-16">
+              We show you <span className="text-amber-400">why you keep making it.</span>
+            </p>
           </FadeIn>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            {/* Chess DNA — Large card */}
-            <FadeIn className="md:col-span-8 md:row-span-2" delay={0.1}>
-              <div className="relative h-full min-h-[320px] overflow-hidden border border-border bg-card rounded-lg">
-                <div className="absolute inset-0 z-0 opacity-[0.04]">
-                  <img src={WINE_TEXTURE} alt="" className="w-full h-full object-cover" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Pattern Memory */}
+            <FadeIn delay={0.1}>
+              <div className="border border-white/5 rounded-xl p-6 bg-white/[0.02] hover:border-amber-500/15 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4">
+                  <Brain className="w-5 h-5 text-amber-400" strokeWidth={1.5} />
                 </div>
-                <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between">
-                  <div>
-                    <p className="text-xs tracking-[0.2em] uppercase mb-3 font-mono text-primary">Your Chess DNA</p>
-                    <h3 className="text-2xl sm:text-3xl text-foreground tracking-tight mb-4 font-heading">
-                      Know who you are as a player.
-                    </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed max-w-lg">
-                      Every game shapes your identity. Are you "The Thrower" who collapses in winning positions?
-                      "The Blind Spot" who misses opponent threats? Your Chess DNA evolves game by game.
-                    </p>
-                  </div>
-                  <div className="mt-8 flex flex-wrap gap-3">
-                    {["The Thrower", "The Blind Spot", "The Strategist", "The Clock Fighter"].map((arch) => (
-                      <span key={arch} className="px-3 py-1.5 text-xs border border-primary/30 text-primary font-mono rounded-md">
-                        {arch}
-                      </span>
-                    ))}
-                  </div>
+                <h3 className="text-lg font-heading font-semibold text-white mb-2">Pattern Memory</h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                  "This is the 5th game where you collapse when winning." Your coach tracks every mistake pattern and knows when it's getting worse — or better.
+                </p>
+                <div className="flex items-center gap-2 text-xs text-amber-400/60 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                  piece_safety: 7x this week (worsening)
                 </div>
               </div>
             </FadeIn>
 
-            {/* Adaptive Decryption */}
-            <FadeIn className="md:col-span-4" delay={0.2}>
-              <FeatureCard label="Adaptive Decryption" title="Only what matters.">
-                A 1100 player sees blunders. A 1600 sees inaccuracies.
-                The same game, different coaching depth.
-              </FeatureCard>
+            {/* Rating-Aware */}
+            <FadeIn delay={0.2}>
+              <div className="border border-white/5 rounded-xl p-6 bg-white/[0.02] hover:border-amber-500/15 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4">
+                  <MessageSquare className="w-5 h-5 text-amber-400" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-lg font-heading font-semibold text-white mb-2">Talks to YOUR level</h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                  An 800 and a 1600 player get completely different coaching from the same game. Beginners get encouragement. Advanced players get Socratic questions.
+                </p>
+                <div className="space-y-1 text-xs font-mono text-gray-600">
+                  <p><span className="text-gray-400">800:</span> "Nf3 is fine for now. Let's keep going!"</p>
+                  <p><span className="text-gray-400">1600:</span> "Hmm, Nf3 is okay but what about Nd5?"</p>
+                </div>
+              </div>
             </FadeIn>
 
-            {/* Pattern Memory */}
-            <FadeIn className="md:col-span-4" delay={0.3}>
-              <FeatureCard label="Pattern Memory" title={<>"This is the 5th time."</>}>
-                Your coach tracks every mistake across every game.
-                Recurring patterns get flagged with brutal honesty.
-              </FeatureCard>
+            {/* Brilliant Detection */}
+            <FadeIn delay={0.3}>
+              <div className="border border-white/5 rounded-xl p-6 bg-white/[0.02] hover:border-amber-500/15 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4">
+                  <Zap className="w-5 h-5 text-amber-400" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-lg font-heading font-semibold text-white mb-2">Celebrates your wins</h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                  Most tools only tell you what went wrong. We detect brilliant sacrifices, track your strengths, and tell you what you're actually good at.
+                </p>
+                <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">
+                  <Zap className="w-3 h-3" strokeWidth={2.5} />
+                  Brilliant sacrifice detected
+                </div>
+              </div>
             </FadeIn>
 
-            {/* Community Training */}
-            <FadeIn className="md:col-span-6" delay={0.4}>
-              <FeatureCard label="Community Training" title="Train on real mistakes.">
-                No composed puzzles. Solve positions where real players at your rating actually blundered.
-                Learn from the community, not a textbook.
-              </FeatureCard>
-            </FadeIn>
-
-            {/* Live Coach */}
-            <FadeIn className="md:col-span-6" delay={0.5}>
-              <FeatureCard label="Play With Coach" title="Feedback on every move.">
-                Play against an AI opponent while your coach watches every move.
-                Real-time guidance, not post-game analysis.
-              </FeatureCard>
+            {/* Live Coaching */}
+            <FadeIn delay={0.4}>
+              <div className="border border-white/5 rounded-xl p-6 bg-white/[0.02] hover:border-amber-500/15 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4">
+                  <Shield className="w-5 h-5 text-amber-400" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-lg font-heading font-semibold text-white mb-2">Play with your coach</h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                  Play against an AI opponent while your coach watches every move. Real-time feedback, not post-game analysis. Like having a GM behind your shoulder.
+                </p>
+                <div className="text-xs text-gray-600 font-mono">
+                  Move 14: <span className="text-emerald-400">"Brilliant! That sacrifice is stunning!"</span>
+                </div>
+              </div>
             </FadeIn>
           </div>
         </div>
       </section>
 
-      {/* ═══ STATS ═══ */}
-      <section className="py-24 border-t border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+      {/* ═══ COACH QUOTE ═══ */}
+      <section className="py-24 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#09090F] via-[#0C0C14] to-[#09090F]" />
+        <div className="relative z-10 max-w-3xl mx-auto px-6 text-center">
+          <FadeIn>
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mx-auto mb-8 border border-amber-500/20">
+              <img src="/chessguru-logo.svg" alt="" className="w-6 h-6" />
+            </div>
+            <blockquote className="text-2xl sm:text-3xl font-heading italic text-gray-300 leading-snug mb-6">
+              "You didn't lose because of many mistakes.
+              <br />
+              <span className="text-amber-400">You lost in one moment</span> of inattention."
+            </blockquote>
+            <p className="text-sm text-gray-600">
+              Your coach finds that moment. Then trains you to never repeat it.
+            </p>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ═══ BUILT FOR ═══ */}
+      <section className="py-24">
+        <div className="max-w-5xl mx-auto px-6">
+          <FadeIn>
+            <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">Built for</p>
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold tracking-tight text-white text-center mb-16">
+              Players stuck on a plateau.
+            </h2>
+          </FadeIn>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { value: "24/7", label: "Always available" },
-              { value: "100%", label: "Personalized" },
+              { value: "600-1500", label: "Target rating" },
               { value: "<2s", label: "Move analysis" },
+              { value: "6", label: "Strength domains" },
               { value: "Free", label: "To start" },
             ].map((stat, i) => (
               <FadeIn key={stat.label} delay={i * 0.1} className="text-center">
-                <p className="text-4xl sm:text-5xl font-heading font-bold tracking-tighter text-foreground mb-2">
+                <p className="text-3xl sm:text-4xl font-heading font-bold tracking-tighter text-white mb-1">
                   {stat.value}
                 </p>
-                <p className="text-xs tracking-[0.15em] uppercase text-muted-foreground font-mono">
+                <p className="text-xs tracking-wider uppercase text-gray-600 font-mono">
                   {stat.label}
                 </p>
               </FadeIn>
@@ -285,26 +417,25 @@ const Landing = () => {
       </section>
 
       {/* ═══ FINAL CTA ═══ */}
-      <section className="py-32 bg-background">
-        <div className="max-w-3xl mx-auto px-6 lg:px-8 text-center">
+      <section className="py-32">
+        <div className="max-w-2xl mx-auto px-6 text-center">
           <FadeIn>
-            <h2 className="text-4xl sm:text-5xl tracking-tighter text-foreground mb-6 font-heading">
-              Stop guessing.
+            <h2 className="text-4xl sm:text-5xl font-heading font-bold tracking-tighter text-white mb-6">
+              Stop repeating
               <br />
-              <span className="text-wine">Start knowing.</span>
+              the same mistakes.
             </h2>
           </FadeIn>
-          <FadeIn delay={0.2}>
-            <p className="text-base text-muted-foreground mb-10 max-w-md mx-auto">
-              Import your games from Chess.com or Lichess.
-              Your coach starts learning who you are from game one.
+          <FadeIn delay={0.15}>
+            <p className="text-base text-gray-500 mb-10 max-w-md mx-auto">
+              Import your games from Chess.com or Lichess. Your coach starts learning who you are from game one.
             </p>
           </FadeIn>
-          <FadeIn delay={0.4}>
+          <FadeIn delay={0.3}>
             <button
               onClick={handleLogin}
               data-testid="cta-button"
-              className="px-10 py-4 text-base text-white font-medium transition-all hover:opacity-90 inline-flex items-center gap-2 rounded-lg bg-wine"
+              className="px-10 py-4 text-base font-semibold text-black rounded-xl bg-amber-400 hover:bg-amber-300 transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 inline-flex items-center gap-2"
             >
               Start Free with Google
               <ChevronRight className="w-4 h-4" />
@@ -314,13 +445,13 @@ const Landing = () => {
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="py-8 border-t border-border">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between">
+      <footer className="py-8 border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/chessguru-logo.svg" alt="" className="w-5 h-5" />
-            <span className="text-sm text-muted-foreground font-heading">ChessGuru</span>
+            <img src="/chessguru-logo.svg" alt="" className="w-4 h-4 opacity-40" />
+            <span className="text-xs text-gray-600 font-heading">ChessGuru</span>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-gray-700">
             Built with AI. Made for chess players.
           </p>
         </div>
@@ -329,27 +460,17 @@ const Landing = () => {
   );
 };
 
-// Feature card component
-const FeatureCard = ({ label, title, children }) => (
-  <div className="h-full min-h-[150px] border border-border bg-card p-6 lg:p-8 flex flex-col justify-between rounded-lg hover:border-primary/20 transition-colors">
-    <div>
-      <p className="text-xs tracking-[0.2em] uppercase mb-3 font-mono text-primary">{label}</p>
-      <h3 className="text-xl text-foreground tracking-tight mb-3 font-heading">{title}</h3>
-    </div>
-    <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>
-  </div>
-);
 
 // Scroll-triggered fade-in
 const FadeIn = ({ children, delay = 0, className = "" }) => {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const isInView = useInView(ref, { once: true, margin: "-60px" });
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 30 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-      transition={{ duration: 0.7, delay, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 24 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
       className={className}
     >
       {children}
