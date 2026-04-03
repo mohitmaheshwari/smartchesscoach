@@ -26,11 +26,9 @@ async def extract_puzzles_from_game(
 ) -> List[Dict]:
     """
     Extract training puzzles from an analyzed game.
-
-    Looks at move evaluations, finds significant blunders (cp_loss >= 100),
-    and creates puzzle entries from the position before the bad move.
-
-    Returns list of created puzzle dicts.
+    Uses rating-aware thresholds to determine what counts as a meaningful
+    blunder worth extracting. An 800 player's 80cp inaccuracy isn't
+    puzzle-worthy; their 300cp blunder is.
     """
     analysis = await db.game_analyses.find_one(
         {"game_id": game_id, "user_id": user_id},
@@ -46,6 +44,20 @@ async def extract_puzzles_from_game(
     if not game:
         return []
 
+    # Get user's rating for threshold calculation
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "rating": 1})
+    user_rating = (user_doc or {}).get("rating", 1200)
+
+    # Rating-aware extraction thresholds (centipawns)
+    if user_rating < 1000:
+        min_cp_loss = 200  # Only big blunders — that's what matters at this level
+    elif user_rating < 1400:
+        min_cp_loss = 150
+    elif user_rating < 1800:
+        min_cp_loss = 100  # Standard
+    else:
+        min_cp_loss = 75   # Include subtle mistakes for advanced players
+
     sf = analysis.get("stockfish_analysis", {})
     evals = sf.get("move_evaluations", [])
     user_color = game.get("user_color", "white")
@@ -54,8 +66,8 @@ async def extract_puzzles_from_game(
 
     for ev in evals:
         cp_loss = ev.get("cp_loss", 0)
-        # Only extract significant mistakes
-        if cp_loss < 100:
+        # Rating-aware threshold
+        if cp_loss < min_cp_loss:
             continue
 
         fen_before = ev.get("fen_before")

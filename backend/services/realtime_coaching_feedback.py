@@ -189,23 +189,43 @@ def _analyze_move_tactically(
     return result
 
 
-def _classify_move_quality(eval_before: float, eval_after: float, user_color: str) -> str:
-    """Classify move quality based on evaluation change"""
+def _classify_move_quality(eval_before: float, eval_after: float, user_color: str, user_rating: int = 1200) -> str:
+    """
+    Classify move quality based on evaluation change AND player rating.
+    
+    Rating-aware thresholds ensure:
+    - 800 players only hear about big blunders (not subtle inaccuracies)
+    - 1600 players get feedback on positional inaccuracies too
+    """
     # Calculate from user's perspective
     if user_color == "white":
-        change = eval_after - eval_before  # Positive = good for white
+        change = eval_after - eval_before
     else:
-        change = eval_before - eval_after  # Negative eval is good for black
+        change = eval_before - eval_after
     
     cp_change = change * 100  # Convert to centipawns
     
-    if cp_change >= 20:
-        return "excellent"  # User improved position
-    elif cp_change >= -10:
+    # Rating-based thresholds (centipawns)
+    if user_rating < 1000:
+        # Beginners: only flag big blunders. Inaccuracies are noise at this level.
+        thresholds = {"excellent": 20, "good": -30, "inaccuracy": -150, "mistake": -300}
+    elif user_rating < 1400:
+        # Improving: start showing mistakes, still lenient on inaccuracies
+        thresholds = {"excellent": 20, "good": -20, "inaccuracy": -75, "mistake": -200}
+    elif user_rating < 1800:
+        # Intermediate: standard thresholds
+        thresholds = {"excellent": 20, "good": -10, "inaccuracy": -50, "mistake": -150}
+    else:
+        # Advanced: tight thresholds, every centipawn matters
+        thresholds = {"excellent": 10, "good": -5, "inaccuracy": -30, "mistake": -100}
+    
+    if cp_change >= thresholds["excellent"]:
+        return "excellent"
+    elif cp_change >= thresholds["good"]:
         return "good"
-    elif cp_change >= -50:
+    elif cp_change >= thresholds["inaccuracy"]:
         return "inaccuracy"
-    elif cp_change >= -150:
+    elif cp_change >= thresholds["mistake"]:
         return "mistake"
     else:
         return "blunder"
@@ -218,11 +238,12 @@ def _generate_coaching_message(
     tactical_analysis: Dict,
     coach_move: str,
     understanding_context: Optional[Dict] = None,
-    user_name: str = ""
+    user_name: str = "",
+    user_rating: int = 1200
 ) -> Dict[str, Any]:
     """
     Generate a human-like coaching message in Indian-English style.
-    This is the main conversational feedback.
+    Rating-aware: beginners get simpler, more encouraging messages.
     
     Returns dict with:
     - coaching_message: Main message
@@ -240,6 +261,7 @@ def _generate_coaching_message(
     }
     
     name = user_name or "friend"
+    is_beginner = user_rating < 1000
     
     # ========== EXCELLENT MOVES ==========
     if quality == "excellent":
@@ -273,6 +295,11 @@ def _generate_coaching_message(
     
     # ========== INACCURACIES ==========
     elif quality == "inaccuracy":
+        # Beginners: don't overwhelm with inaccuracy feedback, just nudge
+        if is_beginner:
+            result["coaching_message"] = f"{user_move} is fine for now. Let's keep going!"
+            return result
+        
         inaccuracy_phrases = [
             f"Hmm {name}, {user_move} is okay, but dekho - {best_move} was better here.",
             f"{user_move} is playable, but see - {best_move} was more accurate.",
@@ -292,6 +319,15 @@ def _generate_coaching_message(
     
     # ========== MISTAKES - SOCRATIC MODE ==========
     elif quality == "mistake":
+        if is_beginner:
+            # Beginners: direct, simple explanation. No Socratic questioning.
+            reveal_parts = [f"Careful {name}! {user_move} loses some advantage."]
+            if user_move != best_move:
+                reveal_parts.append(f"Try {best_move} instead — it keeps you safe.")
+            result["coaching_message"] = " ".join(reveal_parts)
+            result["encouragement"] = "Good effort though. Let's keep going!"
+            return result
+        
         # First, ask what they were thinking (Socratic)
         socratic_questions = [
             f"{name}, interesting choice with {user_move}. Tell me - what was your thinking?",
@@ -322,6 +358,18 @@ def _generate_coaching_message(
     
     # ========== BLUNDERS - SOCRATIC MODE ==========
     elif quality == "blunder":
+        if is_beginner:
+            # Beginners: direct, clear. This is what they need to hear.
+            reveal_parts = [f"Oops {name}! {user_move} loses material."]
+            if tactical_analysis.get("best_move_captures"):
+                reveal_parts.append(f"You could have played {best_move} and won the {tactical_analysis['best_move_captures']}!")
+            elif user_move != best_move:
+                reveal_parts.append(f"The safe move was {best_move}.")
+            result["coaching_message"] = " ".join(reveal_parts)
+            result["socratic_question"] = "Before your next move, check: is any of your pieces hanging? Can your opponent take something for free?"
+            result["encouragement"] = "It's okay! Just check for hanging pieces before every move."
+            return result
+        
         # Strong Socratic questioning for blunders
         socratic_questions = [
             f"Arre {name}! {user_move}... tell me, what were you thinking? Walk me through it.",
@@ -413,8 +461,9 @@ async def generate_move_feedback(
     
     coach_move = coach_move_data.get("move", "") if coach_move_data else ""
     
-    # Classify quality
-    quality = _classify_move_quality(eval_before, eval_after, user_color)
+    # Classify quality using rating-aware thresholds
+    user_rating = session.get("user_rating", 1200)
+    quality = _classify_move_quality(eval_before, eval_after, user_color, user_rating)
     
     # ===== CHESS BRAIN INTEGRATION =====
     # Try to get deterministic coaching from Chess Brain
@@ -536,7 +585,8 @@ async def generate_move_feedback(
             tactical_analysis=tactical,
             coach_move=coach_move,
             understanding_context=understanding_context,
-            user_name=""
+            user_name="",
+            user_rating=user_rating
         )
         
         coaching_message = coaching_result.get("coaching_message", "")
