@@ -655,7 +655,7 @@ const GameStartCard = ({ decryptionData, habitsReport, coachSummary, coreLesson,
             </span>
           )}
           {lessonText && (
-            <p className="text-base font-semibold text-foreground leading-relaxed mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <p className="text-base font-semibold text-foreground leading-relaxed mb-2 font-heading">
               {lessonText}
             </p>
           )}
@@ -682,15 +682,15 @@ const GameStartCard = ({ decryptionData, habitsReport, coachSummary, coreLesson,
         )}
         <div className="flex gap-2">
           <div className="w-16 rounded-lg bg-muted/50 border border-border p-3 text-center">
-            <p className="text-lg font-bold text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{userMoves.length}</p>
+            <p className="text-lg font-bold text-foreground font-mono">{userMoves.length}</p>
             <p className="text-[10px] text-muted-foreground">Moves</p>
           </div>
           <div className="w-16 rounded-lg bg-emerald-500/8 border border-emerald-500/15 p-3 text-center">
-            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{bestMoves}</p>
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono">{bestMoves}</p>
             <p className="text-[10px] text-muted-foreground">Best</p>
           </div>
           <div className="w-16 rounded-lg bg-red-500/8 border border-red-500/15 p-3 text-center">
-            <p className="text-lg font-bold text-red-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{mistakes}</p>
+            <p className="text-lg font-bold text-red-500 font-mono">{mistakes}</p>
             <p className="text-[10px] text-muted-foreground">Errors</p>
           </div>
         </div>

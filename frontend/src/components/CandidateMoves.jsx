@@ -132,7 +132,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
             <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />
             <span className="text-xs font-medium text-foreground">Today's Lesson</span>
           </div>
-          <p className="text-sm text-foreground leading-relaxed whitespace-pre-line" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
             {introMessage}
           </p>
           <button
@@ -156,7 +156,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
             <CheckCircle2 className="w-4 h-4 text-emerald-600" strokeWidth={1.5} />
             <span className="text-xs font-medium text-emerald-600">Good move</span>
           </div>
-          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-foreground leading-relaxed">
             {curriculumFeedback}
           </p>
         </motion.div>
@@ -178,7 +178,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
               <p className="text-[10px] font-mono uppercase tracking-widest text-red-400/70">Opponent played</p>
             </div>
           </div>
-          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-foreground leading-relaxed">
             {guidance.opponent_commentary}
           </p>
         </motion.div>
@@ -197,7 +197,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
           </div>
 
           {/* ONLY the question — no plan, no golden rule, no future moves */}
-          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-foreground leading-relaxed">
             {guidance.hint}
           </p>
 

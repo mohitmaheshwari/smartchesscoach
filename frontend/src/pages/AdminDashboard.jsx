@@ -51,7 +51,7 @@ export default function AdminDashboard({ user }) {
       <div className="max-w-4xl mx-auto py-6 px-4 space-y-6" data-testid="admin-dashboard">
         {/* Header */}
         <div>
-          <h1 className="text-2xl text-foreground tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-2xl text-foreground tracking-tight font-heading">
             Admin Dashboard
           </h1>
           <div className="flex gap-0.5 mt-4 border-b" style={{ borderColor: BORDER }} data-testid="admin-tabs">
@@ -123,7 +123,7 @@ const OverviewTab = () => {
                 {s.icon}
                 <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{s.label}</span>
               </div>
-              <p className="text-xl text-foreground font-light" style={{ fontFamily: "'Playfair Display', serif" }} data-testid={`stat-${s.label.toLowerCase().replace(/[\s()]/g, '-')}`}>
+              <p className="text-xl text-foreground font-light font-heading" data-testid={`stat-${s.label.toLowerCase().replace(/[\s()]/g, '-')}`}>
                 {s.value}
               </p>
             </div>
@@ -311,7 +311,7 @@ const UsersTab = ({ currentUser }) => {
       {showCreate && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onClick={() => setShowCreate(false)}>
           <div className="bg-white rounded-sm border p-6 w-full max-w-md space-y-4" style={{ borderColor: BORDER }} onClick={(e) => e.stopPropagation()} data-testid="create-user-dialog">
-            <h3 className="text-lg text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>Create New User</h3>
+            <h3 className="text-lg text-foreground font-heading">Create New User</h3>
             <input placeholder="Name" className="w-full px-3 py-2 text-sm border rounded-sm font-light" style={{ borderColor: BORDER }} value={createForm.name} onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))} data-testid="create-name-input" />
             <input placeholder="Email" type="email" className="w-full px-3 py-2 text-sm border rounded-sm font-light" style={{ borderColor: BORDER }} value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} data-testid="create-email-input" />
             <input placeholder="Rating" type="number" className="w-full px-3 py-2 text-sm border rounded-sm font-light" style={{ borderColor: BORDER }} value={createForm.rating} onChange={(e) => setCreateForm((f) => ({ ...f, rating: parseInt(e.target.value) || 1200 }))} data-testid="create-rating-input" />
@@ -348,7 +348,7 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
           {(u.name || "?")[0]}
         </div>
         <div className="flex-1">
-          <h2 className="text-lg text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>{u.name}</h2>
+          <h2 className="text-lg text-foreground font-heading">{u.name}</h2>
           <p className="text-[10px] text-muted-foreground font-mono">{u.email} · {u.user_id}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -380,7 +380,7 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
           <Card key={s.label}>
             <div className="p-3">
               <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{s.label}</p>
-              <p className="text-lg text-foreground font-light" style={{ fontFamily: "'Playfair Display', serif" }} data-testid={`detail-${s.label.toLowerCase()}`}>{s.value}</p>
+              <p className="text-lg text-foreground font-light font-heading" data-testid={`detail-${s.label.toLowerCase()}`}>{s.value}</p>
             </div>
           </Card>
         ))}

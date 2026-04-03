@@ -61,6 +61,12 @@ module.exports = {
                                 '4': 'hsl(var(--chart-4))',
                                 '5': 'hsl(var(--chart-5))'
                         },
+                        // Brand colors
+                        wine: 'hsl(var(--wine))',
+                        gold: {
+                                DEFAULT: 'hsl(var(--gold))',
+                                muted: 'hsl(var(--gold-muted))',
+                        },
                         // Chess semantic colors
                         chess: {
                                 growth: '#10B981',
@@ -91,12 +97,17 @@ module.exports = {
                                 from: { opacity: '0', transform: 'scale(0.95)' },
                                 to: { opacity: '1', transform: 'scale(1)' }
                         },
+                        'pulse-glow': {
+                                '0%, 100%': { opacity: '1' },
+                                '50%': { opacity: '0.7' }
+                        },
                 },
                 animation: {
                         'accordion-down': 'accordion-down 0.2s ease-out',
                         'accordion-up': 'accordion-up 0.2s ease-out',
                         'fade-in': 'fade-in 0.3s ease-out',
                         'scale-in': 'scale-in 0.2s ease-out',
+                        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
                 }
         }
   },

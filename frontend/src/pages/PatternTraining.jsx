@@ -142,8 +142,7 @@ const PatternTraining = () => {
         </Button>
         <div className="flex-1">
           <h1
-            className="text-xl font-semibold text-foreground capitalize"
-            style={{ fontFamily: "'Playfair Display', serif" }}
+            className="text-xl font-semibold text-foreground capitalize font-heading"
           >
             {readablePattern} Training
           </h1>

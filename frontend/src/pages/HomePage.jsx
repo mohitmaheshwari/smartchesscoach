@@ -31,7 +31,7 @@ const HomePage = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center h-[60vh]">
-          <div className="w-5 h-5 border border-border border-t-foreground/50 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
         </div>
       </Layout>
     );
@@ -72,7 +72,7 @@ const HomePage = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="max-w-xl mx-auto px-4 py-16 text-center" data-testid="home-page">
-          <h1 className="text-3xl text-foreground tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-3xl font-heading text-foreground tracking-tight mb-3">
             Welcome to ChessGuru
           </h1>
           <p className="text-muted-foreground mb-8 text-sm leading-relaxed">
@@ -80,7 +80,7 @@ const HomePage = ({ user }) => {
             After 15, it'll know your weaknesses by name.
           </p>
           <div className="flex gap-3 justify-center">
-            <button onClick={() => navigate("/import")} className="px-6 py-3 text-sm text-background bg-foreground rounded-lg hover:opacity-90 transition-opacity" data-testid="import-cta">
+            <button onClick={() => navigate("/import")} className="px-6 py-3 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium" data-testid="import-cta">
               <Import className="w-4 h-4 inline mr-2" strokeWidth={1.5} />
               Import Games
             </button>
@@ -101,11 +101,13 @@ const HomePage = ({ user }) => {
         {/* ── COACH MESSAGE ── */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           {streak && streak.count >= 2 && !moodOverride && (
-            <p className="text-xs mb-2" style={{ fontFamily: "'JetBrains Mono', monospace", color: streak.type === "W" ? "#16a34a" : streak.type === "L" ? "#EF4444" : "#888" }}>
+            <p className={`text-xs font-mono mb-2 font-medium ${
+              streak.type === "W" ? "text-emerald-500" : streak.type === "L" ? "text-red-400" : "text-muted-foreground"
+            }`}>
               {streak.count} {streak.type === "W" ? "wins" : streak.type === "L" ? "losses" : "draws"} in a row
             </p>
           )}
-          <h1 className="text-2xl sm:text-3xl text-foreground tracking-tight leading-snug mb-1.5" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-2xl sm:text-3xl font-heading text-foreground tracking-tight leading-snug mb-1.5">
             {coachMessage}
           </h1>
           {coachSub && <p className="text-sm text-muted-foreground">{coachSub}</p>}
@@ -116,15 +118,15 @@ const HomePage = ({ user }) => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.03 }}
-            className="mb-6 flex items-center gap-3 p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/8"
+            transition={{ delay: 0.05 }}
+            className="mb-6 flex items-center gap-3 p-3.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5"
             data-testid="win-streak-banner"
           >
-            <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-              <Trophy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+            <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+              <Trophy className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <p className="text-sm font-medium text-emerald-500">
                 {moodOverride.streak}-game win streak
               </p>
               <p className="text-xs text-muted-foreground">{moodOverride.message}</p>
@@ -137,12 +139,12 @@ const HomePage = ({ user }) => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 }}
+            transition={{ delay: 0.05 }}
             className="mb-6"
           >
             <div className={`flex items-center gap-2 text-sm ${
-              progressTrend.trend === "improving" ? "text-emerald-600 dark:text-emerald-400" :
-              progressTrend.trend === "declining" ? "text-red-500" : "text-muted-foreground"
+              progressTrend.trend === "improving" ? "text-emerald-500" :
+              progressTrend.trend === "declining" ? "text-red-400" : "text-muted-foreground"
             }`}>
               {progressTrend.trend === "improving" && <TrendingUp className="w-4 h-4" strokeWidth={1.5} />}
               {progressTrend.trend === "stable" && <Check className="w-4 h-4" strokeWidth={1.5} />}
@@ -156,15 +158,15 @@ const HomePage = ({ user }) => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
+            transition={{ delay: 0.08 }}
             className="mb-6"
           >
             <div
-              className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-lg cursor-pointer hover:border-primary/30 transition-colors"
+              className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-lg cursor-pointer hover:border-primary/30 transition-all"
               onClick={() => navigate("/lab")}
               data-testid="review-progress-strip"
             >
-              <FlaskConical className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" strokeWidth={1.5} />
+              <FlaskConical className="w-4 h-4 text-primary flex-shrink-0" strokeWidth={1.5} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-foreground">
                   <strong>{review.pending}</strong> game{review.pending > 1 ? "s" : ""} waiting for review
@@ -174,11 +176,11 @@ const HomePage = ({ user }) => {
               <div className="flex items-center gap-2">
                 <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-500 rounded-full transition-all"
+                    className="h-full bg-primary rounded-full transition-all"
                     style={{ width: `${review.total ? (review.reviewed / review.total) * 100 : 0}%` }}
                   />
                 </div>
-                <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <span className="text-[10px] font-mono text-muted-foreground">
                   {review.reviewed}/{review.total}
                 </span>
               </div>
@@ -188,14 +190,14 @@ const HomePage = ({ user }) => {
         )}
 
         {/* ── LAST GAME + ACTIONS ── */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="mb-6">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* LAST GAME — 3/5 */}
             {battle && (
               <div className="md:col-span-3">
                 <Label>Last Game</Label>
                 <div
-                  className="bg-card border border-border cursor-pointer transition-all duration-200 hover:border-primary/20 hover:shadow-sm rounded-lg overflow-hidden h-full"
+                  className="bg-card border border-border cursor-pointer transition-all duration-200 hover:border-primary/20 rounded-lg overflow-hidden h-full card-hover"
                   onClick={() => navigate(`/game/${battle.game_id}`)}
                   data-testid="last-battle-card"
                 >
@@ -214,9 +216,9 @@ const HomePage = ({ user }) => {
                             <span className="text-xs text-muted-foreground/50 hidden sm:inline">{battle.opening}</span>
                           )}
                         </div>
-                        {/* Behavioral insight — the story of this game */}
+                        {/* Behavioral insight */}
                         {battle.lesson_label && (
-                          <span className="inline-block text-[9px] font-bold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-400 mr-1.5 mb-0.5">
+                          <span className="inline-block text-[9px] font-bold uppercase tracking-[0.1em] text-primary mr-1.5 mb-0.5">
                             {battle.lesson_label}
                           </span>
                         )}
@@ -225,11 +227,11 @@ const HomePage = ({ user }) => {
                         </p>
                       </div>
                       {battle.move_number > 0 && battle.your_move && (
-                        <div className="flex items-center gap-2 mt-3 text-[10px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        <div className="flex items-center gap-2 mt-3 text-[10px] font-mono">
                           <span className="text-muted-foreground">Move {battle.move_number}</span>
-                          <span className="text-red-500 font-medium">{battle.your_move}</span>
+                          <span className="text-red-400 font-medium">{battle.your_move}</span>
                           <span className="text-muted-foreground/40">→</span>
-                          <span className="text-emerald-600 font-medium">{battle.best_move}</span>
+                          <span className="text-emerald-500 font-medium">{battle.best_move}</span>
                         </div>
                       )}
                     </div>
@@ -243,13 +245,13 @@ const HomePage = ({ user }) => {
               <Label>Actions</Label>
               <div className="bg-card border border-border rounded-lg overflow-hidden h-full flex flex-col">
                 <div
-                  className="p-4 cursor-pointer transition-opacity hover:opacity-90 flex items-center gap-3 bg-foreground text-background"
+                  className="p-4 cursor-pointer transition-all hover:opacity-90 flex items-center gap-3 bg-primary text-primary-foreground"
                   onClick={() => navigate(primaryActionHref)}
                   data-testid="primary-action"
                 >
-                  <Target className="w-4 h-4 flex-shrink-0 opacity-70" strokeWidth={1.5} />
-                  <span className="text-sm flex-1">{primaryActionLabel}</span>
-                  <ChevronRight className="w-4 h-4 opacity-50" strokeWidth={1.5} />
+                  <Target className="w-4 h-4 flex-shrink-0 opacity-80" strokeWidth={1.5} />
+                  <span className="text-sm font-medium flex-1">{primaryActionLabel}</span>
+                  <ChevronRight className="w-4 h-4 opacity-60" strokeWidth={1.5} />
                 </div>
                 <ActionRow icon={Swords} label="Play with Coach" onClick={() => navigate("/play-with-coach")} testId="play-action" />
                 <ActionRow icon={BookOpen} label="Study Openings" onClick={() => navigate("/openings-overview")} testId="openings-action" />
@@ -260,7 +262,7 @@ const HomePage = ({ user }) => {
         </motion.div>
 
         {/* ── PATTERNS + CHESS DNA ── */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mb-6">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {patterns.length > 0 && !suppressNegative && (
               <div>
@@ -274,11 +276,11 @@ const HomePage = ({ user }) => {
                       data-testid={`pattern-${p.pattern_type}`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.severity === "critical" || p.severity === "high" ? "bg-red-500" : "bg-amber-500"}`} />
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.severity === "critical" || p.severity === "high" ? "bg-red-400" : "bg-amber-400"}`} />
                         <span className="text-sm text-foreground">{p.label}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{p.recent_count}x</span>
+                        <span className="text-xs font-mono text-muted-foreground">{p.recent_count}x</span>
                         <SeverityBadge severity={p.severity} />
                       </div>
                     </div>
@@ -293,9 +295,9 @@ const HomePage = ({ user }) => {
                 <div className="bg-card border border-border rounded-lg p-4 h-full">
                   <span className="text-sm text-muted-foreground">{dna.archetype || "Developing"}</span>
                   <div className="mt-3 mb-2">
-                    <span className="text-[9px] tracking-[0.15em] uppercase font-bold text-red-600 dark:text-red-400">Biggest Leak</span>
-                    <p className="text-base text-foreground tracking-tight mt-0.5" style={{ fontFamily: "'Playfair Display', serif" }}>
-                      {dna.diagnosis?.replace(/_/g, " ") || "—"}
+                    <span className="text-[9px] tracking-[0.15em] uppercase font-bold text-red-400">Biggest Leak</span>
+                    <p className="text-base font-heading text-foreground tracking-tight mt-0.5">
+                      {dna.diagnosis?.replace(/_/g, " ") || "\u2014"}
                     </p>
                   </div>
                   {dna.after_line && <p className="text-xs text-muted-foreground leading-relaxed">{dna.after_line}</p>}
@@ -306,11 +308,11 @@ const HomePage = ({ user }) => {
         </motion.div>
 
         {/* ── FOOTER STATS ── */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
           className="flex items-center justify-between text-muted-foreground/50 mt-8 pt-3 border-t border-border"
         >
-          <span className="text-[10px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{gamesAnalyzed} games</span>
-          {accuracy > 0 && <span className="text-[10px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{accuracy.toFixed(0)}% avg accuracy</span>}
+          <span className="text-[10px] font-mono">{gamesAnalyzed} games</span>
+          {accuracy > 0 && <span className="text-[10px] font-mono">{accuracy.toFixed(0)}% avg accuracy</span>}
         </motion.div>
       </div>
     </Layout>
@@ -334,9 +336,9 @@ const ActionRow = ({ icon: Icon, label, onClick, testId }) => (
 const ResultBadge = ({ result, userColor }) => {
   const won = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
   const draw = (result || "").includes("1/2");
-  const cls = won ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+  const cls = won ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
     : draw ? "bg-muted text-muted-foreground border-border"
-    : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20";
+    : "bg-red-500/10 text-red-400 border-red-500/20";
   return <span className={`text-[10px] px-1.5 py-0.5 font-semibold rounded border ${cls}`}>{won ? "WON" : draw ? "DRAW" : "LOST"}</span>;
 };
 
@@ -344,7 +346,7 @@ const SeverityBadge = ({ severity }) => {
   const high = severity === "critical" || severity === "high";
   return (
     <span className={`text-[9px] px-1.5 py-0.5 uppercase font-semibold rounded ${
-      high ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+      high ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"
     }`}>
       {high ? "HIGH" : "MED"}
     </span>

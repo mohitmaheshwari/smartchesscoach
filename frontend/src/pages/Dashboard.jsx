@@ -1,6 +1,6 @@
 /**
  * LAB PAGE — Coach's Review Queue
- * 
+ *
  * The coach picks which game to review and tells you WHY.
  * Each game card shows your behavioral story, not just stats.
  */
@@ -42,7 +42,7 @@ const Dashboard = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center h-[60vh]">
-          <div className="w-5 h-5 border border-border border-t-foreground/50 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
         </div>
       </Layout>
     );
@@ -61,13 +61,13 @@ const Dashboard = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="max-w-3xl mx-auto py-8 px-4" data-testid="lab-page">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl text-foreground tracking-tight font-heading" data-testid="lab-heading">Lab</h1>
+            <h1 className="text-3xl font-heading text-foreground tracking-tight" data-testid="lab-heading">Lab</h1>
             {totalCount > 0 && (
-              <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <p className="text-xs text-muted-foreground font-mono mt-1">
                 {reviewedCount}/{totalCount} reviewed
               </p>
             )}
@@ -87,9 +87,9 @@ const Dashboard = ({ user }) => {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
             <div className="bg-card border border-border rounded-lg p-5">
               <div className="flex items-center gap-4 mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-emerald-600" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{verdict.wins}W</span>
-                  <span className="text-lg font-bold text-red-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{verdict.losses}L</span>
+                <div className="flex items-center gap-2 font-mono">
+                  <span className="text-lg font-bold text-emerald-500">{verdict.wins}W</span>
+                  <span className="text-lg font-bold text-red-400">{verdict.losses}L</span>
                 </div>
                 <span className="text-xs text-muted-foreground">last {verdict.total} games</span>
                 {verdict.losses > verdict.wins ? (
@@ -112,7 +112,7 @@ const Dashboard = ({ user }) => {
               Coach's Pick
             </p>
             <div
-              className="bg-card border-2 border-amber-500/30 rounded-lg cursor-pointer transition-all duration-200 hover:border-amber-500/50 hover:shadow-md group"
+              className="bg-card border-2 border-primary/30 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary/50 group glow-gold"
               onClick={() => navigate(`/game/${pick.game_id}`)}
               data-testid="coach-pick-card"
             >
@@ -127,12 +127,12 @@ const Dashboard = ({ user }) => {
                       <span className="text-xs text-muted-foreground hidden sm:inline">{pick.opening}</span>
                     )}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground/40 group-hover:text-amber-500 transition-colors" strokeWidth={1.5} />
+                  <ChevronRight className="w-5 h-5 text-muted-foreground/40 group-hover:text-primary transition-colors" strokeWidth={1.5} />
                 </div>
 
                 {/* Behavioral label */}
                 {pick.lesson_label && (
-                  <span className="inline-block text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 mb-2.5">
+                  <span className="inline-block text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 mb-2.5">
                     {pick.lesson_label}
                   </span>
                 )}
@@ -143,7 +143,7 @@ const Dashboard = ({ user }) => {
                 {/* Train this pattern button */}
                 {pickPattern && (
                   <button
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 transition-colors"
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/training/pattern/${pickPattern}`);
@@ -162,7 +162,7 @@ const Dashboard = ({ user }) => {
 
         {/* ── UNREVIEWED GAMES ── */}
         {unreviewedGames.length > (pick ? 1 : 0) && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             <p className="text-[10px] tracking-[0.15em] uppercase mb-2.5 font-bold text-muted-foreground">
               To Review ({unreviewedGames.length - (pick ? 1 : 0)} more)
             </p>
@@ -176,7 +176,7 @@ const Dashboard = ({ user }) => {
 
         {/* ── REVIEWED GAMES ── */}
         {reviewedGames.length > 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mt-8">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8">
             <p className="text-[10px] tracking-[0.15em] uppercase mb-2.5 font-bold text-muted-foreground/50">
               Reviewed ({reviewedGames.length})
             </p>
@@ -202,7 +202,7 @@ const Dashboard = ({ user }) => {
 
         {/* Empty state */}
         {games.length === 0 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-16"
@@ -211,13 +211,13 @@ const Dashboard = ({ user }) => {
             <div className="w-16 h-16 rounded-full bg-muted/50 border border-border flex items-center justify-center mx-auto mb-5">
               <Import className="w-7 h-7 text-muted-foreground/50" strokeWidth={1.5} />
             </div>
-            <h2 className="text-lg font-semibold text-foreground mb-2">Your lab is empty</h2>
+            <h2 className="text-lg font-heading font-semibold text-foreground mb-2">Your lab is empty</h2>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-6 leading-relaxed">
               Import your games from Chess.com or Lichess. Your coach will analyze them and tell you exactly what to work on.
             </p>
             <button
               onClick={() => navigate("/import")}
-              className="px-6 py-3 text-sm font-medium text-white rounded-lg bg-foreground hover:opacity-90 transition-opacity"
+              className="px-6 py-3 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
               data-testid="lab-empty-import-btn"
             >
               Import your games
@@ -249,17 +249,17 @@ const GameRow = ({ game, navigate, markReviewed }) => {
           <ResultBadge result={game.result} small />
           {game.opening && (
             <>
-              <span className="text-muted-foreground/30">·</span>
+              <span className="text-muted-foreground/30">&middot;</span>
               <span className="text-xs text-muted-foreground truncate">{game.opening}</span>
             </>
           )}
         </div>
 
-        {/* Behavioral insight — the key differentiator */}
+        {/* Behavioral insight */}
         {(game.behavior || game.lesson) ? (
           <div className="mt-1">
             {game.lesson_label && (
-              <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-400 mr-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-primary mr-2">
                 {game.lesson_label}
               </span>
             )}
@@ -279,7 +279,7 @@ const GameRow = ({ game, navigate, markReviewed }) => {
       {/* Mark reviewed */}
       <button
         onClick={(e) => { e.stopPropagation(); markReviewed(game.game_id); }}
-        className="mt-0.5 p-1.5 text-muted-foreground/20 hover:text-emerald-600 transition-colors opacity-0 group-hover:opacity-100"
+        className="mt-0.5 p-1.5 text-muted-foreground/20 hover:text-emerald-500 transition-colors opacity-0 group-hover:opacity-100"
         title="Mark as reviewed"
         data-testid={`mark-reviewed-${game.game_id}`}
       >
@@ -289,15 +289,15 @@ const GameRow = ({ game, navigate, markReviewed }) => {
   );
 };
 
-/* ── Accuracy Dot ── Tiny colored circle representing game accuracy ── */
+/* ── Accuracy Dot ── */
 const AccuracyDot = ({ accuracy }) => {
   if (!accuracy || accuracy <= 0) return <div className="w-2.5 h-2.5 rounded-full bg-muted" />;
-  
-  const color = accuracy >= 85 ? 'bg-emerald-500' 
-    : accuracy >= 70 ? 'bg-emerald-400' 
-    : accuracy >= 55 ? 'bg-amber-500' 
-    : 'bg-red-500';
-  
+
+  const color = accuracy >= 85 ? 'bg-emerald-500'
+    : accuracy >= 70 ? 'bg-emerald-400'
+    : accuracy >= 55 ? 'bg-amber-400'
+    : 'bg-red-400';
+
   return (
     <div className={`w-2.5 h-2.5 rounded-full ${color}`} title={`${accuracy.toFixed(0)}% accuracy`} />
   );
@@ -308,12 +308,12 @@ const ResultBadge = ({ result, small }) => {
   const base = small ? "text-[9px] px-1.5 py-0" : "text-[10px] px-2 py-0.5";
   const isWin = result === "W";
   const isLoss = result === "L";
-  const cls = isWin 
-    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-    : isLoss 
-      ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+  const cls = isWin
+    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+    : isLoss
+      ? "bg-red-500/10 text-red-400 border-red-500/20"
       : "bg-muted text-muted-foreground border-border";
-  
+
   return (
     <span className={`${base} font-semibold rounded border ${cls}`}>
       {isWin ? "WON" : isLoss ? "LOST" : "DRAW"}

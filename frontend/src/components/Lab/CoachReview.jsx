@@ -59,21 +59,21 @@ const StorySection = ({ story, llmNarrative }) => {
       <SectionHeader icon={BookOpen} label="What Happened" number="01" />
       
       {narrative ? (
-        <p className="text-base text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <p className="text-base text-foreground leading-relaxed">
           {narrative}
         </p>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-foreground leading-relaxed">
             {story.opening}
           </p>
-          <p className="text-sm text-muted-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             {story.tension}
           </p>
-          <p className="text-sm text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-foreground leading-relaxed">
             {story.climax}
           </p>
-          <p className="text-sm text-muted-foreground leading-relaxed italic" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-sm text-muted-foreground leading-relaxed italic">
             {story.resolution}
           </p>
         </div>
@@ -99,7 +99,7 @@ const MirrorSection = ({ mirror, llmNarrative }) => {
       <SectionHeader icon={Eye} label="About You" number="02" />
 
       <div className="relative pl-4 border-l-2 border-primary/40">
-        <p className="text-base text-foreground leading-relaxed" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <p className="text-base text-foreground leading-relaxed">
           {narrative || mirror.observation}
         </p>
       </div>
@@ -107,7 +107,7 @@ const MirrorSection = ({ mirror, llmNarrative }) => {
       {mirror.pattern_insight && (
         <div className="mt-4 flex items-start gap-2">
           <Repeat className="w-3.5 h-3.5 text-primary/60 mt-0.5 shrink-0" strokeWidth={1.5} />
-          <p className="text-xs text-primary/80" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          <p className="text-xs text-primary/80 font-mono">
             {mirror.pattern_insight}
           </p>
         </div>
@@ -149,7 +149,7 @@ const MomentCard = ({ moment, index, onNavigate, llmInsight }) => {
         <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-primary transition-colors" strokeWidth={1.5} />
       </div>
 
-      <p className="text-sm text-foreground leading-relaxed mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <p className="text-sm text-foreground leading-relaxed mb-2">
         {llmInsight || te.description || "A critical decision point."}
       </p>
 
@@ -178,12 +178,12 @@ const MomentSection = ({ moments, llmNarrative, onNavigate }) => {
       <SectionHeader icon={Target} label="Behavior Insight" number="03" />
       
       {moments.length === 0 ? (
-        <p className="text-sm text-muted-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <p className="text-sm text-muted-foreground">
           No big mistakes. Clean game.
         </p>
       ) : (
         <div>
-          <p className="text-xs text-muted-foreground mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="text-xs text-muted-foreground mb-4">
             {moments.length === 1 
               ? "This move decided the game. Tap to see it."
               : `These ${moments.length} moves decided the game. Tap to see them.`
@@ -223,8 +223,7 @@ const TakeawaySection = ({ takeaway, llmNarrative }) => {
       <div className="relative bg-primary/[0.06] border border-primary/20 p-5">
         <Quote className="w-5 h-5 text-primary/30 absolute top-3 left-3" strokeWidth={1} />
         <p 
-          className="text-lg text-foreground leading-relaxed text-center px-6"
-          style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, fontStyle: "italic" }}
+          className="text-lg text-foreground leading-relaxed text-center px-6 font-heading italic font-normal"
         >
           {mantra}
         </p>
@@ -255,7 +254,7 @@ const ProofSection = ({ proof, llmNarrative }) => {
         data-testid="coach-review-proof"
       >
         <SectionHeader icon={TrendingUp} label="Your Progress" number="05" />
-        <p className="text-sm text-muted-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <p className="text-sm text-muted-foreground">
           {proof.message}
         </p>
       </motion.div>
@@ -273,7 +272,7 @@ const ProofSection = ({ proof, llmNarrative }) => {
     >
       <SectionHeader icon={TrendingUp} label="Your Progress" number="05" />
       
-      <p className="text-sm text-muted-foreground mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <p className="text-sm text-muted-foreground mb-4">
         {encouragement || proof.message}
       </p>
 
@@ -367,8 +366,7 @@ const CoachReview = ({ gameId, onMoveClick }) => {
         className="mb-8 pb-6 border-b border-border"
       >
         <h2 
-          className="text-2xl text-foreground tracking-tight"
-          style={{ fontFamily: "'Cormorant Garamond', serif" }}
+          className="text-2xl text-foreground tracking-tight font-heading"
         >
           Your Coach Says
         </h2>

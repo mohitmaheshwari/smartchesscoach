@@ -180,7 +180,7 @@ const Onboarding = () => {
           <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background: "rgba(22,163,74,0.1)" }}>
             <CheckCircle2 className="w-7 h-7 text-emerald-600" />
           </div>
-          <h1 className="text-2xl text-foreground tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Analysis Complete</h1>
+          <h1 className="text-2xl text-foreground tracking-tight font-heading">Analysis Complete</h1>
           <p className="text-sm text-muted-foreground font-light mt-1">
             We analyzed {analysisResult.games_analyzed} of your recent games
           </p>
@@ -191,7 +191,7 @@ const Onboarding = () => {
           <p className="text-[10px] uppercase tracking-[0.2em] font-mono mb-2" style={{ color: GOLD_TEXT }}>
             Thinking Stability Index
           </p>
-          <p className="text-5xl font-light" style={{ fontFamily: "'Playfair Display', serif", color: tsiColor }}>{tsi}</p>
+          <p className="text-5xl font-light font-heading" style={{ color: tsiColor }}>{tsi}</p>
           <p className="text-xs mt-1 font-mono" style={{ color: tsiColor }}>{tsiLabel}</p>
         </div>
 
@@ -202,7 +202,7 @@ const Onboarding = () => {
               <Target className="w-3.5 h-3.5" style={{ color: WINE }} />
               <p className="text-[10px] uppercase tracking-[0.15em] font-mono" style={{ color: WINE }}>Primary Focus Area</p>
             </div>
-            <p className="text-base text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <p className="text-base text-foreground font-heading">
               {primaryPattern[0].replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
             </p>
             <p className="text-xs text-muted-foreground font-light mt-1">
@@ -226,7 +226,7 @@ const Onboarding = () => {
       <Shell>
         <div className="text-center py-6">
           <Loader2 className="w-10 h-10 animate-spin mx-auto mb-5" style={{ color: GOLD }} />
-          <h2 className="text-xl text-foreground tracking-tight mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h2 className="text-xl text-foreground tracking-tight mb-1 font-heading">
             Analyzing Your Games
           </h2>
           <p className="text-sm text-muted-foreground font-light mb-6">This usually takes 15–30 seconds...</p>
@@ -264,7 +264,7 @@ const Onboarding = () => {
         </div>
       </div>
 
-      <h1 className="text-xl text-foreground tracking-tight mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+      <h1 className="text-xl text-foreground tracking-tight mb-1 font-heading">
         {step === 1 ? "Link Your Chess Account" : "Calibrate Your Profile"}
       </h1>
       <p className="text-sm text-muted-foreground font-light mb-6">
@@ -336,7 +336,7 @@ const Onboarding = () => {
                       ? `Live ${detectedPlatform} Rating · ${gamesAnalyzed} games available`
                       : `Live ${detectedPlatform} Rating`}
                   </p>
-                  <p className="text-2xl text-foreground font-light mt-0.5" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  <p className="text-2xl text-foreground font-light mt-0.5 font-heading">
                     {detectedRating}
                   </p>
                 </div>
@@ -419,8 +419,8 @@ const Onboarding = () => {
 // ── SHARED COMPONENTS ──
 
 const Shell = ({ children }) => (
-  <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#FAF8F5" }}>
-    <div className="w-full max-w-lg bg-white border rounded-sm p-8 shadow-sm" style={{ borderColor: BORDER }}>
+  <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="w-full max-w-lg bg-card border border-border rounded-lg p-8 shadow-sm">
       {children}
     </div>
   </div>

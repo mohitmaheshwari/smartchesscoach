@@ -188,16 +188,16 @@ const CoachAction = ({ gameId, onMoveClick }) => {
             <div className="flex items-center gap-0 border-t border-current/10 divide-x divide-current/10 text-xs">
               {game_stats.accuracy != null && (
                 <div className="flex-1 text-center py-2.5">
-                  <span className="font-bold text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{game_stats.accuracy.toFixed(0)}%</span>
+                  <span className="font-bold text-sm font-mono">{game_stats.accuracy.toFixed(0)}%</span>
                   <span className="block text-[10px] opacity-50 mt-0.5">Accuracy</span>
                 </div>
               )}
               <div className="flex-1 text-center py-2.5">
-                <span className="font-bold text-sm text-red-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{game_stats.blunders || 0}</span>
+                <span className="font-bold text-sm text-red-500 font-mono">{game_stats.blunders || 0}</span>
                 <span className="block text-[10px] opacity-50 mt-0.5">Blunders</span>
               </div>
               <div className="flex-1 text-center py-2.5">
-                <span className="font-bold text-sm text-amber-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{game_stats.mistakes || 0}</span>
+                <span className="font-bold text-sm text-amber-500 font-mono">{game_stats.mistakes || 0}</span>
                 <span className="block text-[10px] opacity-50 mt-0.5">Mistakes</span>
               </div>
             </div>
@@ -214,7 +214,7 @@ const CoachAction = ({ gameId, onMoveClick }) => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                  <span className="text-xs font-bold text-red-500" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{worstMove.move_number}</span>
+                  <span className="text-xs font-bold text-red-500 font-mono">{worstMove.move_number}</span>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">

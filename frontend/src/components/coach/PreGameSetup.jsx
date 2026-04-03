@@ -75,7 +75,7 @@ const PreGameSetup = ({ selectedColor, setSelectedColor, onStart, loading }) => 
         className="w-full max-w-md space-y-6"
       >
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-foreground mb-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+          <h1 className="text-3xl font-bold text-foreground mb-2 font-heading">
             Play with Coach
           </h1>
           <p className="text-sm text-muted-foreground">Learn chess by playing guided games</p>

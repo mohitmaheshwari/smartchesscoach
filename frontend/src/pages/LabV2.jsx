@@ -248,13 +248,13 @@ const ReviewCompleteOverlay = ({ summary, nextGame, navigate }) => {
           <div className="flex gap-3 mb-6">
             {concepts_learned > 0 && (
               <div className="flex-1 bg-muted/40 rounded-lg py-3 text-center">
-                <p className="text-lg font-bold text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{concepts_learned}</p>
+                <p className="text-lg font-bold text-foreground font-mono">{concepts_learned}</p>
                 <p className="text-[10px] text-muted-foreground">concepts learned</p>
               </div>
             )}
             {drills_solved > 0 && (
               <div className="flex-1 bg-muted/40 rounded-lg py-3 text-center">
-                <p className="text-lg font-bold text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{drills_solved}</p>
+                <p className="text-lg font-bold text-foreground font-mono">{drills_solved}</p>
                 <p className="text-[10px] text-muted-foreground">drills solved</p>
               </div>
             )}
@@ -1048,7 +1048,7 @@ const LabV2 = ({ user }) => {
                         strokeDasharray={`${accuracy * 0.975} 97.5`}
                       />
                     </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono">
                       {accuracy.toFixed(0)}
                     </span>
                   </div>
@@ -1228,14 +1228,14 @@ const LabV2 = ({ user }) => {
                 <RotateCcw className="w-3.5 h-3.5" />
               </Button>
               
-              <span className="ml-3 text-xs text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <span className="ml-3 text-xs text-muted-foreground font-mono">
                 {currentMoveIndex + 1} / {moves.length}
               </span>
             </div>
             
             {/* Move list (compact) */}
             <div className="h-28 overflow-y-auto px-4 py-2.5 border-t border-border bg-muted/20">
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm font-mono">
                 {moves.map((move, idx) => {
                   const isWhite = idx % 2 === 0;
                   const moveNum = Math.floor(idx / 2) + 1;

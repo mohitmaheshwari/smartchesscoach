@@ -11,65 +11,75 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── LIGHT MODE ─── Clean, bright, professional ─── */
   :root {
-    /* Light mode - Warm Paper */
-    --background: 240 5% 96%;
-    --foreground: 240 10% 10%;
+    --background: 0 0% 98%;
+    --foreground: 228 14% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
+    --card-foreground: 228 14% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 10%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 92%;
-    --secondary-foreground: 240 10% 10%;
-    --muted: 240 5% 92%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 217 91% 60%;
-    --radius: 0.75rem;
-    
-    /* Semantic colors */
-    --success: 160 84% 39%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 0%;
-    --critical: 0 84% 60%;
-  }
-
-  .dark {
-    /* Chess.com inspired warm light */
-    --background: 37 16% 96%;
-    --foreground: 30 7% 18%;
-    --card: 0 0% 100%;
-    --card-foreground: 30 7% 18%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 30 7% 18%;
+    --popover-foreground: 228 14% 12%;
     --primary: 353 42% 32%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 37 12% 92%;
-    --secondary-foreground: 30 7% 18%;
-    --muted: 37 10% 92%;
-    --muted-foreground: 30 5% 45%;
-    --accent: 43 59% 50%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 353 50% 45%;
+    --secondary: 225 10% 94%;
+    --secondary-foreground: 228 14% 12%;
+    --muted: 225 10% 94%;
+    --muted-foreground: 225 8% 44%;
+    --accent: 43 72% 48%;
+    --accent-foreground: 228 14% 12%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 35 10% 87%;
-    --input: 35 10% 87%;
-    --ring: 43 59% 50%;
-    
-    /* Semantic colors */
-    --success: 160 84% 39%;
+    --border: 225 10% 89%;
+    --input: 225 10% 89%;
+    --ring: 353 42% 32%;
+    --radius: 0.625rem;
+
+    /* Semantic */
+    --success: 152 69% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 0%;
-    --critical: 0 84% 60%;
+    --critical: 0 72% 51%;
+
+    /* Brand */
+    --wine: 353 42% 32%;
+    --gold: 43 72% 48%;
+    --gold-muted: 43 40% 35%;
+  }
+
+  /* ─── DARK MODE ─── Deep, rich, premium ─── */
+  .dark {
+    --background: 228 18% 7%;
+    --foreground: 225 12% 91%;
+    --card: 228 16% 10%;
+    --card-foreground: 225 12% 91%;
+    --popover: 228 16% 10%;
+    --popover-foreground: 225 12% 91%;
+    --primary: 43 72% 50%;
+    --primary-foreground: 228 18% 7%;
+    --secondary: 228 14% 14%;
+    --secondary-foreground: 225 12% 85%;
+    --muted: 228 14% 14%;
+    --muted-foreground: 225 8% 48%;
+    --accent: 43 72% 50%;
+    --accent-foreground: 228 18% 7%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 228 14% 16%;
+    --input: 228 14% 16%;
+    --ring: 43 72% 50%;
+
+    /* Semantic */
+    --success: 152 69% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --critical: 0 62% 50%;
+
+    /* Brand */
+    --wine: 353 42% 40%;
+    --gold: 43 72% 50%;
+    --gold-muted: 43 50% 40%;
   }
 }
 
@@ -77,72 +87,74 @@
   * {
     @apply border-border;
   }
-  
+
   html {
     @apply scroll-smooth;
   }
-  
+
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Manrope', system-ui, sans-serif;
   }
-  
-  /* Headings use Playfair Display */
+
+  /* ─── Typography ─── Outfit for headings, Manrope for body ─── */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', Georgia, serif;
-    @apply tracking-tight font-normal;
+    font-family: 'Outfit', system-ui, sans-serif;
+    @apply tracking-tight font-semibold;
   }
 
   .font-heading {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'Outfit', system-ui, sans-serif;
+  }
+  .font-body {
+    font-family: 'Manrope', system-ui, sans-serif;
   }
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
-  
+
   h1 { @apply text-3xl md:text-4xl font-bold; }
-  h2 { @apply text-2xl md:text-3xl; }
-  h3 { @apply text-xl md:text-2xl; }
-  h4 { @apply text-lg md:text-xl; }
-  
+  h2 { @apply text-2xl md:text-3xl font-semibold; }
+  h3 { @apply text-xl md:text-2xl font-semibold; }
+  h4 { @apply text-lg md:text-xl font-medium; }
+
   /* Mono for chess notation */
-  code, pre, .font-mono {
+  code, pre {
     font-family: 'JetBrains Mono', monospace;
   }
 }
 
-/* Uppercase labels - Linear style */
+/* ─── Utility Classes ─── */
+
+/* Uppercase labels */
 .label-caps {
-  @apply text-xs font-medium uppercase tracking-widest text-muted-foreground;
+  @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground;
 }
 
-/* Custom scrollbar - subtle */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   @apply bg-transparent;
 }
-
 ::-webkit-scrollbar-thumb {
   @apply bg-muted-foreground/20 rounded-full;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/30;
 }
 
-/* Card hover - subtle border change, no lift */
+/* Card hover */
 .card-hover {
-  @apply transition-colors duration-200;
+  @apply transition-all duration-200;
 }
 .card-hover:hover {
-  @apply border-muted-foreground/30;
+  @apply border-muted-foreground/25;
 }
 
-/* Button scale on hover */
+/* Button scale */
 .btn-scale {
   @apply transition-transform duration-150 ease-out;
 }
@@ -153,21 +165,13 @@
   @apply scale-[0.98];
 }
 
-/* Status indicator dots */
-.status-dot {
-  @apply w-2 h-2 rounded-full;
-}
-.status-improving {
-  @apply bg-emerald-500;
-}
-.status-stable {
-  @apply bg-zinc-400;
-}
-.status-attention {
-  @apply bg-amber-500;
-}
+/* Status dots */
+.status-dot { @apply w-2 h-2 rounded-full; }
+.status-improving { @apply bg-emerald-500; }
+.status-stable { @apply bg-zinc-400; }
+.status-attention { @apply bg-amber-500; }
 
-/* Progress ring base styles */
+/* Progress ring */
 .progress-ring {
   transform: rotate(-90deg);
 }
@@ -175,7 +179,7 @@
   transition: stroke-dashoffset 0.5s ease-out;
 }
 
-/* Chess evaluation colors - muted versions */
+/* Chess eval colors */
 .eval-blunder { color: #EF4444; }
 .eval-mistake { color: #F97316; }
 .eval-inaccuracy { color: #EAB308; }
@@ -183,12 +187,12 @@
 .eval-excellent { color: #10B981; }
 .eval-brilliant { color: #14B8A6; }
 
-/* Trend arrows */
+/* Trend */
 .trend-up { @apply text-emerald-500; }
-.trend-down { @apply text-amber-500; }
+.trend-down { @apply text-red-400; }
 .trend-stable { @apply text-muted-foreground; }
 
-/* Staggered fade-in animation */
+/* Staggered fade-in */
 .animate-stagger > * {
   @apply opacity-0 animate-fade-in;
 }
@@ -199,17 +203,30 @@
 .animate-stagger > *:nth-child(5) { animation-delay: 200ms; }
 .animate-stagger > *:nth-child(6) { animation-delay: 250ms; }
 
-/* Focus visible ring */
+/* Focus ring */
 .focus-ring {
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
-/* Remove glass effects - flat design only */
+/* Surface — flat card */
 .surface {
   @apply bg-card border border-border rounded-lg;
 }
 
-/* Coach message styling */
+/* Coach message */
 .coach-message {
-  @apply border-l-2 border-accent pl-4 py-2;
+  @apply border-l-2 border-primary pl-4 py-2;
+}
+
+/* ─── Glass card for featured elements ─── */
+.glass-card {
+  @apply bg-card/80 backdrop-blur-sm border border-border;
+}
+
+/* ─── Gold glow for coach highlights ─── */
+.glow-gold {
+  box-shadow: 0 0 20px hsl(var(--gold) / 0.08), 0 0 40px hsl(var(--gold) / 0.04);
+}
+.dark .glow-gold {
+  box-shadow: 0 0 20px hsl(var(--gold) / 0.12), 0 0 40px hsl(var(--gold) / 0.06);
 }

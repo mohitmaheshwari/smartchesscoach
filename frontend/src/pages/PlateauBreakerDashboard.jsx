@@ -292,7 +292,7 @@ const PlateauBreakerDashboard = ({ user }) => {
         
         {/* Page Title */}
         <div>
-          <h1 className="text-2xl font-semibold text-foreground" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+          <h1 className="text-2xl font-semibold text-foreground font-heading">
             Plateau Breaker
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Find your biggest weakness and fix it.</p>

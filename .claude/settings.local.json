@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -1 test_*.py)",
+      "Bash(wc -l test_*.py)"
+    ]
+  }
+}

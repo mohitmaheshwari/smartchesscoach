@@ -195,7 +195,7 @@ const OpeningWalkthrough = ({ user }) => {
             <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
               <ChevronLeft className="w-4 h-4 mr-1" /> Back
             </Button>
-            <h1 className="text-lg text-foreground tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <h1 className="text-lg text-foreground tracking-tight font-heading">
               Opening Walkthrough
             </h1>
             <Badge variant="outline" className="text-xs">{opening.name}</Badge>
@@ -267,7 +267,7 @@ const OpeningWalkthrough = ({ user }) => {
                   <motion.div key="intro" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                     <div className="mb-6">
                       <BookOpen className="w-8 h-8 text-primary mb-3" strokeWidth={1.5} />
-                      <h2 className="text-2xl text-foreground mb-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                      <h2 className="text-2xl text-foreground mb-2 font-heading">
                         {opening.name}
                       </h2>
                       <p className="text-sm text-muted-foreground">
@@ -310,7 +310,7 @@ const OpeningWalkthrough = ({ user }) => {
                 ) : isEnd && !challengeActive ? (
                   <motion.div key="end" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                     <Trophy className="w-8 h-8 text-primary mb-3" strokeWidth={1.5} />
-                    <h2 className="text-2xl text-foreground mb-4" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                    <h2 className="text-2xl text-foreground mb-4 font-heading">
                       Walkthrough Complete
                     </h2>
 

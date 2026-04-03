@@ -1,8 +1,8 @@
 /**
  * PROGRESS PAGE — Coaching Progress Report
- * 
+ *
  * Not a stats dashboard. A coach telling you how you're growing.
- * 
+ *
  * Sections:
  * 1. Coaching headline + recent form vs big picture
  * 2. Weakness control (are patterns shrinking?)
@@ -39,7 +39,7 @@ const UnifiedProgress = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center h-[60vh]">
-          <div className="w-5 h-5 border border-border border-t-foreground/50 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
         </div>
       </Layout>
     );
@@ -49,9 +49,9 @@ const UnifiedProgress = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="max-w-xl mx-auto px-4 py-16 text-center" data-testid="progress-page">
-          <h1 className="text-2xl text-foreground tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>Progress</h1>
+          <h1 className="text-2xl text-foreground tracking-tight mb-3 font-heading">Progress</h1>
           <p className="text-sm text-muted-foreground mb-6">Play and analyze a few games to see your coaching report.</p>
-          <button onClick={() => navigate("/import")} className="px-5 py-2.5 text-sm bg-foreground text-background rounded-lg hover:opacity-90 transition-opacity">
+          <button onClick={() => navigate("/import")} className="px-5 py-2.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity">
             Import Games
           </button>
         </div>
@@ -67,7 +67,7 @@ const UnifiedProgress = ({ user }) => {
 
         {/* ── HEADLINE ── */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
-          <h1 className="text-2xl text-foreground tracking-tight mb-1.5" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-2xl text-foreground tracking-tight mb-1.5 font-heading">
             Progress
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed" data-testid="coaching-headline">{headline}</p>
@@ -75,7 +75,7 @@ const UnifiedProgress = ({ user }) => {
 
         {/* ── RECENT FORM vs BIG PICTURE ── */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormCard
               title="Last 5 Games"
               form={recent_form}
@@ -96,10 +96,10 @@ const UnifiedProgress = ({ user }) => {
               {weakness_control.map((w) => (
                 <div
                   key={w.pattern}
-                  className={`bg-card border rounded-lg p-4 cursor-pointer transition-all hover:shadow-sm ${
+                  className={`bg-card border rounded-lg p-4 cursor-pointer transition-all card-hover ${
                     w.direction === "worsening" ? "border-red-500/30 hover:border-red-500/50" :
                     w.direction === "improving" ? "border-emerald-500/30 hover:border-emerald-500/50" :
-                    "border-border hover:border-border"
+                    "border-border"
                   }`}
                   onClick={() => navigate(`/training?focus=${w.pattern}`)}
                   data-testid={`weakness-${w.pattern}`}
@@ -111,7 +111,7 @@ const UnifiedProgress = ({ user }) => {
                     </div>
                     <div className="flex items-center gap-2">
                       <WeaknessBar total={w.total} recent={w.recent} direction={w.direction} />
-                      <span className="text-xs text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{w.total}x total</span>
+                      <span className="text-xs text-muted-foreground font-mono">{w.total}x total</span>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{w.message}</p>
@@ -140,15 +140,15 @@ const UnifiedProgress = ({ user }) => {
                     className={`bg-card border rounded-lg p-4 text-center ${isWeakest ? "border-red-500/30" : "border-border"}`}
                     data-testid={`phase-${key}`}
                   >
-                    <Icon className={`w-4 h-4 mx-auto mb-2 ${isWeakest ? "text-red-500" : "text-muted-foreground"}`} strokeWidth={1.5} />
+                    <Icon className={`w-4 h-4 mx-auto mb-2 ${isWeakest ? "text-red-400" : "text-muted-foreground"}`} strokeWidth={1.5} />
                     <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-1">{label}</p>
                     {phase.score > 0 ? (
                       <>
-                        <p className={`text-xl font-light ${
-                          phase.score >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+                        <p className={`text-xl font-mono font-light ${
+                          phase.score >= 80 ? "text-emerald-500" :
                           phase.score >= 60 ? "text-foreground" :
-                          "text-red-500"
-                        }`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          "text-red-400"
+                        }`}>
                           {phase.score.toFixed(0)}%
                         </p>
                         <DirectionIcon direction={phase.direction} small />
@@ -157,7 +157,7 @@ const UnifiedProgress = ({ user }) => {
                       <p className="text-xs text-muted-foreground/50 mt-1">No data yet</p>
                     )}
                     {isWeakest && phase.score > 0 && (
-                      <span className="text-[8px] uppercase text-red-500 font-bold tracking-wider mt-1 block">weakest</span>
+                      <span className="text-[8px] uppercase text-red-400 font-bold tracking-wider mt-1 block">weakest</span>
                     )}
                   </div>
                 );
@@ -177,18 +177,18 @@ const UnifiedProgress = ({ user }) => {
                   {review_impact.games_reviewed} games reviewed
                 </span>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4 mb-3">
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Blunder Rate</p>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{review_impact.before_blunders}/g</span>
-                    <span className="text-muted-foreground/30">→</span>
-                    <span className={`text-sm font-medium ${review_impact.after_blunders < review_impact.before_blunders ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <span className="text-muted-foreground text-sm font-mono">{review_impact.before_blunders}/g</span>
+                    <span className="text-muted-foreground/30">&rarr;</span>
+                    <span className={`text-sm font-medium font-mono ${review_impact.after_blunders < review_impact.before_blunders ? "text-emerald-500" : "text-red-400"}`}>
                       {review_impact.after_blunders}/g
                     </span>
                     {review_impact.blunder_change_pct !== 0 && (
-                      <span className={`text-[10px] ${review_impact.blunder_change_pct < 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      <span className={`text-[10px] ${review_impact.blunder_change_pct < 0 ? "text-emerald-500" : "text-red-400"}`}>
                         ({review_impact.blunder_change_pct > 0 ? "+" : ""}{review_impact.blunder_change_pct.toFixed(0)}%)
                       </span>
                     )}
@@ -197,20 +197,20 @@ const UnifiedProgress = ({ user }) => {
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Accuracy</p>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground text-sm" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{review_impact.before_accuracy.toFixed(0)}%</span>
-                    <span className="text-muted-foreground/30">→</span>
-                    <span className={`text-sm font-medium ${review_impact.accuracy_change > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    <span className="text-muted-foreground text-sm font-mono">{review_impact.before_accuracy.toFixed(0)}%</span>
+                    <span className="text-muted-foreground/30">&rarr;</span>
+                    <span className={`text-sm font-medium font-mono ${review_impact.accuracy_change > 0 ? "text-emerald-500" : "text-red-400"}`}>
                       {review_impact.after_accuracy.toFixed(0)}%
                     </span>
                     {review_impact.accuracy_change !== 0 && (
-                      <span className={`text-[10px] ${review_impact.accuracy_change > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      <span className={`text-[10px] ${review_impact.accuracy_change > 0 ? "text-emerald-500" : "text-red-400"}`}>
                         ({review_impact.accuracy_change > 0 ? "+" : ""}{review_impact.accuracy_change.toFixed(1)})
                       </span>
                     )}
                   </div>
                 </div>
               </div>
-              
+
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {review_impact.improving
                   ? "Reviewing is working. Your play is measurably better after reviews."
@@ -237,7 +237,7 @@ const UnifiedProgress = ({ user }) => {
                       onClick={() => navigate(`/game/${g.game_id}`)}
                       data-testid={`timeline-game-${i}`}
                     >
-                      <span className="text-[10px] text-muted-foreground w-14 truncate" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <span className="text-[10px] text-muted-foreground font-mono w-14 truncate">
                         {g.opponent.substring(0, 8)}
                       </span>
                       <div className="flex-1 h-5 bg-muted/30 rounded overflow-hidden relative">
@@ -245,15 +245,15 @@ const UnifiedProgress = ({ user }) => {
                           className="h-full rounded transition-all"
                           style={{ width: `${barWidth}%`, background: barColor, opacity: 0.7 }}
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-foreground/60" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-foreground/60 font-mono">
                           {g.accuracy.toFixed(0)}%
                         </span>
                       </div>
-                      <span className={`text-[9px] w-5 text-center font-bold ${g.result === "W" ? "text-emerald-600" : g.result === "L" ? "text-red-500" : "text-muted-foreground"}`}>
+                      <span className={`text-[9px] font-mono w-5 text-center font-bold ${g.result === "W" ? "text-emerald-500" : g.result === "L" ? "text-red-400" : "text-muted-foreground"}`}>
                         {g.result}
                       </span>
                       {g.lesson_label && (
-                        <span className="text-[8px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-bold w-28 truncate hidden sm:block">
+                        <span className="text-[8px] text-primary uppercase tracking-wider font-bold w-28 truncate hidden sm:block">
                           {g.lesson_label}
                         </span>
                       )}
@@ -262,7 +262,7 @@ const UnifiedProgress = ({ user }) => {
                   );
                 })}
               </div>
-              <div className="flex justify-between mt-2 text-[9px] text-muted-foreground/30" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <div className="flex justify-between mt-2 text-[9px] text-muted-foreground/30 font-mono">
                 <span>older</span>
                 <span>recent</span>
               </div>
@@ -271,7 +271,7 @@ const UnifiedProgress = ({ user }) => {
         )}
 
         {/* ── FOOTER ── */}
-        <div className="text-center text-[10px] text-muted-foreground/40 pb-4" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+        <div className="text-center text-[10px] text-muted-foreground/40 font-mono pb-4">
           {report.total_games} games analyzed
         </div>
       </div>
@@ -292,17 +292,17 @@ const FormCard = ({ title, form, isCurrent }) => {
     <div className={`bg-card border rounded-lg p-4 ${isCurrent ? "border-primary/20" : "border-border"}`} data-testid={`form-${form.label}`}>
       <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-2">{title}</p>
       <div className="flex items-baseline gap-1.5 mb-2">
-        <span className="text-xl font-light text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-          {form.accuracy > 0 ? `${form.accuracy.toFixed(0)}%` : "—"}
+        <span className="text-xl font-light text-foreground font-mono">
+          {form.accuracy > 0 ? `${form.accuracy.toFixed(0)}%` : "\u2014"}
         </span>
         <span className="text-[10px] text-muted-foreground/50">accuracy</span>
       </div>
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-emerald-600 font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{form.wins}W</span>
-        <span className="text-red-500 font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{form.losses}L</span>
-        {form.draws > 0 && <span className="text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{form.draws}D</span>}
-        <span className="text-muted-foreground/30 mx-0.5">·</span>
-        <span className="text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{form.blunder_rate}/g blunders</span>
+      <div className="flex items-center gap-2 text-xs font-mono">
+        <span className="text-emerald-500 font-medium">{form.wins}W</span>
+        <span className="text-red-400 font-medium">{form.losses}L</span>
+        {form.draws > 0 && <span className="text-muted-foreground">{form.draws}D</span>}
+        <span className="text-muted-foreground/30 mx-0.5">&middot;</span>
+        <span className="text-muted-foreground">{form.blunder_rate}/g blunders</span>
       </div>
     </div>
   );
@@ -311,7 +311,7 @@ const FormCard = ({ title, form, isCurrent }) => {
 const DirectionIcon = ({ direction, small }) => {
   const size = small ? "w-3 h-3" : "w-3.5 h-3.5";
   if (direction === "improving") return <TrendingDown className={`${size} text-emerald-500`} strokeWidth={1.5} />;
-  if (direction === "worsening") return <TrendingUp className={`${size} text-red-500`} strokeWidth={1.5} />;
+  if (direction === "worsening") return <TrendingUp className={`${size} text-red-400`} strokeWidth={1.5} />;
   return <Minus className={`${size} text-muted-foreground/40`} strokeWidth={1.5} />;
 };
 
