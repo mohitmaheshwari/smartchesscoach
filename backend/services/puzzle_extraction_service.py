@@ -59,12 +59,20 @@ async def extract_puzzles_from_game(
             continue
 
         fen_before = ev.get("fen_before")
-        best_move = ev.get("best_move_san")
+        # Support both field names
+        best_move = ev.get("best_move_san") or ev.get("best_move")
         cognitive_gap = ev.get("cognitive_gap", "")
         move_number = ev.get("move_number", 0)
 
-        if not fen_before or not best_move or not cognitive_gap:
+        if not fen_before or not best_move:
             continue
+
+        # Infer cognitive gap from position if not explicitly tagged
+        if not cognitive_gap:
+            cognitive_gap = _infer_cognitive_gap(fen_before, best_move, cp_loss)
+
+        if not cognitive_gap:
+            cognitive_gap = "calculation_depth"  # Default for unclassified blunders
 
         # Validate the position and move
         try:
@@ -136,14 +144,15 @@ async def backfill_puzzles_for_user(
     Backfill puzzles from a user's already-analyzed games.
     Returns total puzzles created.
     """
-    games = await db.games.find(
-        {"user_id": user_id, "is_analyzed": True},
+    # Find games that have analyses (regardless of is_analyzed flag)
+    analyses = await db.game_analyses.find(
+        {"user_id": user_id},
         {"_id": 0, "game_id": 1},
-    ).sort("imported_at", -1).limit(max_games).to_list(max_games)
+    ).sort("created_at", -1).limit(max_games).to_list(max_games)
 
     total = 0
-    for g in games:
-        puzzles = await extract_puzzles_from_game(db, g["game_id"], user_id)
+    for a in analyses:
+        puzzles = await extract_puzzles_from_game(db, a["game_id"], user_id)
         total += len(puzzles)
 
     return total
@@ -276,3 +285,48 @@ def _gap_to_theme(gap: str) -> str:
         "endgame_technique": "endgame",
     }
     return mapping.get(gap, "tactical")
+
+
+
+def _infer_cognitive_gap(fen: str, best_move: str, cp_loss: int) -> str:
+    """
+    Infer the cognitive gap from position characteristics when not explicitly tagged.
+    Uses the position, the best move, and the centipawn loss to classify.
+    """
+    try:
+        board = chess.Board(fen)
+        move = board.parse_san(best_move)
+
+        # Check if best move is a capture — likely piece safety issue
+        if board.is_capture(move):
+            captured = board.piece_at(move.to_square)
+            if captured and captured.piece_type in (chess.QUEEN, chess.ROOK):
+                return "piece_safety"
+            if captured:
+                return "missed_tactic"
+
+        # Check if best move gives check — likely tactical miss
+        board.push(move)
+        if board.is_check():
+            board.pop()
+            return "missed_tactic"
+        board.pop()
+
+        # Check for hanging pieces in the position
+        for sq in chess.SQUARES:
+            piece = board.piece_at(sq)
+            if piece and piece.color == board.turn:
+                if board.is_attacked_by(not board.turn, sq):
+                    if not board.is_attacked_by(board.turn, sq):
+                        return "piece_safety"
+
+        # Large cp_loss without obvious tactical features
+        if cp_loss >= 300:
+            return "piece_safety"
+        elif cp_loss >= 150:
+            return "calculation_depth"
+
+    except Exception:
+        pass
+
+    return ""
