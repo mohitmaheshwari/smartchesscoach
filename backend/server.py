@@ -9182,11 +9182,31 @@ async def admin_export_feedback(
         "total": len(items),
         "feedback": items,
     }
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return FastAPIResponse(
-        content=json_lib.dumps(export_data, indent=2, ensure_ascii=False),
+
+    # Write file to disk
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
+    filename = f"feedback-export-{today}.json"
+    export_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(export_dir, exist_ok=True)
+    filepath = os.path.join(export_dir, filename)
+    with open(filepath, "w") as f:
+        json_lib.dump(export_data, f, indent=2, ensure_ascii=False)
+
+    return {"file_url": f"/api/admin/feedback/download/{filename}", "filename": filename, "total": len(items)}
+
+
+@api_router.get("/admin/feedback/download/{filename}")
+async def admin_download_feedback_file(filename: str):
+    """Serve an exported feedback JSON file."""
+    from fastapi.responses import FileResponse
+    export_dir = os.path.join(os.path.dirname(__file__), "exports")
+    filepath = os.path.join(export_dir, filename)
+    if not os.path.exists(filepath) or ".." in filename:
+        raise HTTPException(status_code=404, detail="Export file not found")
+    return FileResponse(
+        path=filepath,
+        filename=filename,
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="feedback-export-{today}.json"'},
     )
 
 

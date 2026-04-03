@@ -481,6 +481,7 @@ const FeedbackTab = () => {
   useEffect(() => { fetchFeedback(); }, [fetchFeedback]);
 
   const [downloadUrl, setDownloadUrl] = useState(null);
+  const [downloadName, setDownloadName] = useState("");
 
   const handleExport = async () => {
     try {
@@ -492,11 +493,9 @@ const FeedbackTab = () => {
         alert(`Export failed: ${(await res.json().catch(() => ({}))).detail || res.statusText}`);
         return;
       }
-      const text = await res.text();
-      const blob = new Blob([text], { type: "application/octet-stream" });
-      // Revoke old URL if exists
-      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
-      setDownloadUrl(URL.createObjectURL(blob));
+      const data = await res.json();
+      setDownloadUrl(`${API}${data.file_url}`);
+      setDownloadName(data.filename);
     } catch (e) {
       alert(`Export error: ${e.message}`);
     }
@@ -561,7 +560,7 @@ const FeedbackTab = () => {
         {downloadUrl && (
           <a
             href={downloadUrl}
-            download={`feedback-export-${new Date().toISOString().slice(0, 10)}.json`}
+            download={downloadName}
             className="px-3 py-2 text-sm rounded-sm flex items-center gap-1.5 font-light border animate-pulse"
             style={{ color: WINE, borderColor: WINE }}
             data-testid="download-feedback-link"
