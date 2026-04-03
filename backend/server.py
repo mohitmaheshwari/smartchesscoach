@@ -5269,8 +5269,20 @@ async def get_pattern_puzzles(
     Get training puzzles for a specific cognitive gap pattern.
     Returns user's own game positions first, then community puzzles.
     Excludes already-solved puzzles.
+    Auto-triggers backfill if no puzzles exist yet.
     """
-    from services.puzzle_extraction_service import get_pattern_training_puzzles
+    from services.puzzle_extraction_service import get_pattern_training_puzzles, backfill_puzzles_for_user
+
+    # Check if user has ANY puzzles — if not, auto-backfill
+    existing = await db.community_puzzles.count_documents({"shared_by": user.user_id})
+    if existing == 0:
+        try:
+            created = await backfill_puzzles_for_user(db, user.user_id)
+            if created > 0:
+                logger.info(f"Auto-backfilled {created} puzzles for {user.user_id}")
+        except Exception as e:
+            logger.warning(f"Auto-backfill failed: {e}")
+
     return await get_pattern_training_puzzles(db, user.user_id, pattern, limit)
 
 

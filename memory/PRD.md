@@ -7,73 +7,59 @@ A highly personalized, "coach-first" chess application with a modular, pedagogic
 ```
 /app/
 ├── backend/
-│   ├── routes/               # coach_play.py (teaching, escape-squares endpoints)
+│   ├── routes/               # coach_play.py, training.py
 │   ├── services/             # teaching_engine.py, escape_squares_service.py, pattern_decay_service.py, puzzle_extraction_service.py
 │   ├── data/                 # opening_curriculum.json, traps.json, endgames.json
-│   ├── coach_play/           # coach_game_session.py (session management)
-│   ├── home_intelligence_service.py  # Dashboard intelligence with win streak
-│   ├── community_learning_service.py # Community puzzle sharing
-│   ├── server.py             # Lab coach-pick (decay model), pattern-puzzles, extract-puzzles endpoints
+│   ├── coach_play/           # coach_game_session.py
+│   ├── home_intelligence_service.py
+│   ├── community_learning_service.py
+│   ├── server.py             # Lab coach-pick (decay model), pattern-puzzles (auto-backfill), extract-puzzles
 │   ├── tests/
 ├── frontend/
 │   ├── src/
-│   │   ├── components/coach/ # LessonPicker, CoachPlaySetup, CoachPlayBoard, CoachPlaySidebar, EscapeSquaresQuiz
+│   │   ├── components/coach/ # LessonPicker, CoachPlaySidebar, EscapeSquaresQuiz
 │   │   ├── hooks/            # useTeachingMode, usePlayerData, useGuardian
 │   │   └── pages/            # CoachPlay, CoachHome, Dashboard (Lab), PatternTraining, HomePage
 ```
 
 ## What's Been Implemented
 
-### Phase 1 — Core Coaching Platform (Complete)
-- Real-time coaching feedback during games
-- Opening curriculum with progression tracking
-- Postgame analysis with blunder/mistake detection
-- Coach memory that persists across sessions
-- Import pipeline from Chess.com/Lichess
-
-### Phase 2 — Pluggable Teaching Modes (Complete)
-- Generic teaching engine dispatcher (teaching_engine.py)
-- 18 Trap lessons, 10 Endgame lessons
-- LessonPicker UI in coaching sidebar
-- Hook-based frontend orchestration
+### Phase 1-2 — Core Platform + Teaching Modes (Complete)
+- Real-time coaching, opening curriculum, postgame analysis, coach memory
+- 18 Trap + 10 Endgame pluggable lessons with LessonPicker UI
 
 ### Phase 3 — P1 Features (Complete - April 2, 2026)
-1. **Count Escape Squares** — Interactive quiz during tactical moments
-2. **Immediate Review Data Attachment** — Auto-analysis on game end
-3. **Dynamic Dashboard Mood via Win Streaks** — Momentum banner + negative profiling suppression
+1. Count Escape Squares — Interactive quiz during tactical moments
+2. Immediate Review Data Attachment — Auto-analysis on game end
+3. Dynamic Dashboard Mood via Win Streaks — Momentum banner + suppression
 
 ### Phase 4 — Pattern Decay & Community Puzzles (Complete - April 3, 2026)
-1. **Recency-Weighted Decay Model** — Mistake counts use exponential decay (0.85/game) + recovery credit (0.3/clean game). States: active/declining/fading. The Lab Coach's Pick now shows realistic counts ("2 times recently") instead of inflated raw counts.
-2. **Auto Puzzle Extraction Pipeline** — When games are analyzed, blunder positions are automatically extracted as community training puzzles tagged with cognitive gap patterns.
-3. **Pattern Training Page** (`/training/pattern/:pattern`) — Shows user's own game positions first, then community puzzles. Tracks solve progress, never shows already-solved puzzles.
-4. **"Practice [pattern] puzzles" button** on Lab Coach's Pick card to navigate directly to pattern-specific training.
-5. **Merged coaching intelligence into HomePage** — Win streak banner, progress trend, mood suppression on the existing `/home` page.
+1. **Recency-Weighted Decay Model** — Exponential decay (0.85/game) + recovery credit. States: active/declining/fading. Lab Coach's Pick shows realistic counts.
+2. **Auto Puzzle Extraction Pipeline** — Blunder positions auto-extracted from analyzed games as community training puzzles. Infers cognitive gaps from position characteristics when not explicitly tagged. Auto-backfill on first pattern training visit.
+3. **Pattern Training Page** (`/training/pattern/:pattern`) — Own game positions first, then community puzzles. Tracks solve progress, never re-shows solved. Real user data: 158 puzzles across 3 patterns (calculation_depth: 101, tactical_oversight: 56, missed_tactic: 1).
+4. **"Practice [pattern] puzzles"** button on Lab Coach's Pick card.
+5. **Merged coaching intelligence into HomePage** — Win streak banner, progress trend, mood suppression.
 
 ## Key API Endpoints
-- `GET /api/lab-coach-pick` — Lab dashboard with decay-model pick_pattern field
-- `GET /api/training/pattern-puzzles/:pattern` — Pattern-specific puzzles (own + community, excludes solved)
-- `POST /api/training/extract-puzzles` — Backfill puzzles from analyzed games
-- `POST /api/training/puzzle-attempt` — Record puzzle solve attempt
-- `POST /api/coach/play/escape-squares/check` — Escape squares quiz check
-- `POST /api/coach/play/escape-squares/answer` — Validate escape squares answer
-- `GET /api/coach/home-intelligence` — Dashboard data with win_streak + mood_override
+- `GET /api/lab-coach-pick` — Lab dashboard with decay-model pick_pattern
+- `GET /api/training/pattern-puzzles/:pattern` — Pattern puzzles (auto-backfills on first call)
+- `POST /api/training/extract-puzzles` — Manual backfill trigger
+- `POST /api/training/puzzle-attempt` — Record puzzle solve
 
 ## Key DB Collections
-- `coach_sessions`: {session_id, current_fen, teaching_mode, escape_square_quizzes, result}
-- `games`, `game_analyses`: Source of truth for patterns + puzzle extraction
-- `community_puzzles`: {fen, best_move_san, issue_type, shared_by, source, approved, solve_rate}
+- `community_puzzles`: {fen, best_move_san, issue_type, shared_by, source, approved, solve_rate, difficulty}
 - `puzzle_attempts`: {user_id, puzzle_id, correct, time_taken_ms, weakness_type}
 
 ## Prioritized Backlog
 
 ### P2
-- Track community training puzzles to improve user error profiles
 - More sophisticated puzzle matching (rating-aware, difficulty progression)
+- Puzzle solve rate feeds back into decay model as recovery credit
 
 ### Future
 - Add "Tactics" and "Short Wins" pluggable lesson modes
 - Deeper opening variation trees
-- Streak leaderboard / daily challenge system
+- Daily puzzle streak / challenge system
 
 ## 3rd Party Integrations
 - OpenAI/GPT-4o-mini via Emergent LLM Key
