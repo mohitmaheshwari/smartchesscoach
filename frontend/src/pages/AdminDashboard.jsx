@@ -488,18 +488,35 @@ const FeedbackTab = () => {
       if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
       if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
       const res = await fetch(`${API}/admin/feedback/export?${params}`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Export failed: ${err.detail || res.statusText}`);
+        return;
+      }
+      const data = await res.json();
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const filename = `feedback-export-${new Date().toISOString().slice(0, 10)}.json`;
+
+      // Try native download
+      if (window.navigator?.msSaveOrOpenBlob) {
+        window.navigator.msSaveOrOpenBlob(blob, filename);
+      } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
+        a.style.display = "none";
         a.href = url;
-        a.download = `feedback-export-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Delay cleanup for Safari
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 200);
       }
+    } catch (e) {
+      alert(`Export error: ${e.message}`);
     } finally {
       setExporting(false);
     }
