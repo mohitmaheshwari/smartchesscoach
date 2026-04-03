@@ -515,6 +515,20 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
             for p in patterns
         ]
 
+        # ── TRAINING READINESS (puzzle count for top pattern) ──
+        if patterns:
+            top_pt = patterns[0].get("pattern_type", "")
+            if top_pt:
+                try:
+                    puzzle_count = await db.community_training_positions.count_documents({"pattern_type": top_pt})
+                    result["training_ready"] = {
+                        "pattern": top_pt,
+                        "label": patterns[0].get("label", ""),
+                        "puzzles_available": puzzle_count,
+                    }
+                except Exception:
+                    pass
+
         # ── REVIEW PROGRESS ──
         total_analyzed = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
         total_reviewed = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True, "reviewed": True})
