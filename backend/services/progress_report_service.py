@@ -98,6 +98,15 @@ async def build_coaching_report(db, user_id: str) -> dict:
     recent_5 = game_stats[-5:] if total >= 5 else game_stats
     recent_form = _compute_form_summary(recent_5, "recent")
     big_picture = _compute_form_summary(game_stats, "all")
+
+    # Debug: log per-game accuracy to catch data issues
+    import logging
+    _logger = logging.getLogger(__name__)
+    all_accs = [g["accuracy"] for g in game_stats]
+    recent_accs = [g["accuracy"] for g in recent_5]
+    _logger.info(f"[PROGRESS DEBUG] Total games: {total}, All accuracies: {all_accs}")
+    _logger.info(f"[PROGRESS DEBUG] Recent 5 accuracies: {recent_accs}")
+    _logger.info(f"[PROGRESS DEBUG] recent_form={recent_form}, big_picture={big_picture}")
     
     # ── 5. REVIEW IMPACT ──
     review_impact = _compute_review_impact(game_stats)

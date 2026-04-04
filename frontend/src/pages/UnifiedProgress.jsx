@@ -101,20 +101,37 @@ const UnifiedProgress = ({ user }) => {
         </motion.div>
 
         {/* ── BEFORE vs AFTER ── */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
-          <Label>Recent vs Overall</Label>
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              title="Last 5 Games"
-              form={recent_form}
-              highlight
-            />
-            <StatCard
-              title="All Games"
-              form={big_picture}
-            />
-          </div>
-        </motion.div>
+        {/* Only show side-by-side when there are enough games to make a meaningful comparison */}
+        {big_picture?.games > 5 ? (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
+            <Label>Recent vs Overall</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard
+                title="Last 5 Games"
+                form={recent_form}
+                highlight
+              />
+              <StatCard
+                title={`All ${big_picture.games} Games`}
+                form={big_picture}
+              />
+            </div>
+          </motion.div>
+        ) : big_picture?.games > 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
+            <Label>Your Stats ({big_picture.games} game{big_picture.games !== 1 ? "s" : ""})</Label>
+            <div className="grid grid-cols-1 gap-3">
+              <StatCard
+                title={`${big_picture.games} Game${big_picture.games !== 1 ? "s" : ""} Analyzed`}
+                form={big_picture}
+                highlight
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Play more games to see your improvement trend. Need 6+ for comparison.
+            </p>
+          </motion.div>
+        )}
 
         {/* ── WEAKNESS TRENDS ── */}
         {weakness_control && weakness_control.length > 0 && (
