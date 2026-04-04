@@ -25,6 +25,331 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 
 # =============================================================================
+# BEHAVIOR DIAGNOSIS ENGINE v4 — Production-ready
+# =============================================================================
+#
+# STRUCTURE: [MOMENT] + [BEHAVIOR] + [PATTERN (if in THIS game)] + [RULE]
+#
+# INTENSITY (hard thresholds, 4 tiers):
+#   CALM:        blunders == 0 AND mistakes <= 2 AND NOT lost_winning
+#   FIRM:        blunders == 1 OR mistakes >= 3 OR (won AND blunders >= 1)
+#   SHARP_LIGHT: blunders >= 2 (firm + serious)
+#   SHARP_HEAVY: lost_winning == true OR pattern_count >= 5 (identity pressure)
+#
+# PRIORITY STACK:
+#   0. recovery (pattern exists historically but ABSENT in this game)
+#   1. brilliant
+#   2. lost_winning
+#   3. critical_move
+#   4. pattern (ONLY if present in THIS game AND count >= 3)
+#   5. blunder count
+#   6. general result
+#
+# PATTERN RULES:
+#   - Pattern escalation ONLY triggers if pattern appears in THIS game
+#   - If pattern exists historically but NOT in this game → recovery message
+#   - Escalation: 3-4 → "keeps happening" / 5-6 → "becoming your pattern" / 7+ → "biggest weakness"
+#
+# SINGLE BEHAVIOR: always pick ONE dominant mistake per message
+# PHASE AWARENESS: inject "in the opening" / "in the endgame" where relevant
+#
+# NAMED RULES (label + instruction — users remember the label):
+RULE_MAP = {
+    "piece_safety":       {"name": "Piece Safety Check",    "rule": "Before moving, check: is anything I own under attack?"},
+    "missed_tactic":      {"name": "Tactics Scan",          "rule": "Look for captures, checks, and threats — in that order — every move."},
+    "ignore_threat":      {"name": "Threat Awareness",      "rule": "Before every move, ask: what is my opponent attacking?"},
+    "calculation_depth":  {"name": "Calculation Depth",     "rule": "Calculate one move deeper before committing."},
+    "king_safety":        {"name": "King Safety First",     "rule": "Before attacking, check: is my king safe?"},
+    "time_pressure":      {"name": "Clock Discipline",      "rule": "Slow down on critical moves. Don't rush decisions."},
+    "conversion":         {"name": "Winning Discipline",    "rule": "When ahead, slow down and protect your advantage."},
+    "endgame_technique":  {"name": "Endgame Activation",   "rule": "In endgames, activate your king and push passed pawns."},
+    "opening_knowledge":  {"name": "Opening Discipline",   "rule": "Stick to your opening prep. Don't improvise in the first 10 moves."},
+    "tactical_oversight": {"name": "Opponent Response",     "rule": "After deciding your move, pause and ask: what can my opponent do next?"},
+    "pawn_structure":     {"name": "Structure Awareness",   "rule": "Think about pawn structure before exchanges."},
+    "piece_activity":     {"name": "Piece Activity",        "rule": "Every piece needs a job. Reposition idle pieces."},
+    "_default":           {"name": "Opponent Response",     "rule": "Before every move, ask: what is my opponent's best response?"},
+    "_consistency":       {"name": "Consistency",           "rule": "Follow the same thinking process every move."},
+    "_recovery":          {"name": None,                    "rule": "Keep applying it every move."},
+}
+
+# PRESSURE RELEASE: appended to SHARP_HEAVY messages
+PRESSURE_RELEASE = {
+    "piece_safety":      "Fix this, and your level will jump immediately.",
+    "ignore_threat":     "Fix this one thing, and you'll stop losing games you should win.",
+    "conversion":        "Learn to hold advantages, and your rating will climb fast.",
+    "calculation_depth": "One move deeper is all it takes to break through.",
+    "time_pressure":     "Control your clock, and the mistakes will disappear.",
+    "endgame_technique": "Better endgames means more points from drawn positions.",
+    "_default":          "Fix this, and your results will change.",
+}
+
+
+def _pattern_prefix(count):
+    """
+    Continuity word. Avoids "Again" fatigue.
+    3-4: "Again, " (first awareness)
+    5-6: "" (drop Again, go direct to escalation)
+    7+:  "" (identity only, no prefix needed)
+    """
+    if 3 <= count <= 4:
+        return "Again, "
+    return ""
+
+
+def _pattern_phrase(count):
+    """Exact escalation. No drift."""
+    if count >= 7:
+        return "This is your biggest weakness right now."
+    if count >= 5:
+        return "This is becoming your pattern."
+    if count >= 3:
+        return "This keeps happening."
+    return ""
+
+
+def _get_rule(key):
+    """Returns 'Rule: <Name> — <instruction>'"""
+    entry = RULE_MAP.get(key, RULE_MAP["_default"])
+    return f"Rule: {entry['name']} — {entry['rule']}"
+
+
+def _get_rule_recovery(key):
+    """Returns 'Rule: <Name> — keep applying it every move.'"""
+    entry = RULE_MAP.get(key, RULE_MAP["_default"])
+    return f"Rule: {entry['name']} — keep applying it every move."
+
+
+def _get_release(key):
+    """Pressure release sentence for SHARP_HEAVY."""
+    return PRESSURE_RELEASE.get(key, PRESSURE_RELEASE["_default"])
+
+
+def _recovery_message(gap_label, consecutive_clean, behavior_key):
+    """
+    Progressive recovery language. Gets stronger with consecutive clean games.
+    consecutive_clean: how many recent games in a row WITHOUT this pattern.
+    """
+    if consecutive_clean >= 3:
+        return f"{gap_label.capitalize()} is no longer breaking your games. Keep it that way. {_get_rule_recovery(behavior_key)}"
+    if consecutive_clean == 2:
+        return f"Two games now without {gap_label}. You're fixing this. {_get_rule_recovery(behavior_key)}"
+    return f"This time, no {gap_label}. That's been your weak spot — this is real progress. {_get_rule_recovery(behavior_key)}"
+
+
+def _phase_label(move_number):
+    """Inject phase context."""
+    if move_number and move_number <= 12:
+        return "in the opening"
+    if move_number and move_number >= 35:
+        return "in the endgame"
+    return "in the middlegame"
+
+
+def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_advantage,
+                          blunders, mistakes, accuracy, brilliant_count, pattern_history=None):
+    """
+    Deterministic behavior diagnosis.
+    pattern_history: { gap_type: total_game_count } from pattern_memory_service
+    """
+    if not evals:
+        return ""
+
+    user_is_white = user_color == "white"
+    ph = pattern_history or {}
+
+    # ── EXTRACT SIGNALS ──
+
+    # Critical move: single highest cp_loss
+    critical = None
+    critical_cp = 0
+    for e in evals:
+        cp = e.get("cp_loss", 0) or 0
+        if cp > critical_cp:
+            critical_cp = cp
+            critical = e
+
+    # Collapse point
+    collapse_move = None
+    lost_winning = was_winning and not user_won and not is_draw
+    if was_winning:
+        for e in evals:
+            ev = e.get("eval_before", 0)
+            user_ev = ev if user_is_white else -ev
+            if user_ev < -150 and not collapse_move:
+                collapse_move = e.get("move_number", 0)
+
+    # Cognitive gaps in THIS game only (one per type, not per move)
+    game_gaps = {}
+    for e in evals:
+        gap = e.get("cognitive_gap", "")
+        if gap and (e.get("cp_loss", 0) or 0) >= 80:
+            game_gaps[gap] = game_gaps.get(gap, 0) + 1
+
+    # Single dominant behavior: highest frequency in this game, tie-break by severity
+    biggest_gap = max(game_gaps, key=game_gaps.get) if game_gaps else None
+
+    # Threat ignores: cp_loss >= 150 AND threat field populated
+    threat_ignores = sum(1 for e in evals if e.get("threat") and (e.get("cp_loss", 0) or 0) >= 150)
+
+    # Rushed: time_spent < 3s AND cp_loss >= 50
+    rushed = sum(1 for e in evals if (e.get("time_spent") or 99) < 3 and (e.get("cp_loss", 0) or 0) >= 50)
+
+    # Pattern: ONLY counts if the gap appears in THIS game
+    pattern_count = ph.get(biggest_gap, 0) if biggest_gap and biggest_gap in game_gaps else 0
+    pattern_active = pattern_count >= 3  # Pattern present in this game AND historically significant
+
+    # Check for recovery: pattern exists historically (count >= 3) but NOT in this game
+    recovery_gap = None
+    recovery_consecutive = 0
+    for gap_type, total in sorted(ph.items(), key=lambda x: -x[1]):
+        if total >= 3 and gap_type not in game_gaps:
+            recovery_gap = gap_type
+            break
+
+    # Count consecutive clean games for recovery gap (from recent analyses)
+    # We look at the last N games in reverse order and count how many lack this gap
+    if recovery_gap:
+        for gid_check in reversed(list(analyses.keys())):
+            a_check = analyses[gid_check]
+            check_evals = a_check.get("stockfish_analysis", {}).get("move_evaluations", [])
+            has_gap = any(
+                e.get("cognitive_gap") == recovery_gap and (e.get("cp_loss", 0) or 0) >= 80
+                for e in check_evals
+            )
+            if has_gap:
+                break
+            recovery_consecutive += 1
+        recovery_consecutive = min(recovery_consecutive, 10)  # Cap at 10
+
+    # Behavior key for rule lookup — single behavior, highest priority
+    if threat_ignores >= 2:
+        behavior_key = "ignore_threat"
+    elif rushed >= 2:
+        behavior_key = "time_pressure"
+    elif lost_winning and not collapse_move:
+        behavior_key = "conversion"
+    elif biggest_gap:
+        behavior_key = biggest_gap
+    else:
+        behavior_key = "_default"
+
+    # Intensity (4 tiers)
+    if lost_winning or pattern_count >= 5:
+        intensity = "sharp_heavy"
+    elif blunders >= 2 or (pattern_active and pattern_count >= 3):
+        intensity = "sharp_light"
+    elif blunders == 1 or mistakes >= 3 or (user_won and blunders >= 1):
+        intensity = "firm"
+    else:
+        intensity = "calm"
+
+    rule = _get_rule(behavior_key)
+    phase = _phase_label(critical.get("move_number") if critical else None)
+
+    # ═══ PRIORITY 0: RECOVERY — pattern exists historically but ABSENT in this game ═══
+    if recovery_gap and user_won and blunders == 0:
+        gap_label = recovery_gap.replace("_", " ")
+        return _recovery_message(gap_label, recovery_consecutive, recovery_gap)
+
+    if recovery_gap and blunders <= 1 and not lost_winning and biggest_gap != recovery_gap:
+        gap_label = recovery_gap.replace("_", " ")
+        return _recovery_message(gap_label, recovery_consecutive, recovery_gap)
+
+    # ═══ PRIORITY 1: BRILLIANT MOVE ═══
+    if brilliant_count > 0:
+        if user_won:
+            return "You calculated deeply here — and it worked. This is the level you're capable of. Do this consistently."
+        return "You found a brilliant sacrifice but couldn't convert. The vision is there — the technique needs to catch up."
+
+    # ═══ PRIORITY 2: LOST WINNING POSITION (SHARP_HEAVY) ═══
+    if lost_winning:
+        moment = f"You had full control — then lost it around move {collapse_move} {phase}." if collapse_move else "You had the advantage and let it slip."
+        behavior = behavior_key.replace("_", " ")
+        if pattern_active:
+            prefix = _pattern_prefix(pattern_count)
+            release = _get_release(behavior_key)
+            return f"{moment} {prefix}{behavior}. {_pattern_phrase(pattern_count)} {release}"
+        return f"{moment} {rule}"
+
+    if was_winning and is_draw:
+        moment = f"You had a winning position {phase} but couldn't convert."
+        if pattern_active:
+            prefix = _pattern_prefix(pattern_count)
+            release = _get_release(behavior_key)
+            return f"{moment} {prefix}conversion issues. {_pattern_phrase(pattern_count)} {release}"
+        return f"{moment} {rule}"
+
+    # ═══ PRIORITY 3: CRITICAL MOVE ═══
+    if not user_won and not is_draw and blunders == 1 and critical:
+        mn = critical.get("move_number", "?")
+        ms = critical.get("move", "")
+        moment = f"One moment on move {mn} ({ms}) {phase} cost you the game."
+        behavior = behavior_key.replace("_", " ")
+        if pattern_active:
+            prefix = _pattern_prefix(pattern_count)
+            release = _get_release(behavior_key)
+            return f"{moment} {prefix}{behavior}. {_pattern_phrase(pattern_count)} {release}"
+        return f"{moment} {rule}"
+
+    # ═══ PRIORITY 4: PATTERN (in THIS game + count >= 3) ═══
+    if pattern_active and not user_won and biggest_gap:
+        gap_label = biggest_gap.replace("_", " ")
+        prefix = _pattern_prefix(pattern_count)
+        release = _get_release(behavior_key) if intensity == "sharp_heavy" else ""
+        return f"{prefix}{gap_label} {phase}. {_pattern_phrase(pattern_count)} {release} {rule}".strip()
+
+    # ═══ PRIORITY 5: BLUNDER COUNT ═══
+
+    # 3+ blunders
+    if blunders >= 3:
+        if rushed >= 2:
+            return f"You're playing faster than you're thinking. {_get_rule('time_pressure')}"
+        if biggest_gap:
+            gap_label = biggest_gap.replace("_", " ")
+            return f"Several critical mistakes {phase}, mostly {gap_label}. {rule}"
+        return f"Several critical mistakes {phase}. {rule}"
+
+    # 2 blunders
+    if blunders >= 2:
+        if biggest_gap:
+            gap_label = biggest_gap.replace("_", " ")
+            return f"Two moments of {gap_label} {phase}. {rule}"
+        return f"Two critical moments {phase}. {rule}"
+
+    # Won with 1 blunder
+    if user_won and blunders == 1 and critical:
+        mn = critical.get("move_number", "?")
+        ms = critical.get("move", "")
+        return f"You won, but {ms} on move {mn} showed a drop in focus. One lapse — the rest was solid."
+
+    # Won with 2+ blunders
+    if user_won and blunders >= 2:
+        return "You won, but gave your opponent real chances. They didn't take them — next opponent might."
+
+    # ═══ PRIORITY 6: GENERAL RESULT ═══
+
+    if user_won and blunders == 0 and mistakes <= 2:
+        return f"Clean, controlled game. This is what disciplined play looks like. Rule: Consistency — follow the same thinking process every move."
+
+    if is_draw and blunders == 0:
+        return "Solid, disciplined game. The position was equal and you handled it well."
+
+    if user_won:
+        return "Good result. You controlled the game when it mattered."
+
+    if not user_won and not is_draw and blunders == 0:
+        return "No major mistakes, but your opponent outplayed you in small ways. The position gradually slipped."
+
+    if not user_won and not is_draw:
+        return f"A game with clear lessons {phase}. {rule}"
+
+    if is_draw:
+        return "A balanced fight. Look for moments where you could have pushed for more."
+
+    return ""
+
+
+# =============================================================================
 # SECTION A: Lab pick + puzzles
 # =============================================================================
 
@@ -53,6 +378,25 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
          "coach_summary": 1, "decryption_v5_data.core_lesson": 1}
     )
     analyses = {a["game_id"]: a async for a in analyses_cursor}
+
+    # Get REAL pattern memory — persistent, decay-weighted, across all games
+    pattern_history = {}
+    try:
+        from services.pattern_memory_service import get_pattern_summary
+        pattern_summary = await get_pattern_summary(db, user.user_id)
+        for p in pattern_summary.get("patterns", []):
+            pt = p.get("pattern_type", "")
+            if pt:
+                pattern_history[pt] = p.get("total_count", 0)
+    except Exception:
+        # Fallback: count from loaded analyses
+        for gid, a in analyses.items():
+            seen_gaps = set()
+            for e in a.get("stockfish_analysis", {}).get("move_evaluations", []):
+                gap = e.get("cognitive_gap", "")
+                if gap and e.get("cp_loss", 0) >= 80 and gap not in seen_gaps:
+                    seen_gaps.add(gap)
+                    pattern_history[gap] = pattern_history.get(gap, 0) + 1
 
     # Build enriched game list
     enriched = []
@@ -111,6 +455,11 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         if brilliant_count > 0 and not lesson_label:
             lesson_label = f"Brilliant sacrifice" if sacrifice_count > 0 else "Brilliant play"
 
+        # Generate coach-style game summary (no LLM — pure deterministic)
+        behavior = coach_sum.get("behavioral_insight") or coach_sum.get("key_observation") or ""
+        if not behavior:
+            behavior = _generate_game_story(evals, uc, user_won, is_draw, was_winning, max_advantage, blunders, mistakes, accuracy, brilliant_count, pattern_history)
+
         enriched.append({
             "game_id": gid,
             "opponent": opp,
@@ -125,7 +474,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "cognitive_gaps": cognitive_gaps,
             "opening": g.get("opening", ""),
             "summary_headline": g.get("summary", {}).get("headline") if isinstance(g.get("summary"), dict) else None,
-            "behavior": coach_sum.get("behavioral_insight") or coach_sum.get("key_observation") or "",
+            "behavior": behavior,
             "lesson_label": lesson_label,
             "lesson": core_les.get("lesson", ""),
             "brilliant_moves": brilliant_count,

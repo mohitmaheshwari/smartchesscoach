@@ -251,21 +251,15 @@ const GameCard = ({ game, navigate, markReviewed, isReviewed }) => (
           )}
         </div>
 
-        {/* Behavioral insight — the story of this game */}
-        {(game.behavior || game.lesson) ? (
-          <div className="mt-0.5">
-            {game.lesson_label && (
-              <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-primary mr-1.5">{game.lesson_label}</span>
-            )}
-            <span className="text-xs text-muted-foreground leading-relaxed">{game.behavior || game.lesson}</span>
-          </div>
-        ) : game.blunders > 0 ? (
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {game.blunders} blunder{game.blunders > 1 ? 's' : ''}{game.mistakes > 0 ? `, ${game.mistakes} mistake${game.mistakes > 1 ? 's' : ''}` : ''}
-          </p>
-        ) : game.accuracy > 0 && (
-          <p className="text-xs text-muted-foreground mt-0.5">Clean game</p>
-        )}
+        {/* Coach's game story */}
+        <div className="mt-0.5">
+          {game.lesson_label && (
+            <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-primary mr-1.5">{game.lesson_label}</span>
+          )}
+          <span className="text-xs text-muted-foreground leading-relaxed">
+            {game.behavior || game.lesson || (game.accuracy >= 75 ? "Clean, solid game." : "Tap to see what your coach found.")}
+          </span>
+        </div>
       </div>
 
       {/* Right side: review button or check */}

@@ -101,23 +101,44 @@ const UnifiedProgress = ({ user }) => {
         </motion.div>
 
         {/* ── BEFORE vs AFTER ── */}
-        {/* Only show side-by-side when there are enough games to make a meaningful comparison */}
-        {big_picture?.games > 5 ? (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
-            <Label>Recent vs Overall</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard
-                title="Last 5 Games"
-                form={recent_form}
-                highlight
-              />
-              <StatCard
-                title={`All ${big_picture.games} Games`}
-                form={big_picture}
-              />
-            </div>
-          </motion.div>
-        ) : big_picture?.games > 0 && (
+        {/* ── FORM COMPARISON ── */}
+        {big_picture?.games > 5 ? (() => {
+          const accDiff = (recent_form?.accuracy || 0) - (big_picture?.accuracy || 0);
+          const blunderDiff = (recent_form?.blunder_rate || 0) - (big_picture?.blunder_rate || 0);
+          const hasRealDiff = Math.abs(accDiff) >= 1 || Math.abs(blunderDiff) >= 0.3;
+          return (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
+              <Label>Recent vs Overall</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard
+                  title="Last 5 Games"
+                  form={recent_form}
+                  highlight
+                />
+                <StatCard
+                  title={`All ${big_picture.games} Games`}
+                  form={big_picture}
+                />
+              </div>
+              {/* Show delta summary when numbers are close */}
+              {!hasRealDiff && (
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Your recent form matches your overall average — consistent play.
+                </p>
+              )}
+              {hasRealDiff && accDiff > 1 && (
+                <p className="text-xs text-emerald-500 mt-2 text-center font-medium">
+                  Recent accuracy is {accDiff.toFixed(1)}% above your average — you're improving.
+                </p>
+              )}
+              {hasRealDiff && accDiff < -1 && (
+                <p className="text-xs text-red-400 mt-2 text-center font-medium">
+                  Recent accuracy is {Math.abs(accDiff).toFixed(1)}% below your average — review your last games.
+                </p>
+              )}
+            </motion.div>
+          );
+        })() : big_picture?.games > 0 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
             <Label>Your Stats ({big_picture.games} game{big_picture.games !== 1 ? "s" : ""})</Label>
             <div className="grid grid-cols-1 gap-3">
