@@ -256,21 +256,21 @@ def compute_game_habits(
     """
     user_is_white = user_color == "white"
 
+    # NOTE: move_evaluations from stockfish_service already contains ONLY user moves
+    # (filtered by user_color during analysis). No even/odd filtering needed.
     user_moves = []
     for i, m in enumerate(move_evaluations):
-        is_user = (i % 2 == 0 and user_is_white) or (i % 2 == 1 and not user_is_white)
-        if is_user:
-            user_moves.append({
-                "index": i,
-                "move_number": (i // 2) + 1,
-                "san": m.get("san", m.get("move", "?")),
-                "cp_loss": m.get("cp_loss", 0),
-                "eval_before": m.get("eval_before", 0),
-                "eval_after": m.get("eval_after", 0),
-                "best_move": m.get("best_move", ""),
-                "phase": _get_phase(i),
-                "time_spent": m.get("time_spent", 0),
-            })
+        user_moves.append({
+            "index": i,
+            "move_number": m.get("move_number", i + 1),
+            "san": m.get("san", m.get("move", "?")),
+            "cp_loss": m.get("cp_loss", 0),
+            "eval_before": m.get("eval_before", 0),
+            "eval_after": m.get("eval_after", 0),
+            "best_move": m.get("best_move", ""),
+            "phase": _get_phase(m.get("move_number", i + 1) * 2),
+            "time_spent": m.get("time_spent", 0),
+        })
 
     habits = []
 
@@ -295,15 +295,15 @@ def compute_game_habits(
     })
 
     # 2. Castled early (before move 12)
-    all_moves = []
-    for i, m in enumerate(move_evaluations):
-        all_moves.append(m.get("san", m.get("move", "")))
-    user_move_sans = [all_moves[i] for i in range(len(all_moves)) if (i % 2 == 0 and user_is_white) or (i % 2 == 1 and not user_is_white)]
+    # NOTE: move_evaluations contains ONLY user moves (stockfish_service filters by user_color)
+    # So we scan them directly — no even/odd filtering needed
+    user_move_sans = [m.get("san", m.get("move", "")) for m in move_evaluations]
     castled = any("O-O" in m for m in user_move_sans[:12])
     castle_move = None
     for idx, m in enumerate(user_move_sans[:12]):
         if "O-O" in m:
-            castle_move = idx + 1
+            # Use the actual chess move number from the evaluation data
+            castle_move = move_evaluations[idx].get("move_number", idx + 1) if idx < len(move_evaluations) else idx + 1
             break
     if castled:
         evidence = f"You castled on move {castle_move}. King is safe."

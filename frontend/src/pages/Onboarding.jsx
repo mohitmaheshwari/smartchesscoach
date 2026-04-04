@@ -14,6 +14,7 @@ import {
   Loader2, CheckCircle2, AlertCircle, ArrowRight, ArrowLeft,
   Link as LinkIcon, Target, Brain, Zap, BookOpen,
 } from "lucide-react";
+import InstantDNA from "@/components/InstantDNA";
 
 const WINE = "#722F37";
 const GOLD_TEXT = "#8B6F1F";
@@ -47,6 +48,9 @@ const Onboarding = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisResult, setAnalysisResult] = useState(null);
+
+  // Instant DNA
+  const [instantDNA, setInstantDNA] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -127,15 +131,33 @@ const Onboarding = () => {
       });
 
       setAnalyzing(true);
-      setAnalysisProgress(10);
-      await fetch(`${API}/games/sync`, { method: "POST", credentials: "include" }).catch(() => {});
-      setAnalysisProgress(50);
+      setAnalysisProgress(20);
 
+      // Step 1: Sync games from Chess.com/Lichess (fast — just fetches PGNs)
+      await fetch(`${API}/games/sync`, { method: "POST", credentials: "include" }).catch(() => {});
+      setAnalysisProgress(60);
+
+      // Step 2: Get Instant Chess DNA (computed from PGN alone — no Stockfish)
+      try {
+        const dnaRes = await fetch(`${API}/journey/instant-dna`, { credentials: "include" });
+        if (dnaRes.ok) {
+          const dna = await dnaRes.json();
+          if (dna.has_data && dna.games_analyzed > 0) {
+            setAnalysisProgress(100);
+            setInstantDNA(dna);
+            setAnalyzing(false);
+            return;
+          }
+        }
+      } catch { /* fall through */ }
+
+      // Fallback: if instant DNA fails, try legacy Stockfish polling briefly
+      setAnalysisProgress(70);
       let attempts = 0;
-      while (attempts < 45) {
+      while (attempts < 15) {
         await new Promise(r => setTimeout(r, 1000));
         attempts++;
-        setAnalysisProgress(50 + (attempts / 45) * 45);
+        setAnalysisProgress(70 + (attempts / 15) * 25);
         try {
           const pr = await fetch(`${API}/cognitive/patterns`, { credentials: "include" });
           if (pr.ok) {
@@ -149,8 +171,7 @@ const Onboarding = () => {
         } catch { /* keep polling */ }
       }
       setAnalysisProgress(100);
-      await new Promise(r => setTimeout(r, 500));
-      navigate("/training");
+      navigate("/home");
     } catch {
       setError("Something went wrong. Please try again.");
       setAnalyzing(false);
@@ -165,7 +186,23 @@ const Onboarding = () => {
   };
 
   // ──────────────────────────────────────────────────
-  // ANALYSIS COMPLETE SCREEN
+  // INSTANT DNA SCREEN (shown before Stockfish completes)
+  // ──────────────────────────────────────────────────
+  if (instantDNA && instantDNA.has_data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="w-full max-w-lg py-8">
+          <InstantDNA
+            data={instantDNA}
+            onContinue={() => navigate("/home")}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ──────────────────────────────────────────────────
+  // ANALYSIS COMPLETE SCREEN (legacy fallback)
   // ──────────────────────────────────────────────────
   if (analysisResult) {
     const tsi = analysisResult.thinking_stability_index;

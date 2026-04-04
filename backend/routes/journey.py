@@ -512,5 +512,44 @@ async def get_rolling_evolution(user: User = Depends(get_current_user)):
     ).sort("created_at", -1).to_list(200)
     
     evolution = calculate_rolling_evolution(all_analyses)
-    
+
     return evolution
+
+
+@router.get("/journey/instant-dna")
+async def get_instant_dna(user: User = Depends(get_current_user)):
+    """
+    Instant Chess DNA Report — computed from PGN data alone, no Stockfish.
+    Returns a full player profile in <3 seconds.
+
+    This is the first thing a new user sees after connecting their account.
+    Shows: archetype, win rates, opening repertoire, playing style, castling habits,
+    time management, rating trajectory, and personalized insights.
+    """
+    global db
+    from services.instant_dna_service import compute_instant_dna
+
+    # Get all imported games for this user
+    games = await db.games.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("imported_at", -1).limit(30).to_list(30)
+
+    if not games:
+        return {
+            "has_data": False,
+            "message": "No games imported yet. Connect your Chess.com or Lichess account first.",
+            "games_analyzed": 0,
+        }
+
+    report = compute_instant_dna(games)
+    report["has_data"] = True
+
+    # Cache the result for quick retrieval
+    await db.player_instant_dna.update_one(
+        {"user_id": user.user_id},
+        {"$set": {**report, "user_id": user.user_id}},
+        upsert=True
+    )
+
+    return report
