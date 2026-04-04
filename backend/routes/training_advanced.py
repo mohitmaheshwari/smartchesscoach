@@ -146,10 +146,12 @@ def _phase_label(move_number):
 
 
 def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_advantage,
-                          blunders, mistakes, accuracy, brilliant_count, pattern_history=None):
+                          blunders, mistakes, accuracy, brilliant_count,
+                          pattern_history=None, recovery_consecutive=0):
     """
     Deterministic behavior diagnosis.
     pattern_history: { gap_type: total_game_count } from pattern_memory_service
+    recovery_consecutive: how many recent games in a row WITHOUT the recovery pattern (computed by caller)
     """
     if not evals:
         return ""
@@ -200,26 +202,10 @@ def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_
 
     # Check for recovery: pattern exists historically (count >= 3) but NOT in this game
     recovery_gap = None
-    recovery_consecutive = 0
     for gap_type, total in sorted(ph.items(), key=lambda x: -x[1]):
         if total >= 3 and gap_type not in game_gaps:
             recovery_gap = gap_type
             break
-
-    # Count consecutive clean games for recovery gap (from recent analyses)
-    # We look at the last N games in reverse order and count how many lack this gap
-    if recovery_gap:
-        for gid_check in reversed(list(analyses.keys())):
-            a_check = analyses[gid_check]
-            check_evals = a_check.get("stockfish_analysis", {}).get("move_evaluations", [])
-            has_gap = any(
-                e.get("cognitive_gap") == recovery_gap and (e.get("cp_loss", 0) or 0) >= 80
-                for e in check_evals
-            )
-            if has_gap:
-                break
-            recovery_consecutive += 1
-        recovery_consecutive = min(recovery_consecutive, 10)  # Cap at 10
 
     # Behavior key for rule lookup — single behavior, highest priority
     if threat_ignores >= 2:
@@ -388,13 +374,14 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             pt = p.get("pattern_type", "")
             if pt:
                 pattern_history[pt] = p.get("total_count", 0)
-    except Exception:
-        # Fallback: count from loaded analyses
-        for gid, a in analyses.items():
+    except Exception as ph_err:
+        logger.warning(f"Pattern memory service failed, using fallback: {ph_err}")
+        # Fallback: count from loaded analyses (game-level, not move-level)
+        for gid_f, a_f in analyses.items():
             seen_gaps = set()
-            for e in a.get("stockfish_analysis", {}).get("move_evaluations", []):
+            for e in a_f.get("stockfish_analysis", {}).get("move_evaluations", []):
                 gap = e.get("cognitive_gap", "")
-                if gap and e.get("cp_loss", 0) >= 80 and gap not in seen_gaps:
+                if gap and (e.get("cp_loss", 0) or 0) >= 80 and gap not in seen_gaps:
                     seen_gaps.add(gap)
                     pattern_history[gap] = pattern_history.get(gap, 0) + 1
 
@@ -458,7 +445,32 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         # Generate coach-style game summary (no LLM — pure deterministic)
         behavior = coach_sum.get("behavioral_insight") or coach_sum.get("key_observation") or ""
         if not behavior:
-            behavior = _generate_game_story(evals, uc, user_won, is_draw, was_winning, max_advantage, blunders, mistakes, accuracy, brilliant_count, pattern_history)
+            try:
+                # Compute recovery_consecutive: how many recent games lack the top pattern
+                rc = 0
+                top_pattern_key = max(pattern_history, key=pattern_history.get) if pattern_history else None
+                if top_pattern_key and pattern_history.get(top_pattern_key, 0) >= 3:
+                    game_ids_rev = list(analyses.keys())
+                    for gid_rc in reversed(game_ids_rev):
+                        a_rc = analyses[gid_rc]
+                        rc_evals = a_rc.get("stockfish_analysis", {}).get("move_evaluations", [])
+                        has_it = any(
+                            e.get("cognitive_gap") == top_pattern_key and (e.get("cp_loss", 0) or 0) >= 80
+                            for e in rc_evals
+                        )
+                        if has_it:
+                            break
+                        rc += 1
+                    rc = min(rc, 10)
+
+                behavior = _generate_game_story(
+                    evals, uc, user_won, is_draw, was_winning, max_advantage,
+                    blunders, mistakes, accuracy, brilliant_count,
+                    pattern_history, rc
+                )
+            except Exception as story_err:
+                logger.warning(f"Game story generation failed for {gid}: {story_err}")
+                behavior = ""
 
         enriched.append({
             "game_id": gid,
