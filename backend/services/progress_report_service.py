@@ -85,8 +85,8 @@ async def build_coaching_report(db, user_id: str) -> dict:
     
     total = len(game_stats)
     
-    # ── 1. WEAKNESS CONTROL ──
-    weakness_control = _compute_weakness_trends(game_stats)
+    # ── 1. WEAKNESS CONTROL (uses decay-weighted pattern memory) ──
+    weakness_control = await _compute_weakness_trends_v2(db, user_id, game_stats)
     
     # ── 2. HABITS EVOLUTION ──
     habits_evolution = _compute_habits_trends(game_stats)
@@ -120,67 +120,142 @@ async def build_coaching_report(db, user_id: str) -> dict:
     }
 
 
-def _compute_weakness_trends(stats):
-    """Track each weakness pattern over time windows."""
+async def _compute_weakness_trends_v2(db, user_id, stats):
+    """
+    Weakness trends using the REAL decay-weighted pattern memory service.
+    No raw counting. Shows game-level counts, not move-level.
+    Compares recent window vs older window for direction.
+    """
     if len(stats) < 3:
         return []
-    
-    # Count patterns across all games
+
+    try:
+        from services.pattern_memory_service import get_pattern_summary
+        summary = await get_pattern_summary(db, user_id)
+        patterns = summary.get("patterns", [])
+    except Exception:
+        # Fallback to basic counting if pattern service unavailable
+        return _compute_weakness_trends_fallback(stats)
+
+    trends = []
+    for p in patterns:
+        total = p.get("total_count", 0)
+        recent = p.get("recent_count", 0)
+        recent_games = p.get("recent_games", 20)
+        severity = p.get("severity", "low")
+
+        if total < 2:
+            continue
+
+        # Direction from rate comparison
+        # recent_count is from the last N games, total_count is all-time
+        # If recent rate is much lower than overall rate → improving
+        older = max(total - recent, 0)
+        total_games = len(stats)
+        older_games = max(total_games - recent_games, 1)
+
+        if older > 0:
+            older_rate = older / older_games
+            recent_rate = recent / max(recent_games, 1)
+
+            if recent_rate < older_rate * 0.6:
+                direction = "improving"
+                message = f"Showing up less in recent games. Down to {recent}x in your last {recent_games} games."
+            elif recent_rate > older_rate * 1.4:
+                direction = "worsening"
+                message = f"Getting worse. {recent}x in your last {recent_games} games."
+            else:
+                direction = "stable"
+                message = f"Still present. {recent}x in your last {recent_games} games."
+        else:
+            direction = "stable"
+            message = f"{recent}x in your last {recent_games} games."
+
+        trends.append({
+            "pattern": p.get("pattern_type", ""),
+            "label": p.get("label", p.get("pattern_type", "").replace("_", " ").title()),
+            "total": total,
+            "recent": recent,
+            "direction": direction,
+            "message": message,
+        })
+
+    # Sort by recent count (most urgent first), limit to top 5
+    trends.sort(key=lambda t: -t["recent"])
+    return trends[:5]
+
+
+def _compute_weakness_trends_fallback(stats):
+    """Fallback: game-level counting (not move-level) when pattern service unavailable."""
+    if len(stats) < 3:
+        return []
+
+    # Count patterns PER GAME (not per move)
     all_gaps = {}
     for gs in stats:
+        seen = set()
         for gap in gs["cognitive_gaps"]:
-            if gap not in all_gaps:
-                all_gaps[gap] = {"total": 0, "recent_5": 0, "older": 0}
-            all_gaps[gap]["total"] += 1
-    
-    # Count in recent 5 vs older
+            if gap not in seen:
+                seen.add(gap)
+                if gap not in all_gaps:
+                    all_gaps[gap] = {"total": 0, "recent_5": 0, "older": 0}
+                all_gaps[gap]["total"] += 1
+
     recent = stats[-5:]
     older = stats[:-5] if len(stats) > 5 else []
-    
+
     for gs in recent:
+        seen = set()
         for gap in gs["cognitive_gaps"]:
-            if gap in all_gaps:
-                all_gaps[gap]["recent_5"] += 1
-    
+            if gap not in seen:
+                seen.add(gap)
+                if gap in all_gaps:
+                    all_gaps[gap]["recent_5"] += 1
+
     for gs in older:
+        seen = set()
         for gap in gs["cognitive_gaps"]:
-            if gap in all_gaps:
-                all_gaps[gap]["older"] += 1
-    
+            if gap not in seen:
+                seen.add(gap)
+                if gap in all_gaps:
+                    all_gaps[gap]["older"] += 1
+
     trends = []
     for pattern, counts in sorted(all_gaps.items(), key=lambda x: -x[1]["total"]):
         if counts["total"] < 2:
             continue
-        
+
         older_count = counts["older"]
         recent_count = counts["recent_5"]
         older_games = max(len(older), 1)
         recent_games = max(len(recent), 1)
-        
+
         older_rate = older_count / older_games
         recent_rate = recent_count / recent_games
-        
-        if recent_rate < older_rate * 0.6:
+
+        if older_rate > 0 and recent_rate < older_rate * 0.6:
             direction = "improving"
-            message = f"Showing up less. Down from {older_count} in {older_games} games to {recent_count} in {recent_games}."
-        elif recent_rate > older_rate * 1.4:
+            message = f"Showing up less. Down to {recent_count}x in last {recent_games} games."
+        elif older_rate > 0 and recent_rate > older_rate * 1.4:
             direction = "worsening"
-            message = f"Getting worse. Up to {recent_count} in last {recent_games} games."
+            message = f"Getting worse. {recent_count}x in last {recent_games} games."
         else:
             direction = "stable"
-            message = f"Still showing up. {recent_count}x in last {recent_games} games."
-        
+            message = f"Still present. {recent_count}x in last {recent_games} games."
+
         label = pattern.replace("_", " ").title()
-        
+
         trends.append({
             "pattern": pattern,
             "label": label,
             "total": counts["total"],
             "recent": recent_count,
-            "older": older_count,
             "direction": direction,
             "message": message,
         })
+
+    trends.sort(key=lambda t: -t["recent"])
+    return trends[:5]
     
     return trends[:5]  # Top 5 patterns
 
