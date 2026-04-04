@@ -52,6 +52,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
     setOpeningCorrectionCount,
     /* UI state */
     hideEvalBar,
+    coachArrows,
     coachThinking,
     undoLoading,
     hasCastled,
@@ -113,6 +114,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
               fen={currentFen}
               orientation={boardOrientation}
               lastMove={lastMove}
+              arrows={coachArrows || []}
               onMove={(moveData) => {
                 const canMoveInTeaching =
                   isInTeachingMode &&
