@@ -695,6 +695,7 @@ const CoachPlaySidebar = ({
       >
         <LessonPicker
           sessionId={session.session_id}
+          userColor={selectedColor || session?.user_color || "white"}
           onStartLesson={handleLessonFromPicker}
           onClose={() => setShowLessonPicker(false)}
         />

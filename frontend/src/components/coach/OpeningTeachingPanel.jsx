@@ -115,47 +115,83 @@ export const OpeningTeachingOffer = ({
     setLoading(false);
   };
 
+  // Use enriched options from backend if available, otherwise fall back to defaults
+  const displayOptions = offer.options && offer.options.length > 0
+    ? offer.options
+    : options;
+
   return (
-    <Card className="border-2 border-primary/50 bg-primary/5 animate-in slide-in-from-top-2">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-primary" />
-          <CardTitle className="text-base">{offer.opening_name}</CardTitle>
+    <Card className="border-2 border-primary/30 bg-card overflow-hidden">
+      {/* Coach message — conversational header */}
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <BookOpen className="w-4 h-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">{offer.opening_name}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed mt-1">
+              {offer.message}
+            </p>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm">{offer.message}</p>
-        
-        {offer.trap_name && (
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30">
-            <Target className="w-3 h-3 mr-1" />
-            Trap available: {offer.trap_name}
-          </Badge>
+
+        {/* Position explanation — what's happening on the board */}
+        {offer.position_explanation && (
+          <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
+            <p className="text-xs text-foreground leading-relaxed">{offer.position_explanation}</p>
+          </div>
         )}
-        
+
+        {/* Options — enriched from backend */}
         <div className="space-y-2">
-          {options.map((option) => (
-            <Button
-              key={option.id}
-              variant={option.primary ? "default" : "outline"}
-              className="w-full justify-start text-left h-auto py-3"
-              onClick={() => handleOption(option.id)}
-              disabled={loading}
-              data-testid={`teaching-option-${option.id}`}
-            >
-              <option.icon className="w-4 h-4 mr-2 flex-shrink-0" />
-              <div className="flex flex-col items-start flex-1">
-                <span className="font-medium">{option.label}</span>
-                <span className="text-xs text-muted-foreground mt-0.5">
-                  {option.description}
-                </span>
-              </div>
-              {option.id === "go_to_lesson" && (
-                <ExternalLink className="w-4 h-4 ml-2 text-muted-foreground" />
-              )}
-            </Button>
-          ))}
+          {displayOptions.map((option) => {
+            const optId = option.id;
+            const isJustPlay = optId === "just_play";
+            const isAggressive = option.style === "aggressive";
+            const lessonType = option.lesson_type || optId;
+            const Icon = isJustPlay ? Play : isAggressive ? Swords : option.icon || BookOpen;
+
+            return (
+              <button
+                key={optId}
+                onClick={() => handleOption(lessonType === "learn_trap" || lessonType === "learn_main_line" ? lessonType : optId)}
+                disabled={loading}
+                className={`w-full text-left p-3 rounded-lg border transition-all ${
+                  isJustPlay
+                    ? "border-border hover:border-muted-foreground/30 hover:bg-muted/20"
+                    : "border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                }`}
+                data-testid={`teaching-option-${optId}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {typeof Icon === 'function' ? (
+                    <Icon className={`w-4 h-4 flex-shrink-0 ${isJustPlay ? "text-muted-foreground" : "text-primary"}`} strokeWidth={1.5} />
+                  ) : (
+                    <Swords className={`w-4 h-4 flex-shrink-0 ${isJustPlay ? "text-muted-foreground" : "text-primary"}`} strokeWidth={1.5} />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-sm font-medium ${isJustPlay ? "text-muted-foreground" : "text-foreground"}`}>
+                      {option.label}
+                    </span>
+                    {option.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{option.description}</p>
+                    )}
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 flex-shrink-0" />
+                </div>
+              </button>
+            );
+          })}
         </div>
+
+        {/* Fun fact — adds personality */}
+        {offer.fun_fact && (
+          <div className="flex items-start gap-2 pt-1">
+            <Lightbulb className="w-3 h-3 text-primary/50 mt-0.5 flex-shrink-0" />
+            <p className="text-[11px] text-muted-foreground/60 italic leading-relaxed">{offer.fun_fact}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

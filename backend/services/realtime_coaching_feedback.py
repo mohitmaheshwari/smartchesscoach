@@ -75,13 +75,25 @@ class MoveFeedback:
     # Brilliant/sacrifice detection
     is_sacrifice: bool = False
     is_brilliant: bool = False
-    
+
     def to_dict(self) -> Dict:
+        # Compute best_move_uci from SAN + FEN for board arrow drawing
+        best_move_uci = ""
+        if self.best_move and self.fen_before and self.best_move != self.user_move:
+            try:
+                import chess as _chess
+                _board = _chess.Board(self.fen_before)
+                _move = _board.parse_san(self.best_move)
+                best_move_uci = _move.uci()
+            except Exception:
+                pass
+
         result = {
             "user_move": self.user_move,
             "user_move_quality": self.user_move_quality,
             "user_move_eval_change": self.user_move_eval_change,
             "best_move": self.best_move,
+            "best_move_uci": best_move_uci,
             "best_move_explanation": self.best_move_explanation,
             "pv_after_best": self.pv_after_best,
             "coach_move": self.coach_move,
@@ -101,7 +113,10 @@ class MoveFeedback:
             "golden_rule": self.golden_rule,
             "consequence": self.consequence,
             "fen_before": self.fen_before,
-            "piece_moved": self.piece_moved
+            "piece_moved": self.piece_moved,
+            # Board annotations
+            "is_sacrifice": self.is_sacrifice,
+            "is_brilliant": self.is_brilliant,
         }
         if self.trap_suggestion:
             result["trap_suggestion"] = self.trap_suggestion
@@ -697,7 +712,38 @@ async def generate_move_feedback(
         encouragement = coaching_result.get("encouragement")
         if not encouragement and quality in ["excellent", "good"]:
             encouragement = "Keep it up!" if quality == "good" else "That's the move!"
-    
+
+    # ═══ APPLY COACH VOICE — personality wrapper ═══
+    try:
+        from services.coach_voice import apply_coach_voice
+
+        # Determine intensity from move quality
+        voice_intensity = "calm"
+        if quality == "brilliant":
+            voice_intensity = "brilliant"
+        elif quality in ("mistake", "blunder"):
+            voice_intensity = "firm"
+            if is_sacrifice:
+                voice_intensity = "calm"  # Sacrifice that lost = still brave
+
+        # Get relationship context
+        games_together = 0
+        try:
+            games_together = await db.coach_sessions.count_documents({"user_id": user_id})
+        except Exception:
+            pass
+
+        voice_context = {
+            "games_together": games_together,
+            "pattern_count": 0,  # Pattern count from realtime context
+            "is_recovery": False,
+            "move_quality": quality,
+        }
+
+        coaching_message = apply_coach_voice(coaching_message, voice_intensity, voice_context)
+    except Exception as voice_err:
+        logger.debug(f"Coach voice wrapper failed (non-fatal): {voice_err}")
+
     # Generate coach move explanation (used by both paths)
     coach_explanation = ""
     if coach_move and fen_before:

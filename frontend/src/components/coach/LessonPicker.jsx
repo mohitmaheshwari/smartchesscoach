@@ -25,7 +25,7 @@ const difficultyColors = {
   advanced: "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-const LessonPicker = ({ sessionId, onStartLesson, onClose }) => {
+const LessonPicker = ({ sessionId, userColor, onStartLesson, onClose }) => {
   const [catalog, setCatalog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(null);
@@ -77,8 +77,14 @@ const LessonPicker = ({ sessionId, onStartLesson, onClose }) => {
 
   if (!catalog) return null;
 
+  // Filter traps by user color — only show traps you can play from your side
+  const filteredTraps = (catalog.traps || []).filter((trap) => {
+    if (!userColor || !trap.trap_for) return true;
+    return trap.trap_for === userColor;
+  });
+
   const tabs = [
-    { key: "traps", label: "Traps", icon: Zap, count: catalog.traps?.length || 0 },
+    { key: "traps", label: "Traps", icon: Zap, count: filteredTraps.length },
     { key: "endgames", label: "Endgames", icon: Crown, count: catalog.endgames?.length || 0 },
   ];
 
@@ -124,7 +130,7 @@ const LessonPicker = ({ sessionId, onStartLesson, onClose }) => {
       {/* Lesson List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {activeTab === "traps" &&
-          catalog.traps?.map((trap) => (
+          filteredTraps.map((trap) => (
             <button
               key={trap.key}
               onClick={() => handleStart("trap", { trap_key: trap.key })}

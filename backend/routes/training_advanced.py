@@ -468,6 +468,43 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                     blunders, mistakes, accuracy, brilliant_count,
                     pattern_history, rc
                 )
+
+                # Apply coach voice personality
+                try:
+                    from services.coach_voice import apply_coach_voice
+
+                    lost_winning_g = was_winning and not user_won and not is_draw
+
+                    # Find dominant gap in this game's evals
+                    g_gaps = {}
+                    for ev in evals:
+                        g = ev.get("cognitive_gap", "")
+                        if g and (ev.get("cp_loss", 0) or 0) >= 80:
+                            g_gaps[g] = g_gaps.get(g, 0) + 1
+                    top_g = max(g_gaps, key=g_gaps.get) if g_gaps else None
+                    pc = pattern_history.get(top_g, 0) if top_g and top_g in g_gaps else 0
+
+                    if lost_winning_g or pc >= 5:
+                        v_intensity = "sharp_heavy"
+                    elif blunders >= 2 or pc >= 3:
+                        v_intensity = "sharp_light"
+                    elif brilliant_count > 0:
+                        v_intensity = "brilliant"
+                    elif rc > 0 and top_g and top_g not in g_gaps:
+                        v_intensity = "recovery"
+                    elif blunders == 1 or mistakes >= 3:
+                        v_intensity = "firm"
+                    else:
+                        v_intensity = "calm"
+
+                    behavior = apply_coach_voice(behavior, v_intensity, {
+                        "games_together": len(games),
+                        "pattern_count": pc,
+                        "is_recovery": rc > 0 and top_g and top_g not in g_gaps,
+                    })
+                except Exception:
+                    pass  # Voice wrapper is non-fatal
+
             except Exception as story_err:
                 logger.warning(f"Game story generation failed for {gid}: {story_err}")
                 behavior = ""

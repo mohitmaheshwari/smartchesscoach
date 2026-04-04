@@ -788,7 +788,49 @@ const CoachPlay = ({ user }) => {
         const data = await response.json();
         if (data.feedback) {
           setMoveFeedback(data.feedback);
-          
+
+          // ═══ BOARD ANNOTATIONS — Draw arrows/highlights from feedback ═══
+          if (boardRef.current) {
+            const fb = data.feedback;
+            const arrows = [];
+
+            // Show best move as green arrow when user made a mistake
+            if (fb.best_move && fb.user_move && fb.best_move !== fb.user_move && fb.fen_before) {
+              const q = fb.user_move_quality || fb.quality || "";
+              if (["mistake", "blunder", "inaccuracy"].includes(q)) {
+                try {
+                  // Parse best move UCI to get from/to squares
+                  const bestUci = fb.best_move_uci || "";
+                  if (bestUci.length >= 4) {
+                    arrows.push([bestUci.slice(0, 2), bestUci.slice(2, 4), "green"]);
+                  }
+                } catch (e) {}
+              }
+            }
+
+            // Show threats as red arrows (opponent's threat after user's move)
+            if (fb.threats_after_user_move && fb.threats_after_user_move.length > 0) {
+              // threat format varies — try to extract squares
+              // Some threats come as move descriptions, some as UCI
+              for (const threat of fb.threats_after_user_move.slice(0, 2)) {
+                if (typeof threat === "string" && threat.length >= 4 && /^[a-h][1-8]/.test(threat)) {
+                  arrows.push([threat.slice(0, 2), threat.slice(2, 4), "red"]);
+                }
+              }
+            }
+
+            // Draw arrows if any found
+            if (arrows.length > 0 && boardRef.current.drawArrows) {
+              boardRef.current.drawArrows(arrows);
+              // Clear after 8 seconds
+              setTimeout(() => {
+                if (boardRef.current?.drawArrows) {
+                  boardRef.current.drawArrows([]);
+                }
+              }, 8000);
+            }
+          }
+
           // Determine severity from quality
           const quality = data.feedback.user_move_quality || data.feedback.quality || "neutral";
           const severity = quality === "best" ? "good" :

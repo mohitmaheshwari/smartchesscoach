@@ -137,18 +137,71 @@ async def check_opening_and_offer_teaching(
         }}
     )
 
-    return {
-        "type": "opening_teaching_offer",
-        "opening_key": opening_key,
-        "opening_name": opening_name,
-        "message": intro_message,
-        "description": opening_description,
-        "character": opening_character,
-        "options": options,
-        "has_learned_before": has_learned_before,
-        "trap_available": suggested_trap is not None or corrected_trap is not None,
-        "trap_name": trap_name,
-    }
+    # ── ENRICHED TEACHING OFFER ──
+    # Build a rich, conversational offer with position explanation and trap previews
+    try:
+        from services.position_teaching_service import (
+            get_position_teaching_context,
+            find_reachable_traps,
+        )
+
+        # Find traps reachable from current position
+        reachable_traps = find_reachable_traps(opening_key, moves, user_color)
+
+        # Build enriched context
+        enriched = get_position_teaching_context(
+            opening_key=opening_key,
+            opening_name=opening_name,
+            moves=moves,
+            user_color=user_color,
+            traps_available=reachable_traps,
+            variations_available=[
+                {"key": v.get("key", ""), "name": v.get("name", ""), "total_moves": v.get("total_moves", 0), "description": ""}
+                for v in (get_available_variations(opening_key) or [])
+            ],
+        )
+
+        # Override intro message with richer coach message
+        if enriched.get("coach_message"):
+            intro_message = enriched["coach_message"]
+
+        # Use enriched options if available (they have richer descriptions)
+        if enriched.get("options"):
+            options = enriched["options"]
+
+        return {
+            "type": "opening_teaching_offer",
+            "opening_key": opening_key,
+            "opening_name": opening_name,
+            "message": intro_message,
+            "description": opening_description,
+            "character": opening_character,
+            "options": options,
+            "has_learned_before": has_learned_before,
+            "trap_available": suggested_trap is not None or corrected_trap is not None or len(reachable_traps) > 0,
+            "trap_name": trap_name,
+            # NEW: enriched fields
+            "position_explanation": enriched.get("position_explanation", ""),
+            "strategic_idea": enriched.get("strategic_idea", ""),
+            "fun_fact": enriched.get("fun_fact"),
+            "key_squares": enriched.get("key_squares", []),
+        }
+
+    except Exception as e:
+        logger.warning(f"Enriched teaching offer failed, using basic: {e}")
+        # Fallback to basic offer
+        return {
+            "type": "opening_teaching_offer",
+            "opening_key": opening_key,
+            "opening_name": opening_name,
+            "message": intro_message,
+            "description": opening_description,
+            "character": opening_character,
+            "options": options,
+            "has_learned_before": has_learned_before,
+            "trap_available": suggested_trap is not None or corrected_trap is not None,
+            "trap_name": trap_name,
+        }
 
 
 async def start_opening_lesson(
