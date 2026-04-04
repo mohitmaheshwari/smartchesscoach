@@ -206,6 +206,23 @@ const CoachPlay = ({ user }) => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  // Fetch post-game reflection when game ends
+  useEffect(() => {
+    if (gameOver && session?.session_id && !summary) {
+      (async () => {
+        try {
+          const res = await fetch(`${API}/coach/play/postgame/${session.session_id}`, { credentials: "include" });
+          if (res.ok) {
+            const data = await res.json();
+            setSummary(data);
+          }
+        } catch (e) {
+          console.error("Postgame fetch failed:", e);
+        }
+      })();
+    }
+  }, [gameOver, session?.session_id]);
+
   // Poll for coach messages when game is active (skip during curriculum — curriculum handles coaching)
   useEffect(() => {
     if (session && gameStarted && !gameOver && !session.curriculum_active && !session.teaching_opening) {

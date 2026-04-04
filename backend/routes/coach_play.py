@@ -4094,5 +4094,124 @@ async def _process_move_and_respond(
         )
 
 
+# =============================================================================
+# POST-GAME REFLECTION
+# =============================================================================
 
+@router.get("/postgame/{session_id}")
+async def get_postgame_reflection(session_id: str, user: User = Depends(get_current_user)):
+    """
+    Post-game reflection — called after game ends.
+    Returns: accuracy, top 2 mistakes, pattern check, what to do next.
+    Uses postgame_analysis.py which is already fully implemented.
+    """
+    global db
+
+    # Get session
+    session = await db.coach_sessions.find_one(
+        {"session_id": session_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    move_history = session.get("move_history", [])
+    user_color = session.get("user_color", "white")
+    user_rating = session.get("user_rating", 1200)
+    game_result = session.get("result", "unknown")
+
+    # Get evaluations from session feedback
+    evaluations = []
+    feedback_cursor = db.coach_messages.find(
+        {"session_id": session_id, "type": "move_feedback"},
+        {"_id": 0}
+    ).sort("move_number", 1)
+    async for msg in feedback_cursor:
+        fb = msg.get("feedback", {})
+        if fb:
+            evaluations.append({
+                "move_number": msg.get("move_number", 0),
+                "user_move": fb.get("user_move", ""),
+                "quality": fb.get("user_move_quality", ""),
+                "eval_change": fb.get("user_move_eval_change", 0),
+                "best_move": fb.get("best_move", ""),
+                "fen_before": fb.get("fen_before", ""),
+                "is_sacrifice": fb.get("is_sacrifice", False),
+                "is_brilliant": fb.get("is_brilliant", False),
+            })
+
+    try:
+        from services.postgame_analysis import analyze_postgame
+        analysis = await analyze_postgame(
+            db=db,
+            session_id=session_id,
+            user_id=user.user_id,
+            move_history=move_history,
+            evaluations=evaluations,
+            game_result=game_result,
+            user_rating=user_rating,
+            user_color=user_color,
+        )
+
+        # Extract the key fields for the reflection UI
+        return {
+            "has_data": True,
+            "session_id": session_id,
+            "result": game_result,
+
+            # How you played
+            "accuracy": analysis.accuracy_percentage,
+            "total_blunders": analysis.total_blunders,
+            "total_mistakes": analysis.total_mistakes,
+            "coach_summary": analysis.coach_summary,
+            "encouragement": analysis.encouragement,
+
+            # Two moments that mattered (top 2 mistakes)
+            "key_moments": [
+                {
+                    "move_number": m.move_number,
+                    "user_move": m.user_move,
+                    "best_move": m.best_move,
+                    "position_fen": m.position_fen,
+                    "explanation": m.explanation,
+                    "category": m.category,
+                }
+                for m in (analysis.mistakes[:2] if analysis.mistakes else [])
+            ],
+
+            # Pattern check
+            "memory_insights": [
+                {
+                    "type": mi.type,
+                    "message": mi.message,
+                    "pattern": mi.pattern,
+                }
+                for mi in (analysis.memory_insights or [])
+            ],
+
+            # What to do next
+            "priority_focus": analysis.priority_focus,
+            "training_suggestions": analysis.training_suggestions[:2] if analysis.training_suggestions else [],
+            "games_together": analysis.games_together,
+        }
+
+    except Exception as e:
+        logger.error(f"Postgame analysis failed: {e}")
+        # Return minimal reflection even if full analysis fails
+        total_moves = len([m for m in move_history if m.get("by") == "player"])
+        return {
+            "has_data": True,
+            "session_id": session_id,
+            "result": game_result,
+            "accuracy": 0,
+            "total_blunders": 0,
+            "total_mistakes": 0,
+            "coach_summary": f"Good game! You played {total_moves} moves.",
+            "encouragement": "Every game is a chance to learn.",
+            "key_moments": [],
+            "memory_insights": [],
+            "priority_focus": "Keep playing and reviewing.",
+            "training_suggestions": [],
+            "games_together": 0,
+        }
 

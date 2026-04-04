@@ -20,6 +20,7 @@ import CoachPanel from "@/components/CoachPanel";
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
 import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 import PostGameLesson from "@/components/PostGameLesson";
+import PostGameReflection from "@/components/coach/PostGameReflection";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
 import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
@@ -1055,8 +1056,19 @@ const CoachPlaySidebar = ({
         </>
       )}
 
-      {/* Post-Game Lesson (both modes) */}
-      {session && gameOver && (
+      {/* Post-Game Reflection (both modes) */}
+      {session && gameOver && summary && summary.has_data && (
+        <div className="p-4 border-b border-border">
+          <PostGameReflection
+            data={summary}
+            onPlayAgain={newGame}
+            onGoTrain={() => window.location.href = "/training"}
+          />
+        </div>
+      )}
+
+      {/* Post-Game Lesson — only if no reflection data */}
+      {session && gameOver && (!summary || !summary.has_data) && (
         <div className="p-4 border-b border-border">
           <PostGameLesson
             sessionId={session.session_id}

@@ -235,6 +235,42 @@ def _classify_move_quality(eval_before: float, eval_after: float, user_color: st
         return "blunder"
 
 
+def _move_context(move: str, tactical: Dict) -> str:
+    """
+    Generate position-aware context for a move.
+    Returns a short phrase explaining what the move DOES on the board.
+    """
+    parts = []
+
+    # What did the move capture?
+    if tactical.get("user_move_captures"):
+        parts.append(f"Takes the {tactical['user_move_captures']}.")
+
+    # What does it attack?
+    elif tactical.get("user_move_attacks"):
+        attacks = tactical["user_move_attacks"][:2]
+        if len(attacks) == 1:
+            parts.append(f"Puts pressure on the {attacks[0]}.")
+        else:
+            parts.append(f"Attacks the {attacks[0]} and {attacks[1]}.")
+
+    # Any threats to watch?
+    if tactical.get("threats_created"):
+        threats = tactical["threats_created"][:1]
+        if threats:
+            parts.append(f"Watch out — opponent now threatens {threats[0]}.")
+
+    # Pieces left hanging?
+    if tactical.get("pieces_hanging_after"):
+        hanging = tactical["pieces_hanging_after"][:1]
+        if hanging:
+            parts.append(f"But your {hanging[0]} is now undefended.")
+
+    if parts:
+        return " " + " ".join(parts)
+    return ""
+
+
 def _generate_coaching_message(
     user_move: str,
     quality: str,
@@ -287,31 +323,31 @@ def _generate_coaching_message(
 
     # ========== EXCELLENT MOVES ==========
     if quality == "excellent":
-        excellent_phrases = [
-            f"Shabash {name}! {user_move} is exactly right! 👏",
-            f"Bahut accha! {user_move} - you're thinking like a strong player!",
-            f"Excellent {name}! {user_move} shows real understanding.",
-            f"Yes! That's the move! You saw it {name}!",
-            f"Beautiful! {user_move} is perfect here.",
-        ]
-        result["coaching_message"] = random.choice(excellent_phrases)
+        base = random.choice([
+            f"Excellent! {user_move} is exactly right.",
+            f"Yes! {user_move} — you saw it.",
+            f"Beautiful! {user_move} is spot on.",
+        ])
+        # Add position-aware context
+        context = _move_context(user_move, tactical_analysis)
+        result["coaching_message"] = f"{base}{context}"
         result["encouragement"] = random.choice([
             "Keep this up!",
             "You're playing well today.",
             "This is good chess!",
         ])
         return result
-    
+
     # ========== GOOD MOVES ==========
     elif quality == "good":
-        good_phrases = [
-            f"{user_move} is a solid choice {name}.",
+        base = random.choice([
+            f"{user_move} is a solid choice.",
             f"Good thinking. {user_move} is reasonable here.",
-            f"Accha hai. {user_move} keeps things balanced.",
-            f"That works. {user_move} is sensible.",
-        ]
-        result["coaching_message"] = random.choice(good_phrases)
-        if best_move != user_move:
+            f"That works. {user_move} keeps things steady.",
+        ])
+        context = _move_context(user_move, tactical_analysis)
+        result["coaching_message"] = f"{base}{context}"
+        if best_move and best_move != user_move:
             result["coaching_message"] += f" {best_move} was slightly more precise, but your move is fine."
         return result
     
@@ -640,7 +676,13 @@ async def generate_move_feedback(
         coaching_message = coaching_result.get("coaching_message", "")
         socratic_question = coaching_result.get("socratic_question")
         expects_response = coaching_result.get("expects_response", False)
-        
+
+        # Inject pattern memory into coaching message (the "I know you" layer)
+        if pattern_reference and quality in ["mistake", "blunder"]:
+            coaching_message = f"{pattern_reference} {coaching_message}"
+        if memory_reference and quality in ["mistake", "blunder"]:
+            coaching_message = f"{coaching_message} {memory_reference}"
+
         # Generate best move explanation
         best_move_explanation = ""
         if best_move and best_move != user_move:
@@ -658,11 +700,40 @@ async def generate_move_feedback(
     
     # Generate coach move explanation (used by both paths)
     coach_explanation = ""
-    if coach_move:
+    if coach_move and fen_before:
+        try:
+            board_after_user = chess.Board(fen_before)
+            user_move_obj = board_after_user.parse_san(user_move)
+            board_after_user.push(user_move_obj)
+            coach_move_obj = board_after_user.parse_san(coach_move)
+
+            # What does the coach's move do?
+            if board_after_user.is_capture(coach_move_obj):
+                captured = board_after_user.piece_at(coach_move_obj.to_square)
+                if captured:
+                    piece_names = {1: "pawn", 2: "knight", 3: "bishop", 4: "rook", 5: "queen"}
+                    cn = piece_names.get(captured.piece_type, "piece")
+                    coach_explanation = f"I take your {cn} with {coach_move}."
+
+            if not coach_explanation:
+                board_after_user.push(coach_move_obj)
+                if board_after_user.is_check():
+                    coach_explanation = f"{coach_move} — check. Protect your king."
+                else:
+                    moving = board_after_user.piece_at(coach_move_obj.to_square)
+                    if moving:
+                        piece_names = {1: "pawn", 2: "knight", 3: "bishop", 4: "rook", 5: "queen", 6: "king"}
+                        pn = piece_names.get(moving.piece_type, "piece")
+                        sq = chess.square_name(coach_move_obj.to_square)
+                        coach_explanation = f"I move my {pn} to {sq}."
+        except Exception:
+            pass
+
+    if not coach_explanation and coach_move:
         if quality in ["mistake", "blunder"] and tactical.get("threats_created"):
-            coach_explanation = "Takes advantage of the error"
+            coach_explanation = "Takes advantage of the error."
         else:
-            coach_explanation = "Continues development"
+            coach_explanation = f"I play {coach_move}."
     
     # Check if relates to known weakness (used by both paths)
     relates_to = None
