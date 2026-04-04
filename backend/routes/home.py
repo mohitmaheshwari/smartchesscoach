@@ -470,6 +470,7 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
 
         # Games count
         result["games_analyzed"] = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
+        result["games_imported"] = await db.games.count_documents({"user_id": user.user_id})
 
         # Contextual action
         user_won = (game_result == "1-0" and user_color == "white") or (game_result == "0-1" and user_color == "black")

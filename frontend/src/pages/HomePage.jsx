@@ -55,6 +55,7 @@ const HomePage = ({ user }) => {
   const review = data?.review_progress || {};
   const strengthProfile = data?.strength_profile;
   const trainingReady = data?.training_ready;
+  const gamesImported = data?.games_imported || 0;
 
   const moodOverride = coachIntel?.mood_override;
   const progressTrend = coachIntel?.progress_trend;
@@ -67,8 +68,8 @@ const HomePage = ({ user }) => {
   // Determine if we have a board position to show (the mistake that matters)
   const showBoard = battle?.fen && battle?.move_number > 0;
 
-  // ── Empty state ──
-  if (!battle && gamesAnalyzed === 0) {
+  // ── Empty state: no games at all ──
+  if (!battle && gamesAnalyzed === 0 && gamesImported === 0) {
     return (
       <Layout user={user}>
         <div className="max-w-xl mx-auto px-4 py-20 text-center" data-testid="home-page">
@@ -92,6 +93,38 @@ const HomePage = ({ user }) => {
               Play with Coach
             </button>
           </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // ── Analyzing state: games imported but not yet analyzed by Stockfish ──
+  if (!battle && gamesAnalyzed === 0 && gamesImported > 0) {
+    return (
+      <Layout user={user}>
+        <div className="max-w-xl mx-auto px-4 py-16 text-center" data-testid="home-page">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+            <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          </div>
+          <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">
+            Analyzing {gamesImported} games...
+          </h1>
+          <p className="text-muted-foreground mb-6 text-sm leading-relaxed max-w-sm mx-auto">
+            Your coach is running deep analysis on every game. This takes a few minutes.
+            You can play or explore while it works.
+          </p>
+          <div className="flex gap-3 justify-center mb-8">
+            <button onClick={() => navigate("/play-with-coach")} className="px-6 py-3 text-sm gradient-gold text-black rounded-lg hover:opacity-90 transition-all font-semibold shadow-lg shadow-amber-500/20">
+              <Swords className="w-4 h-4 inline mr-2" strokeWidth={2} />
+              Play with Coach
+            </button>
+            <button onClick={() => window.location.reload()} className="px-6 py-3 text-sm text-foreground border border-border rounded-lg hover:bg-card transition-all">
+              Refresh
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground/50 font-mono">
+            {gamesImported} games imported, waiting for analysis
+          </p>
         </div>
       </Layout>
     );
