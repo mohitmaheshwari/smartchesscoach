@@ -478,9 +478,9 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                     # Find dominant gap in this game's evals
                     g_gaps = {}
                     for ev in evals:
-                        g = ev.get("cognitive_gap", "")
-                        if g and (ev.get("cp_loss", 0) or 0) >= 80:
-                            g_gaps[g] = g_gaps.get(g, 0) + 1
+                        gap_val = ev.get("cognitive_gap", "")
+                        if gap_val and (ev.get("cp_loss", 0) or 0) >= 80:
+                            g_gaps[gap_val] = g_gaps.get(gap_val, 0) + 1
                     top_g = max(g_gaps, key=g_gaps.get) if g_gaps else None
                     pc = pattern_history.get(top_g, 0) if top_g and top_g in g_gaps else 0
 
