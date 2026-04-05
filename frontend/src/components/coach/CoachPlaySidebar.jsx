@@ -622,6 +622,7 @@ const CoachPlaySidebar = ({
   curriculumFeedback,
   lastCoachMoveSan,
   v5Coaching,
+  preMoveTrap,
   interactiveCoaching,
   behavioralCoaching,
   consequenceFeedback,
@@ -858,6 +859,38 @@ const CoachPlaySidebar = ({
               />
             )}
 
+            {/* Pre-Move Trap Prompt — shown BEFORE user moves */}
+            {preMoveTrap && !v5Coaching && !isCoachThinking && (
+              <div className="p-3 rounded-lg border-2 border-amber-500/30 bg-amber-500/5 animate-in slide-in-from-top-2" data-testid="pre-move-trap">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="w-4 h-4 text-amber-500" strokeWidth={2} />
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                    Before You Move
+                  </span>
+                </div>
+                <p className="text-sm text-foreground leading-relaxed">
+                  {preMoveTrap.message}
+                </p>
+                {preMoveTrap.escape_squares?.length > 0 && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] text-muted-foreground uppercase">Escapes:</span>
+                    {preMoveTrap.escape_squares.map((sq) => (
+                      <span key={sq} className="text-xs font-mono bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">
+                        {sq}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {preMoveTrap.is_trappable_in_2 && preMoveTrap.trap_sequence?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-amber-500/10 text-xs">
+                    <span className="text-amber-500 font-semibold">
+                      You can trap it in {preMoveTrap.trap_sequence.length} moves!
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Coach Thinking Indicator */}
             {isCoachThinking &&
               !v5Coaching &&
@@ -895,6 +928,45 @@ const CoachPlaySidebar = ({
                 sessionId={session?.session_id}
                 source="coach"
               />
+            )}
+
+            {/* Trap Opportunity — Escape Square Awareness */}
+            {v5Coaching?.trap_opportunity && (
+              <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5" data-testid="trap-opportunity">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="w-4 h-4 text-amber-500" strokeWidth={2} />
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                    Escape Square Control
+                  </span>
+                </div>
+                <p className="text-sm text-foreground leading-relaxed">
+                  {v5Coaching.trap_opportunity.message}
+                </p>
+                {v5Coaching.trap_opportunity.escape_squares?.length > 0 && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Escapes:</span>
+                    {v5Coaching.trap_opportunity.escape_squares.map((sq) => (
+                      <span key={sq} className="text-xs font-mono bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">
+                        {sq}
+                      </span>
+                    ))}
+                    <span className="text-[10px] font-mono text-muted-foreground ml-auto">
+                      {v5Coaching.trap_opportunity.escape_count}/6
+                    </span>
+                  </div>
+                )}
+                {v5Coaching.trap_opportunity.reduction_moves?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-amber-500/10">
+                    <span className="text-[10px] text-muted-foreground">Try: </span>
+                    <span className="text-xs font-mono font-semibold text-amber-500">
+                      {v5Coaching.trap_opportunity.reduction_moves[0].move_san}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {" "}blocks {v5Coaching.trap_opportunity.reduction_moves[0].blocks?.join(", ")}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Behavioral Coaching — hide during curriculum */}

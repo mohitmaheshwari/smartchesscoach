@@ -161,6 +161,7 @@ const CoachPlay = ({ user }) => {
   // V5 Coaching State - Unified with Lab
   const [v5Coaching, setV5Coaching] = useState(null);
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
+  const [preMoveTrap, setPreMoveTrap] = useState(null);
   
   // Interactive Coaching State - Two-part dialogue (user move + coach move)
   const [interactiveCoaching, setInteractiveCoaching] = useState({
@@ -903,6 +904,25 @@ const CoachPlay = ({ user }) => {
                 setTimeout(() => setCoachArrows([]), 6000);
               }
             } catch (e) {}
+          } else if (v5.trap_opportunity) {
+            // Show trap opportunity on board — highlight escape squares + suggested reducer
+            const trap = v5.trap_opportunity;
+            const trapArrows = [];
+
+            // Green arrow for suggested blocking move
+            if (trap.reduction_moves && trap.reduction_moves.length > 0) {
+              const reducer = trap.reduction_moves[0];
+              if (reducer.from && reducer.to) {
+                trapArrows.push([reducer.from, reducer.to, "green"]);
+              }
+            }
+
+            // Red arrow pointing at the trapped piece (from nearest attacker if any)
+            // For now just show the suggested move
+            if (trapArrows.length > 0) {
+              setCoachArrows(trapArrows);
+              setTimeout(() => setCoachArrows([]), 8000);
+            }
           } else {
             setCoachArrows([]);
           }
@@ -938,6 +958,21 @@ const CoachPlay = ({ user }) => {
             ...prev,
             coachMoveCoaching: data.coach_move_coaching
           }));
+        }
+
+        // Pre-move trap prompt — show BEFORE user's next move
+        if (data.pre_move_trap) {
+          setPreMoveTrap(data.pre_move_trap);
+          // Show trap arrows on board
+          if (data.pre_move_trap.reduction_moves?.length > 0) {
+            const r = data.pre_move_trap.reduction_moves[0];
+            if (r.from && r.to) {
+              setCoachArrows([[r.from, r.to, "green"]]);
+              setTimeout(() => setCoachArrows([]), 10000);
+            }
+          }
+        } else {
+          setPreMoveTrap(null);
         }
       }
     } catch (error) {
@@ -1778,8 +1813,9 @@ const CoachPlay = ({ user }) => {
     
     if (!session || !isPlayerTurn || gameOver || !currentFen) return false;
 
-    // Clear coaching arrows when making a new move
+    // Clear coaching arrows and pre-move trap when making a new move
     setCoachArrows([]);
+    setPreMoveTrap(null);
 
     // Try to make the move locally first
     const chess = new Chess(currentFen);
@@ -2070,6 +2106,7 @@ const CoachPlay = ({ user }) => {
           curriculumFeedback={curriculumFeedback}
           lastCoachMoveSan={lastCoachMoveSan}
           v5Coaching={v5Coaching}
+          preMoveTrap={preMoveTrap}
           interactiveCoaching={interactiveCoaching}
           behavioralCoaching={behavioralCoaching}
           consequenceFeedback={consequenceFeedback}

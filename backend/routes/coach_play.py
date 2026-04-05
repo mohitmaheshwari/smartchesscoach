@@ -2087,6 +2087,45 @@ async def get_interactive_coaching(
             except Exception as thread_err:
                 logger.debug(f"Conversation thread failed (non-fatal): {thread_err}")
 
+            # === TRAP DETECTION (Escape Square Awareness) ===
+            # Detect opponent pieces with limited escape squares
+            try:
+                from services.trap_detection_service import detect_trap_opportunities, generate_trap_coaching_message, track_trap_opportunity
+
+                # Analyze AFTER user's move — what traps exist now?
+                board_after = chess.Board(fen_before)
+                board_after.push(board_after.parse_san(move_san))
+
+                trap_opps = detect_trap_opportunities(board_after, chess.WHITE if user_color == "white" else chess.BLACK)
+                if trap_opps:
+                    # Pick the best trap (highest value * urgency)
+                    best_trap = trap_opps[0]
+                    trap_msg = generate_trap_coaching_message(best_trap)
+
+                    coaching_dict["trap_opportunity"] = {
+                        "target_square": best_trap.target_square,
+                        "target_piece": best_trap.target_piece,
+                        "escape_count": best_trap.escape_count,
+                        "escape_squares": best_trap.escape_squares,
+                        "blocked_squares": best_trap.blocked_squares,
+                        "reduction_moves": [
+                            {"move_san": r["move_san"], "move_uci": r["move_uci"],
+                             "from": r["from"], "to": r["to"],
+                             "blocks": r["blocks_squares"], "new_escapes": r["new_escape_count"]}
+                            for r in best_trap.reduction_moves[:2]
+                        ],
+                        "trap_level": best_trap.trap_level,
+                        "message": trap_msg,
+                        "is_attacked": best_trap.is_attacked,
+                        "is_trappable_in_2": best_trap.is_trappable_in_2,
+                        "trap_sequence": best_trap.trap_sequence,
+                    }
+
+                    # Track the trap opportunity for conversion rate
+                    await track_trap_opportunity(db, user.user_id, session_id, best_trap)
+            except Exception as trap_err:
+                logger.debug(f"Trap detection failed (non-fatal): {trap_err}")
+
             # === THEORY APPLIED TRACKING ===
             # Check if this move matches an opening theory the user was taught
             if len(move_history) <= 24 and coaching.severity in ("good", "excellent", "book"):
@@ -2158,7 +2197,41 @@ async def get_interactive_coaching(
             result["coach_move_coaching"] = coach_explanation
         except Exception as e:
             logger.warning(f"Error generating coach move explanation: {e}")
-    
+
+    # === PRE-MOVE TRAP PROMPT ===
+    # After coach plays, check if the CURRENT position has a trap opportunity
+    # for the user. Show it BEFORE they make their next move.
+    if phase in (None, "coach_move"):
+        try:
+            from services.trap_detection_service import detect_trap_opportunities, generate_trap_coaching_message
+
+            # Get current FEN (after coach's move)
+            current_fen = session_doc.get("current_fen", "")
+            if current_fen:
+                current_board = chess.Board(current_fen)
+                uc = chess.WHITE if user_color == "white" else chess.BLACK
+
+                pre_traps = detect_trap_opportunities(current_board, uc)
+                if pre_traps:
+                    best = pre_traps[0]
+                    if best.escape_count <= 2:  # Only prompt for serious traps
+                        result["pre_move_trap"] = {
+                            "target_square": best.target_square,
+                            "target_piece": best.target_piece,
+                            "escape_count": best.escape_count,
+                            "escape_squares": best.escape_squares,
+                            "message": f"Before you move — their {best.target_piece} on {best.target_square} has only {best.escape_count} escape square{'s' if best.escape_count != 1 else ''}. Can you restrict it?",
+                            "trap_level": best.trap_level,
+                            "is_trappable_in_2": best.is_trappable_in_2,
+                            "trap_sequence": best.trap_sequence,
+                            "reduction_moves": [
+                                {"move_san": r["move_san"], "from": r["from"], "to": r["to"]}
+                                for r in best.reduction_moves[:2]
+                            ],
+                        }
+        except Exception as pre_trap_err:
+            logger.debug(f"Pre-move trap detection failed (non-fatal): {pre_trap_err}")
+
     return result
 
 
