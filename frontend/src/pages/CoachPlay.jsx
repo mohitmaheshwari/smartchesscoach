@@ -889,8 +889,25 @@ const CoachPlay = ({ user }) => {
             ...prev,
             userMoveCoaching: data.user_move_coaching
           }));
+
+          // ═══ BOARD ARROWS from V5 coaching ═══
+          const v5 = data.user_move_coaching;
+          const sev = v5.severity || "";
+          if (v5.best_move && v5.fen_before && ["mistake", "blunder", "inaccuracy"].includes(sev)) {
+            try {
+              // best_move is in SAN — we need to find UCI from the response
+              // Check if best_move_uci exists directly or in raw feedback
+              const rawUci = data.best_move_uci || v5.best_move_uci || "";
+              if (rawUci && rawUci.length >= 4) {
+                setCoachArrows([[rawUci.slice(0, 2), rawUci.slice(2, 4), "green"]]);
+                setTimeout(() => setCoachArrows([]), 6000);
+              }
+            } catch (e) {}
+          } else {
+            setCoachArrows([]);
+          }
         }
-        
+
         // Behavioral coaching (Smart Coach)
         setBehavioralCoaching(data.behavioral_coaching || null);
       }

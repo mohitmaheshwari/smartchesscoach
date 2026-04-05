@@ -2008,7 +2008,42 @@ async def get_interactive_coaching(
             coaching_dict = coaching.to_dict()
             coaching_dict["move_san"] = move_san
             coaching_dict["fen_before"] = fen_before  # Needed for board preview of alternatives
+
+            # Compute best_move_uci for board arrow drawing
+            if best_move and best_move != move_san:
+                try:
+                    best_move_obj = board.parse_san(best_move)
+                    coaching_dict["best_move_uci"] = best_move_obj.uci()
+                except Exception:
+                    coaching_dict["best_move_uci"] = ""
+            else:
+                coaching_dict["best_move_uci"] = ""
             
+            # === MID-GAME ADAPTATION ===
+            # Detect tempo, tilt, hot/cold streaks — adjust coaching in real-time
+            try:
+                from services.midgame_adaptation import compute_game_adaptation
+                adaptation = compute_game_adaptation(move_history, user_color, evaluations)
+
+                if adaptation.get("nudge") and coaching.severity in ("mistake", "blunder"):
+                    coaching_dict["narrative"] = f"{adaptation['nudge']} {coaching_dict.get('narrative', '')}"
+
+                if adaptation.get("nudge") and adaptation.get("tilt_risk"):
+                    coaching_dict["narrative"] = f"{adaptation['nudge']} {coaching_dict.get('narrative', '')}"
+
+                if adaptation.get("momentum") == "hot_streak" and coaching.severity in ("good", "brilliant"):
+                    streak = adaptation.get("good_moves_streak", 0)
+                    if streak >= 3:
+                        coaching_dict["encouragement"] = f"{streak} good moves in a row. You're locked in."
+
+                coaching_dict["adaptation"] = {
+                    "tempo": adaptation.get("tempo", "unknown"),
+                    "momentum": adaptation.get("momentum", "neutral"),
+                    "tilt_risk": adaptation.get("tilt_risk", False),
+                }
+            except Exception as adapt_err:
+                logger.debug(f"Mid-game adaptation failed (non-fatal): {adapt_err}")
+
             # === PATTERN MEMORY INJECTION ===
             # "You've missed forks 3 times this week" — makes the coach feel like it remembers
             if coaching.severity in ("mistake", "blunder", "inaccuracy") and cp_loss >= 100:
@@ -2058,6 +2093,7 @@ async def get_interactive_coaching(
                     logger.warning(f"Theory applied tracking failed (non-critical): {ta_err}")
             
             result["user_move_coaching"] = coaching_dict
+            result["best_move_uci"] = coaching_dict.get("best_move_uci", "")
             
             # === BEHAVIORAL COACHING (Smart Coach) ===
             try:

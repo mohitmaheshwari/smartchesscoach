@@ -713,6 +713,27 @@ async def generate_move_feedback(
         if not encouragement and quality in ["excellent", "good"]:
             encouragement = "Keep it up!" if quality == "good" else "That's the move!"
 
+    # ═══ MID-GAME ADAPTATION — adjust based on how user is playing THIS game ═══
+    adaptation_nudge = None
+    try:
+        from services.midgame_adaptation import compute_game_adaptation
+        adaptation = compute_game_adaptation(move_history, user_color, [])
+        adaptation_nudge = adaptation.get("nudge")
+
+        # If rushing + making mistakes, prepend the nudge
+        if adaptation_nudge and quality in ("mistake", "blunder"):
+            coaching_message = f"{adaptation_nudge} {coaching_message}"
+        elif adaptation_nudge and adaptation.get("tilt_risk"):
+            coaching_message = f"{adaptation_nudge} {coaching_message}"
+
+        # If on hot streak, boost encouragement
+        if adaptation.get("momentum") == "hot_streak" and quality in ("excellent", "good", "best", "brilliant"):
+            streak_count = adaptation.get("good_moves_streak", 0)
+            if streak_count >= 3 and not encouragement:
+                encouragement = f"{streak_count} good moves in a row. You're locked in."
+    except Exception as adapt_err:
+        logger.debug(f"Mid-game adaptation failed (non-fatal): {adapt_err}")
+
     # ═══ APPLY COACH VOICE — personality wrapper ═══
     try:
         from services.coach_voice import apply_coach_voice
