@@ -208,104 +208,14 @@ const Landing = () => {
               </motion.div>
             </div>
 
-            {/* Right: AI Coach Visual */}
+            {/* Right: Animated Coaching Demo */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.4, duration: 0.6 }}
               className="hidden lg:block relative"
             >
-              {/* Chess board with AI overlay */}
-              <div className="relative">
-                {/* Glowing border */}
-                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-500/5 to-amber-500/20 blur-sm" />
-
-                <div className="relative rounded-2xl border border-white/10 bg-[#0C0C14] overflow-hidden">
-                  {/* AI Coach header bar */}
-                  <div className="px-4 py-3 border-b border-white/5 flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                        <Brain className="w-4 h-4 text-amber-400" />
-                      </div>
-                      <motion.div
-                        className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0C0C14]"
-                        animate={{ scale: [1, 1.3, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">ChessGuru Coach</p>
-                      <p className="text-[10px] text-emerald-400">Watching your game...</p>
-                    </div>
-                  </div>
-
-                  {/* Mini chess board (CSS) */}
-                  <div className="p-4">
-                    <div className="grid grid-cols-8 gap-0 aspect-square rounded-lg overflow-hidden border border-white/5">
-                      {Array.from({ length: 64 }).map((_, i) => {
-                        const row = Math.floor(i / 8);
-                        const col = i % 8;
-                        const isLight = (row + col) % 2 === 0;
-                        const pieces = { 0: "♜♞♝♛♚♝♞♜", 1: "♟♟♟♟♟♟♟♟", 6: "♙♙♙♙♙♙♙♙", 7: "♖♘♗♕♔♗♘♖" };
-                        const piece = pieces[row]?.[col] || "";
-                        // Highlight some squares for coaching effect
-                        const isHighlighted = (row === 4 && col === 4) || (row === 3 && col === 3);
-                        const isArrowStart = row === 6 && col === 4;
-                        const isArrowEnd = row === 4 && col === 4;
-                        return (
-                          <div
-                            key={i}
-                            className={`aspect-square flex items-center justify-center text-sm sm:text-base relative ${
-                              isLight ? "bg-amber-200/10" : "bg-amber-900/15"
-                            } ${isHighlighted ? "ring-1 ring-inset ring-amber-500/30" : ""}`}
-                          >
-                            {piece && <span className="opacity-80">{piece}</span>}
-                            {isArrowEnd && (
-                              <motion.div
-                                className="absolute inset-0 bg-green-500/15 rounded-sm"
-                                animate={{ opacity: [0, 0.4, 0] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Coach message overlay */}
-                  <motion.div
-                    className="mx-4 mb-4 p-3 rounded-lg border border-amber-500/20 bg-amber-500/5"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.2 }}
-                  >
-                    <motion.p
-                      className="text-xs text-amber-300 leading-relaxed"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                    >
-                      "Piece safety again. We keep coming back to this. Rule: before every move, check — is anything under attack?"
-                    </motion.p>
-                  </motion.div>
-
-                  {/* Escape squares indicator */}
-                  <div className="mx-4 mb-4 flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-500/10 border border-red-500/20">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                      <span className="text-[10px] text-red-400 font-mono">2 escapes</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span className="text-[10px] text-emerald-400 font-mono">Pattern: -3</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20">
-                      <Zap className="w-2.5 h-2.5 text-amber-400" />
-                      <span className="text-[10px] text-amber-400 font-mono">Brilliant</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <CoachingDemo />
             </motion.div>
           </div>
         </div>
@@ -483,6 +393,251 @@ const Landing = () => {
           <p className="text-xs text-gray-700">Built with AI. Made for chess players.</p>
         </div>
       </footer>
+    </div>
+  );
+};
+
+
+// ── COACHING DEMO — animated sequence showing a real coaching session ──
+const DEMO_STEPS = [
+  {
+    phase: "move",
+    delay: 1.5,
+    badge: null,
+    message: null,
+  },
+  {
+    phase: "thinking",
+    delay: 2.5,
+    badge: { text: "Analyzing...", color: "blue" },
+    message: null,
+  },
+  {
+    phase: "mistake",
+    delay: 4,
+    badge: { text: "Mistake", color: "red" },
+    message: "Nxe5 loses the knight. Your opponent's bishop on c4 is covering that square.",
+    arrow: { from: "f1", to: "c4", color: "green" },
+  },
+  {
+    phase: "pattern",
+    delay: 7,
+    badge: { text: "Pattern Detected", color: "amber" },
+    message: "Again, piece safety. This is the 4th time. Rule: Piece Safety Check — before moving, check: is anything I own under attack?",
+  },
+  {
+    phase: "trap",
+    delay: 10.5,
+    badge: { text: "Escape Square Control", color: "amber" },
+    message: "Their bishop has 2 escape squares. Block one — it gets trapped.",
+    escapes: ["f7", "d5"],
+  },
+  {
+    phase: "brilliant",
+    delay: 14,
+    badge: { text: "Brilliant!", color: "gold" },
+    message: "That sacrifice only works if you calculate deeply — and you did. This is the level you're capable of.",
+  },
+  {
+    phase: "reset",
+    delay: 17.5,
+  },
+];
+
+const CoachingDemo = () => {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const timers = DEMO_STEPS.map((s, i) =>
+      setTimeout(() => setStep(i), s.delay * 1000)
+    );
+    // Loop the demo
+    const loopTimer = setTimeout(() => setStep(0), 19000);
+    const restartTimer = setInterval(() => {
+      setStep(0);
+      DEMO_STEPS.forEach((s, i) => {
+        setTimeout(() => setStep(i), s.delay * 1000);
+      });
+    }, 19000);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(loopTimer);
+      clearInterval(restartTimer);
+    };
+  }, []);
+
+  const current = DEMO_STEPS[step] || DEMO_STEPS[0];
+
+  return (
+    <div className="relative">
+      {/* Glow */}
+      <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-amber-500/15 via-transparent to-amber-500/10 blur-xl" />
+
+      <div className="relative rounded-2xl border border-white/10 bg-[#0A0A12] overflow-hidden shadow-2xl shadow-black/50">
+        {/* Coach header */}
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/20 flex items-center justify-center">
+                <Brain className="w-4.5 h-4.5 text-amber-400" />
+              </div>
+              <motion.div
+                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0A0A12]"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Coach Guru</p>
+              <p className="text-[10px] text-emerald-400 font-mono">Game #14 together</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-white/10" />
+            <div className="w-2 h-2 rounded-full bg-white/10" />
+            <div className="w-2 h-2 rounded-full bg-white/10" />
+          </div>
+        </div>
+
+        {/* Demo coaching conversation */}
+        <div className="p-4 space-y-3 min-h-[320px]">
+          {/* Step: Move played */}
+          <motion.div
+            animate={{ opacity: step >= 0 ? 1 : 0, y: step >= 0 ? 0 : 10 }}
+            transition={{ duration: 0.3 }}
+            className="flex items-center gap-3"
+          >
+            <div className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm">♞</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-300">You played</span>
+              <span className="text-sm font-mono font-bold text-white bg-white/5 px-2 py-0.5 rounded">Nxe5</span>
+            </div>
+          </motion.div>
+
+          {/* Step: Analyzing */}
+          {step >= 1 && step < 2 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 text-blue-400 text-xs"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-3.5 h-3.5 border-2 border-blue-400/30 border-t-blue-400 rounded-full"
+              />
+              Analyzing position...
+            </motion.div>
+          )}
+
+          {/* Step: Mistake detected */}
+          {step >= 2 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="p-3 rounded-lg border border-red-500/20 bg-red-500/5"
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-5 h-5 rounded bg-red-500/20 flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-red-400">!</span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">Mistake</span>
+                <span className="text-[10px] text-gray-600 ml-auto font-mono">Best: Bc4</span>
+              </div>
+              <p className="text-xs text-gray-300 leading-relaxed">{DEMO_STEPS[2].message}</p>
+              {/* Arrow indicator */}
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="text-[10px] text-red-400 font-mono bg-red-500/10 px-1.5 py-0.5 rounded">Nxe5</span>
+                <ChevronRight className="w-3 h-3 text-gray-600" />
+                <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">Bc4</span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step: Pattern detected */}
+          {step >= 3 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5"
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <Eye className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Pattern Detected</span>
+              </div>
+              <p className="text-xs text-amber-200/80 leading-relaxed">{DEMO_STEPS[3].message}</p>
+            </motion.div>
+          )}
+
+          {/* Step: Escape squares */}
+          {step >= 4 && step < 5 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5"
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <Target className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Escape Square Control</span>
+              </div>
+              <p className="text-xs text-gray-300 leading-relaxed">{DEMO_STEPS[4].message}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-[10px] text-gray-500">Escapes:</span>
+                {DEMO_STEPS[4].escapes.map((sq) => (
+                  <motion.span
+                    key={sq}
+                    className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20"
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    {sq}
+                  </motion.span>
+                ))}
+                <span className="text-[10px] text-gray-600 font-mono ml-auto">2/6</span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step: Brilliant move */}
+          {step >= 5 && step < 6 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="p-3 rounded-lg border border-amber-400/30 bg-gradient-to-r from-amber-500/10 to-amber-600/5"
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <motion.div
+                  animate={{ rotate: [0, 15, -15, 0] }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" strokeWidth={2.5} />
+                </motion.div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Brilliant Move!</span>
+              </div>
+              <p className="text-xs text-amber-200/90 leading-relaxed">{DEMO_STEPS[5].message}</p>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Bottom stats bar */}
+        <div className="px-4 py-2.5 border-t border-white/5 flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/50" />
+            78% accuracy
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono">
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-500/50" />
+            3 patterns tracked
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono ml-auto">
+            <Zap className="w-2.5 h-2.5 text-amber-500/50" />
+            1 brilliant
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
