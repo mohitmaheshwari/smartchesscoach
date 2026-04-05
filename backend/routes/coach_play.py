@@ -2059,6 +2059,34 @@ async def get_interactive_coaching(
                 except Exception as pm_err:
                     logger.warning(f"Pattern memory injection failed (non-critical): {pm_err}")
             
+            # === CONVERSATION THREAD ===
+            # "I told you this on move 10. Same thing happening again."
+            try:
+                from services.game_conversation_thread import get_thread
+
+                thread = get_thread(session_id)
+                move_num = board.fullmove_number
+
+                if coaching.severity in ("mistake", "blunder", "inaccuracy"):
+                    # Check if we coached this behavior before in this game
+                    behavior_key = coaching.concept_id or coaching.concept_type or coaching.severity
+                    callback = thread.get_callback(move_num, behavior_key)
+
+                    if callback:
+                        # Prepend the callback to the narrative
+                        coaching_dict["narrative"] = f"{callback} {coaching_dict.get('narrative', '')}"
+                        coaching_dict["conversation_callback"] = callback
+
+                    # Record this coaching moment
+                    rule = coaching.transferable_learning or coaching_dict.get("better_approach", "")
+                    thread.record(move_num, behavior_key, coaching.severity, rule)
+                else:
+                    # Good move — track it for "you listened for X moves then stopped"
+                    thread.record_good_move()
+
+            except Exception as thread_err:
+                logger.debug(f"Conversation thread failed (non-fatal): {thread_err}")
+
             # === THEORY APPLIED TRACKING ===
             # Check if this move matches an opening theory the user was taught
             if len(move_history) <= 24 and coaching.severity in ("good", "excellent", "book"):
@@ -2853,7 +2881,14 @@ async def start_play_with_coach(
             practice_mode=practice_mode,
             source_game_id=source_game_id
         )
-        
+
+        # Clear conversation thread for new game
+        try:
+            from services.game_conversation_thread import clear_thread
+            clear_thread(session.session_id)
+        except Exception:
+            pass
+
         # Get initial evaluation
         opponent = CoachOpponent(user_rating=session.user_rating)
         eval_score, mate_in = await opponent.get_evaluation(session.current_fen)
