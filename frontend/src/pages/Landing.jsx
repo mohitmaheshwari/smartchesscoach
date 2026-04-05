@@ -26,19 +26,13 @@ const Landing = () => {
   }, []);
 
   const handleLogin = async () => {
-    const isEmergentEnv = window.location.hostname.includes("emergentagent") || window.location.hostname.includes("preview") || API.includes("emergentagent") || API.includes("preview");
-    if (isEmergentEnv) {
-      const redirectUrl = window.location.origin + getPostAuthRedirect();
-      window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-    } else {
-      try {
-        const response = await fetch(`${API}/auth/google/login`);
-        const data = await response.json();
-        if (data.auth_url) window.location.href = data.auth_url;
-        else alert("Login failed. Please try again.");
-      } catch (error) {
-        alert("Login failed. Please try again.");
-      }
+    try {
+      const response = await fetch(`${API}/auth/google/login`);
+      const data = await response.json();
+      if (data.auth_url) window.location.href = data.auth_url;
+      else alert("Login failed. Please try again.");
+    } catch (error) {
+      alert("Login failed. Please try again.");
     }
   };
 

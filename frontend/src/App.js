@@ -161,7 +161,7 @@ function AppRouter() {
     }
   }, [location.search, navigate]);
 
-  // Legacy: Check URL fragment for session_id (Emergent auth)
+  // Legacy: Check URL fragment for session_id (OAuth callback)
   if (location.hash?.includes('session_id=')) {
     return <AuthCallback />;
   }
