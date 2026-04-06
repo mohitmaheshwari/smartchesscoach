@@ -28,7 +28,6 @@ Usage:
 import chess
 import logging
 from typing import Dict, List, Optional
-from services.position_reader import read_position, PositionFeature
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +200,247 @@ PLAN_RULES = [
 ]
 
 
-# ─── MAIN ENTRY POINT ────────────────────────────────────────────────
+# ─── LLM-POWERED BOARD READING ────────────────────────────────────────
+
+async def read_board_deep(
+    fen: str,
+    user_color: str = "white",
+    user_rating: int = 1200,
+) -> Dict:
+    """
+    Deep board reading using LLM synthesis on top of concrete board data.
+
+    Flow:
+    1. Extract concrete facts from the board (pieces, attacks, structure)
+    2. Send to LLM with a tight prompt
+    3. Return natural, specific, board-aware coaching text
+
+    Falls back to deterministic read_board_like_a_coach if LLM fails.
+    """
+    try:
+        board = chess.Board(fen)
+    except Exception:
+        return read_board_like_a_coach(fen, user_color, user_rating)
+
+    user_is_white = user_color == "white"
+    user_color_bool = chess.WHITE if user_is_white else chess.BLACK
+    opp_color_bool = not user_color_bool
+
+    # Step 1: Extract CONCRETE facts — no templates, just data
+    facts = _extract_board_facts(board, user_color_bool, opp_color_bool)
+
+    # Step 2: Get deterministic plan as fallback + context
+    deterministic = read_board_like_a_coach(fen, user_color, user_rating)
+
+    # Step 3: Send to LLM
+    try:
+        from llm_service import call_llm
+
+        system = (
+            "You are a chess coach talking to a player rated around " + str(user_rating) + ". "
+            "You're looking at a chess position and telling the player what matters most RIGHT NOW. "
+            "Rules:\n"
+            "- Be SPECIFIC. Name pieces, squares, and concrete threats. Never say generic things like 'improve your position'.\n"
+            "- Maximum 3 short sentences. First sentence = the most important thing. Second = why. Third = what to do.\n"
+            "- Talk about THIS board, not general chess principles.\n"
+            "- If there's a tactic, say it. If it's quiet, say which piece to improve and where.\n"
+            "- Never use engine language (eval, centipawns, accuracy).\n"
+            "- Sound like a human coach sitting next to the player, not a textbook."
+        )
+
+        user_msg = (
+            f"Position (FEN): {fen}\n"
+            f"Player is {'White' if user_is_white else 'Black'} to move.\n\n"
+            f"Board facts:\n{facts}\n\n"
+            f"What should the player focus on? Be specific to this exact position."
+        )
+
+        llm_response = await call_llm(system, user_msg)
+
+        if llm_response and len(llm_response.strip()) > 20:
+            return {
+                "summary": llm_response.strip(),
+                "phase": deterministic.get("phase", "middlegame"),
+                "material": deterministic.get("material", ""),
+                "plan": llm_response.strip(),
+                "plan_id": deterministic.get("plan_id", "llm"),
+                "priority": deterministic.get("priority", "general"),
+                "focus": llm_response.strip().split(".")[0] + ".",
+                "observations": deterministic.get("observations", []),
+                "source": "llm",
+            }
+
+    except Exception as e:
+        logger.debug(f"LLM board reading failed, using deterministic: {e}")
+
+    # Fallback
+    return deterministic
+
+
+def _extract_board_facts(board: chess.Board, user_color: chess.Color, opp_color: chess.Color) -> str:
+    """
+    Extract concrete, verifiable facts from the board.
+    No opinions, no templates — just what's on the board.
+    This gives the LLM real data to work with.
+    """
+    NAMES = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+             chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
+    facts = []
+
+    # Material count
+    user_pieces = {}
+    opp_pieces = {}
+    for sq in chess.SQUARES:
+        p = board.piece_at(sq)
+        if not p:
+            continue
+        name = NAMES.get(p.piece_type, "?")
+        sq_name = chess.square_name(sq)
+        if p.color == user_color:
+            user_pieces[sq_name] = name
+        else:
+            opp_pieces[sq_name] = name
+
+    facts.append(f"Your pieces: {', '.join(f'{v} on {k}' for k, v in sorted(user_pieces.items()))}")
+    facts.append(f"Opponent pieces: {', '.join(f'{v} on {k}' for k, v in sorted(opp_pieces.items()))}")
+
+    # Material balance
+    values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
+    user_mat = sum(values.get(board.piece_at(sq).piece_type, 0) for sq in chess.SQUARES
+                   if board.piece_at(sq) and board.piece_at(sq).color == user_color)
+    opp_mat = sum(values.get(board.piece_at(sq).piece_type, 0) for sq in chess.SQUARES
+                  if board.piece_at(sq) and board.piece_at(sq).color == opp_color)
+    diff = user_mat - opp_mat
+    if diff > 0:
+        facts.append(f"You are ahead by {diff} points of material.")
+    elif diff < 0:
+        facts.append(f"You are behind by {abs(diff)} points of material.")
+    else:
+        facts.append("Material is equal.")
+
+    # King positions and safety
+    user_king = board.king(user_color)
+    opp_king = board.king(opp_color)
+    if user_king:
+        facts.append(f"Your king is on {chess.square_name(user_king)}.")
+    if opp_king:
+        opp_king_sq = chess.square_name(opp_king)
+        # Pawn shield check
+        king_file = chess.square_file(opp_king)
+        king_rank = chess.square_rank(opp_king)
+        shield_rank = king_rank + (-1 if opp_color == chess.WHITE else 1)
+        missing_shield = []
+        if 0 <= shield_rank <= 7:
+            for f in [max(0, king_file - 1), king_file, min(7, king_file + 1)]:
+                sq = chess.square(f, shield_rank)
+                p = board.piece_at(sq)
+                if not (p and p.piece_type == chess.PAWN and p.color == opp_color):
+                    missing_shield.append(chess.square_name(sq))
+        if missing_shield:
+            facts.append(f"Opponent king on {opp_king_sq}. Pawn shield missing on: {', '.join(missing_shield)}.")
+        else:
+            facts.append(f"Opponent king on {opp_king_sq} with intact pawn shield.")
+
+    # Hanging pieces (undefended and attacked)
+    for sq in chess.SQUARES:
+        p = board.piece_at(sq)
+        if not p or p.piece_type == chess.KING:
+            continue
+        sq_name = chess.square_name(sq)
+        attacked = board.is_attacked_by(not p.color, sq)
+        defended = board.is_attacked_by(p.color, sq)
+        if attacked and not defended and p.piece_type != chess.PAWN:
+            owner = "Your" if p.color == user_color else "Opponent's"
+            facts.append(f"{owner} {NAMES[p.piece_type]} on {sq_name} is undefended and under attack!")
+
+    # Pinned pieces
+    for sq in chess.SQUARES:
+        p = board.piece_at(sq)
+        if not p or p.piece_type == chess.KING:
+            continue
+        if board.is_pinned(p.color, sq):
+            owner = "Your" if p.color == user_color else "Opponent's"
+            facts.append(f"{owner} {NAMES[p.piece_type]} on {chess.square_name(sq)} is pinned.")
+
+    # Open files with rooks
+    for file_idx in range(8):
+        has_pawn = False
+        for rank in range(8):
+            p = board.piece_at(chess.square(file_idx, rank))
+            if p and p.piece_type == chess.PAWN:
+                has_pawn = True
+                break
+        if not has_pawn:
+            file_letter = chr(97 + file_idx)
+            rooks_on_file = []
+            for rank in range(8):
+                p = board.piece_at(chess.square(file_idx, rank))
+                if p and p.piece_type == chess.ROOK:
+                    owner = "Your" if p.color == user_color else "Opponent's"
+                    rooks_on_file.append(f"{owner} rook")
+            if rooks_on_file:
+                facts.append(f"Open {file_letter}-file with {', '.join(rooks_on_file)} on it.")
+            else:
+                facts.append(f"Open {file_letter}-file — no rooks on it.")
+
+    # Passed pawns
+    for sq in chess.SQUARES:
+        p = board.piece_at(sq)
+        if not p or p.piece_type != chess.PAWN:
+            continue
+        file_idx = chess.square_file(sq)
+        rank_idx = chess.square_rank(sq)
+        direction = 1 if p.color == chess.WHITE else -1
+        is_passed = True
+        for check_rank in range(rank_idx + direction, 8 if direction == 1 else -1, direction):
+            for check_file in [file_idx - 1, file_idx, file_idx + 1]:
+                if 0 <= check_file <= 7:
+                    check_sq = chess.square(check_file, check_rank)
+                    cp = board.piece_at(check_sq)
+                    if cp and cp.piece_type == chess.PAWN and cp.color != p.color:
+                        is_passed = False
+                        break
+            if not is_passed:
+                break
+        if is_passed:
+            owner = "Your" if p.color == user_color else "Opponent's"
+            promo_dist = (7 - rank_idx) if p.color == chess.WHITE else rank_idx
+            if promo_dist <= 4:
+                facts.append(f"{owner} passed pawn on {chess.square_name(sq)} ({promo_dist} squares from promotion).")
+
+    # Available checks
+    if board.turn == user_color:
+        checks = []
+        for move in board.legal_moves:
+            board.push(move)
+            if board.is_check():
+                checks.append(board.peek().uci())
+            board.pop()
+        if checks:
+            check_sans = []
+            for m in board.legal_moves:
+                board.push(m)
+                if board.is_check():
+                    board.pop()
+                    check_sans.append(board.san(m))
+                else:
+                    board.pop()
+            if check_sans:
+                facts.append(f"Available checks: {', '.join(check_sans[:4])}.")
+
+    # Phase
+    piece_count = len(board.piece_map())
+    if piece_count >= 28:
+        facts.append("Phase: opening.")
+    elif piece_count >= 14:
+        facts.append("Phase: middlegame.")
+    else:
+        facts.append("Phase: endgame.")
+
+    return "\n".join(facts)
+
+
+# ─── DETERMINISTIC BOARD READING (fast, no LLM) ──���───────────────────
 
 def read_board_like_a_coach(
     fen: str,

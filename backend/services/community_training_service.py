@@ -422,22 +422,23 @@ async def get_training_feed(
         except Exception:
             pos["eval_label"] = None
 
+    # Reading prompts are now generated on-demand via LLM (async)
+    # We add them here using the deep board reading
     for pos in all_positions:
         try:
-            from services.position_intelligence import read_board_like_a_coach
+            from services.position_intelligence import read_board_deep
             fen = pos.get("fen", "")
-            # Determine user color from FEN (whose turn it is = user solving)
-            import chess
             board_temp = chess.Board(fen)
             color = "white" if board_temp.turn == chess.WHITE else "black"
-            coach_read = read_board_like_a_coach(fen, user_color=color, user_rating=user_rating)
+            coach_read = await read_board_deep(fen, user_color=color, user_rating=user_rating)
             pos["reading_prompt"] = {
                 "prompt": coach_read.get("summary", "Look at the board. What stands out?"),
-                "observations": [o.get("description", "") for o in coach_read.get("observations", [])],
+                "observations": [o.get("description", "") for o in coach_read.get("observations", [])] if coach_read.get("observations") else [],
                 "question": coach_read.get("plan", "What's the best move?"),
                 "focus": coach_read.get("focus", ""),
                 "phase": coach_read.get("phase", ""),
                 "material": coach_read.get("material", ""),
+                "source": coach_read.get("source", "deterministic"),
             }
         except Exception:
             pos["reading_prompt"] = None

@@ -2159,18 +2159,17 @@ async def get_interactive_coaching(
             # === POSITION INTELLIGENCE ===
             # "What should I focus on?" — coach reads the board after user's move
             try:
-                from services.position_intelligence import read_board_like_a_coach
+                from services.position_intelligence import read_board_deep
 
                 board_after_user = chess.Board(fen_before)
                 board_after_user.push(board_after_user.parse_san(move_san))
 
-                board_read = read_board_like_a_coach(
+                board_read = await read_board_deep(
                     board_after_user.fen(),
                     user_color=user_color,
                     user_rating=1200  # TODO: use actual user rating
                 )
 
-                # Only include if the plan is actionable (not generic)
                 if board_read.get("plan_id") != "neutral":
                     coaching_dict["position_read"] = {
                         "summary": board_read.get("summary", ""),
