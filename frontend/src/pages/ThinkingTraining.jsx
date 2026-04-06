@@ -72,6 +72,24 @@ const formatPattern = (key) => {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
+const MOMENT_TAG_CONFIG = {
+  game_changer: { label: "Game Changer", cls: "text-red-500 bg-red-500/10 border-red-500/20", desc: "This move turned a winning position into a losing one" },
+  threw_advantage: { label: "Threw Advantage", cls: "text-orange-500 bg-orange-500/10 border-orange-500/20", desc: "You had a clear advantage and let it slip" },
+  decisive_moment: { label: "Decisive Moment", cls: "text-amber-500 bg-amber-500/10 border-amber-500/20", desc: "The game was equal — this move decided it" },
+  missed_defense: { label: "Critical Defense", cls: "text-blue-500 bg-blue-500/10 border-blue-500/20", desc: "You needed to find the right defensive move here" },
+  critical_mistake: { label: "Critical Mistake", cls: "text-red-400 bg-red-500/10 border-red-500/20", desc: "A big swing — this mistake cost a lot" },
+};
+
+const MomentTag = ({ tag }) => {
+  const config = MOMENT_TAG_CONFIG[tag];
+  if (!config) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${config.cls}`} title={config.desc}>
+      {config.label}
+    </span>
+  );
+};
+
 const ThinkingTraining = ({ user }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -480,6 +498,9 @@ const ThinkingTraining = ({ user }) => {
                         >
                           {currentFiltered.difficulty}
                         </Badge>
+                        {currentFiltered.moment_tag && currentFiltered.moment_tag !== "learning_moment" && (
+                          <MomentTag tag={currentFiltered.moment_tag} />
+                        )}
                       </div>
 
                       {currentFiltered.solve_rate > 0 && currentFiltered.attempts > 2 && (

@@ -173,22 +173,57 @@ async def extract_training_positions(
     moves = sf_analysis.get("move_evaluations", [])
     
     extracted = []
-    
+
     for move_data in moves:
         cp_loss = move_data.get("cp_loss", 0)
-        
+
         # Only extract positions with significant mistakes
         if cp_loss < MIN_CP_LOSS:
             continue
-        
+
         fen = move_data.get("fen_before")
         user_move = move_data.get("move")
         best_move = move_data.get("best_move")
         move_number = move_data.get("move_number")
-        
+        eval_before = move_data.get("eval_before", 0) or 0
+        eval_after = move_data.get("eval_after", 0) or 0
+
         if not all([fen, user_move, best_move]):
             continue
-        
+
+        # ── CONTEXT FILTER: Skip positions where the game was already decided ──
+        # eval_before is from WHITE's perspective (centipawns as float or int)
+        eval_before_cp = int(eval_before * 100) if isinstance(eval_before, float) and abs(eval_before) < 100 else int(eval_before)
+        eval_after_cp = int(eval_after * 100) if isinstance(eval_after, float) and abs(eval_after) < 100 else int(eval_after)
+
+        # From user's perspective
+        user_eval_before = eval_before_cp if user_color == "white" else -eval_before_cp
+        user_eval_after = eval_after_cp if user_color == "white" else -eval_after_cp
+
+        # Skip if position was already lost (user was -400+ before the mistake)
+        if user_eval_before <= -400:
+            continue  # Already losing badly — this mistake didn't matter
+
+        # Skip if position was already completely winning and mistake didn't change outcome
+        if user_eval_before >= 600 and user_eval_after >= 200:
+            continue  # Was winning +6, still winning +2 — not a meaningful training position
+
+        # ── TAG: What kind of moment was this? ──
+        eval_swing = user_eval_before - user_eval_after  # Positive = user got worse
+
+        if user_eval_before >= 100 and user_eval_after <= -100:
+            moment_tag = "game_changer"  # Went from winning to losing
+        elif user_eval_before >= 200 and user_eval_after <= 50:
+            moment_tag = "threw_advantage"  # Had clear advantage, let it slip
+        elif abs(user_eval_before) <= 100 and user_eval_after <= -200:
+            moment_tag = "decisive_moment"  # Equal position, one mistake decided it
+        elif user_eval_before <= -100 and eval_swing >= 200:
+            moment_tag = "missed_defense"  # Was worse, needed to find the right move
+        elif eval_swing >= 300:
+            moment_tag = "critical_mistake"  # Big swing regardless of starting position
+        else:
+            moment_tag = "learning_moment"  # Standard training position
+
         # Validate position and moves
         best_move_uci = None
         user_move_uci = None
@@ -200,23 +235,23 @@ async def extract_training_positions(
             user_move_uci = user_move_obj.uci()
         except Exception:
             continue
-        
-        # Determine pattern type from cognitive_gap, coaching_focus, or classification
+
+        # Determine pattern type
         issue_type = move_data.get("classification", "")
         critical_detail = move_data.get("explanation", "")
         cognitive_gap = move_data.get("cognitive_gap", "")
         coaching_focus = move_data.get("coaching_focus", "")
         pattern_type = classify_pattern_type(issue_type, critical_detail, cognitive_gap, coaching_focus)
-        
+
         position_id = f"{game_id}_m{move_number}"
-        
-        # Check if this position already exists
+
+        # Check if already exists
         existing = await db.community_training_positions.find_one(
             {"position_id": position_id}
         )
         if existing:
             continue
-        
+
         position = {
             "position_id": position_id,
             "fen": fen,
@@ -225,27 +260,31 @@ async def extract_training_positions(
             "user_move_san": user_move,
             "user_move_uci": user_move_uci,
             "cp_loss": cp_loss,
+            "eval_cp": eval_before_cp,  # Store for eval labels
+            "eval_before_user": user_eval_before,
+            "eval_after_user": user_eval_after,
             "pattern_type": pattern_type,
+            "moment_tag": moment_tag,
             "difficulty": classify_difficulty(cp_loss),
             "move_number": move_number,
             "opening_name": opening_name,
-            
+
             # Source attribution
             "source_game_id": game_id,
             "source_user_id": user_id,
             "source_user_name": user_name,
             "source_user_rating": user_rating,
             "user_color": user_color,
-            
+
             # Stats
             "attempts": 0,
             "solves": 0,
             "solve_rate": 0.0,
-            
+
             # Metadata
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
-        
+
         extracted.append(position)
     
     # Bulk insert
