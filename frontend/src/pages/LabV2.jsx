@@ -25,6 +25,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/Layout";
+import EvalBadge from "@/components/shared/EvalBadge";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -1284,8 +1285,34 @@ const LabV2 = ({ user }) => {
               <span className="ml-3 text-xs text-muted-foreground font-mono">
                 {currentMoveIndex + 1} / {moves.length}
               </span>
+
+              {/* Current position eval */}
+              {(() => {
+                const evals = analysis?.stockfish_analysis?.move_evaluations || [];
+                const currentEval = currentMoveIndex >= 0 ? evals[currentMoveIndex] : null;
+                if (!currentEval?.eval_after && currentEval?.eval_after !== 0) return null;
+                const evalCp = Math.round((currentEval.eval_after || 0) * 100);
+                const categories = [
+                  [900, "text-emerald-500", "Winning"],
+                  [300, "text-emerald-400", "Clear edge"],
+                  [100, "text-blue-400", "Slight edge"],
+                  [-100, "text-muted-foreground", "Equal"],
+                  [-300, "text-orange-400", "Worse"],
+                  [-900, "text-red-400", "Losing"],
+                  [-Infinity, "text-red-500", "Lost"],
+                ];
+                const userEval = userColor === "white" ? evalCp : -evalCp;
+                const match = categories.find(([threshold]) => userEval >= threshold);
+                const [, cls, lbl] = match || categories[categories.length - 1];
+                const display = userEval > 0 ? `+${(userEval/100).toFixed(1)}` : `${(userEval/100).toFixed(1)}`;
+                return (
+                  <span className={`ml-3 text-xs font-mono font-bold ${cls}`} title={lbl}>
+                    {display} {lbl}
+                  </span>
+                );
+              })()}
             </div>
-            
+
             {/* Move list (compact) */}
             <div className="h-28 overflow-y-auto px-4 py-2.5 border-t border-border bg-muted/20">
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm font-mono">

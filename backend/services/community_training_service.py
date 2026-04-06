@@ -347,7 +347,30 @@ async def get_training_feed(
     # Combine: own first, then community
     all_positions = own_positions + community_positions
 
-    # Add position reading prompts — teach eyes before hands
+    # Add eval labels + reading prompts
+    for pos in all_positions:
+        # Position eval label (use stored eval_cp if available, else compute material-based)
+        try:
+            from services.position_eval_label import get_eval_label, get_eval_label_from_fen
+            stored_eval = pos.get("eval_cp")
+            if stored_eval is not None:
+                import chess as chess_mod
+                board_t = chess_mod.Board(pos.get("fen", ""))
+                uc = "white" if board_t.turn == chess_mod.WHITE else "black"
+                pos["eval_label"] = get_eval_label(stored_eval, uc)
+            else:
+                # Lightweight: use material balance instead of Stockfish (too slow for 12 positions)
+                import chess as chess_mod
+                board_t = chess_mod.Board(pos.get("fen", ""))
+                uc = "white" if board_t.turn == chess_mod.WHITE else "black"
+                values = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}
+                w = sum(values.get(p.piece_type, 0) for p in board_t.piece_map().values() if p.color == chess_mod.WHITE)
+                b = sum(values.get(p.piece_type, 0) for p in board_t.piece_map().values() if p.color == chess_mod.BLACK)
+                mat_cp = (w - b) * 100
+                pos["eval_label"] = get_eval_label(mat_cp, uc)
+        except Exception:
+            pos["eval_label"] = None
+
     for pos in all_positions:
         try:
             from services.position_intelligence import read_board_like_a_coach

@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import EvalBadge from "@/components/shared/EvalBadge";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -419,7 +420,11 @@ const ThinkingTraining = ({ user }) => {
                 >
                   <Card className="bg-card border-border" data-testid="solve-prompt">
                     <CardContent className="p-5 space-y-4">
-                      {/* Position Reading Prompt — train eyes before hands */}
+                      {/* Position eval + Reading Prompt */}
+                      {currentFiltered.eval_label && (
+                        <EvalBadge evalLabel={currentFiltered.eval_label} size="md" showDescription />
+                      )}
+
                       {currentFiltered.reading_prompt && (
                         <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/15 space-y-2.5">
                           <div className="flex items-center justify-between">
@@ -428,9 +433,6 @@ const ThinkingTraining = ({ user }) => {
                               <span className="text-[10px] font-mono text-muted-foreground/60 uppercase">{currentFiltered.reading_prompt.phase}</span>
                             )}
                           </div>
-                          {currentFiltered.reading_prompt.material && (
-                            <p className="text-xs text-muted-foreground font-medium">{currentFiltered.reading_prompt.material}</p>
-                          )}
                           <p className="text-sm text-foreground leading-relaxed">{currentFiltered.reading_prompt.prompt}</p>
                           {currentFiltered.reading_prompt.observations?.filter(Boolean).length > 0 && (
                             <ul className="space-y-1 ml-0.5">

@@ -2126,6 +2126,16 @@ async def get_interactive_coaching(
             except Exception as trap_err:
                 logger.debug(f"Trap detection failed (non-fatal): {trap_err}")
 
+            # === POSITION EVAL LABEL ===
+            # "Are you winning, losing, or equal?"
+            try:
+                from services.position_eval_label import get_eval_label
+                # eval_after is from white's perspective in centipawns
+                eval_cp_for_label = int(eval_after * 100) if isinstance(eval_after, float) else int(eval_after)
+                coaching_dict["eval_label"] = get_eval_label(eval_cp_for_label, user_color)
+            except Exception:
+                pass
+
             # === POSITION INTELLIGENCE ===
             # "What should I focus on?" — coach reads the board after user's move
             try:

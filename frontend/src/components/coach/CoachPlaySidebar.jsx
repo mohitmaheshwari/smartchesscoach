@@ -18,6 +18,7 @@ import LessonPicker from "@/components/coach/LessonPicker";
 import EscapeSquaresQuiz from "@/components/coach/EscapeSquaresQuiz";
 import CoachPanel from "@/components/CoachPanel";
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
+import EvalBadge from "@/components/shared/EvalBadge";
 import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 import PostGameLesson from "@/components/PostGameLesson";
 import PostGameReflection from "@/components/coach/PostGameReflection";
@@ -968,6 +969,11 @@ const CoachPlaySidebar = ({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Position Evaluation */}
+            {v5Coaching?.eval_label && (
+              <EvalBadge evalLabel={v5Coaching.eval_label} size="md" showDescription />
             )}
 
             {/* Position Intelligence — what to focus on */}
