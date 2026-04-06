@@ -67,6 +67,8 @@ RULE_MAP = {
     "tactical_oversight": {"name": "Opponent Response",     "rule": "After deciding your move, pause and ask: what can my opponent do next?"},
     "pawn_structure":     {"name": "Structure Awareness",   "rule": "Think about pawn structure before exchanges."},
     "piece_activity":     {"name": "Piece Activity",        "rule": "Every piece needs a job. Reposition idle pieces."},
+    "time_management":    {"name": "Clock Management",      "rule": "Track your time. If under 2 minutes, simplify the position."},
+    "game_abandonment":   {"name": "Mental Discipline",     "rule": "Finish every game. Abandoning builds bad habits and hides the real lesson."},
     "_default":           {"name": "Opponent Response",     "rule": "Before every move, ask: what is my opponent's best response?"},
     "_consistency":       {"name": "Consistency",           "rule": "Follow the same thinking process every move."},
     "_recovery":          {"name": None,                    "rule": "Keep applying it every move."},
@@ -79,6 +81,8 @@ PRESSURE_RELEASE = {
     "conversion":        "Learn to hold advantages, and your rating will climb fast.",
     "calculation_depth": "One move deeper is all it takes to break through.",
     "time_pressure":     "Control your clock, and the mistakes will disappear.",
+    "time_management":   "Half your losses on time aren't chess problems — they're clock problems.",
+    "game_abandonment":  "Finishing losing games teaches you more than winning easy ones.",
     "endgame_technique": "Better endgames means more points from drawn positions.",
     "_default":          "Fix this, and your results will change.",
 }
@@ -143,6 +147,44 @@ def _phase_label(move_number):
     if move_number and move_number >= 35:
         return "in the endgame"
     return "in the middlegame"
+
+
+def _termination_display(termination: str, result: str) -> str:
+    """Human-readable termination label."""
+    labels = {
+        "checkmate": "Checkmate",
+        "resignation": "Resignation",
+        "timeout": "Timeout",
+        "abandonment": "Abandoned",
+        "stalemate": "Stalemate",
+        "draw_agreement": "Draw by agreement",
+        "repetition": "Repetition",
+        "insufficient": "Insufficient material",
+    }
+    base = labels.get(termination, "")
+    if not base:
+        return ""
+
+    if result == "W":
+        if termination == "checkmate":
+            return "Won by checkmate"
+        if termination == "resignation":
+            return "Won by resignation"
+        if termination == "timeout":
+            return "Won on time"
+        return f"Won — {base}"
+    elif result == "L":
+        if termination == "checkmate":
+            return "Lost by checkmate"
+        if termination == "resignation":
+            return "Lost by resignation"
+        if termination == "timeout":
+            return "Lost on time"
+        if termination == "abandonment":
+            return "Abandoned"
+        return f"Lost — {base}"
+    else:
+        return base
 
 
 def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_advantage,
@@ -419,6 +461,14 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             if gap and e.get("cp_loss", 0) >= 100:
                 cognitive_gaps.append(gap)
 
+        # Termination-based weakness injection
+        game_termination = g.get("termination", "unknown")
+        if not user_won and not is_draw:
+            if game_termination == "timeout":
+                cognitive_gaps.append("time_management")
+            elif game_termination == "abandonment":
+                cognitive_gaps.append("game_abandonment")
+
         # Count brilliant moves and sacrifices in this game
         brilliant_count = sum(1 for e in evals if e.get("is_brilliant"))
         sacrifice_count = sum(1 for e in evals if e.get("is_sacrifice"))
@@ -509,6 +559,9 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                 logger.warning(f"Game story generation failed for {gid}: {story_err}")
                 behavior = ""
 
+        termination = g.get("termination", "unknown")
+        termination_label = _termination_display(termination, "W" if user_won else ("D" if is_draw else "L"))
+
         enriched.append({
             "game_id": gid,
             "opponent": opp,
@@ -529,6 +582,8 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "brilliant_moves": brilliant_count,
             "sacrifices": sacrifice_count,
             "brilliant_detail": brilliant_moves_detail,
+            "termination": termination,
+            "termination_label": termination_label,
         })
 
     # ── SMART PICK: find the best unreviewed game ──

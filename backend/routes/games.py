@@ -248,10 +248,12 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
             game["black_rating"] = int(black_elo_match.group(1))
         
         # Also try to extract termination from PGN if not stored
-        if not game.get("termination"):
+        if not game.get("termination") or game.get("termination") == "unknown":
             term_match = re.search(r'\[Termination "([^"]+)"\]', pgn)
             if term_match:
                 game["termination"] = term_match.group(1).lower()
+            elif pgn.rstrip().endswith("#"):
+                game["termination"] = "checkmate"
     else:
         game["white_player"] = "White"
         game["black_player"] = "Black"
@@ -267,32 +269,46 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
     else:
         user_won = result == "0-1"
     
+    # Normalize termination to our standard values
+    term_lower = termination.lower() if termination else ""
+    normalized = termination
+    if "time" in term_lower or "timeout" in term_lower:
+        normalized = "timeout"
+    elif term_lower in ("checkmate", "checkmated", "mate") or "checkmate" in term_lower:
+        normalized = "checkmate"
+    elif term_lower in ("resignation", "resigned") or "resign" in term_lower:
+        normalized = "resignation"
+    elif "abandon" in term_lower:
+        normalized = "abandonment"
+    elif term_lower in ("stalemate",):
+        normalized = "stalemate"
+    elif term_lower in ("draw_agreement", "draw_agreed", "agreed") or "agreement" in term_lower:
+        normalized = "draw_agreement"
+    elif term_lower in ("repetition",):
+        normalized = "repetition"
+    elif term_lower in ("insufficient", "insufficient_material"):
+        normalized = "insufficient"
+    game["termination"] = normalized
+
+    is_draw = "1/2" in result
     termination_text = ""
-    if termination == "timeout":
-        termination_text = "You lost on time" if not user_won else "Opponent lost on time"
-    elif termination == "resigned":
-        termination_text = "You resigned" if not user_won else "Opponent resigned"
-    elif termination == "checkmated":
-        termination_text = "You got checkmated" if user_won else "You checkmated opponent"
-    elif termination == "won":
-        termination_text = "You won" if user_won else "You lost"
-    elif termination == "stalemate":
-        termination_text = "Draw by stalemate"
-    elif termination == "repetition":
-        termination_text = "Draw by repetition"
-    elif termination == "insufficient_material":
-        termination_text = "Draw - insufficient material"
-    elif termination == "draw_agreed":
+    if normalized == "timeout":
+        termination_text = "Lost on time" if not user_won and not is_draw else "Opponent lost on time"
+    elif normalized == "resignation":
+        termination_text = "Resigned" if not user_won and not is_draw else "Opponent resigned"
+    elif normalized == "checkmate":
+        termination_text = "Checkmated" if not user_won and not is_draw else "Won by checkmate"
+    elif normalized == "abandonment":
+        termination_text = "Game abandoned" if not user_won else "Opponent abandoned"
+    elif normalized == "stalemate":
+        termination_text = "Stalemate"
+    elif normalized == "draw_agreement":
         termination_text = "Draw by agreement"
-    elif "abandoned" in termination.lower():
-        termination_text = "Opponent abandoned" if user_won else "Game abandoned (disconnection)"
-    elif "time" in termination.lower():
-        termination_text = "You lost on time" if not user_won else "Opponent lost on time"
-    elif "resign" in termination.lower():
-        termination_text = "You resigned" if not user_won else "Opponent resigned"
-    elif "checkmate" in termination.lower():
-        termination_text = "You got checkmated" if not user_won else "You checkmated opponent"
-    
+    elif normalized == "repetition":
+        termination_text = "Draw by repetition"
+    elif normalized == "insufficient":
+        termination_text = "Insufficient material"
+
     game["termination_text"] = termination_text
     
     return game

@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import { Import, ChevronRight, Check, TrendingDown, TrendingUp, Minus, Target, Sparkles, Zap, Eye } from "lucide-react";
+import { Import, ChevronRight, Check, TrendingDown, TrendingUp, Minus, Target, Sparkles, Zap, Eye, Clock, XCircle, Flag } from "lucide-react";
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
@@ -245,6 +245,9 @@ const GameCard = ({ game, navigate, markReviewed, isReviewed }) => (
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-sm font-semibold text-foreground">vs {game.opponent}</span>
           <ResultBadge result={game.result} small />
+          {game.termination_label && (
+            <TerminationBadge termination={game.termination} label={game.termination_label} />
+          )}
           {game.brilliant_moves > 0 && <BrilliantBadge count={game.brilliant_moves} />}
           {game.opening && (
             <span className="text-xs text-muted-foreground/50 hidden sm:inline">{game.opening}</span>
@@ -316,6 +319,46 @@ const BrilliantBadge = ({ count }) => (
 );
 
 /* ── Result Badge ── */
+const TerminationBadge = ({ termination, label }) => {
+  if (!label) return null;
+
+  const isTimeout = termination === "timeout";
+  const isAbandoned = termination === "abandonment";
+  const isCheckmate = termination === "checkmate";
+
+  if (isTimeout) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0 font-medium rounded-md border text-orange-400 bg-orange-500/10 border-orange-500/20">
+        <Clock className="w-2.5 h-2.5" strokeWidth={2} />
+        {label}
+      </span>
+    );
+  }
+  if (isAbandoned) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0 font-medium rounded-md border text-gray-400 bg-gray-500/10 border-gray-500/20">
+        <XCircle className="w-2.5 h-2.5" strokeWidth={2} />
+        {label}
+      </span>
+    );
+  }
+  if (isCheckmate) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0 font-medium rounded-md border text-purple-400 bg-purple-500/10 border-purple-500/20">
+        <Flag className="w-2.5 h-2.5" strokeWidth={2} />
+        {label}
+      </span>
+    );
+  }
+
+  // Generic (resignation, draw, etc.)
+  return (
+    <span className="text-[9px] px-1.5 py-0 font-medium rounded-md border text-muted-foreground bg-muted/50 border-border">
+      {label}
+    </span>
+  );
+};
+
 const ResultBadge = ({ result, small }) => {
   const base = small ? "text-[9px] px-1.5 py-0" : "text-[10px] px-2 py-0.5";
   const isWin = result === "W";

@@ -25,6 +25,7 @@ class Game(BaseModel):
     date_played: Optional[str] = None
     opening: Optional[str] = None
     user_color: str  # "white" or "black"
+    termination: Optional[str] = None  # checkmate, resignation, timeout, abandonment, stalemate, draw_agreement, repetition, insufficient, unknown
     imported_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_analyzed: bool = False
 

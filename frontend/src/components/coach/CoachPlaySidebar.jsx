@@ -970,6 +970,40 @@ const CoachPlaySidebar = ({
               </div>
             )}
 
+            {/* Position Intelligence — what to focus on */}
+            {v5Coaching?.position_read && (
+              <div className="p-3 rounded-lg border border-blue-500/15 bg-blue-500/5" data-testid="position-read">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-500">
+                    Board Reading
+                  </span>
+                  {v5Coaching.position_read.phase && (
+                    <span className="text-[10px] font-mono text-muted-foreground/50 uppercase">
+                      {v5Coaching.position_read.phase}
+                    </span>
+                  )}
+                </div>
+                {v5Coaching.position_read.material && (
+                  <p className="text-[11px] text-muted-foreground font-medium mb-1">
+                    {v5Coaching.position_read.material}
+                  </p>
+                )}
+                <p className="text-sm text-foreground leading-relaxed mb-2">
+                  {v5Coaching.position_read.plan}
+                </p>
+                {v5Coaching.position_read.observations?.length > 0 && (
+                  <div className="space-y-1 pt-2 border-t border-blue-500/10">
+                    {v5Coaching.position_read.observations.map((obs, i) => (
+                      <p key={i} className="text-xs text-muted-foreground">
+                        <span className="text-blue-500 mr-1">•</span>
+                        {obs.description || obs.title}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Behavioral Coaching — hide during curriculum */}
             {behavioralCoaching && !session?.curriculum_active && (
               <div

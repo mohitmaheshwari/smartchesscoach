@@ -194,6 +194,62 @@ async def compute_recurring_pattern_context(
     return pattern_context
 
 
+def _extract_termination(game_headers: Dict, platform: str, user_color: str) -> str:
+    """
+    Extract normalized termination reason from PGN headers.
+    Chess.com uses [Termination "..."] header.
+    Lichess uses [Termination "..."] header.
+    Both also embed info in the result and moves.
+
+    Returns one of: checkmate, resignation, timeout, abandonment,
+                    stalemate, draw_agreement, repetition, insufficient, unknown
+    """
+    raw = game_headers.get("termination", "").lower().strip()
+    result = game_headers.get("result", "")
+    moves = game_headers.get("pgn_moves", "")
+
+    # Check for checkmate in moves
+    if moves and moves.rstrip().endswith("#"):
+        return "checkmate"
+
+    # Chess.com termination headers
+    if "won on time" in raw or "timeout" in raw:
+        return "timeout"
+    if "won by checkmate" in raw or "checkmate" in raw:
+        return "checkmate"
+    if "won by resignation" in raw or "resigned" in raw or "resignation" in raw:
+        return "resignation"
+    if "abandoned" in raw or "abandonment" in raw:
+        return "abandonment"
+    if "stalemate" in raw:
+        return "stalemate"
+    if "agreed" in raw or "agreement" in raw or "drawn by agreement" in raw:
+        return "draw_agreement"
+    if "repetition" in raw:
+        return "repetition"
+    if "insufficient" in raw:
+        return "insufficient"
+
+    # Lichess status field (sometimes stored as termination)
+    if "time forfeit" in raw or "time" in raw:
+        return "timeout"
+    if "normal" in raw:
+        # Lichess "Normal" = resignation or checkmate
+        if moves and moves.rstrip().endswith("#"):
+            return "checkmate"
+        return "resignation"
+
+    # Fallback: check result
+    if result == "1/2-1/2":
+        return "draw_agreement"
+    if result in ("1-0", "0-1"):
+        if moves and moves.rstrip().endswith("#"):
+            return "checkmate"
+        return "unknown"
+
+    return "unknown"
+
+
 def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Dict]:
     """Parse PGN text and extract games"""
     games = []
@@ -243,6 +299,9 @@ def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Di
                 eco_prefix = eco_code[:2] + "0" if len(eco_code) >= 2 else eco_code
                 opening_name = ECO_TO_OPENING.get(eco_prefix, f"ECO {eco_code}")
 
+        # Extract termination reason from PGN headers
+        termination = _extract_termination(g, platform, user_color)
+
         parsed_games.append({
             'platform': platform,
             'pgn': full_pgn,
@@ -252,7 +311,8 @@ def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Di
             'time_control': g.get('timecontrol', g.get('event', '')),
             'date_played': g.get('date', g.get('utcdate', '')),
             'opening': opening_name or eco_code,
-            'user_color': user_color
+            'user_color': user_color,
+            'termination': termination,
         })
 
     return parsed_games

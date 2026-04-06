@@ -419,6 +419,34 @@ const ThinkingTraining = ({ user }) => {
                 >
                   <Card className="bg-card border-border" data-testid="solve-prompt">
                     <CardContent className="p-5 space-y-4">
+                      {/* Position Reading Prompt — train eyes before hands */}
+                      {currentFiltered.reading_prompt && (
+                        <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/15 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-amber-600">Read the board first</p>
+                            {currentFiltered.reading_prompt.phase && (
+                              <span className="text-[10px] font-mono text-muted-foreground/60 uppercase">{currentFiltered.reading_prompt.phase}</span>
+                            )}
+                          </div>
+                          {currentFiltered.reading_prompt.material && (
+                            <p className="text-xs text-muted-foreground font-medium">{currentFiltered.reading_prompt.material}</p>
+                          )}
+                          <p className="text-sm text-foreground leading-relaxed">{currentFiltered.reading_prompt.prompt}</p>
+                          {currentFiltered.reading_prompt.observations?.filter(Boolean).length > 0 && (
+                            <ul className="space-y-1 ml-0.5">
+                              {currentFiltered.reading_prompt.observations.filter(Boolean).slice(0, 3).map((obs, i) => (
+                                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                                  <span className="text-amber-500 mt-0.5">•</span> {obs}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {currentFiltered.reading_prompt.question && (
+                            <p className="text-sm font-medium text-amber-700 dark:text-amber-400 pt-1 border-t border-amber-500/10">{currentFiltered.reading_prompt.question}</p>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2">
                         <Target className="w-5 h-5 text-amber-600" />
                         <h2 className="font-heading">Find the Best Move</h2>
@@ -584,8 +612,31 @@ const ThinkingTraining = ({ user }) => {
                         )}
                       </p>
 
-                      {/* What's wrong with YOUR move */}
-                      {solveResult?.your_move_analysis && (
+                      {/* Side-by-side comparison — your move vs best move */}
+                      {solveResult?.comparison && (
+                        <div className="rounded-lg border border-border overflow-hidden">
+                          <div className="grid grid-cols-2 divide-x divide-border">
+                            <div className="p-3 bg-red-500/5">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-red-500 mb-1">Your move</p>
+                              <p className="text-sm font-mono font-semibold text-red-600 mb-1">{solveResult.comparison.your_move}</p>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{solveResult.comparison.your_move_does}</p>
+                            </div>
+                            <div className="p-3 bg-emerald-500/5">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 mb-1">Best move</p>
+                              <p className="text-sm font-mono font-semibold text-emerald-600 mb-1">{solveResult.comparison.best_move}</p>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{solveResult.comparison.best_move_does}</p>
+                            </div>
+                          </div>
+                          {solveResult.comparison.difference && (
+                            <div className="px-3 py-2 bg-muted/30 border-t border-border">
+                              <p className="text-xs text-foreground leading-relaxed">{solveResult.comparison.difference}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* What's wrong with YOUR move (fallback if no comparison) */}
+                      {!solveResult?.comparison && solveResult?.your_move_analysis && (
                         <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20 space-y-2">
                           <p className="text-xs font-medium text-red-500">Your move: <span className="font-mono">{solveResult.your_move_analysis.your_move}</span></p>
                           <p className="text-sm text-foreground">{solveResult.your_move_analysis.what_it_does}</p>
@@ -598,6 +649,16 @@ const ThinkingTraining = ({ user }) => {
                               <p className="text-xs text-muted-foreground">{solveResult.your_move_analysis.opponent_punishes.description}</p>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Opponent punishment (shown below comparison) */}
+                      {solveResult?.comparison && solveResult?.your_move_analysis?.opponent_punishes && (
+                        <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/15">
+                          <p className="text-xs text-red-500 font-medium">
+                            After your move, opponent plays: <span className="font-mono">{solveResult.your_move_analysis.opponent_punishes.move}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{solveResult.your_move_analysis.opponent_punishes.description}</p>
                         </div>
                       )}
 

@@ -200,6 +200,78 @@ async def fetch_recent_lichess_games(username: str, since_timestamp: int = None)
         return []
 
 
+def _extract_chesscom_termination(game_data: Dict, user_color: str) -> str:
+    """
+    Extract termination from Chess.com JSON API response.
+    Chess.com provides white.result / black.result like: "win", "checkmated", "timeout",
+    "resigned", "abandoned", "stalemate", "agreed", "repetition", "insufficient", etc.
+    """
+    white_result = game_data.get("white", {}).get("result", "")
+    black_result = game_data.get("black", {}).get("result", "")
+
+    # Check both sides for the termination type
+    for res in [white_result, black_result]:
+        r = res.lower()
+        if r == "checkmated":
+            return "checkmate"
+        if r == "timeout":
+            return "timeout"
+        if r == "resigned":
+            return "resignation"
+        if r == "abandoned":
+            return "abandonment"
+        if r == "stalemate":
+            return "stalemate"
+        if r in ("agreed", "drawbyagreement"):
+            return "draw_agreement"
+        if r == "repetition":
+            return "repetition"
+        if r in ("insufficient", "insufficientmaterial"):
+            return "insufficient"
+        if r == "timevsinsufficient":
+            return "timeout"
+
+    # Fallback: try PGN Termination header
+    pgn_text = game_data.get("pgn", "")
+    if "[Termination " in pgn_text:
+        try:
+            raw = pgn_text.split('[Termination "')[1].split('"')[0].lower()
+            if "time" in raw:
+                return "timeout"
+            if "checkmate" in raw:
+                return "checkmate"
+            if "resign" in raw:
+                return "resignation"
+            if "abandon" in raw:
+                return "abandonment"
+        except (IndexError, ValueError):
+            pass
+
+    return "unknown"
+
+
+def _extract_lichess_termination(game_data: Dict) -> str:
+    """
+    Extract termination from Lichess JSON API response.
+    Lichess provides a 'status' field: "mate", "resign", "outoftime",
+    "stalemate", "draw", "timeout", etc.
+    """
+    status = game_data.get("status", "").lower()
+
+    mapping = {
+        "mate": "checkmate",
+        "resign": "resignation",
+        "outoftime": "timeout",
+        "timeout": "timeout",
+        "stalemate": "stalemate",
+        "draw": "draw_agreement",
+        "aborted": "abandonment",
+        "nostart": "abandonment",
+    }
+
+    return mapping.get(status, "unknown")
+
+
 def should_analyze_game(game: Dict, platform: str) -> bool:
     """
     Determine if a game should be auto-analyzed.
@@ -985,9 +1057,13 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
             if platform == "chess.com":
                 game_doc["time_control"] = game_data.get("time_class", "")
                 game_doc["result"] = game_data.get("pgn", "").split("[Result ")[1].split("]")[0].strip('"') if "[Result " in game_data.get("pgn", "") else ""
+                # Extract termination from Chess.com API
+                game_doc["termination"] = _extract_chesscom_termination(game_data, game_doc.get("user_color", "white"))
             else:
                 game_doc["time_control"] = game_data.get("speed", "")
                 game_doc["result"] = game_data.get("status", "")
+                # Extract termination from Lichess API
+                game_doc["termination"] = _extract_lichess_termination(game_data)
             
             # Extract opening information from PGN
             opening_info = extract_opening_from_pgn(pgn)

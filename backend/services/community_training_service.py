@@ -346,10 +346,31 @@ async def get_training_feed(
     
     # Combine: own first, then community
     all_positions = own_positions + community_positions
-    
+
+    # Add position reading prompts — teach eyes before hands
+    for pos in all_positions:
+        try:
+            from services.position_intelligence import read_board_like_a_coach
+            fen = pos.get("fen", "")
+            # Determine user color from FEN (whose turn it is = user solving)
+            import chess
+            board_temp = chess.Board(fen)
+            color = "white" if board_temp.turn == chess.WHITE else "black"
+            coach_read = read_board_like_a_coach(fen, user_color=color, user_rating=user_rating)
+            pos["reading_prompt"] = {
+                "prompt": coach_read.get("summary", "Look at the board. What stands out?"),
+                "observations": [o.get("description", "") for o in coach_read.get("observations", [])],
+                "question": coach_read.get("plan", "What's the best move?"),
+                "focus": coach_read.get("focus", ""),
+                "phase": coach_read.get("phase", ""),
+                "material": coach_read.get("material", ""),
+            }
+        except Exception:
+            pos["reading_prompt"] = None
+
     # Get pattern stats for user
     pattern_stats = await get_user_pattern_stats(db, user_id)
-    
+
     return {
         "positions": all_positions,
         "total": len(all_positions),
@@ -576,6 +597,23 @@ async def record_solve_attempt(
     # Check if this position matches a KNOWN TRAP
     known_trap = _match_known_trap(fen)
 
+    # Build side-by-side comparison for wrong answers
+    comparison = None
+    if not solved and your_move_analysis and explanation:
+        comparison = {
+            "your_move": your_move_analysis.get("your_move", user_move),
+            "your_move_does": your_move_analysis.get("what_it_does", ""),
+            "best_move": best_move_san,
+            "best_move_does": explanation.get("move_description", ""),
+            "difference": _build_comparison_sentence(
+                your_move_analysis.get("your_move", user_move),
+                your_move_analysis.get("what_it_does", ""),
+                best_move_san,
+                explanation.get("move_description", ""),
+                your_move_analysis.get("why_bad", ""),
+            ),
+        }
+
     return {
         "solved": solved,
         "correct_move": best_move_san,
@@ -588,6 +626,7 @@ async def record_solve_attempt(
         "candidates": candidates,
         "explanation": explanation,
         "your_move_analysis": your_move_analysis,
+        "comparison": comparison,
         "known_trap": known_trap,
     }
 
@@ -626,82 +665,90 @@ async def get_user_pattern_stats(
 
 
 def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved: bool) -> Dict:
-    """Generate a position-specific WHY explanation."""
+    """
+    Generate a position-specific WHY explanation.
+    Key improvement: explains what the best move DOES on the board, not abstract concepts.
+    """
     import chess
     from services.move_intent_analyzer import analyze_move_intent
 
-    # 1. What does the best move actually do in THIS position?
+    board = chess.Board(fen)
+
+    # 1. What does the best move actually do on THIS board?
     move_explanation = ""
     try:
         intent = analyze_move_intent(fen, best_move)
         move_explanation = intent.description
     except Exception:
-        move_explanation = f"The best move was {best_move}."
+        move_explanation = f"The best move is {best_move}."
+
+    # Make the explanation concrete — what piece, what square, what it attacks/defends
+    concrete_why = _build_concrete_explanation(board, best_move)
+    if concrete_why:
+        move_explanation = concrete_why
 
     # 2. What happens AFTER the best move? (the continuation)
     continuation = ""
     continuation_moves = []
     try:
-        board = chess.Board(fen)
-        best_move_obj = board.parse_san(best_move)
-        board.push(best_move_obj)
+        board_sim = chess.Board(fen)
+        best_move_obj = board_sim.parse_san(best_move)
+        board_sim.push(best_move_obj)
 
-        # Get opponent's best reply
         from stockfish_service import StockfishEngine
         engine = StockfishEngine()
         engine.start()
         try:
-            reply_info = engine.get_best_move(board, depth=10)
+            reply_info = engine.get_best_move(board_sim, depth=10)
             if reply_info and reply_info.get("move"):
-                reply_san = board.san(reply_info["move"])
+                reply_san = board_sim.san(reply_info["move"])
                 continuation_moves.append({"move": best_move, "by": "you"})
                 continuation_moves.append({"move": reply_san, "by": "opponent"})
 
-                # Then YOUR follow-up
-                board.push(reply_info["move"])
-                follow_info = engine.get_best_move(board, depth=10)
+                board_sim.push(reply_info["move"])
+                follow_info = engine.get_best_move(board_sim, depth=10)
                 if follow_info and follow_info.get("move"):
-                    follow_san = board.san(follow_info["move"])
+                    follow_san = board_sim.san(follow_info["move"])
                     continuation_moves.append({"move": follow_san, "by": "you"})
                     continuation = f"After {best_move}, they play {reply_san}, then you play {follow_san}."
                 else:
-                    continuation = f"After {best_move}, they're forced to respond with {reply_san}."
+                    continuation = f"After {best_move}, they respond with {reply_san}."
         finally:
             engine.stop()
     except Exception:
         pass
 
-    # 3. What was the "trap" or the obvious bad move?
+    # 3. What was the "trap" — the tempting but wrong move?
     trap_explanation = ""
     try:
-        board = chess.Board(fen)
-        # Find the most natural-looking move that's NOT the best (the "trap")
-        legal = list(board.legal_moves)
-        captures = [m for m in legal if board.is_capture(m)]
-        checks = [m for m in legal if board.gives_check(m)]
-        tempting = captures + checks  # Captures and checks look tempting
+        board_trap = chess.Board(fen)
+        legal = list(board_trap.legal_moves)
+        captures = [m for m in legal if board_trap.is_capture(m)]
+        checks = [m for m in legal if board_trap.gives_check(m)]
+        tempting = captures + checks
 
-        tempting_sans = [board.san(m) for m in tempting]
+        tempting_sans = [board_trap.san(m) for m in tempting]
         if best_move in tempting_sans:
             tempting_sans.remove(best_move)
 
         if tempting_sans:
             trap_move = tempting_sans[0]
-            # Show why the obvious move is bad
             trap_intent = analyze_move_intent(fen, trap_move, best_move, 200)
-            trap_explanation = f"The tempting move {trap_move} looks good but {trap_intent.feedback}"
+            trap_explanation = f"{trap_move} looks tempting, but {trap_intent.feedback}"
     except Exception:
         pass
 
-    # Simple pattern lesson (kept short)
+    # Pattern-specific lesson (concrete, actionable)
     lessons = {
-        "tactical_miss": "Always check captures and checks before playing.",
-        "hanging_piece": "Before moving, count attackers vs defenders.",
-        "calculation_depth": "Ask: what happens after they respond?",
-        "checkmate_pattern": "When their king is exposed, check every possible check.",
-        "positional": "Not every good move is a tactic. Sometimes improve your worst piece.",
-        "winning_position_collapse": "When ahead, simplify. Don't give chances.",
-        "opening_principles": "Develop, control center, castle.",
+        "tactical_miss": "Before each move, check: are there any captures, checks, or threats I'm missing?",
+        "hanging_piece": "Before moving a piece, count: how many of their pieces attack this square? How many of mine defend it?",
+        "calculation_depth": "Don't stop at your move. Ask: what will they do next? Then what do I do?",
+        "checkmate_pattern": "When their king is exposed, look at every possible check. One of them might be checkmate.",
+        "positional": "Not every good move is a tactic. Sometimes the best move improves your worst-placed piece.",
+        "winning_position_collapse": "When you're ahead in material, trade pieces. Fewer pieces = easier to win.",
+        "opening_principles": "In the opening: develop pieces, control the center, castle early.",
+        "time_management": "When low on time, play simple moves. Don't start complicated attacks.",
+        "game_abandonment": "Finish every game. You learn the most from the positions where you're losing.",
     }
 
     return {
@@ -709,10 +756,258 @@ def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved
         "why_best": f"{move_explanation} {continuation}" if continuation else move_explanation,
         "continuation": continuation_moves,
         "trap": trap_explanation,
-        "lesson": lessons.get(pattern_type, "Look for the most active move."),
+        "lesson": lessons.get(pattern_type, "Look at the whole board. Which piece can do the most from a new square?"),
         "what_to_look_for": "Checks, captures, threats — in that order.",
         "pattern_type": pattern_type,
     }
+
+
+def _build_concrete_explanation(board: chess.Board, best_move_san: str) -> str:
+    """
+    Build a concrete, board-specific explanation of what the best move does.
+    Instead of 'improves position', says 'moves your knight to e4 where it attacks their rook on c5 and bishop on g3'.
+    """
+    import chess
+
+    try:
+        move = board.parse_san(best_move_san)
+    except Exception:
+        return ""
+
+    piece = board.piece_at(move.from_square)
+    if not piece:
+        return ""
+
+    piece_name = {
+        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+        chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
+    }.get(piece.piece_type, "piece")
+
+    from_sq = chess.square_name(move.from_square)
+    to_sq = chess.square_name(move.to_square)
+    user_color = board.turn
+
+    parts = []
+
+    # Is it a capture?
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        if captured:
+            cap_name = {
+                chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+                chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
+            }.get(captured.piece_type, "piece")
+            parts.append(f"{best_move_san} takes their {cap_name} on {to_sq}")
+        else:
+            parts.append(f"{best_move_san} captures on {to_sq}")
+    else:
+        parts.append(f"{best_move_san} moves your {piece_name} to {to_sq}")
+
+    # Does it give check?
+    sim = board.copy()
+    sim.push(move)
+    if sim.is_check():
+        parts.append("and gives check")
+
+    # What does it attack from the new square?
+    attacks = []
+    for sq in chess.SQUARES:
+        target = sim.piece_at(sq)
+        if target and target.color != user_color and target.piece_type != chess.KING:
+            if sim.is_attacked_by(user_color, sq):
+                # Was it already attacked before?
+                if not board.is_attacked_by(user_color, sq) or sq == move.to_square:
+                    target_name = {
+                        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+                        chess.ROOK: "rook", chess.QUEEN: "queen"
+                    }.get(target.piece_type, "piece")
+                    attacks.append(f"their {target_name} on {chess.square_name(sq)}")
+
+    if attacks and len(attacks) <= 3:
+        if len(attacks) == 1:
+            parts.append(f"attacking {attacks[0]}")
+        else:
+            parts.append(f"attacking {', '.join(attacks[:-1])} and {attacks[-1]}")
+
+    # Does it defend something that was hanging?
+    for sq in chess.SQUARES:
+        our_piece = board.piece_at(sq)
+        if our_piece and our_piece.color == user_color and our_piece.piece_type != chess.KING:
+            enemy_attackers = list(board.attackers(not user_color, sq))
+            our_defenders = list(board.attackers(user_color, sq))
+            if enemy_attackers and len(our_defenders) <= len(enemy_attackers):
+                # Was it underdefended? Check if the new move defends it
+                new_defenders = list(sim.attackers(user_color, sq))
+                if len(new_defenders) > len(our_defenders):
+                    def_name = {
+                        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+                        chess.ROOK: "rook", chess.QUEEN: "queen"
+                    }.get(our_piece.piece_type, "piece")
+                    parts.append(f"and defends your {def_name} on {chess.square_name(sq)}")
+                    break
+
+    if len(parts) <= 1:
+        return ""  # Not enough info for a concrete explanation
+
+    return ". ".join(parts[:3]) + "."
+
+
+def generate_position_reading_prompt(fen: str, pattern_type: str = "") -> Dict:
+    """
+    Generate a 'what to notice' prompt for a training position.
+    This trains the player's eyes BEFORE they try to find the move.
+
+    Returns:
+        {
+            "prompt": "Look at this position. Notice...",
+            "observations": ["Black's knight on a8 has no squares", "White's rook is on an open file"],
+            "question": "Which piece is in the most danger?"
+        }
+    """
+    import chess
+
+    board = chess.Board(fen)
+    user_color = board.turn
+    opp_color = not user_color
+
+    observations = []
+    key_feature = None
+
+    piece_names = {
+        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+        chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
+    }
+
+    # 1. Find hanging pieces (attacked with no/fewer defenders)
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if not piece or piece.piece_type == chess.KING:
+            continue
+        sq_name = chess.square_name(sq)
+        p_name = piece_names.get(piece.piece_type, "piece")
+        attackers = list(board.attackers(not piece.color, sq))
+        defenders = list(board.attackers(piece.color, sq))
+
+        if piece.color == opp_color and attackers and not defenders:
+            observations.append(f"Their {p_name} on {sq_name} is undefended.")
+            key_feature = "undefended_piece"
+        elif piece.color == user_color and attackers and not defenders:
+            observations.append(f"Your {p_name} on {sq_name} is under attack with no defenders.")
+            key_feature = "your_piece_attacked"
+
+    # 2. Pieces with limited mobility
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if not piece or piece.piece_type in (chess.PAWN, chess.KING):
+            continue
+        if piece.color == opp_color:
+            # Count legal moves for this piece (approximate by checking attacked squares)
+            sq_name = chess.square_name(sq)
+            p_name = piece_names.get(piece.piece_type, "piece")
+            # Quick mobility check
+            escape_count = 0
+            for target_sq in chess.SQUARES:
+                if board.is_attacked_by(opp_color, target_sq):
+                    # This is a rough check - we just want a signal
+                    pass
+            # Use piece attack map instead
+            attacks = board.attacks(sq)
+            mobility = len([s for s in attacks if not board.piece_at(s) or board.piece_at(s).color == user_color])
+            if mobility <= 2 and piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+                observations.append(f"Their {p_name} on {sq_name} has very few squares to go to.")
+                if not key_feature:
+                    key_feature = "trapped_piece"
+
+    # 3. Check for pins, open files, exposed king
+    # Open file for rooks
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece and piece.color == user_color and piece.piece_type == chess.ROOK:
+            file = chess.square_file(sq)
+            has_own_pawn = False
+            for rank in range(8):
+                p = board.piece_at(chess.square(file, rank))
+                if p and p.piece_type == chess.PAWN and p.color == user_color:
+                    has_own_pawn = True
+                    break
+            if not has_own_pawn:
+                sq_name = chess.square_name(sq)
+                observations.append(f"Your rook on {sq_name} is on an open file — it can attack down the board.")
+                if not key_feature:
+                    key_feature = "open_file"
+
+    # 4. King safety
+    opp_king_sq = board.king(opp_color)
+    if opp_king_sq:
+        king_sq_name = chess.square_name(opp_king_sq)
+        # Count attackers near enemy king
+        king_neighbors = chess.SquareSet(chess.BB_KING_ATTACKS[opp_king_sq])
+        our_attackers_near_king = 0
+        for neighbor in king_neighbors:
+            if board.is_attacked_by(user_color, neighbor):
+                our_attackers_near_king += 1
+        if our_attackers_near_king >= 3:
+            observations.append(f"Their king on {king_sq_name} is exposed — you have pieces pointing at it.")
+            key_feature = "king_attack"
+
+    # 5. Material count
+    our_material = sum(piece_names.get(board.piece_at(sq).piece_type, "") != "king" and board.piece_at(sq).color == user_color for sq in chess.SQUARES if board.piece_at(sq))
+    their_material = sum(piece_names.get(board.piece_at(sq).piece_type, "") != "king" and board.piece_at(sq).color == opp_color for sq in chess.SQUARES if board.piece_at(sq))
+
+    # Cap observations at 3
+    observations = observations[:3]
+
+    # Build the question based on what we found
+    questions = {
+        "undefended_piece": "Which of their pieces can you take?",
+        "your_piece_attacked": "How can you save your piece — or do something even better?",
+        "trapped_piece": "Can you take advantage of their stuck piece?",
+        "open_file": "How can you use your active pieces?",
+        "king_attack": "Their king is weak. What's the strongest move?",
+    }
+
+    # Pattern-specific questions as fallback
+    pattern_questions = {
+        "hanging_piece": "Look for pieces that are attacked but not defended.",
+        "tactical_miss": "Look for checks, captures, and threats.",
+        "calculation_depth": "Think two moves ahead. What happens after your move?",
+        "checkmate_pattern": "Their king is in danger. Can you find checkmate?",
+        "piece_safety": "Which pieces are safe? Which ones are in trouble?",
+    }
+
+    question = questions.get(key_feature, "")
+    if not question:
+        question = pattern_questions.get(pattern_type, "Take 5 seconds to scan the board. What stands out?")
+
+    prompt = "Before you move, look at the board."
+    if observations:
+        prompt = f"Before you move, notice: {observations[0].rstrip('.')}"
+
+    return {
+        "prompt": prompt,
+        "observations": observations,
+        "question": question,
+    }
+
+
+def _build_comparison_sentence(
+    your_move: str, your_does: str, best_move: str, best_does: str, why_bad: str
+) -> str:
+    """
+    Build a clear comparison: 'Your move does X. The best move does Y. That's why it's better.'
+    """
+    parts = []
+    if your_does:
+        parts.append(f"Your move {your_move} {your_does.rstrip('.')}.")
+    if best_does:
+        parts.append(f"The best move {best_move} {best_does.rstrip('.')}.")
+    if why_bad and len(parts) < 3:
+        parts.append(f"{why_bad.rstrip('.')}.")
+
+    if not parts:
+        return f"{best_move} was better than {your_move} here."
+
+    return " ".join(parts)
 
 
 def _match_known_trap(fen: str) -> Optional[Dict]:

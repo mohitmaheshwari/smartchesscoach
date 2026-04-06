@@ -233,44 +233,77 @@ def _count_escape_squares(board, king_color, king_sq, attacker_color) -> List[st
 
 def _analyze_hanging_pieces(board, user_color, opp_color) -> List[PositionFeature]:
     features = []
+    piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
 
-    # Opponent's undefended pieces (opportunities)
+    # Opponent's undefended pieces we can capture
+    best_target = None
+    best_target_value = 0
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
-        if piece and piece.color == opp_color and piece.piece_type != chess.KING:
-            attacked_by_us = board.is_attacked_by(user_color, sq)
-            defended = board.is_attacked_by(opp_color, sq)
-            if attacked_by_us and not defended:
-                piece_name = chess.piece_name(piece.piece_type)
-                sq_name = chess.square_name(sq)
-                features.append(PositionFeature(
-                    priority=1,
-                    category="tactics",
-                    title=f"Opponent's {piece_name} is undefended",
-                    description=f"Their {piece_name} on {sq_name} has no defender and you're attacking it. Can you take it?",
-                    min_rating=800,
-                    actionable=f"Look at {sq_name}. Can you capture that {piece_name} safely?",
-                ))
-                break  # Only show the most important one
+        if not piece or piece.color != opp_color or piece.piece_type == chess.KING:
+            continue
+        attacked_by_us = board.is_attacked_by(user_color, sq)
+        defended = board.is_attacked_by(opp_color, sq)
+        if attacked_by_us and not defended:
+            # Verify capture is SAFE — check our cheapest attacker vs their piece value
+            our_attackers = list(board.attackers(user_color, sq))
+            if not our_attackers:
+                continue
+            cheapest_attacker = min(our_attackers, key=lambda a: piece_values.get(board.piece_at(a).piece_type, 0) if board.piece_at(a) else 99)
+            attacker_piece = board.piece_at(cheapest_attacker)
+            if not attacker_piece:
+                continue
+            attacker_value = piece_values.get(attacker_piece.piece_type, 0)
+            target_value = piece_values.get(piece.piece_type, 0)
+            # Only flag if we don't lose material (e.g. don't take pawn with queen if they can recapture)
+            if target_value >= attacker_value or not defended:
+                if target_value > best_target_value:
+                    best_target = (sq, piece, attacker_piece)
+                    best_target_value = target_value
 
-    # Your undefended pieces (dangers)
+    if best_target:
+        sq, piece, attacker = best_target
+        piece_name = chess.piece_name(piece.piece_type)
+        sq_name = chess.square_name(sq)
+        attacker_name = chess.piece_name(attacker.piece_type)
+        features.append(PositionFeature(
+            priority=1,
+            category="tactics",
+            title=f"Opponent's {piece_name} is undefended",
+            description=f"Their {piece_name} on {sq_name} has no defender. Your {attacker_name} can take it.",
+            min_rating=800,
+            actionable=f"Take their {piece_name} on {sq_name} with your {attacker_name}.",
+        ))
+
+    # Your hanging pieces — only flag if it's actually under attack AND undefended
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
-        if piece and piece.color == user_color and piece.piece_type != chess.KING:
-            attacked = board.is_attacked_by(opp_color, sq)
-            defended = board.is_attacked_by(user_color, sq)
-            if attacked and not defended:
-                piece_name = chess.piece_name(piece.piece_type)
-                sq_name = chess.square_name(sq)
-                features.append(PositionFeature(
-                    priority=2,
-                    category="tactics",
-                    title=f"Your {piece_name} is hanging",
-                    description=f"Your {piece_name} on {sq_name} is attacked and has no defender. Move it or defend it.",
-                    min_rating=800,
-                    actionable=f"Save your {piece_name} on {sq_name} before doing anything else.",
-                ))
-                break
+        if not piece or piece.color != user_color or piece.piece_type == chess.KING:
+            continue
+        attackers = list(board.attackers(opp_color, sq))
+        defenders = list(board.attackers(user_color, sq))
+        if not attackers:
+            continue
+        # Only flag if there's a real attacker (not just x-ray through pieces)
+        # and we're actually losing material
+        target_value = piece_values.get(piece.piece_type, 0)
+        cheapest_attacker_value = min(
+            (piece_values.get(board.piece_at(a).piece_type, 0) for a in attackers if board.piece_at(a)),
+            default=99
+        )
+        # Hanging: attacked and undefended, OR attacked by cheaper piece
+        if (not defenders and target_value >= 3) or (cheapest_attacker_value < target_value and len(attackers) > len(defenders)):
+            piece_name = chess.piece_name(piece.piece_type)
+            sq_name = chess.square_name(sq)
+            features.append(PositionFeature(
+                priority=2,
+                category="tactics",
+                title=f"Your {piece_name} is hanging",
+                description=f"Your {piece_name} on {sq_name} is under attack with {'no defenders' if not defenders else 'not enough defenders'}.",
+                min_rating=800,
+                actionable=f"Save your {piece_name} on {sq_name} — move it or defend it.",
+            ))
+            break
 
     return features
 
@@ -303,6 +336,19 @@ def _analyze_development(board, user_color) -> List[PositionFeature]:
 def _analyze_open_files(board, user_color) -> List[PositionFeature]:
     features = []
 
+    # Only relevant in middlegame/endgame — rooks don't belong on open files in move 6
+    if board.fullmove_number < 12:
+        return features
+
+    # Check if we even have a rook that's not on the back rank (i.e., is it developed?)
+    back_rank = 0 if user_color == chess.WHITE else 7
+    has_developed_rook = False
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece and piece.color == user_color and piece.piece_type == chess.ROOK:
+            if chess.square_rank(sq) != back_rank:
+                has_developed_rook = True
+
     for file_idx in range(8):
         has_white_pawn = False
         has_black_pawn = False
@@ -317,7 +363,6 @@ def _analyze_open_files(board, user_color) -> List[PositionFeature]:
 
         if not has_white_pawn and not has_black_pawn:
             file_letter = chr(97 + file_idx)
-            # Check if our rook is on this file
             our_rook_on_file = False
             for rank_idx in range(8):
                 sq = chess.square(file_idx, rank_idx)
@@ -326,15 +371,16 @@ def _analyze_open_files(board, user_color) -> List[PositionFeature]:
                     our_rook_on_file = True
 
             if not our_rook_on_file:
+                target_sq = f"{file_letter}1" if user_color == chess.WHITE else f"{file_letter}8"
                 features.append(PositionFeature(
                     priority=6,
                     category="piece_activity",
                     title=f"Open {file_letter}-file — no rook there",
-                    description=f"The {file_letter}-file is wide open (no pawns). Your rook should be on it.",
+                    description=f"The {file_letter}-file has no pawns. A rook on {target_sq} would control it.",
                     min_rating=1000,
-                    actionable=f"Put a rook on {file_letter}1 (or {file_letter}8). Rooks love open files.",
+                    actionable=f"When you get a chance, move a rook to the {file_letter}-file.",
                 ))
-                break  # One is enough
+                break
 
     return features
 
@@ -342,27 +388,47 @@ def _analyze_open_files(board, user_color) -> List[PositionFeature]:
 def _analyze_piece_activity(board, user_color, opp_color) -> List[PositionFeature]:
     features = []
 
-    # Knights on the rim — but NOT on starting squares (b1, g1, b8, g8)
+    # Only relevant after development phase
+    if board.fullmove_number < 8:
+        return features
+
+    # Knights on the rim — skip starting squares and temporary developing squares
     starting_squares = {chess.B1, chess.G1, chess.B8, chess.G8}
+    # a3/h3/a6/h6 are common development squares (Na3-c4, Nh3-f4) — only flag truly stuck knights
+    temp_dev_squares = {chess.A3, chess.H3, chess.A6, chess.H6}
+
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
         if piece and piece.color == user_color and piece.piece_type == chess.KNIGHT:
             if sq in starting_squares:
-                continue  # Knight hasn't moved yet, don't flag
+                continue
             file_idx = chess.square_file(sq)
             rank_idx = chess.square_rank(sq)
             if file_idx in [0, 7] or rank_idx in [0, 7]:
+                # Check if knight has good squares to jump to (not really stuck)
+                mobility = len([m for m in board.legal_moves if m.from_square == sq])
+                # If it can reach a central square in 1 move, it's fine
+                central_files = {2, 3, 4, 5}
+                central_ranks = {2, 3, 4, 5}
+                has_central_jump = any(
+                    chess.square_file(m.to_square) in central_files and chess.square_rank(m.to_square) in central_ranks
+                    for m in board.legal_moves if m.from_square == sq
+                )
+                if has_central_jump:
+                    continue  # Knight can get to the center next move — not stuck
+
+                sq_name = chess.square_name(sq)
                 features.append(PositionFeature(
                     priority=7,
                     category="piece_activity",
-                    title=f"Knight on the rim ({chess.square_name(sq)})",
-                    description=f"Your knight on {chess.square_name(sq)} is on the edge. Knights are strongest in the center where they control more squares.",
+                    title=f"Knight stuck on {sq_name}",
+                    description=f"Your knight on {sq_name} is on the edge with {mobility} moves, none of them toward the center.",
                     min_rating=800,
-                    actionable="Move this knight toward the center. A knight on the rim is dim.",
+                    actionable=f"This knight needs a better square. Look for a way to reroute it toward the center.",
                 ))
                 break
 
-    # Opponent's passive knights — not on starting squares
+    # Opponent's passive knights
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
         if piece and piece.color == opp_color and piece.piece_type == chess.KNIGHT:
@@ -371,50 +437,69 @@ def _analyze_piece_activity(board, user_color, opp_color) -> List[PositionFeatur
             file_idx = chess.square_file(sq)
             rank_idx = chess.square_rank(sq)
             if file_idx in [0, 7] or rank_idx in [0, 7]:
-                features.append(PositionFeature(
-                    priority=8,
-                    category="piece_activity",
-                    title=f"Opponent's knight is stuck ({chess.square_name(sq)})",
-                    description=f"Their knight on {chess.square_name(sq)} is on the edge and not doing much. You have more active pieces.",
-                    min_rating=1000,
-                    actionable="Your pieces are better placed. Use that advantage — don't let them reposition.",
-                ))
-                break
+                mobility = len([m for m in board.legal_moves if m.from_square == sq])
+                # Only flag if it's truly stuck (few moves, none central)
+                if mobility <= 3:
+                    sq_name = chess.square_name(sq)
+                    features.append(PositionFeature(
+                        priority=8,
+                        category="piece_activity",
+                        title=f"Opponent's knight is stuck on {sq_name}",
+                        description=f"Their knight on {sq_name} only has {mobility} squares. It's not helping them.",
+                        min_rating=1000,
+                        actionable="Their knight is passive. Don't give them time to reposition it — keep the pressure on.",
+                    ))
+                    break
 
     return features
 
 
 def _analyze_center(board, user_color) -> List[PositionFeature]:
     features = []
+    opp_color = not user_color
+
+    # Only relevant after a few moves
+    if board.fullmove_number < 5:
+        return features
+
     center_squares = [chess.E4, chess.D4, chess.E5, chess.D5]
 
-    user_center = 0
-    opp_center = 0
+    # Count attacks on center squares (more meaningful than pieces ON center)
+    user_attacks = 0
+    opp_attacks = 0
+    user_occupies = 0
+    opp_occupies = 0
+
     for sq in center_squares:
+        user_attacks += len(list(board.attackers(user_color, sq)))
+        opp_attacks += len(list(board.attackers(opp_color, sq)))
         piece = board.piece_at(sq)
         if piece:
             if piece.color == user_color:
-                user_center += 1
+                user_occupies += 1
             else:
-                opp_center += 1
+                opp_occupies += 1
 
-    if user_center >= 2 and opp_center == 0:
+    user_total = user_attacks + user_occupies * 2
+    opp_total = opp_attacks + opp_occupies * 2
+
+    if user_total >= opp_total + 4:
         features.append(PositionFeature(
             priority=9,
             category="center",
             title="You control the center",
-            description="You have pieces in the center and your opponent doesn't. This gives your pieces more room to move.",
+            description="You have more pieces and pawns aimed at the center. This gives your pieces better squares.",
             min_rating=1000,
-            actionable="Use your center control. Your pieces can reach both sides of the board faster.",
+            actionable="Use your center control — your pieces can reach both sides of the board faster.",
         ))
-    elif opp_center >= 2 and user_center == 0:
+    elif opp_total >= user_total + 4:
         features.append(PositionFeature(
             priority=5,
             category="center",
             title="Opponent controls the center",
-            description="They have more presence in the center. Your pieces are cramped.",
+            description="They have more control over d4, d5, e4, e5. Your pieces have fewer good squares.",
             min_rating=1000,
-            actionable="Challenge the center with a pawn push (c5, d5, e5, or f5) when possible.",
+            actionable="Challenge the center — push a pawn (c5, d5, e5, or f5) or develop a piece toward the center.",
         ))
 
     return features

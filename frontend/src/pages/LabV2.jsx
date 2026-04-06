@@ -44,7 +44,10 @@ import {
   ChevronDown,
   History,
   Check,
-  ArrowRight
+  ArrowRight,
+  Clock,
+  XCircle,
+  Flag
 } from "lucide-react";
 
 // Import new coach-style components
@@ -307,6 +310,53 @@ const ResultBadge = ({ result, userColor }) => {
       : "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30";
   return (
     <span className={`px-2 py-0.5 text-xs font-semibold rounded border ${cls}`} data-testid="result-badge">
+      {label}
+    </span>
+  );
+};
+
+const TerminationTag = ({ termination, result, userColor }) => {
+  const isWin = (result.includes("1-0") && userColor === "white") || (result.includes("0-1") && userColor === "black");
+  const isDraw = result === "1/2-1/2";
+
+  const labels = {
+    checkmate: isWin ? "by checkmate" : "by checkmate",
+    resignation: isWin ? "by resignation" : "by resignation",
+    timeout: isWin ? "on time" : "on time",
+    abandonment: "abandoned",
+    stalemate: "stalemate",
+    draw_agreement: "by agreement",
+    repetition: "by repetition",
+    insufficient: "insufficient material",
+  };
+
+  const label = labels[termination];
+  if (!label) return null;
+
+  const isTimeout = termination === "timeout";
+  const isAbandoned = termination === "abandonment";
+
+  // Highlight timeout/abandoned losses as they're weaknesses
+  const userLost = !isWin && !isDraw;
+  if (userLost && isTimeout) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border text-orange-500 dark:text-orange-400 bg-orange-500/10 border-orange-500/20">
+        <Clock className="w-2.5 h-2.5" strokeWidth={2} />
+        {label}
+      </span>
+    );
+  }
+  if (userLost && isAbandoned) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border text-gray-500 dark:text-gray-400 bg-gray-500/10 border-gray-500/20">
+        <XCircle className="w-2.5 h-2.5" strokeWidth={2} />
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span className="px-1.5 py-0.5 text-[10px] text-muted-foreground border border-border/50 rounded">
       {label}
     </span>
   );
@@ -1060,9 +1110,12 @@ const LabV2 = ({ user }) => {
                       vs {game?.opponent_name || "Opponent"}
                     </h1>
                     <ResultBadge result={result} userColor={userColor} />
+                    {game?.termination && game.termination !== "unknown" && (
+                      <TerminationTag termination={game.termination} result={result} userColor={userColor} />
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {game?.opening_name || game?.opening || ""} 
+                    {game?.opening_name || game?.opening || ""}
                     {game?.time_control && <span className="ml-2 opacity-60">{game.time_control}s</span>}
                   </p>
                 </div>

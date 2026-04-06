@@ -2126,6 +2126,34 @@ async def get_interactive_coaching(
             except Exception as trap_err:
                 logger.debug(f"Trap detection failed (non-fatal): {trap_err}")
 
+            # === POSITION INTELLIGENCE ===
+            # "What should I focus on?" — coach reads the board after user's move
+            try:
+                from services.position_intelligence import read_board_like_a_coach
+
+                board_after_user = chess.Board(fen_before)
+                board_after_user.push(board_after_user.parse_san(move_san))
+
+                board_read = read_board_like_a_coach(
+                    board_after_user.fen(),
+                    user_color=user_color,
+                    user_rating=1200  # TODO: use actual user rating
+                )
+
+                # Only include if the plan is actionable (not generic)
+                if board_read.get("plan_id") != "neutral":
+                    coaching_dict["position_read"] = {
+                        "summary": board_read.get("summary", ""),
+                        "plan": board_read.get("plan", ""),
+                        "focus": board_read.get("focus", ""),
+                        "phase": board_read.get("phase", ""),
+                        "material": board_read.get("material", ""),
+                        "priority": board_read.get("priority", ""),
+                        "observations": board_read.get("observations", [])[:2],
+                    }
+            except Exception as pi_err:
+                logger.debug(f"Position intelligence failed (non-fatal): {pi_err}")
+
             # === THEORY APPLIED TRACKING ===
             # Check if this move matches an opening theory the user was taught
             if len(move_history) <= 24 and coaching.severity in ("good", "excellent", "book"):

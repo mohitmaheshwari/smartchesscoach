@@ -412,11 +412,11 @@ def extract_plan_from_pv(
         consequence = _describe_consequence(pv_after_played, board_after) if pv_after_played else "This allows a forced checkmate."
         
         return ChessPlan(
-            goal="King safety — avoid getting mated",
-            current_problem=f"{played_san} is a one-move blunder that allows checkmate.",
+            goal="Avoid checkmate",
+            current_problem=f"{played_san} allows checkmate.",
             consequence=consequence,
-            better_approach=f"{best_move} keeps the game going." if best_move else "Look for moves that address the immediate threat.",
-            transferable_learning="Before any move, check: can my opponent deliver checkmate? If yes, deal with that FIRST.",
+            better_approach=f"{best_move} stops the checkmate and keeps the game going." if best_move else "You needed to block the checkmate threat first.",
+            transferable_learning="Before every move, check: can my opponent give checkmate? If yes, stop that before doing anything else.",
             concept_id="king_safety_mate_threat",
             concept_type="tactical"
         )
@@ -644,8 +644,8 @@ def _analyze_positional_weakness(board: chess.Board, user_color: bool) -> List[s
         user_center_control += user_attackers
         opp_center_control += opp_attackers
     
-    if opp_center_control > user_center_control + 2:
-        problems.append("your opponent controls the center! Your pieces have fewer good squares.")
+    if opp_center_control > user_center_control + 3:
+        problems.append("your opponent has more pieces aimed at the center (d4, d5, e4, e5). This gives their pieces better squares to go to.")
     
     # Check for development issues (pieces still on back rank)
     undeveloped = 0
@@ -656,19 +656,19 @@ def _analyze_positional_weakness(board: chess.Board, user_color: bool) -> List[s
             undeveloped += 1
     
     if undeveloped >= 2:
-        problems.append("you're behind in development! Get those pieces out!")
+        problems.append(f"you still have {undeveloped} pieces on the back rank that haven't moved. Get your knights and bishops out before attacking.")
     
     # Check for king safety (castling rights)
     if user_color == chess.WHITE:
         if not board.has_kingside_castling_rights(chess.WHITE) and not board.has_queenside_castling_rights(chess.WHITE):
             king_sq = board.king(chess.WHITE)
             if king_sq and chess.square_file(king_sq) in [3, 4]:  # King still in center
-                problems.append("your King is stuck in the center without castling rights. Dangerous!")
+                problems.append("your king is stuck in the center and can't castle anymore. It's exposed to attacks.")
     else:
         if not board.has_kingside_castling_rights(chess.BLACK) and not board.has_queenside_castling_rights(chess.BLACK):
             king_sq = board.king(chess.BLACK)
             if king_sq and chess.square_file(king_sq) in [3, 4]:
-                problems.append("your King is stuck in the center without castling rights. Dangerous!")
+                problems.append("your king is stuck in the center and can't castle anymore. It's exposed to attacks.")
     
     # Check for weak pawns
     for sq in chess.SQUARES:
@@ -1160,18 +1160,17 @@ def _detect_tactical_issue(
                     
                     # Fork detected if attacking 2+ valuable pieces (total value >= 5)
                     if len(attacked) >= 2 and sum(attacked_values) >= 5:
-                        # Sort by value to get the two most valuable pieces
                         attacked_with_values = list(zip(attacked, attacked_values))
                         attacked_with_values.sort(key=lambda x: x[1], reverse=True)
                         piece1 = attacked_with_values[0][0]
                         piece2 = attacked_with_values[1][0]
-                        
+
                         return ChessPlan(
-                            goal="Avoid tactical vulnerabilities",
-                            current_problem=f"Oops! {played_san} allows a Horsey fork!",
-                            consequence=f"After {pv[0]}, their knight forks your {piece1} and {piece2}!",
-                            better_approach="Knights can fork pieces that are on the same color square!",
-                            transferable_learning=f"Watch out for Horsey forks! When your {piece1} and {piece2} are on the same color square, a knight can attack both!",
+                            goal="Avoid knight forks",
+                            current_problem=f"{played_san} allows a knight fork — their knight can attack two of your pieces at once.",
+                            consequence=f"After {pv[0]}, their knight attacks your {piece1} and {piece2}. You can only save one.",
+                            better_approach=f"Before playing {played_san}, check: can a knight jump to a square that attacks two of my pieces?",
+                            transferable_learning=f"A knight fork happens when one knight attacks two valuable pieces at once. You lose one of them. Always check if your {piece1} and {piece2} can both be reached by one knight jump.",
                             concept_id="knight_fork",
                             concept_type="tactical"
                         )
@@ -1183,11 +1182,11 @@ def _detect_tactical_issue(
                 if king_sq and chess.square_rank(king_sq) in [0, 7]:
                     pattern = tactical_patterns.get("back_rank_weakness", {})
                     return ChessPlan(
-                        goal="Keep your king safe",
-                        current_problem=f"{played_san} weakens your back rank!",
-                        consequence=f"After {pv[0]}, you face nasty back rank threats!",
-                        better_approach="Give your King some air! Push h3 or g3 to create an escape square.",
-                        transferable_learning=pattern.get("rule", "Luft = Life! Always give your King an escape square."),
+                        goal="Protect your back rank",
+                        current_problem=f"{played_san} leaves your back rank weak. Your king has no escape square.",
+                        consequence=f"After {pv[0]}, your opponent threatens checkmate on the back rank.",
+                        better_approach="Push h3 or g3 to give your king an escape square before this becomes a problem.",
+                        transferable_learning=pattern.get("rule", "If your king is on the back rank with no escape square, a rook or queen can checkmate you. Push one pawn (h3 or g3) to create a way out."),
                         concept_id="back_rank_weakness",
                         concept_type="tactical"
                     )
@@ -1233,65 +1232,64 @@ def _generate_generic_plan(
     # Determine transferable learning based on the candidate types
     transferable_learning = _derive_transferable_learning(candidate_moves, piece_type, to_square)
     
-    # Determine the type of issue and pick a MEMORABLE golden rule
+    # ── Build concrete, board-specific explanation ──
+    sq_name = chess.square_name(to_square)
+
     if piece_type == chess.KNIGHT:
-        # Knight on the rim?
         if chess.square_file(to_square) in [0, 7] or chess.square_rank(to_square) in [0, 7]:
             return ChessPlan(
-                goal="Keep knights active",
-                current_problem=f"Your Horsey wandered to the edge with {played_san}!",
+                goal="Keep your knight active",
+                current_problem=f"{played_san} puts your knight on the edge of the board where it only controls a few squares.",
                 consequence=consequence,
-                better_approach=better_approach or f"{best_move} keeps the knight in the game",
-                transferable_learning=transferable_learning or "Knights on the rim are dim! They have fewer squares to jump to.",
+                better_approach=better_approach or f"{best_move} keeps the knight near the center where it controls more squares.",
+                transferable_learning=transferable_learning or "A knight on the edge controls 2-4 squares. In the center it controls 8. Always prefer central squares for knights.",
                 concept_id="knight_on_rim",
                 concept_type="positional",
                 candidate_moves=candidate_moves
             )
-        # Knight with no purpose?
         else:
             return ChessPlan(
-                goal="Give pieces a job",
-                current_problem=f"Naughty Knight! {played_san} doesn't do anything useful.",
+                goal="Make your knight do something",
+                current_problem=f"{played_san} moves your knight but it doesn't attack anything or defend anything important.",
                 consequence=consequence,
-                better_approach=better_approach or f"{best_move} was better",
-                transferable_learning=transferable_learning or "Every piece needs a job! Ask: what is this piece doing for me?",
+                better_approach=better_approach or f"{best_move} was better here.",
+                transferable_learning=transferable_learning or "Before moving a piece, ask: what will it attack or defend from the new square?",
                 concept_id="piece_without_purpose",
                 concept_type="positional",
                 candidate_moves=candidate_moves
             )
-    
+
     elif piece_type == chess.BISHOP:
         return ChessPlan(
-            goal="Keep bishops active",
-            current_problem=f"Your Slicey Boi at {played_san} doesn't have good diagonals!",
+            goal="Keep your bishop on an open diagonal",
+            current_problem=f"{played_san} puts your bishop where pawns block its diagonal. It can't do much from {sq_name}.",
             consequence=consequence,
-            better_approach=better_approach or f"{best_move} gives the bishop more scope",
-            transferable_learning=transferable_learning or "Bishops need OPEN diagonals. If pawns block them, they're sad!",
+            better_approach=better_approach or f"{best_move} gives the bishop a longer diagonal with more targets.",
+            transferable_learning=transferable_learning or "Bishops are strongest on long, open diagonals. If your own pawns block it, look for a better diagonal.",
             concept_id="blocked_bishop",
             concept_type="positional",
             candidate_moves=candidate_moves
         )
-    
+
     elif piece_type == chess.PAWN:
         return ChessPlan(
-            goal="Think before pushing pawns",
-            current_problem=f"That Little Soldier at {played_san} can't go backwards!",
+            goal="Be careful with pawn moves",
+            current_problem=f"{played_san} pushes a pawn that can't come back. This weakens the squares around it.",
             consequence=consequence,
-            better_approach=better_approach or f"{best_move} was safer",
-            transferable_learning=transferable_learning or "Pawns can NEVER go back! Every pawn move creates a weakness somewhere.",
+            better_approach=better_approach or f"{best_move} was safer.",
+            transferable_learning=transferable_learning or "Pawns can never move backwards. Every pawn push creates squares that can't be defended by pawns anymore.",
             concept_id="premature_pawn",
             concept_type="positional",
             candidate_moves=candidate_moves
         )
-    
+
     else:
-        # Generic but still SPECIFIC
         return ChessPlan(
-            goal="Think before you move",
-            current_problem=f"Hmm, {played_san} has a problem!",
+            goal="Check what your opponent can do",
+            current_problem=f"{played_san} has a problem — look at what your opponent can do next.",
             consequence=consequence,
-            better_approach=better_approach or f"{best_move} was the move here",
-            transferable_learning=transferable_learning or "Before EVERY move, ask: what can my opponent do after this?",
+            better_approach=better_approach or f"{best_move} was the better move here.",
+            transferable_learning=transferable_learning or "Before every move, ask yourself: what can my opponent do after this? Check for captures, checks, and threats.",
             concept_id="generic_mistake",
             concept_type="general",
             candidate_moves=candidate_moves
@@ -1331,23 +1329,19 @@ def _derive_transferable_learning(
     
     # If there was a counter-attack available
     if "counter_attack" in move_types:
-        return "Look for counter-attacks! When your opponent threatens, don't just defend - find YOUR threat!"
-    
-    # If there was a prophylactic move
+        return "When your opponent attacks, don't just defend. Look for your own threat that's even stronger."
+
     if "prophylactic" in move_types:
-        return "Ask: what does my opponent WANT to do next? Then stop it!"
-    
-    # If development was key
+        return "Ask: what does my opponent want to do next? If you can stop their plan first, you take control."
+
     if "development" in move_types:
-        return "In the opening, develop with a purpose. Each piece should aim at something!"
-    
-    # If central control matters
+        return "Bring your pieces out to squares where they point at the center or at your opponent's weak spots."
+
     if "central" in move_types:
-        return "The center is king! Control d4, d5, e4, e5 and your pieces will be powerful."
-    
-    # If there were multiple diverse options
+        return "Pieces in the center control more squares. A knight on e4 is much stronger than a knight on a3."
+
     if len(set(move_types)) >= 2:
-        return "Good positions have many good moves. Bad positions have only one! Think about ALL your options."
+        return "There were several good moves here. When you have choices, pick the one that improves your worst-placed piece."
     
     return ""
 
@@ -1972,14 +1966,14 @@ def _explain_opponent_move_with_context(
 
 
 def _get_fun_piece_name(piece: chess.Piece) -> str:
-    """Get fun, memorable piece names."""
+    """Get clear piece names."""
     names = {
-        chess.PAWN: "Little Soldier",
-        chess.KNIGHT: "Horsey",
-        chess.BISHOP: "Slicey Boi",
-        chess.ROOK: "Tower",
-        chess.QUEEN: "Queen",
-        chess.KING: "King"
+        chess.PAWN: "pawn",
+        chess.KNIGHT: "knight",
+        chess.BISHOP: "bishop",
+        chess.ROOK: "rook",
+        chess.QUEEN: "queen",
+        chess.KING: "king"
     }
     return names.get(piece.piece_type, "piece")
 

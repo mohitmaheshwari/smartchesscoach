@@ -991,6 +991,42 @@ def process_job(db, job):
             }}
         )
         
+        # =========================================================================
+        # TERMINATION-BASED WEAKNESS DETECTION
+        # Timeout / abandonment losses are behavioral weaknesses, not chess ones
+        # =========================================================================
+        try:
+            termination = game.get("termination", "unknown")
+            game_result = game.get("result", "")
+            user_lost = (game_result == "0-1" and user_color == "white") or (game_result == "1-0" and user_color == "black")
+
+            if user_lost and termination in ("timeout", "abandonment"):
+                termination_gap = "time_management" if termination == "timeout" else "game_abandonment"
+                # Add as a game-level cognitive gap so the pattern tracking picks it up
+                db.game_analyses.update_one(
+                    {"game_id": game_id, "user_id": user_id},
+                    {"$set": {
+                        "termination_weakness": termination_gap,
+                        "termination": termination,
+                    }}
+                )
+                logger.info(f"[TERMINATION] {game_id}: {termination} loss → {termination_gap} weakness tagged")
+
+                # Also inject into community_puzzles pattern tracking
+                try:
+                    from services.pattern_memory_service import record_pattern_occurrence
+                    record_pattern_occurrence(db, user_id, termination_gap, game_id)
+                except Exception:
+                    pass
+            else:
+                # Store termination even for non-weakness cases (for display)
+                db.game_analyses.update_one(
+                    {"game_id": game_id, "user_id": user_id},
+                    {"$set": {"termination": termination}}
+                )
+        except Exception as term_err:
+            logger.warning(f"[TERMINATION] Failed: {term_err}")
+
         # Update player profile with new stats
         update_player_profile_sync(
             db, 
