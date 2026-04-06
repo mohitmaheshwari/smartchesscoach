@@ -109,6 +109,9 @@ const ThinkingTraining = ({ user }) => {
   const [solveResult, setSolveResult] = useState(null);
   const [sessionSolved, setSessionSolved] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
+  const [consecutiveWrong, setConsecutiveWrong] = useState(0);
+  const [trainingComplete, setTrainingComplete] = useState(false);
+  const REQUIRED_CORRECT = 5;
 
   // Board
   const [arrows, setArrows] = useState([]);
@@ -195,24 +198,36 @@ const ThinkingTraining = ({ user }) => {
           .then((r) => r.json())
           .then((result) => {
             setSolveResult(result);
-            if (result.solved) {
-              setSolveState("correct");
-              setSessionSolved((p) => p + 1);
+            if (result.solved || result.near_miss) {
+              setSolveState(result.solved ? "correct" : "near_miss");
+              setSessionSolved((p) => {
+                const next = p + 1;
+                if (next >= REQUIRED_CORRECT) setTrainingComplete(true);
+                return next;
+              });
+              setConsecutiveWrong(0);
               setLastMove([from, to]);
-              setArrows([[from, to, "green"]]);
-            } else if (result.near_miss) {
-              setSolveState("near_miss");
-              setLastMove([from, to]);
-              const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
-              const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
-              setArrows([
-                [from, to, "blue"],
-                ...(correctFrom && correctTo
-                  ? [[correctFrom, correctTo, "green"]]
-                  : []),
-              ]);
+              if (result.solved) {
+                setArrows([[from, to, "green"]]);
+              } else {
+                const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
+                const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
+                setArrows([
+                  [from, to, "blue"],
+                  ...(correctFrom && correctTo ? [[correctFrom, correctTo, "green"]] : []),
+                ]);
+              }
             } else {
               setSolveState("incorrect");
+              setConsecutiveWrong((p) => {
+                const next = p + 1;
+                // Reset progress on 2 consecutive wrong
+                if (next >= 2) {
+                  setSessionSolved((s) => Math.max(0, s - 1));
+                  return 0;
+                }
+                return next;
+              });
               const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
               const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
               setArrows([
@@ -347,11 +362,17 @@ const ThinkingTraining = ({ user }) => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {sessionTotal > 0 && (
+            {focusPattern && (
               <div className="text-right">
-                <p className="text-sm font-medium">
-                  {sessionSolved}/{sessionTotal}
+                <p className="text-sm font-mono font-bold">
+                  {Math.min(sessionSolved, REQUIRED_CORRECT)}/{REQUIRED_CORRECT}
                 </p>
+                <p className="text-[10px] text-muted-foreground">correct</p>
+              </div>
+            )}
+            {!focusPattern && sessionTotal > 0 && (
+              <div className="text-right">
+                <p className="text-sm font-medium">{sessionSolved}/{sessionTotal}</p>
                 <p className="text-xs text-muted-foreground">solved</p>
               </div>
             )}
@@ -438,8 +459,36 @@ const ThinkingTraining = ({ user }) => {
           {/* RIGHT: Context + Actions (2 cols) */}
           <div className="lg:col-span-2 space-y-4">
             <AnimatePresence mode="wait">
+              {/* TRAINING COMPLETE */}
+              {trainingComplete && solveState !== "ready" && (
+                <motion.div
+                  key="complete"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                >
+                  <Card className="bg-emerald-500/5 border-emerald-500/30">
+                    <CardContent className="p-6 text-center space-y-4">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto">
+                        <CheckCircle2 className="w-7 h-7 text-emerald-500" strokeWidth={2} />
+                      </div>
+                      <h2 className="text-xl font-heading text-foreground">Training Complete</h2>
+                      <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                        You solved {REQUIRED_CORRECT} puzzles correctly. Now review your games and apply what you practiced.
+                      </p>
+                      <Button
+                        onClick={() => navigate("/lab")}
+                        className="w-full gradient-gold text-black font-semibold hover:opacity-90"
+                      >
+                        Open Lab
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
               {/* READY STATE */}
-              {solveState === "ready" && (
+              {solveState === "ready" && !trainingComplete && (
                 <motion.div
                   key="ready"
                   initial={{ opacity: 0, y: 8 }}

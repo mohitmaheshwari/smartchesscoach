@@ -800,6 +800,55 @@ async def record_solve_attempt(
     }
 
 
+async def get_training_progress(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    pattern: str,
+    required: int = 5
+) -> Dict:
+    """
+    Get training progress for the active pattern.
+    Counts CORRECT solves only. Resets if 2 wrong in a row (recent).
+    """
+    # Get all attempts for this pattern, sorted by time
+    attempts = await db.training_solve_attempts.find(
+        {"user_id": user_id, "pattern_type": pattern},
+        {"_id": 0, "solved": 1, "near_miss": 1, "attempted_at": 1}
+    ).sort("attempted_at", -1).to_list(100)
+
+    if not attempts:
+        return {"correct": 0, "required": required, "completed": False, "streak": 0}
+
+    # Count correct solves, but reset if 2 consecutive wrong
+    correct = 0
+    streak = 0
+    consecutive_wrong = 0
+
+    # Walk from OLDEST to NEWEST
+    for a in reversed(attempts):
+        if a.get("solved") or a.get("near_miss"):
+            correct += 1
+            streak += 1
+            consecutive_wrong = 0
+        else:
+            consecutive_wrong += 1
+            streak = 0
+            if consecutive_wrong >= 2:
+                # Reset — user lost focus
+                correct = max(0, correct - 1)
+                consecutive_wrong = 0
+
+    correct = min(correct, required)
+
+    return {
+        "correct": correct,
+        "required": required,
+        "completed": correct >= required,
+        "streak": streak,
+        "total_attempts": len(attempts),
+    }
+
+
 async def get_user_pattern_stats(
     db: AsyncIOMotorDatabase,
     user_id: str

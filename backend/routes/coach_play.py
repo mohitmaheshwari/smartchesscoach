@@ -4354,6 +4354,104 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
             user_color=user_color,
         )
 
+        # ── ACTIVE PATTERN CHECK ──
+        # Did the user repeat the pattern that the coaching system identified?
+        pattern_verdict = None
+        try:
+            # Get the user's active coaching pattern from lab-coach-pick logic
+            from services.pattern_memory_service import get_top_patterns
+            top_patterns = await get_top_patterns(db, user.user_id, limit=1)
+            active_pattern = top_patterns[0].get("pattern_type", "") if top_patterns else ""
+
+            if active_pattern:
+                # Check if this game had the active pattern
+                pattern_occurrences = 0
+                for ev in evaluations:
+                    quality = ev.get("quality", "")
+                    if quality in ("blunder", "mistake"):
+                        # Check cognitive gap from feedback
+                        fb_msg = await db.coach_messages.find_one(
+                            {"session_id": session_id, "move_number": ev.get("move_number"), "type": "move_feedback"},
+                            {"_id": 0, "feedback.cognitive_gap": 1, "feedback.concept_id": 1}
+                        )
+                        if fb_msg:
+                            gap = fb_msg.get("feedback", {}).get("cognitive_gap", "") or fb_msg.get("feedback", {}).get("concept_id", "")
+                            if gap == active_pattern:
+                                pattern_occurrences += 1
+
+                # Also check V5 coaching data for the pattern
+                v5_cursor = db.coach_messages.find(
+                    {"session_id": session_id},
+                    {"_id": 0, "feedback.concept_id": 1, "feedback.cognitive_gap": 1}
+                )
+                async for msg in v5_cursor:
+                    fb = msg.get("feedback", {})
+                    if fb.get("concept_id") == active_pattern or fb.get("cognitive_gap") == active_pattern:
+                        pattern_occurrences += 1
+
+                pattern_occurrences = min(pattern_occurrences, 10)  # Cap
+
+                from routes.training_advanced import COACHING_DIAGNOSIS, COACHING_RULES
+
+                diag = COACHING_DIAGNOSIS.get(active_pattern, {})
+                rule = COACHING_RULES.get(active_pattern, {})
+                pattern_label = active_pattern.replace("_", " ").title()
+
+                if pattern_occurrences == 0:
+                    # CASE C: SUCCESS
+                    pattern_verdict = {
+                        "case": "success",
+                        "pattern": active_pattern,
+                        "label": pattern_label,
+                        "message": f"This time, no {pattern_label.lower()} mistakes.",
+                        "detail": f"You checked your opponent before moving. This is real progress.",
+                        "cta_label": "Play Again",
+                        "cta_href": "/play-with-coach",
+                    }
+                elif pattern_occurrences == 1:
+                    # CASE B: PARTIAL
+                    pattern_verdict = {
+                        "case": "partial",
+                        "pattern": active_pattern,
+                        "label": pattern_label,
+                        "occurrences": pattern_occurrences,
+                        "message": "Better.",
+                        "detail": f"You avoided {pattern_label.lower()} in most positions, but missed it once under pressure.",
+                        "rule": rule.get("rule", ""),
+                        "rule_name": rule.get("name", ""),
+                        "cta_label": "Review Game",
+                        "cta_href": f"/lab",
+                    }
+                else:
+                    # CASE A: FAILED
+                    # Find the worst moment
+                    worst_move = None
+                    for m in (analysis.mistakes or []):
+                        if m.category and active_pattern in m.category.lower().replace(" ", "_"):
+                            worst_move = m
+                            break
+                    if not worst_move and analysis.mistakes:
+                        worst_move = analysis.mistakes[0]
+
+                    detail = f"Again, {diag.get('short', pattern_label.lower())}."
+                    if worst_move:
+                        detail += f" On move {worst_move.move_number}, you played {worst_move.user_move} instead of {worst_move.best_move}."
+
+                    pattern_verdict = {
+                        "case": "failed",
+                        "pattern": active_pattern,
+                        "label": pattern_label,
+                        "occurrences": pattern_occurrences,
+                        "message": detail,
+                        "detail": diag.get("detail", ""),
+                        "rule": rule.get("rule", ""),
+                        "rule_name": rule.get("name", ""),
+                        "cta_label": "Fix This Again",
+                        "cta_href": f"/training?focus={active_pattern}",
+                    }
+        except Exception as pv_err:
+            logger.debug(f"Pattern verdict failed (non-fatal): {pv_err}")
+
         # Extract the key fields for the reflection UI
         return {
             "has_data": True,
@@ -4380,7 +4478,10 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
                 for m in (analysis.mistakes[:2] if analysis.mistakes else [])
             ],
 
-            # Pattern check
+            # Active pattern verdict (Case A/B/C)
+            "pattern_verdict": pattern_verdict,
+
+            # Legacy memory insights
             "memory_insights": [
                 {
                     "type": mi.type,

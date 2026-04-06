@@ -533,25 +533,21 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
     # ── 4. RULE ──
     rule_data = COACHING_RULES.get(root_pattern, {"name": root_label, "rule": "Fix this before working on anything else."})
 
-    # ── 5. TRAINING LOCK — puzzle progress for this pattern ──
-    puzzle_progress = 0
+    # ── 5. TRAINING LOCK — 5 CORRECT solves, with streak reset ──
     try:
-        from services.community_training_service import get_user_pattern_stats
-        stats = await get_user_pattern_stats(db, user_id)
-        for s in stats:
-            if s.get("pattern") == root_pattern:
-                puzzle_progress = s.get("total_solved", 0)
-                break
+        from services.community_training_service import get_training_progress
+        progress = await get_training_progress(db, user_id, root_pattern, TRAINING_LOCK_TARGET)
     except Exception:
-        pass
+        progress = {"correct": 0, "required": TRAINING_LOCK_TARGET, "completed": False, "streak": 0}
 
     training_lock = {
         "pattern": root_pattern,
         "label": root_label,
         "target": TRAINING_LOCK_TARGET,
-        "progress": min(puzzle_progress, TRAINING_LOCK_TARGET),
-        "unlocked": puzzle_progress >= TRAINING_LOCK_TARGET,
-        "message": f"Complete {TRAINING_LOCK_TARGET} {root_label} puzzles to unlock game review.",
+        "progress": progress["correct"],
+        "streak": progress.get("streak", 0),
+        "unlocked": progress["completed"],
+        "message": f"Solve {TRAINING_LOCK_TARGET} {root_label} puzzles correctly to unlock game review.",
     }
 
     # ── DIAGNOSIS (short for home, detail for lab) ──

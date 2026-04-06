@@ -14,6 +14,7 @@ import { Chess } from "chess.js";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
+import { Target } from "lucide-react";
 import { PostGameStreakResult } from "@/components/streak";
 import EnforcementCheckboxModal from "@/components/coach-play/EnforcementCheckboxModal";
 import CoachPlaySetup from "@/components/coach/CoachPlaySetup";
@@ -55,6 +56,10 @@ const CoachPlay = ({ user }) => {
   
   // Evaluation state for eval bar
   const [evaluation, setEvaluation] = useState({ score: 0.0, mate_in: null });
+
+  // Pre-game focus rule
+  const [focusRule, setFocusRule] = useState(null);
+  const [showFocusBanner, setShowFocusBanner] = useState(false);
   
   // Practice mode state (from Lab alternate timeline)
   const [practiceMode, setPracticeMode] = useState(false);
@@ -646,6 +651,25 @@ const CoachPlay = ({ user }) => {
     setLoading(true);
     // Reset emotional state tracking for new game
     setBlundersThisGame(0);
+
+    // Fetch active focus rule for pre-game banner
+    try {
+      const focusRes = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+      if (focusRes.ok) {
+        const focusData = await focusRes.json();
+        const coaching = focusData.coaching;
+        if (coaching?.rule && coaching?.diagnosis) {
+          setFocusRule({
+            name: coaching.rule.name,
+            rule: coaching.rule.rule,
+            pattern: coaching.root_problem?.pattern,
+          });
+          setShowFocusBanner(true);
+          // Auto-hide after 6 seconds
+          setTimeout(() => setShowFocusBanner(false), 6000);
+        }
+      }
+    } catch (e) { /* non-fatal */ }
     
     // Clear any stale teaching state from previous games
     setActiveLesson(null);
@@ -2045,6 +2069,23 @@ const CoachPlay = ({ user }) => {
   // Game screen
   return (
     <Layout user={user}>
+      {/* Pre-game focus banner */}
+      {showFocusBanner && focusRule && (
+        <div className="bg-amber-500/10 border-b border-amber-500/15 px-4 py-3 flex items-center justify-between animate-in fade-in slide-in-from-top duration-300">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+              <Target className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">{focusRule.name}</p>
+              <p className="text-xs text-foreground">{focusRule.rule}</p>
+            </div>
+          </div>
+          <button onClick={() => setShowFocusBanner(false)} className="text-muted-foreground/40 hover:text-muted-foreground text-xs ml-4">
+            &times;
+          </button>
+        </div>
+      )}
       <div className="h-[calc(100vh-80px)] flex" data-testid="coach-play-game">
         {/* Left: Board + controls */}
         <CoachPlayBoard

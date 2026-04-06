@@ -207,25 +207,25 @@ function buildTrigger(coaching, streak) {
     actionIcon: Swords,
   };
 
-  // ── Win streak ──
+  // ── Win streak — celebrate, keep going ──
   if (streak?.type === "W" && streak.count >= 3) {
     return { ...defaults,
-      badge: `${streak.count} wins`, badgeColor: "text-emerald-500",
+      badge: `${streak.count} wins in a row`, badgeColor: "text-emerald-500",
       truth: "You're playing the best chess I've seen from you.",
       evidence: "Don't change anything. Just play.",
       actionLabel: "Play Another", actionIcon: Swords,
     };
   }
 
-  // ── Loss streak ──
+  // ── Loss streak — stop and fix ──
   if (streak?.type === "L" && streak.count >= 3) {
     return { ...defaults,
-      badge: `${streak.count} losses`, badgeColor: "text-red-400",
-      truth: "Stop playing. You're repeating the same mistake.",
+      badge: `${streak.count} losses in a row`, badgeColor: "text-red-400",
+      truth: "Stop. You're repeating the same mistake.",
       evidence: "Review one game before you play again.",
       actionLabel: "Open Lab",
       actionHref: "/lab",
-      actionIcon: AlertTriangle,
+      actionIcon: Brain,
     };
   }
 
@@ -235,15 +235,26 @@ function buildTrigger(coaching, streak) {
     const root = coaching.root_problem;
     const rule = coaching.rule;
     const lock = coaching.training_lock;
+    const pg = coaching.priority_game;
 
-    // Evidence line
-    let evidence = root.detail || `This happened in ${root.games_affected} of your recent games.`;
-    if (root.games_affected >= 10) {
-      evidence = `This is happening in almost every game you play.`;
+    // Impact line
+    let evidence = "This is costing you games.";
+    const totalGames = root.games_affected || 0;
+    if (totalGames >= 15) {
+      evidence = "This is happening in almost every game you play.";
+    } else if (totalGames >= 5) {
+      evidence = "This is where your games are breaking.";
     }
 
-    // CTA: if training is locked, send to training. If unlocked, send to lab.
-    let actionLabel = "Start Training";
+    // Pain hook — only if strong signal from priority game
+    if (pg?.was_winning && pg?.result === "L") {
+      evidence += " You lost a winning game because of this.";
+    } else if (root.thrown_games > 0) {
+      evidence += ` You threw ${root.thrown_games} winning position${root.thrown_games > 1 ? "s" : ""}.`;
+    }
+
+    // CTA: locked → Fix This Now. Unlocked → Open Lab.
+    let actionLabel = "Fix This Now";
     let actionHref = `/training?focus=${root.pattern}`;
     let actionIcon = Target;
 
@@ -254,7 +265,7 @@ function buildTrigger(coaching, streak) {
     }
 
     return {
-      badge: null, badgeColor: "text-muted-foreground",
+      badge: "active focus", badgeColor: "text-amber-500",
       truth: diag.short,
       evidence: evidence,
       rule: rule?.rule || null,
