@@ -1,8 +1,14 @@
 /**
- * LAB PAGE — Your Analyzed Games
+ * LAB PAGE — Coach-first game review.
  *
- * Coach picks the most important game to review.
- * Each game shows what happened, what went wrong (or right), and why.
+ * NOT a game list. A coaching experience.
+ *
+ * 1. Root Problem — the one pattern costing you games
+ * 2. Priority Game — the most painful example, one click to review
+ * 3. Coach Insight — behavioral, not technical
+ * 4. Rule — named, repeatable
+ * 5. Training Lock — complete puzzles to unlock game list
+ * 6. Game list — hidden behind the lock (or shown if unlocked)
  */
 
 import { useState, useEffect } from "react";
@@ -10,13 +16,16 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import { Import, ChevronRight, Check, TrendingDown, TrendingUp, Minus, Target, Sparkles, Zap, Eye, Clock, XCircle, Flag } from "lucide-react";
+import {
+  Import, ChevronRight, Check, Target, Zap, Eye,
+  Brain, Lock, AlertTriangle, ArrowRight, FlaskConical
+} from "lucide-react";
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showReviewed, setShowReviewed] = useState(false);
+  const [showGames, setShowGames] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -49,324 +58,304 @@ const Dashboard = ({ user }) => {
     );
   }
 
-  const pick = data?.pick;
-  const pickReason = data?.pick_reason;
-  const pickPattern = data?.pick_pattern;
-  const verdict = data?.verdict;
+  const coaching = data?.coaching;
   const games = data?.games || [];
-  const reviewedCount = data?.reviewed_count || 0;
+  const pick = data?.pick;
   const totalCount = data?.total_count || 0;
   const unreviewedGames = games.filter(g => !g.reviewed);
   const reviewedGames = games.filter(g => g.reviewed);
+  const isUnlocked = !coaching?.training_lock || coaching.training_lock.unlocked;
+
+  // Empty state
+  if (games.length === 0) {
+    return (
+      <Layout user={user}>
+        <div className="max-w-xl mx-auto px-4 py-20 text-center" data-testid="lab-page">
+          <div className="w-16 h-16 rounded-2xl bg-muted/50 border border-border flex items-center justify-center mx-auto mb-6">
+            <Import className="w-7 h-7 text-muted-foreground/40" strokeWidth={1.5} />
+          </div>
+          <h2 className="text-xl font-heading font-semibold text-foreground mb-2">No games yet</h2>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-8">
+            Import your games from Chess.com or Lichess. Your coach will analyze them and tell you exactly what to work on.
+          </p>
+          <button onClick={() => navigate("/import")}
+            className="px-6 py-3 text-sm font-semibold rounded-lg gradient-gold text-black shadow-lg shadow-amber-500/20 hover:opacity-90 transition-all"
+            data-testid="lab-empty-import-btn">
+            Import your games
+          </button>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout user={user}>
-      <div className="max-w-3xl mx-auto py-8 px-4" data-testid="lab-page">
+      <div className="max-w-2xl mx-auto py-8 px-4 space-y-5" data-testid="lab-page">
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-heading text-foreground tracking-tight" data-testid="lab-heading">Your Games</h1>
-            {totalCount > 0 && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {reviewedCount} of {totalCount} reviewed
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => navigate("/import")}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm border border-border text-foreground hover:bg-card hover:border-primary/30 transition-all rounded-lg font-medium"
-            data-testid="lab-import-btn"
-          >
-            <Import className="w-4 h-4" strokeWidth={1.5} />
-            Import
-          </button>
-        </div>
+        {/* ═══ 1. ROOT PROBLEM ═══ */}
+        {coaching?.root_problem && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="rounded-2xl border border-red-500/15 bg-red-500/[0.02] relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl -translate-y-1/3 translate-x-1/3 bg-red-500/5" />
+              <div className="relative p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertTriangle className="w-4 h-4 text-red-400" strokeWidth={2} />
+                  <p className="text-xs font-bold uppercase tracking-wider text-red-400">Your biggest leak</p>
+                </div>
 
-        {/* ── REVIEW PROGRESS BAR ── */}
-        {totalCount > 0 && (
-          <div className="mb-6">
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full gradient-gold rounded-full transition-all duration-500"
-                style={{ width: `${(reviewedCount / totalCount) * 100}%` }}
-              />
+                <blockquote className="text-lg sm:text-xl font-heading text-foreground tracking-tight leading-snug mb-2">
+                  {coaching.root_problem.message}
+                </blockquote>
+
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {coaching.root_problem.detail}
+                </p>
+              </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        {/* ── VERDICT STRIP ── */}
-        {verdict && verdict.total > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-            <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-              <div className="flex items-center gap-2 font-mono text-base font-bold">
-                <span className="text-emerald-500">{verdict.wins}W</span>
-                <span className="text-muted-foreground/30">/</span>
-                <span className="text-red-400">{verdict.losses}L</span>
+        {/* ═══ 2. PRIORITY GAME ═══ */}
+        {coaching?.priority_game && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+            <div
+              className="bg-card border border-border rounded-xl cursor-pointer transition-all hover:border-primary/20 group"
+              onClick={() => navigate(`/game/${coaching.priority_game.game_id}`)}
+            >
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-3.5 h-3.5 text-primary" strokeWidth={2} />
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Review this game</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/20 group-hover:text-primary transition-colors" />
+                </div>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-semibold text-foreground">vs {coaching.priority_game.opponent}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 font-bold rounded border ${
+                    coaching.priority_game.result === "L" ? "bg-red-500/15 text-red-400 border-red-500/25"
+                    : coaching.priority_game.result === "W" ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/25"
+                    : "bg-muted text-muted-foreground border-border"
+                  }`}>{coaching.priority_game.result === "L" ? "LOST" : coaching.priority_game.result === "W" ? "WON" : "DRAW"}</span>
+                  {coaching.priority_game.opening && (
+                    <span className="text-xs text-muted-foreground/50">{coaching.priority_game.opening}</span>
+                  )}
+                </div>
+
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  {coaching.priority_game.description}
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground flex-1 leading-relaxed">{verdict.insight}</p>
-              {verdict.losses > verdict.wins ? (
-                <TrendingDown className="w-4 h-4 text-red-400 flex-shrink-0" />
-              ) : verdict.wins > verdict.losses ? (
-                <TrendingUp className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            </div>
+          </motion.div>
+        )}
+
+        {/* ═══ 3. COACH INSIGHT ═══ */}
+        {coaching?.insight && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+            <div className="px-1">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center flex-shrink-0">
+                  <Brain className="w-4 h-4 text-amber-500" />
+                </div>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Coach insight</p>
+              </div>
+              <p className="text-sm text-foreground leading-relaxed pl-11">
+                {coaching.insight}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ═══ 4. RULE ═══ */}
+        {coaching?.rule && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/15">
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1.5">
+                {coaching.rule.name}
+              </p>
+              <p className="text-sm text-foreground leading-relaxed">
+                {coaching.rule.rule}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ═══ 5. TRAINING LOCK ═══ */}
+        {coaching?.training_lock && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+            <div className={`rounded-xl border p-5 ${
+              coaching.training_lock.unlocked
+                ? "border-emerald-500/20 bg-emerald-500/[0.02]"
+                : "border-border bg-card"
+            }`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  {coaching.training_lock.unlocked
+                    ? <Check className="w-4 h-4 text-emerald-500" strokeWidth={2.5} />
+                    : <Lock className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
+                  }
+                  <p className={`text-xs font-bold uppercase tracking-wider ${
+                    coaching.training_lock.unlocked ? "text-emerald-500" : "text-muted-foreground"
+                  }`}>
+                    {coaching.training_lock.unlocked ? "Training complete" : "Training required"}
+                  </p>
+                </div>
+                <span className="text-sm font-mono font-bold text-foreground">
+                  {coaching.training_lock.progress} / {coaching.training_lock.target}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-3">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    coaching.training_lock.unlocked ? "bg-emerald-500" : "gradient-gold"
+                  }`}
+                  style={{ width: `${(coaching.training_lock.progress / coaching.training_lock.target) * 100}%` }}
+                />
+              </div>
+
+              {!coaching.training_lock.unlocked ? (
+                <button
+                  onClick={() => navigate(`/training?focus=${coaching.training_lock.pattern}`)}
+                  className="w-full py-2.5 text-sm font-semibold rounded-lg gradient-gold text-black hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                >
+                  <Target className="w-4 h-4" strokeWidth={2} />
+                  Solve {coaching.training_lock.target - coaching.training_lock.progress} {coaching.training_lock.label} puzzles
+                </button>
               ) : (
-                <Minus className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <p className="text-xs text-emerald-500 text-center">
+                  You've completed your training. Review your games below.
+                </p>
               )}
             </div>
           </motion.div>
         )}
 
-        {/* ── COACH'S PICK ── */}
-        {pick && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-6">
-            <div className="flex items-center gap-2 mb-2.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" strokeWidth={2} />
-              <p className="text-[10px] tracking-[0.15em] uppercase font-bold text-primary">
-                Start here
-              </p>
-            </div>
-            <div
-              className="bg-card border-2 border-primary/25 rounded-xl cursor-pointer transition-all duration-300 hover:border-primary/50 group glow-gold relative overflow-hidden"
-              onClick={() => navigate(`/game/${pick.game_id}`)}
-              data-testid="coach-pick-card"
-            >
-              <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-              <div className="relative p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <AccuracyBar accuracy={pick.accuracy} />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-semibold text-foreground">vs {pick.opponent}</span>
-                        <ResultBadge result={pick.result} />
-                        {pick.brilliant_moves > 0 && <BrilliantBadge count={pick.brilliant_moves} />}
-                      </div>
-                      {pick.opening && <span className="text-xs text-muted-foreground">{pick.opening}</span>}
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" strokeWidth={1.5} />
+        {/* ═══ 6. GAME LIST (unlocked or no coaching) ═══ */}
+        {(isUnlocked || !coaching) && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            {/* Unreviewed */}
+            {unreviewedGames.length > 0 && (
+              <div className="mb-4">
+                <p className="text-[10px] tracking-[0.15em] uppercase mb-2.5 font-bold text-muted-foreground/70">To Review</p>
+                <div className="space-y-2">
+                  {unreviewedGames.map((game) => (
+                    <GameCard key={game.game_id} game={game} navigate={navigate} markReviewed={markReviewed} />
+                  ))}
                 </div>
-
-                {pick.lesson_label && (
-                  <span className="inline-block text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 mb-2">
-                    {pick.lesson_label}
-                  </span>
-                )}
-
-                <p className="text-sm leading-relaxed text-foreground/80" data-testid="coach-pick-reason">{pickReason}</p>
-
-                {pickPattern && (
-                  <button
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors bg-primary/5 px-3 py-1.5 rounded-lg"
-                    onClick={(e) => { e.stopPropagation(); navigate(`/training/pattern/${pickPattern}`); }}
-                    data-testid="train-pattern-btn"
-                  >
-                    <Target className="w-3 h-3" />
-                    Practice {pickPattern.replace(/_/g, " ")} puzzles
-                  </button>
-                )}
               </div>
-            </div>
-          </motion.div>
-        )}
+            )}
 
-        {/* ── UNREVIEWED GAMES ── */}
-        {unreviewedGames.length > (pick ? 1 : 0) && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <p className="text-[10px] tracking-[0.15em] uppercase mb-2.5 font-bold text-muted-foreground/70">
-              To Review
-            </p>
-            <div className="space-y-2">
-              {unreviewedGames.filter(g => g.game_id !== pick?.game_id).map((game) => (
-                <GameCard key={game.game_id} game={game} navigate={navigate} markReviewed={markReviewed} />
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── REVIEWED GAMES ── */}
-        {reviewedGames.length > 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="mt-8">
-            <button
-              onClick={() => setShowReviewed(!showReviewed)}
-              className="flex items-center gap-2 text-[10px] tracking-[0.15em] uppercase font-bold text-muted-foreground/40 hover:text-muted-foreground transition-colors mb-2.5"
-            >
-              <Check className="w-3 h-3" strokeWidth={2} />
-              Reviewed ({reviewedGames.length})
-              <ChevronRight className={`w-3 h-3 transition-transform ${showReviewed ? 'rotate-90' : ''}`} />
-            </button>
-            {showReviewed && (
-              <div className="space-y-2">
-                {reviewedGames.map((game) => (
-                  <GameCard key={game.game_id} game={game} navigate={navigate} markReviewed={markReviewed} isReviewed />
-                ))}
+            {/* Reviewed */}
+            {reviewedGames.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowGames(!showGames)}
+                  className="flex items-center gap-2 text-[10px] tracking-[0.15em] uppercase font-bold text-muted-foreground/40 hover:text-muted-foreground transition-colors mb-2.5"
+                >
+                  <Check className="w-3 h-3" strokeWidth={2} />
+                  Reviewed ({reviewedGames.length})
+                  <ChevronRight className={`w-3 h-3 transition-transform ${showGames ? 'rotate-90' : ''}`} />
+                </button>
+                {showGames && (
+                  <div className="space-y-2">
+                    {reviewedGames.map((game) => (
+                      <GameCard key={game.game_id} game={game} navigate={navigate} markReviewed={markReviewed} isReviewed />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </motion.div>
         )}
 
-        {/* Empty state */}
-        {games.length === 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20" data-testid="lab-empty-state">
-            <div className="w-16 h-16 rounded-2xl bg-muted/50 border border-border flex items-center justify-center mx-auto mb-6">
-              <Import className="w-7 h-7 text-muted-foreground/40" strokeWidth={1.5} />
+        {/* ═══ LOCKED STATE — game list blurred behind lock ═══ */}
+        {!isUnlocked && coaching && unreviewedGames.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }}>
+            <div className="relative">
+              <div className="blur-sm opacity-30 pointer-events-none select-none">
+                <p className="text-[10px] tracking-[0.15em] uppercase mb-2.5 font-bold text-muted-foreground/70">
+                  {unreviewedGames.length} games waiting
+                </p>
+                <div className="space-y-2">
+                  {unreviewedGames.slice(0, 3).map((game) => (
+                    <GameCard key={game.game_id} game={game} navigate={navigate} markReviewed={markReviewed} />
+                  ))}
+                </div>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg px-5 py-3 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground font-medium">Complete training to unlock</span>
+                </div>
+              </div>
             </div>
-            <h2 className="text-xl font-heading font-semibold text-foreground mb-2">No games yet</h2>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-8 leading-relaxed">
-              Import your games from Chess.com or Lichess. Your coach will analyze them and tell you exactly what to work on.
-            </p>
+          </motion.div>
+        )}
+
+        {/* Import button */}
+        {totalCount > 0 && (
+          <div className="text-center pt-4">
             <button
               onClick={() => navigate("/import")}
-              className="px-6 py-3 text-sm font-semibold rounded-lg gradient-gold text-black shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:opacity-90 transition-all"
-              data-testid="lab-empty-import-btn"
+              className="text-xs text-muted-foreground/40 hover:text-muted-foreground transition-colors"
             >
-              Import your games
+              Import more games
             </button>
-          </motion.div>
+          </div>
         )}
       </div>
     </Layout>
   );
 };
 
-/* ── Game Card — richer layout with accuracy bar, badges, behavioral insight ── */
+
+/* ── Game Card ── */
 const GameCard = ({ game, navigate, markReviewed, isReviewed }) => (
   <div
-    className={`bg-card border border-border rounded-xl cursor-pointer transition-all hover:border-primary/20 group ${isReviewed ? 'opacity-60 hover:opacity-80' : ''}`}
+    className={`bg-card border border-border rounded-xl cursor-pointer transition-all hover:border-primary/20 group ${isReviewed ? 'opacity-50' : ''}`}
     onClick={() => navigate(`/game/${game.game_id}`)}
     data-testid={`game-row-${game.game_id}`}
   >
-    <div className="p-4 flex items-start gap-3.5">
-      {/* Accuracy bar */}
-      <AccuracyBar accuracy={game.accuracy} />
+    <div className="p-3.5 flex items-center gap-3">
+      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+        game.result === "W" ? "bg-emerald-500" : game.result === "L" ? "bg-red-400" : "bg-muted-foreground/40"
+      }`} />
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="text-sm font-semibold text-foreground">vs {game.opponent}</span>
-          <ResultBadge result={game.result} small />
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="text-sm font-medium text-foreground">vs {game.opponent}</span>
+          <span className={`text-[9px] px-1.5 py-0 font-bold rounded border ${
+            game.result === "W" ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/25"
+            : game.result === "L" ? "bg-red-500/15 text-red-400 border-red-500/25"
+            : "bg-muted text-muted-foreground border-border"
+          }`}>{game.result === "W" ? "W" : game.result === "L" ? "L" : "D"}</span>
+          {game.brilliant_moves > 0 && <Zap className="w-2.5 h-2.5 text-amber-400" strokeWidth={2.5} />}
           {game.termination_label && (
-            <TerminationBadge termination={game.termination} label={game.termination_label} />
-          )}
-          {game.brilliant_moves > 0 && <BrilliantBadge count={game.brilliant_moves} />}
-          {game.opening && (
-            <span className="text-xs text-muted-foreground/50 hidden sm:inline">{game.opening}</span>
+            <span className="text-[9px] text-muted-foreground/50">{game.termination_label}</span>
           )}
         </div>
-
-        {/* Coach's game story */}
-        <div className="mt-0.5">
-          {game.lesson_label && (
-            <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-primary mr-1.5">{game.lesson_label}</span>
-          )}
-          <span className="text-xs text-muted-foreground leading-relaxed">
-            {game.behavior || game.lesson || (game.accuracy >= 75 ? "Clean, solid game." : "Tap to see what your coach found.")}
-          </span>
-        </div>
+        <p className="text-xs text-muted-foreground line-clamp-1">
+          {game.behavior || game.lesson_label || game.opening || ""}
+        </p>
       </div>
 
-      {/* Right side: review button or check */}
-      {isReviewed ? (
-        <Check className="w-4 h-4 text-emerald-500/50 flex-shrink-0 mt-1" strokeWidth={2} />
-      ) : (
+      {!isReviewed ? (
         <button
           onClick={(e) => { e.stopPropagation(); markReviewed(game.game_id); }}
-          className="p-1.5 text-muted-foreground/20 hover:text-emerald-500 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
-          title="Mark as reviewed"
-          data-testid={`mark-reviewed-${game.game_id}`}
+          className="p-1 text-muted-foreground/20 hover:text-emerald-500 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+          title="Mark reviewed"
         >
-          <Check className="w-4 h-4" strokeWidth={1.5} />
+          <Check className="w-3.5 h-3.5" strokeWidth={1.5} />
         </button>
+      ) : (
+        <Check className="w-3.5 h-3.5 text-emerald-500/40 flex-shrink-0" strokeWidth={2} />
       )}
     </div>
   </div>
 );
-
-/* ── Accuracy Bar — visual accuracy indicator ── */
-const AccuracyBar = ({ accuracy }) => {
-  if (!accuracy || accuracy <= 0) {
-    return (
-      <div className="w-10 flex flex-col items-center flex-shrink-0 pt-0.5">
-        <div className="w-1.5 h-8 bg-muted rounded-full" />
-        <span className="text-[9px] text-muted-foreground/40 font-mono mt-1">—</span>
-      </div>
-    );
-  }
-
-  const color = accuracy >= 85 ? 'bg-emerald-500'
-    : accuracy >= 70 ? 'bg-emerald-400'
-    : accuracy >= 55 ? 'bg-amber-400'
-    : 'bg-red-400';
-
-  const height = Math.max(20, (accuracy / 100) * 36);
-
-  return (
-    <div className="w-10 flex flex-col items-center flex-shrink-0 pt-0.5">
-      <div className="w-1.5 h-9 bg-muted rounded-full overflow-hidden flex flex-col justify-end">
-        <div className={`w-full rounded-full ${color} transition-all`} style={{ height: `${height}px` }} />
-      </div>
-      <span className="text-[9px] font-mono text-muted-foreground mt-1">{accuracy.toFixed(0)}%</span>
-    </div>
-  );
-};
-
-/* ── Brilliant Badge ── */
-const BrilliantBadge = ({ count }) => (
-  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md border border-amber-500/20">
-    <Zap className="w-2.5 h-2.5" strokeWidth={2.5} />
-    {count > 1 ? `${count}` : ""}
-  </span>
-);
-
-/* ── Result Badge ── */
-const TerminationBadge = ({ termination, label }) => {
-  if (!label) return null;
-
-  const isTimeout = termination === "timeout";
-  const isAbandoned = termination === "abandonment";
-  const isCheckmate = termination === "checkmate";
-
-  if (isTimeout) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0 font-medium rounded-md border text-orange-400 bg-orange-500/10 border-orange-500/20">
-        <Clock className="w-2.5 h-2.5" strokeWidth={2} />
-        {label}
-      </span>
-    );
-  }
-  if (isAbandoned) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0 font-medium rounded-md border text-gray-400 bg-gray-500/10 border-gray-500/20">
-        <XCircle className="w-2.5 h-2.5" strokeWidth={2} />
-        {label}
-      </span>
-    );
-  }
-  if (isCheckmate) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0 font-medium rounded-md border text-purple-400 bg-purple-500/10 border-purple-500/20">
-        <Flag className="w-2.5 h-2.5" strokeWidth={2} />
-        {label}
-      </span>
-    );
-  }
-
-  // Generic (resignation, draw, etc.)
-  return (
-    <span className="text-[9px] px-1.5 py-0 font-medium rounded-md border text-muted-foreground bg-muted/50 border-border">
-      {label}
-    </span>
-  );
-};
-
-const ResultBadge = ({ result, small }) => {
-  const base = small ? "text-[9px] px-1.5 py-0" : "text-[10px] px-2 py-0.5";
-  const isWin = result === "W";
-  const isLoss = result === "L";
-  const cls = isWin ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/25"
-    : isLoss ? "bg-red-500/15 text-red-400 border-red-500/25"
-    : "bg-muted text-muted-foreground border-border";
-  return <span className={`${base} font-bold rounded-md border ${cls}`}>{isWin ? "WON" : isLoss ? "LOST" : "DRAW"}</span>;
-};
 
 export default Dashboard;

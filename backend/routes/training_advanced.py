@@ -381,6 +381,200 @@ def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_
 # SECTION A: Lab pick + puzzles
 # =============================================================================
 
+COACHING_INSIGHTS = {
+    "piece_safety":       "This is not about seeing the board. It's about checking before you move. You are moving too fast.",
+    "ignore_threat":      "This is not calculation. This is awareness. You are not looking at what your opponent just did.",
+    "calculation_depth":  "You see one move ahead. You need to see two. The second move is where the game is decided.",
+    "missed_tactic":      "The tactic was there. You didn't look for it. Checks, captures, threats — check every move.",
+    "tactical_oversight":  "You chose your move and stopped thinking. Your opponent's response is what matters.",
+    "king_safety":        "You attacked before your king was safe. Your opponent punished it.",
+    "time_pressure":      "You ran out of time because you spent too long on moves that didn't matter.",
+    "time_management":    "You lost on the clock, not on the board. That means you're thinking about the wrong things.",
+    "conversion":         "You had the win and gave it away. When you're ahead, simplify. Don't get creative.",
+    "endgame_technique":  "You reached an endgame you should win but didn't know how to finish it.",
+    "pawn_structure":     "You made pawn moves without thinking about the squares they leave behind.",
+    "game_abandonment":   "You quit the game. You learn nothing by quitting. Finish every game.",
+}
+
+COACHING_RULES = {
+    "piece_safety":       {"name": "Piece Safety Check",    "rule": "Before every move, ask: is anything I own under attack?"},
+    "ignore_threat":      {"name": "Threat Awareness",      "rule": "Before every move, ask: what is my opponent attacking right now?"},
+    "calculation_depth":  {"name": "Calculation Depth",     "rule": "Don't stop at your move. Ask: what will they do next?"},
+    "missed_tactic":      {"name": "Tactics Scan",          "rule": "Before deciding, check: captures, checks, threats — in that order."},
+    "tactical_oversight": {"name": "Opponent Response",     "rule": "After picking your move, pause. What can your opponent do?"},
+    "king_safety":        {"name": "King Safety First",     "rule": "Before attacking, check: is my king safe?"},
+    "time_pressure":      {"name": "Clock Discipline",      "rule": "When under 2 minutes, play simple moves. No complications."},
+    "time_management":    {"name": "Clock Management",      "rule": "Track your time. Spend it on critical moves, not obvious ones."},
+    "conversion":         {"name": "Winning Discipline",    "rule": "When ahead, trade pieces. Don't give chances."},
+    "endgame_technique":  {"name": "Endgame Activation",    "rule": "In endgames, activate your king and push passed pawns."},
+    "pawn_structure":     {"name": "Structure Awareness",   "rule": "Before pushing a pawn, ask: what square does this weaken?"},
+    "game_abandonment":   {"name": "Mental Discipline",     "rule": "Finish every game. You learn the most from losing positions."},
+}
+
+TRAINING_LOCK_TARGET = 5  # Puzzles required before unlocking game list
+
+
+async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, analyses):
+    """
+    Build the 5-section coaching structure for the Lab page.
+    Returns: { root_problem, priority_game, insight, rule, training_lock }
+    """
+    if not pattern_history:
+        return None
+
+    # ── 1. ROOT PROBLEM — most frequent + damaging pattern ──
+    # Score: frequency * damage (games where this pattern led to a loss)
+    pattern_scores = {}
+    for g in enriched_games:
+        is_loss = g.get("result") == "L"
+        was_winning = g.get("was_winning", False)
+        for gap in g.get("cognitive_gaps", []):
+            if gap not in pattern_scores:
+                pattern_scores[gap] = {"count": 0, "losses": 0, "thrown": 0}
+            pattern_scores[gap]["count"] += 1
+            if is_loss:
+                pattern_scores[gap]["losses"] += 1
+            if was_winning and is_loss:
+                pattern_scores[gap]["thrown"] += 1
+
+    if not pattern_scores:
+        return None
+
+    # Rank by: losses caused + thrown games (most damaging first)
+    ranked = sorted(pattern_scores.items(),
+                    key=lambda x: (x[1]["thrown"] * 3 + x[1]["losses"] * 2 + x[1]["count"]),
+                    reverse=True)
+
+    root_pattern = ranked[0][0]
+    root_data = ranked[0][1]
+    root_label = root_pattern.replace("_", " ").title()
+
+    total_games = len(enriched_games)
+    root_problem = {
+        "pattern": root_pattern,
+        "label": root_label,
+        "games_affected": root_data["count"],
+        "losses_caused": root_data["losses"],
+        "thrown_games": root_data["thrown"],
+        "message": f"You are losing games because of {root_label.lower()}.",
+        "detail": _root_detail(root_data, total_games),
+    }
+
+    # ── 2. PRIORITY GAME — the most painful example of this pattern ──
+    priority_game = None
+    best_pain = 0
+    for g in enriched_games:
+        if root_pattern not in g.get("cognitive_gaps", []):
+            continue
+        # Pain score: thrown > loss > draw > win. Higher cp_loss = more painful.
+        is_loss = g.get("result") == "L"
+        was_winning = g.get("was_winning", False)
+        pain = 0
+        if was_winning and is_loss:
+            pain = 100  # Thrown game — maximum pain
+        elif is_loss:
+            pain = 50
+        elif g.get("result") == "D":
+            pain = 20
+
+        if pain > best_pain:
+            best_pain = pain
+            # Find the critical moment (highest cp_loss move with this gap)
+            gid = g.get("game_id", "")
+            a = analyses.get(gid, {})
+            evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+            critical_move = None
+            max_cp = 0
+            for ev in evals:
+                if ev.get("cognitive_gap") == root_pattern and (ev.get("cp_loss", 0) or 0) > max_cp:
+                    max_cp = ev.get("cp_loss", 0) or 0
+                    critical_move = ev
+
+            desc = ""
+            if was_winning and is_loss:
+                desc = "You were winning this game."
+            elif is_loss:
+                desc = "You lost this game."
+
+            if critical_move:
+                mn = critical_move.get("move_number", "?")
+                desc += f" On move {mn}, {_describe_critical_moment(root_pattern, critical_move)}."
+
+            priority_game = {
+                "game_id": gid,
+                "opponent": g.get("opponent", "Opponent"),
+                "opening": g.get("opening", ""),
+                "result": g.get("result", ""),
+                "was_winning": was_winning,
+                "description": desc,
+                "move_number": critical_move.get("move_number") if critical_move else None,
+            }
+
+    # ── 3. COACH INSIGHT — behavioral, not technical ──
+    insight = COACHING_INSIGHTS.get(root_pattern,
+        "You are making the same mistake repeatedly. Until you fix it, nothing else matters.")
+
+    # ── 4. RULE ──
+    rule_data = COACHING_RULES.get(root_pattern, {"name": root_label, "rule": "Fix this before working on anything else."})
+
+    # ── 5. TRAINING LOCK — puzzle progress for this pattern ──
+    puzzle_progress = 0
+    try:
+        from services.community_training_service import get_user_pattern_stats
+        stats = await get_user_pattern_stats(db, user_id)
+        for s in stats:
+            if s.get("pattern") == root_pattern:
+                puzzle_progress = s.get("total_solved", 0)
+                break
+    except Exception:
+        pass
+
+    training_lock = {
+        "pattern": root_pattern,
+        "label": root_label,
+        "target": TRAINING_LOCK_TARGET,
+        "progress": min(puzzle_progress, TRAINING_LOCK_TARGET),
+        "unlocked": puzzle_progress >= TRAINING_LOCK_TARGET,
+        "message": f"Complete {TRAINING_LOCK_TARGET} {root_label} puzzles to unlock game review.",
+    }
+
+    return {
+        "root_problem": root_problem,
+        "priority_game": priority_game,
+        "insight": insight,
+        "rule": rule_data,
+        "training_lock": training_lock,
+    }
+
+
+def _root_detail(data, total_games):
+    """Generate the 'evidence' line for the root problem."""
+    parts = []
+    if data["thrown"] > 0:
+        parts.append(f"You threw {data['thrown']} winning position{'s' if data['thrown'] > 1 else ''}")
+    if data["losses"] > 0:
+        parts.append(f"it caused {data['losses']} loss{'es' if data['losses'] > 1 else ''}")
+    if parts:
+        return ". ".join(parts) + ". That is where your rating is leaking."
+    return f"This appeared in {data['count']} of your last {total_games} games."
+
+
+def _describe_critical_moment(pattern, move_data):
+    """One-line description of what happened at the critical move."""
+    move = move_data.get("move", "?")
+    best = move_data.get("best_move", "?")
+    descs = {
+        "piece_safety": f"you left a piece hanging with {move} instead of {best}",
+        "ignore_threat": f"you ignored your opponent's threat and played {move}",
+        "calculation_depth": f"you played {move} without calculating deep enough — {best} was winning",
+        "missed_tactic": f"you missed a tactic — {best} was available but you played {move}",
+        "tactical_oversight": f"you played {move} without checking your opponent's response",
+        "king_safety": f"you attacked with {move} while your king was exposed",
+        "conversion": f"you had the advantage but played {move} instead of the safe {best}",
+    }
+    return descs.get(pattern, f"you played {move} instead of {best}")
+
+
 @router.get("/lab-coach-pick")
 async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     """
@@ -659,6 +853,13 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     else:
         insight = "Steady form. Room to sharpen."
 
+    # ── COACHING SECTION — root problem, priority game, insight, rule, training lock ──
+    coaching = None
+    try:
+        coaching = await _build_lab_coaching(db, user.user_id, enriched, pattern_history, analyses)
+    except Exception as coaching_err:
+        logger.warning(f"Lab coaching section failed: {coaching_err}")
+
     return {
         "pick": pick,
         "pick_reason": pick_reason,
@@ -667,6 +868,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         "games": enriched,
         "reviewed_count": sum(1 for g in enriched if g["reviewed"]),
         "total_count": len(enriched),
+        "coaching": coaching,
     }
 
 
