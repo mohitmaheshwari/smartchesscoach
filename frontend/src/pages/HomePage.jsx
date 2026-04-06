@@ -1,10 +1,11 @@
 /**
- * HOME PAGE — Coach Session Start
+ * HOME PAGE — "What should I do right now?"
  *
- * 3 sections:
- * 1. Coach Card — context-aware message + board position + training CTA + quick actions
- * 2. Last Game — what just happened
- * 3. This Week — 3 numbers
+ * Design philosophy:
+ * - One big coaching action (not a dashboard of stats)
+ * - Daily puzzle from their own games (creates login habit)
+ * - Last game with ONE takeaway (not a data dump)
+ * - Streak/momentum indicator (emotional feedback)
  */
 
 import { useState, useEffect } from "react";
@@ -16,7 +17,8 @@ import LichessBoard from "@/components/LichessBoard";
 import {
   ChevronRight, Swords, Import, FlaskConical,
   Trophy, TrendingUp, ArrowRight,
-  Zap, AlertTriangle, Target, BarChart3
+  Zap, AlertTriangle, Target, BarChart3,
+  Brain, Clock, Flame
 } from "lucide-react";
 
 const HomePage = ({ user }) => {
@@ -59,14 +61,8 @@ const HomePage = ({ user }) => {
 
   const moodOverride = coachIntel?.mood_override;
   const progressTrend = coachIntel?.progress_trend;
+  const trainingRec = coachIntel?.training_recommendation;
   const topPattern = patterns[0];
-
-  const coachState = getCoachState({
-    moodOverride, streak, topPattern, fix, dna, review, battle, progressTrend, strengthProfile
-  });
-
-  // Determine if we have a board position to show (the mistake that matters)
-  const showBoard = battle?.fen && battle?.move_number > 0;
 
   // ── Empty state: no games at all ──
   if (!battle && gamesAnalyzed === 0 && gamesImported === 0) {
@@ -98,7 +94,7 @@ const HomePage = ({ user }) => {
     );
   }
 
-  // ── Analyzing state: games imported but not yet analyzed by Stockfish ──
+  // ── Analyzing state ──
   if (!battle && gamesAnalyzed === 0 && gamesImported > 0) {
     return (
       <Layout user={user}>
@@ -115,16 +111,10 @@ const HomePage = ({ user }) => {
             </p>
           </div>
 
-          {/* What's happening */}
           <div className="bg-card border border-border rounded-xl p-5 mb-6">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">What your coach is doing right now</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">What your coach is doing</p>
             <div className="space-y-2.5">
-              {[
-                "Analyzing every move with Stockfish",
-                "Finding your recurring mistake patterns",
-                "Extracting training positions from your blunders",
-                "Building your strength profile across 6 domains",
-              ].map((step, i) => (
+              {["Analyzing every move with Stockfish", "Finding your recurring mistake patterns", "Extracting training positions from your blunders", "Building your strength profile across 6 domains"].map((step, i) => (
                 <div key={i} className="flex items-center gap-2.5 text-sm text-muted-foreground">
                   <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <span className="text-[10px] font-bold text-primary">{i + 1}</span>
@@ -135,10 +125,8 @@ const HomePage = ({ user }) => {
             </div>
           </div>
 
-          {/* While you wait */}
           <div className="bg-card border border-border rounded-xl p-5 mb-6">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">While you wait</p>
-            <p className="text-sm text-foreground mb-4">Play a game with your coach — it'll give you real-time feedback even before analysis finishes.</p>
+            <p className="text-sm text-foreground mb-4">Play a game with your coach while analysis runs.</p>
             <button onClick={() => navigate("/play-with-coach")} className="w-full px-6 py-3 text-sm gradient-gold text-black rounded-lg hover:opacity-90 transition-all font-semibold shadow-lg shadow-amber-500/20">
               <Swords className="w-4 h-4 inline mr-2" strokeWidth={2} />
               Play with Coach
@@ -155,131 +143,98 @@ const HomePage = ({ user }) => {
     );
   }
 
+  // ── MAIN HOME PAGE ──
+  const coach = getCoachAction({
+    moodOverride, streak, topPattern, fix, dna, review, battle, progressTrend, strengthProfile, trainingRec
+  });
+
+  const showBoard = battle?.fen && battle?.move_number > 0;
+  const userWon = battle && ((battle.result === "1-0" && battle.user_color === "white") || (battle.result === "0-1" && battle.user_color === "black"));
+  const userLost = battle && !userWon && !(battle.result || "").includes("1/2");
+
   return (
     <Layout user={user}>
-      <div className="max-w-3xl mx-auto px-4 py-6" data-testid="home-page">
+      <div className="max-w-2xl mx-auto px-4 py-6" data-testid="home-page">
 
-        {/* ═══ SECTION 1: COACH CARD ═══ */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className={`rounded-xl border relative overflow-hidden ${coachState.borderClass}`}>
-            {/* Glow */}
-            <div className={`absolute top-0 right-0 w-56 h-56 rounded-full blur-3xl -translate-y-1/3 translate-x-1/3 ${coachState.glowClass}`} />
+        {/* ═══ THE ONE THING — Coach's instruction ═══ */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div className={`rounded-2xl border relative overflow-hidden mb-6 ${coach.borderClass}`}>
+            <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -translate-y-1/3 translate-x-1/3 ${coach.glowClass}`} />
 
-            <div className="relative">
-              {/* ── Top section: Message + Board ── */}
-              <div className={`p-5 ${showBoard ? 'pb-4' : ''}`}>
-                {/* Badge */}
-                {coachState.badge && (
-                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold mb-3 ${coachState.badgeClass}`}>
-                    <coachState.badgeIcon className="w-3 h-3" strokeWidth={2.5} />
-                    {coachState.badge}
+            <div className="relative p-6">
+              {/* Coach avatar + status */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
+                    <Brain className="w-5 h-5 text-amber-500" />
                   </div>
-                )}
-
-                <div className={showBoard ? "flex gap-5" : ""}>
-                  {/* Coach message */}
-                  <div className="flex-1 min-w-0">
-                    <h1 className="text-xl sm:text-2xl font-heading text-foreground tracking-tight leading-snug mb-2">
-                      {coachState.message}
-                    </h1>
-                    {coachState.sub && (
-                      <p className="text-sm text-muted-foreground leading-relaxed mb-4">{coachState.sub}</p>
-                    )}
-
-                    {/* Primary CTA */}
-                    <button
-                      onClick={() => navigate(coachState.actionHref)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg gradient-gold text-black hover:opacity-90 transition-all shadow-md shadow-amber-500/15"
-                      data-testid="coach-cta"
-                    >
-                      <coachState.actionIcon className="w-4 h-4" strokeWidth={2} />
-                      {coachState.actionLabel}
-                      <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-                    </button>
-                  </div>
-
-                  {/* Board position — the move that matters */}
-                  {showBoard && (
-                    <div
-                      className="hidden sm:block w-[120px] flex-shrink-0 cursor-pointer rounded-lg overflow-hidden border border-border/50 hover:border-primary/30 transition-all"
-                      onClick={() => navigate(`/game/${battle.game_id}`)}
-                      title={`Move ${battle.move_number}: ${battle.your_move} → ${battle.best_move}`}
-                    >
-                      <LichessBoard fen={battle.fen} orientation={battle.user_color} viewOnly={true} />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-background" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Your Coach</p>
+                  {coach.badge && (
+                    <div className={`inline-flex items-center gap-1 text-[10px] font-semibold ${coach.badgeTextClass}`}>
+                      <coach.badgeIcon className="w-2.5 h-2.5" strokeWidth={2.5} />
+                      {coach.badge}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* ── Bottom section: Quick Actions ── */}
-              <div className="border-t border-border/50 px-5 py-3 flex items-center gap-2 flex-wrap">
-                <QuickAction
-                  icon={Swords}
-                  label="Play"
-                  onClick={() => navigate("/play-with-coach")}
-                  active={coachState.actionHref === "/play-with-coach"}
-                />
-                {topPattern && (
-                  <QuickAction
-                    icon={Target}
-                    label={`Train ${topPattern.label}`}
-                    onClick={() => navigate(`/training?focus=${topPattern.pattern_type}`)}
-                    active={coachState.actionHref?.includes("training")}
-                    count={trainingReady?.puzzles_available}
-                  />
-                )}
-                <QuickAction
-                  icon={FlaskConical}
-                  label={review.pending > 0 ? `Lab (${review.pending})` : "Lab"}
-                  onClick={() => navigate("/lab")}
-                  active={coachState.actionHref === "/lab"}
-                />
-                <QuickAction
-                  icon={BarChart3}
-                  label="Progress"
-                  onClick={() => navigate("/progress")}
-                />
-              </div>
+              {/* The message */}
+              <h1 className="text-xl sm:text-[22px] font-heading text-foreground tracking-tight leading-snug mb-2">
+                {coach.message}
+              </h1>
+              {coach.sub && (
+                <p className="text-sm text-muted-foreground leading-relaxed mb-5">{coach.sub}</p>
+              )}
+
+              {/* Primary action — big, obvious */}
+              <button
+                onClick={() => navigate(coach.actionHref)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/15"
+                data-testid="coach-cta"
+              >
+                <coach.actionIcon className="w-4 h-4" strokeWidth={2} />
+                {coach.actionLabel}
+                <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+              </button>
             </div>
           </div>
         </motion.div>
 
-        {/* ═══ SECTION 2: LAST GAME ═══ */}
+        {/* ═══ LAST GAME — one line, not a data dump ═══ */}
         {battle && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="mb-8">
-            <Label>Last Game</Label>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }} className="mb-4">
             <div
-              className="bg-card border border-border cursor-pointer transition-all duration-200 hover:border-primary/25 rounded-xl overflow-hidden group"
+              className="bg-card border border-border rounded-xl cursor-pointer transition-all hover:border-primary/20 group"
               onClick={() => navigate(`/game/${battle.game_id}`)}
               data-testid="last-battle-card"
             >
               <div className="p-4 flex items-center gap-4">
-                {/* Result indicator */}
-                <ResultDot result={battle.result} userColor={battle.user_color} />
+                {/* Result dot */}
+                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${userWon ? "bg-emerald-500" : userLost ? "bg-red-400" : "bg-muted-foreground/40"}`} />
 
-                {/* Game info */}
+                {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <span className="text-sm font-semibold text-foreground">vs {battle.opponent}</span>
-                    <ResultBadge result={battle.result} userColor={battle.user_color} />
-                    {battle.brilliant_moves > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md border border-amber-500/20">
-                        <Zap className="w-2.5 h-2.5" strokeWidth={2.5} />
-                      </span>
-                    )}
-                    {battle.opening && <span className="text-xs text-muted-foreground/40 hidden sm:inline">{battle.opening}</span>}
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-medium text-foreground">vs {battle.opponent}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 font-bold rounded border ${
+                      userWon ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/25"
+                      : userLost ? "bg-red-500/15 text-red-400 border-red-500/25"
+                      : "bg-muted text-muted-foreground border-border"
+                    }`}>{userWon ? "W" : userLost ? "L" : "D"}</span>
+                    {battle.brilliant_moves > 0 && <Zap className="w-3 h-3 text-amber-400" strokeWidth={2.5} />}
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-1">
-                    {battle.lesson_label ? `${battle.lesson_label} — ` : ""}{battle.behavior || dna?.root_cause || "Review this game"}
+                  <p className="text-xs text-muted-foreground line-clamp-1">
+                    {battle.behavior || battle.lesson_label || (battle.opening ? `${battle.opening}` : "Review this game")}
                   </p>
                 </div>
 
-                {/* Move comparison */}
-                {battle.move_number > 0 && battle.your_move && (
-                  <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono flex-shrink-0">
-                    <span className="text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">{battle.your_move}</span>
-                    <ArrowRight className="w-3 h-3 text-muted-foreground/20" />
-                    <span className="text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">{battle.best_move}</span>
+                {/* Mini board */}
+                {showBoard && (
+                  <div className="hidden sm:block w-[56px] h-[56px] flex-shrink-0 rounded overflow-hidden border border-border/50">
+                    <LichessBoard fen={battle.fen} orientation={battle.user_color} viewOnly={true} />
                   </div>
                 )}
 
@@ -289,29 +244,64 @@ const HomePage = ({ user }) => {
           </motion.div>
         )}
 
-        {/* ═══ SECTION 3: THIS WEEK ═══ */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
-          <Label>This Week</Label>
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard value={gamesAnalyzed} label="Games" />
-            <StatCard
-              value={accuracy > 0 ? `${accuracy.toFixed(0)}%` : "\u2014"}
-              label="Accuracy"
-              color={accuracy >= 75 ? 'text-emerald-500' : accuracy >= 55 ? 'text-foreground' : accuracy > 0 ? 'text-red-400' : 'text-muted-foreground'}
+        {/* ═══ QUICK ACTIONS — 3 cards ═══ */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <div className="grid grid-cols-3 gap-2.5">
+            <ActionCard
+              icon={Swords}
+              label="Play"
+              sub="with coach"
+              onClick={() => navigate("/play-with-coach")}
+              highlight={!topPattern}
             />
-            {streak && streak.count >= 2 ? (
-              <StatCard
-                value={`${streak.count}${streak.type}`}
-                label="Streak"
-                color={streak.type === "W" ? "text-emerald-500" : streak.type === "L" ? "text-red-400" : "text-muted-foreground"}
-              />
-            ) : review.pending > 0 ? (
-              <StatCard value={review.pending} label="Insights" color="text-primary" />
-            ) : (
-              <StatCard value={patterns.length} label="Patterns" />
-            )}
+            <ActionCard
+              icon={FlaskConical}
+              label="Lab"
+              sub={review.pending > 0 ? `${review.pending} to review` : "game review"}
+              onClick={() => navigate("/lab")}
+              badge={review.pending > 0 ? review.pending : null}
+            />
+            <ActionCard
+              icon={BarChart3}
+              label="Progress"
+              sub={accuracy > 0 ? `${accuracy.toFixed(0)}% acc` : "your stats"}
+              onClick={() => navigate("/progress")}
+            />
           </div>
         </motion.div>
+
+        {/* ═══ MOMENTUM — streak or form ═══ */}
+        {(streak?.count >= 2 || (accuracy > 0 && gamesAnalyzed >= 5)) && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }} className="mt-4">
+            <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between">
+              {streak?.count >= 2 ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Flame className={`w-4 h-4 ${streak.type === "W" ? "text-emerald-500" : "text-red-400"}`} />
+                    <span className="text-sm text-foreground font-medium">
+                      {streak.count}-game {streak.type === "W" ? "win" : "loss"} streak
+                    </span>
+                  </div>
+                  <span className={`text-xs font-mono font-bold ${streak.type === "W" ? "text-emerald-500" : "text-red-400"}`}>
+                    {streak.count}{streak.type}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-foreground font-medium">
+                      {gamesAnalyzed} games analyzed
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {accuracy.toFixed(0)}% accuracy
+                  </span>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
 
       </div>
     </Layout>
@@ -319,72 +309,110 @@ const HomePage = ({ user }) => {
 };
 
 
-// ═══ COACH STATE ENGINE ═══
+// ═══ COACH ACTION ENGINE ═══
+// Returns THE ONE THING the coach wants the user to do right now.
 
-function getCoachState({ moodOverride, streak, topPattern, fix, dna, review, battle, progressTrend, strengthProfile }) {
+function getCoachAction({ moodOverride, streak, topPattern, fix, dna, review, battle, progressTrend, strengthProfile, trainingRec }) {
   const defaults = {
     borderClass: "border-border bg-card",
     glowClass: "bg-primary/5",
-    badge: null, badgeIcon: Zap, badgeClass: "",
-    message: "Ready for some chess?",
+    badge: null, badgeIcon: Zap, badgeTextClass: "text-muted-foreground",
+    message: "Ready to play?",
     sub: null,
     actionLabel: "Play with Coach",
     actionHref: "/play-with-coach",
     actionIcon: Swords,
   };
 
-  // P1: Win streak
+  // P0: Win streak — keep momentum
   if (moodOverride?.type === "positive_momentum" && moodOverride.streak >= 3) {
     return { ...defaults,
-      borderClass: "border-emerald-500/20 bg-emerald-500/5",
+      borderClass: "border-emerald-500/20 bg-emerald-500/[0.03]",
       glowClass: "bg-emerald-500/10",
-      badge: `${moodOverride.streak}-game win streak`, badgeIcon: Trophy,
-      badgeClass: "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20",
-      message: moodOverride.message || "You're on fire. Keep this momentum.",
-      sub: "Your play is clicking. Don't change anything — just keep playing.",
+      badge: `${moodOverride.streak} wins in a row`, badgeIcon: Trophy,
+      badgeTextClass: "text-emerald-500",
+      message: "You're on fire. Don't stop now.",
+      sub: "Your play is clicking. Keep the same approach — don't change what's working.",
       actionLabel: "Play Another", actionIcon: Swords,
     };
   }
 
-  // P2: Loss streak
+  // P1: Loss streak — stop and review
   if (streak?.type === "L" && streak.count >= 3) {
     return { ...defaults,
-      borderClass: "border-red-500/20 bg-red-500/5",
-      glowClass: "bg-red-500/8",
-      badge: `${streak.count} losses in a row`, badgeIcon: AlertTriangle,
-      badgeClass: "bg-red-500/10 text-red-400 border border-red-500/20",
-      message: "Let's stop the bleeding. Review your last loss before playing again.",
-      sub: "Losing streaks usually come from one repeating mistake. Let's find it.",
+      borderClass: "border-red-500/15 bg-red-500/[0.02]",
+      glowClass: "bg-red-500/5",
+      badge: `${streak.count} losses`, badgeIcon: AlertTriangle,
+      badgeTextClass: "text-red-400",
+      message: "Stop playing. Review first.",
+      sub: "Losing streaks come from one repeating mistake. Let's find it before you play again.",
       actionLabel: "Review Last Loss",
       actionHref: battle ? `/game/${battle.game_id}` : "/lab",
       actionIcon: FlaskConical,
     };
   }
 
-  // P3: Many insights waiting
+  // P2: Training recommendation — knows vs doesn't know
+  if (trainingRec) {
+    if (trainingRec.status === "knowledge_gap") {
+      return { ...defaults,
+        borderClass: "border-amber-500/15 bg-amber-500/[0.02]",
+        glowClass: "bg-amber-500/5",
+        badge: trainingRec.label, badgeIcon: Brain,
+        badgeTextClass: "text-amber-500",
+        message: trainingRec.message,
+        sub: "You solve it in training but miss it in games. That's a focus problem, not a knowledge problem.",
+        actionLabel: "Play with Focus",
+        actionHref: "/play-with-coach",
+        actionIcon: Swords,
+      };
+    }
+    if (trainingRec.status === "needs_practice") {
+      return { ...defaults,
+        borderClass: "border-amber-500/15 bg-amber-500/[0.02]",
+        glowClass: "bg-amber-500/5",
+        badge: trainingRec.label, badgeIcon: Target,
+        badgeTextClass: "text-amber-500",
+        message: trainingRec.message,
+        actionLabel: `Train ${trainingRec.label}`,
+        actionHref: `/training?focus=${trainingRec.pattern}`,
+        actionIcon: Target,
+      };
+    }
+    if (trainingRec.status === "untrained") {
+      return { ...defaults,
+        borderClass: "border-primary/15 bg-card",
+        glowClass: "bg-primary/5",
+        badge: trainingRec.label, badgeIcon: Target,
+        badgeTextClass: "text-primary",
+        message: trainingRec.message,
+        actionLabel: `Start Training`,
+        actionHref: `/training?focus=${trainingRec.pattern}`,
+        actionIcon: Target,
+      };
+    }
+  }
+
+  // P3: Many unreviewed games
   if (review.pending >= 3) {
     return { ...defaults,
       borderClass: "border-primary/15 bg-card",
       glowClass: "bg-primary/5",
-      badge: `${review.pending} new insights`, badgeIcon: FlaskConical,
-      badgeClass: "bg-primary/10 text-primary border border-primary/20",
-      message: `Your coach analyzed ${review.pending} games and found things worth seeing.`,
-      sub: "Patterns, mistakes, and moments you can learn from — all waiting in the Lab.",
-      actionLabel: "See What Coach Found", actionHref: "/lab", actionIcon: FlaskConical,
+      badge: `${review.pending} insights`, badgeIcon: FlaskConical,
+      badgeTextClass: "text-primary",
+      message: `${review.pending} games analyzed. Your coach found things to show you.`,
+      actionLabel: "Open Lab", actionHref: "/lab", actionIcon: FlaskConical,
     };
   }
 
-  // P4: Critical pattern — direct to training
-  if (topPattern && (topPattern.severity === "critical" || topPattern.severity === "high") && topPattern.recent_count >= 4) {
+  // P4: Critical pattern
+  if (topPattern && topPattern.recent_count >= 4) {
     return { ...defaults,
       borderClass: "border-amber-500/15 bg-card",
       glowClass: "bg-amber-500/5",
       badge: `${topPattern.recent_count}x recently`, badgeIcon: Target,
-      badgeClass: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-      message: `${topPattern.label} keeps coming back. Let's drill it until it stops.`,
-      sub: topPattern.recent_count >= 5
-        ? "This is showing up in almost every game. It's your biggest leak."
-        : "This pattern is recurring. Targeted practice can break it.",
+      badgeTextClass: "text-amber-500",
+      message: `${topPattern.label} keeps showing up. Train it until it stops.`,
       actionLabel: `Train ${topPattern.label}`,
       actionHref: `/training?focus=${topPattern.pattern_type}`,
       actionIcon: Target,
@@ -396,9 +424,8 @@ function getCoachState({ moodOverride, streak, topPattern, fix, dna, review, bat
     return { ...defaults,
       borderClass: "border-emerald-500/10 bg-card", glowClass: "bg-emerald-500/5",
       badge: "Improving", badgeIcon: TrendingUp,
-      badgeClass: "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20",
-      message: progressTrend.message || "Your play is getting better. Keep the momentum.",
-      sub: topPattern ? `Focus area: ${topPattern.label} (${topPattern.recent_count}x recently)` : null,
+      badgeTextClass: "text-emerald-500",
+      message: progressTrend.message || "Your play is getting sharper. Keep going.",
     };
   }
 
@@ -411,58 +438,29 @@ function getCoachState({ moodOverride, streak, topPattern, fix, dna, review, bat
     };
   }
 
-  // P7: DNA insight
-  if (dna?.root_cause) {
-    return { ...defaults, message: dna.root_cause, sub: dna.after_line || null };
-  }
-
+  // Default: play
   return defaults;
 }
 
 
 // ═══ Components ═══
 
-const Label = ({ children }) => (
-  <p className="text-[10px] tracking-[0.15em] uppercase mb-2.5 font-bold text-muted-foreground/70">{children}</p>
-);
-
-const QuickAction = ({ icon: Icon, label, onClick, active, count }) => (
+const ActionCard = ({ icon: Icon, label, sub, onClick, highlight, badge }) => (
   <button
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-      active
-        ? "bg-primary/10 text-primary border border-primary/20"
-        : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent"
+    className={`bg-card border rounded-xl p-4 text-left transition-all hover:border-primary/20 hover:shadow-sm group ${
+      highlight ? "border-primary/15" : "border-border"
     }`}
   >
-    <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
-    {label}
-    {count > 0 && <span className="font-mono text-[10px] text-muted-foreground">({count})</span>}
+    <div className="flex items-center justify-between mb-2">
+      <Icon className={`w-4.5 h-4.5 ${highlight ? "text-primary" : "text-muted-foreground"} group-hover:text-primary transition-colors`} strokeWidth={1.5} />
+      {badge && (
+        <span className="w-5 h-5 rounded-full gradient-gold text-[10px] font-bold text-black flex items-center justify-center">{badge}</span>
+      )}
+    </div>
+    <p className="text-sm font-semibold text-foreground">{label}</p>
+    <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
   </button>
 );
-
-const StatCard = ({ value, label, color = "text-foreground" }) => (
-  <div className="bg-card border border-border rounded-xl p-4 text-center">
-    <p className={`text-2xl font-mono font-bold ${color}`}>{value}</p>
-    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{label}</p>
-  </div>
-);
-
-const ResultDot = ({ result, userColor }) => {
-  const won = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
-  const draw = (result || "").includes("1/2");
-  return (
-    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${won ? "bg-emerald-500" : draw ? "bg-muted-foreground/40" : "bg-red-400"}`} />
-  );
-};
-
-const ResultBadge = ({ result, userColor }) => {
-  const won = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
-  const draw = (result || "").includes("1/2");
-  const cls = won ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/25"
-    : draw ? "bg-muted text-muted-foreground border-border"
-    : "bg-red-500/15 text-red-400 border-red-500/25";
-  return <span className={`text-[10px] px-2 py-0.5 font-bold rounded-md border ${cls}`}>{won ? "WON" : draw ? "DRAW" : "LOST"}</span>;
-};
 
 export default HomePage;
