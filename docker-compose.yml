@@ -45,7 +45,7 @@ services:
     environment:
       - MONGO_URL=mongodb://admin_user_mii_s_c:Mii123$44$@mongodb:27017
       - DB_NAME=chess_coach
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-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}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://chessguru.ai/api/auth/google/callback}
