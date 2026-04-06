@@ -200,9 +200,19 @@ const ThinkingTraining = ({ user }) => {
               setSessionSolved((p) => p + 1);
               setLastMove([from, to]);
               setArrows([[from, to, "green"]]);
+            } else if (result.near_miss) {
+              setSolveState("near_miss");
+              setLastMove([from, to]);
+              const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
+              const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
+              setArrows([
+                [from, to, "blue"],
+                ...(correctFrom && correctTo
+                  ? [[correctFrom, correctTo, "green"]]
+                  : []),
+              ]);
             } else {
               setSolveState("incorrect");
-              // Show what was correct
               const correctFrom = currentFiltered.best_move_uci?.slice(0, 2);
               const correctTo = currentFiltered.best_move_uci?.slice(2, 4);
               setArrows([
@@ -608,6 +618,70 @@ const ThinkingTraining = ({ user }) => {
                 </motion.div>
               )}
 
+              {/* NEAR MISS — good move, but not the best */}
+              {solveState === "near_miss" && (
+                <motion.div
+                  key="near_miss"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                >
+                  <Card className="bg-blue-500/5 border-blue-500/30" data-testid="solve-near-miss">
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-blue-500" />
+                        <h2 className="font-heading text-blue-600 dark:text-blue-400">Good Move — But There's Better</h2>
+                      </div>
+
+                      <p className="text-sm text-muted-foreground">
+                        Your move{" "}
+                        <span className="font-mono text-blue-600 dark:text-blue-400">{solveResult?.user_move_san}</span>{" "}
+                        is a strong choice. But the best was{" "}
+                        <span className="font-mono text-emerald-600">{solveResult?.correct_move}</span>.
+                      </p>
+
+                      {/* Show why the best is better */}
+                      {solveResult?.explanation && (
+                        <div className="space-y-2 p-3 rounded-lg bg-blue-500/5 border border-blue-500/15">
+                          <p className="text-sm text-foreground">{solveResult.explanation.why_best}</p>
+                          {solveResult.explanation.continuation?.length > 0 && (
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">What happens next</p>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {solveResult.explanation.continuation.map((m, i) => (
+                                  <span key={i} className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                                    m.by === "you" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-red-500/10 text-red-500 dark:text-red-400"
+                                  }`}>{m.move}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="border-t border-blue-500/10 pt-2">
+                            <p className="text-xs text-muted-foreground"><span className="font-medium text-blue-500">Takeaway:</span> {solveResult.explanation.lesson}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <CandidateMoves candidates={solveResult?.candidates} />
+
+                      <div className="flex gap-2">
+                        {hasNext && (
+                          <Button onClick={nextPosition} className="flex-1 bg-blue-600 hover:bg-blue-700" data-testid="next-btn">
+                            Next Position
+                            <ChevronRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        )}
+                        {!hasNext && (
+                          <Button onClick={refreshFeed} className="flex-1" data-testid="refresh-btn">
+                            <RotateCcw className="w-4 h-4 mr-2" />
+                            More Positions
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
               {/* INCORRECT */}
               {solveState === "incorrect" && (
                 <motion.div
@@ -685,29 +759,36 @@ const ThinkingTraining = ({ user }) => {
                         </div>
                       )}
 
-                      {/* WHY this was the best move — position specific */}
+                      {/* WHY this was the best move — only show parts not already in comparison */}
                       {solveResult?.explanation && (
                         <div className="space-y-2 p-3 rounded-lg bg-muted/50 border border-border">
-                          <p className="text-sm text-foreground">{solveResult.explanation.why_best}</p>
+                          {/* Only show why_best if there's no comparison card (avoids repeating) */}
+                          {!solveResult?.comparison && (
+                            <p className="text-sm text-foreground">{solveResult.explanation.why_best}</p>
+                          )}
 
-                          {/* The continuation */}
+                          {/* Continuation moves — always useful */}
                           {solveResult.explanation.continuation?.length > 0 && (
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {solveResult.explanation.continuation.map((m, i) => (
-                                <span key={i} className={`text-xs font-mono px-1.5 py-0.5 rounded ${
-                                  m.by === "you" ? "bg-emerald-500/20 text-emerald-700" : "bg-red-500/10 text-red-500"
-                                }`}>
-                                  {m.move}
-                                </span>
-                              ))}
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">What happens next</p>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {solveResult.explanation.continuation.map((m, i) => (
+                                  <span key={i} className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                                    m.by === "you" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-red-500/10 text-red-500 dark:text-red-400"
+                                  }`}>
+                                    {m.move}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           )}
 
-                          {/* The trap */}
-                          {solveResult.explanation.trap && (
+                          {/* Trap — only show if no comparison (comparison already explains why your move is bad) */}
+                          {!solveResult?.comparison && solveResult.explanation.trap && (
                             <p className="text-xs text-amber-600 italic">{solveResult.explanation.trap}</p>
                           )}
 
+                          {/* Lesson — always show */}
                           <div className="border-t border-border pt-2">
                             <p className="text-xs text-muted-foreground"><span className="font-medium text-primary">Lesson:</span> {solveResult.explanation.lesson}</p>
                           </div>

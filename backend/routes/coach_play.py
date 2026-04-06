@@ -2044,18 +2044,38 @@ async def get_interactive_coaching(
             except Exception as adapt_err:
                 logger.debug(f"Mid-game adaptation failed (non-fatal): {adapt_err}")
 
-            # === PATTERN MEMORY INJECTION ===
-            # "You've missed forks 3 times this week" — makes the coach feel like it remembers
+            # === PATTERN MEMORY + STRENGTH AWARENESS ===
+            # Adapts coaching based on what user knows vs doesn't know
             if coaching.severity in ("mistake", "blunder", "inaccuracy") and cp_loss >= 100:
                 try:
                     from services.pattern_memory_service import get_pattern_for_mistake
-                    
-                    # Map coaching concept_id or severity to a cognitive gap
+
                     cognitive_gap = coaching.concept_id or coaching.severity
                     pattern_data = await get_pattern_for_mistake(db, user.user_id, cognitive_gap)
-                    
+
                     if pattern_data and pattern_data.get("confrontation_message"):
-                        coaching_dict["pattern_memory"] = pattern_data["confrontation_message"]
+                        # Check if user has been TRAINING this pattern and doing well
+                        try:
+                            from services.community_training_service import get_user_pattern_stats
+                            puzzle_stats = await get_user_pattern_stats(db, user.user_id)
+                            puzzle_map = {s["pattern"]: s for s in puzzle_stats}
+                            gap_stats = puzzle_map.get(cognitive_gap)
+
+                            if gap_stats and gap_stats.get("total_attempts", 0) >= 3:
+                                solve_rate = gap_stats.get("solve_rate", 0)
+                                if solve_rate >= 70:
+                                    # They KNOW this pattern but still missed it in-game
+                                    coaching_dict["pattern_memory"] = (
+                                        f"You know this pattern — you solve it in training. "
+                                        f"This was a focus lapse, not a knowledge gap. Slow down."
+                                    )
+                                else:
+                                    # They're still learning this pattern
+                                    coaching_dict["pattern_memory"] = pattern_data["confrontation_message"]
+                            else:
+                                coaching_dict["pattern_memory"] = pattern_data["confrontation_message"]
+                        except Exception:
+                            coaching_dict["pattern_memory"] = pattern_data["confrontation_message"]
                 except Exception as pm_err:
                     logger.warning(f"Pattern memory injection failed (non-critical): {pm_err}")
             

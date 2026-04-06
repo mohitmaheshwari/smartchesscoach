@@ -189,12 +189,18 @@ const Onboarding = () => {
   // INSTANT DNA SCREEN (shown before Stockfish completes)
   // ──────────────────────────────────────────────────
   if (instantDNA && instantDNA.has_data) {
+    // After DNA reveal, send user directly to training with their top weakness
+    // This is the "value in 2 minutes" moment
+    const topWeakness = instantDNA.top_weakness || instantDNA.primary_pattern;
+    const trainingUrl = topWeakness ? `/training?focus=${topWeakness}` : "/training";
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="w-full max-w-lg py-8">
           <InstantDNA
             data={instantDNA}
-            onContinue={() => navigate("/home")}
+            onContinue={() => navigate(trainingUrl)}
+            ctaLabel="Start Training Your Weakness"
           />
         </div>
       </div>
@@ -248,8 +254,12 @@ const Onboarding = () => {
           </div>
         )}
 
-        <WineButton onClick={() => { window.sessionStorage.removeItem("demo_mode_bypass"); navigate("/training"); }} testId="start-training-btn">
-          Start Fixing This <ArrowRight className="w-4 h-4 ml-1.5" />
+        <WineButton onClick={() => {
+          window.sessionStorage.removeItem("demo_mode_bypass");
+          const pattern = primaryPattern ? primaryPattern[0] : "";
+          navigate(pattern ? `/training?focus=${pattern}` : "/training");
+        }} testId="start-training-btn">
+          Start Training This <ArrowRight className="w-4 h-4 ml-1.5" />
         </WineButton>
       </Shell>
     );

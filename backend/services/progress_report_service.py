@@ -138,6 +138,8 @@ async def _compute_weakness_trends_v2(db, user_id, stats):
         return _compute_weakness_trends_fallback(stats)
 
     trends = []
+    total_games = len(stats)
+
     for p in patterns:
         total = p.get("total_count", 0)
         recent = p.get("recent_count", 0)
@@ -147,6 +149,10 @@ async def _compute_weakness_trends_v2(db, user_id, stats):
         if total < 2:
             continue
 
+        # If pattern appears in 80%+ of games, downgrade the messaging.
+        # It's not a specific weakness — it's normal play at this level.
+        is_universal = total_games >= 5 and total / total_games >= 0.8
+
         # Direction from rate comparison
         # recent_count is from the last N games, total_count is all-time
         # If recent rate is much lower than overall rate → improving
@@ -154,19 +160,23 @@ async def _compute_weakness_trends_v2(db, user_id, stats):
         total_games = len(stats)
         older_games = max(total_games - recent_games, 1)
 
-        if older > 0:
+        if is_universal:
+            # This shows up in almost every game — reframe as general area, not alarming weakness
+            direction = "general"
+            message = f"Common at your level. Focus on reducing the big ones, not eliminating all of them."
+        elif older > 0:
             older_rate = older / older_games
             recent_rate = recent / max(recent_games, 1)
 
             if recent_rate < older_rate * 0.6:
                 direction = "improving"
-                message = f"Showing up less in recent games. Down to {recent}x in your last {recent_games} games."
+                message = f"Showing up less. Down to {recent}x in your last {recent_games} games."
             elif recent_rate > older_rate * 1.4:
                 direction = "worsening"
-                message = f"Getting worse. {recent}x in your last {recent_games} games."
+                message = f"Increasing. {recent}x in your last {recent_games} games."
             else:
                 direction = "stable"
-                message = f"Still present. {recent}x in your last {recent_games} games."
+                message = f"Steady. {recent}x in your last {recent_games} games."
         else:
             direction = "stable"
             message = f"{recent}x in your last {recent_games} games."
@@ -178,10 +188,11 @@ async def _compute_weakness_trends_v2(db, user_id, stats):
             "recent": recent,
             "direction": direction,
             "message": message,
+            "is_universal": is_universal,
         })
 
-    # Sort by recent count (most urgent first), limit to top 5
-    trends.sort(key=lambda t: -t["recent"])
+    # Sort: specific weaknesses first (not universal), then by recent count
+    trends.sort(key=lambda t: (t.get("is_universal", False), -t["recent"]))
     return trends[:5]
 
 

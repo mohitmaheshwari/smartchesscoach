@@ -102,29 +102,54 @@ const HomePage = ({ user }) => {
   if (!battle && gamesAnalyzed === 0 && gamesImported > 0) {
     return (
       <Layout user={user}>
-        <div className="max-w-xl mx-auto px-4 py-16 text-center" data-testid="home-page">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
-            <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <div className="max-w-xl mx-auto px-4 py-16" data-testid="home-page">
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
+            <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">
+              Analyzing {gamesImported} games
+            </h1>
+            <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">
+              Your coach is studying every move. This takes a few minutes.
+            </p>
           </div>
-          <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">
-            Analyzing {gamesImported} games...
-          </h1>
-          <p className="text-muted-foreground mb-6 text-sm leading-relaxed max-w-sm mx-auto">
-            Your coach is running deep analysis on every game. This takes a few minutes.
-            You can play or explore while it works.
-          </p>
-          <div className="flex gap-3 justify-center mb-8">
-            <button onClick={() => navigate("/play-with-coach")} className="px-6 py-3 text-sm gradient-gold text-black rounded-lg hover:opacity-90 transition-all font-semibold shadow-lg shadow-amber-500/20">
+
+          {/* What's happening */}
+          <div className="bg-card border border-border rounded-xl p-5 mb-6">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">What your coach is doing right now</p>
+            <div className="space-y-2.5">
+              {[
+                "Analyzing every move with Stockfish",
+                "Finding your recurring mistake patterns",
+                "Extracting training positions from your blunders",
+                "Building your strength profile across 6 domains",
+              ].map((step, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[10px] font-bold text-primary">{i + 1}</span>
+                  </div>
+                  {step}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* While you wait */}
+          <div className="bg-card border border-border rounded-xl p-5 mb-6">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">While you wait</p>
+            <p className="text-sm text-foreground mb-4">Play a game with your coach — it'll give you real-time feedback even before analysis finishes.</p>
+            <button onClick={() => navigate("/play-with-coach")} className="w-full px-6 py-3 text-sm gradient-gold text-black rounded-lg hover:opacity-90 transition-all font-semibold shadow-lg shadow-amber-500/20">
               <Swords className="w-4 h-4 inline mr-2" strokeWidth={2} />
               Play with Coach
             </button>
-            <button onClick={() => window.location.reload()} className="px-6 py-3 text-sm text-foreground border border-border rounded-lg hover:bg-card transition-all">
-              Refresh
+          </div>
+
+          <div className="text-center">
+            <button onClick={() => window.location.reload()} className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              Check if analysis is ready
             </button>
           </div>
-          <p className="text-xs text-muted-foreground/50 font-mono">
-            {gamesImported} games imported, waiting for analysis
-          </p>
         </div>
       </Layout>
     );

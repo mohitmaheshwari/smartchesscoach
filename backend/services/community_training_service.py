@@ -315,7 +315,7 @@ async def get_training_feed(
     user_rating = 1200
     if profile:
         user_rating = profile.get("current_rating") or profile.get("estimated_rating") or 1200
-    
+
     # Get positions user already solved
     solved_ids = set()
     solved_attempts = await db.training_solve_attempts.find(
@@ -323,14 +323,24 @@ async def get_training_feed(
         {"position_id": 1, "_id": 0}
     ).to_list(500)
     solved_ids = {a["position_id"] for a in solved_attempts}
-    
+
+    # ── SMART PATTERN SELECTION ──
+    # When no specific pattern is requested, pick the pattern the user needs most.
+    # Based on: what they get wrong in games + what they fail in puzzles.
+    recommended_pattern = None
+    if not pattern_filter:
+        recommended_pattern = await _pick_priority_pattern(db, user_id)
+
     own_limit = max(2, limit * 2 // 5)  # ~40%
     community_limit = max(0, limit - own_limit)
-    
+
     # 1. Fetch user's own positions (most recent first)
     own_query = {"source_user_id": user_id}
     if pattern_filter:
         own_query["pattern_type"] = pattern_filter
+    elif recommended_pattern:
+        # Serve mostly from the weak pattern, but allow some variety
+        own_query["pattern_type"] = recommended_pattern
     if solved_ids:
         own_query["position_id"] = {"$nin": list(solved_ids)}
     
@@ -353,6 +363,8 @@ async def get_training_feed(
     }
     if pattern_filter:
         community_query["pattern_type"] = pattern_filter
+    elif recommended_pattern:
+        community_query["pattern_type"] = recommended_pattern
     if solved_ids:
         community_query["position_id"] = {"$nin": list(solved_ids)}
     
@@ -440,7 +452,80 @@ async def get_training_feed(
         "community_count": len(community_positions),
         "user_rating": user_rating,
         "pattern_stats": pattern_stats,
+        "recommended_pattern": recommended_pattern,
     }
+
+
+async def _pick_priority_pattern(db, user_id: str) -> Optional[str]:
+    """
+    Decide which pattern the user should train RIGHT NOW.
+
+    Logic:
+    1. Get patterns that appear in games (from pattern memory)
+    2. Get puzzle solve rates per pattern
+    3. Priority = frequent in games + low solve rate in puzzles
+       → This is the pattern they keep making AND can't solve when shown
+
+    If user has no puzzle data yet, fall back to most frequent game pattern.
+    If user has mastered their frequent patterns (solve rate > 75%), pick next one.
+    """
+    # Get game patterns (what they get wrong)
+    game_patterns = {}
+    try:
+        from services.pattern_memory_service import get_pattern_summary
+        summary = await get_pattern_summary(db, user_id)
+        for p in summary.get("patterns", []):
+            pt = p.get("pattern_type", "")
+            if pt:
+                game_patterns[pt] = p.get("recent_count", 0)
+    except Exception:
+        pass
+
+    if not game_patterns:
+        return None
+
+    # Get puzzle solve rates
+    puzzle_rates = {}
+    try:
+        stats = await get_user_pattern_stats(db, user_id)
+        for s in stats:
+            pt = s.get("pattern", "")
+            if pt and s.get("total_attempts", 0) >= 2:
+                puzzle_rates[pt] = s.get("solve_rate", 50)
+    except Exception:
+        pass
+
+    # Score each pattern: high game frequency + low solve rate = high priority
+    scored = []
+    for pattern, game_count in game_patterns.items():
+        solve_rate = puzzle_rates.get(pattern, 50)  # Default 50% if no puzzle data
+
+        # Priority formula:
+        # - game_count matters (frequent pattern = urgent)
+        # - low solve rate matters (can't fix it yet = needs more practice)
+        # - mastered patterns (solve > 75%) get deprioritized
+        if solve_rate >= 75 and puzzle_rates.get(pattern) is not None:
+            priority = game_count * 0.3  # Mastered — low priority
+        else:
+            priority = game_count * (100 - solve_rate) / 50  # Frequent + hard = highest
+
+        scored.append((pattern, priority))
+
+    scored.sort(key=lambda x: -x[1])
+
+    # Check if there are positions available for the top pattern
+    for pattern, _ in scored[:3]:
+        count = await db.community_training_positions.count_documents({
+            "pattern_type": pattern,
+            "$or": [
+                {"source_user_id": user_id},
+                {"source_user_id": {"$ne": user_id}},
+            ]
+        })
+        if count > 0:
+            return pattern
+
+    return None
 
 
 async def record_solve_attempt(
@@ -466,8 +551,9 @@ async def record_solve_attempt(
     fen = position["fen"]
     
     solved = False
+    near_miss = False  # Player's move is good (top 2-3) but not THE best
     user_move_uci = None
-    
+
     try:
         board = chess.Board(fen)
         # Try parsing as SAN first
@@ -482,20 +568,21 @@ async def record_solve_attempt(
                     user_move_uci = user_move
             except Exception:
                 pass
-        
+
         # Check if correct (compare both SAN and UCI)
         if user_move_uci:
             solved = (user_move_uci == best_move_uci) or (user_move == best_move_san)
     except Exception as e:
         logger.warning(f"Error checking move: {e}")
     
-    # Record the attempt
+    # Record the attempt (near_miss counts as partial understanding)
     attempt = {
         "user_id": user_id,
         "position_id": position_id,
         "user_move": user_move,
         "user_move_uci": user_move_uci,
         "solved": solved,
+        "near_miss": near_miss,
         "time_taken_seconds": time_taken_seconds,
         "pattern_type": position.get("pattern_type", "tactical"),
         "attempted_at": datetime.now(timezone.utc).isoformat(),
@@ -612,13 +699,31 @@ async def record_solve_attempt(
     except Exception as e:
         logger.warning(f"Could not generate candidates: {e}")
 
+    # Check if user's move is a candidate (near miss — good but not best)
+    if not solved and user_move_uci and candidates:
+        try:
+            board_check = chess.Board(fen)
+            user_san = board_check.san(chess.Move.from_uci(user_move_uci))
+            for cand in candidates:
+                if cand["move"] == user_san and not cand["is_best"]:
+                    # User played a top engine move, just not THE best
+                    best_eval = max((c["eval_cp"] for c in candidates if c["is_best"]), default=0)
+                    user_eval = cand["eval_cp"]
+                    eval_diff = abs(best_eval - user_eval)
+                    # If within 50cp of best, it's a near miss (good move)
+                    if eval_diff <= 50:
+                        near_miss = True
+                    break
+        except Exception:
+            pass
+
     # Generate WHY explanation tied to the pattern/focus
     pattern_type = position.get("pattern_type", "tactical")
-    explanation = _get_pattern_explanation(pattern_type, best_move_san, fen, solved)
+    explanation = _get_pattern_explanation(pattern_type, best_move_san, fen, solved or near_miss)
 
     # Analyze the user's wrong move — what's bad about it + opponent's punishment
     your_move_analysis = None
-    if not solved and user_move_uci:
+    if not solved and not near_miss and user_move_uci:
         try:
             from services.move_intent_analyzer import analyze_move_intent
             board_copy = chess.Board(fen)
@@ -678,6 +783,7 @@ async def record_solve_attempt(
 
     return {
         "solved": solved,
+        "near_miss": near_miss,
         "correct_move": best_move_san,
         "correct_move_uci": best_move_uci,
         "user_move_san": user_move,

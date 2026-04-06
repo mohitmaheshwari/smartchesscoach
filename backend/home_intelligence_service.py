@@ -274,6 +274,56 @@ def generate_active_advice(
 # MAIN SERVICE FUNCTION
 # ============================================
 
+async def _get_training_recommendation(db, user_id: str, recurring_patterns: list) -> Optional[Dict]:
+    """
+    Combine game weakness data + puzzle solve data to recommend what to train.
+    Returns a focused recommendation the coach can use.
+    """
+    try:
+        from services.community_training_service import get_user_pattern_stats
+
+        puzzle_stats = await get_user_pattern_stats(db, user_id)
+        puzzle_map = {s["pattern"]: s for s in puzzle_stats}
+
+        if not recurring_patterns:
+            return None
+
+        for rp in recurring_patterns[:3]:
+            pattern = rp.get("pattern", "")
+            game_count = rp.get("count", 0)
+            ps = puzzle_map.get(pattern)
+
+            if ps and ps.get("total_attempts", 0) >= 3:
+                solve_rate = ps.get("solve_rate", 0)
+                if solve_rate >= 75:
+                    # They know it in training but still fail in games
+                    return {
+                        "pattern": pattern,
+                        "label": pattern.replace("_", " ").title(),
+                        "status": "knowledge_gap",
+                        "message": f"You can solve {pattern.replace('_', ' ')} puzzles — but it's still showing up in your games. Play slower and look for it.",
+                    }
+                else:
+                    # They can't solve it AND it shows in games — needs practice
+                    return {
+                        "pattern": pattern,
+                        "label": pattern.replace("_", " ").title(),
+                        "status": "needs_practice",
+                        "message": f"{pattern.replace('_', ' ').title()} keeps showing up. Train it until it clicks.",
+                    }
+            else:
+                # No puzzle data — hasn't trained this yet
+                return {
+                    "pattern": pattern,
+                    "label": pattern.replace("_", " ").title(),
+                    "status": "untrained",
+                    "message": f"You keep making {pattern.replace('_', ' ')} mistakes. Start training it — puzzles from your own games are waiting.",
+                }
+    except Exception:
+        pass
+    return None
+
+
 async def get_home_intelligence(db, user_id: str) -> Dict:
     """
     Generate the complete home intelligence data for a user.
@@ -543,6 +593,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         "last_session": last_session_info,
         "win_streak": win_streak_data,
         "mood_override": mood_override,
+        "training_recommendation": await _get_training_recommendation(db, user_id, recurring_patterns),
         "stats": {
             "blunders_per_game": round(blunders_per_game, 2),
             "mistakes_per_game": round(mistakes_per_game, 2),

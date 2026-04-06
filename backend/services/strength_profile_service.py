@@ -415,6 +415,50 @@ def _empty_profile() -> Dict:
     }
 
 
+async def _get_puzzle_strength_data(db, user_id: str) -> Optional[Dict]:
+    """
+    Get puzzle solve rates per pattern type.
+    This is direct evidence of what the user understands.
+    """
+    pipeline = [
+        {"$match": {"user_id": user_id}},
+        {"$group": {
+            "_id": "$pattern_type",
+            "attempts": {"$sum": 1},
+            "solved": {"$sum": {"$cond": [{"$eq": ["$solved", True]}, 1, 0]}},
+        }},
+        {"$project": {
+            "pattern": "$_id",
+            "attempts": 1,
+            "solved": 1,
+            "solve_rate": {
+                "$cond": [
+                    {"$gt": ["$attempts", 0]},
+                    {"$round": [{"$multiply": [{"$divide": ["$solved", "$attempts"]}, 100]}, 0]},
+                    0
+                ]
+            },
+            "_id": 0
+        }},
+        {"$sort": {"attempts": -1}}
+    ]
+
+    by_pattern = await db.training_solve_attempts.aggregate(pipeline).to_list(20)
+
+    total_attempts = sum(p["attempts"] for p in by_pattern)
+    total_solved = sum(p["solved"] for p in by_pattern)
+
+    if total_attempts == 0:
+        return None
+
+    return {
+        "total_attempts": total_attempts,
+        "total_solved": total_solved,
+        "overall_solve_rate": round(total_solved / total_attempts * 100) if total_attempts > 0 else 0,
+        "by_pattern": by_pattern,
+    }
+
+
 async def build_strength_profile_for_user(db, user_id: str, max_games: int = 30) -> Dict:
     """
     Build a complete strength profile for a user from their recent analyzed games.
@@ -461,6 +505,41 @@ async def build_strength_profile_for_user(db, user_id: str, max_games: int = 30)
     profile = aggregate_strength_scores(game_stats_list)
     profile["user_id"] = user_id
     profile["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    # ── ENRICH WITH PUZZLE SOLVE DATA ──
+    # Puzzle performance is direct evidence of what the user understands
+    try:
+        puzzle_stats = await _get_puzzle_strength_data(db, user_id)
+        if puzzle_stats:
+            profile["puzzle_strength"] = puzzle_stats
+
+            # Boost domain scores based on puzzle solve rates
+            # If user solves 80% of "tactical_miss" puzzles, boost tactical_vision
+            PUZZLE_TO_DOMAIN = {
+                "tactical_miss": "tactical_vision",
+                "hanging_piece": "tactical_vision",
+                "calculation_depth": "calculation_depth",
+                "checkmate_pattern": "tactical_vision",
+                "positional": "positional_sense",
+                "opening_principles": "opening_knowledge",
+                "winning_position_collapse": "pressure_handling",
+            }
+
+            for ps in puzzle_stats.get("by_pattern", []):
+                pattern = ps.get("pattern", "")
+                solve_rate = ps.get("solve_rate", 0)
+                attempts = ps.get("attempts", 0)
+                domain = PUZZLE_TO_DOMAIN.get(pattern)
+
+                if domain and domain in profile.get("domains", {}) and attempts >= 3:
+                    # Blend puzzle solve rate into domain score (20% weight)
+                    current = profile["domains"][domain]["score"]
+                    puzzle_bonus = (solve_rate - 50) * 0.2  # 80% solve → +6, 30% solve → -4
+                    new_score = max(0, min(100, current + puzzle_bonus))
+                    profile["domains"][domain]["score"] = round(new_score, 1)
+                    profile["domains"][domain]["puzzle_solve_rate"] = solve_rate
+    except Exception as e:
+        logger.debug(f"Puzzle strength enrichment failed (non-fatal): {e}")
 
     # Save to DB
     await db.player_strength_profiles.update_one(

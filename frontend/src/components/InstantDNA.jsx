@@ -23,7 +23,7 @@ const ARCHETYPE_ICONS = {
   solid_defender: Shield,
 };
 
-const InstantDNA = ({ data, onContinue }) => {
+const InstantDNA = ({ data, onContinue, ctaLabel }) => {
   if (!data || !data.has_data) return null;
 
   const arch = data.archetype || {};
@@ -203,7 +203,7 @@ const InstantDNA = ({ data, onContinue }) => {
           onClick={onContinue}
           className="w-full px-6 py-4 text-base font-semibold text-black rounded-xl gradient-gold hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
         >
-          Start Training
+          {ctaLabel || "Start Training"}
           <ChevronRight className="w-4 h-4" />
         </button>
       </motion.div>
