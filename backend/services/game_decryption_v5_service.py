@@ -1014,16 +1014,17 @@ def _explain_move_idea(board: chess.Board, move_san: str, user_color: bool) -> O
             else:
                 ideas.append({
                     "type": "development",
-                    "explanation": f"{move_san} gets a piece into the game",
+                    "explanation": f"{move_san} develops a piece toward the center",
                     "score": 4
                 })
     
     # 4. CENTRAL CONTROL: Does this move improve center control?
     center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
     if to_sq in center_squares:
+        placed_name = "pawn" if piece.piece_type == chess.PAWN else chess.piece_name(piece.piece_type)
         ideas.append({
             "type": "central",
-            "explanation": f"{move_san} plants a piece in the center - maximum influence!",
+            "explanation": f"{move_san} puts your {placed_name} in the center where it controls the most squares",
             "score": 7
         })
     elif piece.piece_type == chess.PAWN and to_file in [3, 4]:  # d or e file
@@ -1037,7 +1038,7 @@ def _explain_move_idea(board: chess.Board, move_san: str, user_color: bool) -> O
     if board.is_castling(move):
         ideas.append({
             "type": "king_safety",
-            "explanation": f"{move_san} tucks the King away safely - always a good idea!",
+            "explanation": f"{move_san} castles your king to safety and connects your rooks",
             "score": 7
         })
     
@@ -1045,7 +1046,7 @@ def _explain_move_idea(board: chess.Board, move_san: str, user_color: bool) -> O
     if sim.is_check():
         ideas.append({
             "type": "tactical",
-            "explanation": f"{move_san} gives check - forces their hand!",
+            "explanation": f"{move_san} gives check — your opponent must respond to this first",
             "score": 6
         })
     

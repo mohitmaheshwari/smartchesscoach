@@ -765,7 +765,7 @@ def _get_pattern_explanation(pattern_type: str, best_move: str, fen: str, solved
 def _build_concrete_explanation(board: chess.Board, best_move_san: str) -> str:
     """
     Build a concrete, board-specific explanation of what the best move does.
-    Instead of 'improves position', says 'moves your knight to e4 where it attacks their rook on c5 and bishop on g3'.
+    Only attributes attacks/defenses to the MOVED PIECE, not the whole army.
     """
     import chess
 
@@ -778,12 +778,11 @@ def _build_concrete_explanation(board: chess.Board, best_move_san: str) -> str:
     if not piece:
         return ""
 
-    piece_name = {
+    PIECE_NAMES = {
         chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
         chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
-    }.get(piece.piece_type, "piece")
-
-    from_sq = chess.square_name(move.from_square)
+    }
+    piece_name = PIECE_NAMES.get(piece.piece_type, "piece")
     to_sq = chess.square_name(move.to_square)
     user_color = board.turn
 
@@ -793,35 +792,33 @@ def _build_concrete_explanation(board: chess.Board, best_move_san: str) -> str:
     if board.is_capture(move):
         captured = board.piece_at(move.to_square)
         if captured:
-            cap_name = {
-                chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
-                chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
-            }.get(captured.piece_type, "piece")
+            cap_name = PIECE_NAMES.get(captured.piece_type, "piece")
             parts.append(f"{best_move_san} takes their {cap_name} on {to_sq}")
         else:
+            # En passant
             parts.append(f"{best_move_san} captures on {to_sq}")
     else:
         parts.append(f"{best_move_san} moves your {piece_name} to {to_sq}")
 
-    # Does it give check?
+    # Play the move
     sim = board.copy()
     sim.push(move)
+
+    # Does it give check?
     if sim.is_check():
         parts.append("and gives check")
 
-    # What does it attack from the new square?
+    # What does the MOVED PIECE attack from its new square?
+    # Use sim.attacks(square) to get squares attacked BY the piece on to_square
+    moved_piece_attacks = sim.attacks(move.to_square)
     attacks = []
-    for sq in chess.SQUARES:
+    for sq in moved_piece_attacks:
         target = sim.piece_at(sq)
         if target and target.color != user_color and target.piece_type != chess.KING:
-            if sim.is_attacked_by(user_color, sq):
-                # Was it already attacked before?
-                if not board.is_attacked_by(user_color, sq) or sq == move.to_square:
-                    target_name = {
-                        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
-                        chess.ROOK: "rook", chess.QUEEN: "queen"
-                    }.get(target.piece_type, "piece")
-                    attacks.append(f"their {target_name} on {chess.square_name(sq)}")
+            target_name = PIECE_NAMES.get(target.piece_type, "piece")
+            # Only mention non-pawn targets, or pawns if we're a pawn (pawn takes pawn is relevant)
+            if target.piece_type != chess.PAWN or piece.piece_type == chess.PAWN:
+                attacks.append(f"their {target_name} on {chess.square_name(sq)}")
 
     if attacks and len(attacks) <= 3:
         if len(attacks) == 1:
@@ -829,27 +826,40 @@ def _build_concrete_explanation(board: chess.Board, best_move_san: str) -> str:
         else:
             parts.append(f"attacking {', '.join(attacks[:-1])} and {attacks[-1]}")
 
-    # Does it defend something that was hanging?
-    for sq in chess.SQUARES:
-        our_piece = board.piece_at(sq)
+    # Does the moved piece now DEFEND something that was under attack?
+    # Check squares the moved piece covers that contain our pieces
+    for sq in moved_piece_attacks:
+        our_piece = sim.piece_at(sq)
         if our_piece and our_piece.color == user_color and our_piece.piece_type != chess.KING:
-            enemy_attackers = list(board.attackers(not user_color, sq))
-            our_defenders = list(board.attackers(user_color, sq))
-            if enemy_attackers and len(our_defenders) <= len(enemy_attackers):
-                # Was it underdefended? Check if the new move defends it
-                new_defenders = list(sim.attackers(user_color, sq))
-                if len(new_defenders) > len(our_defenders):
-                    def_name = {
-                        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
-                        chess.ROOK: "rook", chess.QUEEN: "queen"
-                    }.get(our_piece.piece_type, "piece")
+            # Was this piece under attack before?
+            enemy_attackers_before = list(board.attackers(not user_color, sq))
+            if enemy_attackers_before:
+                # And was it undefended or underdefended before?
+                our_defenders_before = list(board.attackers(user_color, sq))
+                if len(our_defenders_before) <= len(enemy_attackers_before):
+                    def_name = PIECE_NAMES.get(our_piece.piece_type, "piece")
                     parts.append(f"and defends your {def_name} on {chess.square_name(sq)}")
+                    break
+
+    # Also check for discovered attacks (piece moved away, revealing an attack)
+    # Only for non-pawn pieces moving off a file/diagonal
+    if piece.piece_type != chess.PAWN and len(attacks) == 0:
+        # Check if moving this piece reveals an attack from a rook/bishop/queen behind it
+        for sq in chess.SQUARES:
+            target = sim.piece_at(sq)
+            if target and target.color != user_color and target.piece_type != chess.KING and target.piece_type != chess.PAWN:
+                # Is this target now attacked but wasn't before?
+                now_attacked = sim.is_attacked_by(user_color, sq)
+                was_attacked = board.is_attacked_by(user_color, sq)
+                if now_attacked and not was_attacked:
+                    target_name = PIECE_NAMES.get(target.piece_type, "piece")
+                    parts.append(f"and reveals an attack on their {target_name} on {chess.square_name(sq)}")
                     break
 
     if len(parts) <= 1:
         return ""  # Not enough info for a concrete explanation
 
-    return ". ".join(parts[:3]) + "."
+    return " ".join(parts[:3]) + "."
 
 
 def generate_position_reading_prompt(fen: str, pattern_type: str = "") -> Dict:
