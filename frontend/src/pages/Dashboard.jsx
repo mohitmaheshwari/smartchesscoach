@@ -107,6 +107,12 @@ const Dashboard = ({ user }) => {
                   {coaching.root_problem.message}
                 </blockquote>
 
+                {coaching.diagnosis?.detail && (
+                  <p className="text-sm text-foreground/70 leading-relaxed mb-2">
+                    {coaching.diagnosis.detail}
+                  </p>
+                )}
+
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {coaching.root_problem.detail}
                 </p>

@@ -381,6 +381,22 @@ def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_
 # SECTION A: Lab pick + puzzles
 # =============================================================================
 
+# Pattern → human language (short for home, detail for lab)
+COACHING_DIAGNOSIS = {
+    "piece_safety":       {"short": "You leave pieces hanging.",                         "detail": "You are not checking if your pieces are under attack before you move."},
+    "ignore_threat":      {"short": "You ignore opponent threats.",                      "detail": "You play your move, but don't check what your opponent is attacking."},
+    "calculation_depth":  {"short": "You stop thinking too early.",                      "detail": "You decide your move without checking what your opponent will do next."},
+    "missed_tactic":      {"short": "You miss winning chances.",                         "detail": "You are not spotting simple tactics that are right in front of you."},
+    "tactical_oversight": {"short": "You don't check your opponent's reply.",            "detail": "You pick your move and stop thinking. Your opponent's response is what matters."},
+    "king_safety":        {"short": "You expose your king.",                             "detail": "You start attacking before your king is safe. Your opponent punishes it."},
+    "time_pressure":      {"short": "You run out of time.",                              "detail": "You spend too long on moves that don't matter, then rush the critical ones."},
+    "time_management":    {"short": "You lose on the clock, not the board.",             "detail": "You are thinking about the wrong things and spending time in the wrong places."},
+    "conversion":         {"short": "You throw winning positions.",                      "detail": "You have the win and give it away. When ahead, you get creative instead of simple."},
+    "endgame_technique":  {"short": "You can't finish endgames.",                        "detail": "You reach endgames you should win but don't know how to convert."},
+    "pawn_structure":     {"short": "You push pawns without thinking.",                  "detail": "You make pawn moves without thinking about the squares they leave behind."},
+    "game_abandonment":   {"short": "You quit games.",                                   "detail": "You abandon games. You learn nothing by quitting."},
+}
+
 COACHING_INSIGHTS = {
     "piece_safety":       "This is not about seeing the board. It's about checking before you move. You are moving too fast.",
     "ignore_threat":      "This is not calculation. This is awareness. You are not looking at what your opponent just did.",
@@ -538,8 +554,12 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "message": f"Complete {TRAINING_LOCK_TARGET} {root_label} puzzles to unlock game review.",
     }
 
+    # ── DIAGNOSIS (short for home, detail for lab) ──
+    diag = COACHING_DIAGNOSIS.get(root_pattern, {"short": root_label, "detail": root_label})
+
     return {
         "root_problem": root_problem,
+        "diagnosis": diag,
         "priority_game": priority_game,
         "insight": insight,
         "rule": rule_data,
