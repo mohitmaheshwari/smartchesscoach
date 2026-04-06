@@ -199,7 +199,7 @@ const Landing = () => {
             title="A coach that talks to you while you play."
             description="Play against an adaptive engine while your AI coach watches every move. Get real-time feedback calibrated to your rating — an 800 player gets encouragement, a 1600 gets Socratic questions."
             points={["Rating-aware feedback thresholds", "Pre-move warnings on dangerous positions", "Celebrates brilliant sacrifices", "Adapts coaching intensity to your momentum"]}
-            visual={<MockCoachingSidebar />}
+            visual={<FadeIn><CoachingDemo /></FadeIn>}
           />
 
           {/* Feature 2: Pattern Memory */}
