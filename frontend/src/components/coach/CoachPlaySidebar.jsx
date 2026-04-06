@@ -49,6 +49,7 @@ import {
   XCircle,
   CheckCircle2,
   Clock,
+  Target,
 } from "lucide-react";
 
 /* ── Guardian Intervention Panel ── */
