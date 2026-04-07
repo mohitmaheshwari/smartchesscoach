@@ -1216,20 +1216,43 @@ const LabV2 = ({ user }) => {
                     currentMoveIndex >= 0 && moves[currentMoveIndex]
                       ? (() => {
                           const m = moves[currentMoveIndex];
+                          if (!m.to) return null;
                           const evals = analysis?.stockfish_analysis?.move_evaluations || [];
-                          const evalData = evals[currentMoveIndex];
-                          if (!evalData || !m.to) return null;
-                          const c = (evalData.classification || evalData.evaluation || "").toLowerCase().replace(/[_\s]/g, "");
-                          const severity = c.includes("brilliant") ? "brilliant"
-                            : c.includes("best") ? "best"
-                            : c.includes("excellent") ? "excellent"
-                            : c.includes("good") ? "good"
-                            : c.includes("book") ? "book"
-                            : c.includes("blunder") ? "blunder"
-                            : c.includes("mistake") ? "mistake"
-                            : c.includes("inaccuracy") ? "inaccuracy"
-                            : null;
-                          return severity ? { square: m.to, type: severity } : null;
+                          const moveNum = Math.floor(currentMoveIndex / 2) + 1;
+                          const isUserMove = (userColor === "white" && currentMoveIndex % 2 === 0) ||
+                                            (userColor === "black" && currentMoveIndex % 2 === 1);
+
+                          // Find matching eval by move number and san
+                          const evalData = evals.find(e =>
+                            e.move_number === moveNum && e.move === m.san
+                          ) || evals[currentMoveIndex];
+
+                          if (evalData) {
+                            const c = (evalData.classification || evalData.evaluation || "").toLowerCase().replace(/[_\s]/g, "");
+                            const severity = c.includes("brilliant") ? "brilliant"
+                              : c.includes("best") ? "best"
+                              : c.includes("excellent") ? "excellent"
+                              : c.includes("good") ? "good"
+                              : c.includes("book") ? "book"
+                              : c.includes("blunder") ? "blunder"
+                              : c.includes("mistake") ? "mistake"
+                              : c.includes("inaccuracy") ? "inaccuracy"
+                              : null;
+                            if (severity) return { square: m.to, type: severity };
+                          }
+
+                          // Fallback for moves without eval: derive from cp_loss
+                          if (evalData?.cp_loss != null) {
+                            const cpLoss = Math.abs(evalData.cp_loss);
+                            const sev = cpLoss >= 200 ? "blunder"
+                              : cpLoss >= 100 ? "mistake"
+                              : cpLoss >= 50 ? "inaccuracy"
+                              : cpLoss <= 5 ? "best"
+                              : "good";
+                            return { square: m.to, type: sev };
+                          }
+
+                          return null;
                         })()
                       : null
                   }

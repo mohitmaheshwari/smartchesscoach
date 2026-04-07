@@ -2130,11 +2130,19 @@ const CoachPlay = ({ user }) => {
           handleExitLesson={handleExitLesson}
           triggerCoachMove={triggerCoachMove}
           handleStartLesson={handleStartLesson}
-          moveClassification={
-            v5Coaching?.severity && lastMove
-              ? { square: lastMove[1], type: v5Coaching.severity }
-              : null
-          }
+          moveClassification={(() => {
+            if (!lastMove) return null;
+            // User move — from v5 coaching
+            if (v5Coaching?.severity) {
+              return { square: lastMove[1], type: v5Coaching.severity };
+            }
+            // Coach/opponent move — from interactive coaching
+            const coachCoaching = interactiveCoaching?.coachMoveCoaching;
+            if (coachCoaching?.severity) {
+              return { square: lastMove[1], type: coachCoaching.severity };
+            }
+            return null;
+          })()}
         />
 
         {/* Right: Coach panel */}

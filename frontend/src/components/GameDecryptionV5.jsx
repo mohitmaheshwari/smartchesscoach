@@ -514,10 +514,22 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             highlights={highlights}
             moveClassification={(() => {
               if (!currentMove || planMode || showingFutureMoves) return null;
-              const severity = currentMove.severity;
-              if (!severity || severity === "context") return null;
               const squares = getLastMoveSquares(currentMove);
               if (!squares) return null;
+
+              let severity = currentMove.severity;
+
+              // For opponent moves without severity, derive from cp_loss
+              if ((!severity || severity === "context" || severity === "good") && !currentMove.is_user_move) {
+                const cpLoss = Math.abs(currentMove.cp_loss || 0);
+                if (cpLoss >= 200) severity = "blunder";
+                else if (cpLoss >= 100) severity = "mistake";
+                else if (cpLoss >= 50) severity = "inaccuracy";
+                else if (cpLoss <= 5) severity = "best";
+                else severity = "good";
+              }
+
+              if (!severity || severity === "context") return null;
               return { square: squares[1], type: severity };
             })()}
           />
