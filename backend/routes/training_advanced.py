@@ -777,37 +777,73 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                 "reviewed": g.get("reviewed", False),
             })
 
-    # ── PLAYER STRENGTHS (from wins) ──
+    # ── PLAYER STRENGTHS ──
+    # Built from ACTUAL game data — not just win categories
+    # Must NOT conflict with weaknesses
     strengths = []
+    weakness_categories = {tp["category"] for tp in top_problems[:3]}
+
+    # Count specific positive signals from ALL games
+    total_games = len(enriched_games)
+    total_brilliants = sum(g.get("brilliant_moves", 0) for g in enriched_games)
+    total_wins = sum(1 for g in enriched_games if g.get("result") == "W")
+    total_losses = sum(1 for g in enriched_games if g.get("result") == "L")
+
+    # Win categories (filtered to not conflict with weaknesses)
+    CONFLICTING = {
+        "threw_winning": {"opponent_blundered"},  # can't "capitalize" if you also "throw"
+        "tactical_miss": {"tactical_win"},        # can't "find tactics" if you also "miss" them
+        "time_collapse": set(),
+        "opening_disaster": set(),
+        "endgame_collapse": {"endgame_conversion"},
+    }
+    excluded_strengths = set()
+    for wk in weakness_categories:
+        excluded_strengths.update(CONFLICTING.get(wk, set()))
+
     win_categories = {}
     for g in enriched_games:
         if g.get("result") != "W":
             continue
         gr = g.get("game_reason", {})
         cat = gr.get("category", "")
-        label = gr.get("label", "")
-        if cat and label:
+        if cat and cat not in excluded_strengths:
             if cat not in win_categories:
-                win_categories[cat] = {"label": label, "count": 0}
-            win_categories[cat]["count"] += 1
+                win_categories[cat] = 0
+            win_categories[cat] += 1
 
-    # Pick top 3 strengths by frequency
-    sorted_strengths = sorted(win_categories.items(), key=lambda x: -x[1]["count"])
-    STRENGTH_DESCRIPTIONS = {
-        "tactical_win": "You find tactics when they're there",
-        "solid_play": "You play clean, mistake-free chess",
-        "brilliant_play": "You calculate deeply and find brilliant moves",
-        "endgame_conversion": "You know how to finish endgames",
-        "opponent_blundered": "You capitalize on opponent mistakes",
+    STRENGTH_DATA = {
+        "brilliant_play":     {"label": "Deep calculation",      "desc": "You found {count} brilliant moves across your games"},
+        "tactical_win":       {"label": "Tactical eye",          "desc": "You won {count} games through tactics"},
+        "solid_play":         {"label": "Solid play",            "desc": "You played {count} clean games with few mistakes"},
+        "endgame_conversion": {"label": "Endgame skill",         "desc": "You converted {count} endgames successfully"},
+        "opponent_blundered": {"label": "Punishing mistakes",    "desc": "You capitalized on opponent errors in {count} games"},
     }
-    for cat, data in sorted_strengths[:3]:
-        desc = STRENGTH_DESCRIPTIONS.get(cat, data["label"])
+
+    # Always show brilliants if any (it's a skill, never conflicts)
+    if total_brilliants > 0:
         strengths.append({
-            "category": cat,
-            "label": data["label"],
-            "description": desc,
-            "count": data["count"],
+            "category": "brilliant_play",
+            "label": "Deep calculation",
+            "description": f"You found {total_brilliants} brilliant moves across your games",
+            "count": total_brilliants,
         })
+
+    # Add win-based strengths (filtered)
+    sorted_wins = sorted(win_categories.items(), key=lambda x: -x[1])
+    for cat, count in sorted_wins:
+        if len(strengths) >= 3:
+            break
+        if cat == "brilliant_play":
+            continue  # Already added above
+        sd = STRENGTH_DATA.get(cat)
+        if sd:
+            strengths.append({
+                "category": cat,
+                "label": sd["label"],
+                "description": sd["desc"].format(count=count),
+                "count": count,
+            })
 
     return {
         "root_problem": root_problem,
