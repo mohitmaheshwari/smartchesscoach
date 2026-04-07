@@ -476,8 +476,19 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "detail": _root_detail(root_data, total_games),
     }
 
+    # ── COMPUTE TOP PROBLEMS FIRST (needed for game matching) ──
+    game_reasons = [g.get("game_reason") for g in enriched_games if g.get("game_reason")]
+    top_problems = []
+    try:
+        from services.game_reason_classifier import aggregate_game_reasons
+        top_problems = aggregate_game_reasons(game_reasons)
+    except Exception:
+        pass
+
+    # The primary category to match games against
+    primary_category = top_problems[0]["category"] if top_problems else None
+
     # ── 2. ALL GAMES MATCHING ROOT PROBLEM — with sub-causes ──
-    # Sub-cause: WHY did this specific game go wrong within the root problem?
     SUB_CAUSE_MAP = {
         "ignore_threat":      "Stopped checking opponent",
         "piece_safety":       "Left a piece unprotected",
@@ -497,11 +508,10 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         if not game_reason:
             continue
 
-        # Match games that belong to the root problem category
-        # OR have the root pattern in their cognitive gaps
+        # Match games by game_reason category (from classifier)
         matches_root = (
-            game_reason.get("category") == (top_problems[0]["category"] if top_problems else root_pattern)
-            or root_pattern in g.get("cognitive_gaps", [])
+            (primary_category and game_reason.get("category") == primary_category)
+            or (not primary_category and root_pattern in g.get("cognitive_gaps", []))
         )
         if not matches_root:
             continue
@@ -625,16 +635,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
     if not priority_game and problem_games:
         priority_game = problem_games[0]
 
-    # ── 3. AGGREGATE GAME REASONS → TOP 3 PROBLEMS ──
-    game_reasons = [g.get("game_reason") for g in enriched_games if g.get("game_reason")]
-    top_problems = []
-    try:
-        from services.game_reason_classifier import aggregate_game_reasons
-        top_problems = aggregate_game_reasons(game_reasons)
-    except Exception:
-        pass
-
-    # Insight comes from the #1 aggregated problem, NOT a static template
+    # ── 3. INSIGHT from top problem (top_problems already computed above) ──
     if top_problems:
         top = top_problems[0]
         insight = top.get("description", "")

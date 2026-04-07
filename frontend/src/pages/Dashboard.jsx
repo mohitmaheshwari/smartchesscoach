@@ -184,7 +184,11 @@ const Dashboard = ({ user }) => {
               <p className="text-xs text-muted-foreground">3 min · puzzles from your games</p>
             </div>
             <motion.button
-              onClick={() => navigate(coaching?.root_problem?.pattern ? `/training?focus=${coaching.root_problem.pattern}` : "/training")}
+              onClick={() => {
+                // Train the dominant sub-cause pattern (move-level), not the game-level category
+                const pattern = coaching?.root_problem?.pattern || "";
+                navigate(pattern ? `/training?focus=${pattern}` : "/training");
+              }}
               className="px-4 py-2 text-sm font-semibold rounded-lg gradient-gold text-black hover:opacity-90 transition-all flex items-center gap-1.5"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
