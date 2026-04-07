@@ -714,7 +714,7 @@ const ThinkingTraining = ({ user }) => {
 
                       <div className="flex gap-2">
                         {hasNext && (
-                          <Button onClick={nextPosition} className="flex-1 bg-blue-600 hover:bg-blue-700" data-testid="next-btn">
+                          <Button onClick={goToNext} className="flex-1 bg-blue-600 hover:bg-blue-700" data-testid="next-btn">
                             Next Position
                             <ChevronRight className="w-4 h-4 ml-1" />
                           </Button>
