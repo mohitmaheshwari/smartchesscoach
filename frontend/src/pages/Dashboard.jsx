@@ -230,14 +230,12 @@ const Dashboard = ({ user }) => {
             </p>
           </div>
 
-          {/* Personal example — natural intro, no caps label */}
+          {/* Personal example — no move numbers, no notation, only story */}
           {pg && (
             <div className="mb-8">
               <p className="text-sm text-muted-foreground/60 mb-3">This is from your game:</p>
               <div className="rounded-xl border border-border bg-card p-5">
-                <p className="text-sm text-foreground/80 leading-[1.8] mb-4">
-                  {pg.description || "You were in control of the position.\n\nThen it became uncomfortable.\n\nYou moved too quickly.\n\nThat's where it slipped."}
-                </p>
+                <p className="text-sm text-foreground/80 leading-[1.8] whitespace-pre-line mb-4">{"You were in control of the position.\n\nThen it became uncomfortable.\n\nYou moved too quickly.\n\nThat's where it slipped."}</p>
                 <button
                   onClick={() => navigate(`/replay/${pg.game_id}`)}
                   className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"

@@ -1,11 +1,8 @@
 /**
  * PROGRESS — "Am I improving?"
  *
- * ONE focus. ONE metric. ONE answer.
- *
- * 1. Current focus — what you're fixing
- * 2. Improvement tracker — is it getting better?
- * 3. Reinforce — keep going or adjust
+ * No charts. No accuracy. No numbers.
+ * Only: what you're working on + is it getting better + next action.
  */
 
 import { useState, useEffect } from "react";
@@ -13,38 +10,81 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import {
-  TrendingUp, TrendingDown, Target, Brain, ChevronRight, Lock
-} from "lucide-react";
+import { ChevronRight, Target, Brain, Swords } from "lucide-react";
+
+// Same mapping as Home — human language for each mistake
+const MISTAKE_LABELS = {
+  tactical_miss:      "Missing simple tactics",
+  one_move_blunder:   "Leaving pieces hanging",
+  calculation_error:  "Stopping your thinking too early",
+  positional:         "Being outplayed positionally",
+  endgame_collapse:   "Failing to convert endgames",
+  opening_disaster:   "Making opening mistakes",
+  time_collapse:      "Collapsing under time pressure",
+  threw_winning:      "Throwing winning positions",
+  piece_safety:       "Leaving pieces unprotected",
+  ignore_threat:      "Not checking opponent threats",
+  calculation_depth:  "Stopping your thinking too early",
+  missed_tactic:      "Missing winning chances",
+  king_safety:        "Leaving your king exposed",
+  conversion:         "Giving back advantages",
+};
+
+const MISTAKE_DESCRIPTIONS = {
+  tactical_miss:      "You play your move without scanning for captures, checks, and threats.",
+  one_move_blunder:   "You move without checking if your piece is safe.",
+  calculation_error:  "You decide your move but don't check what your opponent will do next.",
+  positional:         "You move pieces without a plan. Your opponent outmaneuvers you.",
+  endgame_collapse:   "You reach winning endgames but don't know the technique.",
+  opening_disaster:   "You deviate from sound play in the first 10 moves.",
+  time_collapse:      "You spend time on easy moves, then panic on hard ones.",
+  threw_winning:      "You stop checking your opponent once you're ahead.",
+  piece_safety:       "You don't check if your pieces are protected before moving.",
+  ignore_threat:      "You play your move without checking what your opponent is attacking.",
+  calculation_depth:  "You decide your move but don't check what your opponent will do next.",
+  missed_tactic:      "The winning move is there. You're not looking for it.",
+  king_safety:        "You attack before your king is safe.",
+  conversion:         "When you're ahead, you get creative instead of simple.",
+};
 
 const UnifiedProgress = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [report, setReport] = useState(null);
   const [coaching, setCoaching] = useState(null);
+  const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${API}/progress/coaching-report`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/lab-coach-pick`, { credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null),
-    ])
-      .then(([r, labData]) => {
-        setReport(r);
-        setCoaching(labData?.coaching || null);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const [reportRes, labRes] = await Promise.all([
+          fetch(`${API}/progress/coaching-report`, { credentials: "include" }),
+          fetch(`${API}/lab-coach-pick`, { credentials: "include" }),
+        ]);
+
+        if (reportRes.ok) {
+          const r = await reportRes.json();
+          if (r.has_data) setHasData(true);
+        }
+
+        if (labRes.ok) {
+          const labData = await labRes.json();
+          setCoaching(labData.coaching);
+          if (labData.total_count > 0) setHasData(true);
+        }
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
   }, []);
 
   if (loading) {
     return <Layout user={user}><div className="flex items-center justify-center h-[60vh]"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div></Layout>;
   }
 
-  if (!report?.has_data) {
+  if (!hasData) {
     return (
       <Layout user={user}>
-        <div className="max-w-md mx-auto px-4 py-16 text-center" data-testid="progress-page">
-          <h1 className="text-2xl text-foreground tracking-tight mb-3 font-heading">Progress</h1>
+        <div className="max-w-md mx-auto px-6 py-16 text-center" data-testid="progress-page">
+          <h1 className="text-2xl font-heading text-foreground tracking-tight mb-3">Progress</h1>
           <p className="text-sm text-muted-foreground mb-6">Play and analyze a few games to track your improvement.</p>
           <button onClick={() => navigate("/import")} className="px-5 py-2.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity">Import Games</button>
         </div>
@@ -52,149 +92,66 @@ const UnifiedProgress = ({ user }) => {
     );
   }
 
-  const { weakness_control, recent_form, big_picture } = report;
   const root = coaching?.root_problem;
-  const diag = coaching?.diagnosis;
   const topProblem = coaching?.top_problems?.[0];
   const lock = coaching?.training_lock;
 
-  // Find the main weakness trend
-  const mainTrend = weakness_control?.find(w => w.pattern === root?.pattern) || weakness_control?.[0];
+  const mistakeKey = topProblem?.category || root?.pattern || "calculation_depth";
+  const label = MISTAKE_LABELS[mistakeKey] || MISTAKE_LABELS.calculation_depth;
+  const description = MISTAKE_DESCRIPTIONS[mistakeKey] || MISTAKE_DESCRIPTIONS.calculation_depth;
 
-  // Determine if improving
-  const isImproving = mainTrend?.direction === "improving";
-  const isWorsening = mainTrend?.direction === "worsening";
-
-  // Compute recent vs older for the focus pattern
-  const recentCount = mainTrend?.recent || 0;
-  const totalCount = mainTrend?.total || 0;
+  // Simple improvement signal — no numbers, just direction
+  const recentCount = root?.games_affected || 0;
+  const isImproving = recentCount < 5;
+  const isRepeating = recentCount >= 5;
 
   return (
     <Layout user={user}>
-      <div className="max-w-md mx-auto px-4 py-8 space-y-6" data-testid="progress-page">
+      <div className="max-w-md mx-auto px-6 py-10" data-testid="progress-page">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
 
-        {/* ═══ 1. CURRENT FOCUS ═══ */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Your current focus</p>
-          <h1 className="text-xl font-heading text-foreground tracking-tight leading-snug">
-            {topProblem?.label || diag?.short || mainTrend?.label || "No active focus"}
+          {/* What you're working on */}
+          <p className="text-sm text-muted-foreground/60 mb-2">You are working on:</p>
+
+          <h1 className="text-xl sm:text-2xl font-heading text-foreground tracking-tight leading-snug mb-3">
+            {label}
           </h1>
-          {(topProblem?.description || diag?.detail) && (
-            <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-              {topProblem?.description || diag?.detail}
-            </p>
-          )}
-        </motion.div>
 
-        {/* ═══ 2. IMPROVEMENT TRACKER ═══ */}
-        {mainTrend && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div className={`rounded-xl border p-5 ${
-              isImproving ? "border-emerald-500/20 bg-emerald-500/[0.02]" :
-              isWorsening ? "border-red-500/15 bg-red-500/[0.02]" :
-              "border-border bg-card"
-            }`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  {isImproving
-                    ? <TrendingUp className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                    : isWorsening
-                    ? <TrendingDown className="w-4 h-4 text-red-400" strokeWidth={2} />
-                    : <Target className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
-                  }
-                  <p className={`text-sm font-semibold ${
-                    isImproving ? "text-emerald-500" : isWorsening ? "text-red-400" : "text-foreground"
-                  }`}>
-                    {isImproving ? "You are improving" : isWorsening ? "No improvement yet" : "Tracking"}
-                  </p>
-                </div>
-              </div>
+          <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+            {description}
+          </p>
 
-              {/* The one metric */}
-              <div className="flex items-baseline gap-3 mb-2">
-                <span className="text-3xl font-mono font-bold text-foreground">{recentCount}</span>
-                <span className="text-sm text-muted-foreground">mistakes in your last {mainTrend?.recent_games || 20} games</span>
-              </div>
+          {/* Status — behavioral, not numerical */}
+          <div className="rounded-xl border border-border bg-card p-5 mb-6">
+            <p className="text-sm text-muted-foreground mb-2">Recent games:</p>
+            {isRepeating ? (
+              <p className="text-sm text-foreground">
+                You repeated this mistake in your recent games.
+              </p>
+            ) : (
+              <p className="text-sm text-foreground">
+                This is showing up less. Keep going.
+              </p>
+            )}
+          </div>
 
-              {totalCount > recentCount && (
-                <p className="text-xs text-muted-foreground">
-                  Total across all games: {totalCount}
-                </p>
-              )}
-
-              {/* Verdict */}
-              <div className="mt-4 pt-3 border-t border-border/50">
-                {isImproving ? (
-                  <p className="text-sm text-emerald-500 font-medium">This is working. Keep training this.</p>
-                ) : isWorsening ? (
-                  <p className="text-sm text-red-400 font-medium">This is getting worse. You need more focused practice.</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Steady. Keep applying the rule in your games.</p>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ═══ 3. TRAINING PROGRESS ═══ */}
-        {lock && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Lock className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={2} />
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Training</p>
-                </div>
-                <span className="text-sm font-mono font-bold text-foreground">{lock.progress} / {lock.target}</span>
-              </div>
-              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-500 ${lock.unlocked ? "bg-emerald-500" : "gradient-gold"}`}
-                  style={{ width: `${(lock.progress / lock.target) * 100}%` }} />
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ═══ 4. REINFORCE ═══ */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          {/* Action */}
           <button
             onClick={() => {
-              if (lock && !lock.unlocked) navigate(`/training?focus=${lock.pattern}`);
+              if (lock && !lock.unlocked) navigate(`/training?focus=${lock.pattern || mistakeKey}`);
               else navigate("/play-with-coach");
             }}
-            className="w-full py-3.5 text-sm font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/15 flex items-center justify-center gap-2"
+            className="w-full py-4 text-[15px] font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
           >
             {lock && !lock.unlocked ? (
               <><Target className="w-4 h-4" strokeWidth={2} />Continue Training</>
             ) : (
-              <><Brain className="w-4 h-4" strokeWidth={2} />Apply It In a Game</>
+              <><Swords className="w-4 h-4" strokeWidth={2} />Apply It In a Game</>
             )}
-            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+            <ChevronRight className="w-4 h-4 opacity-60" />
           </button>
-        </motion.div>
 
-        {/* ═══ FORM COMPARISON (small, supporting) ═══ */}
-        {big_picture?.games > 5 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.14 }}>
-            <div className="border-t border-border pt-4 mt-2">
-              <p className="text-[10px] tracking-[0.15em] uppercase font-bold text-muted-foreground/40 mb-3">Recent form</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-card border border-border rounded-lg p-3 text-center">
-                  <p className={`text-xl font-mono font-bold ${(recent_form?.accuracy || 0) >= 65 ? "text-emerald-500" : "text-foreground"}`}>
-                    {(recent_form?.accuracy || 0).toFixed(0)}%
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Last 5 accuracy</p>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-3 text-center">
-                  <p className={`text-xl font-mono font-bold ${(big_picture?.accuracy || 0) >= 65 ? "text-emerald-500" : "text-foreground"}`}>
-                    {(big_picture?.accuracy || 0).toFixed(0)}%
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">All {big_picture.games} games</p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
+        </motion.div>
       </div>
     </Layout>
   );

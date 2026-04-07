@@ -166,8 +166,6 @@ const HomePage = ({ user }) => {
   const behavior = BEHAVIORS[mistakeKey] || BEHAVIORS.calculation_depth;
   const rule = RULES[mistakeKey] || RULES.calculation_depth;
 
-  const gamesAffected = root?.games_affected || topProblem?.count || 0;
-
   return (
     <Layout user={user}>
       <div className="max-w-md mx-auto px-6 py-10" data-testid="home-page">
@@ -196,27 +194,15 @@ const HomePage = ({ user }) => {
             </div>
           )}
 
-          {/* ═══ UNLOCKED: proof + memory + rule ═══ */}
+          {/* ═══ UNLOCKED: behavior + rule + directive. No stats. ═══ */}
           {isUnlocked && (
             <div className="space-y-5">
-              {/* Proof */}
-              {gamesAffected >= 3 && (
-                <p className="text-sm text-foreground/50">
-                  You did this in {gamesAffected} of your recent games.
-                </p>
-              )}
+              {/* Behavior */}
+              <p className="text-[15px] text-muted-foreground leading-[1.7] whitespace-pre-line">
+                {behavior}
+              </p>
 
-              {/* Last game memory */}
-              {(pg?.description || lastGameHook) && (
-                <div className="space-y-1">
-                  <p className="text-[11px] text-muted-foreground/40 uppercase tracking-wider font-medium">Last game</p>
-                  <p className="text-sm text-foreground/70 leading-relaxed">
-                    {pg?.description || lastGameHook}
-                  </p>
-                </div>
-              )}
-
-              {/* Rule — separate coaching moment with background */}
+              {/* Rule — separate coaching moment */}
               <div className="py-4 px-4 -mx-4 rounded-lg bg-amber-500/[0.04] border-y border-amber-500/10">
                 <p className="text-[15px] text-foreground font-medium">{rule}</p>
               </div>
