@@ -782,20 +782,55 @@ async def record_solve_attempt(
             ),
         }
 
-    # ── WHY + REMEMBER — LLM-powered teaching moment ──
-    # Not "best move was X" but "here's why you missed it and what to remember"
+    # ── WHY + REMEMBER — LLM-powered, cached per position ──
     coaching_feedback = None
     try:
-        coaching_feedback = await _generate_coaching_feedback(
-            fen=fen,
-            user_move=user_move,
-            best_move=best_move_san,
-            pattern_type=pattern_type,
-            solved=solved,
-            near_miss=near_miss,
-            your_move_analysis=your_move_analysis,
-            explanation=explanation,
+        # Check cache first — same position + same best move = same explanation
+        cache_key = f"{fen}_{best_move_san}"
+        cached = await db.coaching_feedback_cache.find_one(
+            {"cache_key": cache_key},
+            {"_id": 0, "feedback": 1}
         )
+        if cached and cached.get("feedback"):
+            coaching_feedback = cached["feedback"]
+            # Add behavior line (user-specific, not cached)
+            if not solved and not near_miss:
+                PATTERN_BEHAVIORS = {
+                    "tactical_miss": "not scanning the board for tactics before moving",
+                    "hanging_piece": "not checking if pieces are protected",
+                    "calculation_depth": "not checking what the opponent will do next",
+                    "piece_safety": "not asking 'is anything I own under attack?'",
+                    "missed_tactic": "not looking for captures, checks, and threats",
+                    "tactical_oversight": "not checking the opponent's reply",
+                    "positional": "moving pieces without a plan",
+                }
+                behavior_desc = PATTERN_BEHAVIORS.get(pattern_type, "not reading the position carefully")
+                coaching_feedback = {**coaching_feedback, "behavior": f"This happened because you were {behavior_desc}. That's your pattern."}
+            else:
+                coaching_feedback = {**coaching_feedback, "behavior": ""}
+        else:
+            # Generate and cache
+            coaching_feedback = await _generate_coaching_feedback(
+                fen=fen,
+                user_move=user_move,
+                best_move=best_move_san,
+                pattern_type=pattern_type,
+                solved=solved,
+                near_miss=near_miss,
+                your_move_analysis=your_move_analysis,
+                explanation=explanation,
+            )
+            if coaching_feedback:
+                try:
+                    # Cache without the behavior line (that's user-specific)
+                    cache_data = {"why": coaching_feedback.get("why", ""), "remember": coaching_feedback.get("remember", "")}
+                    await db.coaching_feedback_cache.update_one(
+                        {"cache_key": cache_key},
+                        {"$set": {"cache_key": cache_key, "feedback": cache_data, "fen": fen, "best_move": best_move_san}},
+                        upsert=True
+                    )
+                except Exception:
+                    pass
     except Exception as cf_err:
         logger.debug(f"Coaching feedback generation failed (non-fatal): {cf_err}")
 
@@ -844,28 +879,81 @@ async def _generate_coaching_feedback(
     except ImportError:
         return None
 
-    # Extract board facts for context
+    # ── EXTRACT EVERY CONCRETE FACT ──
     board_facts = ""
+    move_facts = ""
     try:
         board = chess.Board(fen)
         user_color = board.turn
         board_facts = _extract_board_facts(board, user_color, not user_color)
+
+        PIECE_NAMES = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+                       chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
+
+        # Describe the BEST MOVE exactly
+        try:
+            best_obj = board.parse_san(best_move)
+            from_sq = chess.square_name(best_obj.from_square)
+            to_sq = chess.square_name(best_obj.to_square)
+            piece = board.piece_at(best_obj.from_square)
+            piece_name = PIECE_NAMES.get(piece.piece_type, "piece") if piece else "piece"
+
+            best_desc = f"The correct move is {best_move}: move {piece_name} from {from_sq} to {to_sq}."
+
+            if board.is_capture(best_obj):
+                captured = board.piece_at(best_obj.to_square)
+                if captured:
+                    cap_name = PIECE_NAMES.get(captured.piece_type, "piece")
+                    best_desc += f" This captures their {cap_name} on {to_sq}."
+
+            # What does the moved piece attack from the new square?
+            sim = board.copy()
+            sim.push(best_obj)
+            if sim.is_check():
+                best_desc += " This gives check."
+
+            attacks_from_new = sim.attacks(best_obj.to_square)
+            new_attacks = []
+            for sq in attacks_from_new:
+                target = sim.piece_at(sq)
+                if target and target.color != user_color and target.piece_type != chess.KING:
+                    new_attacks.append(f"{PIECE_NAMES.get(target.piece_type, 'piece')} on {chess.square_name(sq)}")
+            if new_attacks:
+                best_desc += f" From {to_sq}, it attacks: {', '.join(new_attacks[:3])}."
+
+            move_facts += f"\n{best_desc}"
+        except Exception:
+            move_facts += f"\nThe correct move is {best_move}."
+
+        # Describe the USER'S MOVE exactly (if wrong)
+        if user_move and user_move != best_move and not solved and not near_miss:
+            try:
+                user_obj = board.parse_san(user_move)
+                u_from = chess.square_name(user_obj.from_square)
+                u_to = chess.square_name(user_obj.to_square)
+                u_piece = board.piece_at(user_obj.from_square)
+                u_piece_name = PIECE_NAMES.get(u_piece.piece_type, "piece") if u_piece else "piece"
+
+                user_desc = f"The player played {user_move}: moved {u_piece_name} from {u_from} to {u_to}."
+
+                if board.is_capture(user_obj):
+                    u_captured = board.piece_at(user_obj.to_square)
+                    if u_captured:
+                        u_cap_name = PIECE_NAMES.get(u_captured.piece_type, "piece")
+                        user_desc += f" This captures their {u_cap_name} on {u_to}."
+
+                move_facts += f"\n{user_desc}"
+            except Exception:
+                move_facts += f"\nThe player played {user_move}."
+
+        # Add continuation if available
+        if explanation and explanation.get("continuation"):
+            cont = explanation["continuation"]
+            cont_str = " → ".join([f"{c['move']} ({'you' if c.get('by') == 'you' else 'opponent'})" for c in cont[:3]])
+            move_facts += f"\nAfter the correct move, the likely continuation is: {cont_str}"
+
     except Exception:
         pass
-
-    # Build the context for LLM
-    user_move_info = ""
-    if your_move_analysis:
-        user_move_info = f"User played: {your_move_analysis.get('what_it_does', '')}"
-        if your_move_analysis.get('why_bad'):
-            user_move_info += f"\nProblem: {your_move_analysis['why_bad']}"
-        if your_move_analysis.get('opponent_punishes'):
-            opp = your_move_analysis['opponent_punishes']
-            user_move_info += f"\nOpponent responds: {opp.get('description', '')}"
-
-    best_move_info = ""
-    if explanation:
-        best_move_info = explanation.get("move_description", "") or explanation.get("why_best", "")
 
     # Pattern context
     PATTERN_BEHAVIORS = {
@@ -880,38 +968,33 @@ async def _generate_coaching_feedback(
     behavior_desc = PATTERN_BEHAVIORS.get(pattern_type, "not reading the position carefully")
 
     system = (
-        "You are a chess coach explaining a position to a 1200-rated player. "
-        "You must explain TWO things:\n"
-        "1. WHY: What was happening on the board that the player didn't see? "
-        "Be specific about pieces, squares, and threats. No move notation — describe what's happening.\n"
-        "2. REMEMBER: One specific thing to look for in similar positions in the future. "
-        "Not a generic rule — something tied to THIS position type.\n\n"
-        "Rules:\n"
-        "- No engine language (eval, centipawns, best move)\n"
-        "- No move notation (Qc4, Bd5) — describe in words\n"
-        "- Maximum 2 sentences for WHY\n"
-        "- Maximum 1 sentence for REMEMBER\n"
-        "- Sound like a human coach, not a textbook\n"
-        "- Be specific to this position, not generic"
+        "You are a chess coach. Explain in the FEWEST words possible.\n\n"
+        "RULES:\n"
+        "- ONLY use facts provided. Do NOT invent squares or pieces.\n"
+        "- WHY: ONE sentence, max 20 words. What mattered on the board.\n"
+        "- REMEMBER: ONE sentence, max 15 words. What to look for next time.\n"
+        "- No engine terms. No long explanations.\n\n"
+        "Format:\n"
+        "WHY: [one short sentence]\n"
+        "REMEMBER: [one short sentence]"
     )
 
     if solved or near_miss:
         user_msg = (
-            f"The player FOUND the right move in this position.\n\n"
-            f"Position facts:\n{board_facts}\n\n"
-            f"Best move does: {best_move_info}\n\n"
-            f"Explain WHY this was the right idea (what did they see correctly?) "
-            f"and give them one REMEMBER for similar positions."
+            f"The player FOUND the right move.\n\n"
+            f"FEN: {fen}\n\n"
+            f"Board state:\n{board_facts}\n\n"
+            f"Move details:\n{move_facts}\n\n"
+            f"Explain WHY this was the right move using ONLY the facts above."
         )
     else:
         user_msg = (
-            f"The player MISSED the right move in this position.\n\n"
-            f"Position facts:\n{board_facts}\n\n"
-            f"{user_move_info}\n\n"
-            f"The right move does: {best_move_info}\n\n"
-            f"Their pattern is: {behavior_desc}\n\n"
-            f"Explain WHY they missed it (what was on the board they didn't see?) "
-            f"and give them one REMEMBER for similar positions."
+            f"The player MISSED the right move.\n\n"
+            f"FEN: {fen}\n\n"
+            f"Board state:\n{board_facts}\n\n"
+            f"Move details:\n{move_facts}\n\n"
+            f"Their behavioral pattern: {behavior_desc}\n\n"
+            f"Explain WHY they missed it using ONLY the facts above."
         )
 
     try:
