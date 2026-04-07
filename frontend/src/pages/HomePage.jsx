@@ -264,9 +264,15 @@ function buildTrigger(coaching, streak) {
       actionIcon = Brain;
     }
 
+    // Use the #1 aggregated problem as the truth, fall back to diagnosis
+    const topProblem = coaching.top_problems?.[0];
+    const truthText = topProblem
+      ? topProblem.label  // "Missed a simple tactic" — from game reason aggregation
+      : diag.short;       // "You miss winning chances" — from pattern diagnosis
+
     return {
       badge: "active focus", badgeColor: "text-amber-500",
-      truth: diag.short,
+      truth: truthText,
       evidence: evidence,
       rule: rule?.rule || null,
       ruleName: rule?.name || null,

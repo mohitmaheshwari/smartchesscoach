@@ -157,8 +157,35 @@ const Dashboard = ({ user }) => {
           </motion.div>
         )}
 
-        {/* ═══ 3. COACH INSIGHT ═══ */}
-        {coaching?.insight && (
+        {/* ═══ 3. TOP 3 PROBLEMS ═══ */}
+        {coaching?.top_problems && coaching.top_problems.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+            <div className="bg-card border border-border rounded-xl p-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Why you're losing games</p>
+              <div className="space-y-3">
+                {coaching.top_problems.map((p, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                      i === 0 ? "bg-red-500/15 text-red-400" :
+                      i === 1 ? "bg-amber-500/10 text-amber-500" :
+                      "bg-muted text-muted-foreground"
+                    }`}>{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-foreground">{p.label}</p>
+                        <span className="text-xs font-mono text-muted-foreground">{p.count} games</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{p.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Fallback: single insight if no aggregated problems */}
+        {coaching?.insight && (!coaching?.top_problems || coaching.top_problems.length === 0) && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
             <div className="px-1">
               <div className="flex items-center gap-3 mb-3">
@@ -167,9 +194,7 @@ const Dashboard = ({ user }) => {
                 </div>
                 <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Coach insight</p>
               </div>
-              <p className="text-sm text-foreground leading-relaxed pl-11">
-                {coaching.insight}
-              </p>
+              <p className="text-sm text-foreground leading-relaxed pl-11">{coaching.insight}</p>
             </div>
           </motion.div>
         )}
@@ -345,7 +370,7 @@ const GameCard = ({ game, navigate, markReviewed, isReviewed }) => (
           )}
         </div>
         <p className="text-xs text-muted-foreground line-clamp-1">
-          {game.behavior || game.lesson_label || game.opening || ""}
+          {game.game_reason?.label || game.behavior || game.lesson_label || game.opening || ""}
         </p>
       </div>
 

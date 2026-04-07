@@ -526,9 +526,24 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                 "move_number": critical_move.get("move_number") if critical_move else None,
             }
 
-    # ── 3. COACH INSIGHT — behavioral, not technical ──
-    insight = COACHING_INSIGHTS.get(root_pattern,
-        "You are making the same mistake repeatedly. Until you fix it, nothing else matters.")
+    # ── 3. AGGREGATE GAME REASONS → TOP 3 PROBLEMS ──
+    game_reasons = [g.get("game_reason") for g in enriched_games if g.get("game_reason")]
+    top_problems = []
+    try:
+        from services.game_reason_classifier import aggregate_game_reasons
+        top_problems = aggregate_game_reasons(game_reasons)
+    except Exception:
+        pass
+
+    # Insight comes from the #1 aggregated problem, NOT a static template
+    if top_problems:
+        top = top_problems[0]
+        insight = top.get("description", "")
+        insight_label = top.get("label", "")
+    else:
+        insight = COACHING_INSIGHTS.get(root_pattern,
+            "You are making the same mistake repeatedly. Until you fix it, nothing else matters.")
+        insight_label = ""
 
     # ── 4. RULE ──
     rule_data = COACHING_RULES.get(root_pattern, {"name": root_label, "rule": "Fix this before working on anything else."})
@@ -558,6 +573,8 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "diagnosis": diag,
         "priority_game": priority_game,
         "insight": insight,
+        "insight_label": insight_label,
+        "top_problems": top_problems,
         "rule": rule_data,
         "training_lock": training_lock,
     }
@@ -772,6 +789,20 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         termination = g.get("termination", "unknown")
         termination_label = _termination_display(termination, "W" if user_won else ("D" if is_draw else "L"))
 
+        # Classify game reason — WHY was this game won/lost?
+        game_reason = None
+        try:
+            from services.game_reason_classifier import classify_game_reason
+            game_reason = classify_game_reason(
+                move_evaluations=evals,
+                game_result=result,
+                user_color=uc,
+                termination=termination,
+                accuracy=accuracy,
+            )
+        except Exception:
+            pass
+
         enriched.append({
             "game_id": gid,
             "opponent": opp,
@@ -794,6 +825,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "brilliant_detail": brilliant_moves_detail,
             "termination": termination,
             "termination_label": termination_label,
+            "game_reason": game_reason,
         })
 
     # ── SMART PICK: find the best unreviewed game ──
