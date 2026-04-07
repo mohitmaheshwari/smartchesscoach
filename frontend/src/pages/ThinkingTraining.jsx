@@ -587,7 +587,12 @@ const ThinkingTraining = ({ user }) => {
                     <CardContent className="p-5 space-y-4">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        <h2 className="font-heading text-emerald-600">You Found It</h2>
+                        <h2 className="font-heading text-emerald-600 flex-1">You Found It</h2>
+                        <InlineFlag
+                          section="training_result"
+                          flaggedText={`Move: ${solveResult?.correct_move} | WHY: ${solveResult?.coaching_feedback?.why || ""} | REMEMBER: ${solveResult?.coaching_feedback?.remember || ""}`}
+                          context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "solve_correct" }}
+                        />
                       </div>
 
                       <p className="text-sm text-muted-foreground">
@@ -706,7 +711,12 @@ const ThinkingTraining = ({ user }) => {
                     <CardContent className="p-5 space-y-4">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5 text-blue-500" />
-                        <h2 className="font-heading text-blue-600 dark:text-blue-400">Good Move — But There's Better</h2>
+                        <h2 className="font-heading text-blue-600 dark:text-blue-400 flex-1">Good Move — But There's Better</h2>
+                        <InlineFlag
+                          section="training_result"
+                          flaggedText={`Best: ${solveResult?.correct_move} | User: ${solveResult?.user_move_san} | WHY: ${solveResult?.coaching_feedback?.why || ""} | REMEMBER: ${solveResult?.coaching_feedback?.remember || ""}`}
+                          context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "solve_near_miss" }}
+                        />
                       </div>
 
                       <p className="text-sm text-muted-foreground">
@@ -800,7 +810,12 @@ const ThinkingTraining = ({ user }) => {
                     <CardContent className="p-5 space-y-4">
                       <div className="flex items-center gap-2">
                         <XCircle className="w-5 h-5 text-red-500" />
-                        <h2 className="font-heading text-red-600">Not Quite</h2>
+                        <h2 className="font-heading text-red-600 flex-1">Not Quite</h2>
+                        <InlineFlag
+                          section="training_result"
+                          flaggedText={`Best: ${solveResult?.correct_move} | User: ${solveResult?.user_move_san} | WHY: ${solveResult?.coaching_feedback?.why || ""} | REMEMBER: ${solveResult?.coaching_feedback?.remember || ""}`}
+                          context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "solve_incorrect" }}
+                        />
                       </div>
 
                       <p className="text-sm text-muted-foreground">
