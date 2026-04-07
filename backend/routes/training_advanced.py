@@ -535,17 +535,22 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             pain = 20
 
         # Find the sub-cause — the dominant cognitive gap in THIS game
+        # AND the critical move — the BIGGEST cp_loss move (regardless of gap tag)
         game_gaps = {}
         critical_move = None
         max_cp = 0
         for ev in evals:
             gap = ev.get("cognitive_gap", "")
             cp = ev.get("cp_loss", 0) or 0
+
+            # Track cognitive gaps for sub-cause
             if gap and cp >= 100:
                 game_gaps[gap] = game_gaps.get(gap, 0) + 1
-                if cp > max_cp:
-                    max_cp = cp
-                    critical_move = ev
+
+            # Critical move = highest cp_loss, period. Not filtered by gap tag.
+            if cp > max_cp:
+                max_cp = cp
+                critical_move = ev
 
         dominant_gap = max(game_gaps, key=game_gaps.get) if game_gaps else root_pattern
         sub_cause = SUB_CAUSE_MAP.get(dominant_gap, dominant_gap.replace("_", " ").title())
