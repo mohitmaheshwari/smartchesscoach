@@ -2130,6 +2130,11 @@ const CoachPlay = ({ user }) => {
           handleExitLesson={handleExitLesson}
           triggerCoachMove={triggerCoachMove}
           handleStartLesson={handleStartLesson}
+          moveClassification={
+            v5Coaching?.severity && lastMove
+              ? { square: lastMove[1], type: v5Coaching.severity }
+              : null
+          }
         />
 
         {/* Right: Coach panel */}

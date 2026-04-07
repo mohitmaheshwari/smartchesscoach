@@ -503,15 +503,20 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       {/* LEFT: Board + Controls */}
       <div className="lg:w-1/2 space-y-4">
         <div className="aspect-square max-w-[500px] mx-auto relative">
-          <LichessBoard 
+          <LichessBoard
             ref={boardRef}
-            fen={planMode && planBoard ? planBoard.fen() : boardFen} 
-            orientation={orientation} 
+            fen={planMode && planBoard ? planBoard.fen() : boardFen}
+            orientation={orientation}
             viewOnly={!planMode}
             onMove={planMode ? handlePlanMove : undefined}
             lastMove={!planMode && currentMove && !showingFutureMoves ? getLastMoveSquares(currentMove) : null}
             arrows={arrows}
             highlights={highlights}
+            moveClassification={
+              currentMove && !planMode && !showingFutureMoves && currentMove.to
+                ? { square: currentMove.to, type: currentMove.severity || "good" }
+                : null
+            }
           />
           
           {/* Plan mode indicator */}

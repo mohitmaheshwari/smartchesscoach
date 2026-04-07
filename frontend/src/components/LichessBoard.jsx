@@ -14,6 +14,19 @@ import "chessground/assets/chessground.cburnett.css";
  * - Move destinations highlighting
  * - Professional look and feel
  */
+// Move classification icons (like Chess.com)
+const CLASSIFICATION_ICONS = {
+  brilliant:    { symbol: "!!", bg: "bg-cyan-500",    text: "text-white" },
+  best:         { symbol: "★",  bg: "bg-emerald-500", text: "text-white" },
+  excellent:    { symbol: "!",  bg: "bg-emerald-400", text: "text-white" },
+  good:         { symbol: "●",  bg: "bg-emerald-400", text: "text-white" },
+  book:         { symbol: "📖", bg: "bg-blue-400",    text: "text-white" },
+  inaccuracy:   { symbol: "?!", bg: "bg-amber-400",   text: "text-black" },
+  mistake:      { symbol: "?",  bg: "bg-orange-500",  text: "text-white" },
+  blunder:      { symbol: "??", bg: "bg-red-500",     text: "text-white" },
+  miss:         { symbol: "✕",  bg: "bg-red-400",     text: "text-white" },
+};
+
 const LichessBoard = forwardRef(({
   fen: fenProp = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   orientation = "white",
@@ -24,8 +37,9 @@ const LichessBoard = forwardRef(({
   highlights = [],
   lastMove = null,
   viewOnly = false,
-  planMode = false,  // Allow moving both colors (for analysis)
-  movableColor = null, // Specific color that can move (overrides turn-based logic)
+  planMode = false,
+  movableColor = null,
+  moveClassification = null, // { square: "e4", type: "blunder" | "best" | "mistake" | ... }
 }, ref) => {
   // Ensure fen is never null/undefined
   const fen = fenProp || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -489,14 +503,46 @@ const LichessBoard = forwardRef(({
     applyArrows();
   }, [arrows]);
 
+  // Compute icon position for move classification
+  const classIcon = moveClassification && CLASSIFICATION_ICONS[moveClassification.type];
+  const classSquare = moveClassification?.square;
+
+  let iconStyle = null;
+  if (classIcon && classSquare && classSquare.length === 2) {
+    const file = classSquare.charCodeAt(0) - 97; // a=0, h=7
+    const rank = parseInt(classSquare[1]) - 1;    // 1=0, 8=7
+
+    // Position depends on orientation
+    const x = orientation === "white" ? file : 7 - file;
+    const y = orientation === "white" ? 7 - rank : rank;
+
+    iconStyle = {
+      left: `${x * 12.5}%`,
+      top: `${y * 12.5}%`,
+    };
+  }
+
   return (
-    <div 
-      ref={boardRef} 
-      className="w-full aspect-square rounded-lg overflow-hidden"
-      style={{ 
-        maxWidth: "100%",
-      }}
-    />
+    <div className="relative w-full aspect-square" style={{ maxWidth: "100%" }}>
+      <div
+        ref={boardRef}
+        className="w-full h-full rounded-lg overflow-hidden"
+      />
+      {classIcon && iconStyle && (
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            ...iconStyle,
+            width: "12.5%",
+            height: "12.5%",
+          }}
+        >
+          <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full ${classIcon.bg} ${classIcon.text} flex items-center justify-center text-[10px] font-bold shadow-md z-10 border border-white/30`}>
+            {classIcon.symbol}
+          </div>
+        </div>
+      )}
+    </div>
   );
 });
 

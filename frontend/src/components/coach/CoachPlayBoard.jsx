@@ -73,6 +73,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
     handleExitLesson,
     triggerCoachMove,
     handleStartLesson,
+    moveClassification,
   },
   boardRef
 ) {
@@ -142,6 +143,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 (!isPlayerTurn || gameOver)
               }
               showDests={true}
+              moveClassification={moveClassification}
             />
 
             {/* Pedagogical Opportunity Hint Overlay */}

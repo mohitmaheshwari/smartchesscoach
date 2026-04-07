@@ -1212,6 +1212,24 @@ const LabV2 = ({ user }) => {
                   onMove={interactiveMoment ? (moveData) => {
                     handleUserMoveAttempt(moveData.from, moveData.to);
                   } : undefined}
+                  moveClassification={
+                    currentMoveIndex >= 0 && moves[currentMoveIndex]
+                      ? (() => {
+                          const m = moves[currentMoveIndex];
+                          const evals = analysis?.stockfish_analysis?.move_evaluations || [];
+                          const evalData = evals[currentMoveIndex];
+                          const classification = evalData?.classification || evalData?.evaluation || "";
+                          const severity = classification === "best_move" ? "best"
+                            : classification === "excellent" ? "excellent"
+                            : classification === "good" ? "good"
+                            : classification === "blunder" ? "blunder"
+                            : classification === "mistake" ? "mistake"
+                            : classification === "inaccuracy" ? "inaccuracy"
+                            : null;
+                          return severity && m.to ? { square: m.to, type: severity } : null;
+                        })()
+                      : null
+                  }
                 />
                 {/* Best Line indicator */}
                 {isPlayingBestLine && currentBestLine && (
