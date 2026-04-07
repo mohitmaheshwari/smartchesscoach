@@ -638,24 +638,17 @@ const ThinkingTraining = ({ user }) => {
 
                       {/* COACHING FEEDBACK — why it was right + remember */}
                       {solveResult?.coaching_feedback && (
-                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4 space-y-3 relative">
-                          <div className="absolute top-2 right-2">
-                            <InlineFlag
-                              section="training_coaching_feedback"
-                              flaggedText={`WHY: ${solveResult.coaching_feedback.why || ""} | REMEMBER: ${solveResult.coaching_feedback.remember || ""}`}
-                              context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "coaching_feedback" }}
-                            />
-                          </div>
+                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4 space-y-3">
                           {solveResult.coaching_feedback.why && (
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Why this works</p>
-                              <p className="text-sm text-foreground leading-relaxed">{solveResult.coaching_feedback.why}</p>
+                              <div className="group"><p className="text-sm text-foreground leading-relaxed inline">{solveResult.coaching_feedback.why}</p><InlineFlag section="coaching_why" flaggedText={solveResult.coaching_feedback.why} context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training" }} /></div>
                             </div>
                           )}
                           {solveResult.coaching_feedback.remember && (
                             <div className="pt-2 border-t border-emerald-500/10">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Remember this</p>
-                              <p className="text-sm text-foreground font-medium leading-relaxed">{solveResult.coaching_feedback.remember}</p>
+                              <div className="group"><p className="text-sm text-foreground font-medium leading-relaxed inline">{solveResult.coaching_feedback.remember}</p><InlineFlag section="coaching_remember" flaggedText={solveResult.coaching_feedback.remember} context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training" }} /></div>
                             </div>
                           )}
                         </div>
@@ -752,24 +745,17 @@ const ThinkingTraining = ({ user }) => {
 
                       {/* COACHING FEEDBACK */}
                       {solveResult?.coaching_feedback && (
-                        <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.03] p-4 space-y-3 relative">
-                          <div className="absolute top-2 right-2">
-                            <InlineFlag
-                              section="training_coaching_feedback"
-                              flaggedText={`WHY: ${solveResult.coaching_feedback.why || ""} | REMEMBER: ${solveResult.coaching_feedback.remember || ""}`}
-                              context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "coaching_feedback" }}
-                            />
-                          </div>
+                        <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.03] p-4 space-y-3">
                           {solveResult.coaching_feedback.why && (
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">What made the difference</p>
-                              <p className="text-sm text-foreground leading-relaxed">{solveResult.coaching_feedback.why}</p>
+                              <div className="group"><p className="text-sm text-foreground leading-relaxed inline">{solveResult.coaching_feedback.why}</p><InlineFlag section="coaching_why" flaggedText={solveResult.coaching_feedback.why} context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training" }} /></div>
                             </div>
                           )}
                           {solveResult.coaching_feedback.remember && (
                             <div className="pt-2 border-t border-blue-500/10">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">Remember this</p>
-                              <p className="text-sm text-foreground font-medium leading-relaxed">{solveResult.coaching_feedback.remember}</p>
+                              <div className="group"><p className="text-sm text-foreground font-medium leading-relaxed inline">{solveResult.coaching_feedback.remember}</p><InlineFlag section="coaching_remember" flaggedText={solveResult.coaching_feedback.remember} context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training" }} /></div>
                             </div>
                           )}
                         </div>
@@ -835,12 +821,12 @@ const ThinkingTraining = ({ user }) => {
                             <div className="p-3 bg-red-500/5">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-red-500 mb-1">Your move</p>
                               <p className="text-sm font-mono font-semibold text-red-600 mb-1">{solveResult.comparison.your_move}</p>
-                              <p className="text-xs text-muted-foreground leading-relaxed">{solveResult.comparison.your_move_does}</p>
+                              <div className="group"><p className="text-xs text-muted-foreground leading-relaxed inline">{solveResult.comparison.your_move_does}</p><InlineFlag section="your_move" flaggedText={solveResult.comparison.your_move_does} context={{ fen: currentFiltered?.fen, source: "training" }} /></div>
                             </div>
                             <div className="p-3 bg-emerald-500/5">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 mb-1">Best move</p>
                               <p className="text-sm font-mono font-semibold text-emerald-600 mb-1">{solveResult.comparison.best_move}</p>
-                              <p className="text-xs text-muted-foreground leading-relaxed">{solveResult.comparison.best_move_does}</p>
+                              <div className="group"><p className="text-xs text-muted-foreground leading-relaxed inline">{solveResult.comparison.best_move_does}</p><InlineFlag section="best_move" flaggedText={solveResult.comparison.best_move_does} context={{ fen: currentFiltered?.fen, source: "training" }} /></div>
                             </div>
                           </div>
                           {solveResult.comparison.difference && (
@@ -918,28 +904,21 @@ const ThinkingTraining = ({ user }) => {
 
                       {/* COACHING FEEDBACK — why + remember + behavior */}
                       {solveResult?.coaching_feedback && (
-                        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4 space-y-3 relative">
-                          <div className="absolute top-2 right-2">
-                            <InlineFlag
-                              section="training_coaching_feedback"
-                              flaggedText={`WHY: ${solveResult.coaching_feedback.why || ""} | REMEMBER: ${solveResult.coaching_feedback.remember || ""}`}
-                              context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "coaching_feedback" }}
-                            />
-                          </div>
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4 space-y-3">
                           {solveResult.coaching_feedback.why && (
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Why you missed this</p>
-                              <p className="text-sm text-foreground leading-relaxed">{solveResult.coaching_feedback.why}</p>
+                              <div className="group"><p className="text-sm text-foreground leading-relaxed inline">{solveResult.coaching_feedback.why}</p><InlineFlag section="coaching_why" flaggedText={solveResult.coaching_feedback.why} context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training" }} /></div>
                             </div>
                           )}
                           {solveResult.coaching_feedback.remember && (
                             <div className="pt-2 border-t border-amber-500/10">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Remember this</p>
-                              <p className="text-sm text-foreground font-medium leading-relaxed">{solveResult.coaching_feedback.remember}</p>
+                              <div className="group"><p className="text-sm text-foreground font-medium leading-relaxed inline">{solveResult.coaching_feedback.remember}</p><InlineFlag section="coaching_remember" flaggedText={solveResult.coaching_feedback.remember} context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training" }} /></div>
                             </div>
                           )}
                           {solveResult.coaching_feedback.behavior && (
-                            <p className="text-xs text-muted-foreground italic pt-1">{solveResult.coaching_feedback.behavior}</p>
+                            <div className="group pt-1"><p className="text-xs text-muted-foreground italic inline">{solveResult.coaching_feedback.behavior}</p><InlineFlag section="coaching_behavior" flaggedText={solveResult.coaching_feedback.behavior} context={{ fen: currentFiltered?.fen, source: "training" }} /></div>
                           )}
                         </div>
                       )}
