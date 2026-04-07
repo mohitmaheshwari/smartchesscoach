@@ -408,7 +408,15 @@ async def get_training_feed(
                 import chess as chess_mod
                 board_t = chess_mod.Board(pos.get("fen", ""))
                 uc = "white" if board_t.turn == chess_mod.WHITE else "black"
-                pos["eval_label"] = get_eval_label(stored_eval, uc)
+                # eval_cp might be stored from White's perspective OR user's perspective
+                # (depending on when it was extracted). Normalize: if it's the user's
+                # perspective already (user_eval_before exists), use it directly as if White.
+                user_eval_stored = pos.get("eval_before_user")
+                if user_eval_stored is not None:
+                    # Already from user's perspective — pass as "white" to avoid double-flip
+                    pos["eval_label"] = get_eval_label(int(user_eval_stored), "white")
+                else:
+                    pos["eval_label"] = get_eval_label(int(stored_eval), uc)
             else:
                 # Lightweight: use material balance instead of Stockfish (too slow for 12 positions)
                 import chess as chess_mod
@@ -1316,10 +1324,9 @@ def _build_concrete_explanation(board: chess.Board, best_move_san: str) -> str:
                     parts.append(f"and defends your {def_name} on {chess.square_name(sq)}")
                     break
 
-    # Also check for discovered attacks (piece moved away, revealing an attack)
-    # Only for non-pawn pieces moving off a file/diagonal
-    if piece.piece_type != chess.PAWN and len(attacks) == 0:
-        # Check if moving this piece reveals an attack from a rook/bishop/queen behind it
+    # Check for discovered attacks / opened lines (ANY piece moving, including pawns)
+    # When a pawn moves off a diagonal, it can open a line for a bishop/queen behind it
+    if True:  # Always check — pawns opening diagonals is critical
         for sq in chess.SQUARES:
             target = sim.piece_at(sq)
             if target and target.color != user_color and target.piece_type != chess.KING and target.piece_type != chess.PAWN:
@@ -1328,11 +1335,41 @@ def _build_concrete_explanation(board: chess.Board, best_move_san: str) -> str:
                 was_attacked = board.is_attacked_by(user_color, sq)
                 if now_attacked and not was_attacked:
                     target_name = PIECE_NAMES.get(target.piece_type, "piece")
-                    parts.append(f"and reveals an attack on their {target_name} on {chess.square_name(sq)}")
+                    # Find WHICH of our pieces now attacks this target (the one behind the moved piece)
+                    new_attackers = list(sim.attackers(user_color, sq))
+                    old_attackers = list(board.attackers(user_color, sq))
+                    revealed_pieces = [a for a in new_attackers if a not in old_attackers and a != move.to_square]
+                    if revealed_pieces:
+                        revealer = sim.piece_at(revealed_pieces[0])
+                        if revealer:
+                            revealer_name = PIECE_NAMES.get(revealer.piece_type, "piece")
+                            revealer_sq = chess.square_name(revealed_pieces[0])
+                            parts.append(f"and opens the line for your {revealer_name} on {revealer_sq} to attack their {target_name}")
+                        else:
+                            parts.append(f"and reveals an attack on their {target_name} on {chess.square_name(sq)}")
+                    else:
+                        parts.append(f"and reveals an attack on their {target_name} on {chess.square_name(sq)}")
                     break
 
+    # Check if the move opened a line for our sliding piece (even if no immediate attack target)
+    # E.g., pawn moves off diagonal → bishop gets a longer line
+    if len(parts) <= 2:
+        for sq in chess.SQUARES:
+            our_piece = sim.piece_at(sq)
+            if not our_piece or our_piece.color != user_color:
+                continue
+            if our_piece.piece_type not in (chess.BISHOP, chess.ROOK, chess.QUEEN):
+                continue
+            # Compare mobility before vs after
+            attacks_after = len(list(sim.attacks(sq)))
+            attacks_before = len(list(board.attacks(sq))) if board.piece_at(sq) else 0
+            if attacks_after > attacks_before + 3:  # Significant increase
+                p_name = PIECE_NAMES.get(our_piece.piece_type, "piece")
+                parts.append(f"and opens up the line for your {p_name} on {chess.square_name(sq)}")
+                break
+
     if len(parts) <= 1:
-        return ""  # Not enough info for a concrete explanation
+        return ""
 
     return " ".join(parts[:3]) + "."
 

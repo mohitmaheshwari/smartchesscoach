@@ -22,6 +22,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import EvalBadge from "@/components/shared/EvalBadge";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -632,7 +633,14 @@ const ThinkingTraining = ({ user }) => {
 
                       {/* COACHING FEEDBACK — why it was right + remember */}
                       {solveResult?.coaching_feedback && (
-                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4 space-y-3">
+                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4 space-y-3 relative">
+                          <div className="absolute top-2 right-2">
+                            <InlineFlag
+                              section="training_coaching_feedback"
+                              flaggedText={`WHY: ${solveResult.coaching_feedback.why || ""} | REMEMBER: ${solveResult.coaching_feedback.remember || ""}`}
+                              context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "coaching_feedback" }}
+                            />
+                          </div>
                           {solveResult.coaching_feedback.why && (
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Why this works</p>
@@ -734,7 +742,14 @@ const ThinkingTraining = ({ user }) => {
 
                       {/* COACHING FEEDBACK */}
                       {solveResult?.coaching_feedback && (
-                        <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.03] p-4 space-y-3">
+                        <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.03] p-4 space-y-3 relative">
+                          <div className="absolute top-2 right-2">
+                            <InlineFlag
+                              section="training_coaching_feedback"
+                              flaggedText={`WHY: ${solveResult.coaching_feedback.why || ""} | REMEMBER: ${solveResult.coaching_feedback.remember || ""}`}
+                              context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "coaching_feedback" }}
+                            />
+                          </div>
                           {solveResult.coaching_feedback.why && (
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">What made the difference</p>
@@ -888,7 +903,14 @@ const ThinkingTraining = ({ user }) => {
 
                       {/* COACHING FEEDBACK — why + remember + behavior */}
                       {solveResult?.coaching_feedback && (
-                        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4 space-y-3">
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4 space-y-3 relative">
+                          <div className="absolute top-2 right-2">
+                            <InlineFlag
+                              section="training_coaching_feedback"
+                              flaggedText={`WHY: ${solveResult.coaching_feedback.why || ""} | REMEMBER: ${solveResult.coaching_feedback.remember || ""}`}
+                              context={{ fen: currentFiltered?.fen, moveSan: solveResult?.correct_move, source: "training", component: "coaching_feedback" }}
+                            />
+                          </div>
                           {solveResult.coaching_feedback.why && (
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Why you missed this</p>
