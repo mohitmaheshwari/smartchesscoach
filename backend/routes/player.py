@@ -167,26 +167,46 @@ async def get_real_progress(user: User = Depends(get_current_user)):
     }
     """
     from services.community_training_service import get_training_progress
-    from services.game_reason_classifier import classify_game_reason
+    from services.game_reason_classifier import classify_game_reason, aggregate_game_reasons
 
-    # 1. Get the active coaching pattern
-    try:
-        lab_res = await get_coaching_progress_report.__wrapped__(user) if hasattr(get_coaching_progress_report, '__wrapped__') else None
-    except Exception:
-        pass
+    # 1. Get the REAL focus — from game_reason_classifier, not cognitive gaps
+    # This matches what Home and Lab show
+    all_analyses_for_reasons = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.accuracy": 1}
+    ).sort("created_at", -1).limit(30).to_list(30)
 
-    # Get training lock status from lab-coach-pick logic
+    game_map = {}
+    for g in await db.games.find({"user_id": user.user_id, "is_analyzed": True},
+        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "termination": 1}).to_list(100):
+        game_map[g["game_id"]] = g
+
+    all_reasons = []
+    for a in all_analyses_for_reasons:
+        gid = a.get("game_id", "")
+        g = game_map.get(gid, {})
+        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        reason = classify_game_reason(
+            move_evaluations=evals,
+            game_result=g.get("result", ""),
+            user_color=g.get("user_color", "white"),
+            termination=g.get("termination", "unknown"),
+            accuracy=a.get("stockfish_analysis", {}).get("accuracy", 0),
+        )
+        all_reasons.append({"game_id": gid, **reason})
+
+    top_problems = aggregate_game_reasons(all_reasons)
+    if not top_problems:
+        return {"state": "not_started", "message": "No patterns detected yet."}
+
+    # Focus = the #1 game-level problem category
+    focus_category = top_problems[0]["category"]
+
+    # For training, we need the move-level pattern (cognitive gap)
     from services.pattern_memory_service import get_top_patterns
     top_patterns = await get_top_patterns(db, user.user_id, limit=1)
+    focus_pattern = top_patterns[0].get("pattern_type", "") if top_patterns else focus_category
 
-    if not top_patterns:
-        return {"state": "not_started", "message": "No patterns detected yet."}
-
-    focus_pattern = top_patterns[0].get("pattern_type", "")
-    if not focus_pattern:
-        return {"state": "not_started", "message": "No patterns detected yet."}
-
-    # Human label
     LABELS = {
         "tactical_miss": "Tactical mistakes", "one_move_blunder": "Hanging pieces",
         "calculation_error": "Shallow calculation", "calculation_depth": "Shallow calculation",
@@ -196,7 +216,7 @@ async def get_real_progress(user: User = Depends(get_current_user)):
         "ignore_threat": "Missing opponent threats", "missed_tactic": "Missed tactics",
         "king_safety": "King safety mistakes", "conversion": "Conversion failures",
     }
-    focus_label = LABELS.get(focus_pattern, focus_pattern.replace("_", " ").title())
+    focus_label = LABELS.get(focus_category, focus_category.replace("_", " ").title())
 
     # 2. Check training completion
     TRAINING_TARGET = 5
@@ -272,8 +292,7 @@ async def get_real_progress(user: User = Depends(get_current_user)):
             "result": reason["result"],
             "category": reason["category"],
             "label": reason["label"],
-            "has_focus_mistake": reason["category"] == focus_pattern or
-                                 any(e.get("cognitive_gap") == focus_pattern and (e.get("cp_loss", 0) or 0) >= 100 for e in evals),
+            "has_focus_mistake": reason["category"] == focus_category,
             "source": "imported",
         }
 
@@ -283,19 +302,32 @@ async def get_real_progress(user: User = Depends(get_current_user)):
             pre_games.append(game_entry)
 
     # Classify coach play sessions
+    # Map game-level categories to move-level patterns for coach session matching
+    CATEGORY_TO_GAPS = {
+        "threw_winning": ["calculation_depth", "tactical_oversight", "conversion", "piece_safety"],
+        "tactical_miss": ["missed_tactic", "tactical_oversight"],
+        "one_move_blunder": ["piece_safety", "hanging_piece"],
+        "time_collapse": ["time_pressure", "time_management"],
+        "opening_disaster": ["opening_knowledge"],
+        "endgame_collapse": ["endgame_technique"],
+        "positional": ["piece_activity", "pawn_structure"],
+    }
+    focus_gaps = CATEGORY_TO_GAPS.get(focus_category, [focus_pattern])
+
     for s in coach_sessions:
         created = s.get("created_at", "")
         if isinstance(created, str) and created > training_completed_at:
             session_evals = s.get("evaluations", [])
             has_focus = any(
-                e.get("cognitive_gap") == focus_pattern or e.get("concept_id") == focus_pattern
+                e.get("cognitive_gap", "") in focus_gaps or e.get("concept_id", "") in focus_gaps
                 for e in session_evals
                 if (e.get("cp_loss", 0) or 0) >= 100
             )
+            result_str = str(s.get("result", "")).lower()
             post_games.append({
                 "game_id": s.get("session_id", ""),
                 "opponent": "Coach",
-                "result": "loss" if "loss" in str(s.get("result", "")).lower() else "win",
+                "result": "loss" if "loss" in result_str or "0-1" in result_str else "win",
                 "category": "coach_game",
                 "label": "Coached game",
                 "has_focus_mistake": has_focus,

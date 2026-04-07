@@ -112,7 +112,7 @@ DRAW_CATEGORIES = {
 ALL_CATEGORIES = {**LOSS_CATEGORIES, **WIN_CATEGORIES, **DRAW_CATEGORIES}
 
 
-def classify_game_reason(
+def _classify_game_reason_inner(
     move_evaluations: List[Dict],
     game_result: str,
     user_color: str,
@@ -299,6 +299,72 @@ def classify_game_reason(
         return _build("held_worse", "draw")
 
     return _build("solid_play", "win" if user_won else "loss")
+
+
+def classify_game_reason(
+    move_evaluations: List[Dict],
+    game_result: str,
+    user_color: str,
+    termination: str = "unknown",
+    accuracy: float = 0,
+) -> Dict:
+    """Wrapper that adds tactical motifs to classification."""
+    result = _classify_game_reason_inner(move_evaluations, game_result, user_color, termination, accuracy)
+    motifs = _extract_motifs(move_evaluations) if move_evaluations else []
+    result["motifs"] = motifs
+    result["motif_labels"] = [TACTICAL_MOTIFS.get(m, m) for m in motifs]
+    return result
+
+
+TACTICAL_MOTIFS = {
+    "fork": "Fork",
+    "pin": "Pin",
+    "skewer": "Skewer",
+    "back_rank": "Back rank",
+    "discovered": "Discovered attack",
+    "overloaded": "Overloaded piece",
+    "trapped": "Trapped piece",
+    "hanging": "Hanging piece",
+}
+
+
+def _extract_motifs(move_evaluations: List[Dict]) -> List[str]:
+    """
+    Extract tactical motifs from move data.
+    Looks at cognitive_gap, coaching_focus, and explanation fields.
+    """
+    motifs = set()
+
+    for m in move_evaluations:
+        cp_loss = abs(m.get("cp_loss", 0) or 0)
+        if cp_loss < 100:
+            continue
+
+        gap = (m.get("cognitive_gap", "") or "").lower()
+        focus = (m.get("coaching_focus", "") or "").lower()
+        explanation = (m.get("explanation", "") or "").lower()
+        concept = (m.get("concept_id", "") or "").lower()
+
+        text = f"{gap} {focus} {explanation} {concept}"
+
+        if "fork" in text:
+            motifs.add("fork")
+        if "pin" in text:
+            motifs.add("pin")
+        if "skewer" in text:
+            motifs.add("skewer")
+        if "back_rank" in text or "back rank" in text:
+            motifs.add("back_rank")
+        if "discover" in text:
+            motifs.add("discovered")
+        if "overload" in text:
+            motifs.add("overloaded")
+        if "trap" in text:
+            motifs.add("trapped")
+        if "hang" in text or "undefend" in text or "piece_safety" in gap:
+            motifs.add("hanging")
+
+    return list(motifs)
 
 
 def _build(category: str, result: str, critical_move: int = None) -> Dict:

@@ -668,6 +668,15 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
     # ── DIAGNOSIS (short for home, detail for lab) ──
     diag = COACHING_DIAGNOSIS.get(root_pattern, {"short": root_label, "detail": root_label})
 
+    # ── PROBLEM LIFECYCLE — anger escalation ──
+    lifecycle = None
+    try:
+        from services.problem_lifecycle import update_problem_lifecycle
+        game_reasons_list = [g.get("game_reason") for g in enriched_games if g.get("game_reason")]
+        lifecycle = await update_problem_lifecycle(db, user_id, enriched_games, game_reasons_list)
+    except Exception as lc_err:
+        logger.debug(f"Problem lifecycle failed (non-fatal): {lc_err}")
+
     return {
         "root_problem": root_problem,
         "diagnosis": diag,
@@ -681,6 +690,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "top_problems": top_problems,
         "rule": rule_data,
         "training_lock": training_lock,
+        "lifecycle": lifecycle,
     }
 
 

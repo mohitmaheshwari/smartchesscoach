@@ -162,9 +162,14 @@ const HomePage = ({ user }) => {
   const pg = coaching?.priority_game;
 
   const mistakeKey = topProblem?.category || root?.pattern || "calculation_depth";
-  const headline = HEADLINES[mistakeKey] || HEADLINES.calculation_depth;
+  const baseHeadline = HEADLINES[mistakeKey] || HEADLINES.calculation_depth;
   const behavior = BEHAVIORS[mistakeKey] || BEHAVIORS.calculation_depth;
   const rule = RULES[mistakeKey] || RULES.calculation_depth;
+
+  // Anger escalation — prefix changes when problem returns after being resolved
+  const lifecycle = coaching?.lifecycle;
+  const angerPrefix = lifecycle?.anger_config?.prefix || "";
+  const headline = angerPrefix + baseHeadline;
 
   return (
     <Layout user={user}>

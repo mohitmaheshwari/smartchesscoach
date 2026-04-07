@@ -120,7 +120,9 @@ const Dashboard = ({ user }) => {
   const topProblem = coaching?.top_problems?.[0];
 
   const mistakeKey = topProblem?.category || coaching?.root_problem?.pattern || "calculation_depth";
-  const headline = HEADLINES[mistakeKey] || HEADLINES.calculation_depth;
+  const lifecycle = coaching?.lifecycle;
+  const angerPrefix = lifecycle?.anger_config?.prefix || "";
+  const headline = angerPrefix + (HEADLINES[mistakeKey] || HEADLINES.calculation_depth);
   const explanation = EXPLANATIONS[mistakeKey] || EXPLANATIONS.calculation_depth;
   const ruleData = RULES[mistakeKey] || RULES.calculation_depth;
 
