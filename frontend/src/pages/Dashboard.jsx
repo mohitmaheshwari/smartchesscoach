@@ -177,26 +177,8 @@ const Dashboard = ({ user }) => {
             </p>
           </div>
 
-          {/* 5. TRAINING SUGGESTION (not forced) */}
-          <div className="rounded-xl border border-border bg-card p-4 mb-8 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-foreground font-medium">Practice this pattern</p>
-              <p className="text-xs text-muted-foreground">3 min · puzzles from your games</p>
-            </div>
-            <motion.button
-              onClick={() => {
-                // Train the dominant sub-cause pattern (move-level), not the game-level category
-                const pattern = coaching?.root_problem?.pattern || "";
-                navigate(pattern ? `/training?focus=${pattern}` : "/training");
-              }}
-              className="px-4 py-2 text-sm font-semibold rounded-lg gradient-gold text-black hover:opacity-90 transition-all flex items-center gap-1.5"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Target className="w-3.5 h-3.5" strokeWidth={2} />
-              Train
-            </motion.button>
-          </div>
+          {/* spacing between rule and games */}
+          <div className="mb-2" />
 
           {/* 6. GAMES TO REVIEW */}
           {/* Current game — with board preview */}
