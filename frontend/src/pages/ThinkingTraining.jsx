@@ -622,9 +622,29 @@ const ThinkingTraining = ({ user }) => {
                             <p className="text-xs text-amber-600 italic">{solveResult.explanation.trap}</p>
                           )}
 
-                          <div className="border-t border-emerald-500/10 pt-2">
-                            <p className="text-xs text-muted-foreground"><span className="font-medium text-emerald-600">Lesson:</span> {solveResult.explanation.lesson}</p>
-                          </div>
+                          {!solveResult?.coaching_feedback && (
+                            <div className="border-t border-emerald-500/10 pt-2">
+                              <p className="text-xs text-muted-foreground"><span className="font-medium text-emerald-600">Lesson:</span> {solveResult.explanation.lesson}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* COACHING FEEDBACK — why it was right + remember */}
+                      {solveResult?.coaching_feedback && (
+                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4 space-y-3">
+                          {solveResult.coaching_feedback.why && (
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Why this works</p>
+                              <p className="text-sm text-foreground leading-relaxed">{solveResult.coaching_feedback.why}</p>
+                            </div>
+                          )}
+                          {solveResult.coaching_feedback.remember && (
+                            <div className="pt-2 border-t border-emerald-500/10">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Remember this</p>
+                              <p className="text-sm text-foreground font-medium leading-relaxed">{solveResult.coaching_feedback.remember}</p>
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -704,9 +724,29 @@ const ThinkingTraining = ({ user }) => {
                               </div>
                             </div>
                           )}
-                          <div className="border-t border-blue-500/10 pt-2">
-                            <p className="text-xs text-muted-foreground"><span className="font-medium text-blue-500">Takeaway:</span> {solveResult.explanation.lesson}</p>
-                          </div>
+                          {!solveResult?.coaching_feedback && (
+                            <div className="border-t border-blue-500/10 pt-2">
+                              <p className="text-xs text-muted-foreground"><span className="font-medium text-blue-500">Takeaway:</span> {solveResult.explanation.lesson}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* COACHING FEEDBACK */}
+                      {solveResult?.coaching_feedback && (
+                        <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.03] p-4 space-y-3">
+                          {solveResult.coaching_feedback.why && (
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">What made the difference</p>
+                              <p className="text-sm text-foreground leading-relaxed">{solveResult.coaching_feedback.why}</p>
+                            </div>
+                          )}
+                          {solveResult.coaching_feedback.remember && (
+                            <div className="pt-2 border-t border-blue-500/10">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">Remember this</p>
+                              <p className="text-sm text-foreground font-medium leading-relaxed">{solveResult.coaching_feedback.remember}</p>
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -837,10 +877,33 @@ const ThinkingTraining = ({ user }) => {
                             <p className="text-xs text-amber-600 italic">{solveResult.explanation.trap}</p>
                           )}
 
-                          {/* Lesson — always show */}
-                          <div className="border-t border-border pt-2">
-                            <p className="text-xs text-muted-foreground"><span className="font-medium text-primary">Lesson:</span> {solveResult.explanation.lesson}</p>
-                          </div>
+                          {/* Lesson — fallback if no coaching feedback */}
+                          {!solveResult?.coaching_feedback && (
+                            <div className="border-t border-border pt-2">
+                              <p className="text-xs text-muted-foreground"><span className="font-medium text-primary">Lesson:</span> {solveResult.explanation.lesson}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* COACHING FEEDBACK — why + remember + behavior */}
+                      {solveResult?.coaching_feedback && (
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4 space-y-3">
+                          {solveResult.coaching_feedback.why && (
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Why you missed this</p>
+                              <p className="text-sm text-foreground leading-relaxed">{solveResult.coaching_feedback.why}</p>
+                            </div>
+                          )}
+                          {solveResult.coaching_feedback.remember && (
+                            <div className="pt-2 border-t border-amber-500/10">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Remember this</p>
+                              <p className="text-sm text-foreground font-medium leading-relaxed">{solveResult.coaching_feedback.remember}</p>
+                            </div>
+                          )}
+                          {solveResult.coaching_feedback.behavior && (
+                            <p className="text-xs text-muted-foreground italic pt-1">{solveResult.coaching_feedback.behavior}</p>
+                          )}
                         </div>
                       )}
 

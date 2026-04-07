@@ -558,9 +558,9 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         # Track sub-cause counts
         sub_cause_counts[sub_cause] = sub_cause_counts.get(sub_cause, 0) + 1
 
-        # Extract replay FENs for the first (priority) game
+        # Replay data will be computed for the actual priority game AFTER sorting
         replay_data = None
-        if critical_move and len(problem_games) == 0:  # Only for first game (saves compute)
+        if False:  # Disabled here — computed below for priority game
             try:
                 import chess as chess_mod
                 fen_before = critical_move.get("fen_before", "")
@@ -639,6 +639,75 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             break
     if not priority_game and problem_games:
         priority_game = problem_games[0]
+
+    # Compute replay FENs for the priority game
+    if priority_game and not priority_game.get("replay"):
+        try:
+            import chess as chess_mod
+            pg_gid = priority_game["game_id"]
+            pg_a = analyses.get(pg_gid, {})
+            pg_evals = pg_a.get("stockfish_analysis", {}).get("move_evaluations", [])
+            pg_uc = priority_game.get("user_color", "white")
+
+            # Find the biggest cp_loss move in this game
+            pg_critical = None
+            pg_max_cp = 0
+            for ev in pg_evals:
+                cp = ev.get("cp_loss", 0) or 0
+                if cp > pg_max_cp:
+                    pg_max_cp = cp
+                    pg_critical = ev
+
+            if pg_critical:
+                fen_before = pg_critical.get("fen_before", "")
+                user_move_san = pg_critical.get("move", "")
+
+                if fen_before and user_move_san:
+                    board = chess_mod.Board(fen_before)
+
+                    # Setup FEN — 2-3 moves before mistake
+                    setup_fen = fen_before
+                    mn = pg_critical.get("move_number", 0)
+                    for ev in reversed(pg_evals):
+                        ev_mn = ev.get("move_number", 0)
+                        if ev_mn <= mn - 2 and ev.get("fen_before"):
+                            setup_fen = ev.get("fen_before")
+                            break
+
+                    # FEN after user's move
+                    user_move = board.parse_san(user_move_san)
+                    board.push(user_move)
+                    fen_after_user = board.fen()
+
+                    # Opponent's reply
+                    opponent_reply_fen = None
+                    found_current = False
+                    for ev in pg_evals:
+                        if found_current and ev.get("fen_before"):
+                            opponent_reply_fen = ev.get("fen_before")
+                            break
+                        if ev.get("move_number") == mn and ev.get("move") == user_move_san:
+                            found_current = True
+
+                    if not opponent_reply_fen:
+                        pv = pg_critical.get("pv_after_played", [])
+                        if pv:
+                            try:
+                                opp_move = board.parse_san(pv[0])
+                                board.push(opp_move)
+                                opponent_reply_fen = board.fen()
+                            except Exception:
+                                pass
+
+                    priority_game["replay"] = {
+                        "setup_fen": setup_fen,
+                        "mistake_fen": fen_before,
+                        "after_move_fen": fen_after_user,
+                        "after_reply_fen": opponent_reply_fen,
+                    }
+                    priority_game["move_number"] = mn
+        except Exception as replay_err:
+            logger.debug(f"Priority game replay extraction failed: {replay_err}")
 
     # ── 3. INSIGHT from top problem (top_problems already computed above) ──
     if top_problems:
@@ -1078,6 +1147,73 @@ async def mark_game_reviewed(game_id: str, user: User = Depends(get_current_user
     except Exception:
         pass
     return {"success": result.modified_count > 0}
+
+
+@router.get("/replay/{game_id}")
+async def get_game_replay(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get multi-moment Coach Replay data for a game.
+    Returns 3-4 key moments with board reading at each.
+    """
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.accuracy": 1}
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="No analysis found")
+
+    evals = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+    user_color = game.get("user_color", "white")
+
+    # Extract moments
+    from services.game_moments_service import extract_game_moments
+    moments = extract_game_moments(
+        move_evaluations=evals,
+        game_result=game.get("result", ""),
+        user_color=user_color,
+        termination=game.get("termination", "unknown"),
+    )
+
+    # Add LLM board reading for each moment
+    for moment in moments:
+        if moment.get("fen_before"):
+            try:
+                from services.position_intelligence import read_board_deep
+                board_read = await read_board_deep(
+                    moment["fen_before"],
+                    user_color=user_color,
+                    user_rating=1200,
+                )
+                moment["board_reading"] = board_read.get("summary", "")
+            except Exception:
+                moment["board_reading"] = ""
+
+    # Get the coaching rule for behavior connection
+    coaching_data = None
+    try:
+        cache = await db.coaching_cache.find_one({"user_id": user.user_id}, {"_id": 0, "data.coaching.rule": 1, "data.coaching.diagnosis": 1})
+        if cache:
+            coaching_data = cache.get("data", {}).get("coaching", {})
+    except Exception:
+        pass
+
+    return {
+        "game_id": game_id,
+        "opponent": game.get("opponent_name", "Opponent"),
+        "opening": game.get("opening", ""),
+        "result": game.get("result", ""),
+        "user_color": user_color,
+        "moments": moments,
+        "rule": coaching_data.get("rule") if coaching_data else None,
+        "behavior": coaching_data.get("diagnosis", {}).get("detail", "") if coaching_data else "",
+    }
 
 
 @router.get("/training/pattern-puzzles/{pattern}")

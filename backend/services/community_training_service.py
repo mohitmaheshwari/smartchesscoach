@@ -782,6 +782,23 @@ async def record_solve_attempt(
             ),
         }
 
+    # ── WHY + REMEMBER — LLM-powered teaching moment ──
+    # Not "best move was X" but "here's why you missed it and what to remember"
+    coaching_feedback = None
+    try:
+        coaching_feedback = await _generate_coaching_feedback(
+            fen=fen,
+            user_move=user_move,
+            best_move=best_move_san,
+            pattern_type=pattern_type,
+            solved=solved,
+            near_miss=near_miss,
+            your_move_analysis=your_move_analysis,
+            explanation=explanation,
+        )
+    except Exception as cf_err:
+        logger.debug(f"Coaching feedback generation failed (non-fatal): {cf_err}")
+
     return {
         "solved": solved,
         "near_miss": near_miss,
@@ -797,7 +814,164 @@ async def record_solve_attempt(
         "your_move_analysis": your_move_analysis,
         "comparison": comparison,
         "known_trap": known_trap,
+        "coaching_feedback": coaching_feedback,
     }
+
+
+async def _generate_coaching_feedback(
+    fen: str,
+    user_move: str,
+    best_move: str,
+    pattern_type: str,
+    solved: bool,
+    near_miss: bool,
+    your_move_analysis: Optional[Dict],
+    explanation: Optional[Dict],
+) -> Optional[Dict]:
+    """
+    Generate LLM-powered coaching feedback for a training puzzle.
+
+    Returns:
+    {
+        "why": "Your queen and rook were on the same diagonal. That's why the bishop pin works here.",
+        "remember": "When your heavy pieces line up on a diagonal, check for bishop pins.",
+        "behavior": "You didn't scan the board before moving. That's your pattern."
+    }
+    """
+    try:
+        from llm_service import call_llm
+        from services.position_intelligence import _extract_board_facts
+    except ImportError:
+        return None
+
+    # Extract board facts for context
+    board_facts = ""
+    try:
+        board = chess.Board(fen)
+        user_color = board.turn
+        board_facts = _extract_board_facts(board, user_color, not user_color)
+    except Exception:
+        pass
+
+    # Build the context for LLM
+    user_move_info = ""
+    if your_move_analysis:
+        user_move_info = f"User played: {your_move_analysis.get('what_it_does', '')}"
+        if your_move_analysis.get('why_bad'):
+            user_move_info += f"\nProblem: {your_move_analysis['why_bad']}"
+        if your_move_analysis.get('opponent_punishes'):
+            opp = your_move_analysis['opponent_punishes']
+            user_move_info += f"\nOpponent responds: {opp.get('description', '')}"
+
+    best_move_info = ""
+    if explanation:
+        best_move_info = explanation.get("move_description", "") or explanation.get("why_best", "")
+
+    # Pattern context
+    PATTERN_BEHAVIORS = {
+        "tactical_miss": "not scanning the board for tactics before moving",
+        "hanging_piece": "not checking if pieces are protected",
+        "calculation_depth": "not checking what the opponent will do next",
+        "piece_safety": "not asking 'is anything I own under attack?'",
+        "missed_tactic": "not looking for captures, checks, and threats",
+        "tactical_oversight": "not checking the opponent's reply",
+        "positional": "moving pieces without a plan",
+    }
+    behavior_desc = PATTERN_BEHAVIORS.get(pattern_type, "not reading the position carefully")
+
+    system = (
+        "You are a chess coach explaining a position to a 1200-rated player. "
+        "You must explain TWO things:\n"
+        "1. WHY: What was happening on the board that the player didn't see? "
+        "Be specific about pieces, squares, and threats. No move notation — describe what's happening.\n"
+        "2. REMEMBER: One specific thing to look for in similar positions in the future. "
+        "Not a generic rule — something tied to THIS position type.\n\n"
+        "Rules:\n"
+        "- No engine language (eval, centipawns, best move)\n"
+        "- No move notation (Qc4, Bd5) — describe in words\n"
+        "- Maximum 2 sentences for WHY\n"
+        "- Maximum 1 sentence for REMEMBER\n"
+        "- Sound like a human coach, not a textbook\n"
+        "- Be specific to this position, not generic"
+    )
+
+    if solved or near_miss:
+        user_msg = (
+            f"The player FOUND the right move in this position.\n\n"
+            f"Position facts:\n{board_facts}\n\n"
+            f"Best move does: {best_move_info}\n\n"
+            f"Explain WHY this was the right idea (what did they see correctly?) "
+            f"and give them one REMEMBER for similar positions."
+        )
+    else:
+        user_msg = (
+            f"The player MISSED the right move in this position.\n\n"
+            f"Position facts:\n{board_facts}\n\n"
+            f"{user_move_info}\n\n"
+            f"The right move does: {best_move_info}\n\n"
+            f"Their pattern is: {behavior_desc}\n\n"
+            f"Explain WHY they missed it (what was on the board they didn't see?) "
+            f"and give them one REMEMBER for similar positions."
+        )
+
+    try:
+        response = await call_llm(system, user_msg)
+        if not response or len(response.strip()) < 20:
+            return None
+
+        # Parse response — try to split into WHY and REMEMBER
+        text = response.strip()
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+        why_text = ""
+        remember_text = ""
+
+        # Look for REMEMBER/Remember/remember marker
+        remember_idx = -1
+        for i, line in enumerate(lines):
+            lower = line.lower()
+            if lower.startswith("remember:") or lower.startswith("remember ") or lower.startswith("**remember"):
+                remember_idx = i
+                remember_text = line.split(":", 1)[-1].strip() if ":" in line else line.replace("**", "").replace("Remember", "").strip()
+                break
+            if "remember" in lower and i > 0:
+                remember_idx = i
+                remember_text = line.replace("**", "").strip()
+                break
+
+        if remember_idx > 0:
+            why_text = " ".join(lines[:remember_idx]).strip()
+        elif remember_idx == 0 and len(lines) > 1:
+            why_text = " ".join(lines[1:]).strip()
+            remember_text = lines[0].split(":", 1)[-1].strip() if ":" in lines[0] else lines[0]
+        else:
+            # No clear split — use first part as why, last sentence as remember
+            if len(lines) >= 2:
+                why_text = " ".join(lines[:-1]).strip()
+                remember_text = lines[-1].strip()
+            else:
+                why_text = text
+                remember_text = ""
+
+        # Clean up any remaining markers
+        for prefix in ["WHY:", "Why:", "**WHY**:", "**Why**:", "REMEMBER:", "**REMEMBER**:"]:
+            why_text = why_text.replace(prefix, "").strip()
+            remember_text = remember_text.replace(prefix, "").strip()
+
+        # Behavior connection
+        behavior_line = ""
+        if not solved and not near_miss:
+            behavior_line = f"This happened because you were {behavior_desc}. That's your pattern."
+
+        return {
+            "why": why_text,
+            "remember": remember_text,
+            "behavior": behavior_line,
+        }
+
+    except Exception as e:
+        logger.debug(f"LLM coaching feedback failed: {e}")
+        return None
 
 
 async def get_training_progress(

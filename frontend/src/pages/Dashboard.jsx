@@ -249,9 +249,9 @@ const Dashboard = ({ user }) => {
                     whileHover={{ x: 2 }}>
                     <div className="w-2 h-2 rounded-full bg-red-400" />
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm text-foreground">vs {g.opponent}</span>
+                      <p className="text-sm text-foreground">vs {g.opponent}</p>
+                      <p className="text-xs text-muted-foreground/60">{g.sub_cause}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground/50">{g.sub_cause}</span>
                     <ChevronRight className="w-3 h-3 text-muted-foreground/20" />
                   </motion.div>
                 ))}

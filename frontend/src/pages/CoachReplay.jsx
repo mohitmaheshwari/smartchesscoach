@@ -1,10 +1,19 @@
 /**
- * Coach Replay — "This is the exact moment your thinking broke."
+ * Coach Replay — Multi-moment guided game review
  *
- * Guided. Behavioral. Cinematic.
+ * Shows 3-4 key moments from the game. At each moment:
+ * - Board shows the position
+ * - Coach reads the board (what was happening)
+ * - Explains what the user missed
+ * - Connects to their behavior pattern
  *
- * Every step: fade, breathe, impact.
- * Board is the teacher. Text is support.
+ * Flow per moment:
+ * 1. Context (eval-driven: "You were winning" / "Position was equal")
+ * 2. Board reading (what's on the board — LLM-powered)
+ * 3. What happened (the move, shown on board)
+ * 4. Pause → "Continue"
+ *
+ * After all moments: Rule + Exit
  */
 
 import { useState, useEffect } from "react";
@@ -13,27 +22,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
-import { ChevronRight, ArrowLeft, Eye, BookOpen } from "lucide-react";
+import { ChevronRight, ArrowLeft, BookOpen, Eye } from "lucide-react";
 
 const CoachReplay = ({ user }) => {
   const { gameId } = useParams();
   const navigate = useNavigate();
-  const [coaching, setCoaching] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState(0);
-  const [boardDimmed, setBoardDimmed] = useState(false);
-  const [showThreatHighlight, setShowThreatHighlight] = useState(false);
+  const [momentIndex, setMomentIndex] = useState(0);
+  const [subStep, setSubStep] = useState(0); // 0=context, 1=board reading, 2=after move
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+        const res = await fetch(`${API}/replay/${gameId}`, { credentials: "include" });
         if (res.ok) {
-          const data = await res.json();
-          setCoaching(data.coaching);
+          setData(await res.json());
+        } else {
+          navigate(`/game/${gameId}`, { replace: true });
         }
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+      } catch (e) {
+        navigate(`/game/${gameId}`, { replace: true });
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [gameId]);
 
@@ -41,44 +53,44 @@ const CoachReplay = ({ user }) => {
     return <Layout user={user}><div className="flex items-center justify-center h-[60vh]"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div></Layout>;
   }
 
-  const pg = coaching?.priority_game;
-  const replay = pg?.replay;
-  const rule = coaching?.rule;
-
-  if (!replay || !replay.mistake_fen) {
+  if (!data || !data.moments || data.moments.length === 0) {
     navigate(`/game/${gameId}`, { replace: true });
     return null;
   }
 
-  const userColor = pg.user_color || "white";
+  const moments = data.moments;
+  const rule = data.rule;
+  const behaviorText = data.behavior;
+  const userColor = data.user_color || "white";
+  const totalMoments = moments.length;
+  const isFinished = momentIndex >= totalMoments;
+
+  const current = !isFinished ? moments[momentIndex] : null;
 
   const getFen = () => {
-    switch (step) {
-      case 0: return replay.setup_fen || replay.mistake_fen;
-      case 1: return replay.after_move_fen || replay.mistake_fen;
-      case 2: return replay.after_move_fen || replay.mistake_fen;
-      case 3: return replay.after_reply_fen || replay.after_move_fen;
-      case 4: return replay.after_reply_fen || replay.after_move_fen;
-      case 5: return replay.mistake_fen;
-      case 6: return replay.mistake_fen;
-      default: return replay.mistake_fen;
-    }
+    if (!current) return moments[moments.length - 1]?.fen_before || "";
+    if (subStep === 2 && current.fen_after) return current.fen_after;
+    return current.fen_before || "";
   };
 
-  const advance = (nextStep) => {
-    const target = nextStep !== undefined ? nextStep : step + 1;
-    if (target > 6) return;
-
-    // Step-specific effects
-    if (target === 2) setBoardDimmed(true);      // Thinking step — dim board
-    if (target === 3) {
-      setBoardDimmed(false);                      // Reveal — undim
-      setShowThreatHighlight(true);               // Show threat
-      setTimeout(() => setShowThreatHighlight(false), 3000); // Pulse fades
+  const advanceSubStep = () => {
+    if (current?.type === "context") {
+      // Context only has sub-step 0 → next moment
+      setMomentIndex(momentIndex + 1);
+      setSubStep(0);
+    } else if (subStep === 0) {
+      setSubStep(1); // Show board reading
+    } else if (subStep === 1) {
+      if (current.fen_after) {
+        setSubStep(2); // Show after-move position
+      } else {
+        setMomentIndex(momentIndex + 1);
+        setSubStep(0);
+      }
+    } else {
+      setMomentIndex(momentIndex + 1);
+      setSubStep(0);
     }
-    if (target !== 2) setBoardDimmed(false);
-
-    setStep(target);
   };
 
   return (
@@ -89,11 +101,10 @@ const CoachReplay = ({ user }) => {
         <div className="w-1/2 flex items-center justify-center bg-muted/20 p-6 relative">
           <motion.div
             className="w-full max-w-[520px] aspect-square relative"
-            animate={{
-              scale: step === 3 ? 1.02 : 1,
-              opacity: boardDimmed ? 0.6 : 1,
-            }}
-            transition={{ duration: 0.4, ease: "easeInOut" }}
+            key={`${momentIndex}-${subStep}`}
+            initial={{ opacity: 0.8 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
           >
             <LichessBoard
               fen={getFen()}
@@ -101,150 +112,158 @@ const CoachReplay = ({ user }) => {
               viewOnly={true}
             />
 
-            {/* Board overlay label */}
-            {step === 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-medium px-2.5 py-1 rounded backdrop-blur-sm"
-              >
-                Before your mistake
-              </motion.div>
+            {/* Moment indicator */}
+            {!isFinished && (
+              <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-medium px-2.5 py-1 rounded backdrop-blur-sm">
+                {current.type === "context" && "Before the trouble"}
+                {current.type === "warning" && "First sign of trouble"}
+                {current.type === "break" && "The decisive moment"}
+                {current.type === "missed_chance" && "Missed opportunity"}
+              </div>
             )}
 
-            {/* Threat pulse effect */}
-            {showThreatHighlight && step === 3 && (
-              <motion.div
-                className="absolute inset-0 rounded pointer-events-none"
-                initial={{ boxShadow: "inset 0 0 0 0 rgba(239,68,68,0)" }}
-                animate={{
-                  boxShadow: [
-                    "inset 0 0 0 0 rgba(239,68,68,0)",
-                    "inset 0 0 30px 5px rgba(239,68,68,0.15)",
-                    "inset 0 0 0 0 rgba(239,68,68,0)",
-                  ],
-                }}
-                transition={{ duration: 1.5, times: [0, 0.5, 1], repeat: 1 }}
-              />
-            )}
+            {/* Progress dots */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {moments.map((_, i) => (
+                <div key={i} className={`w-2 h-2 rounded-full transition-all ${
+                  i < momentIndex ? "bg-emerald-500/60" :
+                  i === momentIndex ? "bg-white" :
+                  "bg-white/20"
+                }`} />
+              ))}
+              <div className={`w-2 h-2 rounded-full transition-all ${isFinished ? "bg-white" : "bg-white/20"}`} />
+            </div>
           </motion.div>
         </div>
 
-        {/* RIGHT: Coaching narrative */}
+        {/* RIGHT: Narrative */}
         <div className="w-1/2 flex flex-col justify-center px-10 py-8">
           <AnimatePresence mode="wait">
 
-            {/* Step 0: Setup */}
-            {step === 0 && (
-              <Step key="s0">
-                <h2 className="text-xl font-heading text-foreground leading-snug mb-2">
-                  You were in control here.
-                </h2>
-                <p className="text-base text-muted-foreground mb-8">
-                  Nothing was going wrong.
-                </p>
-                <Subtle>Take a second to look at the position.</Subtle>
-                <Continue onClick={() => advance(1)} />
+            {/* ═══ MOMENT STEPS ═══ */}
+            {!isFinished && current && (
+              <Step key={`${momentIndex}-${subStep}`}>
+
+                {/* Sub-step 0: Context — what was the position? */}
+                {subStep === 0 && (
+                  <>
+                    <p className="text-xl font-heading text-foreground leading-snug mb-3">
+                      {current.context_text}
+                    </p>
+
+                    {current.type === "context" && (
+                      <Subtle>Look at the position. Everything is still ok here.</Subtle>
+                    )}
+                    {current.type === "warning" && (
+                      <p className="text-sm text-muted-foreground mb-6">
+                        Something is about to go wrong.
+                      </p>
+                    )}
+                    {current.type === "break" && (
+                      <p className="text-sm text-muted-foreground mb-6">
+                        This is the moment that decided the game.
+                      </p>
+                    )}
+                    {current.type === "missed_chance" && (
+                      <p className="text-sm text-muted-foreground mb-6">
+                        Your opponent gave you a chance here.
+                      </p>
+                    )}
+
+                    <Continue onClick={advanceSubStep} />
+                  </>
+                )}
+
+                {/* Sub-step 1: Board reading — what should user have seen? */}
+                {subStep === 1 && (
+                  <>
+                    <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-3">
+                      What was happening on the board
+                    </p>
+
+                    {current.board_reading ? (
+                      <p className="text-[15px] text-foreground leading-[1.8] mb-6">
+                        {current.board_reading}
+                      </p>
+                    ) : (
+                      <p className="text-[15px] text-muted-foreground leading-[1.8] mb-6">
+                        Take a moment to look at the position.
+                        What do you notice?
+                      </p>
+                    )}
+
+                    {current.type !== "context" && (
+                      <motion.button
+                        onClick={advanceSubStep}
+                        className="px-5 py-2.5 text-sm font-semibold rounded-lg border border-border text-foreground hover:bg-card transition-all flex items-center gap-2"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Eye className="w-4 h-4" strokeWidth={1.5} />
+                        {current.fen_after ? "Show what happened" : "Continue"}
+                      </motion.button>
+                    )}
+                    {current.type === "context" && <Continue onClick={advanceSubStep} />}
+                  </>
+                )}
+
+                {/* Sub-step 2: After move — what happened */}
+                {subStep === 2 && (
+                  <>
+                    {current.type === "break" && (
+                      <>
+                        <p className="text-xl font-heading text-foreground leading-snug mb-3">
+                          This is what you missed.
+                        </p>
+                        <p className="text-sm text-muted-foreground mb-6">
+                          The position changed. You didn't see it coming.
+                        </p>
+                      </>
+                    )}
+                    {current.type === "warning" && (
+                      <>
+                        <p className="text-lg text-foreground leading-snug mb-3">
+                          This was the first slip.
+                        </p>
+                        <p className="text-sm text-muted-foreground mb-6">
+                          Not fatal yet. But the position started shifting.
+                        </p>
+                      </>
+                    )}
+                    {current.type === "missed_chance" && (
+                      <>
+                        <p className="text-lg text-foreground leading-snug mb-3">
+                          You didn't take advantage.
+                        </p>
+                        <p className="text-sm text-muted-foreground mb-6">
+                          There was a chance here. It passed.
+                        </p>
+                      </>
+                    )}
+
+                    <Continue onClick={advanceSubStep} />
+                  </>
+                )}
               </Step>
             )}
 
-            {/* Step 1: User move */}
-            {step === 1 && (
-              <Step key="s1">
-                <h2 className="text-xl font-heading text-foreground leading-snug mb-3">
-                  Then you made your move.
-                </h2>
-                <p className="text-base text-muted-foreground mb-8">
-                  Now pause here.
-                </p>
-                <Continue onClick={() => advance(2)} />
-              </Step>
-            )}
+            {/* ═══ FINISHED — Rule + Exit ═══ */}
+            {isFinished && (
+              <Step key="finished">
+                {/* Behavior connection */}
+                {behaviorText && (
+                  <p className="text-[15px] text-foreground/70 leading-[1.7] mb-6">
+                    {behaviorText}
+                  </p>
+                )}
 
-            {/* Step 2: Think */}
-            {step === 2 && (
-              <Step key="s2">
-                <p className="text-lg text-foreground leading-relaxed mb-2">
-                  Look at this position.
-                </p>
-                <p className="text-lg text-foreground/60 leading-relaxed mb-8">
-                  If you make your move here...<br />
-                  what can your opponent do next?
-                </p>
-                <motion.button
-                  onClick={() => advance(3)}
-                  className="px-5 py-2.5 text-sm font-semibold rounded-lg border border-border text-foreground hover:bg-card transition-all flex items-center gap-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Eye className="w-4 h-4" strokeWidth={1.5} />
-                  Show me
-                </motion.button>
-              </Step>
-            )}
-
-            {/* Step 3: Reveal */}
-            {step === 3 && (
-              <Step key="s3">
-                <motion.h2
-                  className="text-xl font-heading text-foreground leading-snug mb-3"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.4 }}
-                >
-                  This is what you missed.
-                </motion.h2>
-                <motion.p
-                  className="text-base text-muted-foreground mb-8"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.8, duration: 0.4 }}
-                >
-                  This move creates a threat you didn't see.
-                </motion.p>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1.2 }}
-                >
-                  <Continue onClick={() => advance(4)} />
-                </motion.div>
-              </Step>
-            )}
-
-            {/* Step 4: Realization */}
-            {step === 4 && (
-              <Step key="s4">
-                <div className="space-y-4 mb-8">
-                  <motion.p className="text-base text-foreground leading-relaxed"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-                    You stopped your thinking at your move.
-                  </motion.p>
-                  <motion.p className="text-base text-foreground/50 leading-relaxed"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
-                    You didn't stay to see what changes after it.
-                  </motion.p>
-                  <motion.p className="text-base text-foreground font-medium"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}>
-                    That's where it slipped.
-                  </motion.p>
-                </div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.3 }}>
-                  <Continue onClick={() => advance(5)} />
-                </motion.div>
-              </Step>
-            )}
-
-            {/* Step 5: Rule */}
-            {step === 5 && (
-              <Step key="s5">
+                {/* Rule */}
                 {rule && (
                   <motion.div
-                    className="rounded-xl bg-amber-500/[0.05] border border-amber-500/15 p-6 mb-8"
+                    className="rounded-xl bg-amber-500/[0.05] border border-amber-500/15 p-6 mb-6"
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2, duration: 0.5 }}
+                    transition={{ delay: 0.2 }}
                   >
                     <p className="text-lg font-heading font-semibold text-foreground mb-2">
                       {rule.name}
@@ -254,38 +273,25 @@ const CoachReplay = ({ user }) => {
                     </p>
                   </motion.div>
                 )}
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}>
-                  <Continue onClick={() => advance(6)} />
-                </motion.div>
-              </Step>
-            )}
 
-            {/* Step 6: Exit */}
-            {step === 6 && (
-              <Step key="s6">
-                <motion.p
-                  className="text-base text-foreground/70 font-medium mb-8"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  Next time you play — catch this before you move.
-                </motion.p>
-                <motion.div className="space-y-3"
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
-                  <motion.button
-                    onClick={() => navigate(`/game/${pg.game_id}`)}
-                    className="w-full py-3 text-sm font-medium rounded-xl border border-border text-foreground hover:bg-card transition-all flex items-center justify-center gap-2"
-                    whileHover={{ scale: 1.01 }}
-                  >
-                    <BookOpen className="w-4 h-4" strokeWidth={1.5} />
-                    Open full analysis
-                  </motion.button>
-                  <button onClick={() => navigate("/lab")}
-                    className="w-full py-3 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5">
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    Back to Lab
-                  </button>
+                {/* Directive + exit */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+                  <p className="text-sm text-foreground/50 font-medium mb-6">
+                    Next time you play — catch this before you move.
+                  </p>
+
+                  <div className="space-y-3">
+                    <button onClick={() => navigate(`/game/${gameId}`)}
+                      className="w-full py-3 text-sm font-medium rounded-xl border border-border text-foreground hover:bg-card transition-all flex items-center justify-center gap-2">
+                      <BookOpen className="w-4 h-4" strokeWidth={1.5} />
+                      Open full analysis
+                    </button>
+                    <button onClick={() => navigate("/lab")}
+                      className="w-full py-3 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5">
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to Lab
+                    </button>
+                  </div>
                 </motion.div>
               </Step>
             )}
@@ -296,8 +302,6 @@ const CoachReplay = ({ user }) => {
     </Layout>
   );
 };
-
-// ── Reusable components ──
 
 const Step = ({ children }) => (
   <motion.div
