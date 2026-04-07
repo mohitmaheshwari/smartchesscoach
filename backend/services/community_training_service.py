@@ -402,31 +402,29 @@ async def get_training_feed(
     for pos in all_positions:
         # Position eval label (use stored eval_cp if available, else compute material-based)
         try:
-            from services.position_eval_label import get_eval_label, get_eval_label_from_fen
-            stored_eval = pos.get("eval_cp")
-            if stored_eval is not None:
-                import chess as chess_mod
-                board_t = chess_mod.Board(pos.get("fen", ""))
-                uc = "white" if board_t.turn == chess_mod.WHITE else "black"
-                # eval_cp might be stored from White's perspective OR user's perspective
-                # (depending on when it was extracted). Normalize: if it's the user's
-                # perspective already (user_eval_before exists), use it directly as if White.
-                user_eval_stored = pos.get("eval_before_user")
-                if user_eval_stored is not None:
-                    # Already from user's perspective — pass as "white" to avoid double-flip
-                    pos["eval_label"] = get_eval_label(int(user_eval_stored), "white")
-                else:
-                    pos["eval_label"] = get_eval_label(int(stored_eval), uc)
+            from services.position_eval_label import get_eval_label
+            import chess as chess_mod
+
+            board_t = chess_mod.Board(pos.get("fen", ""))
+            solver_is_white = board_t.turn == chess_mod.WHITE
+
+            # Priority 1: eval_before_user (already from solver's perspective)
+            user_eval = pos.get("eval_before_user")
+            if user_eval is not None:
+                pos["eval_label"] = get_eval_label(int(user_eval), "white")  # already user-perspective, no flip
             else:
-                # Lightweight: use material balance instead of Stockfish (too slow for 12 positions)
-                import chess as chess_mod
-                board_t = chess_mod.Board(pos.get("fen", ""))
-                uc = "white" if board_t.turn == chess_mod.WHITE else "black"
-                values = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}
-                w = sum(values.get(p.piece_type, 0) for p in board_t.piece_map().values() if p.color == chess_mod.WHITE)
-                b = sum(values.get(p.piece_type, 0) for p in board_t.piece_map().values() if p.color == chess_mod.BLACK)
-                mat_cp = (w - b) * 100
-                pos["eval_label"] = get_eval_label(mat_cp, uc)
+                # Priority 2: eval_cp (from White's perspective) — flip if solver is Black
+                stored_eval = pos.get("eval_cp")
+                if stored_eval is not None:
+                    solver_eval = int(stored_eval) if solver_is_white else -int(stored_eval)
+                    pos["eval_label"] = get_eval_label(solver_eval, "white")  # already flipped, no double-flip
+                else:
+                    # Priority 3: material count
+                    values = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}
+                    w = sum(values.get(p.piece_type, 0) for p in board_t.piece_map().values() if p.color == chess_mod.WHITE)
+                    b = sum(values.get(p.piece_type, 0) for p in board_t.piece_map().values() if p.color == chess_mod.BLACK)
+                    solver_eval = (w - b) * 100 if solver_is_white else (b - w) * 100
+                    pos["eval_label"] = get_eval_label(solver_eval, "white")  # already from solver's perspective
         except Exception:
             pos["eval_label"] = None
 
