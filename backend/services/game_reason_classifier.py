@@ -206,8 +206,9 @@ def classify_game_reason(
 
     # ── CLASSIFY LOSSES ──
     if user_lost:
-        # Timeout / abandonment
-        if termination in ("timeout", "abandonment"):
+        # Timeout — only actual timeout, not abandonment
+        # Abandoned games should be classified by what was happening in the game
+        if termination == "timeout":
             return _build("time_collapse", "loss")
 
         # Threw a winning position

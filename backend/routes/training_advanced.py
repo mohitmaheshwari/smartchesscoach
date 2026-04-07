@@ -476,115 +476,154 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "detail": _root_detail(root_data, total_games),
     }
 
-    # ── 2. PRIORITY GAME — the most painful example of this pattern ──
-    priority_game = None
-    best_pain = 0
+    # ── 2. ALL GAMES MATCHING ROOT PROBLEM — with sub-causes ──
+    # Sub-cause: WHY did this specific game go wrong within the root problem?
+    SUB_CAUSE_MAP = {
+        "ignore_threat":      "Stopped checking opponent",
+        "piece_safety":       "Left a piece unprotected",
+        "calculation_depth":  "Stopped calculating too early",
+        "tactical_oversight": "Didn't check opponent's reply",
+        "missed_tactic":      "Missed a winning tactic",
+        "king_safety":        "Left king exposed",
+        "time_pressure":      "Rushed under time pressure",
+        "conversion":         "Got creative when ahead",
+    }
+
+    problem_games = []
+    sub_cause_counts = {}
+
     for g in enriched_games:
-        if root_pattern not in g.get("cognitive_gaps", []):
+        game_reason = g.get("game_reason", {})
+        if not game_reason:
             continue
-        # Pain score: thrown > loss > draw > win. Higher cp_loss = more painful.
+
+        # Match games that belong to the root problem category
+        # OR have the root pattern in their cognitive gaps
+        matches_root = (
+            game_reason.get("category") == (top_problems[0]["category"] if top_problems else root_pattern)
+            or root_pattern in g.get("cognitive_gaps", [])
+        )
+        if not matches_root:
+            continue
+        if g.get("result") == "W":
+            continue  # Only losses and draws matter
+
+        gid = g.get("game_id", "")
+        a = analyses.get(gid, {})
+        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
         is_loss = g.get("result") == "L"
         was_winning = g.get("was_winning", False)
+        is_reviewed = g.get("reviewed", False)
+
+        # Pain score for sorting
         pain = 0
         if was_winning and is_loss:
-            pain = 100  # Thrown game — maximum pain
+            pain = 100
         elif is_loss:
             pain = 50
         elif g.get("result") == "D":
             pain = 20
 
-        if pain > best_pain:
-            best_pain = pain
-            # Find the critical moment (highest cp_loss move with this gap)
-            gid = g.get("game_id", "")
-            a = analyses.get(gid, {})
-            evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
-            critical_move = None
-            max_cp = 0
-            for ev in evals:
-                if ev.get("cognitive_gap") == root_pattern and (ev.get("cp_loss", 0) or 0) > max_cp:
-                    max_cp = ev.get("cp_loss", 0) or 0
+        # Find the sub-cause — the dominant cognitive gap in THIS game
+        game_gaps = {}
+        critical_move = None
+        max_cp = 0
+        for ev in evals:
+            gap = ev.get("cognitive_gap", "")
+            cp = ev.get("cp_loss", 0) or 0
+            if gap and cp >= 100:
+                game_gaps[gap] = game_gaps.get(gap, 0) + 1
+                if cp > max_cp:
+                    max_cp = cp
                     critical_move = ev
 
-            desc = ""
-            if was_winning and is_loss:
-                desc = "You were winning this game."
-            elif is_loss:
-                desc = "You lost this game."
+        dominant_gap = max(game_gaps, key=game_gaps.get) if game_gaps else root_pattern
+        sub_cause = SUB_CAUSE_MAP.get(dominant_gap, dominant_gap.replace("_", " ").title())
 
-            if critical_move:
-                mn = critical_move.get("move_number", "?")
-                desc += f" On move {mn}, {_describe_critical_moment(root_pattern, critical_move)}."
+        # Track sub-cause counts
+        sub_cause_counts[sub_cause] = sub_cause_counts.get(sub_cause, 0) + 1
 
-            # Extract replay FENs for Coach Replay
-            replay_data = None
-            if critical_move:
-                try:
-                    import chess as chess_mod
-                    fen_before = critical_move.get("fen_before", "")
-                    user_move_san = critical_move.get("move", "")
+        # Extract replay FENs for the first (priority) game
+        replay_data = None
+        if critical_move and len(problem_games) == 0:  # Only for first game (saves compute)
+            try:
+                import chess as chess_mod
+                fen_before = critical_move.get("fen_before", "")
+                user_move_san = critical_move.get("move", "")
 
-                    if fen_before and user_move_san:
-                        board = chess_mod.Board(fen_before)
+                if fen_before and user_move_san:
+                    board = chess_mod.Board(fen_before)
 
-                        # FEN 2-3 moves before (setup position)
-                        # Walk backward in evals to find a calm position
-                        setup_fen = fen_before
-                        mn = critical_move.get("move_number", 0)
-                        for ev in reversed(evals):
-                            ev_mn = ev.get("move_number", 0)
-                            if ev_mn <= mn - 2 and ev.get("fen_before"):
-                                setup_fen = ev.get("fen_before")
-                                break
+                    setup_fen = fen_before
+                    mn = critical_move.get("move_number", 0)
+                    for ev in reversed(evals):
+                        ev_mn = ev.get("move_number", 0)
+                        if ev_mn <= mn - 2 and ev.get("fen_before"):
+                            setup_fen = ev.get("fen_before")
+                            break
 
-                        # FEN after user's move
-                        user_move = board.parse_san(user_move_san)
-                        board.push(user_move)
-                        fen_after_user = board.fen()
+                    user_move = board.parse_san(user_move_san)
+                    board.push(user_move)
+                    fen_after_user = board.fen()
 
-                        # Opponent's reply (from PV or next eval)
-                        opponent_reply_fen = None
-                        # Find next move eval (opponent's response)
-                        found_current = False
-                        for ev in evals:
-                            if found_current and ev.get("fen_before"):
-                                # This is the position after opponent replied
-                                opponent_reply_fen = ev.get("fen_before")
-                                break
-                            if ev.get("move_number") == mn and ev.get("move") == user_move_san:
-                                found_current = True
+                    opponent_reply_fen = None
+                    found_current = False
+                    for ev in evals:
+                        if found_current and ev.get("fen_before"):
+                            opponent_reply_fen = ev.get("fen_before")
+                            break
+                        if ev.get("move_number") == mn and ev.get("move") == user_move_san:
+                            found_current = True
 
-                        # If no next eval, try PV
-                        if not opponent_reply_fen:
-                            pv = critical_move.get("pv_after_played", [])
-                            if pv:
-                                try:
-                                    opp_move = board.parse_san(pv[0])
-                                    board.push(opp_move)
-                                    opponent_reply_fen = board.fen()
-                                except Exception:
-                                    pass
+                    if not opponent_reply_fen:
+                        pv = critical_move.get("pv_after_played", [])
+                        if pv:
+                            try:
+                                opp_move = board.parse_san(pv[0])
+                                board.push(opp_move)
+                                opponent_reply_fen = board.fen()
+                            except Exception:
+                                pass
 
-                        replay_data = {
-                            "setup_fen": setup_fen,
-                            "mistake_fen": fen_before,
-                            "after_move_fen": fen_after_user,
-                            "after_reply_fen": opponent_reply_fen,
-                        }
-                except Exception as replay_err:
-                    logger.debug(f"Replay data extraction failed: {replay_err}")
+                    replay_data = {
+                        "setup_fen": setup_fen,
+                        "mistake_fen": fen_before,
+                        "after_move_fen": fen_after_user,
+                        "after_reply_fen": opponent_reply_fen,
+                    }
+            except Exception:
+                pass
 
-            priority_game = {
-                "game_id": gid,
-                "opponent": g.get("opponent", "Opponent"),
-                "opening": g.get("opening", ""),
-                "result": g.get("result", ""),
-                "was_winning": was_winning,
-                "description": desc,
-                "move_number": critical_move.get("move_number") if critical_move else None,
-                "user_color": g.get("user_color", "white"),
-                "replay": replay_data,
-            }
+        problem_games.append({
+            "game_id": gid,
+            "opponent": g.get("opponent", "Opponent"),
+            "opening": g.get("opening", ""),
+            "result": g.get("result", ""),
+            "was_winning": was_winning,
+            "sub_cause": sub_cause,
+            "pain": pain,
+            "reviewed": is_reviewed,
+            "user_color": g.get("user_color", "white"),
+            "replay": replay_data,
+        })
+
+    # Sort by pain (most painful first), then unreviewed first
+    problem_games.sort(key=lambda x: (-int(not x["reviewed"]), -x["pain"]))
+
+    # Sub-causes sorted by frequency
+    sub_causes = sorted(
+        [{"cause": k, "count": v} for k, v in sub_cause_counts.items()],
+        key=lambda x: -x["count"]
+    )
+
+    # Priority game = first unreviewed, or first overall
+    priority_game = None
+    for pg_candidate in problem_games:
+        if not pg_candidate["reviewed"]:
+            priority_game = pg_candidate
+            break
+    if not priority_game and problem_games:
+        priority_game = problem_games[0]
 
     # ── 3. AGGREGATE GAME REASONS → TOP 3 PROBLEMS ──
     game_reasons = [g.get("game_reason") for g in enriched_games if g.get("game_reason")]
@@ -632,6 +671,10 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "root_problem": root_problem,
         "diagnosis": diag,
         "priority_game": priority_game,
+        "problem_games": problem_games,
+        "sub_causes": sub_causes,
+        "total_problem_games": len(problem_games),
+        "reviewed_problem_games": sum(1 for pg in problem_games if pg["reviewed"]),
         "insight": insight,
         "insight_label": insight_label,
         "top_problems": top_problems,

@@ -146,6 +146,207 @@ async def get_coaching_progress_report(user: User = Depends(get_current_user)):
     return report
 
 
+@router.get("/progress/real")
+async def get_real_progress(user: User = Depends(get_current_user)):
+    """
+    Real progress — compares pre-training behavior vs post-training behavior.
+
+    Only meaningful AFTER user has:
+    1. Completed training (training_lock.unlocked = true)
+    2. Played games AFTER training
+
+    Returns:
+    {
+        "state": "not_started" | "waiting_for_games" | "tracking",
+        "focus_pattern": "threw_winning",
+        "focus_label": "Throwing winning positions",
+        "pre_training": { "games": 5, "mistakes": 4 },
+        "post_training": { "games": 3, "mistakes": 1 },
+        "verdict": "improving" | "no_change" | "slipping",
+        "post_training_games": [ ... ]
+    }
+    """
+    from services.community_training_service import get_training_progress
+    from services.game_reason_classifier import classify_game_reason
+
+    # 1. Get the active coaching pattern
+    try:
+        lab_res = await get_coaching_progress_report.__wrapped__(user) if hasattr(get_coaching_progress_report, '__wrapped__') else None
+    except Exception:
+        pass
+
+    # Get training lock status from lab-coach-pick logic
+    from services.pattern_memory_service import get_top_patterns
+    top_patterns = await get_top_patterns(db, user.user_id, limit=1)
+
+    if not top_patterns:
+        return {"state": "not_started", "message": "No patterns detected yet."}
+
+    focus_pattern = top_patterns[0].get("pattern_type", "")
+    if not focus_pattern:
+        return {"state": "not_started", "message": "No patterns detected yet."}
+
+    # Human label
+    LABELS = {
+        "tactical_miss": "Tactical mistakes", "one_move_blunder": "Hanging pieces",
+        "calculation_error": "Shallow calculation", "calculation_depth": "Shallow calculation",
+        "positional": "Positional errors", "endgame_collapse": "Endgame mistakes",
+        "opening_disaster": "Opening mistakes", "time_collapse": "Time pressure mistakes",
+        "threw_winning": "Throwing winning positions", "piece_safety": "Piece safety mistakes",
+        "ignore_threat": "Missing opponent threats", "missed_tactic": "Missed tactics",
+        "king_safety": "King safety mistakes", "conversion": "Conversion failures",
+    }
+    focus_label = LABELS.get(focus_pattern, focus_pattern.replace("_", " ").title())
+
+    # 2. Check training completion
+    TRAINING_TARGET = 5
+    progress = await get_training_progress(db, user.user_id, focus_pattern, TRAINING_TARGET)
+
+    if not progress["completed"]:
+        return {
+            "state": "not_started",
+            "focus_pattern": focus_pattern,
+            "focus_label": focus_label,
+            "training_progress": progress["correct"],
+            "training_target": TRAINING_TARGET,
+        }
+
+    # 3. Find training completion timestamp
+    # Approximate: find the Nth correct solve attempt for this pattern
+    solve_cursor = db.training_solve_attempts.find(
+        {"user_id": user.user_id, "pattern_type": focus_pattern, "solved": True},
+        {"_id": 0, "attempted_at": 1}
+    ).sort("attempted_at", 1).limit(TRAINING_TARGET)
+    solves = await solve_cursor.to_list(TRAINING_TARGET)
+
+    if len(solves) < TRAINING_TARGET:
+        return {
+            "state": "not_started",
+            "focus_pattern": focus_pattern,
+            "focus_label": focus_label,
+        }
+
+    training_completed_at = solves[-1].get("attempted_at", "")
+
+    # 4. Split games into pre-training and post-training
+    all_games = await db.games.find(
+        {"user_id": user.user_id, "is_analyzed": True},
+        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "termination": 1,
+         "imported_at": 1, "opponent_name": 1, "opening": 1}
+    ).sort("imported_at", -1).to_list(100)
+
+    # Also get coach play sessions as "games"
+    coach_sessions = await db.coach_sessions.find(
+        {"user_id": user.user_id, "result": {"$exists": True}},
+        {"_id": 0, "session_id": 1, "result": 1, "user_color": 1,
+         "created_at": 1, "evaluations": 1, "move_history": 1}
+    ).sort("created_at", -1).to_list(50)
+
+    pre_games = []
+    post_games = []
+
+    # Classify imported games
+    for g in all_games:
+        gid = g.get("game_id", "")
+        imported = g.get("imported_at", "")
+
+        a = await db.game_analyses.find_one(
+            {"game_id": gid, "user_id": user.user_id},
+            {"_id": 0, "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.accuracy": 1}
+        )
+        if not a:
+            continue
+
+        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        reason = classify_game_reason(
+            move_evaluations=evals,
+            game_result=g.get("result", ""),
+            user_color=g.get("user_color", "white"),
+            termination=g.get("termination", "unknown"),
+            accuracy=a.get("stockfish_analysis", {}).get("accuracy", 0),
+        )
+
+        game_entry = {
+            "game_id": gid,
+            "opponent": g.get("opponent_name", "Opponent"),
+            "result": reason["result"],
+            "category": reason["category"],
+            "label": reason["label"],
+            "has_focus_mistake": reason["category"] == focus_pattern or
+                                 any(e.get("cognitive_gap") == focus_pattern and (e.get("cp_loss", 0) or 0) >= 100 for e in evals),
+            "source": "imported",
+        }
+
+        if imported and imported > training_completed_at:
+            post_games.append(game_entry)
+        else:
+            pre_games.append(game_entry)
+
+    # Classify coach play sessions
+    for s in coach_sessions:
+        created = s.get("created_at", "")
+        if isinstance(created, str) and created > training_completed_at:
+            session_evals = s.get("evaluations", [])
+            has_focus = any(
+                e.get("cognitive_gap") == focus_pattern or e.get("concept_id") == focus_pattern
+                for e in session_evals
+                if (e.get("cp_loss", 0) or 0) >= 100
+            )
+            post_games.append({
+                "game_id": s.get("session_id", ""),
+                "opponent": "Coach",
+                "result": "loss" if "loss" in str(s.get("result", "")).lower() else "win",
+                "category": "coach_game",
+                "label": "Coached game",
+                "has_focus_mistake": has_focus,
+                "source": "coach",
+            })
+
+    # 5. Check if enough post-training games
+    if len(post_games) < 3:
+        return {
+            "state": "waiting_for_games",
+            "focus_pattern": focus_pattern,
+            "focus_label": focus_label,
+            "post_games_played": len(post_games),
+            "post_games_needed": 3,
+        }
+
+    # 6. Compare
+    pre_window = pre_games[:10]  # Last 10 pre-training games
+    post_window = post_games[:10]  # Last 10 post-training games
+
+    pre_mistakes = sum(1 for g in pre_window if g["has_focus_mistake"])
+    post_mistakes = sum(1 for g in post_window if g["has_focus_mistake"])
+
+    if post_mistakes < pre_mistakes:
+        verdict = "improving"
+    elif post_mistakes > pre_mistakes:
+        verdict = "slipping"
+    else:
+        verdict = "no_change"
+
+    return {
+        "state": "tracking",
+        "focus_pattern": focus_pattern,
+        "focus_label": focus_label,
+        "pre_training": {
+            "games": len(pre_window),
+            "mistakes": pre_mistakes,
+        },
+        "post_training": {
+            "games": len(post_window),
+            "mistakes": post_mistakes,
+        },
+        "verdict": verdict,
+        "post_training_games": [
+            {"opponent": g["opponent"], "result": g["result"],
+             "had_mistake": g["has_focus_mistake"], "source": g["source"]}
+            for g in post_window[:5]
+        ],
+    }
+
+
 @router.get("/progress/journey")
 async def get_progress_journey(user: User = Depends(get_current_user)):
     """
