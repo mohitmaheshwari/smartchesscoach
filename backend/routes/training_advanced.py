@@ -727,13 +727,27 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     """
     Smart game picker for the Lab page.
     Returns the most educational unreviewed game + reason + all games with reviewed status.
-
-    Priority:
-    1. Recurring pattern (same mistake in multiple games)
-    2. Thrown game (was winning, lost)
-    3. Single decisive blunder (one teachable moment)
-    Skip: clean wins, already reviewed games
+    Caches coaching section for 5 minutes to avoid recomputing on every Home load.
     """
+    # Check cache — coaching data doesn't change every second
+    from datetime import datetime, timezone
+    cache_doc = await db.coaching_cache.find_one(
+        {"user_id": user.user_id}, {"_id": 0}
+    )
+    CACHE_TTL = 300  # 5 minutes
+
+    if cache_doc and cache_doc.get("cached_at"):
+        cached_at = cache_doc["cached_at"]
+        if isinstance(cached_at, str):
+            try:
+                cached_at = datetime.fromisoformat(cached_at.replace("Z", "+00:00"))
+            except Exception:
+                cached_at = None
+        if cached_at:
+            age = (datetime.now(timezone.utc) - cached_at).total_seconds() if cached_at.tzinfo else 999
+            if age < CACHE_TTL and cache_doc.get("data"):
+                return cache_doc["data"]
+
     # Get all analyzed games with analysis data
     games = await db.games.find(
         {"user_id": user.user_id, "is_analyzed": True},
@@ -1022,7 +1036,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     except Exception as coaching_err:
         logger.warning(f"Lab coaching section failed: {coaching_err}")
 
-    return {
+    result = {
         "pick": pick,
         "pick_reason": pick_reason,
         "pick_pattern": pick_pattern,
@@ -1033,6 +1047,18 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         "coaching": coaching,
     }
 
+    # Cache for 5 minutes
+    try:
+        await db.coaching_cache.update_one(
+            {"user_id": user.user_id},
+            {"$set": {"data": result, "cached_at": datetime.now(timezone.utc).isoformat(), "user_id": user.user_id}},
+            upsert=True
+        )
+    except Exception:
+        pass
+
+    return result
+
 
 @router.post("/lab-mark-reviewed/{game_id}")
 async def mark_game_reviewed(game_id: str, user: User = Depends(get_current_user)):
@@ -1041,6 +1067,11 @@ async def mark_game_reviewed(game_id: str, user: User = Depends(get_current_user
         {"game_id": game_id, "user_id": user.user_id},
         {"$set": {"reviewed": True, "reviewed_at": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()}}
     )
+    # Invalidate coaching cache so Lab/Home refresh
+    try:
+        await db.coaching_cache.delete_one({"user_id": user.user_id})
+    except Exception:
+        pass
     return {"success": result.modified_count > 0}
 
 
