@@ -751,6 +751,64 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
     except Exception as lc_err:
         logger.debug(f"Problem lifecycle failed (non-fatal): {lc_err}")
 
+    # ── GAMES GROUPED BY ALL TOP 3 PROBLEMS ──
+    grouped_games = {}
+    for tp in top_problems[:3]:
+        cat = tp["category"]
+        grouped_games[cat] = {
+            "label": tp["label"],
+            "description": tp.get("description", ""),
+            "count": tp["count"],
+            "games": [],
+        }
+
+    for g in enriched_games:
+        gr = g.get("game_reason", {})
+        if not gr:
+            continue
+        cat = gr.get("category", "")
+        if cat in grouped_games and g.get("result") != "W":
+            grouped_games[cat]["games"].append({
+                "game_id": g.get("game_id", ""),
+                "opponent": g.get("opponent", "Opponent"),
+                "opening": g.get("opening", ""),
+                "result": g.get("result", ""),
+                "sub_cause": g.get("game_reason", {}).get("label", ""),
+                "reviewed": g.get("reviewed", False),
+            })
+
+    # ── PLAYER STRENGTHS (from wins) ──
+    strengths = []
+    win_categories = {}
+    for g in enriched_games:
+        if g.get("result") != "W":
+            continue
+        gr = g.get("game_reason", {})
+        cat = gr.get("category", "")
+        label = gr.get("label", "")
+        if cat and label:
+            if cat not in win_categories:
+                win_categories[cat] = {"label": label, "count": 0}
+            win_categories[cat]["count"] += 1
+
+    # Pick top 3 strengths by frequency
+    sorted_strengths = sorted(win_categories.items(), key=lambda x: -x[1]["count"])
+    STRENGTH_DESCRIPTIONS = {
+        "tactical_win": "You find tactics when they're there",
+        "solid_play": "You play clean, mistake-free chess",
+        "brilliant_play": "You calculate deeply and find brilliant moves",
+        "endgame_conversion": "You know how to finish endgames",
+        "opponent_blundered": "You capitalize on opponent mistakes",
+    }
+    for cat, data in sorted_strengths[:3]:
+        desc = STRENGTH_DESCRIPTIONS.get(cat, data["label"])
+        strengths.append({
+            "category": cat,
+            "label": data["label"],
+            "description": desc,
+            "count": data["count"],
+        })
+
     return {
         "root_problem": root_problem,
         "diagnosis": diag,
@@ -762,6 +820,8 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "insight": insight,
         "insight_label": insight_label,
         "top_problems": top_problems,
+        "grouped_games": grouped_games,
+        "strengths": strengths,
         "rule": rule_data,
         "training_lock": training_lock,
         "lifecycle": lifecycle,
