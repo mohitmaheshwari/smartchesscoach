@@ -933,6 +933,11 @@ async def _generate_coaching_feedback(
         except Exception:
             move_facts += f"\nThe correct move is {best_move}."
 
+        # Add concrete explanation for the best move (opens lines, attacks, defends)
+        concrete_best = _build_concrete_explanation(board, best_move)
+        if concrete_best:
+            move_facts += f"\nFull analysis of correct move: {concrete_best}"
+
         # Describe the USER'S MOVE exactly (if wrong)
         if user_move and user_move != best_move and not solved and not near_miss:
             try:
@@ -949,6 +954,11 @@ async def _generate_coaching_feedback(
                     if u_captured:
                         u_cap_name = PIECE_NAMES.get(u_captured.piece_type, "piece")
                         user_desc += f" This captures their {u_cap_name} on {u_to}."
+
+                # Concrete explanation for user's move too
+                concrete_user = _build_concrete_explanation(board, user_move)
+                if concrete_user:
+                    user_desc += f" Full analysis: {concrete_user}"
 
                 move_facts += f"\n{user_desc}"
             except Exception:
@@ -990,19 +1000,18 @@ async def _generate_coaching_feedback(
     if solved or near_miss:
         user_msg = (
             f"The player FOUND the right move.\n\n"
-            f"FEN: {fen}\n\n"
-            f"Board state:\n{board_facts}\n\n"
             f"Move details:\n{move_facts}\n\n"
-            f"Explain WHY this was the right move using ONLY the facts above."
+            f"Using ONLY the facts above, explain in max 20 words WHY this move is good. "
+            f"Focus on what the move DOES (attacks, opens lines, defends). "
+            f"Then give a REMEMBER in max 15 words."
         )
     else:
         user_msg = (
             f"The player MISSED the right move.\n\n"
-            f"FEN: {fen}\n\n"
-            f"Board state:\n{board_facts}\n\n"
             f"Move details:\n{move_facts}\n\n"
-            f"Their behavioral pattern: {behavior_desc}\n\n"
-            f"Explain WHY they missed it using ONLY the facts above."
+            f"Using ONLY the facts above, explain in max 20 words the DIFFERENCE between what the player played and the correct move. "
+            f"What does the correct move do that the player's move doesn't? "
+            f"Then give a REMEMBER in max 15 words."
         )
 
     try:
