@@ -2590,6 +2590,39 @@ async def generate_game_decryption_v5(
                     stockfish_candidates=stockfish_candidates
                 )
                 
+                # ── GOLDEN RULE INJECTION ──
+                # Enrich the plan's transferable_learning with phase-specific wisdom
+                try:
+                    from services.golden_rule_service import get_golden_rule
+                    golden = get_golden_rule(
+                        board=board,
+                        move=move,
+                        phase=phase,
+                        severity=severity,
+                        cp_loss=cp_loss,
+                        eco_code=eco_code,
+                        opening_name=opening_name,
+                        best_move_san=best_move,
+                        concept_type=plan.concept_type if plan else None,
+                    )
+                    if golden and golden.get("rule"):
+                        if plan:
+                            # Override generic transferable_learning with specific golden rule
+                            plan.transferable_learning = golden["rule"]
+                        else:
+                            # No plan exists — create a minimal one with the golden rule
+                            plan = ChessPlan(
+                                goal="",
+                                current_problem=f"{move_san} was not the best choice here.",
+                                consequence="",
+                                better_approach=f"{best_move} was better." if best_move else "",
+                                transferable_learning=golden["rule"],
+                                concept_id=f"golden_{golden.get('source', 'rule')}_{full_move_number}",
+                                concept_type=golden.get("category", "general"),
+                            )
+                except Exception as gr_err:
+                    logger.debug(f"Golden rule injection failed (non-fatal): {gr_err}")
+
                 if plan:
                     already_acknowledged = plan.concept_id in acknowledged_concepts
                     
