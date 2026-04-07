@@ -512,11 +512,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             lastMove={!planMode && currentMove && !showingFutureMoves ? getLastMoveSquares(currentMove) : null}
             arrows={arrows}
             highlights={highlights}
-            moveClassification={
-              currentMove && !planMode && !showingFutureMoves && currentMove.to
-                ? { square: currentMove.to, type: currentMove.severity || "good" }
-                : null
-            }
+            moveClassification={(() => {
+              if (!currentMove || planMode || showingFutureMoves) return null;
+              const severity = currentMove.severity;
+              if (!severity || severity === "context") return null;
+              const squares = getLastMoveSquares(currentMove);
+              if (!squares) return null;
+              return { square: squares[1], type: severity };
+            })()}
           />
           
           {/* Plan mode indicator */}

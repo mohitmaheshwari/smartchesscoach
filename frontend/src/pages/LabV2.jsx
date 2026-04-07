@@ -1218,15 +1218,18 @@ const LabV2 = ({ user }) => {
                           const m = moves[currentMoveIndex];
                           const evals = analysis?.stockfish_analysis?.move_evaluations || [];
                           const evalData = evals[currentMoveIndex];
-                          const classification = evalData?.classification || evalData?.evaluation || "";
-                          const severity = classification === "best_move" ? "best"
-                            : classification === "excellent" ? "excellent"
-                            : classification === "good" ? "good"
-                            : classification === "blunder" ? "blunder"
-                            : classification === "mistake" ? "mistake"
-                            : classification === "inaccuracy" ? "inaccuracy"
+                          if (!evalData || !m.to) return null;
+                          const c = (evalData.classification || evalData.evaluation || "").toLowerCase().replace(/[_\s]/g, "");
+                          const severity = c.includes("brilliant") ? "brilliant"
+                            : c.includes("best") ? "best"
+                            : c.includes("excellent") ? "excellent"
+                            : c.includes("good") ? "good"
+                            : c.includes("book") ? "book"
+                            : c.includes("blunder") ? "blunder"
+                            : c.includes("mistake") ? "mistake"
+                            : c.includes("inaccuracy") ? "inaccuracy"
                             : null;
-                          return severity && m.to ? { square: m.to, type: severity } : null;
+                          return severity ? { square: m.to, type: severity } : null;
                         })()
                       : null
                   }
