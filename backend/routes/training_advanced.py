@@ -516,6 +516,64 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                 mn = critical_move.get("move_number", "?")
                 desc += f" On move {mn}, {_describe_critical_moment(root_pattern, critical_move)}."
 
+            # Extract replay FENs for Coach Replay
+            replay_data = None
+            if critical_move:
+                try:
+                    import chess as chess_mod
+                    fen_before = critical_move.get("fen_before", "")
+                    user_move_san = critical_move.get("move", "")
+
+                    if fen_before and user_move_san:
+                        board = chess_mod.Board(fen_before)
+
+                        # FEN 2-3 moves before (setup position)
+                        # Walk backward in evals to find a calm position
+                        setup_fen = fen_before
+                        mn = critical_move.get("move_number", 0)
+                        for ev in reversed(evals):
+                            ev_mn = ev.get("move_number", 0)
+                            if ev_mn <= mn - 2 and ev.get("fen_before"):
+                                setup_fen = ev.get("fen_before")
+                                break
+
+                        # FEN after user's move
+                        user_move = board.parse_san(user_move_san)
+                        board.push(user_move)
+                        fen_after_user = board.fen()
+
+                        # Opponent's reply (from PV or next eval)
+                        opponent_reply_fen = None
+                        # Find next move eval (opponent's response)
+                        found_current = False
+                        for ev in evals:
+                            if found_current and ev.get("fen_before"):
+                                # This is the position after opponent replied
+                                opponent_reply_fen = ev.get("fen_before")
+                                break
+                            if ev.get("move_number") == mn and ev.get("move") == user_move_san:
+                                found_current = True
+
+                        # If no next eval, try PV
+                        if not opponent_reply_fen:
+                            pv = critical_move.get("pv_after_played", [])
+                            if pv:
+                                try:
+                                    opp_move = board.parse_san(pv[0])
+                                    board.push(opp_move)
+                                    opponent_reply_fen = board.fen()
+                                except Exception:
+                                    pass
+
+                        replay_data = {
+                            "setup_fen": setup_fen,
+                            "mistake_fen": fen_before,
+                            "after_move_fen": fen_after_user,
+                            "after_reply_fen": opponent_reply_fen,
+                        }
+                except Exception as replay_err:
+                    logger.debug(f"Replay data extraction failed: {replay_err}")
+
             priority_game = {
                 "game_id": gid,
                 "opponent": g.get("opponent", "Opponent"),
@@ -524,6 +582,8 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                 "was_winning": was_winning,
                 "description": desc,
                 "move_number": critical_move.get("move_number") if critical_move else None,
+                "user_color": g.get("user_color", "white"),
+                "replay": replay_data,
             }
 
     # ── 3. AGGREGATE GAME REASONS → TOP 3 PROBLEMS ──

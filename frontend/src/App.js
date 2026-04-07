@@ -36,6 +36,7 @@ import AdminOpenings from "@/pages/AdminOpenings";
 import AdminDashboard from "@/pages/AdminDashboard";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import EndgameLesson from "@/pages/EndgameLesson";
+import CoachReplay from "@/pages/CoachReplay";  // Guided behavioral game review
 
 // V1 Plateau Breaker Mode (Enforced Learning)
 import PlateauBreakerDashboard from "@/pages/PlateauBreakerDashboard";
@@ -225,6 +226,11 @@ function AppRouter() {
       <Route path="/import" element={
         <ProtectedRoute>
           {({ user }) => <ImportGames user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/replay/:gameId" element={
+        <ProtectedRoute>
+          {({ user }) => <CoachReplay user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/game/:gameId" element={

@@ -1,8 +1,8 @@
 /**
- * HOME — "Face the problem"
+ * HOME — "A coach stopping you before your next mistake."
  *
- * Headline (pain) → Proof (trust) → Insight (sharp) → Action (fix)
- * Nothing else.
+ * LOCKED: pain → behavior → tension → action (NO rule, NO answer)
+ * UNLOCKED: pain → proof → last game memory → rule → directive → action
  */
 
 import { useState, useEffect } from "react";
@@ -10,14 +10,68 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import { ChevronRight, Swords, Import, Target, Brain, Flame } from "lucide-react";
+import { ChevronRight, Swords, Import, Target, Brain } from "lucide-react";
+
+// Mistake → confrontation headline (always leads with pain)
+const HEADLINES = {
+  tactical_miss:      "You are missing tactics that are right in front of you.",
+  one_move_blunder:   "You are leaving pieces where they can be taken for free.",
+  calculation_error:  "You are throwing games because you stop thinking too early.",
+  positional:         "You are being outplayed. Your pieces have no plan.",
+  endgame_collapse:   "You reach endgames you should win. You don't finish them.",
+  opening_disaster:   "Your games are lost before they start.",
+  time_collapse:      "You are losing on the clock, not on the board.",
+  threw_winning:      "You are throwing winning positions.",
+  piece_safety:       "You are giving away pieces for free.",
+  ignore_threat:      "You are not looking at what your opponent is doing.",
+  calculation_depth:  "You are throwing games because you stop thinking too early.",
+  missed_tactic:      "You are missing simple winning chances.",
+  king_safety:        "You are leaving your king exposed and getting punished.",
+  conversion:         "You get the advantage. Then you give it back.",
+};
+
+// Mistake → behavior (LOCKED: what they do wrong. Sharp, no filler.)
+const BEHAVIORS = {
+  tactical_miss:      "You play your move without scanning the board.\nThat's where your games collapse.",
+  one_move_blunder:   "You move without checking if your piece is protected.\nThat's where your games collapse.",
+  calculation_error:  "You stop checking your opponent after you decide your move.\nThat's where your games collapse.",
+  positional:         "You move pieces without a plan.\nYour opponent outmaneuvers you every time.",
+  endgame_collapse:   "You reach winning endgames but don't know the technique.\nSo you draw — or worse.",
+  opening_disaster:   "You make unsound moves in the first 10.\nBy the middlegame, you're already lost.",
+  time_collapse:      "You spend time on easy moves.\nThen you panic on the ones that matter.",
+  threw_winning:      "You stop checking your opponent once you're ahead.\nThat's where your games collapse.",
+  piece_safety:       "You move without checking if your pieces are safe.\nThat's where your games collapse.",
+  ignore_threat:      "You play your move without checking what your opponent is attacking.\nThat's where your games collapse.",
+  calculation_depth:  "You stop checking your opponent after you decide your move.\nThat's where your games collapse.",
+  missed_tactic:      "You don't scan for captures, checks, and threats.\nThe winning move is there. You're not looking.",
+  king_safety:        "You attack before your king is safe.\nYour opponent punishes it every time.",
+  conversion:         "You stop checking your opponent once you're ahead.\nThat's where your games collapse.",
+};
+
+// Mistake → behavior-specific rule (only shown in UNLOCKED state)
+const RULES = {
+  tactical_miss:      "Before you move — check for captures, checks, and threats.",
+  one_move_blunder:   "Before you move — is anything I own under attack?",
+  calculation_error:  "Before you move — check their best reply.",
+  positional:         "Before you move — what is my worst piece doing?",
+  endgame_collapse:   "In the endgame — activate your king first.",
+  opening_disaster:   "First 10 moves — develop, control center, castle.",
+  time_collapse:      "Under 2 minutes — play the simplest move.",
+  threw_winning:      "Stay alert even when you're winning.",
+  piece_safety:       "Before you move — is anything I own under attack?",
+  ignore_threat:      "Before you move — what is my opponent attacking?",
+  calculation_depth:  "Before you move — check their best reply.",
+  missed_tactic:      "Before you move — is there a tactic here?",
+  king_safety:        "Before you attack — is my king safe?",
+  conversion:         "When ahead — simplify. Don't get creative.",
+};
 
 const HomePage = ({ user }) => {
   const navigate = useNavigate();
   const [coaching, setCoaching] = useState(null);
-  const [streak, setStreak] = useState(null);
+  const [lastGameHook, setLastGameHook] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [pageState, setPageState] = useState("loading"); // loading | empty | analyzing | ready
+  const [pageState, setPageState] = useState("loading");
 
   useEffect(() => {
     (async () => {
@@ -27,21 +81,30 @@ const HomePage = ({ user }) => {
           fetch(`${API}/home/dashboard-v2`, { credentials: "include" }),
         ]);
 
-        if (labRes.ok) {
-          const labData = await labRes.json();
-          setCoaching(labData.coaching);
-          if (labData.total_count === 0) setPageState("empty");
-          else setPageState("ready");
-        } else {
-          setPageState("empty");
-        }
+        let hasGames = false;
+        let isAnalyzing = false;
 
         if (dashRes.ok) {
           const d = await dashRes.json();
-          setStreak(d.streak);
-          if (d.games_analyzed === 0 && d.games_imported > 0) setPageState("analyzing");
-          if (d.games_analyzed === 0 && d.games_imported === 0) setPageState("empty");
+          if (d.games_analyzed > 0) hasGames = true;
+          else if (d.games_imported > 0) isAnalyzing = true;
+
+          // Last game hook for UNLOCKED state
+          if (d.last_battle?.behavior) {
+            setLastGameHook(d.last_battle.behavior);
+          }
         }
+
+        if (labRes.ok) {
+          const labData = await labRes.json();
+          if (labData.total_count > 0) hasGames = true;
+          setCoaching(labData.coaching);
+        }
+
+        if (!hasGames && !isAnalyzing) setPageState("empty");
+        else if (isAnalyzing && !hasGames) setPageState("analyzing");
+        else setPageState("ready");
+
       } catch (e) {
         setPageState("empty");
       } finally {
@@ -54,16 +117,15 @@ const HomePage = ({ user }) => {
     return <Layout user={user}><div className="flex items-center justify-center h-[60vh]"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div></Layout>;
   }
 
-  // ── Empty ──
   if (pageState === "empty") {
     return (
       <Layout user={user}>
-        <div className="max-w-md mx-auto px-4 py-24 text-center" data-testid="home-page">
+        <div className="max-w-md mx-auto px-6 py-24 text-center" data-testid="home-page">
           <div className="w-14 h-14 rounded-2xl gradient-gold flex items-center justify-center mx-auto mb-6 shadow-lg shadow-amber-500/20">
             <Brain className="w-6 h-6 text-black" strokeWidth={2} />
           </div>
           <h1 className="text-2xl font-heading text-foreground tracking-tight mb-3">Your coach is waiting.</h1>
-          <p className="text-muted-foreground mb-8 text-sm">Import your games. Your coach will tell you exactly what's holding you back.</p>
+          <p className="text-muted-foreground mb-8 text-sm">Import your games. Your coach will tell you what's holding you back.</p>
           <button onClick={() => navigate("/import")} className="px-6 py-3 text-sm gradient-gold text-black rounded-lg hover:opacity-90 transition-all font-semibold shadow-lg shadow-amber-500/20" data-testid="import-cta">
             <Import className="w-4 h-4 inline mr-2" strokeWidth={2} />Import Games
           </button>
@@ -72,15 +134,14 @@ const HomePage = ({ user }) => {
     );
   }
 
-  // ── Analyzing ──
   if (pageState === "analyzing") {
     return (
       <Layout user={user}>
-        <div className="max-w-md mx-auto px-4 py-24 text-center" data-testid="home-page">
+        <div className="max-w-md mx-auto px-6 py-24 text-center" data-testid="home-page">
           <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
             <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
           </div>
-          <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">Your coach is studying your games.</h1>
+          <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">Your coach is watching your games.</h1>
           <p className="text-muted-foreground text-sm mb-8">This takes a few minutes.</p>
           <button onClick={() => navigate("/play-with-coach")} className="px-6 py-3 text-sm gradient-gold text-black rounded-lg hover:opacity-90 transition-all font-semibold shadow-lg shadow-amber-500/20">
             <Swords className="w-4 h-4 inline mr-2" strokeWidth={2} />Play with Coach
@@ -90,118 +151,103 @@ const HomePage = ({ user }) => {
     );
   }
 
-  // ── MAIN ──
+  // ═══════════════════════════════════════════
+  // MAIN — THE CONFRONTATION
+  // ═══════════════════════════════════════════
+
   const root = coaching?.root_problem;
-  const diag = coaching?.diagnosis;
-  const rule = coaching?.rule;
-  const lock = coaching?.training_lock;
   const topProblem = coaching?.top_problems?.[0];
+  const lock = coaching?.training_lock;
+  const isUnlocked = lock?.unlocked;
+  const pg = coaching?.priority_game;
 
-  // Build the content
-  const headline = topProblem?.label || diag?.short || "Your coach found something to fix.";
+  const mistakeKey = topProblem?.category || root?.pattern || "calculation_depth";
+  const headline = HEADLINES[mistakeKey] || HEADLINES.calculation_depth;
+  const behavior = BEHAVIORS[mistakeKey] || BEHAVIORS.calculation_depth;
+  const rule = RULES[mistakeKey] || RULES.calculation_depth;
 
-  let proof = "";
-  if (root) {
-    const n = root.games_affected || 0;
-    if (root.thrown_games > 0) {
-      proof = `You threw ${root.thrown_games} winning position${root.thrown_games > 1 ? "s" : ""}. This happened in ${n} of your recent games.`;
-    } else if (n >= 15) {
-      proof = "This is happening in almost every game you play.";
-    } else if (n >= 5) {
-      proof = `Happened in ${n} of your recent games.`;
-    } else if (n > 0) {
-      proof = `This showed up in ${n} game${n > 1 ? "s" : ""} recently.`;
-    }
-  }
-
-  const insight = topProblem?.description || diag?.detail || "";
-
-  const isLocked = lock && !lock.unlocked;
-  const actionLabel = isLocked ? "Start Fixing This" : "Open Lab";
-  const actionHref = isLocked ? `/training?focus=${root?.pattern || ""}` : "/lab";
-
-  // Streak override
-  const isWinStreak = streak?.type === "W" && streak?.count >= 3;
-  const isLossStreak = streak?.type === "L" && streak?.count >= 3;
+  const gamesAffected = root?.games_affected || topProblem?.count || 0;
 
   return (
     <Layout user={user}>
-      <div className="max-w-md mx-auto px-4 py-12" data-testid="home-page">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+      <div className="max-w-md mx-auto px-6 py-10" data-testid="home-page">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
 
-          {/* Win streak override */}
-          {isWinStreak && (
-            <div className="text-center mb-8">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center mx-auto mb-3">
-                <Flame className="w-5 h-5 text-emerald-500" />
+          {/* ═══ HEADLINE — visually dominant ═══ */}
+          <h1 className="text-2xl sm:text-[28px] font-heading text-foreground tracking-tight leading-[1.2] mb-6">
+            {headline}
+          </h1>
+
+          {/* ═══ LOCKED: behavior + tension. No answers. ═══ */}
+          {!isUnlocked && (
+            <div className="space-y-6">
+              <p className="text-[15px] text-muted-foreground leading-[1.7] whitespace-pre-line">
+                {behavior}
+              </p>
+
+              <div className="space-y-1">
+                <p className="text-sm text-foreground/50">Next time you play, this will happen again.</p>
+                <p className="text-sm text-foreground/80 font-medium">Unless you fix it.</p>
               </div>
-              <h1 className="text-xl font-heading text-foreground mb-1">You're playing great chess.</h1>
-              <p className="text-sm text-muted-foreground mb-6">{streak.count} wins in a row. Don't change anything.</p>
-              <button onClick={() => navigate("/play-with-coach")} className="w-full py-3.5 text-sm font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/15 flex items-center justify-center gap-2">
-                <Swords className="w-4 h-4" strokeWidth={2} />Play Another<ChevronRight className="w-3.5 h-3.5 opacity-60" />
-              </button>
             </div>
           )}
 
-          {/* Loss streak override */}
-          {isLossStreak && !isWinStreak && (
-            <div className="text-center mb-8">
-              <h1 className="text-xl font-heading text-foreground mb-1">Stop. You're repeating the same mistake.</h1>
-              <p className="text-sm text-muted-foreground mb-6">Review one game before you play again.</p>
-              <button onClick={() => navigate("/lab")} className="w-full py-3.5 text-sm font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/15 flex items-center justify-center gap-2">
-                <Brain className="w-4 h-4" strokeWidth={2} />Open Lab<ChevronRight className="w-3.5 h-3.5 opacity-60" />
-              </button>
-            </div>
-          )}
-
-          {/* Normal: coaching data */}
-          {!isWinStreak && !isLossStreak && (
-            <>
-              {/* Headline — pain */}
-              <h1 className="text-2xl font-heading text-foreground tracking-tight leading-snug mb-3">
-                {headline}
-              </h1>
-
-              {/* Proof — trust */}
-              {proof && (
-                <p className="text-sm text-muted-foreground leading-relaxed mb-4">{proof}</p>
+          {/* ═══ UNLOCKED: proof + memory + rule ═══ */}
+          {isUnlocked && (
+            <div className="space-y-5">
+              {/* Proof */}
+              {gamesAffected >= 3 && (
+                <p className="text-sm text-foreground/50">
+                  You did this in {gamesAffected} of your recent games.
+                </p>
               )}
 
-              {/* Insight — sharp */}
-              {insight && (
-                <p className="text-sm text-foreground/70 leading-relaxed mb-5">{insight}</p>
-              )}
-
-              {/* Rule */}
-              {rule && (
-                <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/15 mb-6">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">{rule.name}</p>
-                  <p className="text-sm text-foreground">{rule.rule}</p>
+              {/* Last game memory */}
+              {(pg?.description || lastGameHook) && (
+                <div className="space-y-1">
+                  <p className="text-[11px] text-muted-foreground/40 uppercase tracking-wider font-medium">Last game</p>
+                  <p className="text-sm text-foreground/70 leading-relaxed">
+                    {pg?.description || lastGameHook}
+                  </p>
                 </div>
               )}
 
-              {/* ONE action */}
-              <button
-                onClick={() => navigate(actionHref)}
-                className="w-full py-3.5 text-sm font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/15 flex items-center justify-center gap-2"
-                data-testid="coach-cta"
-              >
-                <Target className="w-4 h-4" strokeWidth={2} />
-                {actionLabel}
-                <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-              </button>
-            </>
-          )}
+              {/* Rule — separate coaching moment with background */}
+              <div className="py-4 px-4 -mx-4 rounded-lg bg-amber-500/[0.04] border-y border-amber-500/10">
+                <p className="text-[15px] text-foreground font-medium">{rule}</p>
+              </div>
 
-          {/* Streak — micro signal */}
-          {streak?.count >= 2 && !isWinStreak && !isLossStreak && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <Flame className={`w-3.5 h-3.5 ${streak.type === "W" ? "text-emerald-500" : "text-red-400"}`} />
-              <span className={`text-xs font-semibold ${streak.type === "W" ? "text-emerald-500" : "text-red-400"}`}>
-                {streak.count}-game {streak.type === "W" ? "win" : "loss"} streak
-              </span>
+              {/* Directive */}
+              <p className="text-sm text-foreground/60 font-medium">
+                Next game — don't repeat this.
+              </p>
             </div>
           )}
+
+          {/* ═══ ACTIONS — clear hierarchy ═══ */}
+          <div className="mt-8 space-y-3">
+            <button
+              onClick={() => navigate("/play-with-coach")}
+              className="w-full py-4 text-[15px] font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+              data-testid="coach-cta"
+            >
+              <Swords className="w-4.5 h-4.5" strokeWidth={2} />
+              Play with Coach
+              <ChevronRight className="w-4 h-4 opacity-60" />
+            </button>
+
+            <button
+              onClick={() => navigate(root?.pattern ? `/training?focus=${root.pattern}` : "/lab")}
+              className="w-full py-3 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Target className="w-3.5 h-3.5" strokeWidth={1.5} />
+              Fix this before you play (3 min)
+            </button>
+          </div>
 
         </motion.div>
       </div>
