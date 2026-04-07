@@ -1,10 +1,7 @@
 /**
- * EvalBadge — Shows position evaluation as a colored badge
+ * EvalBadge — Shows position evaluation as a human label
  *
- * Props:
- *   evalLabel: { label, short, category, sentiment, description }
- *   size: "sm" | "md" (default: "sm")
- *   showDescription: boolean (default: false)
+ * No numbers. No +1.5. Just "Slight edge" or "Losing."
  */
 
 const CATEGORY_STYLES = {
@@ -24,22 +21,17 @@ const CATEGORY_STYLES = {
 const EvalBadge = ({ evalLabel, size = "sm", showDescription = false }) => {
   if (!evalLabel) return null;
 
-  const { label, short, category, description } = evalLabel;
+  const { label, category, description } = evalLabel;
   const style = CATEGORY_STYLES[category] || CATEGORY_STYLES.equal;
 
   if (size === "md") {
     return (
       <div className={`rounded-lg border p-3 ${style.replace(/text-\S+/, "").trim()}`}>
-        <div className="flex items-center justify-between mb-1">
-          <span className={`text-sm font-semibold ${style.match(/text-\S+/)?.[0] || "text-muted-foreground"}`}>
-            {label}
-          </span>
-          <span className={`text-xs font-mono font-bold ${style.match(/text-\S+/)?.[0] || "text-muted-foreground"}`}>
-            {short}
-          </span>
-        </div>
+        <span className={`text-sm font-semibold ${style.match(/text-\S+/)?.[0] || "text-muted-foreground"}`}>
+          {label}
+        </span>
         {showDescription && description && (
-          <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-1">{description}</p>
         )}
       </div>
     );
@@ -48,11 +40,10 @@ const EvalBadge = ({ evalLabel, size = "sm", showDescription = false }) => {
   // Small badge (inline)
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold rounded border ${style}`}
+      className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded border ${style}`}
       title={description || label}
     >
       {label}
-      <span className="font-mono text-[10px] opacity-70">{short}</span>
     </span>
   );
 };
