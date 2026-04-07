@@ -693,7 +693,9 @@ async def record_solve_attempt(
                     pass
                 
                 if not idea:
-                    idea = f"{move_san} is a strong move in this position"
+                    # Use concrete explanation instead of generic
+                    concrete = _build_concrete_explanation(board, move_san)
+                    idea = concrete if concrete else f"{move_san}"
                 
                 candidates.append({
                     "move": move_san,
@@ -984,15 +986,15 @@ async def _generate_coaching_feedback(
     behavior_desc = PATTERN_BEHAVIORS.get(pattern_type, "not reading the position carefully")
 
     system = (
-        "You are a chess coach. Explain in the FEWEST words possible.\n\n"
+        "You are a chess coach. Be brief but complete.\n\n"
         "RULES:\n"
-        "- ONLY use facts provided. Do NOT invent squares or pieces.\n"
-        "- WHY: ONE sentence, max 20 words. What mattered on the board.\n"
-        "- REMEMBER: ONE sentence, max 15 words. What to look for next time.\n"
-        "- No engine terms. No long explanations.\n\n"
+        "- ONLY use facts provided below. Do NOT invent squares, pieces, or moves.\n"
+        "- WHY: 1-2 sentences, max 30 words total. Explain the IDEA behind the move — what it achieves, what threat it creates, what it forces the opponent to do. Use the continuation if provided.\n"
+        "- REMEMBER: ONE sentence, max 15 words. A specific pattern to look for in similar positions.\n"
+        "- No engine terms (eval, centipawns). Describe in chess terms (attacks, defends, threatens, forces).\n\n"
         "Format:\n"
-        "WHY: [one short sentence]\n"
-        "REMEMBER: [one short sentence]"
+        "WHY: [the idea behind the move]\n"
+        "REMEMBER: [pattern to look for]"
     )
 
     if solved or near_miss:

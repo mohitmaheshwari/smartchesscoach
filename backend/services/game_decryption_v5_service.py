@@ -1055,12 +1055,38 @@ def _explain_move_idea(board: chess.Board, move_san: str, user_color: bool) -> O
         if captured:
             attacker_value = _piece_value(piece)
             captured_value = _piece_value(captured)
-            if captured_value >= attacker_value:
+            captured_name = _get_fun_piece_name(captured)
+            attacker_name = _get_fun_piece_name(piece)
+            to_sq_name = chess.square_name(move.to_square)
+            if captured_value > attacker_value:
                 ideas.append({
                     "type": "tactical",
-                    "explanation": f"{move_san} wins material!",
+                    "explanation": f"{move_san} takes their {captured_name} on {to_sq_name} with your {attacker_name} — winning material",
                     "score": 9
                 })
+            elif captured_value == attacker_value:
+                # Equal trade — explain WHY it might be good (removes a defender, etc.)
+                sim_after = board.copy()
+                sim_after.push(move)
+                # Check if this creates new threats
+                new_threats = []
+                for sq in chess.SQUARES:
+                    target = sim_after.piece_at(sq)
+                    if target and target.color != piece.color and target.piece_type not in (chess.PAWN, chess.KING):
+                        if sim_after.is_attacked_by(piece.color, sq) and not board.is_attacked_by(piece.color, sq):
+                            new_threats.append(f"{_get_fun_piece_name(target)} on {chess.square_name(sq)}")
+                if new_threats:
+                    ideas.append({
+                        "type": "tactical",
+                        "explanation": f"{move_san} trades {attacker_name} for their {captured_name} and reveals an attack on their {new_threats[0]}",
+                        "score": 9
+                    })
+                else:
+                    ideas.append({
+                        "type": "tactical",
+                        "explanation": f"{move_san} captures their {captured_name} on {to_sq_name}",
+                        "score": 7
+                    })
     
     # Return the best idea for this move
     if ideas:
@@ -1146,19 +1172,21 @@ def _detect_tactical_issue(
             # Check for fork
             if sim.piece_at(opp_response.from_square):
                 if sim.piece_at(opp_response.from_square).piece_type == chess.KNIGHT:
-                    # Check if knight attacks multiple pieces after moving
+                    # Check if THIS SPECIFIC knight attacks multiple pieces after moving
                     sim2 = sim.copy()
                     sim2.push(opp_response)
+                    knight_landing = opp_response.to_square
+                    # Only check squares attacked by THIS knight (not all opponent pieces)
+                    knight_attacks = sim2.attacks(knight_landing)
                     attacked = []
                     attacked_values = []
-                    for sq in chess.SQUARES:
-                        if sim2.is_attacked_by(not user_color, sq):
-                            piece = sim2.piece_at(sq)
-                            if piece and piece.color == user_color:
-                                piece_name = _get_fun_piece_name(piece)
-                                attacked.append(piece_name)
-                                attacked_values.append(_piece_value(piece))
-                    
+                    for sq in knight_attacks:
+                        piece = sim2.piece_at(sq)
+                        if piece and piece.color == user_color and piece.piece_type != chess.PAWN:
+                            piece_name = _get_fun_piece_name(piece)
+                            attacked.append(piece_name)
+                            attacked_values.append(_piece_value(piece))
+
                     # Fork detected if attacking 2+ valuable pieces (total value >= 5)
                     if len(attacked) >= 2 and sum(attacked_values) >= 5:
                         attacked_with_values = list(zip(attacked, attacked_values))
@@ -1176,9 +1204,14 @@ def _detect_tactical_issue(
                             concept_type="tactical"
                         )
             
-            # Check for back rank issues (only in middlegame/endgame, not opening)
-            move_count = len(sim.move_stack) // 2
-            if sim.is_check() and move_count > 15:
+            # Check for back rank issues — ONLY if:
+            # 1. It's middlegame or later (move > 20)
+            # 2. King is actually on the back rank
+            # 3. The check is from a rook or queen (not a minor piece)
+            move_count = board_after.fullmove_number or (len(sim.move_stack) // 2)
+            checking_piece = sim.piece_at(opp_response.from_square) if opp_response else None
+            is_heavy_piece_check = checking_piece and checking_piece.piece_type in (chess.ROOK, chess.QUEEN)
+            if sim.is_check() and move_count > 20 and is_heavy_piece_check:
                 king_sq = sim.king(user_color)
                 if king_sq and chess.square_rank(king_sq) in [0, 7]:
                     pattern = tactical_patterns.get("back_rank_weakness", {})
