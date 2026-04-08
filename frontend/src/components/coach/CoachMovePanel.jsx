@@ -33,6 +33,7 @@ const CoachMovePanel = ({
   currentBestLine,
   onBestLineNext,
   onBestLineExit,
+  onGoToNextMoment,
 }) => {
   const [reflection, setReflection] = useState("");
   const [reflectionSaved, setReflectionSaved] = useState(false);
@@ -45,6 +46,24 @@ const CoachMovePanel = ({
 
   const evals = analysis?.stockfish_analysis?.move_evaluations || [];
   const currentMove = currentMoveIndex >= 0 ? moves[currentMoveIndex] : null;
+
+  // Compute all important moments in the game
+  const importantMoves = moves.map((m, idx) => {
+    const moveNum = Math.floor(idx / 2) + 1;
+    const evalData = evals.find(e => e.move_number === moveNum && e.move === m.san)
+                  || evals.find(e => e.move === m.san);
+    if (!evalData) return null;
+    const c = (evalData.classification || evalData.evaluation || "").toLowerCase();
+    if (c.includes("blunder") || c.includes("mistake") || c.includes("inaccuracy")) {
+      return { idx, san: m.san, severity: c, moveNum };
+    }
+    return null;
+  }).filter(Boolean);
+
+  const totalMoments = importantMoves.length;
+  const currentMomentIndex = importantMoves.findIndex(m => m.idx === currentMoveIndex);
+  const currentMomentNumber = currentMomentIndex >= 0 ? currentMomentIndex + 1 : 0;
+  const hasNextMoment = currentMomentIndex >= 0 && currentMomentIndex < totalMoments - 1;
   // Match eval by move number + san, NOT by array index
   // evals only contains user moves — indices don't match PGN move indices
   const currentEval = (() => {
@@ -153,6 +172,24 @@ const CoachMovePanel = ({
   // ═══ IMPORTANT USER MOVE — full coaching panel ═══
   return (
     <div className="p-5 space-y-5 overflow-y-auto">
+      {/* Moment counter */}
+      {totalMoments > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Moment {currentMomentNumber} of {totalMoments}
+          </p>
+          <div className="flex gap-1">
+            {importantMoves.map((m, i) => (
+              <div key={i} className={`w-2 h-2 rounded-full ${
+                i < currentMomentIndex ? "bg-emerald-500"
+                : i === currentMomentIndex ? "bg-primary"
+                : "bg-muted-foreground/20"
+              }`} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         <motion.div key={currentMoveIndex} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
 
@@ -537,6 +574,32 @@ const CoachMovePanel = ({
                 flaggedText={currentEval.golden_rule}
                 context={{ fen: currentFen, source: "coach_tab" }}
               />
+            </div>
+          )}
+
+          {/* ── 7. NEXT MOMENT ── */}
+          {hasNextMoment && (
+            <div className="pt-3 border-t border-border/50">
+              <Button
+                onClick={onGoToNextMoment}
+                className="w-full text-xs gap-2"
+                variant="outline"
+              >
+                Ready for moment {currentMomentNumber + 1}
+                <ChevronRight className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+
+          {/* All moments reviewed */}
+          {currentMomentIndex === totalMoments - 1 && totalMoments > 0 && (
+            <div className="pt-3 border-t border-border/50 text-center">
+              <p className="text-xs text-emerald-500 font-medium mb-2">
+                All {totalMoments} moments reviewed.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Switch to Decrypt tab for the full game, or go back to Lab.
+              </p>
             </div>
           )}
 

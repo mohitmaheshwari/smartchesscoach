@@ -1462,6 +1462,7 @@ const LabV2 = ({ user }) => {
                   currentBestLine={currentBestLine}
                   onBestLineNext={() => setBestLineIndex(Math.min(bestLineIndex + 1, (currentBestLine?.fens.length || 1) - 1))}
                   onBestLineExit={() => { setIsPlayingBestLine(false); setCurrentBestLine(null); setBestLineIndex(0); }}
+                  onGoToNextMoment={goToNext}
                 />
               ) : (
                 <div className="p-6">
