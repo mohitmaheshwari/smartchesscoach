@@ -454,5 +454,370 @@
         ]
       }
     }
+  },
+  "bishop_endgames": {
+    "name": "Bishop Endgames",
+    "icon": "triangle",
+    "description": "Good bishop vs bad bishop, opposite-color draws, and when bishops beat knights.",
+    "lessons": {
+      "good_vs_bad_bishop": {
+        "name": "Good Bishop vs Bad Bishop",
+        "rule": "A bishop blocked by its own pawns is BAD. Put your pawns on the OPPOSITE color of your bishop.",
+        "description": "Your bishop is 'good' when your pawns are on the opposite color squares, giving it open diagonals. A 'bad' bishop is trapped behind its own pawns.",
+        "positions": [
+          {
+            "fen": "8/5k2/4p3/3pPp2/3P1P2/8/4BK2/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Bd3",
+            "correct_move_uci": "e2d3",
+            "wrong_example_san": "Bd1",
+            "prompt": "White has a light-squared bishop. Pawns are on dark squares. Is this bishop good or bad?",
+            "idea": "This is a GOOD bishop — pawns on d4, e5, f4 (dark) leave the light diagonals open. Bd3 aims at the kingside.",
+            "on_correct": "Bd3 activates the good bishop. It eyes f5 and h7. Your pawns don't block your bishop — that's the key.",
+            "on_wrong": "Bd1 retreats the bishop to a passive square. Use the open diagonals — that's why it's a good bishop.",
+            "rule_reminder": "Pawns on dark squares + light-squared bishop = GOOD. The bishop has open highways."
+          },
+          {
+            "fen": "8/5k2/4p3/3pPp2/3P1P2/8/4K3/5b2 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Ke8",
+            "correct_move_uci": "f7e8",
+            "wrong_example_san": "Bg2",
+            "prompt": "Black has a light-squared bishop. Pawns on e6, d5, f5 are also on light squares. What's the problem?",
+            "idea": "Black's bishop is BAD — trapped behind its own pawns on light squares. There's no active square. Ke8 tries to hold passively.",
+            "on_correct": "Ke8 is the best you can do. The bad bishop has no future — it's blocked by its own pawns. This is a losing structure.",
+            "on_wrong": "Bg2 looks active but has no targets. The bishop is doomed to passivity because the pawns block every diagonal.",
+            "rule_reminder": "BAD bishop = same color as your pawns. The fix: move your pawns OR trade the bishop."
+          },
+          {
+            "fen": "8/p4k2/1p2b3/1Pp1p3/2P1P3/4B3/P7/6K1 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kf2",
+            "correct_move_uci": "g1f2",
+            "wrong_example_san": "a4",
+            "prompt": "Both sides have bishops. Compare them. Which side stands better?",
+            "idea": "White's bishop on e3 is GOOD (pawns on light squares a2, b5, c4, e4). Black's bishop on e6 is BAD (pawns on dark squares block nothing, but bishop has no targets). Activate the King.",
+            "on_correct": "Kf2 starts centralizing. White's good bishop + active King will dominate Black's bad bishop.",
+            "on_wrong": "a4 pushes a pawn but doesn't address the real advantage: King activity combined with the better bishop.",
+            "rule_reminder": "Good bishop + active King = winning formula. Bad bishop + passive King = suffering."
+          }
+        ]
+      },
+      "opposite_color_bishops": {
+        "name": "Opposite-Color Bishop Draws",
+        "rule": "Opposite-color bishops favor the DEFENDER. Even 2 pawns up can be a draw because the bishops can never interact.",
+        "description": "When each side has a bishop on a different color, the defender can set up a fortress. The attacker's bishop can't challenge the defender's blockade.",
+        "positions": [
+          {
+            "fen": "8/8/4k3/3pp3/8/4B3/4K3/2b5 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Bc5",
+            "correct_move_uci": "e3c5",
+            "wrong_example_san": "Bd2",
+            "prompt": "Black is 2 pawns up but the bishops are on opposite colors. Can White hold?",
+            "idea": "Bc5! blockades the d-pawn. Black's dark-squared bishop can't challenge White's light-squared bishop. This is a fortress draw.",
+            "on_correct": "Bc5 creates a blockade. The bishops operate on different colors — Black can never break through. Classic drawn endgame.",
+            "on_wrong": "Bd2 is passive. Bc5 sets up the blockade on the right diagonal. The key is blocking the passed pawns on squares your bishop controls.",
+            "rule_reminder": "Opposite-color bishops = drawing weapon. Blockade the pawns on YOUR bishop's color."
+          },
+          {
+            "fen": "2b5/5p2/4pk2/8/4PK2/5B2/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Bg4",
+            "correct_move_uci": "f3g4",
+            "wrong_example_san": "e5+",
+            "prompt": "Equal material, opposite-color bishops. What's the best strategy?",
+            "idea": "Bg4 targets the f5 square and pins the f-pawn. With opposite-color bishops, the ATTACKER needs to create threats on both sides of the board.",
+            "on_correct": "Bg4 creates pressure. In opposite-color bishop middlegames, the attacker has the advantage — but in pure endgames, it's usually drawn.",
+            "on_wrong": "e5+ trades the last pawn and it's a dead draw. Keep the tension — opposite-color bishops need pawns to create winning chances.",
+            "rule_reminder": "With pawns: create threats on BOTH sides. The defender's bishop can only cover one color. Without pawns: always drawn."
+          },
+          {
+            "fen": "8/p4k2/8/1P6/5b2/4B3/5K2/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "b6",
+            "correct_move_uci": "b5b6",
+            "wrong_example_san": "Ke2",
+            "prompt": "White has a passed b-pawn. Can the opposite-color bishops help or hurt?",
+            "idea": "b6! pushes the pawn to a dark square where Black's dark-squared bishop CAN attack it. But White's light-squared bishop will escort it. The key: the defending bishop must blockade on its own color.",
+            "on_correct": "b6 advances. Black's bishop can attack b6 but White's bishop controls the light-square route. Opposite-color bishops make passed pawns harder to stop when supported.",
+            "on_wrong": "Ke2 wastes time. The passed pawn is your advantage — push it before Black sets up a blockade.",
+            "rule_reminder": "Passed pawn + opposite-color bishops: the ATTACKER can win if the pawn is far advanced. It's not always a draw!"
+          }
+        ]
+      }
+    }
+  },
+  "knight_endgames": {
+    "name": "Knight Endgames",
+    "icon": "horseshoe",
+    "description": "Knights love closed positions, outposts, and blockading pawns. Master knight technique.",
+    "lessons": {
+      "knight_vs_bishop": {
+        "name": "Knight vs Bishop",
+        "rule": "Knights love CLOSED positions with fixed pawns. Bishops love OPEN positions with pawns on both sides.",
+        "description": "The eternal debate. In closed positions with pawns locked on one color, the knight dominates. In open positions, the bishop's range wins.",
+        "positions": [
+          {
+            "fen": "8/p1p2k2/1p1p4/3Pp3/1PP1P3/8/5K2/3N4 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Ne3",
+            "correct_move_uci": "d1e3",
+            "wrong_example_san": "Nb2",
+            "prompt": "Closed position. Knight vs no bishop. How does the knight dominate?",
+            "idea": "Ne3! heads for d5 or f5 — powerful outposts. In closed positions, the knight hops over pawns while a bishop would be blocked.",
+            "on_correct": "Ne3 starts the knight journey to an outpost on d5 or f5. Knights thrive in closed positions — they jump over the pawn chains.",
+            "on_wrong": "Nb2 heads to the wrong side. The knight needs to reach a central outpost like d5 or f5.",
+            "rule_reminder": "Closed position = knight is better. It hops over locked pawns that would block a bishop."
+          },
+          {
+            "fen": "8/5k2/3n4/4p3/4P3/3NK3/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Nc5",
+            "correct_move_uci": "d3c5",
+            "wrong_example_san": "Kd2",
+            "prompt": "Knight vs knight endgame. Pawns are locked. What matters most?",
+            "idea": "Nc5! grabs the outpost. In knight endgames, OUTPOSTS are everything. The knight on c5 dominates — it attacks a7, b7, d7, e6.",
+            "on_correct": "Nc5 is a dominant outpost. The knight controls key squares and can't be challenged. Knight endgames are about outposts.",
+            "on_wrong": "Kd2 retreats the King. The knight needs to occupy the outpost FIRST — then the King supports.",
+            "rule_reminder": "Knight endgames = find the outpost. A centralized knight on an outpost is worth almost a rook."
+          },
+          {
+            "fen": "8/p4k2/1p2p3/3pP3/1P1N4/P7/5K2/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Nf3",
+            "correct_move_uci": "d4f3",
+            "wrong_example_san": "Nb5",
+            "prompt": "The knight can go to f3, aiming for g5-e6, or b5, aiming at the queenside. Which plan?",
+            "idea": "Nf3! heads for g5 or h4, targeting the kingside. The knight reroutes to attack weaknesses the opponent can't easily defend.",
+            "on_correct": "Nf3 reroutes to g5, attacking e6 and h7. Knights can change direction quickly — that's their superpower.",
+            "on_wrong": "Nb5 reaches an outpost but has no targets. The kingside offers real weaknesses to attack.",
+            "rule_reminder": "Knights reroute easily. Don't settle for a pretty square — aim for one that attacks real weaknesses."
+          }
+        ]
+      },
+      "knight_blockade": {
+        "name": "Knight Blockade",
+        "rule": "A knight is the BEST blockader. It blocks a passed pawn while remaining active — unlike a bishop or rook.",
+        "description": "When blocking a passed pawn, the knight doesn't lose any strength. It sits in front of the pawn AND controls squares around it.",
+        "positions": [
+          {
+            "fen": "8/8/1n6/1P6/8/4k3/8/4K3 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Nd7",
+            "correct_move_uci": "b6d7",
+            "wrong_example_san": "Nc8",
+            "prompt": "White has a passed b5-pawn. How does the knight blockade?",
+            "idea": "Nd7! prepares to blockade on b6 after ...Nb6. The knight on b6 stops the pawn AND controls a4, c4, d5, d7, a8, c8.",
+            "on_correct": "Nd7 heading to b6 is the perfect blockade. The knight stops the pawn while radiating power in all directions.",
+            "on_wrong": "Nc8 blockades but from a terrible square. On c8 the knight is passive. On b6 it's active AND blocking.",
+            "rule_reminder": "Knights are the ideal blockaders. They lose ZERO strength when sitting in front of a pawn."
+          },
+          {
+            "fen": "8/3k4/8/3pN3/8/4K3/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Nd3",
+            "correct_move_uci": "e5d3",
+            "wrong_example_san": "Kd4",
+            "prompt": "Black has a passed d5-pawn. Set up the knight blockade.",
+            "idea": "Nd3! blockades on d4 next move. The knight on d4 will stop the pawn while controlling b3, b5, c6, e6, f5, f3, c2, e2.",
+            "on_correct": "Nd3 prepares the perfect blockade square d4. The knight will be a monster there — blocking AND attacking.",
+            "on_wrong": "Kd4 blocks with the King, but the King could be doing other things. Let the knight blockade — it's designed for this job.",
+            "rule_reminder": "Use the knight to blockade, free the King for other tasks. The knight doesn't mind blocking."
+          },
+          {
+            "fen": "8/2k5/2P5/8/3n4/8/6K1/8 b - - 0 1",
+            "side_to_move": "black",
+            "correct_move_san": "Nb5",
+            "correct_move_uci": "d4b5",
+            "wrong_example_san": "Ne6",
+            "prompt": "White's c-pawn is on c6 — dangerous! Black's knight must act immediately.",
+            "idea": "Nb5! blockades the pawn on c7 while attacking it. The knight controls the promotion square AND attacks the pawn.",
+            "on_correct": "Nb5 is perfect — the knight covers c7 (promotion square) and can take the pawn. That's the ideal blockade.",
+            "on_wrong": "Ne6 blocks c7 but is less flexible. Nb5 directly attacks the pawn and controls both a7 and c7.",
+            "rule_reminder": "Blockade on the square IN FRONT of the pawn. The knight covers the promotion square and remains active."
+          }
+        ]
+      }
+    }
+  },
+  "practical_endgames": {
+    "name": "Practical Endgame Skills",
+    "icon": "target",
+    "description": "Essential techniques every player needs: converting advantages, creating passed pawns, and using Zugzwang.",
+    "lessons": {
+      "creating_passed_pawn": {
+        "name": "Creating a Passed Pawn",
+        "rule": "A passed pawn is a pawn with no enemy pawn blocking or guarding its path. Create one — it's a winning weapon.",
+        "description": "The most important endgame skill: create a passed pawn and escort it to promotion. The opponent's pieces get tied down defending.",
+        "positions": [
+          {
+            "fen": "8/5k2/8/pp6/P7/1P6/5K2/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "axb5",
+            "correct_move_uci": "a4b5",
+            "wrong_example_san": "b4",
+            "prompt": "How does White create a passed pawn?",
+            "idea": "axb5! creates a passed a-pawn (or b-pawn after ...axb4). The recapture creates a pawn with a clear path to promotion.",
+            "on_correct": "axb5 creates a passed pawn. Now it's a race — push the passer while the opponent's King chases it.",
+            "on_wrong": "b4 locks the pawns. No passed pawn is created. You need to EXCHANGE to create a passer.",
+            "rule_reminder": "To create a passed pawn: exchange a pawn to leave one with a clear path. Don't lock the structure."
+          },
+          {
+            "fen": "8/5k2/1pp5/p1p5/P1P5/1P6/8/5K2 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "b4",
+            "correct_move_uci": "b3b4",
+            "wrong_example_san": "Ke2",
+            "prompt": "Locked structure. How does White create a passed pawn?",
+            "idea": "b4! breaks the pawn chain. After ...axb4 (or ...cxb4), White recaptures and creates a passed pawn on the a or c-file.",
+            "on_correct": "b4 breaks through. This is a pawn lever — sacrificing the pawn structure to create a passer. Essential technique.",
+            "on_wrong": "Ke2 doesn't create any progress. You need a pawn break to create a passed pawn.",
+            "rule_reminder": "Use pawn levers (b4, c5, f5, etc.) to break the structure and create passed pawns."
+          },
+          {
+            "fen": "8/2k5/4p3/4P3/2K5/5P2/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "f4",
+            "correct_move_uci": "f3f4",
+            "wrong_example_san": "Kd4",
+            "prompt": "White has an e5-pawn and f3-pawn. How to create a passed pawn?",
+            "idea": "f4! advances the f-pawn. After f5, Black must capture exf5, and White's e-pawn becomes a passed pawn. Or if Black doesn't capture, f6 creates a passer.",
+            "on_correct": "f4 prepares f5, creating a passed pawn by force. The f-pawn is a battering ram — it sacrifices itself to free the e-pawn.",
+            "on_wrong": "Kd4 centralizes but doesn't create a passer. You need f4-f5 to force the breakthrough.",
+            "rule_reminder": "Use a supporting pawn as a battering ram. Sacrifice it to create a passed pawn for its neighbor."
+          }
+        ]
+      },
+      "zugzwang": {
+        "name": "Zugzwang — When Moving Loses",
+        "rule": "Zugzwang means any move makes your position worse. In endgames, pass the move to your opponent when they're in Zugzwang.",
+        "description": "The ultimate endgame weapon. When your opponent has no good moves, every move worsens their position. Force them to move.",
+        "positions": [
+          {
+            "fen": "8/8/1p1k4/1P1p4/3K4/8/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kc3",
+            "correct_move_uci": "d4c3",
+            "wrong_example_san": "Ke3",
+            "prompt": "The position is locked. White needs to give Black the move. How?",
+            "idea": "Kc3! triangulates. The plan is Kc3-Kd3-Kd4, wasting a tempo so Black must move first in the critical position. Black will have to give way.",
+            "on_correct": "Kc3 begins the triangulation. White's King goes Kc3-Kd3-Kd4 while Black's King must stay on d6. Then it's Black's move and they must retreat.",
+            "on_wrong": "Ke3 moves away from the action. You need to stay near the critical squares and waste a move with triangulation.",
+            "rule_reminder": "Triangulation = King goes A→B→C→A in 3 moves, while opponent can only go back and forth in 2. You gain a tempo."
+          },
+          {
+            "fen": "5k2/5p2/8/5PK1/8/8/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kf6",
+            "correct_move_uci": "g5f6",
+            "wrong_example_san": "f6",
+            "prompt": "Classic Zugzwang setup. White to move. How do you win?",
+            "idea": "Kf6! puts Black in Zugzwang. After ...Ke8, Ke6! and Black must move — any King move lets White take on f7 and promote.",
+            "on_correct": "Kf6 creates the Zugzwang setup. After ...Ke8, Ke6 and Black is in Zugzwang — every move loses the f7-pawn.",
+            "on_wrong": "f6 is a huge mistake! After ...Ke8, the position is drawn. The King must lead the pawn, not the other way around.",
+            "rule_reminder": "Zugzwang wins endgames. Force the opponent to move when they'd rather pass."
+          },
+          {
+            "fen": "8/8/4kpp1/4p3/4P1P1/5K2/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "Kf2",
+            "correct_move_uci": "f3f2",
+            "wrong_example_san": "gxf5+",
+            "prompt": "How does White create Zugzwang?",
+            "idea": "Kf2! (then Ke3-Kd3-Kc4-Kb5) maneuvers to create Zugzwang. By approaching from the queenside, White forces Black to abandon the kingside.",
+            "on_correct": "Kf2 begins the outflanking maneuver. White will circle around to the queenside, and Black's King can't hold both sides.",
+            "on_wrong": "gxf5+ opens the position but simplifies. Keep the tension — the locked structure is what creates Zugzwang.",
+            "rule_reminder": "Don't release tension. Locked pawns + King maneuver = Zugzwang. Let the opponent crack first."
+          }
+        ]
+      },
+      "outside_passed_pawn": {
+        "name": "Outside Passed Pawn",
+        "rule": "An outside passed pawn wins because it decoys the enemy King away from the main action.",
+        "description": "The outside passed pawn is a decoy. Push it, force the opponent's King to chase it, then your King eats the undefended pawns on the other side.",
+        "positions": [
+          {
+            "fen": "8/8/1p2k1p1/1P4p1/6P1/4K3/P7/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "a4",
+            "correct_move_uci": "a2a4",
+            "wrong_example_san": "Kf3",
+            "prompt": "White has an outside passed a-pawn. What's the winning plan?",
+            "idea": "a4! starts pushing the outside passer. Black's King must chase it, leaving the kingside pawns undefended. Then White's King eats them.",
+            "on_correct": "a4 starts the decoy operation. The a-pawn runs, Black's King chases, White's King feasts on the kingside. Classic technique.",
+            "on_wrong": "Kf3 is too slow. Push the a-pawn NOW — it's a decoy that wins the game by distraction.",
+            "rule_reminder": "Outside passed pawn = decoy. Push it, force the King to chase, clean up the other side."
+          },
+          {
+            "fen": "8/5k2/6p1/4p1P1/4K3/8/P7/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "a4",
+            "correct_move_uci": "a2a4",
+            "wrong_example_san": "Kd5",
+            "prompt": "White's a-pawn is the outside passer. Black's King guards the kingside. What's the plan?",
+            "idea": "a4! pushes the decoy. After a4-a5-a6, Black's King must come to the queenside. Then Kxe5 and Kf6 wins the g6-pawn too.",
+            "on_correct": "a4 is the start. The a-pawn marches, Black's King leaves the kingside, and White cleans up. Textbook.",
+            "on_wrong": "Kd5 moves toward the e-pawn but doesn't use the outside passer advantage. The a-pawn is your winning weapon — use it.",
+            "rule_reminder": "The outside passer doesn't need to promote. It just needs to pull the King away."
+          },
+          {
+            "fen": "8/p4k2/6p1/6P1/P7/5K2/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "a5",
+            "correct_move_uci": "a4a5",
+            "wrong_example_san": "Ke4",
+            "prompt": "Both sides have an a-pawn and g-pawn, but White's a-pawn is more advanced. How does this help?",
+            "idea": "a5! advances the pawn. It's further from the kingside than Black's a7-pawn, so Black's King must travel further to stop it. White wins the foot race.",
+            "on_correct": "a5 gains the decisive tempo. White's passer is further advanced — Black's King can't handle both sides.",
+            "on_wrong": "Ke4 doesn't use the tempo advantage. The outside passer must advance NOW before Black can set up a defense.",
+            "rule_reminder": "More advanced outside passer = bigger decoy range = more time for your King to win on the other side."
+          }
+        ]
+      },
+      "two_vs_one": {
+        "name": "Two Pawns vs One",
+        "rule": "Two connected pawns vs one pawn usually wins. Push the pawn that ISN'T blocked.",
+        "description": "The most common practical endgame: you have 2 pawns vs 1 on one side. The technique is simple but many players get it wrong.",
+        "positions": [
+          {
+            "fen": "8/8/5k2/8/5pP1/5K2/5P2/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "g5+",
+            "correct_move_uci": "g4g5",
+            "wrong_example_san": "Kxf4",
+            "prompt": "White has g4 and f2 vs Black's f4. How to win?",
+            "idea": "g5+! advances the unblocked pawn. After ...Kf5 (or ...Kg6), the g-pawn distracts while the f2-pawn prepares to advance.",
+            "on_correct": "g5+ pushes the advanced pawn. Two connected pawns overpower one — push the one that's NOT blocked first.",
+            "on_wrong": "Kxf4 captures but then it's one pawn vs zero with Kings nearby — a much harder win. Keep both pawns for overwhelming force.",
+            "rule_reminder": "Two pawns vs one: push the UNBLOCKED pawn. The blocked pawn supports from behind."
+          },
+          {
+            "fen": "8/8/6k1/6p1/5PP1/6K1/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "f5+",
+            "correct_move_uci": "f4f5",
+            "wrong_example_san": "fxg5",
+            "prompt": "White has f4 and g4 vs Black's g5. Find the winning move.",
+            "idea": "f5+! advances the unblocked pawn. The g4-pawn supports. If ...Kf6, g5+ continues the advance. The pawns support each other.",
+            "on_correct": "f5+ is correct. The connected pawns roll forward together — one advances, the other supports. Unstoppable.",
+            "on_wrong": "fxg5 trades into one pawn vs zero — drawable if Black's King reaches the right squares. Keep BOTH pawns.",
+            "rule_reminder": "Never trade down to one pawn when you can keep two. Two connected pawns rolling forward is almost always winning."
+          },
+          {
+            "fen": "8/8/8/5k2/8/4KPP1/8/8 w - - 0 1",
+            "side_to_move": "white",
+            "correct_move_san": "f4",
+            "correct_move_uci": "f3f4",
+            "wrong_example_san": "g4",
+            "prompt": "White has f3 and g3 vs nothing. Simple — but which pawn goes first?",
+            "idea": "f4! advances with King support. The plan: f4-f5, then g4-g5, rolling forward together. The King on e3 supports the f-pawn.",
+            "on_correct": "f4 advances the pawn closest to King support. The connected pawns will march forward in tandem.",
+            "on_wrong": "g4 advances the wrong pawn. The f-pawn has King support — push the supported pawn first.",
+            "rule_reminder": "Push the pawn your King supports. Connected pawns advance in tandem — one at a time, supporting each other."
+          }
+        ]
+      }
+    }
   }
 }

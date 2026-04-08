@@ -1,9 +1,4 @@
 {
-  "_meta": {
-    "description": "Opening theory tree structure with variations for V5 Thinking Simulator",
-    "version": "3.0",
-    "structure": "Each opening has main_line + variations as sub-trees with critical positions, best/mistake moves, and deep teaching content"
-  },
   "italian_game": {
     "name": "Italian Game",
     "eco_prefix": [
@@ -55,6 +50,146 @@
             "why_bad": "Weakens the kingside terribly",
             "consequence": "After Nxe5! fxe5, Qh5+ wins material",
             "learning": "Never play f6 in the opening - it invites tactics on the king"
+          }
+        }
+      },
+      "move2_f6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and f6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "f6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f6 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "Nc6",
+              "learning": "In the Italian Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 134,
+              "win_rate": 0.36,
+              "games_seen": 2375761
+            }
+          }
+        }
+      },
+      "move2_bd6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bd6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bd6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bd6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Italian Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 51,
+              "win_rate": 0.4,
+              "games_seen": 1123396
+            }
+          }
+        }
+      },
+      "move2_qe7": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Qe7",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qe7": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qe7 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc6",
+              "learning": "In the Italian Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 80,
+              "win_rate": 0.42,
+              "games_seen": 484902
+            }
+          }
+        }
+      },
+      "move2_c6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and c6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "c6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "c6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Italian Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 85,
+              "win_rate": 0.4,
+              "games_seen": 370687
+            }
+          }
+        }
+      },
+      "move2_bb4": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bb4",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bb4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bb4 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 25%.",
+              "better_move": "Nc6",
+              "learning": "In the Italian Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 111,
+              "win_rate": 0.25,
+              "games_seen": 188707
+            }
           }
         }
       }
@@ -218,6 +353,62 @@
             "name": "Exchange Variation",
             "idea": "Simplify, play for small edge",
             "leads_to": "french_exchange"
+          }
+        }
+      },
+      "move2_nc6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/4p3/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d5 and Nc6",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. d5 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "d5",
+              "learning": "In the French Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 63,
+              "win_rate": 0.42,
+              "games_seen": 444092
+            }
+          }
+        }
+      },
+      "move2_bb4": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/4p3/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d5 and Bb4+",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bb4+": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bb4+ is inaccurate here. d5 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 38%.",
+              "better_move": "d5",
+              "learning": "In the French Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 82,
+              "win_rate": 0.38,
+              "games_seen": 255225
+            }
           }
         }
       }
@@ -560,6 +751,34 @@
             "learning": "In d4 openings, keep the c-pawn free to support your center"
           }
         }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Queen's Gambit, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -769,6 +988,34 @@
             "learning": "Against the London, be active! Challenge the center or develop actively."
           }
         }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the London System, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -922,6 +1169,230 @@
             "leads_to": "classical_dragon"
           }
         }
+      },
+      "move2_qh5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nf3 and Qh5",
+        "best_moves": {
+          "Nf3": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf3 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qh5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qh5 is inaccurate here. Nf3 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "Nf3",
+              "learning": "In the Sicilian Dragon, follow the main idea: Nf3 keeps you on track.",
+              "eval_diff": 74,
+              "win_rate": 0.41,
+              "games_seen": 777822
+            }
+          }
+        }
+      },
+      "move2_d5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and d5",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 52% of the time.",
+              "win_rate": 0.52
+            }
+          }
+        },
+        "mistake_moves": {
+          "d5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "d5 is inaccurate here. d6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d6",
+              "learning": "In the Sicilian Dragon, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 84,
+              "win_rate": 0.41,
+              "games_seen": 330758
+            }
+          }
+        }
+      },
+      "move2_e5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and e5",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 52% of the time.",
+              "win_rate": 0.52
+            }
+          }
+        },
+        "mistake_moves": {
+          "e5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e5 loses significant advantage. d6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 37%.",
+              "better_move": "d6",
+              "learning": "In the Sicilian Dragon, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 152,
+              "win_rate": 0.37,
+              "games_seen": 76587
+            }
+          }
+        }
+      },
+      "move2_f6": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and f6",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 52% of the time.",
+              "win_rate": 0.52
+            }
+          }
+        },
+        "mistake_moves": {
+          "f6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f6 loses significant advantage. d6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 38%.",
+              "better_move": "d6",
+              "learning": "In the Sicilian Dragon, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 133,
+              "win_rate": 0.38,
+              "games_seen": 75341
+            }
+          }
+        }
+      },
+      "move3_nc6": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between cxd4 and Nc6",
+        "best_moves": {
+          "cxd4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play cxd4 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 loses significant advantage. cxd4 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 39%.",
+              "better_move": "cxd4",
+              "learning": "In the Sicilian Dragon, follow the main idea: cxd4 keeps you on track.",
+              "eval_diff": 106,
+              "win_rate": 0.39,
+              "games_seen": 83152
+            }
+          }
+        }
+      },
+      "move3_b6": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between cxd4 and b6",
+        "best_moves": {
+          "cxd4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play cxd4 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "b6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "b6 loses significant advantage. cxd4 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 38%.",
+              "better_move": "cxd4",
+              "learning": "In the Sicilian Dragon, follow the main idea: cxd4 keeps you on track.",
+              "eval_diff": 222,
+              "win_rate": 0.38,
+              "games_seen": 61602
+            }
+          }
+        }
+      },
+      "move3_bg4": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between cxd4 and Bg4",
+        "best_moves": {
+          "cxd4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play cxd4 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bg4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bg4 loses significant advantage. cxd4 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "cxd4",
+              "learning": "In the Sicilian Dragon, follow the main idea: cxd4 keeps you on track.",
+              "eval_diff": 172,
+              "win_rate": 0.4,
+              "games_seen": 48746
+            }
+          }
+        }
+      },
+      "move3_g6": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between cxd4 and g6",
+        "best_moves": {
+          "cxd4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play cxd4 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "g6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "g6 loses significant advantage. cxd4 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "cxd4",
+              "learning": "In the Sicilian Dragon, follow the main idea: cxd4 keeps you on track.",
+              "eval_diff": 173,
+              "win_rate": 0.41,
+              "games_seen": 18152
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -1022,6 +1493,174 @@
             "name": "Two Knights",
             "idea": "Modern approach, flexible",
             "leads_to": "caro_two_knights"
+          }
+        }
+      },
+      "move2_qh5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between c4 and Qh5",
+        "best_moves": {
+          "c4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play c4 win 52% of the time.",
+              "win_rate": 0.52
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qh5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qh5 loses significant advantage. c4 was much stronger for White.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "c4",
+              "learning": "In the Caro-Kann Defense, follow the main idea: c4 keeps you on track.",
+              "eval_diff": 101,
+              "win_rate": 0.4,
+              "games_seen": 138336
+            }
+          }
+        }
+      },
+      "move2_nf6": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and Nf6",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nf6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nf6 is a common mistake. d6 is the main line for good reason.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "d6",
+              "learning": "In the Caro-Kann Defense, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 39,
+              "win_rate": 0.4,
+              "games_seen": 71276
+            }
+          }
+        }
+      },
+      "move2_b5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and b5",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "b5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "b5 is inaccurate here. d6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d6",
+              "learning": "In the Caro-Kann Defense, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 90,
+              "win_rate": 0.41,
+              "games_seen": 71113
+            }
+          }
+        }
+      },
+      "move2_qa5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and Qa5+",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qa5+": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qa5+ is inaccurate here. d6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 39%.",
+              "better_move": "d6",
+              "learning": "In the Caro-Kann Defense, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 57,
+              "win_rate": 0.39,
+              "games_seen": 59364
+            }
+          }
+        }
+      },
+      "move2_e5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and e5",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "e5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e5 loses significant advantage. d6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d6",
+              "learning": "In the Caro-Kann Defense, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 116,
+              "win_rate": 0.41,
+              "games_seen": 39807
+            }
+          }
+        }
+      },
+      "move2_f6": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and f6",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "f6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f6 loses significant advantage. d6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 38%.",
+              "better_move": "d6",
+              "learning": "In the Caro-Kann Defense, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 110,
+              "win_rate": 0.38,
+              "games_seen": 27542
+            }
           }
         }
       }
@@ -1169,6 +1808,230 @@
             "leads_to": "najdorf_f3"
           }
         }
+      },
+      "move2_qh5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nf3 and Qh5",
+        "best_moves": {
+          "Nf3": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf3 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qh5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qh5 is inaccurate here. Nf3 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "Nf3",
+              "learning": "In the Sicilian Najdorf, follow the main idea: Nf3 keeps you on track.",
+              "eval_diff": 74,
+              "win_rate": 0.41,
+              "games_seen": 777822
+            }
+          }
+        }
+      },
+      "move2_d5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and d5",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 52% of the time.",
+              "win_rate": 0.52
+            }
+          }
+        },
+        "mistake_moves": {
+          "d5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "d5 is inaccurate here. d6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d6",
+              "learning": "In the Sicilian Najdorf, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 84,
+              "win_rate": 0.41,
+              "games_seen": 330758
+            }
+          }
+        }
+      },
+      "move2_e5": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and e5",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 52% of the time.",
+              "win_rate": 0.52
+            }
+          }
+        },
+        "mistake_moves": {
+          "e5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e5 loses significant advantage. d6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 37%.",
+              "better_move": "d6",
+              "learning": "In the Sicilian Najdorf, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 152,
+              "win_rate": 0.37,
+              "games_seen": 76587
+            }
+          }
+        }
+      },
+      "move2_f6": {
+        "fen_pattern": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between d6 and f6",
+        "best_moves": {
+          "d6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d6 win 52% of the time.",
+              "win_rate": 0.52
+            }
+          }
+        },
+        "mistake_moves": {
+          "f6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f6 loses significant advantage. d6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 38%.",
+              "better_move": "d6",
+              "learning": "In the Sicilian Najdorf, follow the main idea: d6 keeps you on track.",
+              "eval_diff": 133,
+              "win_rate": 0.38,
+              "games_seen": 75341
+            }
+          }
+        }
+      },
+      "move3_nc6": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between cxd4 and Nc6",
+        "best_moves": {
+          "cxd4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play cxd4 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 loses significant advantage. cxd4 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 39%.",
+              "better_move": "cxd4",
+              "learning": "In the Sicilian Najdorf, follow the main idea: cxd4 keeps you on track.",
+              "eval_diff": 106,
+              "win_rate": 0.39,
+              "games_seen": 83152
+            }
+          }
+        }
+      },
+      "move3_b6": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between cxd4 and b6",
+        "best_moves": {
+          "cxd4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play cxd4 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "b6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "b6 loses significant advantage. cxd4 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 38%.",
+              "better_move": "cxd4",
+              "learning": "In the Sicilian Najdorf, follow the main idea: cxd4 keeps you on track.",
+              "eval_diff": 222,
+              "win_rate": 0.38,
+              "games_seen": 61602
+            }
+          }
+        }
+      },
+      "move3_bg4": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between cxd4 and Bg4",
+        "best_moves": {
+          "cxd4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play cxd4 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bg4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bg4 loses significant advantage. cxd4 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "cxd4",
+              "learning": "In the Sicilian Najdorf, follow the main idea: cxd4 keeps you on track.",
+              "eval_diff": 172,
+              "win_rate": 0.4,
+              "games_seen": 48746
+            }
+          }
+        }
+      },
+      "move3_g6": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between cxd4 and g6",
+        "best_moves": {
+          "cxd4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play cxd4 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "g6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "g6 loses significant advantage. cxd4 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "cxd4",
+              "learning": "In the Sicilian Najdorf, follow the main idea: cxd4 keeps you on track.",
+              "eval_diff": 173,
+              "win_rate": 0.41,
+              "games_seen": 18152
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -1261,6 +2124,146 @@
             "consequence": "White gets a comfortable advantage with d4",
             "better_move": "a6",
             "learning": "Always challenge the Bb5 with a6 - make the bishop decide"
+          }
+        }
+      },
+      "move2_f6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and f6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "f6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f6 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "Nc6",
+              "learning": "In the Ruy Lopez (Spanish Opening), follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 134,
+              "win_rate": 0.36,
+              "games_seen": 2375761
+            }
+          }
+        }
+      },
+      "move2_bd6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bd6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bd6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bd6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Ruy Lopez (Spanish Opening), follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 51,
+              "win_rate": 0.4,
+              "games_seen": 1123396
+            }
+          }
+        }
+      },
+      "move2_qe7": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Qe7",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qe7": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qe7 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc6",
+              "learning": "In the Ruy Lopez (Spanish Opening), follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 80,
+              "win_rate": 0.42,
+              "games_seen": 484902
+            }
+          }
+        }
+      },
+      "move2_c6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and c6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "c6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "c6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Ruy Lopez (Spanish Opening), follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 85,
+              "win_rate": 0.4,
+              "games_seen": 370687
+            }
+          }
+        }
+      },
+      "move2_bb4": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bb4",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bb4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bb4 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 25%.",
+              "better_move": "Nc6",
+              "learning": "In the Ruy Lopez (Spanish Opening), follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 111,
+              "win_rate": 0.25,
+              "games_seen": 188707
+            }
           }
         }
       }
@@ -1468,6 +2471,146 @@
           "d4": {
             "idea": "Challenge Black's center directly",
             "why_good": "Forces Black to make a critical decision about the center"
+          }
+        }
+      },
+      "move2_f6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and f6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "f6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f6 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "Nc6",
+              "learning": "In the Philidor Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 134,
+              "win_rate": 0.36,
+              "games_seen": 2375761
+            }
+          }
+        }
+      },
+      "move2_bd6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bd6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bd6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bd6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Philidor Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 51,
+              "win_rate": 0.4,
+              "games_seen": 1123396
+            }
+          }
+        }
+      },
+      "move2_qe7": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Qe7",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qe7": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qe7 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc6",
+              "learning": "In the Philidor Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 80,
+              "win_rate": 0.42,
+              "games_seen": 484902
+            }
+          }
+        }
+      },
+      "move2_c6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and c6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "c6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "c6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Philidor Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 85,
+              "win_rate": 0.4,
+              "games_seen": 370687
+            }
+          }
+        }
+      },
+      "move2_bb4": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bb4",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bb4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bb4 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 25%.",
+              "better_move": "Nc6",
+              "learning": "In the Philidor Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 111,
+              "win_rate": 0.25,
+              "games_seen": 188707
+            }
           }
         }
       }
@@ -1705,6 +2848,146 @@
             "why_good": "Standard - leads to an open game where both sides have chances"
           }
         }
+      },
+      "move2_f6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and f6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "f6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f6 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "Nc6",
+              "learning": "In the Scotch Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 134,
+              "win_rate": 0.36,
+              "games_seen": 2375761
+            }
+          }
+        }
+      },
+      "move2_bd6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bd6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bd6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bd6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Scotch Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 51,
+              "win_rate": 0.4,
+              "games_seen": 1123396
+            }
+          }
+        }
+      },
+      "move2_qe7": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Qe7",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qe7": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qe7 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc6",
+              "learning": "In the Scotch Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 80,
+              "win_rate": 0.42,
+              "games_seen": 484902
+            }
+          }
+        }
+      },
+      "move2_c6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and c6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "c6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "c6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Scotch Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 85,
+              "win_rate": 0.4,
+              "games_seen": 370687
+            }
+          }
+        }
+      },
+      "move2_bb4": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bb4",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bb4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bb4 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 25%.",
+              "better_move": "Nc6",
+              "learning": "In the Scotch Game, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 111,
+              "win_rate": 0.25,
+              "games_seen": 188707
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -1821,6 +3104,146 @@
           "d4": {
             "idea": "Steinitz Attack - central approach",
             "why_good": "Opens the position directly"
+          }
+        }
+      },
+      "move2_f6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and f6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "f6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f6 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "Nc6",
+              "learning": "In the Petrov Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 134,
+              "win_rate": 0.36,
+              "games_seen": 2375761
+            }
+          }
+        }
+      },
+      "move2_bd6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bd6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bd6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bd6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Petrov Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 51,
+              "win_rate": 0.4,
+              "games_seen": 1123396
+            }
+          }
+        }
+      },
+      "move2_qe7": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Qe7",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Qe7": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Qe7 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc6",
+              "learning": "In the Petrov Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 80,
+              "win_rate": 0.42,
+              "games_seen": 484902
+            }
+          }
+        }
+      },
+      "move2_c6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and c6",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "c6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "c6 is inaccurate here. Nc6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nc6",
+              "learning": "In the Petrov Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 85,
+              "win_rate": 0.4,
+              "games_seen": 370687
+            }
+          }
+        }
+      },
+      "move2_bb4": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between Nc6 and Bb4",
+        "best_moves": {
+          "Nc6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bb4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bb4 loses significant advantage. Nc6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 25%.",
+              "better_move": "Nc6",
+              "learning": "In the Petrov Defense, follow the main idea: Nc6 keeps you on track.",
+              "eval_diff": 111,
+              "win_rate": 0.25,
+              "games_seen": 188707
+            }
           }
         }
       }
@@ -1941,6 +3364,90 @@
           "Nc3": {
             "idea": "Main line - develop and prepare e4",
             "why_good": "Natural development, heading for e4"
+          }
+        }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the King's Indian Defense, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
+      },
+      "move2_e4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between c4 and e4",
+        "best_moves": {
+          "c4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play c4 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 is inaccurate here. c4 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 37%.",
+              "better_move": "c4",
+              "learning": "In the King's Indian Defense, follow the main idea: c4 keeps you on track.",
+              "eval_diff": 88,
+              "win_rate": 0.37,
+              "games_seen": 133157
+            }
+          }
+        }
+      },
+      "move2_ne4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Ne4",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 53% of the time.",
+              "win_rate": 0.53
+            }
+          }
+        },
+        "mistake_moves": {
+          "Ne4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Ne4 is inaccurate here. e6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "e6",
+              "learning": "In the King's Indian Defense, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 86,
+              "win_rate": 0.36,
+              "games_seen": 14384
+            }
           }
         }
       }
@@ -2074,6 +3581,230 @@
             "leads_to": "russian_grunfeld"
           }
         }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Grunfeld Defense, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
+      },
+      "move2_e4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between c4 and e4",
+        "best_moves": {
+          "c4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play c4 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 is inaccurate here. c4 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 37%.",
+              "better_move": "c4",
+              "learning": "In the Grunfeld Defense, follow the main idea: c4 keeps you on track.",
+              "eval_diff": 88,
+              "win_rate": 0.37,
+              "games_seen": 133157
+            }
+          }
+        }
+      },
+      "move2_ne4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Ne4",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 53% of the time.",
+              "win_rate": 0.53
+            }
+          }
+        },
+        "mistake_moves": {
+          "Ne4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Ne4 is inaccurate here. e6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "e6",
+              "learning": "In the Grunfeld Defense, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 86,
+              "win_rate": 0.36,
+              "games_seen": 14384
+            }
+          }
+        }
+      },
+      "move3_b4": {
+        "fen_pattern": "rnbqkb1r/pppppp1p/5np1/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between Nf3 and b4",
+        "best_moves": {
+          "Nf3": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf3 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "b4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "b4 is inaccurate here. Nf3 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nf3",
+              "learning": "In the Grunfeld Defense, follow the main idea: Nf3 keeps you on track.",
+              "eval_diff": 57,
+              "win_rate": 0.42,
+              "games_seen": 8645
+            }
+          }
+        }
+      },
+      "move3_c5": {
+        "fen_pattern": "rnbqkb1r/pppppp1p/5np1/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between Nf3 and c5",
+        "best_moves": {
+          "Nf3": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf3 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "c5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "c5 is inaccurate here. Nf3 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf3",
+              "learning": "In the Grunfeld Defense, follow the main idea: Nf3 keeps you on track.",
+              "eval_diff": 91,
+              "win_rate": 0.4,
+              "games_seen": 6167
+            }
+          }
+        }
+      },
+      "move3_e6": {
+        "fen_pattern": "rnbqkb1r/pppppp1p/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and e6",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 54% of the time.",
+              "win_rate": 0.54
+            }
+          }
+        },
+        "mistake_moves": {
+          "e6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e6 is inaccurate here. d5 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d5",
+              "learning": "In the Grunfeld Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 71,
+              "win_rate": 0.41,
+              "games_seen": 11359
+            }
+          }
+        }
+      },
+      "move3_nc6": {
+        "fen_pattern": "rnbqkb1r/pppppp1p/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and Nc6",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 54% of the time.",
+              "win_rate": 0.54
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is a common mistake. d5 is the main line for good reason.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 35%.",
+              "better_move": "d5",
+              "learning": "In the Grunfeld Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 45,
+              "win_rate": 0.35,
+              "games_seen": 1444
+            }
+          }
+        }
+      },
+      "move3_e5": {
+        "fen_pattern": "rnbqkb1r/pppppp1p/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and e5",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 54% of the time.",
+              "win_rate": 0.54
+            }
+          }
+        },
+        "mistake_moves": {
+          "e5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e5 loses significant advantage. d5 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 39%.",
+              "better_move": "d5",
+              "learning": "In the Grunfeld Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 171,
+              "win_rate": 0.39,
+              "games_seen": 399
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -2201,6 +3932,230 @@
             "leads_to": "classical_nimzo"
           }
         }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Nimzo-Indian Defense, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
+      },
+      "move2_e4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between c4 and e4",
+        "best_moves": {
+          "c4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play c4 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 is inaccurate here. c4 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 37%.",
+              "better_move": "c4",
+              "learning": "In the Nimzo-Indian Defense, follow the main idea: c4 keeps you on track.",
+              "eval_diff": 88,
+              "win_rate": 0.37,
+              "games_seen": 133157
+            }
+          }
+        }
+      },
+      "move2_ne4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Ne4",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 53% of the time.",
+              "win_rate": 0.53
+            }
+          }
+        },
+        "mistake_moves": {
+          "Ne4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Ne4 is inaccurate here. e6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "e6",
+              "learning": "In the Nimzo-Indian Defense, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 86,
+              "win_rate": 0.36,
+              "games_seen": 14384
+            }
+          }
+        }
+      },
+      "move3_e4": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between Nc3 and e4",
+        "best_moves": {
+          "Nc3": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc3 win 55% of the time.",
+              "win_rate": 0.55
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 is inaccurate here. Nc3 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc3",
+              "learning": "In the Nimzo-Indian Defense, follow the main idea: Nc3 keeps you on track.",
+              "eval_diff": 91,
+              "win_rate": 0.42,
+              "games_seen": 10015
+            }
+          }
+        }
+      },
+      "move3_f3": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between Nc3 and f3",
+        "best_moves": {
+          "Nc3": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc3 win 55% of the time.",
+              "win_rate": 0.55
+            }
+          }
+        },
+        "mistake_moves": {
+          "f3": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f3 is inaccurate here. Nc3 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc3",
+              "learning": "In the Nimzo-Indian Defense, follow the main idea: Nc3 keeps you on track.",
+              "eval_diff": 73,
+              "win_rate": 0.42,
+              "games_seen": 8803
+            }
+          }
+        }
+      },
+      "move3_nc6": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and Nc6",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. d5 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d5",
+              "learning": "In the Nimzo-Indian Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 53,
+              "win_rate": 0.41,
+              "games_seen": 33332
+            }
+          }
+        }
+      },
+      "move3_g6": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and g6",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "g6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "g6 is inaccurate here. d5 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "d5",
+              "learning": "In the Nimzo-Indian Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 77,
+              "win_rate": 0.42,
+              "games_seen": 30348
+            }
+          }
+        }
+      },
+      "move3_ng4": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and Ng4",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Ng4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Ng4 loses significant advantage. d5 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 29%.",
+              "better_move": "d5",
+              "learning": "In the Nimzo-Indian Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 179,
+              "win_rate": 0.29,
+              "games_seen": 2750
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -2324,6 +4279,174 @@
             "leads_to": "qi_petrosian"
           }
         }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Queen's Indian Defense, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
+      },
+      "move2_e4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between c4 and e4",
+        "best_moves": {
+          "c4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play c4 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 is inaccurate here. c4 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 37%.",
+              "better_move": "c4",
+              "learning": "In the Queen's Indian Defense, follow the main idea: c4 keeps you on track.",
+              "eval_diff": 88,
+              "win_rate": 0.37,
+              "games_seen": 133157
+            }
+          }
+        }
+      },
+      "move2_ne4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Ne4",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 53% of the time.",
+              "win_rate": 0.53
+            }
+          }
+        },
+        "mistake_moves": {
+          "Ne4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Ne4 is inaccurate here. e6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "e6",
+              "learning": "In the Queen's Indian Defense, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 86,
+              "win_rate": 0.36,
+              "games_seen": 14384
+            }
+          }
+        }
+      },
+      "move3_e4": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between Nc3 and e4",
+        "best_moves": {
+          "Nc3": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc3 win 55% of the time.",
+              "win_rate": 0.55
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 is inaccurate here. Nc3 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc3",
+              "learning": "In the Queen's Indian Defense, follow the main idea: Nc3 keeps you on track.",
+              "eval_diff": 91,
+              "win_rate": 0.42,
+              "games_seen": 10015
+            }
+          }
+        }
+      },
+      "move3_f3": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between Nc3 and f3",
+        "best_moves": {
+          "Nc3": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nc3 win 55% of the time.",
+              "win_rate": 0.55
+            }
+          }
+        },
+        "mistake_moves": {
+          "f3": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "f3 is inaccurate here. Nc3 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "Nc3",
+              "learning": "In the Queen's Indian Defense, follow the main idea: Nc3 keeps you on track.",
+              "eval_diff": 73,
+              "win_rate": 0.42,
+              "games_seen": 8803
+            }
+          }
+        }
+      },
+      "move3_ne4": {
+        "fen_pattern": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/5N2/PP2PPPP/RNBQKB1R b KQkq - 1 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and Ne4",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 50% of the time.",
+              "win_rate": 0.5
+            }
+          }
+        },
+        "mistake_moves": {
+          "Ne4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Ne4 is a common mistake. d5 is the main line for good reason.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d5",
+              "learning": "In the Queen's Indian Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 34,
+              "win_rate": 0.41,
+              "games_seen": 5241
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -2445,6 +4568,118 @@
           "Nc3": {
             "idea": "Develop and protect c4",
             "why_good": "Supports e4 later"
+          }
+        }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Slav Defense, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
+      },
+      "move2_nc6": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Nc6",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is a common mistake. e6 is the main line for good reason.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "e6",
+              "learning": "In the Slav Defense, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 28,
+              "win_rate": 0.42,
+              "games_seen": 681997
+            }
+          }
+        }
+      },
+      "move2_be6": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Be6",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Be6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Be6 is inaccurate here. e6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 38%.",
+              "better_move": "e6",
+              "learning": "In the Slav Defense, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 94,
+              "win_rate": 0.38,
+              "games_seen": 163800
+            }
+          }
+        }
+      },
+      "move2_b6": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and b6",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "b6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "b6 loses significant advantage. e6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 39%.",
+              "better_move": "e6",
+              "learning": "In the Slav Defense, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 113,
+              "win_rate": 0.39,
+              "games_seen": 84796
+            }
           }
         }
       }
@@ -2577,6 +4812,118 @@
           "Nf3": {
             "idea": "Flexible development",
             "why_good": "Keeps options open"
+          }
+        }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Queen's Gambit Declined, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
+      },
+      "move2_nc6": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Nc6",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is a common mistake. e6 is the main line for good reason.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "e6",
+              "learning": "In the Queen's Gambit Declined, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 28,
+              "win_rate": 0.42,
+              "games_seen": 681997
+            }
+          }
+        }
+      },
+      "move2_be6": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Be6",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "Be6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Be6 is inaccurate here. e6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 38%.",
+              "better_move": "e6",
+              "learning": "In the Queen's Gambit Declined, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 94,
+              "win_rate": 0.38,
+              "games_seen": 163800
+            }
+          }
+        }
+      },
+      "move2_b6": {
+        "fen_pattern": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and b6",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 47% of the time.",
+              "win_rate": 0.47
+            }
+          }
+        },
+        "mistake_moves": {
+          "b6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "b6 loses significant advantage. e6 was much stronger for Black.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 39%.",
+              "better_move": "e6",
+              "learning": "In the Queen's Gambit Declined, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 113,
+              "win_rate": 0.39,
+              "games_seen": 84796
+            }
           }
         }
       }
@@ -2727,6 +5074,230 @@
             "leads_to": "czech_benoni"
           }
         }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Benoni Defense, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
+      },
+      "move2_e4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between c4 and e4",
+        "best_moves": {
+          "c4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play c4 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 is inaccurate here. c4 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 37%.",
+              "better_move": "c4",
+              "learning": "In the Benoni Defense, follow the main idea: c4 keeps you on track.",
+              "eval_diff": 88,
+              "win_rate": 0.37,
+              "games_seen": 133157
+            }
+          }
+        }
+      },
+      "move2_ne4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Ne4",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 53% of the time.",
+              "win_rate": 0.53
+            }
+          }
+        },
+        "mistake_moves": {
+          "Ne4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Ne4 is inaccurate here. e6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "e6",
+              "learning": "In the Benoni Defense, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 86,
+              "win_rate": 0.36,
+              "games_seen": 14384
+            }
+          }
+        }
+      },
+      "move3_bg5": {
+        "fen_pattern": "rnbqkb1r/pp1ppppp/5n2/2p5/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and Bg5",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 49% of the time.",
+              "win_rate": 0.49
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bg5": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bg5 loses significant advantage. d5 was much stronger for White.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d5",
+              "learning": "In the Benoni Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 142,
+              "win_rate": 0.41,
+              "games_seen": 4387
+            }
+          }
+        }
+      },
+      "move3_bf4": {
+        "fen_pattern": "rnbqkb1r/pp1ppppp/5n2/2p5/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and Bf4",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 49% of the time.",
+              "win_rate": 0.49
+            }
+          }
+        },
+        "mistake_moves": {
+          "Bf4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Bf4 loses significant advantage. d5 was much stronger for White.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 42%.",
+              "better_move": "d5",
+              "learning": "In the Benoni Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 165,
+              "win_rate": 0.42,
+              "games_seen": 1942
+            }
+          }
+        }
+      },
+      "move3_be3": {
+        "fen_pattern": "rnbqkb1r/pp1ppppp/5n2/2p5/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and Be3",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 49% of the time.",
+              "win_rate": 0.49
+            }
+          }
+        },
+        "mistake_moves": {
+          "Be3": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Be3 is inaccurate here. d5 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "d5",
+              "learning": "In the Benoni Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 90,
+              "win_rate": 0.36,
+              "games_seen": 529
+            }
+          }
+        }
+      },
+      "move3_e4": {
+        "fen_pattern": "rnbqkb1r/pp1ppppp/5n2/2p5/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and e4",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 49% of the time.",
+              "win_rate": 0.49
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 loses significant advantage. d5 was much stronger for White.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 41%.",
+              "better_move": "d5",
+              "learning": "In the Benoni Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 122,
+              "win_rate": 0.41,
+              "games_seen": 373
+            }
+          }
+        }
+      },
+      "move3_b3": {
+        "fen_pattern": "rnbqkb1r/pp1ppppp/5n2/2p5/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "move_number": 3,
+        "key_decision": "Move 3: choosing between d5 and b3",
+        "best_moves": {
+          "d5": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play d5 win 49% of the time.",
+              "win_rate": 0.49
+            }
+          }
+        },
+        "mistake_moves": {
+          "b3": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "b3 loses significant advantage. d5 was much stronger for White.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 39%.",
+              "better_move": "d5",
+              "learning": "In the Benoni Defense, follow the main idea: d5 keeps you on track.",
+              "eval_diff": 169,
+              "win_rate": 0.39,
+              "games_seen": 259
+            }
+          }
+        }
       }
     },
     "variations": {
@@ -2831,6 +5402,90 @@
           "dxe5": {
             "idea": "Accept - the principled choice",
             "why_good": "An extra pawn if White can hold it"
+          }
+        }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Budapest Gambit, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
+          }
+        }
+      },
+      "move2_e4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between c4 and e4",
+        "best_moves": {
+          "c4": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play c4 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "e4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "e4 is inaccurate here. c4 keeps White's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 37%.",
+              "better_move": "c4",
+              "learning": "In the Budapest Gambit, follow the main idea: c4 keeps you on track.",
+              "eval_diff": 88,
+              "win_rate": 0.37,
+              "games_seen": 133157
+            }
+          }
+        }
+      },
+      "move2_ne4": {
+        "fen_pattern": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        "move_number": 2,
+        "key_decision": "Move 2: choosing between e6 and Ne4",
+        "best_moves": {
+          "e6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play e6 win 53% of the time.",
+              "win_rate": 0.53
+            }
+          }
+        },
+        "mistake_moves": {
+          "Ne4": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Ne4 is inaccurate here. e6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 36%.",
+              "better_move": "e6",
+              "learning": "In the Budapest Gambit, follow the main idea: e6 keeps you on track.",
+              "eval_diff": 86,
+              "win_rate": 0.36,
+              "games_seen": 14384
+            }
           }
         }
       }
@@ -2964,6 +5619,34 @@
           "c4": {
             "idea": "Standard - control the center",
             "why_good": "Flexible - can transpose to many systems"
+          }
+        }
+      },
+      "move1_nc6": {
+        "fen_pattern": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        "move_number": 1,
+        "key_decision": "Move 1: choosing between Nf6 and Nc6",
+        "best_moves": {
+          "Nf6": {
+            "quality": "best",
+            "info": {
+              "why_good": "The main line move. Players who play Nf6 win 51% of the time.",
+              "win_rate": 0.51
+            }
+          }
+        },
+        "mistake_moves": {
+          "Nc6": {
+            "quality": "mistake",
+            "info": {
+              "why_bad": "Nc6 is inaccurate here. Nf6 keeps Black's advantage.",
+              "consequence": "Your position becomes harder to play. Win rate drops to 40%.",
+              "better_move": "Nf6",
+              "learning": "In the Dutch Defense, follow the main idea: Nf6 keeps you on track.",
+              "eval_diff": 58,
+              "win_rate": 0.4,
+              "games_seen": 1856782
+            }
           }
         }
       }
@@ -3290,5 +5973,13 @@
       "Develop the light bishop before playing e6 - the same principle as Caro-Kann and Slav",
       "Best suited for players who enjoy unusual positions and catching opponents off guard"
     ]
+  },
+  "_meta": {
+    "description": "Opening theory tree structure with variations for V5 Thinking Simulator",
+    "version": "3.0",
+    "structure": "Each opening has main_line + variations as sub-trees with critical positions, best/mistake moves, and deep teaching content",
+    "auto_generated": true,
+    "positions_added": 96,
+    "generator": "generate_opening_theory.py"
   }
 }
