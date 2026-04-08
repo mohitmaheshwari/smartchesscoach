@@ -575,10 +575,19 @@ const LabV2 = ({ user }) => {
       goToMove(currentMoveIndex - 1);
       return;
     }
-    // Coach/Habits: jump to previous important move
+    // Coach/Habits: if we're on the mistake move, go back to the opponent's move before it
+    if (currentMoveIndex >= 1 && isImportantMove(currentMoveIndex)) {
+      goToMove(currentMoveIndex - 1);
+      return;
+    }
+    // If we're on the opponent's move before a mistake, jump to the previous important move's opponent move
     let i = currentMoveIndex - 1;
     while (i >= 0 && !isImportantMove(i)) i--;
-    goToMove(Math.max(-1, i));
+    if (i >= 1) {
+      goToMove(i - 1); // Show opponent's move before the mistake
+    } else {
+      goToMove(Math.max(-1, i));
+    }
   };
 
   const goToNext = () => {
@@ -586,10 +595,25 @@ const LabV2 = ({ user }) => {
       goToMove(currentMoveIndex + 1);
       return;
     }
-    // Coach/Habits: jump to next important move
+    // Coach/Habits: two-step navigation per moment
+    // Step 1: opponent's move (context) → Step 2: your mistake move (the moment)
+
+    // If we're on the opponent's move before a mistake, advance to the mistake
+    if (currentMoveIndex >= 0 && currentMoveIndex < moves.length - 1 && isImportantMove(currentMoveIndex + 1)) {
+      goToMove(currentMoveIndex + 1);
+      return;
+    }
+
+    // Otherwise find the next important move and show the opponent's move before it
     let i = currentMoveIndex + 1;
-    while (i < moves.length - 1 && !isImportantMove(i)) i++;
-    if (i < moves.length) goToMove(i);
+    while (i < moves.length && !isImportantMove(i)) i++;
+    if (i < moves.length) {
+      if (i >= 1) {
+        goToMove(i - 1); // Show opponent's move first (context)
+      } else {
+        goToMove(i); // First move of the game
+      }
+    }
   };
 
   // Keyboard arrow navigation
