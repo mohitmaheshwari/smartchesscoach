@@ -156,14 +156,31 @@ const CoachMovePanel = ({
       <AnimatePresence mode="wait">
         <motion.div key={currentMoveIndex} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
 
-          {/* ── 1. SEVERITY BADGE ── */}
-          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-4 ${
-            severity.includes("blunder") ? "bg-red-500/15 text-red-400" :
-            severity.includes("mistake") ? "bg-orange-500/15 text-orange-500" :
-            "bg-amber-500/10 text-amber-500"
-          }`}>
-            <AlertTriangle className="w-3 h-3" strokeWidth={2.5} />
-            {severity.includes("blunder") ? "Blunder" : severity.includes("mistake") ? "Mistake" : "Inaccuracy"}
+          {/* ── 1. SEVERITY + WHAT YOU PLAYED ── */}
+          <div className="mb-4">
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-3 ${
+              severity.includes("blunder") ? "bg-red-500/15 text-red-400" :
+              severity.includes("mistake") ? "bg-orange-500/15 text-orange-500" :
+              "bg-amber-500/10 text-amber-500"
+            }`}>
+              <AlertTriangle className="w-3 h-3" strokeWidth={2.5} />
+              {severity.includes("blunder") ? "Blunder" : severity.includes("mistake") ? "Mistake" : "Inaccuracy"}
+            </div>
+
+            {/* Show what user played vs what was better */}
+            {currentMove && currentEval?.best_move && (
+              <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">You played</span>
+                  <span className="font-mono font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">{currentMove.san}</span>
+                </div>
+                <span className="text-muted-foreground/30">→</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">Better</span>
+                  <span className="font-mono font-medium text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">{currentEval.best_move}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── 2. REFLECTION — "What were you thinking?" ── */}
@@ -322,26 +339,11 @@ const CoachMovePanel = ({
                             if (res.ok) {
                               const data = await res.json();
                               setBranches(data.branches || []);
-                              // Auto-play the main line on the board
-                              if (onPlayBestLine) {
-                                onPlayBestLine({
-                                  fen: currentFen,
-                                  best_move: bestMove,
-                                  pv_after_best: pv,
-                                  move_number: moveNum,
-                                });
-                              }
+                              // Don't auto-play — let user click a branch to start
                             }
                           } catch (e) {
-                            // Fallback: just play the single line
-                            if (onPlayBestLine) {
-                              onPlayBestLine({
-                                fen: currentFen,
-                                best_move: bestMove,
-                                pv_after_best: pv,
-                                move_number: moveNum,
-                              });
-                            }
+                            // Fallback: just show branches as empty
+                            setBranches([]);
                           } finally {
                             setLoadingBranches(false);
                           }
