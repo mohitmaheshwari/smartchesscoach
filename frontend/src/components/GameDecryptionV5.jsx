@@ -304,8 +304,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     const i = currentMoveIndex + 1;
     setCurrentMoveIndex(i);
     setBoardFen(decryptionData[i].fen_after);
-    
-    // Show highlight squares if any
+
     const m = decryptionData[i];
     if (m.highlight_squares?.length) {
       setHighlights(m.highlight_squares);

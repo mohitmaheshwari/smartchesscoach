@@ -548,8 +548,38 @@ const LabV2 = ({ user }) => {
   
   const goToStart = () => goToMove(-1);
   const goToEnd = () => goToMove(moves.length - 1);
-  const goToPrev = () => goToMove(currentMoveIndex - 1);
-  const goToNext = () => goToMove(currentMoveIndex + 1);
+
+  // In Coach/Habits view: jump between important moves only
+  // In Decrypt view: step through every move (handled by GameDecryptionV5)
+  const isImportantMove = (idx) => {
+    const evals = analysis?.stockfish_analysis?.move_evaluations || [];
+    const evalData = evals[idx];
+    if (!evalData) return false;
+    const c = (evalData.classification || evalData.evaluation || "").toLowerCase();
+    return c.includes("blunder") || c.includes("mistake") || c.includes("inaccuracy") || c.includes("brilliant");
+  };
+
+  const goToPrev = () => {
+    if (viewMode === "decrypt") {
+      goToMove(currentMoveIndex - 1);
+      return;
+    }
+    // Coach/Habits: jump to previous important move
+    let i = currentMoveIndex - 1;
+    while (i >= 0 && !isImportantMove(i)) i--;
+    goToMove(Math.max(-1, i));
+  };
+
+  const goToNext = () => {
+    if (viewMode === "decrypt") {
+      goToMove(currentMoveIndex + 1);
+      return;
+    }
+    // Coach/Habits: jump to next important move
+    let i = currentMoveIndex + 1;
+    while (i < moves.length - 1 && !isImportantMove(i)) i++;
+    if (i < moves.length) goToMove(i);
+  };
 
   // Keyboard arrow navigation
   useEffect(() => {
@@ -1330,7 +1360,7 @@ const LabV2 = ({ user }) => {
                 {currentMoveIndex + 1} / {moves.length}
               </span>
 
-              {/* Current position eval */}
+              {/* Current position eval — label only, no numbers */}
               {(() => {
                 const evals = analysis?.stockfish_analysis?.move_evaluations || [];
                 const currentEval = currentMoveIndex >= 0 ? evals[currentMoveIndex] : null;
@@ -1348,10 +1378,9 @@ const LabV2 = ({ user }) => {
                 const userEval = userColor === "white" ? evalCp : -evalCp;
                 const match = categories.find(([threshold]) => userEval >= threshold);
                 const [, cls, lbl] = match || categories[categories.length - 1];
-                const display = userEval > 0 ? `+${(userEval/100).toFixed(1)}` : `${(userEval/100).toFixed(1)}`;
                 return (
-                  <span className={`ml-3 text-xs font-mono font-bold ${cls}`} title={lbl}>
-                    {display} {lbl}
+                  <span className={`ml-3 text-xs font-bold ${cls}`}>
+                    {lbl}
                   </span>
                 );
               })()}
