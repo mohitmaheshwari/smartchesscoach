@@ -36,7 +36,15 @@ const CoachMovePanel = ({
 
   const evals = analysis?.stockfish_analysis?.move_evaluations || [];
   const currentMove = currentMoveIndex >= 0 ? moves[currentMoveIndex] : null;
-  const currentEval = currentMoveIndex >= 0 ? evals[currentMoveIndex] : null;
+  // Match eval by move number + san, NOT by array index
+  // evals only contains user moves — indices don't match PGN move indices
+  const currentEval = (() => {
+    if (currentMoveIndex < 0 || !currentMove) return null;
+    const moveNum = Math.floor(currentMoveIndex / 2) + 1;
+    return evals.find(e => e.move_number === moveNum && e.move === currentMove.san)
+        || evals.find(e => e.move === currentMove.san)
+        || null;
+  })();
 
   const isUserMove = currentMove && (
     (userColor === "white" && currentMoveIndex % 2 === 0) ||

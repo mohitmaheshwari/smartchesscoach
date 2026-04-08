@@ -552,9 +552,18 @@ const LabV2 = ({ user }) => {
 
   // In Coach/Habits view: jump between important moves only
   // In Decrypt view: step through every move (handled by GameDecryptionV5)
-  const isImportantMove = (idx) => {
+  const findEvalForMove = (idx) => {
     const evals = analysis?.stockfish_analysis?.move_evaluations || [];
-    const evalData = evals[idx];
+    if (idx < 0 || idx >= moves.length) return null;
+    const m = moves[idx];
+    const moveNum = Math.floor(idx / 2) + 1;
+    return evals.find(e => e.move_number === moveNum && e.move === m.san)
+        || evals.find(e => e.move === m.san)
+        || null;
+  };
+
+  const isImportantMove = (idx) => {
+    const evalData = findEvalForMove(idx);
     if (!evalData) return false;
     const c = (evalData.classification || evalData.evaluation || "").toLowerCase();
     return c.includes("blunder") || c.includes("mistake") || c.includes("inaccuracy") || c.includes("brilliant");
@@ -1364,8 +1373,7 @@ const LabV2 = ({ user }) => {
 
               {/* Current position eval — label only, no numbers */}
               {(() => {
-                const evals = analysis?.stockfish_analysis?.move_evaluations || [];
-                const currentEval = currentMoveIndex >= 0 ? evals[currentMoveIndex] : null;
+                const currentEval = currentMoveIndex >= 0 ? findEvalForMove(currentMoveIndex) : null;
                 if (!currentEval?.eval_after && currentEval?.eval_after !== 0) return null;
                 const evalCp = Math.round((currentEval.eval_after || 0) * 100);
                 const categories = [
