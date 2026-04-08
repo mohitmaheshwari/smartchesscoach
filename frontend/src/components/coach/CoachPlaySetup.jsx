@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 /* ── Opening Suggestions sub-component ── */
-const OpeningSuggestions = () => {
+const OpeningSuggestions = ({ selectedColor, selectedOpening, onSelectOpening }) => {
   const [data, setData] = useState(null);
   useEffect(() => {
     fetch(`${API}/coach/play/opening-suggestions`, { credentials: "include" })
@@ -42,46 +42,73 @@ const OpeningSuggestions = () => {
     new: "text-blue-500 bg-blue-500/10 border-blue-500/20",
   };
 
-  const renderOpenings = (openings, label) => {
-    if (!openings?.length) return null;
-    return (
-      <div>
-        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
-          {label}
-        </p>
-        <div className="space-y-1">
-          {openings.slice(0, 3).map((o, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between text-xs p-1.5 rounded border border-border"
-            >
-              <span className="text-foreground font-medium truncate max-w-[140px]">
-                {o.name}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">{o.games}g</span>
-                <span className="text-muted-foreground">{o.win_rate}%</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] border ${statusColors[o.status]}`}
-                >
-                  {o.status_label}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
+  // Show openings for the selected color
+  const colorOpenings = selectedColor === "white" ? data.white : data.black;
+  const colorLabel = selectedColor === "white" ? "As White" : "As Black";
+
+  if (!colorOpenings?.length) return null;
+
+  // Find best opening
+  const best = colorOpenings.reduce((a, b) =>
+    (b.win_rate > a.win_rate && b.games >= 3) ? b : a, colorOpenings[0]
+  );
 
   return (
     <div
       className="space-y-3 p-3 rounded-lg bg-muted/30 border border-border"
       data-testid="opening-suggestions"
     >
-      <p className="text-xs font-medium text-foreground">Your Openings</p>
-      {renderOpenings(data.white, "As White")}
-      {renderOpenings(data.black, "As Black")}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-foreground">Pick an opening to practice</p>
+        {selectedOpening && (
+          <button
+            onClick={() => onSelectOpening(null)}
+            className="text-[10px] text-muted-foreground hover:text-foreground"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        {colorOpenings.slice(0, 5).map((o, i) => {
+          const isSelected = selectedOpening === o.name;
+          const isBest = o.name === best.name && best.games >= 3;
+          return (
+            <button
+              key={i}
+              onClick={() => onSelectOpening(isSelected ? null : o.name)}
+              className={`w-full flex items-center justify-between text-xs p-2 rounded border transition-all ${
+                isSelected
+                  ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                  : "border-border hover:border-primary/30 hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                {isBest && <span className="text-amber-500 text-[10px]">★</span>}
+                <span className={`font-medium truncate max-w-[160px] ${isSelected ? "text-primary" : "text-foreground"}`}>
+                  {o.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">{o.games}g</span>
+                <span className={`font-mono ${o.win_rate >= 50 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                  {o.win_rate}%
+                </span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] border ${statusColors[o.status]}`}>
+                  {o.status_label}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {best.games >= 3 && !selectedOpening && (
+        <p className="text-[10px] text-muted-foreground">
+          Coach recommends: <span className="font-medium text-foreground">{best.name}</span> ({best.win_rate}% win rate)
+        </p>
+      )}
     </div>
   );
 };
@@ -94,6 +121,8 @@ const CoachPlaySetup = ({
   practicePosition,
   selectedColor,
   setSelectedColor,
+  selectedOpening,
+  setSelectedOpening,
   pastGamesHistory,
   playerIdentityData,
   startGame,
@@ -254,7 +283,13 @@ const CoachPlaySetup = ({
             )}
 
             {/* Opening Suggestions */}
-            <OpeningSuggestions />
+            {!practiceMode && (
+              <OpeningSuggestions
+                selectedColor={selectedColor}
+                selectedOpening={selectedOpening}
+                onSelectOpening={setSelectedOpening}
+              />
+            )}
 
             {/* Start Button */}
             <Button

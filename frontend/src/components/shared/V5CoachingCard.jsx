@@ -16,7 +16,7 @@
  * This ensures: Improve one place → Both pages look better!
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,7 +30,11 @@ import {
   ArrowRight,
   Check,
   Swords,
-  Eye
+  Eye,
+  HelpCircle,
+  BookOpen,
+  ChevronDown,
+  ClipboardCheck
 } from "lucide-react";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
@@ -75,7 +79,15 @@ const V5CoachingCard = ({
   source = "lab",              // "lab" or "coach" for feedback source
 }) => {
   const [acknowledging, setAcknowledging] = useState(false);
-  
+  const [showHint, setShowHint] = useState(false);
+  const [showFullExplanation, setShowFullExplanation] = useState(false);
+
+  // Reset Socratic state when coaching changes (new move)
+  useEffect(() => {
+    setShowHint(false);
+    setShowFullExplanation(false);
+  }, [coaching?.socratic_question]);
+
   if (!coaching) return null;
   
   const severity = coaching.severity || "context";
@@ -148,7 +160,7 @@ const V5CoachingCard = ({
               {config.label}
             </Badge>
           </div>
-          {coaching.best_move && coaching.best_move !== moveSan && (
+          {coaching.best_move && coaching.best_move !== moveSan && !coaching.hide_best_move && (
             <span className="text-xs text-muted-foreground">
               Best: <span className="text-emerald-700 font-mono">{coaching.best_move}</span>
             </span>
@@ -179,8 +191,23 @@ const V5CoachingCard = ({
           </div>
         )}
         
-        {/* Mistake Details */}
-        {isMistake && (
+        {/* Socratic Coaching — Fundamentals mode (Play with Coach only) */}
+        {isMistake && coaching.socratic_question && (
+          <SocraticCoachingSection
+            question={coaching.socratic_question}
+            hint={coaching.socratic_hint}
+            plan={coaching.focus_plan}
+            openingIdea={coaching.opening_idea}
+            fundamentalLabel={coaching.fundamental_label}
+            showHint={showHint}
+            setShowHint={setShowHint}
+            showFullExplanation={showFullExplanation}
+            setShowFullExplanation={setShowFullExplanation}
+          />
+        )}
+
+        {/* Mistake Details — hidden when Socratic mode is active unless user clicks reveal */}
+        {isMistake && (!coaching.socratic_question || showFullExplanation) && (
           <>
             {/* Problem */}
             {coaching.current_problem && (
@@ -265,6 +292,95 @@ const V5CoachingCard = ({
           </>
         )}
       </div>
+    </div>
+  );
+};
+
+
+/**
+ * Socratic Coaching Section — Fundamentals-first teaching
+ * Shows question → hint → plan instead of revealing the answer
+ */
+const SocraticCoachingSection = ({
+  question,
+  hint,
+  plan,
+  openingIdea,
+  fundamentalLabel,
+  showHint,
+  setShowHint,
+  showFullExplanation,
+  setShowFullExplanation,
+}) => {
+  return (
+    <div className="space-y-3">
+      {/* Fundamental badge */}
+      {fundamentalLabel && (
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-purple-600 border-purple-300 bg-purple-50">
+            <ClipboardCheck className="w-3 h-3 mr-1" />
+            {fundamentalLabel}
+          </Badge>
+        </div>
+      )}
+
+      {/* Question card */}
+      <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+        <p className="text-xs text-purple-600 mb-1 flex items-center gap-1">
+          <HelpCircle className="w-3 h-3" /> Think about this
+        </p>
+        <p className="text-sm text-gray-900 font-medium">{question}</p>
+      </div>
+
+      {/* Hint toggle */}
+      {hint && (
+        <div>
+          <button
+            onClick={() => setShowHint(!showHint)}
+            className="flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 transition-colors"
+          >
+            <Lightbulb className="w-3 h-3" />
+            {showHint ? "Hide hint" : "Show hint"}
+            <ChevronDown className={`w-3 h-3 transition-transform ${showHint ? "rotate-180" : ""}`} />
+          </button>
+          {showHint && (
+            <div className="mt-2 bg-amber-50 rounded-lg p-3 border border-amber-200">
+              <p className="text-sm text-gray-900">{hint}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Plan card */}
+      {plan && (
+        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+          <p className="text-xs text-blue-600 mb-1 flex items-center gap-1">
+            <Target className="w-3 h-3" /> Your focus
+          </p>
+          <p className="text-sm text-gray-900">{plan}</p>
+        </div>
+      )}
+
+      {/* Opening idea */}
+      {openingIdea && (
+        <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+          <p className="text-xs text-emerald-600 mb-1 flex items-center gap-1">
+            <BookOpen className="w-3 h-3" /> Opening idea
+          </p>
+          <p className="text-sm text-gray-900">{openingIdea}</p>
+        </div>
+      )}
+
+      {/* Reveal full explanation */}
+      {!showFullExplanation && (
+        <button
+          onClick={() => setShowFullExplanation(true)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors pt-1"
+        >
+          <ArrowRight className="w-3 h-3" />
+          Show full explanation
+        </button>
+      )}
     </div>
   );
 };

@@ -15,19 +15,25 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import {
-  ChevronRight, Target, Swords, Check, X as XIcon, ArrowRight
+  ChevronRight, Target, Swords, Check, X as XIcon, ArrowRight,
+  Crown, BookOpen, TrendingUp, TrendingDown
 } from "lucide-react";
 
 const UnifiedProgress = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(null);
+  const [openings, setOpenings] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/progress/real`, { credentials: "include" });
-        if (res.ok) setProgress(await res.json());
+        const [progressRes, openingsRes] = await Promise.all([
+          fetch(`${API}/progress/real`, { credentials: "include" }),
+          fetch(`${API}/coach/play/opening-suggestions`, { credentials: "include" }),
+        ]);
+        if (progressRes.ok) setProgress(await progressRes.json());
+        if (openingsRes.ok) setOpenings(await openingsRes.json());
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -53,6 +59,13 @@ const UnifiedProgress = ({ user }) => {
             <p className="text-sm text-muted-foreground mb-8">
               Go to Lab to find out what to fix. Then train it. Then play. Then come back here to see if it worked.
             </p>
+            {/* Opening Repertoire */}
+            {openings && openings.total_games > 0 && (
+              <div className="mb-8">
+                <OpeningRepertoire openings={openings} navigate={navigate} />
+              </div>
+            )}
+
             <button onClick={() => navigate("/lab")}
               className="w-full py-3.5 text-[15px] font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
               Go to Lab
@@ -221,6 +234,11 @@ const UnifiedProgress = ({ user }) => {
             </div>
           )}
 
+          {/* Opening Repertoire */}
+          {openings && openings.total_games > 0 && (
+            <OpeningRepertoire openings={openings} navigate={navigate} />
+          )}
+
           {/* Action */}
           <div className="space-y-3">
             {verdict === "improving" ? (
@@ -249,6 +267,100 @@ const UnifiedProgress = ({ user }) => {
         </motion.div>
       </div>
     </Layout>
+  );
+};
+
+// ─── Opening Repertoire Section ─────────────────────────────────
+
+const STATUS_STYLES = {
+  strong: "text-emerald-600 bg-emerald-50 border-emerald-200",
+  learning: "text-amber-600 bg-amber-50 border-amber-200",
+  weak: "text-red-500 bg-red-50 border-red-200",
+  new: "text-blue-500 bg-blue-50 border-blue-200",
+};
+
+const OpeningRepertoire = ({ openings, navigate }) => {
+  if (!openings || openings.total_games === 0) return null;
+
+  // Find best opening per color
+  const bestWhite = openings.white?.length > 0
+    ? openings.white.reduce((a, b) => (b.win_rate > a.win_rate && b.games >= 3) ? b : a, openings.white[0])
+    : null;
+  const bestBlack = openings.black?.length > 0
+    ? openings.black.reduce((a, b) => (b.win_rate > a.win_rate && b.games >= 3) ? b : a, openings.black[0])
+    : null;
+
+  const renderOpeningRow = (o, isBest) => (
+    <div
+      key={o.name}
+      className={`flex items-center justify-between p-2.5 rounded-lg border ${
+        isBest ? "border-emerald-200 bg-emerald-50/50" : "border-border bg-card"
+      }`}
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        {isBest && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
+        <span className="text-sm font-medium text-foreground truncate">{o.name}</span>
+      </div>
+      <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+        <span className="text-xs text-muted-foreground">{o.games}g</span>
+        <span className={`text-xs font-mono font-bold ${
+          o.win_rate >= 60 ? "text-emerald-600" :
+          o.win_rate >= 45 ? "text-foreground" :
+          "text-red-400"
+        }`}>{o.win_rate}%</span>
+        <span className={`px-1.5 py-0.5 rounded text-[10px] border ${STATUS_STYLES[o.status] || ""}`}>
+          {o.status_label}
+        </span>
+      </div>
+    </div>
+  );
+
+  const renderColorSection = (label, list, best) => {
+    if (!list?.length) return null;
+    return (
+      <div>
+        <p className="text-[10px] tracking-[0.15em] uppercase font-bold text-muted-foreground/40 mb-2">{label}</p>
+        <div className="space-y-1.5">
+          {list.slice(0, 5).map((o) => renderOpeningRow(o, best && o.name === best.name))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center gap-2 mb-4">
+        <BookOpen className="w-4 h-4 text-primary" />
+        <p className="text-sm font-medium text-foreground">Your Openings</p>
+      </div>
+
+      <div className="space-y-4">
+        {renderColorSection("As White", openings.white, bestWhite)}
+        {renderColorSection("As Black", openings.black, bestBlack)}
+      </div>
+
+      {/* Coach recommendation */}
+      {(bestWhite || bestBlack) && (
+        <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/10">
+          <p className="text-xs text-primary font-medium mb-1">Coach recommends</p>
+          <p className="text-sm text-foreground">
+            Stick with{" "}
+            {bestWhite && <span className="font-semibold">{bestWhite.name}</span>}
+            {bestWhite && bestBlack && " and "}
+            {bestBlack && <span className="font-semibold">{bestBlack.name}</span>}
+            . Master these and your rating will climb.
+          </p>
+          <button
+            onClick={() => navigate("/play-with-coach")}
+            className="mt-2 text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+          >
+            <Swords className="w-3 h-3" />
+            Practice with Coach
+            <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 

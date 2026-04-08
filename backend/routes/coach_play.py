@@ -1991,6 +1991,27 @@ async def get_interactive_coaching(
             fullmove = board.fullmove_number
             phase_str = "opening" if fullmove <= 10 else ("middlegame" if fullmove <= 30 else "endgame")
             
+            # Get opponent's last move for fundamentals checking
+            opp_last_move = None
+            if board.move_stack:
+                opp_last_move = board.move_stack[-1]
+
+            # Try to match opening for opening ideas
+            opening_match = None
+            try:
+                from services.opening_theory_tree_service import match_opening_by_moves
+                # Reconstruct move list from board
+                temp = board.copy()
+                move_list_san = []
+                moves_to_pop = list(temp.move_stack)
+                temp.reset()
+                for m in moves_to_pop:
+                    move_list_san.append(temp.san(m))
+                    temp.push(m)
+                opening_match = match_opening_by_moves(move_list_san)
+            except Exception:
+                pass
+
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
                 board_before=board,
@@ -2002,12 +2023,28 @@ async def get_interactive_coaching(
                 phase=phase_str,
                 is_user_move=True,
                 context=CoachingContext.LIVE_AFTER_USER,
-                user_color=user_color
+                user_color=user_color,
+                opponent_last_move=opp_last_move,
+                opening_match=opening_match,
             )
-            
+
             coaching_dict = coaching.to_dict()
             coaching_dict["move_san"] = move_san
             coaching_dict["fen_before"] = fen_before  # Needed for board preview of alternatives
+
+            # Track fundamental violations for post-game summary
+            if coaching_dict.get("fundamental_violated"):
+                try:
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$push": {"fundamental_violations": {
+                            "move_number": board.fullmove_number,
+                            "fundamental": coaching_dict["fundamental_violated"],
+                            "move": move_san,
+                        }}}
+                    )
+                except Exception:
+                    pass
 
             # Compute best_move_uci for board arrow drawing
             if best_move and best_move != move_san:
@@ -3255,7 +3292,8 @@ async def start_play_with_coach(
     practice_mode = request.get("practice_mode", False)
     source_game_id = request.get("source_game_id", None)
     opening_key = request.get("opening_key", None)  # Curriculum opening to teach
-    
+    opening_name = request.get("opening_name", None)  # Opening name from user's repertoire
+
     # Validate user_color
     if user_color not in ["white", "black"]:
         raise HTTPException(status_code=400, detail="user_color must be 'white' or 'black'")
@@ -3270,6 +3308,16 @@ async def start_play_with_coach(
             practice_mode=practice_mode,
             source_game_id=source_game_id
         )
+
+        # Store opening preference if user selected one
+        if opening_key or opening_name:
+            await db.coach_sessions.update_one(
+                {"session_id": session.session_id},
+                {"$set": {
+                    "opening_key": opening_key,
+                    "opening_name": opening_name,
+                }}
+            )
 
         # Clear conversation thread for new game
         try:
@@ -4775,4 +4823,25 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
             "training_suggestions": [],
             "games_together": 0,
         }
+
+
+# ─── FUNDAMENTALS SUMMARY ─────────────────────────────────────────
+
+@router.get("/fundamentals-summary/{session_id}")
+async def get_fundamentals_summary(session_id: str, user=Depends(get_current_user)):
+    """Get which fundamentals the player violated during this session."""
+    session_doc = await db.coach_sessions.find_one(
+        {"session_id": session_id},
+        {"fundamental_violations": 1}
+    )
+    if not session_doc:
+        return {"violations": [], "summary": {}}
+
+    violations = session_doc.get("fundamental_violations", [])
+    counts = {}
+    for v in violations:
+        f = v.get("fundamental", "unknown")
+        counts[f] = counts.get(f, 0) + 1
+
+    return {"violations": violations, "summary": counts}
 

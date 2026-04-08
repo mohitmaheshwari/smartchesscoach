@@ -41,6 +41,7 @@ const CoachPlay = ({ user }) => {
   
   // Game settings
   const [selectedColor, setSelectedColor] = useState("white");
+  const [selectedOpening, setSelectedOpening] = useState(null);
   const [timeControl, setTimeControl] = useState("15+10");
   const [coachingMode, setCoachingMode] = useState("intermediate"); // "beginner" | "intermediate" | "advanced"
   
@@ -167,6 +168,7 @@ const CoachPlay = ({ user }) => {
   const [v5Coaching, setV5Coaching] = useState(null);
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
   const [preMoveTrap, setPreMoveTrap] = useState(null);
+  const [fundamentalViolations, setFundamentalViolations] = useState([]);
   
   // Interactive Coaching State - Two-part dialogue (user move + coach move)
   const [interactiveCoaching, setInteractiveCoaching] = useState({
@@ -687,9 +689,12 @@ const CoachPlay = ({ user }) => {
       const requestBody = {
         user_color: selectedColor,
         time_control: timeControl,
-        // Don't hardcode opening — let the backend detect from moves
-        // opening_key will be set after moves are played
       };
+
+      // If user selected a specific opening to practice, pass it
+      if (selectedOpening) {
+        requestBody.opening_name = selectedOpening;
+      }
       
       // If in practice mode, use custom starting position
       if (practiceMode && practicePosition?.fen) {
@@ -867,7 +872,15 @@ const CoachPlay = ({ user }) => {
           };
           
           setV5Coaching(v5Data);
-          
+
+          // Track fundamental violations for post-game summary
+          if (v5Data.fundamental_violated) {
+            setFundamentalViolations(prev => [...prev, {
+              fundamental: v5Data.fundamental_violated,
+              label: v5Data.fundamental_label,
+            }]);
+          }
+
           // Also update currentInsight for compatibility
           setCurrentInsight({
             quality: quality,
@@ -1943,6 +1956,7 @@ const CoachPlay = ({ user }) => {
     setV5Coaching(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
+    setFundamentalViolations([]);
     setChatMessages([]);
     resetPlayerData();
     setEscapeSquaresQuiz(null);
@@ -2056,6 +2070,8 @@ const CoachPlay = ({ user }) => {
         practicePosition={practicePosition}
         selectedColor={selectedColor}
         setSelectedColor={setSelectedColor}
+        selectedOpening={selectedOpening}
+        setSelectedOpening={setSelectedOpening}
         pastGamesHistory={pastGamesHistory}
         playerIdentityData={playerIdentityData}
         startGame={startGame}

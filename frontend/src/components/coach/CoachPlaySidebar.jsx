@@ -932,6 +932,11 @@ const CoachPlaySidebar = ({
               />
             )}
 
+            {/* Fundamentals Checklist — pass/fail for 7 fundamentals */}
+            {v5Coaching?.checklist_snapshot && (
+              <FundamentalsChecklist snapshot={v5Coaching.checklist_snapshot} />
+            )}
+
             {/* Trap Opportunity — Escape Square Awareness */}
             {v5Coaching?.trap_opportunity && (
               <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5" data-testid="trap-opportunity">
@@ -1294,6 +1299,43 @@ const CoachPlaySidebar = ({
           </div>
         </>
       )}
+    </div>
+  );
+};
+
+// ─── Fundamentals Checklist ─────────────────────────────────────
+
+const FUNDAMENTAL_ICONS = {
+  check_opponents_move: { label: "Threats", icon: "👁" },
+  hanging_pieces: { label: "Hanging", icon: "🛡" },
+  king_safety: { label: "King", icon: "♔" },
+  calculate: { label: "Calculate", icon: "🧮" },
+  development: { label: "Develop", icon: "♞" },
+  center_control: { label: "Center", icon: "⊞" },
+  have_a_plan: { label: "Plan", icon: "🎯" },
+};
+
+const FundamentalsChecklist = ({ snapshot }) => {
+  if (!snapshot) return null;
+  const entries = Object.entries(snapshot);
+  return (
+    <div className="flex flex-wrap gap-1.5 px-1 py-2">
+      {entries.map(([key, passed]) => {
+        const info = FUNDAMENTAL_ICONS[key] || { label: key, icon: "?" };
+        return (
+          <span
+            key={key}
+            title={info.label}
+            className={`text-xs px-1.5 py-0.5 rounded ${
+              passed
+                ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                : "bg-red-50 text-red-600 border border-red-200 font-semibold"
+            }`}
+          >
+            {info.icon} {info.label}
+          </span>
+        );
+      })}
     </div>
   );
 };

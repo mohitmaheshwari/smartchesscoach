@@ -20,7 +20,7 @@ This ensures: Improve one place → Both pages get smarter!
 import chess
 import chess.engine
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 
@@ -93,7 +93,17 @@ class V5Coaching:
     your_plan_now: Optional[str] = None  # For opponent moves - what should user do?
     pattern_memory: Optional[str] = None  # "You've missed this pattern 3 times this week"
     theory_applied: Optional[str] = None  # "You played the book move in the Italian Game"
-    
+
+    # Fundamentals coaching (Socratic mode — question + hint + plan, not answers)
+    fundamental_violated: Optional[str] = None     # e.g. "hanging_pieces"
+    fundamental_label: Optional[str] = None        # e.g. "Piece safety"
+    socratic_question: Optional[str] = None        # The question to ask
+    socratic_hint: Optional[str] = None            # Hint (shown on demand)
+    focus_plan: Optional[str] = None               # What to focus on next
+    opening_idea: Optional[str] = None             # Strategic idea if in opening
+    checklist_snapshot: Optional[Dict] = None      # All 7 fundamentals pass/fail
+    hide_best_move: bool = False                   # Frontend hides best_move when True
+
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON response."""
         result = asdict(self)
@@ -576,6 +586,70 @@ def _is_book_opening_move(board: chess.Board, move_san: str, move_index: int, cp
     return False
 
 
+# ─── FUNDAMENTALS ENRICHMENT ──────────────────────────────────────
+
+# Singleton to avoid re-creating per call
+_fundamentals_svc = None
+
+def _get_fundamentals_svc():
+    global _fundamentals_svc
+    if _fundamentals_svc is None:
+        from services.fundamentals_checklist_service import FundamentalsChecklistService
+        _fundamentals_svc = FundamentalsChecklistService()
+    return _fundamentals_svc
+
+
+def _enrich_with_fundamentals(
+    coaching: 'V5Coaching',
+    board_before: chess.Board,
+    board_after: chess.Board,
+    move: chess.Move,
+    best_move_san: Optional[str],
+    cp_loss: int,
+    phase: str,
+    user_color: str,
+    opponent_last_move: Optional[chess.Move],
+    opening_match: Optional[Any],
+    context: 'CoachingContext',
+) -> 'V5Coaching':
+    """
+    Enrich a mistake/blunder coaching object with fundamentals diagnosis.
+    Only applies to Play with Coach context (not Lab review).
+    """
+    # Only enrich for live coaching, not lab review
+    if context == CoachingContext.LAB_REVIEW:
+        return coaching
+
+    try:
+        svc = _get_fundamentals_svc()
+        diagnosis = svc.diagnose(
+            board_before=board_before,
+            board_after=board_after,
+            user_move=move,
+            best_move_san=best_move_san,
+            cp_loss=cp_loss,
+            phase=phase,
+            user_color=user_color,
+            opponent_last_move=opponent_last_move,
+            opening_match=opening_match,
+        )
+
+        if diagnosis.violated:
+            coaching.fundamental_violated = diagnosis.violated.value
+            coaching.fundamental_label = diagnosis.fundamental_label
+            coaching.socratic_question = diagnosis.question
+            coaching.socratic_hint = diagnosis.hint
+            coaching.focus_plan = diagnosis.plan
+            coaching.opening_idea = diagnosis.opening_idea
+            coaching.checklist_snapshot = diagnosis.checklist_results
+            coaching.hide_best_move = True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Fundamentals enrichment failed: {e}")
+
+    return coaching
+
+
 # ─── MAIN COACHING GENERATION ──────────────────────────────────────
 
 async def generate_move_coaching(
@@ -588,7 +662,9 @@ async def generate_move_coaching(
     phase: str = "opening",
     is_user_move: bool = True,
     context: CoachingContext = CoachingContext.LAB_REVIEW,
-    user_color: str = "white"
+    user_color: str = "white",
+    opponent_last_move: Optional[chess.Move] = None,
+    opening_match: Optional[Any] = None,
 ) -> V5Coaching:
     """
     Generate V5 coaching for a move.
@@ -715,7 +791,7 @@ async def generate_move_coaching(
         else:
             consequence = "This allows a forced checkmate within a few moves."
         
-        return V5Coaching(
+        mate_coaching = V5Coaching(
             narrative=f"{move_san} allows checkmate! This is a one-move blunder — the game is lost.",
             severity="blunder",
             goal="King safety — never allow checkmate",
@@ -729,6 +805,10 @@ async def generate_move_coaching(
             future_moves=pv_after_played[:4] if pv_after_played else None,
             is_user_move=True,
             best_move=best_move_san
+        )
+        return _enrich_with_fundamentals(
+            mate_coaching, board_before, board_after, move, best_move_san,
+            cp_loss, phase, user_color, opponent_last_move, opening_match, context
         )
     
     # Get Stockfish candidates
@@ -754,7 +834,7 @@ async def generate_move_coaching(
                                    board_before.turn == chess.WHITE)
     
     if fork_info:
-        return V5Coaching(
+        fork_coaching = V5Coaching(
             narrative=f"Uh oh! {move_san} allows a nasty Horsey fork!",
             severity=severity,
             goal="Avoid tactical vulnerabilities",
@@ -769,6 +849,10 @@ async def generate_move_coaching(
             is_user_move=True,
             best_move=best_move_san
         )
+        return _enrich_with_fundamentals(
+            fork_coaching, board_before, board_after, move, best_move_san,
+            cp_loss, phase, user_color, opponent_last_move, opening_match, context
+        )
     
     # Generate coaching based on piece type and position
     coaching = generate_piece_specific_coaching(
@@ -779,7 +863,13 @@ async def generate_move_coaching(
     coaching.future_moves = pv_after_played[:4] if pv_after_played else None
     coaching.is_user_move = True
     coaching.best_move = best_move_san
-    
+
+    # Enrich with fundamentals for live coaching
+    coaching = _enrich_with_fundamentals(
+        coaching, board_before, board_after, move, best_move_san,
+        cp_loss, phase, user_color, opponent_last_move, opening_match, context
+    )
+
     return coaching
 
 
