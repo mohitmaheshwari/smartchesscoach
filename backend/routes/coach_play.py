@@ -2865,6 +2865,152 @@ async def read_position_general(
         return result
 
 
+@router.post("/position/explore-lines")
+async def explore_lines(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Explore branching lines from a position.
+
+    Given a FEN + best move, returns:
+    1. Main line (best play for both sides)
+    2. "But what if...?" branches (opponent's alternatives + why they fail)
+
+    This teaches WHY a move is good, not just THAT it's good.
+    """
+    fen = request.get("fen", "")
+    best_move_san = request.get("best_move", "")
+
+    if not fen or not best_move_san:
+        raise HTTPException(status_code=400, detail="fen and best_move required")
+
+    try:
+        import chess as chess_mod
+        import chess.engine
+
+        board = chess_mod.Board(fen)
+        best_move = board.parse_san(best_move_san)
+
+        STOCKFISH_PATH = "/usr/games/stockfish"
+        transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+
+        try:
+            PIECE_NAMES = {chess_mod.PAWN: "pawn", chess_mod.KNIGHT: "knight", chess_mod.BISHOP: "bishop",
+                           chess_mod.ROOK: "rook", chess_mod.QUEEN: "queen", chess_mod.KING: "king"}
+
+            # 1. Play the best move
+            board_after = board.copy()
+            board_after.push(best_move)
+
+            # 2. Get opponent's top 3 responses (MultiPV)
+            opp_responses = await engine.analyse(
+                board_after,
+                chess.engine.Limit(depth=14),
+                multipv=3
+            )
+
+            branches = []
+            for i, info in enumerate(opp_responses):
+                if "pv" not in info or not info["pv"]:
+                    continue
+
+                opp_move = info["pv"][0]
+                opp_san = board_after.san(opp_move)
+
+                # Get eval after opponent's response
+                score = info.get("score")
+                if score:
+                    opp_eval = score.relative.score(mate_score=10000) if not score.is_mate() else (10000 if score.relative.mate() > 0 else -10000)
+                else:
+                    opp_eval = 0
+
+                # Play opponent's move
+                board_after_opp = board_after.copy()
+                board_after_opp.push(opp_move)
+
+                # Get user's best reply to this opponent response
+                user_reply_info = await engine.analyse(
+                    board_after_opp,
+                    chess.engine.Limit(depth=12),
+                    multipv=1
+                )
+
+                user_reply_san = ""
+                user_reply_fen = board_after_opp.fen()
+                final_eval = opp_eval
+                continuation = []
+
+                if user_reply_info and user_reply_info[0].get("pv"):
+                    user_reply = user_reply_info[0]["pv"][0]
+                    user_reply_san = board_after_opp.san(user_reply)
+
+                    board_final = board_after_opp.copy()
+                    board_final.push(user_reply)
+
+                    # Build continuation from PV
+                    temp = board_after.copy()
+                    continuation.append({"move": opp_san, "by": "opponent"})
+                    temp.push(opp_move)
+                    continuation.append({"move": user_reply_san, "by": "you"})
+                    temp.push(user_reply)
+
+                    # One more opponent move if available
+                    for pv_move in user_reply_info[0]["pv"][1:2]:
+                        try:
+                            continuation.append({"move": temp.san(pv_move), "by": "opponent"})
+                            temp.push(pv_move)
+                        except:
+                            break
+
+                    final_score = user_reply_info[0].get("score")
+                    if final_score:
+                        final_eval = final_score.relative.score(mate_score=10000) if not final_score.is_mate() else 10000
+
+                # Describe what opponent's move does
+                opp_piece = board_after.piece_at(opp_move.from_square)
+                opp_piece_name = PIECE_NAMES.get(opp_piece.piece_type, "piece") if opp_piece else "piece"
+                is_capture = board_after.is_capture(opp_move)
+
+                if is_capture:
+                    captured = board_after.piece_at(opp_move.to_square)
+                    cap_name = PIECE_NAMES.get(captured.piece_type, "piece") if captured else "piece"
+                    opp_desc = f"Takes your {cap_name}"
+                elif board_after.gives_check(opp_move):
+                    opp_desc = "Gives check"
+                else:
+                    to_sq = chess_mod.square_name(opp_move.to_square)
+                    opp_desc = f"Moves {opp_piece_name} to {to_sq}"
+
+                # Is this the main line or an alternative?
+                is_main = i == 0
+
+                branches.append({
+                    "opponent_move": opp_san,
+                    "opponent_description": opp_desc,
+                    "your_reply": user_reply_san,
+                    "continuation": continuation,
+                    "is_main_line": is_main,
+                    "label": "What actually happens" if is_main else f"What if {opp_desc.lower()}?",
+                    "outcome_eval": final_eval,
+                    "fen_after_opponent": board_after_opp.fen(),
+                })
+
+            return {
+                "fen": fen,
+                "best_move": best_move_san,
+                "fen_after_best": board_after.fen(),
+                "branches": branches,
+            }
+
+        finally:
+            await engine.quit()
+
+    except Exception as e:
+        logger.error(f"Explore lines failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/read-position")
 async def read_position_endpoint(
     request: Dict = Body(...),

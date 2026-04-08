@@ -39,6 +39,9 @@ const CoachMovePanel = ({
   const [savingReflection, setSavingReflection] = useState(false);
   const [boardReading, setBoardReading] = useState(null);
   const [loadingReading, setLoadingReading] = useState(false);
+  const [branches, setBranches] = useState(null);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState(null);
 
   const evals = analysis?.stockfish_analysis?.move_evaluations || [];
   const currentMove = currentMoveIndex >= 0 ? moves[currentMoveIndex] : null;
@@ -67,6 +70,8 @@ const CoachMovePanel = ({
     setReflection("");
     setReflectionSaved(false);
     setBoardReading(null);
+    setBranches(null);
+    setSelectedBranch(null);
 
     // Fetch board reading for important moves
     if (isImportant && currentFen) {
@@ -298,24 +303,55 @@ const CoachMovePanel = ({
 
                     <p className="text-sm text-foreground/80 mb-3">{ideaLabel}</p>
 
-                    {/* For SETUP ideas: show the line button */}
-                    {ideaType === "setup" && pv.length >= 1 && (
+                    {/* For SETUP ideas: fetch branches and show */}
+                    {ideaType === "setup" && pv.length >= 1 && !branches && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="text-xs gap-1.5"
-                        onClick={() => {
-                          if (onPlayBestLine) {
-                            onPlayBestLine({
-                              fen: currentFen,
-                              best_move: bestMove,
-                              pv_after_best: pv,
-                              move_number: moveNum,
+                        disabled={loadingBranches}
+                        onClick={async () => {
+                          setLoadingBranches(true);
+                          try {
+                            const res = await fetch(`${API}/coach/play/position/explore-lines`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              credentials: "include",
+                              body: JSON.stringify({ fen: currentFen, best_move: bestMove }),
                             });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setBranches(data.branches || []);
+                              // Auto-play the main line on the board
+                              if (onPlayBestLine) {
+                                onPlayBestLine({
+                                  fen: currentFen,
+                                  best_move: bestMove,
+                                  pv_after_best: pv,
+                                  move_number: moveNum,
+                                });
+                              }
+                            }
+                          } catch (e) {
+                            // Fallback: just play the single line
+                            if (onPlayBestLine) {
+                              onPlayBestLine({
+                                fen: currentFen,
+                                best_move: bestMove,
+                                pv_after_best: pv,
+                                move_number: moveNum,
+                              });
+                            }
+                          } finally {
+                            setLoadingBranches(false);
                           }
                         }}
                       >
-                        <ChevronRight className="w-3 h-3" />
+                        {loadingBranches ? (
+                          <div className="w-3 h-3 border border-primary/30 border-t-primary rounded-full animate-spin" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3" />
+                        )}
                         Show me the idea
                       </Button>
                     )}
@@ -397,6 +433,62 @@ const CoachMovePanel = ({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ── BRANCHES — "But what if...?" ── */}
+          {branches && branches.length > 0 && (
+            <div className="mb-5 space-y-2">
+              {branches.map((branch, i) => (
+                <div key={i}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                    branch.is_main_line
+                      ? "border-emerald-500/20 bg-emerald-500/[0.03]"
+                      : selectedBranch === i
+                      ? "border-primary/20 bg-primary/[0.03]"
+                      : "border-border bg-card hover:border-primary/15"
+                  }`}
+                  onClick={() => {
+                    setSelectedBranch(selectedBranch === i ? null : i);
+                    // Play this branch on the board
+                    if (onPlayBestLine && branch.continuation?.length > 0) {
+                      const bestMove = currentEval?.best_move || "";
+                      onPlayBestLine({
+                        fen: currentFen,
+                        best_move: bestMove,
+                        pv_after_best: branch.continuation.map(c => c.move),
+                        move_number: Math.floor(currentMoveIndex / 2) + 1,
+                      });
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                      branch.is_main_line ? "text-emerald-500" : "text-primary"
+                    }`}>
+                      {branch.is_main_line ? "Main line" : "But what if...?"}
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-foreground mb-1">{branch.label}</p>
+                  <p className="text-xs text-muted-foreground">{branch.opponent_description}</p>
+
+                  {/* Show continuation */}
+                  {(selectedBranch === i || branch.is_main_line) && branch.continuation?.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap mt-2">
+                      {branch.continuation.map((c, j) => (
+                        <span key={j} className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                          c.by === "you"
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                            : "bg-red-500/10 text-red-500 dark:text-red-400"
+                        }`}>
+                          {c.move}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
