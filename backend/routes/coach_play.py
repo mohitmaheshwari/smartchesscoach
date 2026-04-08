@@ -3241,8 +3241,12 @@ async def get_opening_suggestions(user: User = Depends(get_current_user)):
     white_openings = []
     black_openings = []
 
+    # Query using `opening` field (the one that actually exists on game documents)
     games = await db.games.find(
-        {"user_id": user.user_id, "opening_name": {"$exists": True, "$nin": [None, ""]}},
+        {"user_id": user.user_id, "$or": [
+            {"opening": {"$exists": True, "$nin": [None, ""]}},
+            {"opening_name": {"$exists": True, "$nin": [None, ""]}},
+        ]},
         {"_id": 0, "game_id": 1, "opening_name": 1, "opening": 1, "result": 1, "user_color": 1}
     ).sort("imported_at", -1).limit(100).to_list(100)
 
@@ -3252,7 +3256,7 @@ async def get_opening_suggestions(user: User = Depends(get_current_user)):
         opening_map = {}
 
         for g in color_games:
-            name = g.get("opening_name") or g.get("opening") or "Unknown"
+            name = g.get("opening") or g.get("opening_name") or "Unknown"
             short = _get_opening_family(name)
             if not short or short == "Unknown":
                 continue
