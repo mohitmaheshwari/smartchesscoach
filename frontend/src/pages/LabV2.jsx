@@ -1253,10 +1253,11 @@ const LabV2 = ({ user }) => {
                           const isUserMove = (userColor === "white" && currentMoveIndex % 2 === 0) ||
                                             (userColor === "black" && currentMoveIndex % 2 === 1);
 
-                          // Find matching eval by move number and san
+                          // Find matching eval by move number and san — NO fallback to index
+                          // evals only contains user moves, so index doesn't match PGN move index
                           const evalData = evals.find(e =>
                             e.move_number === moveNum && e.move === m.san
-                          ) || evals[currentMoveIndex];
+                          ) || evals.find(e => e.move === m.san);
 
                           if (evalData) {
                             const c = (evalData.classification || evalData.evaluation || "").toLowerCase().replace(/[_\s]/g, "");
