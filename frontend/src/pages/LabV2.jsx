@@ -417,24 +417,9 @@ const LabV2 = ({ user }) => {
   const userColor = game?.user_color || "white";
   const result = game?.result || "1/2-1/2";
   const accuracy = analysis?.stockfish_analysis?.accuracy || labData?.accuracy;
-  // In Coach view: show position BEFORE the move (decision point) for important moves
-  // Simple check here (no dependency on isImportantMove which is defined later)
-  const showBeforePosition = (() => {
-    if (viewMode === "decrypt" || currentMoveIndex < 0) return false;
-    const evals = analysis?.stockfish_analysis?.move_evaluations || [];
-    const m = moves[currentMoveIndex];
-    if (!m) return false;
-    const moveNum = Math.floor(currentMoveIndex / 2) + 1;
-    const evalData = evals.find(e => e.move_number === moveNum && e.move === m.san)
-                  || evals.find(e => e.move === m.san);
-    if (!evalData) return false;
-    const c = (evalData.classification || evalData.evaluation || "").toLowerCase();
-    return c.includes("blunder") || c.includes("mistake") || c.includes("inaccuracy");
-  })();
-
-  const currentFen = showBeforePosition
-    ? (allFens[currentMoveIndex] || START_FEN)
-    : (allFens[currentMoveIndex + 1] || START_FEN);
+  // Always show position AFTER the current move (standard behavior)
+  // The coaching panel handles the "what should you have done" part
+  const currentFen = allFens[currentMoveIndex + 1] || START_FEN;
   const coachSummary = analysis?.coach_summary || null;
   const coreLesson = labData?.core_lesson || null;
   
@@ -538,17 +523,12 @@ const LabV2 = ({ user }) => {
     }
   }, [game?.pgn]);
   
-  // Update position when move index changes
+  // Update position when move index changes — always show AFTER the move
   useEffect(() => {
-    // In Coach/Habits view: show position BEFORE the move (the decision point)
-    // In Decrypt view: show position AFTER the move (standard analysis)
-    const showBefore = viewMode !== "decrypt" && currentMoveIndex >= 0 && isImportantMove(currentMoveIndex);
-    const fenIndex = showBefore ? currentMoveIndex : currentMoveIndex + 1;
-    const fen = allFens[fenIndex] || START_FEN;
+    const fen = allFens[currentMoveIndex + 1] || START_FEN;
     setPositionObject(fenToPositionObject(fen));
 
-    // Update last move squares — only in "after" view
-    if (!showBefore && currentMoveIndex >= 0 && moves[currentMoveIndex]) {
+    if (currentMoveIndex >= 0 && moves[currentMoveIndex]) {
       const move = moves[currentMoveIndex];
       setLastMoveSquares({
         [move.from]: { background: "rgba(255, 255, 0, 0.4)" },
@@ -557,7 +537,7 @@ const LabV2 = ({ user }) => {
     } else {
       setLastMoveSquares({});
     }
-  }, [currentMoveIndex, allFens, moves, viewMode]);
+  }, [currentMoveIndex, allFens, moves]);
   
   // Navigation functions
   const goToMove = (index, clearArrows = true) => {
