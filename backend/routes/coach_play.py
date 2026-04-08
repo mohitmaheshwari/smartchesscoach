@@ -2942,30 +2942,72 @@ async def explore_lines(
                 continuation = []
 
                 if user_reply_info and user_reply_info[0].get("pv"):
-                    user_reply = user_reply_info[0]["pv"][0]
-                    user_reply_san = board_after_opp.san(user_reply)
+                    # Build the full continuation until IMPACT is found
+                    # Impact = capture, check, checkmate, or the eval proves the point
+                    full_pv = user_reply_info[0]["pv"]
 
-                    board_final = board_after_opp.copy()
-                    board_final.push(user_reply)
-
-                    # Build continuation from PV
                     temp = board_after.copy()
                     continuation.append({"move": opp_san, "by": "opponent"})
                     temp.push(opp_move)
-                    continuation.append({"move": user_reply_san, "by": "you"})
-                    temp.push(user_reply)
 
-                    # One more opponent move if available
-                    for pv_move in user_reply_info[0]["pv"][1:2]:
+                    impact_found = False
+                    user_turn = True  # After opponent moved, it's user's turn
+
+                    for pv_idx, pv_move in enumerate(full_pv[:8]):  # Max 8 moves deep
                         try:
-                            continuation.append({"move": temp.san(pv_move), "by": "opponent"})
+                            pv_san = temp.san(pv_move)
+                            is_cap = temp.is_capture(pv_move)
+                            gives_check = temp.gives_check(pv_move)
+
+                            who = "you" if user_turn else "opponent"
+
+                            # Describe impact
+                            impact_desc = None
+                            if gives_check:
+                                temp.push(pv_move)
+                                if temp.is_checkmate():
+                                    impact_desc = "Checkmate"
+                                else:
+                                    impact_desc = "Check"
+                                temp.pop()
+                            elif is_cap:
+                                captured = temp.piece_at(pv_move.to_square)
+                                if captured:
+                                    cap_name = PIECE_NAMES.get(captured.piece_type, "piece")
+                                    impact_desc = f"Wins the {cap_name}"
+
+                            continuation.append({
+                                "move": pv_san,
+                                "by": who,
+                                "is_impact": impact_desc is not None,
+                                "impact": impact_desc,
+                            })
+
                             temp.push(pv_move)
-                        except:
+                            user_turn = not user_turn
+
+                            # Stop after impact found (but include the impact move)
+                            if impact_desc:
+                                impact_found = True
+                                break
+
+                        except Exception:
                             break
 
+                    # If no clear impact found, get final eval to describe outcome
                     final_score = user_reply_info[0].get("score")
                     if final_score:
                         final_eval = final_score.relative.score(mate_score=10000) if not final_score.is_mate() else 10000
+
+                    if not impact_found and final_eval is not None:
+                        # Describe outcome based on eval
+                        if abs(final_eval) >= 300:
+                            continuation.append({
+                                "move": "",
+                                "by": "result",
+                                "is_impact": True,
+                                "impact": "Winning position" if final_eval > 0 else "Lost position",
+                            })
 
                 # Describe what opponent's move does
                 opp_piece = board_after.piece_at(opp_move.from_square)

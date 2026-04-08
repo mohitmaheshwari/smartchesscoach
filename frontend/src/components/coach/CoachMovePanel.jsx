@@ -395,38 +395,66 @@ const CoachMovePanel = ({
             </div>
           )}
 
-          {/* ── PLAYING BEST LINE — step by step ── */}
+          {/* ── PLAYING BEST LINE — step by step, click-driven ── */}
           {isPlayingBestLine && currentBestLine && (
             <div className="mb-5">
               <div className="p-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.03]">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-emerald-500">
-                    Best line — Step {bestLineIndex + 1} of {currentBestLine.moves.length}
+                    Step {bestLineIndex + 1} of {currentBestLine.moves.length}
                   </p>
                   <button onClick={onBestLineExit} className="text-xs text-muted-foreground hover:text-foreground">
                     Exit
                   </button>
                 </div>
 
-                {/* Current move in the line */}
-                {bestLineIndex < currentBestLine.moves.length && (
-                  <p className="text-sm text-foreground mb-3">
-                    {bestLineIndex % 2 === 0
-                      ? <span className="text-emerald-500 font-medium">Your move: </span>
-                      : <span className="text-red-400 font-medium">Opponent responds: </span>
-                    }
-                    <span className="font-mono">{currentBestLine.moves[bestLineIndex].san}</span>
-                  </p>
-                )}
+                {/* Show all moves up to current index */}
+                <div className="space-y-1.5 mb-3">
+                  {currentBestLine.moves.slice(0, bestLineIndex + 1).map((m, idx) => {
+                    // Find branch data if available
+                    const branchMove = branches?.flatMap(b => b.continuation || []).find(
+                      (c, ci) => ci === idx && c.move === m.san
+                    ) || {};
+
+                    return (
+                      <div key={idx} className={`flex items-center gap-2 ${idx === bestLineIndex ? "font-medium" : "opacity-50"}`}>
+                        <span className={`text-xs ${idx % 2 === 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {idx % 2 === 0 ? "You:" : "Opp:"}
+                        </span>
+                        <span className={`text-sm font-mono ${
+                          branchMove.is_impact ? "text-amber-500 font-bold" : "text-foreground"
+                        }`}>
+                          {m.san}
+                        </span>
+                        {branchMove.impact && (
+                          <span className="text-[10px] text-amber-500 font-bold">← {branchMove.impact}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Impact reached? */}
+                {(() => {
+                  const currentBranchMove = branches?.flatMap(b => b.continuation || [])?.[bestLineIndex];
+                  if (currentBranchMove?.is_impact && currentBranchMove?.impact) {
+                    return (
+                      <div className="p-2 rounded bg-amber-500/10 border border-amber-500/15 mb-3">
+                        <p className="text-xs text-amber-600 font-medium">{currentBranchMove.impact}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {bestLineIndex < currentBestLine.moves.length - 1 ? (
                   <Button size="sm" onClick={onBestLineNext} className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700">
                     <ChevronRight className="w-3 h-3" />
-                    Next move
+                    Next
                   </Button>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs text-emerald-500">End of line. This is why this was better.</p>
+                    <p className="text-xs text-emerald-500">This is why this line works.</p>
                     <Button size="sm" variant="outline" onClick={onBestLineExit} className="text-xs">
                       Got it
                     </Button>
@@ -473,16 +501,21 @@ const CoachMovePanel = ({
                   <p className="text-sm text-foreground mb-1">{branch.label}</p>
                   <p className="text-xs text-muted-foreground">{branch.opponent_description}</p>
 
-                  {/* Show continuation */}
+                  {/* Show continuation with impact highlighted */}
                   {(selectedBranch === i || branch.is_main_line) && branch.continuation?.length > 0 && (
                     <div className="flex items-center gap-1 flex-wrap mt-2">
-                      {branch.continuation.map((c, j) => (
+                      {branch.continuation.filter(c => c.move).map((c, j) => (
                         <span key={j} className={`text-xs font-mono px-1.5 py-0.5 rounded ${
-                          c.by === "you"
+                          c.is_impact
+                            ? "bg-amber-500/20 text-amber-500 font-bold ring-1 ring-amber-500/30"
+                            : c.by === "you"
                             ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                            : "bg-red-500/10 text-red-500 dark:text-red-400"
-                        }`}>
+                            : c.by === "opponent"
+                            ? "bg-red-500/10 text-red-500 dark:text-red-400"
+                            : "bg-muted text-muted-foreground"
+                        }`} title={c.impact || ""}>
                           {c.move}
+                          {c.is_impact && c.impact ? ` ← ${c.impact}` : ""}
                         </span>
                       ))}
                     </div>
