@@ -3164,6 +3164,70 @@ async def read_position_endpoint(
     return read_position(fen, user_color, user_rating)
 
 
+def _get_opening_family(name: str) -> str:
+    """
+    Extract the main opening family from a full opening name.
+    'Queens Pawn Opening Chigorin Variation 2...c6' → "Queen's Pawn"
+    'Sicilian Defense Old Sicilian Variation 3.Bc4' → "Sicilian Defense"
+    'Kings Indian Defense Normal Variation' → "King's Indian"
+    """
+    if not name or name == "Unknown":
+        return "Unknown"
+
+    # Normalize common patterns
+    n = name.strip()
+
+    # Known opening families — check longest match first
+    FAMILIES = [
+        "Queen's Gambit Declined", "Queen's Gambit Accepted", "Queen's Gambit",
+        "King's Indian Defense", "King's Indian Attack",
+        "Queen's Indian Defense",
+        "Nimzo-Indian Defense", "Nimzo-Indian",
+        "Grunfeld Defense",
+        "Sicilian Defense", "Sicilian Najdorf", "Sicilian Dragon",
+        "French Defense",
+        "Caro-Kann Defense", "Caro-Kann",
+        "Italian Game",
+        "Ruy Lopez", "Spanish Opening",
+        "Scotch Game",
+        "Petrov Defense", "Petrov's Defense",
+        "Philidor Defense",
+        "Vienna Game",
+        "London System",
+        "English Opening",
+        "Catalan Opening",
+        "Dutch Defense",
+        "Benoni Defense",
+        "Scandinavian Defense",
+        "Pirc Defense",
+        "Modern Defense",
+        "Alekhine Defense",
+        "Budapest Gambit",
+        "Slav Defense",
+        "Reti Opening",
+    ]
+
+    # Normalize for matching (remove apostrophes, lowercase)
+    n_lower = n.lower().replace("'", "").replace("\u2019", "")
+
+    for family in FAMILIES:
+        f_lower = family.lower().replace("'", "").replace("\u2019", "")
+        if n_lower.startswith(f_lower):
+            return family
+
+    # Fallback: use first 2 words, but clean up
+    parts = n.split()
+    if len(parts) >= 2:
+        # Skip if it's just "Undefined" or numbers
+        short = " ".join(parts[:2])
+        # Add "Defense/Opening/Game" if the 3rd word is one of those
+        if len(parts) >= 3 and parts[2].lower() in ("defense", "opening", "game", "gambit", "system", "attack"):
+            short = " ".join(parts[:3])
+        return short
+
+    return n
+
+
 @router.get("/opening-suggestions")
 async def get_opening_suggestions(user: User = Depends(get_current_user)):
     """
@@ -3189,9 +3253,11 @@ async def get_opening_suggestions(user: User = Depends(get_current_user)):
 
         for g in color_games:
             name = g.get("opening_name") or g.get("opening") or "Unknown"
-            short = " ".join(name.split()[:3])
+            short = _get_opening_family(name)
+            if not short or short == "Unknown":
+                continue
             if short not in opening_map:
-                opening_map[short] = {"name": name, "games": 0, "wins": 0, "losses": 0, "draws": 0}
+                opening_map[short] = {"name": short, "games": 0, "wins": 0, "losses": 0, "draws": 0}
 
             opening_map[short]["games"] += 1
             result = g.get("result", "")
