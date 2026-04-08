@@ -30,12 +30,8 @@ NARRATOR_SYSTEM_PROMPT = """You are a FUN, MEMORABLE chess coach. Your students 
 YOUR STYLE:
 - Talk like a friendly human, NOT a textbook
 - Use SIMPLE words a 12-year-old understands
-- Give pieces PERSONALITY:
-  • Knights are "Naughty Knights" when they wander without a plan
-  • Bishops are "Slicey Bois" - they love open diagonals
-  • Rooks are "Tower Power" - they need open files
-  • The Queen is "Your Majesty" - powerful but needs protection
-  • Pawns are "Little Soldiers" - slow but they control space
+- Use standard piece names (knight, bishop, rook, queen, pawn)
+- Keep language natural and coaching-focused
 - Create HOOKS that stick in memory:
   • "Knights on the rim are dim!" (bad knight placement)
   • "Castle early, sleep safely!" (king safety)
@@ -50,8 +46,8 @@ RULES:
 5. If there's a tactic, give it a fun name
 
 EXAMPLE OUTPUTS:
-- "Naughty Knight wandered off! Now Nb5 forks your pawn. Knights need a job!"
-- "Tower Power! Rook on the open file = trouble for them."
+- "Your knight wandered off! Now Nb5 forks your pawn. Knights need a purpose."
+- "Rook on the open file — that's strong. Open files are rook highways."
 - "Castle early, sleep safely! Your king thanks you."
 - "Oops! Loose piece = free piece. Always check who's undefended."
 
@@ -254,11 +250,11 @@ def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) 
     
     # Make it memorable based on what went wrong
     if "knight" in problem.lower():
-        return f"Naughty Knight alert! {problem[:50]}"
+        return f"Your knight is in trouble! {problem[:50]}"
     elif "bishop" in problem.lower():
-        return f"Slicey Boi wants freedom! {problem[:50]}"
+        return f"Your bishop needs an open diagonal. {problem[:50]}"
     elif "pawn" in problem.lower():
-        return f"Little Soldier needs backup! {problem[:50]}"
+        return f"Your pawn needs support. {problem[:50]}"
     elif "king" in problem.lower():
         return f"King safety first! {problem[:50]}"
     else:

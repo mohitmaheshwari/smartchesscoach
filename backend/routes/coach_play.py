@@ -2339,14 +2339,14 @@ def _transform_to_fun_language(feedback: Dict, severity: str, move_san: str) -> 
     
     if "knight" in piece.lower() or (move_san and move_san[0] == "N"):
         if severity in ["blunder", "mistake"]:
-            return f"Naughty Knight! {move_san} gets your Horsey in trouble!"
-        return f"Hmm, {move_san} - what's your Horsey doing there?"
-    
+            return f"{move_san} gets your knight in trouble!"
+        return f"Hmm, {move_san} — is that the best square for your knight?"
+
     if "bishop" in piece.lower() or (move_san and move_san[0] == "B"):
-        return f"Your Slicey Boi looks sad after {move_san}!"
-    
+        return f"Your bishop looks passive after {move_san}."
+
     if "pawn" in piece.lower():
-        return f"Careful with {move_san} - Little Soldiers can't go backwards!"
+        return f"Careful with {move_san} — pawns can't go backwards!"
     
     if severity == "blunder":
         return f"Oops! {move_san} is a blunder - let's see why."

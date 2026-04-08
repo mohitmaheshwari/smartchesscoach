@@ -114,9 +114,9 @@ class V5Coaching:
 # ─── FUN PIECE NAMES ───────────────────────────────────────────────
 
 PIECE_NAMES = {
-    chess.PAWN: "Little Soldier",
-    chess.KNIGHT: "Horsey",
-    chess.BISHOP: "Slicey Boi", 
+    chess.PAWN: "pawn",
+    chess.KNIGHT: "knight",
+    chess.BISHOP: "bishop", 
     chess.ROOK: "Tower",
     chess.QUEEN: "Queen",
     chess.KING: "King"
@@ -835,13 +835,13 @@ async def generate_move_coaching(
     
     if fork_info:
         fork_coaching = V5Coaching(
-            narrative=f"Uh oh! {move_san} allows a nasty Horsey fork!",
+            narrative=f"Uh oh! {move_san} allows a knight fork!",
             severity=severity,
             goal="Avoid tactical vulnerabilities",
             current_problem=f"{move_san} allows a fork!",
             consequence=f"After {fork_info['fork_move']}, their knight forks your {fork_info['piece1']} and {fork_info['piece2']}!",
             better_approach=candidate_moves[0]["idea"] if candidate_moves else f"{best_move_san} was better",
-            transferable_learning=f"Watch out for Horsey forks! When your {fork_info['piece1']} and {fork_info['piece2']} are on the same color square, a knight can attack both!",
+            transferable_learning=f"Watch out for knight forks! When your {fork_info['piece1']} and {fork_info['piece2']} are on the same color square, a knight can attack both!",
             concept_id="knight_fork",
             concept_type="tactical",
             candidate_moves=candidate_moves,
@@ -1264,11 +1264,11 @@ def generate_coach_move_explanation(
             # Knight move
             center_squares = [chess.D4, chess.D5, chess.E4, chess.E5, chess.C3, chess.F3, chess.C6, chess.F6]
             if to_square in center_squares:
-                explanation = f"I'm bringing my Horsey to {chess.square_name(to_square)} - a powerful central square!"
+                explanation = f"I'm bringing my knight to {chess.square_name(to_square)} - a powerful central square!"
                 plan = "Knights are strongest in the center where they control many squares."
                 teaching_point = "Knights love the center! From there they can jump in any direction."
             else:
-                explanation = f"My Horsey hops to {chess.square_name(to_square)}."
+                explanation = f"My knight hops to {chess.square_name(to_square)}."
                 plan = "Repositioning the knight for future action."
             
             # Check if knight attacks multiple pieces
@@ -1282,7 +1282,7 @@ def generate_coach_move_explanation(
                 teaching_point = "Watch out for knight forks! My knight attacks multiple pieces."
                 
         elif piece.piece_type == chess.BISHOP:
-            explanation = f"My Slicey Boi slides to {chess.square_name(to_square)}."
+            explanation = f"My bishop slides to {chess.square_name(to_square)}."
             # Check diagonal length
             plan = "Bishops love long diagonals - they can control the whole board from there!"
             teaching_point = "Bishops need open diagonals. Don't block them with your own pawns!"

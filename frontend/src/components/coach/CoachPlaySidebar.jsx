@@ -745,8 +745,8 @@ const CoachPlaySidebar = ({
 
           {/* Main Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Coach Panel */}
-            {!gameOver && (
+            {/* Coach Panel — hide when V5 coaching is showing (avoids overload) */}
+            {!gameOver && !v5Coaching && !isCoachThinking && (
               <CoachPanel
                 sessionId={session?.session_id}
                 fen={currentFen}
@@ -777,8 +777,8 @@ const CoachPlaySidebar = ({
               />
             )}
 
-            {/* Escape Squares Quiz */}
-            {escapeSquaresQuiz && !isInTeachingMode && !gameOver && (
+            {/* Escape Squares Quiz — hide when V5 coaching is active */}
+            {escapeSquaresQuiz && !isInTeachingMode && !gameOver && !v5Coaching && (
               <EscapeSquaresQuiz
                 quiz={escapeSquaresQuiz}
                 sessionId={session?.session_id}

@@ -1935,7 +1935,7 @@ def _explain_opponent_move_with_context(
             to_file = chess.square_file(move.to_square)
             if to_file in [3, 4]:  # d or e file
                 return (
-                    f"Little Soldier marches to {move_san}. They want the center!",
+                    f"Pawn advances to {move_san}. They want the center!",
                     "Don't let them have all the space. Push back!"
                 )
             return (
@@ -1962,7 +1962,7 @@ def _explain_opponent_move_with_context(
         
         elif piece.piece_type == chess.BISHOP:
             return (
-                f"Slicey Boi slides to {move_san}. Bishops love open diagonals!",
+                f"Bishop slides to {move_san}. Bishops love open diagonals!",
                 "Make sure your pieces aren't on that diagonal!"
             )
         
@@ -2125,9 +2125,9 @@ def recognize_good_move(
                 to_sq = move.to_square
                 to_file = chess.square_file(to_sq)
                 if to_file in [1, 2, 5, 6]:  # b, c, f, g files - active squares
-                    narrative = f"Slicey Boi unleashed! {move_san} — bishop on a killer diagonal."
+                    narrative = f"Bishop unleashed! {move_san} — active diagonal."
                 else:
-                    narrative = f"Slicey Boi is out! {move_san} — bishops love open diagonals."
+                    narrative = f"Bishop is out! {move_san} — bishops love open diagonals."
                 if is_best:
                     narrative = f"Perfect! {narrative}"
                 return narrative, concept_applied, is_best
@@ -2138,7 +2138,7 @@ def recognize_good_move(
                 to_rank = chess.square_rank(move.to_square)
                 if (piece.color == chess.WHITE and to_rank == 3) or (piece.color == chess.BLACK and to_rank == 4):
                     concept_applied = "center_control"
-                    narrative = f"Little Soldier marches! {move_san} grabs space in the center."
+                    narrative = f"Good pawn move! {move_san} grabs space in the center."
                     if is_best:
                         narrative = f"Perfect! {narrative}"
                     return narrative, concept_applied, is_best
