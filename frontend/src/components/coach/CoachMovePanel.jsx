@@ -127,15 +127,82 @@ const CoachMovePanel = ({
     finally { setSavingReflection(false); }
   };
 
-  // No move selected
+  // No move selected — show game intro
   if (currentMoveIndex < 0) {
+    // Count moment types
+    const blunders = importantMoves.filter(m => m.severity.includes("blunder")).length;
+    const mistakes = importantMoves.filter(m => m.severity.includes("mistake")).length;
+    const inaccuracies = importantMoves.filter(m => m.severity.includes("inaccuracy")).length;
+
     return (
-      <div className="flex items-center justify-center h-full text-center px-6">
-        <div>
-          <Brain className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Navigate to a move to see coaching.</p>
-          <p className="text-xs text-muted-foreground/50 mt-1">Use the arrows to jump between important moments.</p>
-        </div>
+      <div className="p-5 space-y-5">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          {/* Coach intro */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
+              <Brain className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Coach's review</p>
+              <p className="text-xs text-muted-foreground">I looked at your game. Here's what I found.</p>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="space-y-2 mb-5">
+            <p className="text-sm text-foreground leading-relaxed">
+              I found <strong>{totalMoments} moment{totalMoments !== 1 ? "s" : ""}</strong> worth looking at.
+            </p>
+            <div className="flex items-center gap-3 text-xs">
+              {blunders > 0 && (
+                <span className="flex items-center gap-1 text-red-400">
+                  <div className="w-2 h-2 rounded-full bg-red-400" />
+                  {blunders} blunder{blunders !== 1 ? "s" : ""}
+                </span>
+              )}
+              {mistakes > 0 && (
+                <span className="flex items-center gap-1 text-orange-500">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                  {mistakes} mistake{mistakes !== 1 ? "s" : ""}
+                </span>
+              )}
+              {inaccuracies > 0 && (
+                <span className="flex items-center gap-1 text-amber-500">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  {inaccuracies} inaccurac{inaccuracies !== 1 ? "ies" : "y"}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* What to expect */}
+          <div className="p-3 rounded-lg bg-muted/50 border border-border mb-5">
+            <p className="text-xs text-muted-foreground mb-2">For each moment, you'll see:</p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs text-foreground/70">
+                <MessageSquare className="w-3 h-3 text-muted-foreground" />
+                What were you thinking? (your reflection)
+              </div>
+              <div className="flex items-center gap-2 text-xs text-foreground/70">
+                <Lightbulb className="w-3 h-3 text-muted-foreground" />
+                What you could have done (alternative plans)
+              </div>
+              <div className="flex items-center gap-2 text-xs text-foreground/70">
+                <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                Show me the idea (play out the better line on the board)
+              </div>
+            </div>
+          </div>
+
+          {/* Start button */}
+          <Button
+            onClick={onGoToNextMoment}
+            className="w-full text-sm gap-2 gradient-gold text-black font-semibold hover:opacity-90"
+          >
+            Let's start
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </motion.div>
       </div>
     );
   }
