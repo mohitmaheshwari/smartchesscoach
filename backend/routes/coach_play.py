@@ -2157,17 +2157,18 @@ async def get_interactive_coaching(
                 pass
 
             # === POSITION INTELLIGENCE ===
-            # "What should I focus on?" — coach reads the board after user's move
+            # Use deterministic reading for every move (no LLM cost)
+            # LLM board reading was being called on EVERY move — 30+ calls per game
             try:
-                from services.position_intelligence import read_board_deep
+                from services.position_intelligence import read_board_like_a_coach
 
                 board_after_user = chess.Board(fen_before)
                 board_after_user.push(board_after_user.parse_san(move_san))
 
-                board_read = await read_board_deep(
+                board_read = read_board_like_a_coach(
                     board_after_user.fen(),
                     user_color=user_color,
-                    user_rating=1200  # TODO: use actual user rating
+                    user_rating=1200
                 )
 
                 if board_read.get("plan_id") != "neutral":
@@ -2839,6 +2840,29 @@ async def get_pregame_intro_endpoint(
     from services.opening_assessment_service import get_pregame_intro
 
     return await get_pregame_intro(db, user.user_id, opening)
+
+
+@router.post("/position/read")
+async def read_position_general(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """Read a position — what's happening on the board? General endpoint (no session needed)."""
+    fen = request.get("fen", "")
+    user_color = request.get("user_color", "white")
+
+    if not fen:
+        raise HTTPException(status_code=400, detail="fen required")
+
+    try:
+        from services.position_intelligence import read_board_deep
+        result = await read_board_deep(fen, user_color=user_color, user_rating=1200)
+        return result
+    except Exception as e:
+        # Fallback to deterministic
+        from services.position_intelligence import read_board_like_a_coach
+        result = read_board_like_a_coach(fen, user_color=user_color, user_rating=1200)
+        return result
 
 
 @router.post("/read-position")

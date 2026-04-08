@@ -432,11 +432,13 @@ async def get_training_feed(
     # We add them here using the deep board reading
     for pos in all_positions:
         try:
-            from services.position_intelligence import read_board_deep
+            # Use DETERMINISTIC board reading — no LLM calls per position
+            # LLM was being called 10 times per training page load
+            from services.position_intelligence import read_board_like_a_coach
             fen = pos.get("fen", "")
             board_temp = chess.Board(fen)
             color = "white" if board_temp.turn == chess.WHITE else "black"
-            coach_read = await read_board_deep(fen, user_color=color, user_rating=user_rating)
+            coach_read = read_board_like_a_coach(fen, user_color=color, user_rating=user_rating)
             pos["reading_prompt"] = {
                 "prompt": coach_read.get("summary", "Look at the board. What stands out?"),
                 "observations": [o.get("description", "") for o in coach_read.get("observations", [])] if coach_read.get("observations") else [],

@@ -66,6 +66,7 @@ import FeedbackModal from "@/components/FeedbackModal";
 import GameDecryptionV5 from "@/components/GameDecryptionV5";
 import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
 import CoachAction from "@/components/Lab/CoachAction";
+import CoachMovePanel from "@/components/coach/CoachMovePanel";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -1414,19 +1415,25 @@ const LabV2 = ({ user }) => {
             </div>
           </div>
           
-          {/* Right Panel: Coach Review OR Habits based on viewMode */}
+          {/* Right Panel: Coach Move Panel (dynamic) OR Habits */}
           <div className="w-[45%] flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto">
               {viewMode === "coach" ? (
-                <CoachAction 
-                  gameId={gameId} 
-                  onMoveClick={(moveNum, moveUci, bestUci) => navigateToMoveNumber(moveNum, moveUci, bestUci)}
+                <CoachMovePanel
+                  gameId={gameId}
+                  currentMoveIndex={currentMoveIndex}
+                  moves={moves}
+                  analysis={analysis}
+                  userColor={userColor}
+                  currentFen={currentMoveIndex >= 0 ? allFens[currentMoveIndex + 1] : allFens[0]}
                 />
               ) : (
-                <CoachInsightPanel 
-                  gameId={gameId} 
-                  onMoveClick={(moveNum) => navigateToMoveNumber(moveNum)}
-                />
+                <div className="p-6">
+                  <CoachInsightPanel
+                    gameId={gameId}
+                    onMoveClick={(moveNum) => navigateToMoveNumber(moveNum)}
+                  />
+                </div>
               )}
             </div>
           </div>
