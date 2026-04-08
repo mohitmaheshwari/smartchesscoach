@@ -564,10 +564,44 @@ const LabV2 = ({ user }) => {
   };
 
   const isImportantMove = (idx) => {
+    // Check user moves via move_evaluations
     const evalData = findEvalForMove(idx);
-    if (!evalData) return false;
-    const c = (evalData.classification || evalData.evaluation || "").toLowerCase();
-    return c.includes("blunder") || c.includes("mistake") || c.includes("inaccuracy") || c.includes("brilliant");
+    if (evalData) {
+      const c = (evalData.classification || evalData.evaluation || "").toLowerCase();
+      if (c.includes("blunder") || c.includes("mistake") || c.includes("brilliant")) {
+        return true;
+      }
+    }
+
+    // Check opponent moves — detect blunders from cp_loss
+    const isUserMove = (userColor === "white" && idx % 2 === 0) || (userColor === "black" && idx % 2 === 1);
+    if (!isUserMove && idx < moves.length) {
+      // For opponent moves: check if the NEXT user move's eval_before improved significantly
+      // compared to the previous user move's eval_after (meaning opponent gave away advantage)
+      const evals = analysis?.stockfish_analysis?.move_evaluations || [];
+      const moveNum = Math.floor(idx / 2) + 1;
+
+      // Find eval BEFORE this opponent move (from previous user move's eval_after)
+      // and eval AFTER (from next user move's eval_before)
+      const prevUserEvalIdx = isUserMove ? idx : idx - 1;
+      const nextUserEvalIdx = isUserMove ? idx : idx + 1;
+
+      const prevEval = findEvalForMove(prevUserEvalIdx);
+      const nextEval = findEvalForMove(nextUserEvalIdx);
+
+      if (prevEval && nextEval) {
+        const evalBefore = prevEval.eval_after || 0;
+        const evalAfter = nextEval.eval_before || 0;
+        // Eval swing in user's favor = opponent blundered
+        const userIsWhite = userColor === "white";
+        const swingForUser = userIsWhite ? (evalAfter - evalBefore) : (evalBefore - evalAfter);
+        // Normalize if float
+        const swing = Math.abs(swingForUser) < 100 ? swingForUser * 100 : swingForUser;
+        if (swing >= 150) return true; // Opponent lost 150+ cp
+      }
+    }
+
+    return false;
   };
 
   const goToPrev = () => {

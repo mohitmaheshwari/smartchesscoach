@@ -129,10 +129,28 @@ const CoachMovePanel = ({
 
   // No move selected — show game intro
   if (currentMoveIndex < 0) {
-    // Count moment types
-    const blunders = importantMoves.filter(m => m.severity.includes("blunder")).length;
-    const mistakes = importantMoves.filter(m => m.severity.includes("mistake")).length;
-    const inaccuracies = importantMoves.filter(m => m.severity.includes("inaccuracy")).length;
+    // Count YOUR moment types (only blunders + mistakes — no inaccuracies)
+    const yourBlunders = importantMoves.filter(m => m.severity.includes("blunder") && !m.severity.includes("opp")).length;
+    const yourMistakes = importantMoves.filter(m => m.severity.includes("mistake") && !m.severity.includes("opp")).length;
+
+    // Count OPPONENT's mistakes/blunders
+    const oppMoments = moves.map((m, idx) => {
+      const moveNum = Math.floor(idx / 2) + 1;
+      const isOppMove = (userColor === "white" && idx % 2 === 1) || (userColor === "black" && idx % 2 === 0);
+      if (!isOppMove) return null;
+      const evalData = evals.find(e => e.move_number === moveNum && e.move === m.san)
+                    || evals.find(e => e.move === m.san);
+      if (!evalData) return null;
+      const cpLoss = Math.abs(evalData.cp_loss || 0);
+      if (cpLoss >= 200) return { idx, san: m.san, type: "blunder", cpLoss };
+      if (cpLoss >= 100) return { idx, san: m.san, type: "mistake", cpLoss };
+      return null;
+    }).filter(Boolean);
+
+    const oppBlunders = oppMoments.filter(m => m.type === "blunder").length;
+    const oppMistakes = oppMoments.filter(m => m.type === "mistake").length;
+
+    const totalYourMoments = yourBlunders + yourMistakes;
 
     return (
       <div className="p-5 space-y-5">
@@ -148,32 +166,52 @@ const CoachMovePanel = ({
             </div>
           </div>
 
-          {/* Summary */}
-          <div className="space-y-2 mb-5">
-            <p className="text-sm text-foreground leading-relaxed">
-              I found <strong>{totalMoments} moment{totalMoments !== 1 ? "s" : ""}</strong> worth looking at.
-            </p>
+          {/* Your mistakes */}
+          <div className="mb-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Your moves</p>
             <div className="flex items-center gap-3 text-xs">
-              {blunders > 0 && (
-                <span className="flex items-center gap-1 text-red-400">
+              {yourBlunders > 0 && (
+                <span className="flex items-center gap-1.5 text-red-400">
                   <div className="w-2 h-2 rounded-full bg-red-400" />
-                  {blunders} blunder{blunders !== 1 ? "s" : ""}
+                  {yourBlunders} blunder{yourBlunders !== 1 ? "s" : ""}
                 </span>
               )}
-              {mistakes > 0 && (
-                <span className="flex items-center gap-1 text-orange-500">
+              {yourMistakes > 0 && (
+                <span className="flex items-center gap-1.5 text-orange-500">
                   <div className="w-2 h-2 rounded-full bg-orange-500" />
-                  {mistakes} mistake{mistakes !== 1 ? "s" : ""}
+                  {yourMistakes} mistake{yourMistakes !== 1 ? "s" : ""}
                 </span>
               )}
-              {inaccuracies > 0 && (
-                <span className="flex items-center gap-1 text-amber-500">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  {inaccuracies} inaccurac{inaccuracies !== 1 ? "ies" : "y"}
-                </span>
+              {totalYourMoments === 0 && (
+                <span className="text-emerald-500">Clean game — no major mistakes</span>
               )}
             </div>
           </div>
+
+          {/* Opponent's mistakes */}
+          {(oppBlunders > 0 || oppMistakes > 0) && (
+            <div className="mb-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Opponent's mistakes</p>
+              <div className="flex items-center gap-3 text-xs">
+                {oppBlunders > 0 && (
+                  <span className="flex items-center gap-1.5 text-emerald-500">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    {oppBlunders} blunder{oppBlunders !== 1 ? "s" : ""} you could exploit
+                  </span>
+                )}
+                {oppMistakes > 0 && (
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                    {oppMistakes} mistake{oppMistakes !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <p className="text-sm text-foreground leading-relaxed mb-5">
+            {totalMoments} moment{totalMoments !== 1 ? "s" : ""} to review.
+          </p>
 
           {/* What to expect */}
           <div className="p-3 rounded-lg bg-muted/50 border border-border mb-5">
@@ -217,21 +255,132 @@ const CoachMovePanel = ({
     );
   }
 
-  // Opponent move
+  // Opponent move — check if they blundered and if user capitalized
   if (!isUserMove) {
-    const oppSeverity = severity.toLowerCase();
-    const oppBlundered = oppSeverity.includes("blunder") || oppSeverity.includes("mistake");
+    // Detect opponent blunder from eval swing
+    const nextMoveIdx = currentMoveIndex + 1;
+    const nextEval = nextMoveIdx < moves.length ? (() => {
+      const nm = moves[nextMoveIdx];
+      const moveNum = Math.floor(nextMoveIdx / 2) + 1;
+      return evals.find(e => e.move_number === moveNum && e.move === nm.san)
+          || evals.find(e => e.move === nm.san) || null;
+    })() : null;
+
+    const prevMoveIdx = currentMoveIndex - 1;
+    const prevEval = prevMoveIdx >= 0 ? (() => {
+      const pm = moves[prevMoveIdx];
+      const moveNum = Math.floor(prevMoveIdx / 2) + 1;
+      return evals.find(e => e.move_number === moveNum && e.move === pm.san)
+          || evals.find(e => e.move === pm.san) || null;
+    })() : null;
+
+    // Did opponent blunder? Check eval swing
+    const evalBefore = prevEval?.eval_after || 0;
+    const evalAfter = nextEval?.eval_before || 0;
+    const isWhite = userColor === "white";
+    const rawSwing = isWhite ? (evalAfter - evalBefore) : (evalBefore - evalAfter);
+    const swing = Math.abs(rawSwing) < 100 ? rawSwing * 100 : rawSwing;
+    const oppBlundered = swing >= 150;
+
+    // Did user capitalize on the next move?
+    const userCapitalized = nextEval && (nextEval.cp_loss || 0) < 50;
+    const userMissed = nextEval && (nextEval.cp_loss || 0) >= 100;
+    const userBestMove = nextEval?.best_move || "";
+
+    if (!oppBlundered) {
+      return (
+        <div className="p-5">
+          <p className="text-xs text-muted-foreground">Opponent's move. Click Next to see your response.</p>
+        </div>
+      );
+    }
 
     return (
       <div className="p-5 space-y-4">
-        <p className="text-sm text-foreground font-medium">Opponent's move</p>
-        {oppBlundered ? (
-          <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
-            <p className="text-sm text-emerald-600">Your opponent made a mistake here. Did you see it?</p>
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">Navigate to your next move to see coaching.</p>
-        )}
+        <AnimatePresence mode="wait">
+          <motion.div key={currentMoveIndex} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+
+            {/* Moment counter */}
+            {totalMoments > 0 && (
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Moment {currentMomentNumber} of {totalMoments}
+                </p>
+                <div className="flex gap-1">
+                  {importantMoves.map((m, i) => (
+                    <div key={i} className={`w-2 h-2 rounded-full ${
+                      i < currentMomentIndex ? "bg-emerald-500"
+                      : i === currentMomentIndex ? "bg-primary"
+                      : "bg-muted-foreground/20"
+                    }`} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-3 bg-emerald-500/15 text-emerald-500">
+              <Lightbulb className="w-3 h-3" strokeWidth={2.5} />
+              Opponent's mistake
+            </div>
+
+            <p className="text-sm text-foreground mb-3">
+              Your opponent made a mistake here.
+            </p>
+
+            {userCapitalized && (
+              <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15 mb-3">
+                <p className="text-sm text-emerald-600">You spotted it and played well. Good job.</p>
+              </div>
+            )}
+
+            {userMissed && (
+              <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/15 mb-3">
+                <p className="text-sm text-amber-600 mb-1">You missed this opportunity.</p>
+                {userBestMove && (
+                  <p className="text-xs text-muted-foreground">
+                    Best response was <span className="font-mono font-medium text-emerald-500">{userBestMove}</span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!userCapitalized && !userMissed && (
+              <p className="text-xs text-muted-foreground mb-3">Click Next to see how you responded.</p>
+            )}
+
+            {/* Show the idea if user missed */}
+            {userMissed && userBestMove && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1.5"
+                onClick={() => {
+                  if (onPlayBestLine) {
+                    onPlayBestLine({
+                      fen: currentFen,
+                      best_move: userBestMove,
+                      pv_after_best: nextEval?.pv_after_best || [],
+                      move_number: Math.floor(currentMoveIndex / 2) + 1,
+                    });
+                  }
+                }}
+              >
+                <ChevronRight className="w-3 h-3" />
+                Show what you should have done
+              </Button>
+            )}
+
+            {/* Next moment */}
+            {hasNextMoment && (
+              <div className="pt-3 border-t border-border/50 mt-4">
+                <Button onClick={onGoToNextMoment} className="w-full text-xs gap-2" variant="outline">
+                  Ready for next moment <ChevronRight className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
+
+          </motion.div>
+        </AnimatePresence>
       </div>
     );
   }
