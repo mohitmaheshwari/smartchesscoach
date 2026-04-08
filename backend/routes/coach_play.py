@@ -2942,64 +2942,111 @@ async def explore_lines(
                 continuation = []
 
                 if user_reply_info and user_reply_info[0].get("pv"):
-                    # Build the full continuation until IMPACT is found
-                    # Impact = capture, check, checkmate, or the eval proves the point
+                    # Play the FULL Stockfish PV — let the engine decide when position is quiet
+                    # Don't try to detect "exchange settled" ourselves — Stockfish already did
                     full_pv = user_reply_info[0]["pv"]
 
                     temp = board_after.copy()
                     continuation.append({"move": opp_san, "by": "opponent"})
                     temp.push(opp_move)
 
-                    impact_found = False
-                    user_turn = True  # After opponent moved, it's user's turn
+                    user_turn = True
+                    PIECE_VALUES = {chess_mod.PAWN: 1, chess_mod.KNIGHT: 3, chess_mod.BISHOP: 3,
+                                    chess_mod.ROOK: 5, chess_mod.QUEEN: 9, chess_mod.KING: 0}
 
-                    for pv_idx, pv_move in enumerate(full_pv[:8]):  # Max 8 moves deep
+                    # Material BEFORE the line starts
+                    w_mat_before = sum(PIECE_VALUES.get(p.piece_type, 0) for p in temp.piece_map().values() if p.color == chess_mod.WHITE)
+                    b_mat_before = sum(PIECE_VALUES.get(p.piece_type, 0) for p in temp.piece_map().values() if p.color == chess_mod.BLACK)
+
+                    for pv_idx, pv_move in enumerate(full_pv[:10]):
                         try:
                             pv_san = temp.san(pv_move)
                             is_cap = temp.is_capture(pv_move)
                             gives_check = temp.gives_check(pv_move)
-
                             who = "you" if user_turn else "opponent"
 
-                            # Describe impact
-                            impact_desc = None
+                            # Describe what this move does
+                            move_desc = None
                             if gives_check:
                                 temp.push(pv_move)
                                 if temp.is_checkmate():
-                                    impact_desc = "Checkmate"
+                                    move_desc = "Checkmate"
                                 else:
-                                    impact_desc = "Check"
+                                    move_desc = "Check"
                                 temp.pop()
-                            elif is_cap:
+                            if is_cap:
                                 captured = temp.piece_at(pv_move.to_square)
                                 if captured:
                                     cap_name = PIECE_NAMES.get(captured.piece_type, "piece")
-                                    impact_desc = f"Wins the {cap_name}"
+                                    move_desc = f"Takes {cap_name}" if not move_desc else f"{move_desc} and takes {cap_name}"
 
                             continuation.append({
                                 "move": pv_san,
                                 "by": who,
-                                "is_impact": impact_desc is not None,
-                                "impact": impact_desc,
+                                "is_impact": False,
+                                "impact": move_desc,
                             })
 
                             temp.push(pv_move)
                             user_turn = not user_turn
 
-                            # Stop after impact found (but include the impact move)
-                            if impact_desc:
-                                impact_found = True
+                            if move_desc == "Checkmate":
+                                continuation[-1]["is_impact"] = True
                                 break
 
                         except Exception:
                             break
 
-                    # If no clear impact found, get final eval to describe outcome
+                    # Evaluate the FINAL position after the full line
                     final_score = user_reply_info[0].get("score")
                     if final_score:
                         final_eval = final_score.relative.score(mate_score=10000) if not final_score.is_mate() else 10000
 
-                    if not impact_found and final_eval is not None:
+                    # Material at the end
+                    user_is_white = board.turn == chess_mod.WHITE
+                    w_mat_after = sum(PIECE_VALUES.get(p.piece_type, 0) for p in temp.piece_map().values() if p.color == chess_mod.WHITE)
+                    b_mat_after = sum(PIECE_VALUES.get(p.piece_type, 0) for p in temp.piece_map().values() if p.color == chess_mod.BLACK)
+
+                    # Net material change from user's perspective
+                    user_mat_change = (w_mat_after - b_mat_after) - (w_mat_before - b_mat_before)
+                    if not user_is_white:
+                        user_mat_change = -user_mat_change
+
+                    # Add final outcome
+                    outcome = ""
+                    if user_mat_change >= 8:
+                        outcome = "You win the queen"
+                    elif user_mat_change >= 4:
+                        outcome = "You win major material"
+                    elif user_mat_change >= 2:
+                        outcome = "You win a piece"
+                    elif user_mat_change >= 1:
+                        outcome = "You win a pawn"
+                    elif user_mat_change <= -4:
+                        outcome = "You lose material"
+                    elif user_mat_change <= -1:
+                        outcome = "You lose a pawn"
+                    elif final_eval and final_eval > 200:
+                        outcome = "You have a winning position"
+                    elif final_eval and final_eval < -200:
+                        outcome = "You're in trouble"
+                    else:
+                        outcome = "Position is roughly equal"
+
+                    # Mark outcome on last move
+                    if continuation:
+                        continuation.append({
+                            "move": "",
+                            "by": "result",
+                            "is_impact": True,
+                            "impact": outcome,
+                        })
+
+                    if final_eval is None and final_score:
+                        final_eval = final_score.relative.score(mate_score=10000) if not final_score.is_mate() else 10000
+
+                    _ = final_eval  # Suppress unused warning
+                    if False:  # Dead code guard — was "if not impact_found"
                         # Describe outcome based on eval
                         if abs(final_eval) >= 300:
                             continuation.append({
