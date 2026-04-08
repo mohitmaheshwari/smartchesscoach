@@ -1455,7 +1455,13 @@ const LabV2 = ({ user }) => {
                   moves={moves}
                   analysis={analysis}
                   userColor={userColor}
-                  currentFen={currentMoveIndex >= 0 ? allFens[currentMoveIndex + 1] : allFens[0]}
+                  currentFen={currentMoveIndex >= 0 ? allFens[currentMoveIndex] : allFens[0]}
+                  onPlayBestLine={(moment) => playBestLine(moment)}
+                  isPlayingBestLine={isPlayingBestLine}
+                  bestLineIndex={bestLineIndex}
+                  currentBestLine={currentBestLine}
+                  onBestLineNext={() => setBestLineIndex(Math.min(bestLineIndex + 1, (currentBestLine?.fens.length || 1) - 1))}
+                  onBestLineExit={() => { setIsPlayingBestLine(false); setCurrentBestLine(null); setBestLineIndex(0); }}
                 />
               ) : (
                 <div className="p-6">

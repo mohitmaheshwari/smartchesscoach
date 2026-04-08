@@ -27,6 +27,12 @@ const CoachMovePanel = ({
   analysis,
   userColor,
   currentFen,
+  onPlayBestLine,
+  isPlayingBestLine,
+  bestLineIndex,
+  currentBestLine,
+  onBestLineNext,
+  onBestLineExit,
 }) => {
   const [reflection, setReflection] = useState("");
   const [reflectionSaved, setReflectionSaved] = useState(false);
@@ -229,7 +235,172 @@ const CoachMovePanel = ({
             </div>
           )}
 
-          {/* ── 5. GOLDEN RULE ── */}
+          {/* ── 5. BEST MOVE — detect type + show line if setup ── */}
+          {currentEval && currentEval.best_move && !isPlayingBestLine && (
+            <div className="mb-5">
+              {(() => {
+                const bestMove = currentEval.best_move || "";
+                const pv = currentEval.pv_after_best || [];
+                const moveNum = Math.floor(currentMoveIndex / 2) + 1;
+
+                // Detect move type from characteristics
+                const isCapture = bestMove.includes("x");
+                const isCheck = bestMove.includes("+") || bestMove.includes("#");
+                const bestMoveExplanation = currentEval.best_move_explanation || "";
+
+                // Check if a piece was hanging (user's piece under attack)
+                const wasHanging = (currentEval.cognitive_gap || "").includes("piece_safety") ||
+                                   (currentEval.cognitive_gap || "").includes("hanging");
+
+                // Determine idea type
+                let ideaType = "setup"; // default
+                let ideaLabel = "";
+
+                if (isCheck) {
+                  ideaType = "immediate";
+                  ideaLabel = "There was a check here that changes everything.";
+                } else if (isCapture && cpLoss >= 200) {
+                  ideaType = "immediate";
+                  ideaLabel = "There was a capture here that wins material.";
+                } else if (isCapture) {
+                  ideaType = "immediate";
+                  ideaLabel = "There was a better capture available.";
+                } else if (wasHanging) {
+                  ideaType = "immediate";
+                  ideaLabel = "One of your pieces was undefended. It needed saving.";
+                } else if (pv.length >= 2) {
+                  ideaType = "setup";
+                  ideaLabel = "The best move sets up an idea. Let me show you what happens next.";
+                } else {
+                  ideaType = "positional";
+                  ideaLabel = "There was a stronger move here. It improves your position.";
+                }
+
+                return (
+                  <div className={`p-3 rounded-lg border ${
+                    ideaType === "immediate"
+                      ? "border-emerald-500/15 bg-emerald-500/[0.03]"
+                      : ideaType === "setup"
+                      ? "border-primary/15 bg-primary/[0.03]"
+                      : "border-border bg-card"
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                        ideaType === "immediate" ? "text-emerald-500"
+                        : ideaType === "setup" ? "text-primary"
+                        : "text-muted-foreground"
+                      }`}>
+                        {ideaType === "immediate" ? "Quick find"
+                         : ideaType === "setup" ? "Follow-up idea"
+                         : "Positional improvement"}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-foreground/80 mb-3">{ideaLabel}</p>
+
+                    {/* For SETUP ideas: show the line button */}
+                    {ideaType === "setup" && pv.length >= 1 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs gap-1.5"
+                        onClick={() => {
+                          if (onPlayBestLine) {
+                            onPlayBestLine({
+                              fen: currentFen,
+                              best_move: bestMove,
+                              pv_after_best: pv,
+                              move_number: moveNum,
+                            });
+                          }
+                        }}
+                      >
+                        <ChevronRight className="w-3 h-3" />
+                        Show me the idea
+                      </Button>
+                    )}
+
+                    {/* For IMMEDIATE: just explain */}
+                    {ideaType === "immediate" && bestMoveExplanation && (
+                      <div className="group">
+                        <p className="text-xs text-muted-foreground inline">{bestMoveExplanation}</p>
+                        <InlineFlag
+                          section="best_move_explanation"
+                          flaggedText={bestMoveExplanation}
+                          context={{ fen: currentFen, moveSan: bestMove, source: "coach_tab" }}
+                        />
+                      </div>
+                    )}
+
+                    {/* For POSITIONAL: offer to see the line if available */}
+                    {ideaType === "positional" && pv.length >= 1 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs gap-1.5 text-muted-foreground"
+                        onClick={() => {
+                          if (onPlayBestLine) {
+                            onPlayBestLine({
+                              fen: currentFen,
+                              best_move: bestMove,
+                              pv_after_best: pv,
+                              move_number: moveNum,
+                            });
+                          }
+                        }}
+                      >
+                        <ChevronRight className="w-3 h-3" />
+                        See why this is better
+                      </Button>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* ── PLAYING BEST LINE — step by step ── */}
+          {isPlayingBestLine && currentBestLine && (
+            <div className="mb-5">
+              <div className="p-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.03]">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-500">
+                    Best line — Step {bestLineIndex + 1} of {currentBestLine.moves.length}
+                  </p>
+                  <button onClick={onBestLineExit} className="text-xs text-muted-foreground hover:text-foreground">
+                    Exit
+                  </button>
+                </div>
+
+                {/* Current move in the line */}
+                {bestLineIndex < currentBestLine.moves.length && (
+                  <p className="text-sm text-foreground mb-3">
+                    {bestLineIndex % 2 === 0
+                      ? <span className="text-emerald-500 font-medium">Your move: </span>
+                      : <span className="text-red-400 font-medium">Opponent responds: </span>
+                    }
+                    <span className="font-mono">{currentBestLine.moves[bestLineIndex].san}</span>
+                  </p>
+                )}
+
+                {bestLineIndex < currentBestLine.moves.length - 1 ? (
+                  <Button size="sm" onClick={onBestLineNext} className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                    <ChevronRight className="w-3 h-3" />
+                    Next move
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-emerald-500">End of line. This is why this was better.</p>
+                    <Button size="sm" variant="outline" onClick={onBestLineExit} className="text-xs">
+                      Got it
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── 6. GOLDEN RULE ── */}
           {currentEval?.golden_rule && (
             <div className="p-4 rounded-xl bg-amber-500/[0.05] border border-amber-500/15 group">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Remember this</p>
