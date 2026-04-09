@@ -688,6 +688,11 @@ const CoachPlaySidebar = ({
 }) => {
   const [showLessonPicker, setShowLessonPicker] = useState(false);
 
+  // When the new coaching flow is wired up, suppress ALL old coaching sections.
+  // The ActiveCoachingCard (board-adjacent) handles live coaching.
+  // Sidebar only shows timeline + teaching mode.
+  const suppressOldCoaching = coachFlowState !== undefined;
+
   // When lesson picker starts a lesson, pass through to parent handler
   const handleLessonFromPicker = (lessonData) => {
     setShowLessonPicker(false);
@@ -750,13 +755,13 @@ const CoachPlaySidebar = ({
 
           {/* Main Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Pre-Move Fundamentals Reminder — always visible when it's player's turn */}
-            {!gameOver && isPlayerTurn && !v5Coaching && !isCoachThinking && !guardianIntervention && !isInTeachingMode && (
+            {/* Pre-Move Fundamentals Reminder — only in old mode */}
+            {!suppressOldCoaching && !gameOver && isPlayerTurn && !v5Coaching && !isCoachThinking && !guardianIntervention && !isInTeachingMode && (
               <PreMoveFundamentals />
             )}
 
-            {/* Coach Panel — hide when V5 coaching is showing (avoids overload) */}
-            {!gameOver && !v5Coaching && !isCoachThinking && (
+            {/* Coach Panel — only in old mode */}
+            {!suppressOldCoaching && !gameOver && !v5Coaching && !isCoachThinking && (
               <CoachPanel
                 sessionId={session?.session_id}
                 fen={currentFen}
@@ -778,8 +783,8 @@ const CoachPlaySidebar = ({
               confirmRiskyMove={confirmRiskyMove}
             />
 
-            {/* Trap Alert */}
-            {activeTrapAlert && (
+            {/* Trap Alert — only in old mode */}
+            {!suppressOldCoaching && activeTrapAlert && (
               <TrapAlert
                 trap={activeTrapAlert}
                 onShowLine={() => {}}
@@ -787,8 +792,8 @@ const CoachPlaySidebar = ({
               />
             )}
 
-            {/* Escape Squares Quiz — hide when V5 coaching is active */}
-            {escapeSquaresQuiz && !isInTeachingMode && !gameOver && !v5Coaching && (
+            {/* Escape Squares Quiz — only in old mode */}
+            {!suppressOldCoaching && escapeSquaresQuiz && !isInTeachingMode && !gameOver && !v5Coaching && (
               <EscapeSquaresQuiz
                 quiz={escapeSquaresQuiz}
                 sessionId={session?.session_id}
@@ -796,8 +801,8 @@ const CoachPlaySidebar = ({
               />
             )}
 
-            {/* Coach's Move Explanation */}
-            {interactiveCoaching.coachMoveCoaching && (
+            {/* Coach's Move Explanation — only in old mode */}
+            {!suppressOldCoaching && interactiveCoaching.coachMoveCoaching && (
               <div
                 data-testid="coach-move-explanation"
                 className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2"
@@ -903,8 +908,8 @@ const CoachPlaySidebar = ({
               </div>
             )}
 
-            {/* Coach Thinking Indicator */}
-            {isCoachThinking &&
+            {/* Coach Thinking Indicator — only in old mode */}
+            {!suppressOldCoaching && isCoachThinking &&
               !v5Coaching &&
               !guardianIntervention &&
               !session?.curriculum_active && (
@@ -926,8 +931,8 @@ const CoachPlaySidebar = ({
                 </div>
               )}
 
-            {/* User's Move Feedback — hide during curriculum */}
-            {v5Coaching && !session?.curriculum_active && (
+            {/* User's Move Feedback — only in old mode */}
+            {!suppressOldCoaching && v5Coaching && !session?.curriculum_active && (
               <V5CoachingCard
                 coaching={v5Coaching}
                 moveSan={v5Coaching.move_san}
@@ -942,13 +947,13 @@ const CoachPlaySidebar = ({
               />
             )}
 
-            {/* Fundamentals Checklist — pass/fail for 7 fundamentals */}
-            {v5Coaching?.checklist_snapshot && (
+            {/* Fundamentals Checklist — only in old mode */}
+            {!suppressOldCoaching && v5Coaching?.checklist_snapshot && (
               <FundamentalsChecklist snapshot={v5Coaching.checklist_snapshot} />
             )}
 
-            {/* Trap Opportunity — Escape Square Awareness */}
-            {v5Coaching?.trap_opportunity && (
+            {/* Trap Opportunity — only in old mode */}
+            {!suppressOldCoaching && v5Coaching?.trap_opportunity && (
               <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5" data-testid="trap-opportunity">
                 <div className="flex items-center gap-2 mb-2">
                   <Target className="w-4 h-4 text-amber-500" strokeWidth={2} />
@@ -986,13 +991,13 @@ const CoachPlaySidebar = ({
               </div>
             )}
 
-            {/* Position Evaluation */}
-            {v5Coaching?.eval_label && (
+            {/* Position Evaluation — only in old mode */}
+            {!suppressOldCoaching && v5Coaching?.eval_label && (
               <EvalBadge evalLabel={v5Coaching.eval_label} size="md" showDescription />
             )}
 
-            {/* Position Intelligence — what to focus on */}
-            {v5Coaching?.position_read && (
+            {/* Position Intelligence — only in old mode */}
+            {!suppressOldCoaching && v5Coaching?.position_read && (
               <div className="p-3 rounded-lg border border-blue-500/15 bg-blue-500/5" data-testid="position-read">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-500">
@@ -1025,8 +1030,8 @@ const CoachPlaySidebar = ({
               </div>
             )}
 
-            {/* Behavioral Coaching — hide during curriculum */}
-            {behavioralCoaching && !session?.curriculum_active && (
+            {/* Behavioral Coaching — only in old mode */}
+            {!suppressOldCoaching && behavioralCoaching && !session?.curriculum_active && (
               <div
                 data-testid="behavioral-coaching"
                 className={`p-3 rounded-lg border ${
