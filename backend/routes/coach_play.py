@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict
 from datetime import datetime, timezone
 import logging
+import json
 import chess
 
 logger = logging.getLogger(__name__)
@@ -3967,10 +3968,111 @@ async def _process_move_and_respond(
                                 {"$set": {"opening_teaching_index": new_index}}
                             )
         
+        # ═══════════════════════════════════════════════════════════
+        # NEW: Message Decision Engine (Step 2.5)
+        # Replaces ALL old emitters when enabled.
+        # ═══════════════════════════════════════════════════════════
+        engine_handled = False
+        try:
+            from services.message_decision_engine import (
+                ENABLE_DECISION_ENGINE, compute_signals, decide_message, SessionMemory
+            )
+            if ENABLE_DECISION_ENGINE:
+                # Get or create session memory
+                session_doc_mem = await db.coach_sessions.find_one({"session_id": session_id})
+                _session_memory_cache = getattr(_process_move_and_respond, '_memory_cache', {})
+
+                if session_id not in _session_memory_cache:
+                    _session_memory_cache[session_id] = SessionMemory()
+                    _process_move_and_respond._memory_cache = _session_memory_cache
+
+                memory = _session_memory_cache[session_id]
+
+                # Get user patterns for pattern matching
+                user_patterns = []
+                try:
+                    lifecycle_docs = await db.problem_lifecycle.find(
+                        {"user_id": session_doc_mem.get("user_id")},
+                        {"category": 1, "_id": 0}
+                    ).to_list(10)
+                    user_patterns = [d["category"] for d in lifecycle_docs]
+                except Exception:
+                    pass
+
+                # Compute move index
+                move_history_len = len(session_doc_mem.get("move_history", []))
+                move_idx = move_history_len - 1  # 0-indexed
+
+                # Compute signals
+                signals = compute_signals(
+                    move_index=move_idx,
+                    fen_before=fen_before,
+                    fen_after=fen_after_user,
+                    move_san=user_move,
+                    is_user_move=True,
+                    user_color=user_color,
+                    move_number=move_number,
+                    eval_before=analysis.get("eval_before", 0),
+                    eval_after=analysis.get("eval_after", 0),
+                    best_move=analysis.get("best_move", ""),
+                    user_rating=user_rating,
+                    session_evals=session_doc_mem.get("evaluations", []),
+                    user_patterns=user_patterns,
+                )
+
+                # Run decision engine
+                result = decide_message(signals, memory, user_patterns)
+
+                # Log debug info
+                logger.info(f"[MDE-DEBUG] {json.dumps(result.get('debug_log', {}), default=str)}")
+
+                # Store debug log in session for export
+                try:
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$push": {"mde_debug_logs": result.get("debug_log", {})}}
+                    )
+                except Exception:
+                    pass
+
+                # Emit winner if any
+                if result.get("show_message") and result.get("message"):
+                    msg = result["message"]
+                    msg_doc = {
+                        "session_id": session_id,
+                        "type": "coach",
+                        "message": msg["message"],
+                        "trigger": msg["message_type"],
+                        "move_index": msg["move_index"],
+                        "fen_before": msg["fen_before"],
+                        "move": user_move,
+                        "move_number": move_number,
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                        "message_type": msg["message_type"],
+                        "concept_key": msg["concept_key"],
+                        "severity": msg["severity"],
+                        "priority_score": msg["priority_score"],
+                    }
+                    if msg.get("question"):
+                        msg_doc["question"] = {"prompt": msg["question"]}
+                    await db.coach_messages.insert_one(msg_doc)
+
+                engine_handled = True
+
+        except ImportError:
+            logger.warning("MessageDecisionEngine not available, using legacy coaching")
+        except Exception as e:
+            logger.error(f"MessageDecisionEngine failed: {e}", exc_info=True)
+
+        # ═══════════════════════════════════════════════════════════
+        # LEGACY COACHING (skipped when engine handles the move)
+        # ═══════════════════════════════════════════════════════════
+
         # Step 3: MOVE-BY-MOVE COACHING for opening phase
         # During opening, ALWAYS generate a commentary message (not trigger-dependent)
         opening_commentary_sent = False
-        if move_number <= 15:
+        if not engine_handled and move_number <= 15:
             try:
                 if not await _is_current_revision():
                     logger.info(f"Skipping stale opening commentary for session {session_id}")
@@ -4027,7 +4129,7 @@ async def _process_move_and_respond(
                 logger.warning(f"Move-by-move coaching failed: {e}")
         
         # Step 4: Generate and store message if triggered (skip if opening commentary already sent)
-        if trigger.should_speak and not opening_commentary_sent:
+        if not engine_handled and trigger.should_speak and not opening_commentary_sent:
             if not await _is_current_revision():
                 logger.info(f"Skipping stale triggered coaching for session {session_id}")
                 return
@@ -4188,7 +4290,7 @@ async def _process_move_and_respond(
         
         # Step 3.5: Proactive teaching for GOOD moves and consequence detection
         # Even if trigger didn't fire, we can praise good moves or warn about consequences
-        if not trigger.should_speak:
+        if not engine_handled and not trigger.should_speak:
             try:
                 if not await _is_current_revision():
                     logger.info(f"Skipping stale proactive teaching for session {session_id}")
@@ -4421,8 +4523,50 @@ async def _process_move_and_respond(
                             logger.warning(f"Opening detection after coach move failed: {e}")
                     
                     # === TEACHING: Generate coach's teaching message ===
+                    # When decision engine is active, run coach move through it too
                     coach_move_number = len(move_history) // 2
-                    if not coach_game_over:
+                    if engine_handled and not coach_game_over:
+                        # Use decision engine for coach move too
+                        try:
+                            coach_signals = compute_signals(
+                                move_index=len(move_history) - 1,
+                                fen_before=fen_after_user,
+                                fen_after=fen_after_coach,
+                                move_san=coach_move,
+                                is_user_move=False,
+                                user_color=user_color,
+                                move_number=coach_move_number,
+                                eval_before=analysis.get("eval_after", 0),
+                                eval_after=0,  # We don't have coach eval
+                                best_move="",
+                                user_rating=user_rating,
+                            )
+                            coach_result = decide_message(coach_signals, memory, user_patterns)
+                            logger.info(f"[MDE-DEBUG-COACH] {json.dumps(coach_result.get('debug_log', {}), default=str)}")
+
+                            if coach_result.get("show_message") and coach_result.get("message"):
+                                cmsg = coach_result["message"]
+                                await db.coach_messages.insert_one({
+                                    "session_id": session_id,
+                                    "type": "coach",
+                                    "message": cmsg["message"],
+                                    "trigger": cmsg["message_type"],
+                                    "move_index": cmsg["move_index"],
+                                    "fen_before": cmsg["fen_before"],
+                                    "move": coach_move,
+                                    "move_number": coach_move_number,
+                                    "is_coach_move": True,
+                                    "created_at": datetime.now(timezone.utc),
+                                    "read": False,
+                                    "message_type": cmsg["message_type"],
+                                    "concept_key": cmsg["concept_key"],
+                                    "severity": cmsg["severity"],
+                                    "priority_score": cmsg["priority_score"],
+                                })
+                        except Exception as e:
+                            logger.warning(f"MDE coach move failed: {e}")
+
+                    if not engine_handled and not coach_game_over:
                         try:
                             from services.move_by_move_coach import generate_move_commentary
                             from coach_engine.opening_plans import build_opening_coaching_context
