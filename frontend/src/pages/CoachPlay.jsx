@@ -2232,11 +2232,15 @@ const CoachPlay = ({ user }) => {
         />
 
         {/* Middle: Commentary panel (board reading) */}
-        {coachFlow.commentary && (
+        {coachFlow.commentary ? (
           <div className="w-64 flex-shrink-0 border-l border-border overflow-y-auto">
             <CommentaryPanel commentary={coachFlow.commentary} />
           </div>
-        )}
+        ) : gameStarted && session && !gameOver ? (
+          <div className="w-64 flex-shrink-0 border-l border-border p-3">
+            <p className="text-xs text-muted-foreground/30">Board reading loading...</p>
+          </div>
+        ) : null}
 
         {/* Right: Coach panel */}
         <CoachPlaySidebar
