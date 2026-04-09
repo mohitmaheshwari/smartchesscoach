@@ -3251,6 +3251,15 @@ async def evaluate_pending_move(
         # ─── FAST STOCKFISH EVAL ─────
         eval_result = fast_eval(fen_before, uci, cached_eval)
 
+        # If fast_eval failed (all zeros), log it
+        if eval_result.get("depth", 0) == 0 and eval_result.get("elapsed_ms", 0) > 500:
+            logger.warning(f"[FAST-EVAL] Engine returned empty result, depth=0")
+
+        # If fast_eval returned no useful data (cp_loss=0, no best_move),
+        # we still proceed — the heuristic signals will decide.
+        # But we should NOT trigger critical based on cp_loss alone if eval is broken.
+        eval_is_valid = eval_result.get("depth", 0) > 0
+
         elapsed_eval = (_time.monotonic() - start) * 1000
 
         # Hard timeout check
@@ -3289,6 +3298,14 @@ async def evaluate_pending_move(
         # Critical = hold. Everything else = auto-commit with coaching strip.
         move_quality = eval_result.get("move_quality", "good")
         cp_loss_val = eval_result.get("cp_loss", 0)
+
+        # If eval is invalid (engine failed), DON'T trust move_quality for critical decisions.
+        # Only trigger critical from heuristics if a real non-pawn piece is hanging.
+        if not eval_is_valid:
+            # Override: don't classify as mistake/blunder without real eval
+            if move_quality in ("mistake", "blunder"):
+                move_quality = "good"  # Downgrade — we can't trust this
+                logger.info(f"[FAST-EVAL] Downgraded {eval_result.get('move_quality')} to good (eval invalid)")
         move_history = session_doc.get("move_history", [])
         move_number = len(move_history) // 2 + 1
         move_idx = len(move_history) - 1
@@ -3343,16 +3360,32 @@ async def evaluate_pending_move(
 
         # ─── ADVISORY (drift detection — BEFORE blunders happen) ─────
         # Advisory = "you should adjust". Identifies live issues.
-        # Triggers on: inaccuracy, or good move but position is drifting.
+        # Also catches heuristic issues when eval is invalid.
         elif move_quality == "inaccuracy" or (
             move_quality == "good" and (
                 fast_signals.get("premature_attack") or
                 fast_signals.get("loose_pieces_present") or
-                (fast_signals.get("king_unsafe") and fast_signals.get("development_incomplete"))
+                (fast_signals.get("king_unsafe") and fast_signals.get("development_incomplete")) or
+                (not eval_is_valid and fast_signals.get("hung_piece")) or
+                (not eval_is_valid and fast_signals.get("missed_threat"))
             )
         ):
-            # Priority order: drift > fundamentals > generic
-            if fast_signals.get("premature_attack"):
+            # Priority order: heuristic warnings > drift > fundamentals > generic
+            if not eval_is_valid and fast_signals.get("hung_piece"):
+                hp = fast_signals["hung_piece"]
+                layer = "advisory"
+                concept_key = "hung_pieces"
+                category = "fundamental_warning"
+                severity = "medium"
+                text = f"Check — your {hp['piece']} on {hp['square']} might be vulnerable."
+            elif not eval_is_valid and fast_signals.get("missed_threat"):
+                mt = fast_signals["missed_threat"]
+                layer = "advisory"
+                concept_key = "ignored_threat"
+                category = "fundamental_warning"
+                severity = "medium"
+                text = f"Your {mt['piece']} might be under pressure. Check your opponent's threats."
+            elif fast_signals.get("premature_attack"):
                 layer = "advisory"
                 concept_key = "premature_attack"
                 category = "drift_warning"
@@ -3444,8 +3477,9 @@ async def evaluate_pending_move(
                 tmpl = pick_template("ambient", "development_phase", {}, session_id)
                 text = tmpl["text"]
 
-            # PRIORITY 6: Reinforcement (ONLY non-obvious strong moves)
-            elif fast_signals.get("is_strong_move") and fast_signals.get("is_non_obvious"):
+            # PRIORITY 6: Reinforcement (ONLY non-obvious strong moves WITH valid eval)
+            elif (fast_signals.get("is_strong_move") and fast_signals.get("is_non_obvious")
+                  and eval_is_valid and cp_loss_val <= 30):
                 layer = "ambient"
                 concept_key = "reinforcement"
                 category = "reinforcement"

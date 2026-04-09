@@ -1,0 +1,2516 @@
+{
+  "exported_at": "2026-04-09T16:27:02.939717+00:00",
+  "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+  "summary": {
+    "user_color": "white",
+    "result": "loss",
+    "termination": "",
+    "total_moves": 76,
+    "user_rating": 1173,
+    "detected_opening": "scotch_game",
+    "opening_teaching_active": true,
+    "created_at": "2026-04-09T16:13:09.511633+00:00",
+    "ended_at": null
+  },
+  "moves": [
+    {
+      "index": 0,
+      "move": "e4",
+      "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "eval": {
+        "move_number": 1,
+        "move": "e4",
+        "by": "player",
+        "score": 0.46,
+        "eval_before": 0.29,
+        "eval_after": 0.46,
+        "best_move": "e4"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Good. You improved your position without creating weaknesses.",
+          "trigger": "reinforcement",
+          "move_index": 0,
+          "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          "move": "e4",
+          "move_number": 1,
+          "created_at": "2026-04-09T16:13:33.558000",
+          "read": true,
+          "message_type": "reinforcement",
+          "concept_key": "strong_move",
+          "severity": "low",
+          "priority_score": 77
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "move": "e5",
+      "eval": {
+        "move_number": 2,
+        "move": "Nf3",
+        "by": "player",
+        "score": 0.44,
+        "eval_before": 0.38,
+        "eval_after": 0.44,
+        "best_move": "Nf3"
+      }
+    },
+    {
+      "index": 2,
+      "move": "Nf3",
+      "eval": {
+        "move_number": 3,
+        "move": "d4",
+        "by": "player",
+        "score": 0.28,
+        "eval_before": 0.35,
+        "eval_after": 0.28,
+        "best_move": "Bb5"
+      }
+    },
+    {
+      "index": 3,
+      "move": "Nc6",
+      "eval": {
+        "move_number": 4,
+        "move": "exd5",
+        "by": "player",
+        "score": 0.08,
+        "eval_before": 0.77,
+        "eval_after": 0.08,
+        "best_move": "Nxe5"
+      }
+    },
+    {
+      "index": 4,
+      "move": "d4",
+      "eval": {
+        "move_number": 5,
+        "move": "Nc3",
+        "by": "player",
+        "score": 0.07,
+        "eval_before": 0.34,
+        "eval_after": 0.07,
+        "best_move": "Nc3"
+      }
+    },
+    {
+      "index": 5,
+      "move": "d5",
+      "eval": {
+        "move_number": 6,
+        "move": "Bd2",
+        "by": "player",
+        "score": 0.08,
+        "eval_before": 0.31,
+        "eval_after": 0.08,
+        "best_move": "Bd2"
+      }
+    },
+    {
+      "index": 6,
+      "move": "exd5",
+      "eval": {
+        "move_number": 7,
+        "move": "dxe5",
+        "by": "player",
+        "score": 1.55,
+        "eval_before": 1.69,
+        "eval_after": 1.55,
+        "best_move": "dxe5"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Stop. Your pawn on d5 is undefended.",
+          "trigger": "critical_interrupt",
+          "move_index": 6,
+          "fen_before": "r1bqkbnr/ppp2ppp/2n5/3pp3/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 4",
+          "move": "exd5",
+          "move_number": 4,
+          "created_at": "2026-04-09T16:14:29.633000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "hung_piece",
+          "severity": "high",
+          "priority_score": 113,
+          "question": {
+            "prompt": "Before moving, did you check if all your pieces are protected?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "move": "Qxd5",
+      "eval": {
+        "move_number": 8,
+        "move": "Bb5",
+        "by": "player",
+        "score": 1.34,
+        "eval_before": 1.63,
+        "eval_after": 1.34,
+        "best_move": "Bc4"
+      }
+    },
+    {
+      "index": 8,
+      "move": "Nc3",
+      "eval": {
+        "move_number": 9,
+        "move": "O-O",
+        "by": "player",
+        "score": 0.42,
+        "eval_before": 1.47,
+        "eval_after": 0.42,
+        "best_move": "Qe2"
+      }
+    },
+    {
+      "index": 9,
+      "move": "Bb4",
+      "eval": {
+        "move_number": 10,
+        "move": "Re1",
+        "by": "player",
+        "score": 0.02,
+        "eval_before": 0.32,
+        "eval_after": 0.02,
+        "best_move": "Be2"
+      }
+    },
+    {
+      "index": 10,
+      "move": "Bd2",
+      "eval": {
+        "move_number": 11,
+        "move": "h3",
+        "by": "player",
+        "score": -1.81,
+        "eval_before": 0.59,
+        "eval_after": -1.81,
+        "best_move": "Bxc6"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Your opponent's queen on d5 was free to take.",
+          "trigger": "critical_interrupt",
+          "move_index": 10,
+          "fen_before": "r1b1k1nr/ppp2ppp/2n5/3qp3/1b1P4/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 2 6",
+          "move": "Bd2",
+          "move_number": 6,
+          "created_at": "2026-04-09T16:14:57.131000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_capture",
+          "severity": "high",
+          "priority_score": 105,
+          "question": {
+            "prompt": "Did you check for captures before choosing your move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 11,
+      "move": "Qd8",
+      "eval": {
+        "move_number": 12,
+        "move": "Qe2",
+        "by": "player",
+        "score": 1.18,
+        "eval_before": 1.33,
+        "eval_after": 1.18,
+        "best_move": "a3"
+      }
+    },
+    {
+      "index": 12,
+      "move": "dxe5",
+      "eval": {
+        "move_number": 13,
+        "move": "Bxc6",
+        "by": "player",
+        "score": 1.56,
+        "eval_before": 1.56,
+        "eval_after": 1.56,
+        "best_move": "Bxc6"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Good choice. You addressed the real problem in the position.",
+          "trigger": "reinforcement",
+          "move_index": 12,
+          "fen_before": "r1bqk1nr/ppp2ppp/2n5/4p3/1b1P4/2N2N2/PPPB1PPP/R2QKB1R w KQkq - 4 7",
+          "move": "dxe5",
+          "move_number": 7,
+          "created_at": "2026-04-09T16:15:09.469000",
+          "read": true,
+          "message_type": "reinforcement",
+          "concept_key": "strong_move",
+          "severity": "low",
+          "priority_score": 73
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "move": "Nge7",
+      "eval": {
+        "move_number": 14,
+        "move": "Qa6",
+        "by": "player",
+        "score": 1.42,
+        "eval_before": 1.57,
+        "eval_after": 1.42,
+        "best_move": "Rac1"
+      }
+    },
+    {
+      "index": 14,
+      "move": "Bb5",
+      "eval": {
+        "move_number": 15,
+        "move": "Na4",
+        "by": "player",
+        "score": 0.67,
+        "eval_before": 1.31,
+        "eval_after": 0.67,
+        "best_move": "Qa4"
+      }
+    },
+    {
+      "index": 15,
+      "move": "O-O",
+      "eval": {
+        "move_number": 16,
+        "move": "Nxh4",
+        "by": "player",
+        "score": 0.62,
+        "eval_before": 1.17,
+        "eval_after": 0.62,
+        "best_move": "Nxh4"
+      }
+    },
+    {
+      "index": 16,
+      "move": "O-O",
+      "eval": {
+        "move_number": 17,
+        "move": "Nxb6",
+        "by": "player",
+        "score": 1.21,
+        "eval_before": 1.13,
+        "eval_after": 1.21,
+        "best_move": "Nxb6"
+      }
+    },
+    {
+      "index": 17,
+      "move": "Bg4",
+      "eval": {
+        "move_number": 18,
+        "move": "Qf1",
+        "by": "player",
+        "score": 0.56,
+        "eval_before": 1.11,
+        "eval_after": 0.56,
+        "best_move": "Qb7"
+      }
+    },
+    {
+      "index": 18,
+      "move": "Re1",
+      "eval": {
+        "move_number": 19,
+        "move": "Bc3",
+        "by": "player",
+        "score": 0.77,
+        "eval_before": 0.55,
+        "eval_after": 0.77,
+        "best_move": "Bc3"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "You moved without responding to the threat on your pawn.",
+          "trigger": "critical_interrupt",
+          "move_index": 42,
+          "fen_before": "3r2k1/2p2ppp/1pp5/4Pb2/4q3/1PB4P/P1P2PP1/R4QK1 w - - 0 22",
+          "move": "Re1",
+          "move_number": 22,
+          "created_at": "2026-04-09T16:22:16.271000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_threat",
+          "severity": "high",
+          "priority_score": 103,
+          "question": {
+            "prompt": "What was your opponent threatening with their last move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 19,
+      "move": "Ng6",
+      "eval": {
+        "move_number": 20,
+        "move": "b3",
+        "by": "player",
+        "score": 0.78,
+        "eval_before": 0.84,
+        "eval_after": 0.78,
+        "best_move": "Re3"
+      }
+    },
+    {
+      "index": 20,
+      "move": "h3",
+      "eval": {
+        "move_number": 21,
+        "move": "Rxe4",
+        "by": "player",
+        "score": 0.28,
+        "eval_before": 1,
+        "eval_after": 0.28,
+        "best_move": "Red1"
+      }
+    },
+    {
+      "index": 21,
+      "move": "Bf5",
+      "eval": {
+        "move_number": 22,
+        "move": "Re1",
+        "by": "player",
+        "score": -0.5,
+        "eval_before": 0.14,
+        "eval_after": -0.5,
+        "best_move": "Rc1"
+      }
+    },
+    {
+      "index": 22,
+      "move": "Qe2",
+      "eval": {
+        "move_number": 23,
+        "move": "Qa6",
+        "by": "player",
+        "score": 0.45,
+        "eval_before": 0.62,
+        "eval_after": 0.45,
+        "best_move": "Re3"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Stop. Your pawn on c2 is undefended.",
+          "trigger": "critical_interrupt",
+          "move_index": 22,
+          "fen_before": "r2q1rk1/ppp2ppp/2n3n1/1B2Pb2/1b6/2N2N1P/PPPB1PP1/R2QR1K1 w - - 1 12",
+          "move": "Qe2",
+          "move_number": 12,
+          "created_at": "2026-04-09T16:18:00.158000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "hung_piece",
+          "severity": "high",
+          "priority_score": 109,
+          "question": {
+            "prompt": "Before moving, did you check if all your pieces are protected?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 23,
+      "move": "Ba5",
+      "eval": {
+        "move_number": 24,
+        "move": "Kf1",
+        "by": "player",
+        "score": 0.32,
+        "eval_before": 0.39,
+        "eval_after": 0.32,
+        "best_move": "Kh2"
+      }
+    },
+    {
+      "index": 24,
+      "move": "Bxc6",
+      "eval": {
+        "move_number": 25,
+        "move": "a3",
+        "by": "player",
+        "score": -0.38,
+        "eval_before": 0.3,
+        "eval_after": -0.38,
+        "best_move": "Kg1"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "You moved without responding to the threat on your pawn.",
+          "trigger": "critical_interrupt",
+          "move_index": 24,
+          "fen_before": "r2q1rk1/ppp2ppp/2n3n1/bB2Pb2/8/2N2N1P/PPPBQPP1/R3R1K1 w - - 3 13",
+          "move": "Bxc6",
+          "move_number": 13,
+          "created_at": "2026-04-09T16:18:15.174000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_threat",
+          "severity": "high",
+          "priority_score": 111,
+          "question": {
+            "prompt": "What was your opponent threatening with their last move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 25,
+      "move": "bxc6",
+      "eval": {
+        "move_number": 26,
+        "move": "Qb7",
+        "by": "player",
+        "score": 0.12,
+        "eval_before": 0.14,
+        "eval_after": 0.12,
+        "best_move": "Qa7"
+      }
+    },
+    {
+      "index": 26,
+      "move": "Qa6",
+      "eval": {
+        "move_number": 27,
+        "move": "Rd1",
+        "by": "player",
+        "score": -0.84,
+        "eval_before": 0.07,
+        "eval_after": -0.84,
+        "best_move": "Kg1"
+      }
+    },
+    {
+      "index": 27,
+      "move": "Bb6",
+      "eval": {
+        "move_number": 28,
+        "move": "Rd4",
+        "by": "player",
+        "score": 0.23,
+        "eval_before": 0.67,
+        "eval_after": 0.23,
+        "best_move": "g4"
+      }
+    },
+    {
+      "index": 28,
+      "move": "Na4",
+      "eval": {
+        "move_number": 29,
+        "move": "g4",
+        "by": "player",
+        "score": 0.25,
+        "eval_before": 0.29,
+        "eval_after": 0.25,
+        "best_move": "g4"
+      }
+    },
+    {
+      "index": 29,
+      "move": "Nh4",
+      "eval": {
+        "move_number": 30,
+        "move": "Ra4",
+        "by": "player",
+        "score": -0.33,
+        "eval_before": 0.25,
+        "eval_after": -0.33,
+        "best_move": "Qxc6"
+      }
+    },
+    {
+      "index": 30,
+      "move": "Nxh4",
+      "eval": {
+        "move_number": 31,
+        "move": "Bb4",
+        "by": "player",
+        "score": -1.13,
+        "eval_before": -0.02,
+        "eval_after": -1.13,
+        "best_move": "Ra8"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Stop. Your bishop on d2 is undefended.",
+          "trigger": "critical_interrupt",
+          "move_index": 30,
+          "fen_before": "r2q1rk1/p1p2ppp/Qbp5/4Pb2/N6n/5N1P/PPPB1PP1/R3R1K1 w - - 4 16",
+          "move": "Nxh4",
+          "move_number": 16,
+          "created_at": "2026-04-09T16:19:00.843000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "hung_piece",
+          "severity": "high",
+          "priority_score": 105,
+          "question": {
+            "prompt": "Before moving, did you check if all your pieces are protected?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 31,
+      "move": "Qxh4",
+      "eval": {
+        "move_number": 32,
+        "move": "Ra8",
+        "by": "player",
+        "score": -2.25,
+        "eval_before": -0.97,
+        "eval_after": -2.25,
+        "best_move": "Kg2"
+      }
+    },
+    {
+      "index": 32,
+      "move": "Nxb6",
+      "eval": {
+        "move_number": 33,
+        "move": "Qxc6",
+        "by": "player",
+        "score": -0.1,
+        "eval_before": -0.11,
+        "eval_after": -0.1,
+        "best_move": "Qxc6"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "You moved without responding to the threat on your pawn.",
+          "trigger": "critical_interrupt",
+          "move_index": 32,
+          "fen_before": "r4rk1/p1p2ppp/Qbp5/4Pb2/N6q/7P/PPPB1PP1/R3R1K1 w - - 0 17",
+          "move": "Nxb6",
+          "move_number": 17,
+          "created_at": "2026-04-09T16:19:10.729000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_threat",
+          "severity": "high",
+          "priority_score": 103,
+          "question": {
+            "prompt": "What was your opponent threatening with their last move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 33,
+      "move": "axb6",
+      "eval": {
+        "move_number": 34,
+        "move": "Qg2",
+        "by": "player",
+        "score": 0.28,
+        "eval_before": 0.38,
+        "eval_after": 0.28,
+        "best_move": "Qg2"
+      }
+    },
+    {
+      "index": 34,
+      "move": "Qf1",
+      "eval": {
+        "move_number": 35,
+        "move": "Ra7",
+        "by": "player",
+        "score": -0.1,
+        "eval_before": 0.32,
+        "eval_after": -0.1,
+        "best_move": "Be1"
+      }
+    },
+    {
+      "index": 35,
+      "move": "Rfd8",
+      "eval": {
+        "move_number": 36,
+        "move": "Rxc7",
+        "by": "player",
+        "score": -1.14,
+        "eval_before": 0.28,
+        "eval_after": -1.14,
+        "best_move": "Qe4"
+      }
+    },
+    {
+      "index": 36,
+      "move": "Bc3",
+      "eval": {
+        "move_number": 37,
+        "move": "Rc4",
+        "by": "player",
+        "score": -100,
+        "eval_before": -2.58,
+        "eval_after": -100,
+        "best_move": "Qc6"
+      },
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Good choice. You addressed the real problem in the position.",
+          "trigger": "reinforcement",
+          "move_index": 36,
+          "fen_before": "r2r2k1/2p2ppp/1pp5/4Pb2/7q/7P/PPPB1PP1/R3RQK1 w - - 2 19",
+          "move": "Bc3",
+          "move_number": 19,
+          "created_at": "2026-04-09T16:20:03.803000",
+          "read": true,
+          "message_type": "reinforcement",
+          "concept_key": "strong_move",
+          "severity": "low",
+          "priority_score": 73
+        }
+      ]
+    },
+    {
+      "index": 37,
+      "move": "Ra4",
+      "eval": {
+        "move_number": 38,
+        "move": "Be1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Be1"
+      }
+    },
+    {
+      "index": 38,
+      "move": "b3",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Stop. Your pawn on c2 is undefended.",
+          "trigger": "critical_interrupt",
+          "move_index": 38,
+          "fen_before": "3r2k1/2p2ppp/1pp5/4Pb2/r6q/2B4P/PPP2PP1/R3RQK1 w - - 4 20",
+          "move": "b3",
+          "move_number": 20,
+          "created_at": "2026-04-09T16:21:45.500000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "hung_piece",
+          "severity": "high",
+          "priority_score": 105,
+          "question": {
+            "prompt": "Before moving, did you check if all your pieces are protected?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 39,
+      "move": "Re4"
+    },
+    {
+      "index": 40,
+      "move": "Rxe4"
+    },
+    {
+      "index": 41,
+      "move": "Qxe4"
+    },
+    {
+      "index": 42,
+      "move": "Re1",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "You moved without responding to the threat on your pawn.",
+          "trigger": "critical_interrupt",
+          "move_index": 42,
+          "fen_before": "3r2k1/2p2ppp/1pp5/4Pb2/4q3/1PB4P/P1P2PP1/R4QK1 w - - 0 22",
+          "move": "Re1",
+          "move_number": 22,
+          "created_at": "2026-04-09T16:22:16.271000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_threat",
+          "severity": "high",
+          "priority_score": 103,
+          "question": {
+            "prompt": "What was your opponent threatening with their last move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 43,
+      "move": "Qh4"
+    },
+    {
+      "index": 44,
+      "move": "Qa6"
+    },
+    {
+      "index": 45,
+      "move": "Qg5"
+    },
+    {
+      "index": 46,
+      "move": "Kf1",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Stop. Your pawn on c2 is undefended.",
+          "trigger": "critical_interrupt",
+          "move_index": 46,
+          "fen_before": "3r2k1/2p2ppp/Qpp5/4Pbq1/8/1PB4P/P1P2PP1/4R1K1 w - - 4 24",
+          "move": "Kf1",
+          "move_number": 24,
+          "created_at": "2026-04-09T16:22:57.291000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "hung_piece",
+          "severity": "high",
+          "priority_score": 105,
+          "question": {
+            "prompt": "Before moving, did you check if all your pieces are protected?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 47,
+      "move": "Qe7"
+    },
+    {
+      "index": 48,
+      "move": "a3"
+    },
+    {
+      "index": 49,
+      "move": "Qe6"
+    },
+    {
+      "index": 50,
+      "move": "Qb7",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "You moved without responding to the threat on your pawn.",
+          "trigger": "critical_interrupt",
+          "move_index": 50,
+          "fen_before": "3r2k1/2p2ppp/Qpp1q3/4Pb2/8/PPB4P/2P2PP1/4RK2 w - - 1 26",
+          "move": "Qb7",
+          "move_number": 26,
+          "created_at": "2026-04-09T16:23:27.952000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_threat",
+          "severity": "high",
+          "priority_score": 103,
+          "question": {
+            "prompt": "What was your opponent threatening with their last move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 51,
+      "move": "Rc8"
+    },
+    {
+      "index": 52,
+      "move": "Rd1"
+    },
+    {
+      "index": 53,
+      "move": "Qe7"
+    },
+    {
+      "index": 54,
+      "move": "Rd4",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Stop. Your pawn on c2 is undefended.",
+          "trigger": "critical_interrupt",
+          "move_index": 54,
+          "fen_before": "2r3k1/1Qp1qppp/1pp5/4Pb2/8/PPB4P/2P2PP1/3R1K2 w - - 5 28",
+          "move": "Rd4",
+          "move_number": 28,
+          "created_at": "2026-04-09T16:24:00.005000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "hung_piece",
+          "severity": "high",
+          "priority_score": 105,
+          "question": {
+            "prompt": "Before moving, did you check if all your pieces are protected?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 55,
+      "move": "Qxa3"
+    },
+    {
+      "index": 56,
+      "move": "g4",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Good. You improved your position without creating weaknesses.",
+          "trigger": "reinforcement",
+          "move_index": 56,
+          "fen_before": "2r3k1/1Qp2ppp/1pp5/4Pb2/3R4/qPB4P/2P2PP1/5K2 w - - 0 29",
+          "move": "g4",
+          "move_number": 29,
+          "created_at": "2026-04-09T16:24:17.436000",
+          "read": true,
+          "message_type": "reinforcement",
+          "concept_key": "strong_move",
+          "severity": "low",
+          "priority_score": 73
+        }
+      ]
+    },
+    {
+      "index": 57,
+      "move": "Be6"
+    },
+    {
+      "index": 58,
+      "move": "Ra4"
+    },
+    {
+      "index": 59,
+      "move": "Qe7"
+    },
+    {
+      "index": 60,
+      "move": "Bb4"
+    },
+    {
+      "index": 61,
+      "move": "Qh4"
+    },
+    {
+      "index": 62,
+      "move": "Ra8",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "You moved without responding to the threat on your pawn.",
+          "trigger": "critical_interrupt",
+          "move_index": 62,
+          "fen_before": "2r3k1/1Qp2ppp/1pp1b3/4P3/RB4Pq/1P5P/2P2P2/5K2 w - - 5 32",
+          "move": "Ra8",
+          "move_number": 32,
+          "created_at": "2026-04-09T16:25:09.267000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_threat",
+          "severity": "high",
+          "priority_score": 107,
+          "question": {
+            "prompt": "What was your opponent threatening with their last move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 63,
+      "move": "Rd8"
+    },
+    {
+      "index": 64,
+      "move": "Qxc6",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Stop. Your pawn on h3 is undefended.",
+          "trigger": "critical_interrupt",
+          "move_index": 64,
+          "fen_before": "R2r2k1/1Qp2ppp/1pp1b3/4P3/1B4Pq/1P5P/2P2P2/5K2 w - - 7 33",
+          "move": "Qxc6",
+          "move_number": 33,
+          "created_at": "2026-04-09T16:25:22.193000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "hung_piece",
+          "severity": "high",
+          "priority_score": 105,
+          "question": {
+            "prompt": "Before moving, did you check if all your pieces are protected?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 65,
+      "move": "Bd7"
+    },
+    {
+      "index": 66,
+      "move": "Qg2"
+    },
+    {
+      "index": 67,
+      "move": "Bc8"
+    },
+    {
+      "index": 68,
+      "move": "Ra7"
+    },
+    {
+      "index": 69,
+      "move": "Qg5"
+    },
+    {
+      "index": 70,
+      "move": "Rxc7",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "You moved without responding to the threat on your pawn.",
+          "trigger": "critical_interrupt",
+          "move_index": 70,
+          "fen_before": "2br2k1/R1p2ppp/1p6/4P1q1/1B4P1/1P5P/2P2PQ1/5K2 w - - 5 36",
+          "move": "Rxc7",
+          "move_number": 36,
+          "created_at": "2026-04-09T16:26:16.891000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_threat",
+          "severity": "high",
+          "priority_score": 103,
+          "question": {
+            "prompt": "What was your opponent threatening with their last move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 71,
+      "move": "Qxe5"
+    },
+    {
+      "index": 72,
+      "move": "Rc4",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Rc4 loses significant ground. Did you calculate your opponent's reply?",
+          "trigger": "critical_interrupt",
+          "move_index": 72,
+          "fen_before": "2br2k1/2R2ppp/1p6/4q3/1B4P1/1P5P/2P2PQ1/5K2 w - - 0 37",
+          "move": "Rc4",
+          "move_number": 37,
+          "created_at": "2026-04-09T16:26:43.146000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "blunder",
+          "severity": "high",
+          "priority_score": 108,
+          "question": {
+            "prompt": "What can your opponent do after this move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 73,
+      "move": "Rd1+"
+    },
+    {
+      "index": 74,
+      "move": "Be1",
+      "coaching": [
+        {
+          "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+          "type": "coach",
+          "message": "Your opponent's bishop on c8 was free to take.",
+          "trigger": "critical_interrupt",
+          "move_index": 74,
+          "fen_before": "2b3k1/5ppp/1p6/4q3/1BR3P1/1P5P/2P2PQ1/3r1K2 w - - 2 38",
+          "move": "Be1",
+          "move_number": 38,
+          "created_at": "2026-04-09T16:26:57.424000",
+          "read": true,
+          "message_type": "critical_interrupt",
+          "concept_key": "ignored_capture",
+          "severity": "high",
+          "priority_score": 101,
+          "question": {
+            "prompt": "Did you check for captures before choosing your move?"
+          }
+        }
+      ]
+    },
+    {
+      "index": 75,
+      "move": "Qxe1#"
+    }
+  ],
+  "messages": [
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Good. You improved your position without creating weaknesses.",
+      "trigger": "reinforcement",
+      "move_index": 0,
+      "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "move": "e4",
+      "move_number": 1,
+      "created_at": "2026-04-09T16:13:33.558000",
+      "read": true,
+      "message_type": "reinforcement",
+      "concept_key": "strong_move",
+      "severity": "low",
+      "priority_score": 77
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "opening_teaching_offer",
+      "message": "Let's learn the Scotch Game! Open the center immediately with d4, gain piece activity, avoid the slow Ruy Lopez / Capture on d4, develop actively, use the open center for piece play",
+      "trigger": "opening_detected",
+      "opening_name": "Scotch Game",
+      "opening_key": "scotch_game",
+      "options": [
+        {
+          "id": "learn_main_line",
+          "label": "Learn the Classical Scotch (22 moves deep)",
+          "description": "Step-by-step opening theory"
+        },
+        {
+          "id": "just_play",
+          "label": "Just play - I'll figure it out",
+          "description": "Continue the game without lesson"
+        }
+      ],
+      "trap_name": null,
+      "created_at": "2026-04-09T16:14:20.173000",
+      "read": true
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Stop. Your pawn on d5 is undefended.",
+      "trigger": "critical_interrupt",
+      "move_index": 6,
+      "fen_before": "r1bqkbnr/ppp2ppp/2n5/3pp3/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 4",
+      "move": "exd5",
+      "move_number": 4,
+      "created_at": "2026-04-09T16:14:29.633000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "hung_piece",
+      "severity": "high",
+      "priority_score": 113,
+      "question": {
+        "prompt": "Before moving, did you check if all your pieces are protected?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Your opponent's queen on d5 was free to take.",
+      "trigger": "critical_interrupt",
+      "move_index": 10,
+      "fen_before": "r1b1k1nr/ppp2ppp/2n5/3qp3/1b1P4/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 2 6",
+      "move": "Bd2",
+      "move_number": 6,
+      "created_at": "2026-04-09T16:14:57.131000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "ignored_capture",
+      "severity": "high",
+      "priority_score": 105,
+      "question": {
+        "prompt": "Did you check for captures before choosing your move?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Good choice. You addressed the real problem in the position.",
+      "trigger": "reinforcement",
+      "move_index": 12,
+      "fen_before": "r1bqk1nr/ppp2ppp/2n5/4p3/1b1P4/2N2N2/PPPB1PPP/R2QKB1R w KQkq - 4 7",
+      "move": "dxe5",
+      "move_number": 7,
+      "created_at": "2026-04-09T16:15:09.469000",
+      "read": true,
+      "message_type": "reinforcement",
+      "concept_key": "strong_move",
+      "severity": "low",
+      "priority_score": 73
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Stop. Your pawn on c2 is undefended.",
+      "trigger": "critical_interrupt",
+      "move_index": 22,
+      "fen_before": "r2q1rk1/ppp2ppp/2n3n1/1B2Pb2/1b6/2N2N1P/PPPB1PP1/R2QR1K1 w - - 1 12",
+      "move": "Qe2",
+      "move_number": 12,
+      "created_at": "2026-04-09T16:18:00.158000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "hung_piece",
+      "severity": "high",
+      "priority_score": 109,
+      "question": {
+        "prompt": "Before moving, did you check if all your pieces are protected?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "You moved without responding to the threat on your pawn.",
+      "trigger": "critical_interrupt",
+      "move_index": 24,
+      "fen_before": "r2q1rk1/ppp2ppp/2n3n1/bB2Pb2/8/2N2N1P/PPPBQPP1/R3R1K1 w - - 3 13",
+      "move": "Bxc6",
+      "move_number": 13,
+      "created_at": "2026-04-09T16:18:15.174000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "ignored_threat",
+      "severity": "high",
+      "priority_score": 111,
+      "question": {
+        "prompt": "What was your opponent threatening with their last move?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Stop. Your bishop on d2 is undefended.",
+      "trigger": "critical_interrupt",
+      "move_index": 30,
+      "fen_before": "r2q1rk1/p1p2ppp/Qbp5/4Pb2/N6n/5N1P/PPPB1PP1/R3R1K1 w - - 4 16",
+      "move": "Nxh4",
+      "move_number": 16,
+      "created_at": "2026-04-09T16:19:00.843000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "hung_piece",
+      "severity": "high",
+      "priority_score": 105,
+      "question": {
+        "prompt": "Before moving, did you check if all your pieces are protected?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "You moved without responding to the threat on your pawn.",
+      "trigger": "critical_interrupt",
+      "move_index": 32,
+      "fen_before": "r4rk1/p1p2ppp/Qbp5/4Pb2/N6q/7P/PPPB1PP1/R3R1K1 w - - 0 17",
+      "move": "Nxb6",
+      "move_number": 17,
+      "created_at": "2026-04-09T16:19:10.729000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "ignored_threat",
+      "severity": "high",
+      "priority_score": 103,
+      "question": {
+        "prompt": "What was your opponent threatening with their last move?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Good choice. You addressed the real problem in the position.",
+      "trigger": "reinforcement",
+      "move_index": 36,
+      "fen_before": "r2r2k1/2p2ppp/1pp5/4Pb2/7q/7P/PPPB1PP1/R3RQK1 w - - 2 19",
+      "move": "Bc3",
+      "move_number": 19,
+      "created_at": "2026-04-09T16:20:03.803000",
+      "read": true,
+      "message_type": "reinforcement",
+      "concept_key": "strong_move",
+      "severity": "low",
+      "priority_score": 73
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Stop. Your pawn on c2 is undefended.",
+      "trigger": "critical_interrupt",
+      "move_index": 38,
+      "fen_before": "3r2k1/2p2ppp/1pp5/4Pb2/r6q/2B4P/PPP2PP1/R3RQK1 w - - 4 20",
+      "move": "b3",
+      "move_number": 20,
+      "created_at": "2026-04-09T16:21:45.500000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "hung_piece",
+      "severity": "high",
+      "priority_score": 105,
+      "question": {
+        "prompt": "Before moving, did you check if all your pieces are protected?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "You moved without responding to the threat on your pawn.",
+      "trigger": "critical_interrupt",
+      "move_index": 42,
+      "fen_before": "3r2k1/2p2ppp/1pp5/4Pb2/4q3/1PB4P/P1P2PP1/R4QK1 w - - 0 22",
+      "move": "Re1",
+      "move_number": 22,
+      "created_at": "2026-04-09T16:22:16.271000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "ignored_threat",
+      "severity": "high",
+      "priority_score": 103,
+      "question": {
+        "prompt": "What was your opponent threatening with their last move?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Stop. Your pawn on c2 is undefended.",
+      "trigger": "critical_interrupt",
+      "move_index": 46,
+      "fen_before": "3r2k1/2p2ppp/Qpp5/4Pbq1/8/1PB4P/P1P2PP1/4R1K1 w - - 4 24",
+      "move": "Kf1",
+      "move_number": 24,
+      "created_at": "2026-04-09T16:22:57.291000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "hung_piece",
+      "severity": "high",
+      "priority_score": 105,
+      "question": {
+        "prompt": "Before moving, did you check if all your pieces are protected?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "You moved without responding to the threat on your pawn.",
+      "trigger": "critical_interrupt",
+      "move_index": 50,
+      "fen_before": "3r2k1/2p2ppp/Qpp1q3/4Pb2/8/PPB4P/2P2PP1/4RK2 w - - 1 26",
+      "move": "Qb7",
+      "move_number": 26,
+      "created_at": "2026-04-09T16:23:27.952000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "ignored_threat",
+      "severity": "high",
+      "priority_score": 103,
+      "question": {
+        "prompt": "What was your opponent threatening with their last move?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Stop. Your pawn on c2 is undefended.",
+      "trigger": "critical_interrupt",
+      "move_index": 54,
+      "fen_before": "2r3k1/1Qp1qppp/1pp5/4Pb2/8/PPB4P/2P2PP1/3R1K2 w - - 5 28",
+      "move": "Rd4",
+      "move_number": 28,
+      "created_at": "2026-04-09T16:24:00.005000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "hung_piece",
+      "severity": "high",
+      "priority_score": 105,
+      "question": {
+        "prompt": "Before moving, did you check if all your pieces are protected?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Good. You improved your position without creating weaknesses.",
+      "trigger": "reinforcement",
+      "move_index": 56,
+      "fen_before": "2r3k1/1Qp2ppp/1pp5/4Pb2/3R4/qPB4P/2P2PP1/5K2 w - - 0 29",
+      "move": "g4",
+      "move_number": 29,
+      "created_at": "2026-04-09T16:24:17.436000",
+      "read": true,
+      "message_type": "reinforcement",
+      "concept_key": "strong_move",
+      "severity": "low",
+      "priority_score": 73
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "You moved without responding to the threat on your pawn.",
+      "trigger": "critical_interrupt",
+      "move_index": 62,
+      "fen_before": "2r3k1/1Qp2ppp/1pp1b3/4P3/RB4Pq/1P5P/2P2P2/5K2 w - - 5 32",
+      "move": "Ra8",
+      "move_number": 32,
+      "created_at": "2026-04-09T16:25:09.267000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "ignored_threat",
+      "severity": "high",
+      "priority_score": 107,
+      "question": {
+        "prompt": "What was your opponent threatening with their last move?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Stop. Your pawn on h3 is undefended.",
+      "trigger": "critical_interrupt",
+      "move_index": 64,
+      "fen_before": "R2r2k1/1Qp2ppp/1pp1b3/4P3/1B4Pq/1P5P/2P2P2/5K2 w - - 7 33",
+      "move": "Qxc6",
+      "move_number": 33,
+      "created_at": "2026-04-09T16:25:22.193000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "hung_piece",
+      "severity": "high",
+      "priority_score": 105,
+      "question": {
+        "prompt": "Before moving, did you check if all your pieces are protected?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "You moved without responding to the threat on your pawn.",
+      "trigger": "critical_interrupt",
+      "move_index": 70,
+      "fen_before": "2br2k1/R1p2ppp/1p6/4P1q1/1B4P1/1P5P/2P2PQ1/5K2 w - - 5 36",
+      "move": "Rxc7",
+      "move_number": 36,
+      "created_at": "2026-04-09T16:26:16.891000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "ignored_threat",
+      "severity": "high",
+      "priority_score": 103,
+      "question": {
+        "prompt": "What was your opponent threatening with their last move?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Rc4 loses significant ground. Did you calculate your opponent's reply?",
+      "trigger": "critical_interrupt",
+      "move_index": 72,
+      "fen_before": "2br2k1/2R2ppp/1p6/4q3/1B4P1/1P5P/2P2PQ1/5K2 w - - 0 37",
+      "move": "Rc4",
+      "move_number": 37,
+      "created_at": "2026-04-09T16:26:43.146000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "blunder",
+      "severity": "high",
+      "priority_score": 108,
+      "question": {
+        "prompt": "What can your opponent do after this move?"
+      }
+    },
+    {
+      "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+      "type": "coach",
+      "message": "Your opponent's bishop on c8 was free to take.",
+      "trigger": "critical_interrupt",
+      "move_index": 74,
+      "fen_before": "2b3k1/5ppp/1p6/4q3/1BR3P1/1P5P/2P2PQ1/3r1K2 w - - 2 38",
+      "move": "Be1",
+      "move_number": 38,
+      "created_at": "2026-04-09T16:26:57.424000",
+      "read": true,
+      "message_type": "critical_interrupt",
+      "concept_key": "ignored_capture",
+      "severity": "high",
+      "priority_score": 101,
+      "question": {
+        "prompt": "Did you check for captures before choosing your move?"
+      }
+    }
+  ],
+  "fundamental_violations": [
+    {
+      "move_number": 9,
+      "fundamental": "calculate",
+      "move": "O-O"
+    },
+    {
+      "move_number": 11,
+      "fundamental": "calculate",
+      "move": "h3"
+    },
+    {
+      "move_number": 31,
+      "fundamental": "calculate",
+      "move": "Bb4"
+    },
+    {
+      "move_number": 32,
+      "fundamental": "calculate",
+      "move": "Ra8"
+    },
+    {
+      "move_number": 36,
+      "fundamental": "calculate",
+      "move": "Rxc7"
+    },
+    {
+      "move_number": 37,
+      "fundamental": "calculate",
+      "move": "Rc4"
+    }
+  ],
+  "habit_violations": [],
+  "guardian_overrides": [],
+  "postgame": {
+    "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+    "accuracy": 20,
+    "blunders": 2,
+    "created_at": "2026-04-09T16:26:59.860000",
+    "game_result": "loss",
+    "games_together": 18,
+    "habits_improved": [
+      "overconfidence"
+    ],
+    "habits_weak": [],
+    "inaccuracies": 12,
+    "memory_insights": [],
+    "mistakes": 4,
+    "performance_rating": {
+      "estimated_rating": 723,
+      "confidence": "high",
+      "comparison_to_actual": "below",
+      "rating_change_suggested": -400,
+      "key_factors": [
+        "Consider slowing down - many inaccuracies"
+      ]
+    },
+    "user_id": "user_8b599930d7ef"
+  },
+  "raw_session": {
+    "session_id": "cd178aba-5f36-4115-8b89-f8850295f1c9",
+    "user_id": "user_8b599930d7ef",
+    "status": "completed",
+    "user_color": "white",
+    "current_fen": "2b3k1/5ppp/1p6/8/2R3P1/1P5P/2P2PQ1/3rqK2 w - - 0 39",
+    "time_control": "15+10",
+    "user_time_remaining": 900,
+    "coach_time_remaining": 900,
+    "increment": 10,
+    "result": "loss",
+    "termination_reason": "",
+    "created_at": "2026-04-09T16:13:09.511633+00:00",
+    "last_move_at": null,
+    "ended_at": null,
+    "coach_interventions": [],
+    "behavior_events": [],
+    "cpr_before": null,
+    "cpr_after": null,
+    "remaining_interventions": 3,
+    "guardian_overrides": [],
+    "user_rating": 1173,
+    "coach_skill_level": 5,
+    "coach_move_pending": false,
+    "last_coach_move": {
+      "move": "Qxe1#",
+      "uci": "e5e1",
+      "timestamp": "2026-04-09T16:26:58.381376+00:00"
+    },
+    "evaluation": {
+      "score": -10,
+      "mate_in": 0
+    },
+    "action_revision": 38,
+    "teaching_mode": null,
+    "teaching_opening": null,
+    "teaching_data": {},
+    "detected_opening": "scotch_game",
+    "opening_offer_shown": true,
+    "openings_taught_this_game": [],
+    "habits_checked": [],
+    "habit_violations": [],
+    "opening_to_teach": "italian_game",
+    "opening_teaching_moves": [
+      "e4",
+      "e5",
+      "Nf3",
+      "Nc6",
+      "Bc4",
+      "Bc5",
+      "c3",
+      "Nf6",
+      "d4",
+      "exd4",
+      "cxd4",
+      "Bb4+",
+      "Bd2",
+      "Bxd2+",
+      "Nbxd2"
+    ],
+    "opening_teaching_index": 4,
+    "opening_teaching_active": true,
+    "opening_teaching_complete": false,
+    "suggested_trap": {
+      "name": "Fried Liver Attack",
+      "difficulty": "beginner",
+      "moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Bc4",
+        "Nf6",
+        "Ng5",
+        "d5",
+        "exd5",
+        "Nxd5",
+        "Nxf7"
+      ],
+      "trap_move": "Nxf7",
+      "explanation": "White sacrifices the knight on f7 to drag Black's king into the open. If Black accepts, checks and tempo moves follow immediately.",
+      "refutation": "Black should know the defensive resources after Ng5 and be ready for sharp tactical play instead of drifting into the trap blindly.",
+      "victim_color": "black"
+    },
+    "available_traps": [
+      {
+        "name": "Fried Liver Attack",
+        "difficulty": "beginner",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6",
+          "Ng5",
+          "d5",
+          "exd5",
+          "Nxd5",
+          "Nxf7"
+        ],
+        "trap_move": "Nxf7",
+        "explanation": "White sacrifices the knight on f7 to drag Black's king into the open. If Black accepts, checks and tempo moves follow immediately.",
+        "refutation": "Black should know the defensive resources after Ng5 and be ready for sharp tactical play instead of drifting into the trap blindly.",
+        "victim_color": "black",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      },
+      {
+        "name": "Legal's Mate",
+        "difficulty": "beginner",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "d6",
+          "Nc3",
+          "Bg4",
+          "h3",
+          "Bh5",
+          "Nxe5"
+        ],
+        "trap_move": "Nxe5",
+        "explanation": "White sacrifices the queen only because the king and bishop coordination create a forced mating net. It works only if the tactical details are exact.",
+        "refutation": "Black should avoid greed and choose a defensive move instead of automatically taking the queen.",
+        "victim_color": "black",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      },
+      {
+        "name": "Blackburne Shilling Gambit",
+        "difficulty": "beginner",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nd4",
+          "Nxe5"
+        ],
+        "trap_move": "Nxe5",
+        "explanation": "White grabs the e5 pawn too quickly and Black gets immediate tactical counterplay against the queen and f2.",
+        "refutation": "White should not auto-grab on e5; developing or kicking the knight away is safer.",
+        "victim_color": "white",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      },
+      {
+        "name": "Traxler Counterattack",
+        "difficulty": "advanced",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6",
+          "Ng5",
+          "Bc5",
+          "Nxf7",
+          "Bxf2+"
+        ],
+        "trap_move": "Bxf2+",
+        "explanation": "Black ignores the rook and counterattacks the king immediately. The point is activity and king exposure, not material count.",
+        "refutation": "White should avoid blindly grabbing on f7 unless the full tactical line is known.",
+        "victim_color": "white",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      },
+      {
+        "name": "Jerome Gambit",
+        "difficulty": "advanced",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Bc5",
+          "Bxf7+",
+          "Kxf7",
+          "Nxe5+"
+        ],
+        "trap_move": "Nxe5+",
+        "explanation": "White throws both minor pieces at the king to force chaos. This is only a real weapon if the follow-up checks are accurate.",
+        "refutation": "Black should stay calm and defend precisely rather than grabbing material without calculation.",
+        "victim_color": "black",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      }
+    ],
+    "pedagogical_mode_active": true,
+    "last_pedagogical_move_index": -10,
+    "pending_opportunity": {},
+    "opportunity_history": [],
+    "opportunities_found": 0,
+    "opportunities_missed": 0,
+    "curriculum_active": false,
+    "opening_assessment": {},
+    "mde_debug_logs": [
+      {
+        "move_index": 0,
+        "move_san": "e4",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "candidates_generated": 1,
+        "candidates_after_threshold": 1,
+        "winner": "reinforcement",
+        "winner_score": 77,
+        "suppressed": [],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 2,
+        "move_san": "Nf3",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 4,
+        "move_san": "d4",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 6,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 6,
+        "move_san": "exd5",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 69,
+        "candidates_generated": 1,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 113,
+        "suppressed": [],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 8,
+        "move_san": "Nc3",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 27,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 10,
+        "move_san": "Bd2",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 23,
+        "candidates_generated": 1,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 105,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 12,
+        "move_san": "dxe5",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 13,
+        "candidates_generated": 1,
+        "candidates_after_threshold": 1,
+        "winner": "reinforcement",
+        "winner_score": 73,
+        "suppressed": [],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 14,
+        "move_san": "Bb5",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 28,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 16,
+        "move_san": "O-O",
+        "is_user_move": true,
+        "move_quality": "mistake",
+        "cp_loss": 105,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 18,
+        "move_san": "Re1",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 30,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 20,
+        "move_san": "h3",
+        "is_user_move": true,
+        "move_quality": "mistake",
+        "cp_loss": 240,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 22,
+        "move_san": "Qe2",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 15,
+        "candidates_generated": 1,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 109,
+        "suppressed": [],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 24,
+        "move_san": "Bxc6",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "candidates_generated": 3,
+        "candidates_after_threshold": 2,
+        "winner": "critical_interrupt",
+        "winner_score": 111,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "reinforcement",
+            "concept": "strong_move",
+            "score": 73,
+            "reason": "below_threshold"
+          }
+        ],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 26,
+        "move_san": "Qa6",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 15,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 28,
+        "move_san": "Na4",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 64,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 30,
+        "move_san": "Nxh4",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 54,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 105,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 32,
+        "move_san": "Nxb6",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "candidates_generated": 3,
+        "candidates_after_threshold": 2,
+        "winner": "critical_interrupt",
+        "winner_score": 103,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "reinforcement",
+            "concept": "strong_move",
+            "score": 73,
+            "reason": "below_threshold"
+          }
+        ],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 34,
+        "move_san": "Qf1",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 55,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 36,
+        "move_san": "Bc3",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "candidates_generated": 3,
+        "candidates_after_threshold": 1,
+        "winner": "reinforcement",
+        "winner_score": 73,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0.3
+      },
+      {
+        "move_index": 38,
+        "move_san": "b3",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 5,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 105,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 40,
+        "move_san": "Rxe4",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 72,
+        "candidates_generated": 1,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 42,
+        "move_san": "Re1",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 64,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 103,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 44,
+        "move_san": "Qa6",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 17,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 46,
+        "move_san": "Kf1",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 7,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 105,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 48,
+        "move_san": "a3",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 68,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 50,
+        "move_san": "Qb7",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 2,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 103,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 52,
+        "move_san": "Rd1",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 90,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 54,
+        "move_san": "Rd4",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 44,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 105,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 56,
+        "move_san": "g4",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 3,
+        "candidates_generated": 3,
+        "candidates_after_threshold": 1,
+        "winner": "reinforcement",
+        "winner_score": 73,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 58,
+        "move_san": "Ra4",
+        "is_user_move": true,
+        "move_quality": "inaccuracy",
+        "cp_loss": 58,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 60,
+        "move_san": "Bb4",
+        "is_user_move": true,
+        "move_quality": "mistake",
+        "cp_loss": 110,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 62,
+        "move_san": "Ra8",
+        "is_user_move": true,
+        "move_quality": "mistake",
+        "cp_loss": 128,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 2,
+        "winner": "critical_interrupt",
+        "winner_score": 107,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 105,
+            "reason": "below_threshold"
+          }
+        ],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 64,
+        "move_san": "Qxc6",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "candidates_generated": 3,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 105,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "ignored_threat",
+            "score": 63,
+            "reason": "duplicate_concept_within_6_plies"
+          },
+          {
+            "type": "reinforcement",
+            "concept": "strong_move",
+            "score": 69,
+            "reason": "below_threshold"
+          }
+        ],
+        "processing_ms": 0.1
+      },
+      {
+        "move_index": 66,
+        "move_san": "Qg2",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 9,
+        "candidates_generated": 1,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [
+          {
+            "type": "reinforcement",
+            "concept": "strong_move",
+            "score": 69,
+            "reason": "below_threshold"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 68,
+        "move_san": "Ra7",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 42,
+        "candidates_generated": 0,
+        "candidates_after_threshold": 0,
+        "winner": null,
+        "winner_score": null,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 70,
+        "move_san": "Rxc7",
+        "is_user_move": true,
+        "move_quality": "mistake",
+        "cp_loss": 142,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 103,
+        "suppressed": [
+          {
+            "type": "critical_interrupt",
+            "concept": "hung_piece",
+            "score": 65,
+            "reason": "duplicate_concept_within_6_plies"
+          }
+        ],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 72,
+        "move_san": "Rc4",
+        "is_user_move": true,
+        "move_quality": "blunder",
+        "cp_loss": 9742,
+        "candidates_generated": 1,
+        "candidates_after_threshold": 1,
+        "winner": "critical_interrupt",
+        "winner_score": 108,
+        "suppressed": [],
+        "processing_ms": 0
+      },
+      {
+        "move_index": 74,
+        "move_san": "Be1",
+        "is_user_move": true,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "candidates_generated": 2,
+        "candidates_after_threshold": 2,
+        "winner": "critical_interrupt",
+        "winner_score": 101,
+        "suppressed": [
+          {
+            "type": "reinforcement",
+            "concept": "strong_move",
+            "score": 73,
+            "reason": "below_threshold"
+          }
+        ],
+        "processing_ms": 0.1
+      }
+    ],
+    "last_coaching_move_index": 73,
+    "behavior_summary": {
+      "counts": {
+        "ignored_threat": 0,
+        "hung_pieces": 3,
+        "premature_attack": 0,
+        "king_safety": 7,
+        "weak_development": 1
+      },
+      "total_moves": 26,
+      "top_issues": [
+        "king_safety",
+        "hung_pieces"
+      ]
+    },
+    "fundamental_violations": [
+      {
+        "move_number": 9,
+        "fundamental": "calculate",
+        "move": "O-O"
+      },
+      {
+        "move_number": 11,
+        "fundamental": "calculate",
+        "move": "h3"
+      },
+      {
+        "move_number": 31,
+        "fundamental": "calculate",
+        "move": "Bb4"
+      },
+      {
+        "move_number": 32,
+        "fundamental": "calculate",
+        "move": "Ra8"
+      },
+      {
+        "move_number": 36,
+        "fundamental": "calculate",
+        "move": "Rxc7"
+      },
+      {
+        "move_number": 37,
+        "fundamental": "calculate",
+        "move": "Rc4"
+      }
+    ]
+  }
+}

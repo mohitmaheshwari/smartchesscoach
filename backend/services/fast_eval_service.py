@@ -255,11 +255,11 @@ def detect_signals_fast(
     move_quality = eval_result.get("move_quality", "good")
 
     # Hung piece: user's piece attacked and undefended after the move
-    # BUT: skip if all attackers are pinned (can't actually capture)
+    # Skip pawns (too noisy). Skip pinned attackers (can't actually capture).
     opponent = not user_color
     for sq in chess.SQUARES:
         piece = board_after.piece_at(sq)
-        if piece and piece.color == user_color and piece.piece_type != chess.KING:
+        if piece and piece.color == user_color and piece.piece_type not in (chess.KING, chess.PAWN):
             attackers = board_after.attackers(opponent, sq)
             defenders = board_after.attackers(user_color, sq)
             if attackers and not defenders:
@@ -271,8 +271,8 @@ def detect_signals_fast(
                 if not real_attackers:
                     continue  # All attackers are pinned — piece is safe
 
-                val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}.get(piece.piece_type, 0)
-                if val >= 3:  # Only major/minor pieces
+                val = {2: 3, 3: 3, 4: 5, 5: 9}.get(piece.piece_type, 0)
+                if val >= 3:  # Only major/minor pieces (pawns already excluded)
                     signals["hung_piece"] = {
                         "piece": {1: "pawn", 2: "knight", 3: "bishop", 4: "rook", 5: "queen"}.get(piece.piece_type, "piece"),
                         "square": chess.square_name(sq),
@@ -281,11 +281,11 @@ def detect_signals_fast(
                     break  # One is enough
 
     # Missed threat: opponent was attacking user piece before move, still is after
-    # Skip if all attackers are pinned
+    # Skip pawns and pinned attackers
     if not signals["hung_piece"]:
         for sq in chess.SQUARES:
             piece = board_before.piece_at(sq)
-            if piece and piece.color == user_color and piece.piece_type != chess.KING:
+            if piece and piece.color == user_color and piece.piece_type not in (chess.KING, chess.PAWN):
                 att_before = board_before.attackers(opponent, sq)
                 def_before = board_before.attackers(user_color, sq)
                 if att_before and not def_before:
