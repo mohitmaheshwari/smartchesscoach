@@ -3697,6 +3697,8 @@ async def evaluate_pending_move(
             },
             "checklist": checklist,
             "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
+            "playerProfile": player_profile_data,
+            "commentary": commentary,
             "moveEvaluation": {
                 "moveQuality": move_quality,
                 "cpLoss": eval_result.get("cp_loss", 0),

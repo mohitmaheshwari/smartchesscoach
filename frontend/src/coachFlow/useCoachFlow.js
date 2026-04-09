@@ -151,10 +151,10 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
         setPlayerProfile(result.playerProfile);
       }
       if (result.commentary) {
-        console.log("[CoachFlow] commentary:", result.commentary);
+        console.log("[CoachFlow] commentary:", JSON.stringify(result.commentary).substring(0, 200));
         setCommentary(result.commentary);
       }
-      console.log("[CoachFlow] full result keys:", Object.keys(result), "checklist:", !!result.checklist, "weaknesses:", !!result.weaknesses, "profile:", !!result.playerProfile, "commentary:", !!result.commentary);
+      console.log("[CoachFlow] full result keys:", Object.keys(result), "checklist:", !!result.checklist, "weaknesses:", !!result.weaknesses, "profile:", !!result.playerProfile, "commentary:", !!result.commentary, "commentary value:", result.commentary);
 
       // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
       if (layer === "silent" || result.shouldAutoCommit) {
