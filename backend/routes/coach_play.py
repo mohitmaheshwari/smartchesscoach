@@ -4915,3 +4915,84 @@ async def get_fundamentals_summary(session_id: str, user=Depends(get_current_use
 
     return {"violations": violations, "summary": counts}
 
+
+# ─── SESSION EXPORT (Debug) ──────────────────────────────────────
+
+@router.get("/export-session/{session_id}")
+async def export_session(session_id: str, user=Depends(get_current_user)):
+    """Export full session data for debugging. Downloads as JSON."""
+    global db
+    from datetime import datetime, timezone
+
+    session = await db.coach_sessions.find_one(
+        {"session_id": session_id},
+        {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Messages
+    messages = await db.coach_messages.find(
+        {"session_id": session_id},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(500)
+
+    # Postgame
+    postgame = await db.postgame_analyses.find_one(
+        {"session_id": session_id},
+        {"_id": 0}
+    )
+
+    # Build move timeline
+    move_history = session.get("move_history", [])
+    fen_history = session.get("fen_history", [])
+    evaluations = session.get("evaluations", [])
+
+    moves = []
+    for i, entry in enumerate(move_history):
+        move_data = {
+            "index": i,
+            "move": entry.get("move") if isinstance(entry, dict) else entry,
+        }
+        if i < len(fen_history):
+            move_data["fen_before"] = fen_history[i]
+        if i + 1 < len(fen_history):
+            move_data["fen_after"] = fen_history[i + 1]
+        if i < len(evaluations):
+            move_data["eval"] = evaluations[i]
+
+        # Messages for this move
+        move_san = move_data["move"]
+        move_msgs = [m for m in messages if m.get("move") == move_san]
+        if move_msgs:
+            move_data["coaching"] = move_msgs
+        moves.append(move_data)
+
+    export = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "session_id": session_id,
+        "summary": {
+            "user_color": session.get("user_color"),
+            "result": session.get("result"),
+            "termination": session.get("termination_reason"),
+            "total_moves": len(move_history),
+            "user_rating": session.get("user_rating"),
+            "detected_opening": session.get("detected_opening"),
+            "opening_teaching_active": session.get("opening_teaching_active"),
+            "created_at": session.get("created_at"),
+            "ended_at": session.get("ended_at"),
+        },
+        "moves": moves,
+        "messages": messages,
+        "fundamental_violations": session.get("fundamental_violations", []),
+        "habit_violations": session.get("habit_violations", []),
+        "guardian_overrides": session.get("guardian_overrides", []),
+        "postgame": postgame,
+        "raw_session": {
+            k: v for k, v in session.items()
+            if k not in ("fen_history", "move_history", "evaluations", "pgn")
+        },
+    }
+
+    return export
+

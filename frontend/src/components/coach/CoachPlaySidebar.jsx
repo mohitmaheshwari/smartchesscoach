@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
+import { API } from "@/App";
 import LessonPicker from "@/components/coach/LessonPicker";
 import EscapeSquaresQuiz from "@/components/coach/EscapeSquaresQuiz";
 import CoachPanel from "@/components/CoachPanel";
@@ -51,6 +52,7 @@ import {
   CheckCircle2,
   Clock,
   Target,
+  Download,
 } from "lucide-react";
 
 /* ── Guardian Intervention Panel ── */
@@ -1180,6 +1182,13 @@ const CoachPlaySidebar = ({
         </>
       )}
 
+      {/* Export Session Button — for debugging */}
+      {session && gameOver && (
+        <div className="px-4 pt-3">
+          <ExportSessionButton sessionId={session.session_id} />
+        </div>
+      )}
+
       {/* Post-Game Reflection (both modes) */}
       {session && gameOver && summary && summary.has_data && (
         <div className="p-4 border-b border-border">
@@ -1307,6 +1316,54 @@ const CoachPlaySidebar = ({
     </div>
   );
 };
+
+// ─── Export Session Button ───────────────────────────────────────
+
+const ExportSessionButton = ({ sessionId }) => {
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch(`${API}/coach/play/export-session/${sessionId}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const data = await res.json();
+
+      // Download as JSON file
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `session_${sessionId.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Export failed:", e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleExport}
+      disabled={exporting}
+      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+    >
+      {exporting ? (
+        <Loader2 className="w-3 h-3 animate-spin" />
+      ) : (
+        <Download className="w-3 h-3" />
+      )}
+      {exporting ? "Exporting..." : "Export Session (Debug)"}
+    </button>
+  );
+};
+
 
 // ─── Pre-Move Fundamentals Reminder ─────────────────────────────
 
