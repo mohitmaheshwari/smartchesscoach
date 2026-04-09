@@ -79,12 +79,18 @@ def read_position(fen: str, user_color: str = "white", user_rating: int = 1200) 
     # ─── SPACE + PIECE COUNT (always something to say) ───
     features.extend(_analyze_general(board, user_color_bool, opp_color_bool))
 
+    # ─── FORKS (all levels) ───
+    features.extend(_analyze_forks(board, user_color_bool, opp_color_bool))
+
+    # ─── OUR PINNED PIECES (all levels) ───
+    features.extend(_analyze_our_pins(board, user_color_bool, opp_color_bool))
+
     # Filter by rating
     filtered = [f for f in features if f.min_rating <= user_rating]
 
-    # Sort by priority, take top 3
+    # Sort by priority, take top 6 (more observations for commentary panel)
     filtered.sort(key=lambda f: f.priority)
-    top = filtered[:3]
+    top = filtered[:6]
 
     # Who's better (simple material count)
     eval_text = _get_eval_text(board, user_color_bool)
@@ -755,5 +761,88 @@ def _analyze_general(board, user_color, opp_color) -> List[PositionFeature]:
                 min_rating=800,
                 actionable="Find your least active piece and give it a better job.",
             ))
+
+    return features
+
+
+def _analyze_forks(board, user_color, opp_color) -> List[PositionFeature]:
+    """Detect existing forks — pieces attacking 2+ valuable targets."""
+    features = []
+
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if not piece:
+            continue
+        if piece.piece_type not in (chess.KNIGHT, chess.QUEEN, chess.PAWN):
+            continue
+
+        attacks = board.attacks(sq)
+        targets = []
+        target_color = opp_color if piece.color == user_color else user_color
+
+        for target_sq in attacks:
+            target = board.piece_at(target_sq)
+            if target and target.color == target_color and target.piece_type not in (chess.PAWN,):
+                targets.append((target, target_sq))
+
+        if len(targets) >= 2:
+            piece_name = chess.piece_name(piece.piece_type)
+            target_names = " and ".join(
+                f"{chess.piece_name(t.piece_type)} on {chess.square_name(s)}"
+                for t, s in targets[:2]
+            )
+            is_ours = piece.color == user_color
+
+            if is_ours:
+                features.append(PositionFeature(
+                    priority=2,
+                    category="tactics",
+                    title=f"Your {piece_name} forks two pieces",
+                    description=f"Your {piece_name} on {chess.square_name(sq)} attacks their {target_names}.",
+                    min_rating=600,
+                    actionable="You're attacking two pieces at once — one of them is likely lost.",
+                ))
+            else:
+                features.append(PositionFeature(
+                    priority=1,
+                    category="tactics",
+                    title=f"Opponent's {piece_name} forks your pieces",
+                    description=f"Their {piece_name} on {chess.square_name(sq)} attacks your {target_names}.",
+                    min_rating=600,
+                    actionable="You need to address this fork — save the more valuable piece.",
+                ))
+            break  # One fork is enough
+
+    return features
+
+
+def _analyze_our_pins(board, user_color, opp_color) -> List[PositionFeature]:
+    """Detect if our pieces are pinned."""
+    features = []
+
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece and piece.color == user_color and piece.piece_type != chess.KING:
+            if board.is_pinned(user_color, sq):
+                piece_name = chess.piece_name(piece.piece_type)
+                sq_name = chess.square_name(sq)
+
+                # Find what's pinning
+                pinner_name = "a piece"
+                for att_sq in board.attackers(opp_color, sq):
+                    att = board.piece_at(att_sq)
+                    if att and att.piece_type in (chess.BISHOP, chess.ROOK, chess.QUEEN):
+                        pinner_name = f"their {chess.piece_name(att.piece_type)} on {chess.square_name(att_sq)}"
+                        break
+
+                features.append(PositionFeature(
+                    priority=3,
+                    category="tactics",
+                    title=f"Your {piece_name} is pinned",
+                    description=f"Your {piece_name} on {sq_name} is pinned by {pinner_name}. It can't move without exposing your king or queen.",
+                    min_rating=600,
+                    actionable=f"Consider breaking the pin — move your king, block the pin line, or challenge the pinner.",
+                ))
+                break  # One is enough
 
     return features
