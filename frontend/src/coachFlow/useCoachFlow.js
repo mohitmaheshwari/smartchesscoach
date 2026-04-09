@@ -107,9 +107,9 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
         }),
       }).then(r => r.ok ? r.json() : null);
 
-      // 800ms window — first call may be slow (Stockfish cold start)
+      // 1200ms window — Stockfish needs time, especially early moves
       const timeoutPromise = new Promise(resolve =>
-        setTimeout(() => resolve(null), 800)
+        setTimeout(() => resolve(null), 1200)
       );
 
       const result = await Promise.race([evalPromise, timeoutPromise]);

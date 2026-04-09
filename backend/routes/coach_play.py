@@ -3445,9 +3445,11 @@ async def evaluate_pending_move(
             # else: fall through to ambient
 
         # ─── AMBIENT (orientation — describe what's happening) ─────
+        # Don't show ambient when position is already lost — not useful
         # Ambient = "this is happening". Objective, position-specific.
         # NOT praise. NOT generic. Must be tied to actual board state.
-        if layer == "silent" and move_quality in ("good", "inaccuracy"):
+        position_reasonable = _position_is_reasonable(eval_result, user_color)
+        if layer == "silent" and move_quality in ("good", "inaccuracy") and position_reasonable:
             opp_threat = fast_signals.get("opponent_created_threat")
 
             # PRIORITY 1: Opponent idea (most important ambient signal)
@@ -3500,8 +3502,10 @@ async def evaluate_pending_move(
                 text = tmpl["text"]
 
             # PRIORITY 6: Reinforcement (ONLY non-obvious strong moves WITH valid eval)
+            # NEVER praise when position is already bad (losing by 1.5+ pawns)
             elif (fast_signals.get("is_strong_move") and fast_signals.get("is_non_obvious")
-                  and eval_is_valid and cp_loss_val <= 30):
+                  and eval_is_valid and cp_loss_val <= 30
+                  and _position_is_reasonable(eval_result, user_color)):
                 layer = "ambient"
                 concept_key = "reinforcement"
                 category = "reinforcement"
@@ -3757,6 +3761,15 @@ def _generate_gap_filler(board: chess.Board, user_color: str, move_number: int, 
         # Endgame
         return {"layer": "ambient", "text": "In the endgame, king activity and passed pawns matter most.",
                 "concept_key": "endgame_phase", "category": "opening_orientation", "severity": "low"}
+
+
+def _position_is_reasonable(eval_result: dict, user_color: str) -> bool:
+    """Is the position not already lost? Don't praise or orient when losing badly."""
+    eval_after = eval_result.get("eval_after", 0)
+    if user_color == "white":
+        return eval_after > -1.5  # Not losing by more than 1.5 pawns
+    else:
+        return eval_after < 1.5  # Not losing by more than 1.5 pawns (as black, positive = losing)
 
 
 def _build_checklist(signals: dict, move_quality: str, eval_valid: bool, phase: str) -> dict:
