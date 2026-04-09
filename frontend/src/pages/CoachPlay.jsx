@@ -27,6 +27,7 @@ import { useCoachFlow, INTERACTION_STATES, CLOCK_STATES } from "@/coachFlow";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
 import ActiveCoachStrip from "@/components/coach/ActiveCoachStrip";
 import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
+import CommentaryPanel from "@/components/coach/CommentaryPanel";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -2229,6 +2230,13 @@ const CoachPlay = ({ user }) => {
             return null;
           })()}
         />
+
+        {/* Middle: Commentary panel (board reading) */}
+        {coachFlow.commentary && (
+          <div className="w-64 flex-shrink-0 border-l border-border overflow-y-auto">
+            <CommentaryPanel commentary={coachFlow.commentary} />
+          </div>
+        )}
 
         {/* Right: Coach panel */}
         <CoachPlaySidebar

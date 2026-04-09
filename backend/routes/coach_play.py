@@ -3591,6 +3591,14 @@ async def evaluate_pending_move(
             except Exception:
                 pass
 
+        # ─── POSITION COMMENTARY (board reading for left panel) ─────
+        commentary = None
+        try:
+            from services.position_intelligence import read_board_like_a_coach
+            commentary = read_board_like_a_coach(fen_after_user, user_color, user_rating)
+        except Exception as e:
+            logger.warning(f"[FAST-EVAL] Board reading failed: {e}")
+
         # Store decision in session for export/debugging
         try:
             decision_log = {
@@ -3622,6 +3630,7 @@ async def evaluate_pending_move(
                 "checklist": checklist,
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "playerProfile": player_profile_data,
+                "commentary": commentary,
                 "moveEvaluation": {
                     "moveQuality": move_quality,
                     "cpLoss": cp_loss_val,
@@ -4635,7 +4644,63 @@ async def _process_move_and_respond(
                     "evaluations": evaluations
                 }}
             )
-            
+
+            # === FALLBACK DECISION: If evaluate-pending missed this move ===
+            # Use the deeper background analysis to create a decision
+            try:
+                existing_decisions = session_doc.get("coaching_decisions", [])
+                move_idx = len(move_history) - 1
+                already_has = any(d.get("move_index") == move_idx for d in existing_decisions)
+
+                if not already_has and engine_handled:
+                    bg_eval_before = analysis.get("eval_before", 0)
+                    bg_eval_after = analysis.get("eval_after", 0)
+                    if user_color == "white":
+                        bg_cp_loss = max(0, int((bg_eval_before - bg_eval_after) * 100))
+                    else:
+                        bg_cp_loss = max(0, int((bg_eval_after - bg_eval_before) * 100))
+
+                    if bg_cp_loss >= 300:
+                        bg_quality = "blunder"
+                    elif bg_cp_loss >= 120:
+                        bg_quality = "mistake"
+                    elif bg_cp_loss >= 60:
+                        bg_quality = "inaccuracy"
+                    else:
+                        bg_quality = "good"
+
+                    # Only store a fallback decision for meaningful moves
+                    bg_layer = "silent"
+                    bg_text = None
+                    bg_category = None
+
+                    if bg_quality in ("blunder", "mistake"):
+                        bg_layer = "critical_interrupt"
+                        bg_text = "This move loses ground."
+                        bg_category = "critical_tactic"
+                    elif bg_quality == "inaccuracy":
+                        bg_layer = "advisory"
+                        bg_text = "There was something more accurate here."
+                        bg_category = "plan_guidance"
+
+                    fallback_decision = {
+                        "move_index": move_idx,
+                        "move_quality": bg_quality,
+                        "cp_loss": bg_cp_loss,
+                        "layer": bg_layer,
+                        "category": bg_category,
+                        "text": bg_text,
+                        "eval_valid": True,
+                        "elapsed_ms": 0,
+                        "source": "background_fallback",
+                    }
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$push": {"coaching_decisions": fallback_decision}}
+                    )
+            except Exception as e:
+                logger.warning(f"Fallback decision failed: {e}")
+
             # === OPENING TEACHING: Advance teaching index if correct move played ===
             if session_doc.get("opening_teaching_active"):
                 teaching_moves = session_doc.get("opening_teaching_moves", [])

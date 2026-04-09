@@ -59,9 +59,9 @@ def _restart_engine():
 
 # ─── FAST EVAL ────────────────────────────────────────────────────
 
-PASS_A_NODES = 30000  # ~100ms
-PASS_B_NODES = 60000  # ~150ms (only if risky)
-HARD_TIMEOUT_MS = 400
+PASS_A_NODES = 80000   # ~200ms — deeper for accuracy
+PASS_B_NODES = 150000  # ~350ms — confirm serious mistakes
+HARD_TIMEOUT_MS = 800  # Allow more time since we use 1200ms frontend window
 
 
 def fast_eval(

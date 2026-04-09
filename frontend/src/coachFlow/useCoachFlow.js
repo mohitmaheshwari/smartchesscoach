@@ -32,6 +32,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
   const [checklistHistory, setChecklistHistory] = useState({}); // {key: {passed: N, failed: N}} across game
   const [playerWeaknessList, setPlayerWeaknessList] = useState([]); // from backend
   const [playerProfile, setPlayerProfile] = useState(null); // strengths/weaknesses/domains
+  const [commentary, setCommentary] = useState(null); // position-specific board reading
   const [timeline, setTimeline] = useState([]);
 
   // ─── Internal Refs ──────────────────────────────────────────
@@ -148,6 +149,9 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       }
       if (result.playerProfile && !playerProfile) {
         setPlayerProfile(result.playerProfile);
+      }
+      if (result.commentary) {
+        setCommentary(result.commentary);
       }
 
       // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
@@ -327,6 +331,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     setChecklistHistory({});
     setPlayerWeaknessList([]);
     setPlayerProfile(null);
+    setCommentary(null);
     setTimeline([]);
     sessionBehavior.current = {
       repeatedConceptCounts: {},
@@ -357,6 +362,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     checklistHistory,
     playerWeaknessList,
     playerProfile,
+    commentary,
     timeline,
 
     // Derived
