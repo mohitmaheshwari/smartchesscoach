@@ -121,10 +121,10 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       const decision = result.coachingDecision || {};
       const layer = decision.layer || "silent";
 
-      // ─── SILENT: auto-commit, no coaching ─────
+      // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
       if (layer === "silent" || result.shouldAutoCommit) {
-        // But still show ambient/advisory strip if present
-        if (layer === "ambient" || layer === "advisory") {
+        // Show strip for ambient/advisory (but auto-commit continues)
+        if ((layer === "ambient" || layer === "advisory") && decision.text) {
           setActiveStripCoaching({
             layer,
             text: decision.text,
@@ -132,13 +132,13 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
             category: decision.category,
             conceptKey: decision.conceptKey,
           });
-          // Add to timeline if advisory
-          if (decision.showInTimeline) {
+          // Timeline: ONLY advisory and above. Never ambient.
+          if (layer === "advisory") {
             setTimeline(prev => [...prev, createTimelineItem({
               moveIndex: moveData.moveIndexPreview || 0,
               moveSan: pending.san,
               messageType: decision.category || layer,
-              severity: decision.severity || "low",
+              severity: decision.severity || "medium",
               text: decision.text,
               conceptKey: decision.conceptKey,
             })]);

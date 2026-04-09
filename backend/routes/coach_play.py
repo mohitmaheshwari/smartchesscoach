@@ -3259,6 +3259,8 @@ async def evaluate_pending_move(
         severity = None
         concept_key = None
 
+        from services.coaching_templates import pick_template
+
         # ─── CRITICAL (mistake/blunder only) ─────
         if move_quality in ("mistake", "blunder"):
             layer = "critical_interrupt"
@@ -3266,113 +3268,147 @@ async def evaluate_pending_move(
 
             if fast_signals.get("hung_piece"):
                 hp = fast_signals["hung_piece"]
-                text = f"Stop. Your {hp['piece']} on {hp['square']} is undefended."
-                question = "Did you check if all your pieces are protected?"
                 concept_key = "hung_piece"
                 category = "critical_tactic"
+                tmpl = pick_template("critical_interrupt", "hung_piece",
+                    {"piece": hp["piece"], "square": hp["square"]}, session_id)
             elif fast_signals.get("missed_threat"):
                 mt = fast_signals["missed_threat"]
-                text = f"You ignored the threat on your {mt['piece']}."
-                question = "What was your opponent threatening?"
                 concept_key = "ignored_threat"
                 category = "critical_tactic"
+                tmpl = pick_template("critical_interrupt", "ignored_threat",
+                    {"piece": mt["piece"]}, session_id)
             elif fast_signals.get("ignored_capture"):
                 ic = fast_signals["ignored_capture"]
-                text = f"Your opponent's {ic['piece']} on {ic['square']} was free to take."
-                question = "Did you check for captures first?"
                 concept_key = "ignored_capture"
                 category = "critical_tactic"
+                tmpl = pick_template("critical_interrupt", "ignored_capture",
+                    {"piece": ic["piece"], "square": ic["square"]}, session_id)
             elif fast_signals.get("lost_winning_position"):
-                text = "You were winning. This move lets the advantage slip."
-                question = "When ahead, what should your priority be?"
                 concept_key = "conversion_failure"
                 category = "critical_tactic"
+                tmpl = pick_template("critical_interrupt", "conversion_failure", {}, session_id)
             else:
-                text = "This move loses ground. Did you calculate your opponent's reply?"
-                question = "What can your opponent do after this?"
                 concept_key = "blunder" if move_quality == "blunder" else "mistake"
                 category = "critical_tactic"
+                tmpl = pick_template("critical_interrupt", concept_key, {}, session_id)
 
-        # ─── ADVISORY (inaccuracy or positional drift) ─────
-        elif move_quality == "inaccuracy":
+            text = tmpl.get("text") or "This move needs another look."
+            question = tmpl.get("question")
+
+        # ─── ADVISORY (drift detection — BEFORE blunders happen) ─────
+        # Advisory = "you should adjust". Identifies live issues.
+        # Triggers on: inaccuracy, or good move but position is drifting.
+        elif move_quality == "inaccuracy" or (
+            move_quality == "good" and (
+                fast_signals.get("premature_attack") or
+                fast_signals.get("loose_pieces_present") or
+                (fast_signals.get("king_unsafe") and fast_signals.get("development_incomplete"))
+            )
+        ):
+            # Priority order: drift > fundamentals > generic
             if fast_signals.get("premature_attack"):
                 layer = "advisory"
-                text = "You are attacking before finishing setup."
                 concept_key = "premature_attack"
                 category = "drift_warning"
                 severity = "medium"
-            elif fast_signals.get("king_unsafe") and fast_signals.get("is_opening_phase"):
-                layer = "advisory"
-                text = "Your king safety matters more than attack here."
-                concept_key = "king_safety"
-                category = "fundamental_warning"
-                severity = "medium"
-            elif fast_signals.get("development_incomplete"):
-                layer = "advisory"
-                text = "This is still a development position, not an attack yet."
-                concept_key = "development"
-                category = "opening_orientation"
-                severity = "medium"
-            else:
-                layer = "advisory"
-                text = "There was something more accurate here. Think about what the position needs."
-                concept_key = "inaccuracy"
-                category = "plan_guidance"
-                severity = "low"
-
-        # ─── AMBIENT (good moves — keep coach alive) ─────
-        elif move_quality == "good":
-            # Opponent created a threat worth mentioning
-            opp_threat = fast_signals.get("opponent_created_threat")
-            if opp_threat:
-                layer = "ambient"
-                text = f"Their {opp_threat['attacker']} now targets your {opp_threat['target']}."
-                concept_key = "opponent_idea"
-                category = "opponent_idea"
-                severity = "low"
-            # Strong non-obvious move
-            elif fast_signals.get("is_strong_move") and fast_signals.get("is_non_obvious"):
-                layer = "ambient"
-                text = "Good. You addressed the right priority."
-                concept_key = "reinforcement"
-                category = "reinforcement"
-                severity = "low"
-            # Development incomplete but good move
-            elif fast_signals.get("development_incomplete") and fast_signals.get("is_opening_phase"):
-                layer = "ambient"
-                text = "This is still a development position."
-                concept_key = "opening_phase"
-                category = "opening_orientation"
-                severity = "low"
-            # King unsafe reminder
-            elif fast_signals.get("king_unsafe") and move_number >= 10:
-                layer = "ambient"
-                text = "Your king is still uncommitted."
-                concept_key = "king_safety_ambient"
-                category = "opening_orientation"
-                severity = "low"
-            # Center under pressure
-            elif fast_signals.get("center_under_pressure"):
-                layer = "ambient"
-                text = "Your opponent controls more of the center right now."
-                concept_key = "center_pressure"
-                category = "opponent_idea"
-                severity = "low"
-            # Loose pieces
+                tmpl = pick_template("advisory", "premature_attack", {}, session_id)
+                text = tmpl["text"]
             elif fast_signals.get("loose_pieces_present"):
                 layer = "advisory"
-                text = "You have loose pieces. Secure them before expanding."
                 concept_key = "loose_pieces"
                 category = "fundamental_warning"
                 severity = "medium"
-            # Opponent improved activity
+                tmpl = pick_template("advisory", "loose_pieces", {}, session_id)
+                text = tmpl["text"]
+            elif fast_signals.get("king_unsafe") and move_number >= 8:
+                layer = "advisory"
+                concept_key = "king_safety"
+                category = "fundamental_warning"
+                severity = "medium"
+                tmpl = pick_template("advisory", "king_safety", {}, session_id)
+                text = tmpl["text"]
+            elif fast_signals.get("development_incomplete") and fast_signals.get("is_opening_phase"):
+                layer = "advisory"
+                concept_key = "development"
+                category = "opening_orientation"
+                severity = "medium"
+                tmpl = pick_template("advisory", "development", {}, session_id)
+                text = tmpl["text"]
+            elif move_quality == "inaccuracy":
+                layer = "advisory"
+                concept_key = "inaccuracy"
+                category = "plan_guidance"
+                severity = "low"
+                tmpl = pick_template("advisory", "inaccuracy", {}, session_id)
+                text = tmpl["text"]
+            # else: fall through to ambient
+
+        # ─── AMBIENT (orientation — describe what's happening) ─────
+        # Ambient = "this is happening". Objective, position-specific.
+        # NOT praise. NOT generic. Must be tied to actual board state.
+        if layer == "silent" and move_quality in ("good", "inaccuracy"):
+            opp_threat = fast_signals.get("opponent_created_threat")
+
+            # PRIORITY 1: Opponent idea (most important ambient signal)
+            if opp_threat:
+                layer = "ambient"
+                concept_key = "opponent_threat"
+                category = "opponent_idea"
+                severity = "low"
+                tmpl = pick_template("ambient", "opponent_threat", {
+                    "attacker": opp_threat["attacker"],
+                    "target": opp_threat["target"],
+                    "square": opp_threat["target_square"],
+                }, session_id)
+                text = tmpl["text"]
+
+            # PRIORITY 2: Opponent improved activity
             elif fast_signals.get("opponent_improved_activity"):
                 layer = "ambient"
-                text = "Your opponent just improved a piece. Stay alert."
                 concept_key = "opponent_activity"
                 category = "opponent_idea"
                 severity = "low"
-            # else: silent — nothing useful to say
+                tmpl = pick_template("ambient", "opponent_activity", {}, session_id)
+                text = tmpl["text"]
+
+            # PRIORITY 3: Center tension
+            elif fast_signals.get("center_under_pressure"):
+                layer = "ambient"
+                concept_key = "center_pressure"
+                category = "opponent_idea"
+                severity = "low"
+                tmpl = pick_template("ambient", "opponent_center_pressure", {}, session_id)
+                text = tmpl["text"]
+
+            # PRIORITY 4: King still uncommitted
+            elif fast_signals.get("king_unsafe") and move_number >= 10:
+                layer = "ambient"
+                concept_key = "king_safety_ambient"
+                category = "opening_orientation"
+                severity = "low"
+                tmpl = pick_template("ambient", "king_uncommitted", {}, session_id)
+                text = tmpl["text"]
+
+            # PRIORITY 5: Opening phase orientation
+            elif fast_signals.get("development_incomplete") and fast_signals.get("is_opening_phase") and move_number >= 5:
+                layer = "ambient"
+                concept_key = "opening_phase"
+                category = "opening_orientation"
+                severity = "low"
+                tmpl = pick_template("ambient", "development_phase", {}, session_id)
+                text = tmpl["text"]
+
+            # PRIORITY 6: Reinforcement (ONLY non-obvious strong moves)
+            elif fast_signals.get("is_strong_move") and fast_signals.get("is_non_obvious"):
+                layer = "ambient"
+                concept_key = "reinforcement"
+                category = "reinforcement"
+                severity = "low"
+                tmpl = pick_template("ambient", "strong_move", {}, session_id)
+                text = tmpl["text"]
+
+            # else: stay silent — nothing position-specific to say
 
         # ─── BUILD RESPONSE ─────
         elapsed_total = (_time.monotonic() - start) * 1000
