@@ -745,6 +745,11 @@ const CoachPlaySidebar = ({
 
           {/* Main Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Pre-Move Fundamentals Reminder — always visible when it's player's turn */}
+            {!gameOver && isPlayerTurn && !v5Coaching && !isCoachThinking && !guardianIntervention && !isInTeachingMode && (
+              <PreMoveFundamentals />
+            )}
+
             {/* Coach Panel — hide when V5 coaching is showing (avoids overload) */}
             {!gameOver && !v5Coaching && !isCoachThinking && (
               <CoachPanel
@@ -1302,6 +1307,34 @@ const CoachPlaySidebar = ({
     </div>
   );
 };
+
+// ─── Pre-Move Fundamentals Reminder ─────────────────────────────
+
+const PRE_MOVE_CHECKLIST = [
+  { key: "threats", label: "What is my opponent threatening?", icon: "👁" },
+  { key: "hanging", label: "Are any of my pieces undefended?", icon: "🛡" },
+  { key: "checks", label: "Any checks, captures, or threats?", icon: "⚡" },
+  { key: "plan", label: "What is my plan with this move?", icon: "🎯" },
+];
+
+const PreMoveFundamentals = () => {
+  return (
+    <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3.5">
+      <p className="text-[10px] uppercase tracking-widest font-bold text-primary/60 mb-2.5">
+        Before you move
+      </p>
+      <div className="space-y-2">
+        {PRE_MOVE_CHECKLIST.map((item) => (
+          <div key={item.key} className="flex items-start gap-2">
+            <span className="text-sm leading-none mt-0.5">{item.icon}</span>
+            <p className="text-xs text-foreground/70 leading-snug">{item.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 
 // ─── Fundamentals Checklist ─────────────────────────────────────
 
