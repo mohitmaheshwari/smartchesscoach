@@ -775,15 +775,25 @@ async def end_coach_play_session(
         raise HTTPException(status_code=403, detail="Not your session")
     
     try:
+        # Save behavior summary before ending
+        try:
+            _behavior_cache = getattr(evaluate_pending_move, '_behavior_cache', {})
+            if session_id in _behavior_cache:
+                from services.player_behavior_tracker import save_session_behavior
+                await save_session_behavior(db, session_id, _behavior_cache[session_id])
+                del _behavior_cache[session_id]
+        except Exception as e:
+            logger.warning(f"Behavior save at end failed: {e}")
+
         result = await end_coach_session(
             db=db,
             session_id=session_id,
             reason=reason
         )
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error", "End failed"))
-        
+
         return result
     except HTTPException:
         raise
@@ -3207,6 +3217,29 @@ async def evaluate_pending_move(
             return {"shouldAutoCommit": True, "coachingMoment": None}
 
         user_color = session_doc.get("user_color", "white")
+        user_id = session_doc.get("user_id", "")
+
+        # Load player weaknesses and focus concept for scoring bias
+        top_weaknesses = []
+        focus_concept = None
+        try:
+            from services.player_behavior_tracker import (
+                compute_top_weaknesses, get_focus_concept,
+                get_weakness_score_boost, get_escalation_level,
+                get_escalated_message, get_adaptive_hold_boost,
+                SessionBehaviorTracker,
+            )
+            top_weaknesses = await compute_top_weaknesses(db, user_id, recent_games=10)
+            focus_concept = await get_focus_concept(db, user_id)
+        except Exception as e:
+            logger.warning(f"[FAST-EVAL] Behavior tracker load failed: {e}")
+
+        # Get or create session behavior tracker (cached on function)
+        _behavior_cache = getattr(evaluate_pending_move, '_behavior_cache', {})
+        if session_id not in _behavior_cache:
+            _behavior_cache[session_id] = SessionBehaviorTracker()
+            evaluate_pending_move._behavior_cache = _behavior_cache
+        session_tracker = _behavior_cache[session_id]
 
         # Cache eval_before from last evaluation
         cached_eval = None
@@ -3245,12 +3278,24 @@ async def evaluate_pending_move(
             board_before, board_after, color, eval_result, evals
         )
 
+        # Record signals in session behavior tracker
+        try:
+            session_tracker.record_signals(move_index_preview, fast_signals)
+        except Exception:
+            pass
+
         # ─── 4-LAYER COACHING DECISION ─────
         # Layer: silent / ambient / advisory / critical_interrupt
         # Critical = hold. Everything else = auto-commit with coaching strip.
         move_quality = eval_result.get("move_quality", "good")
         cp_loss_val = eval_result.get("cp_loss", 0)
-        move_number = len(session_doc.get("move_history", [])) // 2 + 1
+        move_history = session_doc.get("move_history", [])
+        move_number = len(move_history) // 2 + 1
+        move_idx = len(move_history) - 1
+
+        # Track last message move for "no silent gap" rule
+        last_msg_move = session_doc.get("last_coaching_move_index", -10)
+        moves_since_last_msg = move_idx - last_msg_move
 
         layer = "silent"
         category = None
@@ -3410,8 +3455,81 @@ async def evaluate_pending_move(
 
             # else: stay silent — nothing position-specific to say
 
+        # ─── ANTI-SILENCE RULES ─────
+        # Rule 1: Force ambient in opening if nothing else triggered
+        if layer == "silent" and fast_signals.get("is_opening_phase") and move_number >= 3:
+            if move_number <= 6:
+                layer = "ambient"
+                concept_key = "opening_phase"
+                category = "opening_orientation"
+                severity = "low"
+                tmpl = pick_template("ambient", "development_phase", {}, session_id)
+                text = tmpl["text"]
+            elif fast_signals.get("king_unsafe"):
+                layer = "ambient"
+                concept_key = "king_safety_ambient"
+                category = "opening_orientation"
+                severity = "low"
+                tmpl = pick_template("ambient", "king_uncommitted", {}, session_id)
+                text = tmpl["text"]
+
+        # Rule 2: No silent gap > 2 moves — force ambient if coach has been quiet
+        if layer == "silent" and moves_since_last_msg >= 3:
+            # Generate a position-awareness message
+            board_for_ambient = chess.Board(fen_after_user)
+            _ambient = _generate_gap_filler(board_for_ambient, user_color, move_number, fast_signals, session_id)
+            if _ambient:
+                layer = _ambient["layer"]
+                text = _ambient["text"]
+                concept_key = _ambient["concept_key"]
+                category = _ambient["category"]
+                severity = _ambient["severity"]
+
+        # ─── PATTERN ESCALATION + ADAPTIVE FRICTION ─────
+        # Apply player weakness bias, escalate tone, adjust hold time
+        extra_hold_ms = 0
+        if layer != "silent" and concept_key and text:
+            try:
+                # Escalation: first → repeated → pattern
+                count_this_game = session_tracker.get_concept_count_this_game(concept_key)
+                escalation = get_escalation_level(concept_key, count_this_game, top_weaknesses)
+
+                # Modify text tone based on escalation
+                if escalation in ("repeated", "pattern"):
+                    text = get_escalated_message(concept_key, escalation, text)
+
+                # Upgrade layer if pattern is severe
+                if escalation == "pattern" and layer == "advisory":
+                    layer = "critical_interrupt"
+                    severity = "high"
+
+                # Adaptive friction: more hold time for known weaknesses
+                if layer == "critical_interrupt":
+                    extra_hold_ms = get_adaptive_hold_boost(concept_key, count_this_game, top_weaknesses)
+
+            except Exception as e:
+                logger.warning(f"[FAST-EVAL] Escalation failed: {e}")
+
         # ─── BUILD RESPONSE ─────
         elapsed_total = (_time.monotonic() - start) * 1000
+
+        # Track last coaching move index for gap detection
+        if layer != "silent":
+            try:
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {"last_coaching_move_index": move_idx}}
+                )
+            except Exception:
+                pass
+
+        # Save behavior summary periodically (every 10 moves)
+        if move_index_preview > 0 and move_index_preview % 10 == 0:
+            try:
+                from services.player_behavior_tracker import save_session_behavior
+                await save_session_behavior(db, session_id, session_tracker)
+            except Exception:
+                pass
 
         # Silent — no coaching
         if layer == "silent":
@@ -3433,7 +3551,7 @@ async def evaluate_pending_move(
 
         # Compute hold time (only for critical)
         requires_hold = layer == "critical_interrupt"
-        min_hold_ms = _get_hold_ms(layer, severity or "low") if requires_hold else 0
+        min_hold_ms = (_get_hold_ms(layer, severity or "low") + extra_hold_ms) if requires_hold else 0
         should_auto_commit = not requires_hold
 
         logger.info(
@@ -3479,6 +3597,78 @@ async def evaluate_pending_move(
         elapsed_total = (_time.monotonic() - start) * 1000
         logger.error(f"[FAST-EVAL] Error after {elapsed_total:.0f}ms: {e}")
         return {"shouldAutoCommit": True, "coachingMoment": None}
+
+
+def _generate_gap_filler(board: chess.Board, user_color: str, move_number: int, signals: dict, session_id: str) -> Optional[Dict]:
+    """Generate a position-aware ambient message when coach has been quiet too long."""
+    from services.coaching_templates import pick_template
+
+    color = chess.WHITE if user_color == "white" else chess.BLACK
+    opponent = not color
+
+    # Priority 1: Describe opponent's activity/pressure
+    if signals.get("opponent_created_threat"):
+        opp = signals["opponent_created_threat"]
+        tmpl = pick_template("ambient", "opponent_threat", {
+            "attacker": opp["attacker"], "target": opp["target"], "square": opp["target_square"]
+        }, session_id)
+        return {"layer": "ambient", "text": tmpl["text"], "concept_key": "opponent_idea",
+                "category": "opponent_idea", "severity": "low"}
+
+    if signals.get("opponent_improved_activity"):
+        tmpl = pick_template("ambient", "opponent_activity", {}, session_id)
+        return {"layer": "ambient", "text": tmpl["text"], "concept_key": "opponent_activity",
+                "category": "opponent_idea", "severity": "low"}
+
+    # Priority 2: Describe game phase
+    if move_number <= 12:
+        # Opening: what's the current state?
+        king_sq = board.king(color)
+        castled = king_sq in ((chess.G1, chess.C1) if color == chess.WHITE else (chess.G8, chess.C8)) if king_sq else False
+
+        if castled and move_number >= 6:
+            return {"layer": "ambient", "text": "King safety is handled. Now focus shifts to piece coordination.",
+                    "concept_key": "phase_shift", "category": "opening_orientation", "severity": "low"}
+
+        if not castled and move_number >= 8:
+            tmpl = pick_template("ambient", "king_uncommitted", {}, session_id)
+            return {"layer": "ambient", "text": tmpl["text"], "concept_key": "king_safety_ambient",
+                    "category": "opening_orientation", "severity": "low"}
+
+        tmpl = pick_template("ambient", "development_phase", {}, session_id)
+        return {"layer": "ambient", "text": tmpl["text"], "concept_key": "opening_phase",
+                "category": "opening_orientation", "severity": "low"}
+
+    elif move_number <= 25:
+        # Middlegame: describe tension
+        center_sqs = [chess.E4, chess.D4, chess.E5, chess.D5]
+        our_center = sum(1 for sq in center_sqs if board.attackers(color, sq))
+        opp_center = sum(1 for sq in center_sqs if board.attackers(opponent, sq))
+
+        if opp_center > our_center + 1:
+            tmpl = pick_template("ambient", "opponent_center_pressure", {}, session_id)
+            return {"layer": "ambient", "text": tmpl["text"], "concept_key": "center_pressure",
+                    "category": "opponent_idea", "severity": "low"}
+
+        # Count material for phase awareness
+        our_pieces = sum(1 for sq in chess.SQUARES
+                         if board.piece_at(sq) and board.piece_at(sq).color == color
+                         and board.piece_at(sq).piece_type not in (chess.PAWN, chess.KING))
+        opp_pieces = sum(1 for sq in chess.SQUARES
+                          if board.piece_at(sq) and board.piece_at(sq).color == opponent
+                          and board.piece_at(sq).piece_type not in (chess.PAWN, chess.KING))
+
+        if our_pieces > opp_pieces:
+            return {"layer": "ambient", "text": "You have more active pieces. Use the advantage.",
+                    "concept_key": "activity_advantage", "category": "plan_guidance", "severity": "low"}
+
+        return {"layer": "ambient", "text": "The middlegame is about coordination and targets.",
+                "concept_key": "middlegame_phase", "category": "opening_orientation", "severity": "low"}
+
+    else:
+        # Endgame
+        return {"layer": "ambient", "text": "In the endgame, king activity and passed pawns matter most.",
+                "concept_key": "endgame_phase", "category": "opening_orientation", "severity": "low"}
 
 
 def _get_hold_ms(message_type: str, severity: str) -> int:
@@ -3816,11 +4006,26 @@ async def start_play_with_coach(
                 if coaching_context.get("focus_suggestion"):
                     welcome_message += f" {coaching_context['focus_suggestion']}."
             
-            # Surface any recurring patterns
-            if coaching_context.get("watch_for"):
-                top_weakness = coaching_context["watch_for"][0] if coaching_context["watch_for"] else None
-                if top_weakness and top_weakness["count"] >= 3:
-                    welcome_message += f"\n\nRemember: Watch out for {top_weakness['name']} - let's work on that today!"
+            # Surface focus concept from behavior tracker (replaces old watch_for)
+            try:
+                from services.player_behavior_tracker import get_focus_concept, get_session_focus_message
+                focus = await get_focus_concept(db, user.user_id)
+                if focus:
+                    focus_msg = get_session_focus_message(focus)
+                    if focus_msg:
+                        welcome_message += f"\n\n{focus_msg}"
+                    # Store focus concept in session for reference
+                    await db.coach_sessions.update_one(
+                        {"session_id": session.session_id},
+                        {"$set": {"focus_concept": focus}}
+                    )
+            except Exception as e:
+                logger.warning(f"Focus concept injection failed: {e}")
+                # Fallback to old watch_for system
+                if coaching_context.get("watch_for"):
+                    top_weakness = coaching_context["watch_for"][0] if coaching_context["watch_for"] else None
+                    if top_weakness and top_weakness["count"] >= 3:
+                        welcome_message += f"\n\nRemember: Watch out for {top_weakness['name']} - let's work on that today!"
             
             # Try Human Coach as fallback/enhancement — but NOT when curriculum is active
             if not opening_key:

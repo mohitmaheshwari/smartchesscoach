@@ -83,13 +83,15 @@ AMBIENT = {
         ],
     },
 
-    # Reinforcement (only non-obvious strong moves)
+    # Reinforcement (only non-obvious strong moves — must say WHAT and WHY)
     "strong_move": {
         "texts": [
-            "Good. You improved your worst piece.",
-            "Good. You kept control instead of rushing.",
-            "Nice. You strengthened your position without risk.",
-            "Good. You addressed the right priority.",
+            "Good. You improved your worst piece instead of chasing pawns.",
+            "Good. You kept control instead of rushing an attack.",
+            "Nice. You handled the threat before continuing your plan.",
+            "Good. You prioritized coordination over material.",
+            "Good. You chose stability over aggression here.",
+            "Nice. You fixed a weakness before your opponent could exploit it.",
         ],
     },
 
