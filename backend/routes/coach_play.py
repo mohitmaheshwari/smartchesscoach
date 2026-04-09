@@ -3248,10 +3248,11 @@ async def evaluate_pending_move(
         # ─── COACHING DECISION (< 2ms) ─────
         move_quality = eval_result.get("move_quality", "good")
 
-        # No coaching for good moves (fast exit)
-        if move_quality == "good" and not fast_signals.get("hung_piece"):
+        # GATE: Only hold on mistake or blunder. Stockfish is the authority.
+        # Good moves and inaccuracies → auto-commit, no hold.
+        if move_quality not in ("mistake", "blunder"):
             elapsed_total = (_time.monotonic() - start) * 1000
-            logger.info(f"[FAST-EVAL] Good move, auto-commit in {elapsed_total:.0f}ms")
+            logger.info(f"[FAST-EVAL] {move_quality} move, auto-commit in {elapsed_total:.0f}ms")
             return {
                 "shouldAutoCommit": True,
                 "coachingMoment": None,
@@ -3267,7 +3268,8 @@ async def evaluate_pending_move(
                 },
             }
 
-        # ─── BUILD CANDIDATES (fast, max 2) ─────
+        # ─── BUILD CANDIDATES (only for mistakes/blunders) ─────
+        # Heuristics explain WHY. Stockfish already decided this IS bad.
         candidates = []
 
         if fast_signals.get("hung_piece"):
@@ -3300,13 +3302,15 @@ async def evaluate_pending_move(
                 "text": f"Your opponent's {ic['piece']} on {ic['square']} was free to take.",
                 "question": "Did you check for captures first?",
             })
-        elif move_quality == "blunder":
+        else:
+            # No specific heuristic matched, but Stockfish says it's bad
+            sev = "high" if move_quality == "blunder" else "medium"
             candidates.append({
                 "type": "critical_interrupt",
-                "base": 95,
-                "severity": "high",
-                "concept": "blunder",
-                "text": f"This loses significant ground.",
+                "base": 95 if move_quality == "blunder" else 82,
+                "severity": sev,
+                "concept": "blunder" if move_quality == "blunder" else "mistake",
+                "text": "This move loses ground. Did you calculate your opponent's reply?",
                 "question": "What can your opponent do after this?",
             })
 
@@ -3329,28 +3333,8 @@ async def evaluate_pending_move(
                 "question": None,
             })
 
-        if move_quality in ("inaccuracy",) and not candidates:
-            move_number = len(session_doc.get("move_history", [])) // 2 + 1
-            if move_number <= 12:
-                candidates.append({
-                    "type": "opening_principle",
-                    "base": 58,
-                    "severity": "low",
-                    "concept": "opening_deviation",
-                    "text": "Finish development and king safety before starting action.",
-                    "question": None,
-                })
-
-        # Strong non-obvious move reinforcement
-        if fast_signals.get("is_strong_move") and fast_signals.get("is_non_obvious") and not candidates:
-            candidates.append({
-                "type": "reinforcement",
-                "base": 72,
-                "severity": "low",
-                "concept": "strong_move",
-                "text": "Good. You addressed the real priority.",
-                "question": None,
-            })
+        # (inaccuracy and reinforcement candidates removed —
+        #  we only reach here on mistake/blunder)
 
         # ─── PICK WINNER ─────
         if not candidates:

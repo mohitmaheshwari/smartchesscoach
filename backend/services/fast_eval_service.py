@@ -243,6 +243,7 @@ def detect_signals_fast(
     move_quality = eval_result.get("move_quality", "good")
 
     # Hung piece: user's piece attacked and undefended after the move
+    # BUT: skip if all attackers are pinned (can't actually capture)
     opponent = not user_color
     for sq in chess.SQUARES:
         piece = board_after.piece_at(sq)
@@ -250,6 +251,14 @@ def detect_signals_fast(
             attackers = board_after.attackers(opponent, sq)
             defenders = board_after.attackers(user_color, sq)
             if attackers and not defenders:
+                # Check if ANY attacker can actually capture (not pinned)
+                real_attackers = [
+                    atk_sq for atk_sq in attackers
+                    if not board_after.is_pinned(opponent, atk_sq)
+                ]
+                if not real_attackers:
+                    continue  # All attackers are pinned — piece is safe
+
                 val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}.get(piece.piece_type, 0)
                 if val >= 3:  # Only major/minor pieces
                     signals["hung_piece"] = {
@@ -260,6 +269,7 @@ def detect_signals_fast(
                     break  # One is enough
 
     # Missed threat: opponent was attacking user piece before move, still is after
+    # Skip if all attackers are pinned
     if not signals["hung_piece"]:
         for sq in chess.SQUARES:
             piece = board_before.piece_at(sq)
@@ -267,12 +277,19 @@ def detect_signals_fast(
                 att_before = board_before.attackers(opponent, sq)
                 def_before = board_before.attackers(user_color, sq)
                 if att_before and not def_before:
+                    # Check if attackers are pinned
+                    real_att = [a for a in att_before if not board_before.is_pinned(opponent, a)]
+                    if not real_att:
+                        continue
                     # Was hanging before. Is it still hanging after?
                     piece_after = board_after.piece_at(sq)
                     if piece_after and piece_after.color == user_color:
                         att_after = board_after.attackers(opponent, sq)
                         def_after = board_after.attackers(user_color, sq)
                         if att_after and not def_after:
+                            real_att_after = [a for a in att_after if not board_after.is_pinned(opponent, a)]
+                            if not real_att_after:
+                                continue
                             val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}.get(piece.piece_type, 0)
                             if val >= 3:
                                 signals["missed_threat"] = {
@@ -282,12 +299,17 @@ def detect_signals_fast(
                                 break
 
     # Ignored capture: opponent piece hanging before move, user didn't take
+    # Skip if user's attackers are all pinned
     for sq in chess.SQUARES:
         piece = board_before.piece_at(sq)
         if piece and piece.color == opponent and piece.piece_type != chess.KING:
             att = board_before.attackers(user_color, sq)
             defn = board_before.attackers(opponent, sq)
             if att and not defn:
+                # Check if user's attackers are pinned
+                real_att = [a for a in att if not board_before.is_pinned(user_color, a)]
+                if not real_att:
+                    continue
                 val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}.get(piece.piece_type, 0)
                 if val >= 3:
                     signals["ignored_capture"] = {

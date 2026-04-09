@@ -225,7 +225,8 @@ def compute_signals(
 
 
 def _detect_hung_piece(board: chess.Board, user_color: chess.Color) -> Optional[Dict]:
-    """Find user's piece that is attacked and undefended after their move."""
+    """Find user's piece that is attacked and undefended after their move.
+    Skips pieces where all attackers are pinned."""
     opponent = not user_color
     worst = None
     for sq in chess.SQUARES:
@@ -235,6 +236,10 @@ def _detect_hung_piece(board: chess.Board, user_color: chess.Color) -> Optional[
         attackers = board.attackers(opponent, sq)
         defenders = board.attackers(user_color, sq)
         if attackers and not defenders:
+            # Skip if all attackers are pinned
+            real_attackers = [a for a in attackers if not board.is_pinned(opponent, a)]
+            if not real_attackers:
+                continue
             val = _piece_value(piece.piece_type)
             if worst is None or val > worst["value"]:
                 worst = {
