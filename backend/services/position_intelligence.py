@@ -28,6 +28,7 @@ Usage:
 import chess
 import logging
 from typing import Dict, List, Optional
+from services.position_reader import read_position
 
 logger = logging.getLogger(__name__)
 
