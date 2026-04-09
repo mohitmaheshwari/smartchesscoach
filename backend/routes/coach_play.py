@@ -4021,23 +4021,23 @@ async def _process_move_and_respond(
                 )
 
                 # Run decision engine
-                result = decide_message(signals, memory, user_patterns)
+                mde_result = decide_message(signals, memory, user_patterns)
 
                 # Log debug info
-                logger.info(f"[MDE-DEBUG] {json.dumps(result.get('debug_log', {}), default=str)}")
+                logger.info(f"[MDE-DEBUG] {json.dumps(mde_result.get('debug_log', {}), default=str)}")
 
                 # Store debug log in session for export
                 try:
                     await db.coach_sessions.update_one(
                         {"session_id": session_id},
-                        {"$push": {"mde_debug_logs": result.get("debug_log", {})}}
+                        {"$push": {"mde_debug_logs": mde_result.get("debug_log", {})}}
                     )
                 except Exception:
                     pass
 
                 # Emit winner if any
-                if result.get("show_message") and result.get("message"):
-                    msg = result["message"]
+                if mde_result.get("show_message") and mde_result.get("message"):
+                    msg = mde_result["message"]
                     msg_doc = {
                         "session_id": session_id,
                         "type": "coach",
@@ -4541,11 +4541,11 @@ async def _process_move_and_respond(
                                 best_move="",
                                 user_rating=user_rating,
                             )
-                            coach_result = decide_message(coach_signals, memory, user_patterns)
-                            logger.info(f"[MDE-DEBUG-COACH] {json.dumps(coach_result.get('debug_log', {}), default=str)}")
+                            mde_coach_result = decide_message(coach_signals, memory, user_patterns)
+                            logger.info(f"[MDE-DEBUG-COACH] {json.dumps(mde_coach_result.get('debug_log', {}), default=str)}")
 
-                            if coach_result.get("show_message") and coach_result.get("message"):
-                                cmsg = coach_result["message"]
+                            if mde_coach_result.get("show_message") and mde_coach_result.get("message"):
+                                cmsg = mde_coach_result["message"]
                                 await db.coach_messages.insert_one({
                                     "session_id": session_id,
                                     "type": "coach",
