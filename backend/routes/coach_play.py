@@ -3199,7 +3199,7 @@ async def evaluate_pending_move(
     user_rating = request.get("userRating", 1200)
 
     if not session_id or not fen_before or not uci:
-        return {"shouldAutoCommit": True, "coachingMoment": None}
+        return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None}
 
     try:
         from services.fast_eval_service import fast_eval, detect_signals_fast
@@ -3211,10 +3211,11 @@ async def evaluate_pending_move(
         # Get session for cached eval and user patterns
         session_doc = await db.coach_sessions.find_one(
             {"session_id": session_id},
-            {"_id": 0, "evaluations": 1, "user_color": 1, "user_id": 1, "move_history": 1}
+            {"_id": 0, "evaluations": 1, "user_color": 1, "user_id": 1, "move_history": 1,
+             "coaching_decisions": 1, "last_coaching_move_index": 1}
         )
         if not session_doc:
-            return {"shouldAutoCommit": True, "coachingMoment": None}
+            return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None}
 
         user_color = session_doc.get("user_color", "white")
         user_id = session_doc.get("user_id", "")
@@ -3284,11 +3285,23 @@ async def evaluate_pending_move(
 
         elapsed_eval = (_time.monotonic() - start) * 1000
 
-        # Hard timeout check
-        if elapsed_eval > 400:
-            logger.warning(f"[FAST-EVAL] Timeout at {elapsed_eval:.0f}ms, auto-committing")
+        # Hard timeout check — still return checklist/commentary even on timeout
+        if elapsed_eval > 1000:
+            logger.warning(f"[FAST-EVAL] Hard timeout at {elapsed_eval:.0f}ms")
+            # Still try to get commentary even on eval timeout
+            _timeout_commentary = None
+            try:
+                from services.position_intelligence import read_board_like_a_coach
+                _timeout_commentary = read_board_like_a_coach(fen_before, user_color, user_rating)
+            except Exception:
+                pass
             return {
                 "shouldAutoCommit": True,
+                "coachingDecision": {"layer": "silent", "gamePhase": "opening" if move_index_preview < 24 else "middlegame"},
+                "checklist": {},
+                "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
+                "playerProfile": player_profile_data,
+                "commentary": _timeout_commentary,
                 "coachingMoment": None,
                 "moveEvaluation": {
                     "moveQuality": eval_result.get("move_quality", "good"),
@@ -3697,7 +3710,7 @@ async def evaluate_pending_move(
     except Exception as e:
         elapsed_total = (_time.monotonic() - start) * 1000
         logger.error(f"[FAST-EVAL] Error after {elapsed_total:.0f}ms: {e}")
-        return {"shouldAutoCommit": True, "coachingMoment": None}
+        return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None}
 
 
 def _generate_gap_filler(board: chess.Board, user_color: str, move_number: int, signals: dict, session_id: str) -> Optional[Dict]:
