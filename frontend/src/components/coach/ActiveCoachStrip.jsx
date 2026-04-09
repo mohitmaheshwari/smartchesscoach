@@ -91,15 +91,21 @@ const ActiveCoachStrip = ({ coaching }) => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.25 }}
-          className={`rounded-lg border ${config.bg} ${config.border} px-4 py-2.5 cursor-default`}
+          className={`rounded-lg border ${config.bg} ${config.border} px-4 py-3 cursor-default`}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
+          {/* Game phase indicator */}
+          {displayData.gamePhase && (
+            <p className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-1.5">
+              {displayData.gamePhase}
+            </p>
+          )}
           <p className={`text-sm ${config.text} leading-snug`}>
             {displayData.text}
           </p>
           {displayData.question?.prompt && (
-            <p className={`text-xs ${config.text} opacity-60 mt-1 italic`}>
+            <p className={`text-xs ${config.text} opacity-60 mt-1.5 italic`}>
               {displayData.question.prompt}
             </p>
           )}

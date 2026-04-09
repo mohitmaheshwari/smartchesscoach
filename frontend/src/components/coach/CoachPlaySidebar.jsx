@@ -24,6 +24,9 @@ import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 import PostGameLesson from "@/components/PostGameLesson";
 import PostGameReflection from "@/components/coach/PostGameReflection";
 import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
+import ActiveCoachStrip from "@/components/coach/ActiveCoachStrip";
+import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
+import LiveChecklist from "@/components/coach/LiveChecklist";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
 import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
@@ -685,6 +688,14 @@ const CoachPlaySidebar = ({
   newGame,
   coachTimeline = [],
   coachFlowState,
+  activeStripCoaching,
+  activeCoachingMoment,
+  liveChecklist,
+  checklistHistory,
+  playerWeaknessList,
+  isInHold,
+  clockState,
+  onClockTap,
 }) => {
   const [showLessonPicker, setShowLessonPicker] = useState(false);
 
@@ -755,6 +766,40 @@ const CoachPlaySidebar = ({
 
           {/* Main Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* ═══ NEW COACHING SYSTEM (in sidebar) ═══ */}
+
+            {/* Critical Hold Card — mistake/blunder with clock commit */}
+            {suppressOldCoaching && isInHold && activeCoachingMoment && (
+              <ActiveCoachingCard
+                moment={activeCoachingMoment}
+                clockState={clockState}
+                onClockTap={onClockTap}
+              />
+            )}
+
+            {/* Ambient/Advisory Strip — live coaching in sidebar */}
+            {suppressOldCoaching && !isInHold && activeStripCoaching && (
+              <ActiveCoachStrip coaching={activeStripCoaching} />
+            )}
+
+            {/* Live Checklist — fundamentals + weaknesses */}
+            {suppressOldCoaching && !gameOver && (
+              <LiveChecklist
+                checklist={liveChecklist}
+                checklistHistory={checklistHistory}
+                weaknesses={playerWeaknessList}
+                gamePhase={activeStripCoaching?.gamePhase || (activeCoachingMoment ? "critical" : null)}
+                coachNote={activeStripCoaching?.text || (isInHold ? activeCoachingMoment?.text : null)}
+              />
+            )}
+
+            {/* Coach Timeline — historical moments */}
+            {suppressOldCoaching && coachTimeline && coachTimeline.length > 0 && !gameOver && (
+              <CoachTimelinePanel timeline={coachTimeline} />
+            )}
+
+            {/* ═══ LEGACY COACHING (old mode) ═══ */}
+
             {/* Pre-Move Fundamentals Reminder — only in old mode */}
             {!suppressOldCoaching && !gameOver && isPlayerTurn && !v5Coaching && !isCoachThinking && !guardianIntervention && !isInTeachingMode && (
               <PreMoveFundamentals />
@@ -1089,10 +1134,7 @@ const CoachPlaySidebar = ({
               </div>
             )}
 
-            {/* Coach Timeline — historical coaching moments (not live stream) */}
-            {coachTimeline && coachTimeline.length > 0 && !gameOver && (
-              <CoachTimelinePanel timeline={coachTimeline} />
-            )}
+            {/* (Coach Timeline moved to top of sidebar under new coaching system) */}
 
             {/* Teaching Mode Instruction */}
             {isInTeachingMode &&

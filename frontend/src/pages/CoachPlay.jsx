@@ -2230,32 +2230,6 @@ const CoachPlay = ({ user }) => {
           })()}
         />
 
-        {/* Active Coach Strip — ambient/advisory, between board and sidebar */}
-        {!coachFlow.isInHold && coachFlow.activeStripCoaching && (
-          <div className="w-72 flex-shrink-0 p-3 flex flex-col justify-start pt-8">
-            <ActiveCoachStrip coaching={coachFlow.activeStripCoaching} />
-          </div>
-        )}
-
-        {/* Active Coaching Card — board-adjacent, shows during hold states */}
-        {coachFlow.isInHold && coachFlow.activeCoachingMoment && (
-          <div className="w-72 flex-shrink-0 p-3 flex flex-col justify-center">
-            <ActiveCoachingCard
-              moment={coachFlow.activeCoachingMoment}
-              clockState={coachFlow.clockState}
-              onClockTap={() => {
-                const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
-                coachFlow.handleClockTap(
-                  (san, ts) => executeMove(san, ts),
-                  timeSpent
-                ).then(success => {
-                  if (success) setIsPlayerTurn(false);
-                });
-              }}
-            />
-          </div>
-        )}
-
         {/* Right: Coach panel */}
         <CoachPlaySidebar
           session={session}
@@ -2322,6 +2296,22 @@ const CoachPlay = ({ user }) => {
           newGame={newGame}
           coachTimeline={coachFlow.timeline}
           coachFlowState={coachFlow.interactionState}
+          activeStripCoaching={coachFlow.activeStripCoaching}
+          activeCoachingMoment={coachFlow.activeCoachingMoment}
+          liveChecklist={coachFlow.liveChecklist}
+          checklistHistory={coachFlow.checklistHistory}
+          playerWeaknessList={coachFlow.playerWeaknessList}
+          isInHold={coachFlow.isInHold}
+          clockState={coachFlow.clockState}
+          onClockTap={() => {
+            const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
+            coachFlow.handleClockTap(
+              (san, ts) => executeMove(san, ts),
+              timeSpent
+            ).then(success => {
+              if (success) setIsPlayerTurn(false);
+            });
+          }}
         />
       </div>
 

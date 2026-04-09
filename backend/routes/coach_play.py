@@ -3565,12 +3565,16 @@ async def evaluate_pending_move(
             except Exception:
                 pass
 
-        # Silent — no coaching
+        # Silent — no coaching text, but still return checklist
         if layer == "silent":
+            game_phase = "opening" if move_number <= 12 else ("middlegame" if move_number <= 30 else "endgame")
+            checklist = _build_checklist(fast_signals, move_quality, eval_is_valid, game_phase)
             logger.info(f"[FAST-EVAL] {move_quality}, silent, {elapsed_total:.0f}ms")
             return {
                 "shouldAutoCommit": True,
-                "coachingDecision": {"layer": "silent"},
+                "coachingDecision": {"layer": "silent", "gamePhase": game_phase},
+                "checklist": checklist,
+                "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "moveEvaluation": {
                     "moveQuality": move_quality,
                     "cpLoss": cp_loss_val,
@@ -3593,6 +3597,10 @@ async def evaluate_pending_move(
             f"hold={requires_hold}, {elapsed_total:.0f}ms"
         )
 
+        # ─── BUILD CHECKLIST ─────
+        game_phase = "opening" if move_number <= 12 else ("middlegame" if move_number <= 30 else "endgame")
+        checklist = _build_checklist(fast_signals, move_quality, eval_is_valid, game_phase)
+
         return {
             "shouldAutoCommit": should_auto_commit,
             "coachingDecision": {
@@ -3606,7 +3614,10 @@ async def evaluate_pending_move(
                 "minHoldMs": min_hold_ms,
                 "showInTimeline": layer in ("critical_interrupt", "advisory"),
                 "showInActiveStrip": layer in ("ambient", "advisory"),
+                "gamePhase": game_phase,
             },
+            "checklist": checklist,
+            "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
             "moveEvaluation": {
                 "moveQuality": move_quality,
                 "cpLoss": eval_result.get("cp_loss", 0),
@@ -3703,6 +3714,89 @@ def _generate_gap_filler(board: chess.Board, user_color: str, move_number: int, 
         # Endgame
         return {"layer": "ambient", "text": "In the endgame, king activity and passed pawns matter most.",
                 "concept_key": "endgame_phase", "category": "opening_orientation", "severity": "low"}
+
+
+def _build_checklist(signals: dict, move_quality: str, eval_valid: bool, phase: str) -> dict:
+    """
+    Build pass/fail checklist from fast_eval signals.
+    Returns: {"opponent_threats": "passed"|"failed"|"neutral", ...}
+    """
+    cl = {}
+
+    # 1. Opponent threats: failed if missed_threat or ignored capture
+    if signals.get("missed_threat") or signals.get("ignored_capture"):
+        cl["opponent_threats"] = "failed"
+    elif signals.get("opponent_created_threat"):
+        # There was a threat and we didn't miss it
+        cl["opponent_threats"] = "passed"
+    else:
+        cl["opponent_threats"] = "neutral"
+
+    # 2. Piece safety: failed if hung piece
+    if signals.get("hung_piece"):
+        cl["piece_safety"] = "failed"
+    elif move_quality in ("good",) and eval_valid:
+        cl["piece_safety"] = "passed"
+    else:
+        cl["piece_safety"] = "neutral"
+
+    # 3. King safety
+    if signals.get("king_unsafe"):
+        cl["king_safety"] = "failed"
+    else:
+        cl["king_safety"] = "passed" if phase != "endgame" else "neutral"
+
+    # 4. Development
+    if signals.get("development_incomplete") and phase == "opening":
+        cl["development"] = "failed"
+    elif phase == "opening":
+        cl["development"] = "passed"
+    else:
+        cl["development"] = "neutral"
+
+    # 5. Center control
+    if signals.get("center_under_pressure"):
+        cl["center_control"] = "failed"
+    else:
+        cl["center_control"] = "neutral"
+
+    # 6. Has plan (move purpose)
+    if move_quality == "blunder":
+        cl["has_plan"] = "failed"
+    elif move_quality == "good" and eval_valid:
+        cl["has_plan"] = "passed"
+    elif signals.get("premature_attack"):
+        cl["has_plan"] = "failed"
+    else:
+        cl["has_plan"] = "neutral"
+
+    # Also add weakness signal mappings for the weakness section
+    if signals.get("missed_threat") or signals.get("ignored_capture"):
+        cl["ignored_threat"] = "failed"
+    elif signals.get("opponent_created_threat"):
+        cl["ignored_threat"] = "passed"
+
+    if signals.get("hung_piece"):
+        cl["hung_pieces"] = "failed"
+    elif move_quality == "good" and eval_valid:
+        cl["hung_pieces"] = "passed"
+
+    if signals.get("premature_attack"):
+        cl["premature_attack"] = "failed"
+    elif move_quality == "good":
+        cl["premature_attack"] = "passed"
+
+    if signals.get("king_unsafe"):
+        cl["king_safety_weakness"] = "failed"
+    else:
+        cl["king_safety_weakness"] = "passed" if phase != "endgame" else "neutral"
+
+    if signals.get("development_incomplete") and phase == "opening":
+        cl["weak_development"] = "failed"
+    elif phase == "opening":
+        cl["weak_development"] = "passed"
+
+    return cl
 
 
 def _get_hold_ms(message_type: str, severity: str) -> int:
@@ -4542,98 +4636,14 @@ async def _process_move_and_respond(
         # NEW: Message Decision Engine (Step 2.5)
         # Replaces ALL old emitters when enabled.
         # ═══════════════════════════════════════════════════════════
-        engine_handled = False
+        # The new evaluate-pending endpoint handles all coaching decisions.
+        # Skip ALL coaching message emission in this background task.
+        engine_handled = True
         try:
-            from services.message_decision_engine import (
-                ENABLE_DECISION_ENGINE, compute_signals, decide_message, SessionMemory
-            )
-            if ENABLE_DECISION_ENGINE:
-                # Get or create session memory
-                session_doc_mem = await db.coach_sessions.find_one({"session_id": session_id})
-                _session_memory_cache = getattr(_process_move_and_respond, '_memory_cache', {})
-
-                if session_id not in _session_memory_cache:
-                    _session_memory_cache[session_id] = SessionMemory()
-                    _process_move_and_respond._memory_cache = _session_memory_cache
-
-                memory = _session_memory_cache[session_id]
-
-                # Get user patterns for pattern matching
-                user_patterns = []
-                try:
-                    lifecycle_docs = await db.problem_lifecycle.find(
-                        {"user_id": session_doc_mem.get("user_id")},
-                        {"category": 1, "_id": 0}
-                    ).to_list(10)
-                    user_patterns = [d["category"] for d in lifecycle_docs]
-                except Exception:
-                    pass
-
-                # Compute move index
-                move_history_len = len(session_doc_mem.get("move_history", []))
-                move_idx = move_history_len - 1  # 0-indexed
-
-                # Compute signals
-                signals = compute_signals(
-                    move_index=move_idx,
-                    fen_before=fen_before,
-                    fen_after=fen_after_user,
-                    move_san=user_move,
-                    is_user_move=True,
-                    user_color=user_color,
-                    move_number=move_number,
-                    eval_before=analysis.get("eval_before", 0),
-                    eval_after=analysis.get("eval_after", 0),
-                    best_move=analysis.get("best_move", ""),
-                    user_rating=user_rating,
-                    session_evals=session_doc_mem.get("evaluations", []),
-                    user_patterns=user_patterns,
-                )
-
-                # Run decision engine
-                mde_result = decide_message(signals, memory, user_patterns)
-
-                # Log debug info
-                logger.info(f"[MDE-DEBUG] {json.dumps(mde_result.get('debug_log', {}), default=str)}")
-
-                # Store debug log in session for export
-                try:
-                    await db.coach_sessions.update_one(
-                        {"session_id": session_id},
-                        {"$push": {"mde_debug_logs": mde_result.get("debug_log", {})}}
-                    )
-                except Exception:
-                    pass
-
-                # Emit winner if any
-                if mde_result.get("show_message") and mde_result.get("message"):
-                    msg = mde_result["message"]
-                    msg_doc = {
-                        "session_id": session_id,
-                        "type": "coach",
-                        "message": msg["message"],
-                        "trigger": msg["message_type"],
-                        "move_index": msg["move_index"],
-                        "fen_before": msg["fen_before"],
-                        "move": user_move,
-                        "move_number": move_number,
-                        "created_at": datetime.now(timezone.utc),
-                        "read": False,
-                        "message_type": msg["message_type"],
-                        "concept_key": msg["concept_key"],
-                        "severity": msg["severity"],
-                        "priority_score": msg["priority_score"],
-                    }
-                    if msg.get("question"):
-                        msg_doc["question"] = {"prompt": msg["question"]}
-                    await db.coach_messages.insert_one(msg_doc)
-
-                engine_handled = True
-
+            from services.message_decision_engine import ENABLE_DECISION_ENGINE
+            engine_handled = ENABLE_DECISION_ENGINE
         except ImportError:
-            logger.warning("MessageDecisionEngine not available, using legacy coaching")
-        except Exception as e:
-            logger.error(f"MessageDecisionEngine failed: {e}", exc_info=True)
+            engine_handled = False
 
         # ═══════════════════════════════════════════════════════════
         # LEGACY COACHING (skipped when engine handles the move)
@@ -5095,46 +5105,10 @@ async def _process_move_and_respond(
                     # === TEACHING: Generate coach's teaching message ===
                     # When decision engine is active, run coach move through it too
                     coach_move_number = len(move_history) // 2
+                    # Coach move coaching is now handled by evaluate-pending on the NEXT user move
+                    # (opponent idea signals). No separate coach move message emission needed.
                     if engine_handled and not coach_game_over:
-                        # Use decision engine for coach move too
-                        try:
-                            coach_signals = compute_signals(
-                                move_index=len(move_history) - 1,
-                                fen_before=fen_after_user,
-                                fen_after=fen_after_coach,
-                                move_san=coach_move,
-                                is_user_move=False,
-                                user_color=user_color,
-                                move_number=coach_move_number,
-                                eval_before=analysis.get("eval_after", 0),
-                                eval_after=0,  # We don't have coach eval
-                                best_move="",
-                                user_rating=user_rating,
-                            )
-                            mde_coach_result = decide_message(coach_signals, memory, user_patterns)
-                            logger.info(f"[MDE-DEBUG-COACH] {json.dumps(mde_coach_result.get('debug_log', {}), default=str)}")
-
-                            if mde_coach_result.get("show_message") and mde_coach_result.get("message"):
-                                cmsg = mde_coach_result["message"]
-                                await db.coach_messages.insert_one({
-                                    "session_id": session_id,
-                                    "type": "coach",
-                                    "message": cmsg["message"],
-                                    "trigger": cmsg["message_type"],
-                                    "move_index": cmsg["move_index"],
-                                    "fen_before": cmsg["fen_before"],
-                                    "move": coach_move,
-                                    "move_number": coach_move_number,
-                                    "is_coach_move": True,
-                                    "created_at": datetime.now(timezone.utc),
-                                    "read": False,
-                                    "message_type": cmsg["message_type"],
-                                    "concept_key": cmsg["concept_key"],
-                                    "severity": cmsg["severity"],
-                                    "priority_score": cmsg["priority_score"],
-                                })
-                        except Exception as e:
-                            logger.warning(f"MDE coach move failed: {e}")
+                        pass  # Silent — evaluate-pending handles opponent awareness
 
                     if not engine_handled and not coach_game_over:
                         try:

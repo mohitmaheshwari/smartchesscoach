@@ -28,6 +28,9 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
   const [pendingMove, setPendingMove] = useState(null);
   const [activeCoachingMoment, setActiveCoachingMoment] = useState(null);
   const [activeStripCoaching, setActiveStripCoaching] = useState(null); // ambient/advisory
+  const [liveChecklist, setLiveChecklist] = useState(null); // fundamentals pass/fail (current move)
+  const [checklistHistory, setChecklistHistory] = useState({}); // {key: {passed: N, failed: N}} across game
+  const [playerWeaknessList, setPlayerWeaknessList] = useState([]); // from backend
   const [timeline, setTimeline] = useState([]);
 
   // ─── Internal Refs ──────────────────────────────────────────
@@ -121,6 +124,25 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       const decision = result.coachingDecision || {};
       const layer = decision.layer || "silent";
 
+      // Update checklist (always, even on silent)
+      if (result.checklist) {
+        setLiveChecklist(result.checklist);
+        // Accumulate game-wide history
+        setChecklistHistory(prev => {
+          const next = { ...prev };
+          for (const [key, status] of Object.entries(result.checklist)) {
+            if (status === "neutral") continue;
+            if (!next[key]) next[key] = { passed: 0, failed: 0 };
+            if (status === "passed") next[key].passed += 1;
+            if (status === "failed") next[key].failed += 1;
+          }
+          return next;
+        });
+      }
+      if (result.weaknesses) {
+        setPlayerWeaknessList(result.weaknesses);
+      }
+
       // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
       if (layer === "silent" || result.shouldAutoCommit) {
         // Show strip for ambient/advisory (but auto-commit continues)
@@ -131,6 +153,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
             question: decision.question,
             category: decision.category,
             conceptKey: decision.conceptKey,
+            gamePhase: decision.gamePhase,
           });
           // Timeline: ONLY advisory and above. Never ambient.
           if (layer === "advisory") {
@@ -293,6 +316,9 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
   const resetFlow = useCallback(() => {
     _clearState();
     setInteractionState(INTERACTION_STATES.IDLE);
+    setLiveChecklist(null);
+    setChecklistHistory({});
+    setPlayerWeaknessList([]);
     setTimeline([]);
     sessionBehavior.current = {
       repeatedConceptCounts: {},
@@ -319,6 +345,9 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     pendingMove,
     activeCoachingMoment,
     activeStripCoaching,
+    liveChecklist,
+    checklistHistory,
+    playerWeaknessList,
     timeline,
 
     // Derived
