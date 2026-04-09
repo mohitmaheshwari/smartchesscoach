@@ -5631,7 +5631,7 @@ async def get_fundamentals_summary(session_id: str, user=Depends(get_current_use
 
 @router.get("/export-session/{session_id}")
 async def export_session(session_id: str, user=Depends(get_current_user)):
-    """Export full session data for debugging. Downloads as JSON."""
+    """Export full session data for debugging — includes all coaching system data."""
     global db
     from datetime import datetime, timezone
 
@@ -5642,7 +5642,9 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Messages
+    user_id = session.get("user_id", "")
+
+    # Messages (match by move_index first, fallback to SAN)
     messages = await db.coach_messages.find(
         {"session_id": session_id},
         {"_id": 0}
@@ -5650,9 +5652,22 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
 
     # Postgame
     postgame = await db.postgame_analyses.find_one(
-        {"session_id": session_id},
-        {"_id": 0}
+        {"session_id": session_id}, {"_id": 0}
     )
+
+    # Player data
+    player_strength = await db.player_strength_profiles.find_one(
+        {"user_id": user_id}, {"_id": 0}
+    )
+    player_profile = await db.player_profiles.find_one(
+        {"user_id": user_id}, {"_id": 0}
+    )
+    thinking_recent = await db.thinking_scores.find(
+        {"user_id": user_id}, {"_id": 0, "habit_scores": 1, "overall_score": 1}
+    ).sort("calculated_at", -1).limit(5).to_list(5)
+    problems = await db.problem_lifecycle.find(
+        {"user_id": user_id}, {"_id": 0}
+    ).to_list(10)
 
     # Build move timeline
     move_history = session.get("move_history", [])
@@ -5664,6 +5679,7 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
         move_data = {
             "index": i,
             "move": entry.get("move") if isinstance(entry, dict) else entry,
+            "by": entry.get("by") if isinstance(entry, dict) else None,
         }
         if i < len(fen_history):
             move_data["fen_before"] = fen_history[i]
@@ -5672,9 +5688,13 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
         if i < len(evaluations):
             move_data["eval"] = evaluations[i]
 
-        # Messages for this move
+        # Messages by move_index (preferred) or SAN (fallback)
         move_san = move_data["move"]
-        move_msgs = [m for m in messages if m.get("move") == move_san]
+        move_msgs = [
+            m for m in messages
+            if m.get("move_index") == i or
+               (m.get("move") == move_san and m.get("move_index") is None)
+        ]
         if move_msgs:
             move_data["coaching"] = move_msgs
         moves.append(move_data)
@@ -5683,6 +5703,7 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "session_id": session_id,
         "summary": {
+            "user_id": user_id,
             "user_color": session.get("user_color"),
             "result": session.get("result"),
             "termination": session.get("termination_reason"),
@@ -5690,18 +5711,42 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
             "user_rating": session.get("user_rating"),
             "detected_opening": session.get("detected_opening"),
             "opening_teaching_active": session.get("opening_teaching_active"),
+            "focus_concept": session.get("focus_concept"),
             "created_at": session.get("created_at"),
             "ended_at": session.get("ended_at"),
         },
         "moves": moves,
         "messages": messages,
+        "evaluations": evaluations,
+
+        # Decision engine data
+        "mde_debug_logs": session.get("mde_debug_logs", []),
+        "behavior_summary": session.get("behavior_summary"),
         "fundamental_violations": session.get("fundamental_violations", []),
-        "habit_violations": session.get("habit_violations", []),
-        "guardian_overrides": session.get("guardian_overrides", []),
+        "last_coaching_move_index": session.get("last_coaching_move_index"),
+
+        # Player data — what the system knows about this player
+        "player_data": {
+            "strength_profile": {
+                "strongest": player_strength.get("strongest") if player_strength else None,
+                "weakest": player_strength.get("weakest") if player_strength else None,
+                "overall_score": player_strength.get("overall_score") if player_strength else None,
+                "overall_label": player_strength.get("overall_label") if player_strength else None,
+                "domains": player_strength.get("domains") if player_strength else None,
+            } if player_strength else None,
+            "profile": {
+                "average_accuracy": player_profile.get("average_accuracy") if player_profile else None,
+                "top_weaknesses": player_profile.get("top_weaknesses") if player_profile else None,
+                "phase_accuracy": player_profile.get("phase_accuracy") if player_profile else None,
+            } if player_profile else None,
+            "recent_habit_scores": thinking_recent,
+            "active_problems": problems,
+        },
+
         "postgame": postgame,
         "raw_session": {
             k: v for k, v in session.items()
-            if k not in ("fen_history", "move_history", "evaluations", "pgn")
+            if k not in ("fen_history", "move_history", "evaluations", "pgn", "mde_debug_logs")
         },
     }
 
