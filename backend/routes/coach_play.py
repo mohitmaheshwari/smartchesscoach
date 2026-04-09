@@ -3250,12 +3250,17 @@ async def evaluate_pending_move(
                     "overall_label": strength_doc.get("overall_label"),
                     "overall_score": strength_doc.get("overall_score"),
                     "domains": {
-                        k: {"score": v.get("score", 0), "label": v.get("label", "")}
+                        k: {"score": v.get("score", 0) if isinstance(v, dict) else 0,
+                            "label": v.get("label", "") if isinstance(v, dict) else ""}
                         for k, v in domains.items()
                     } if domains else {},
                 }
+            if player_profile_data:
+                logger.info(f"[FAST-EVAL] Profile loaded: strongest={player_profile_data.get('strongest')}")
+            else:
+                logger.warning(f"[FAST-EVAL] No strength profile found for user {user_id}")
         except Exception as e:
-            logger.warning(f"[FAST-EVAL] Strength profile load failed: {e}")
+            logger.error(f"[FAST-EVAL] Strength profile load failed: {e}", exc_info=True)
 
         # Get or create session behavior tracker (cached on function)
         _behavior_cache = getattr(evaluate_pending_move, '_behavior_cache', {})
@@ -3608,9 +3613,14 @@ async def evaluate_pending_move(
         commentary = None
         try:
             from services.position_intelligence import read_board_like_a_coach
-            commentary = read_board_like_a_coach(fen_after_user, user_color, user_rating)
+            fen_after = board_after.fen() if board_after else fen_before
+            commentary = read_board_like_a_coach(fen_after, user_color, user_rating)
+            if commentary:
+                logger.info(f"[FAST-EVAL] Commentary generated: {commentary.get('summary', '')[:50]}")
+            else:
+                logger.warning(f"[FAST-EVAL] Commentary returned None")
         except Exception as e:
-            logger.warning(f"[FAST-EVAL] Board reading failed: {e}")
+            logger.error(f"[FAST-EVAL] Board reading failed: {e}", exc_info=True)
 
         # Store decision in session for export/debugging
         try:
