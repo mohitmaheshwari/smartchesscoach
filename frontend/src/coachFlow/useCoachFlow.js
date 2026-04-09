@@ -31,6 +31,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
   const [liveChecklist, setLiveChecklist] = useState(null); // fundamentals pass/fail (current move)
   const [checklistHistory, setChecklistHistory] = useState({}); // {key: {passed: N, failed: N}} across game
   const [playerWeaknessList, setPlayerWeaknessList] = useState([]); // from backend
+  const [playerProfile, setPlayerProfile] = useState(null); // strengths/weaknesses/domains
   const [timeline, setTimeline] = useState([]);
 
   // ─── Internal Refs ──────────────────────────────────────────
@@ -144,6 +145,9 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       }
       if (result.weaknesses) {
         setPlayerWeaknessList(result.weaknesses);
+      }
+      if (result.playerProfile && !playerProfile) {
+        setPlayerProfile(result.playerProfile);
       }
 
       // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
@@ -322,6 +326,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     setLiveChecklist(null);
     setChecklistHistory({});
     setPlayerWeaknessList([]);
+    setPlayerProfile(null);
     setTimeline([]);
     sessionBehavior.current = {
       repeatedConceptCounts: {},
@@ -351,6 +356,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     liveChecklist,
     checklistHistory,
     playerWeaknessList,
+    playerProfile,
     timeline,
 
     // Derived

@@ -2301,6 +2301,7 @@ const CoachPlay = ({ user }) => {
           liveChecklist={coachFlow.liveChecklist}
           checklistHistory={coachFlow.checklistHistory}
           playerWeaknessList={coachFlow.playerWeaknessList}
+          playerProfile={coachFlow.playerProfile}
           isInHold={coachFlow.isInHold}
           clockState={coachFlow.clockState}
           onClockTap={() => {

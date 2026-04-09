@@ -693,6 +693,7 @@ const CoachPlaySidebar = ({
   liveChecklist,
   checklistHistory,
   playerWeaknessList,
+  playerProfile,
   isInHold,
   clockState,
   onClockTap,
@@ -788,6 +789,7 @@ const CoachPlaySidebar = ({
                 checklist={liveChecklist}
                 checklistHistory={checklistHistory}
                 weaknesses={playerWeaknessList}
+                playerProfile={playerProfile}
                 gamePhase={activeStripCoaching?.gamePhase || (activeCoachingMoment ? "critical" : null)}
                 coachNote={activeStripCoaching?.text || (isInHold ? activeCoachingMoment?.text : null)}
               />

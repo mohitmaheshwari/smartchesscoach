@@ -3219,8 +3219,9 @@ async def evaluate_pending_move(
         user_color = session_doc.get("user_color", "white")
         user_id = session_doc.get("user_id", "")
 
-        # Load player weaknesses and focus concept for scoring bias
+        # Load player weaknesses, strengths, and focus concept
         top_weaknesses = []
+        player_profile_data = None
         focus_concept = None
         try:
             from services.player_behavior_tracker import (
@@ -3233,6 +3234,27 @@ async def evaluate_pending_move(
             focus_concept = await get_focus_concept(db, user_id)
         except Exception as e:
             logger.warning(f"[FAST-EVAL] Behavior tracker load failed: {e}")
+
+        # Load player strength profile (domains, strongest, weakest)
+        try:
+            strength_doc = await db.player_strength_profiles.find_one(
+                {"user_id": user_id},
+                {"_id": 0, "domains": 1, "strongest": 1, "weakest": 1, "overall_score": 1, "overall_label": 1}
+            )
+            if strength_doc:
+                domains = strength_doc.get("domains", {})
+                player_profile_data = {
+                    "strongest": strength_doc.get("strongest"),
+                    "weakest": strength_doc.get("weakest"),
+                    "overall_label": strength_doc.get("overall_label"),
+                    "overall_score": strength_doc.get("overall_score"),
+                    "domains": {
+                        k: {"score": v.get("score", 0), "label": v.get("label", "")}
+                        for k, v in domains.items()
+                    } if domains else {},
+                }
+        except Exception as e:
+            logger.warning(f"[FAST-EVAL] Strength profile load failed: {e}")
 
         # Get or create session behavior tracker (cached on function)
         _behavior_cache = getattr(evaluate_pending_move, '_behavior_cache', {})
@@ -3575,6 +3597,7 @@ async def evaluate_pending_move(
                 "coachingDecision": {"layer": "silent", "gamePhase": game_phase},
                 "checklist": checklist,
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
+                "playerProfile": player_profile_data,
                 "moveEvaluation": {
                     "moveQuality": move_quality,
                     "cpLoss": cp_loss_val,
