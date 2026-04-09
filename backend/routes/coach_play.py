@@ -3165,6 +3165,286 @@ async def read_position_endpoint(
     return read_position(fen, user_color, user_rating)
 
 
+# ─── EVALUATE PENDING MOVE (Fast Path) ────────────────────────────
+
+@router.post("/evaluate-pending")
+async def evaluate_pending_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Ultra-fast pending move evaluation.
+    Target: P95 < 400ms.
+
+    Returns shouldAutoCommit + optional coachingMoment.
+    No LLM. No deep search. Warm Stockfish only.
+    """
+    import time as _time
+    start = _time.monotonic()
+
+    session_id = request.get("sessionId")
+    fen_before = request.get("fenBefore")
+    uci = request.get("uci")
+    move_index_preview = request.get("moveIndexPreview", 0)
+    user_rating = request.get("userRating", 1200)
+
+    if not session_id or not fen_before or not uci:
+        return {"shouldAutoCommit": True, "coachingMoment": None}
+
+    try:
+        from services.fast_eval_service import fast_eval, detect_signals_fast
+        from services.message_decision_engine import (
+            ENABLE_DECISION_ENGINE, SessionMemory, MoveSignals,
+            generate_candidates, score_candidates, select_winner, THRESHOLDS,
+        )
+
+        # Get session for cached eval and user patterns
+        session_doc = await db.coach_sessions.find_one(
+            {"session_id": session_id},
+            {"_id": 0, "evaluations": 1, "user_color": 1, "user_id": 1, "move_history": 1}
+        )
+        if not session_doc:
+            return {"shouldAutoCommit": True, "coachingMoment": None}
+
+        user_color = session_doc.get("user_color", "white")
+
+        # Cache eval_before from last evaluation
+        cached_eval = None
+        evals = session_doc.get("evaluations", [])
+        if evals:
+            last_eval = evals[-1]
+            cached_eval = last_eval.get("eval_after") or last_eval.get("score")
+
+        # ─── FAST STOCKFISH EVAL ─────
+        eval_result = fast_eval(fen_before, uci, cached_eval)
+
+        elapsed_eval = (_time.monotonic() - start) * 1000
+
+        # Hard timeout check
+        if elapsed_eval > 400:
+            logger.warning(f"[FAST-EVAL] Timeout at {elapsed_eval:.0f}ms, auto-committing")
+            return {
+                "shouldAutoCommit": True,
+                "coachingMoment": None,
+                "moveEvaluation": {
+                    "moveQuality": eval_result.get("move_quality", "good"),
+                    "cpLoss": eval_result.get("cp_loss", 0),
+                    "bestMove": eval_result.get("best_move"),
+                },
+                "debug": {"elapsedMs": round(elapsed_eval), "depth": 0, "nodes": 0},
+            }
+
+        # ─── SIGNAL DETECTION (< 5ms) ─────
+        board_before = chess.Board(fen_before)
+        move = chess.Move.from_uci(uci)
+        board_after = board_before.copy()
+        board_after.push(move)
+        color = chess.WHITE if user_color == "white" else chess.BLACK
+
+        fast_signals = detect_signals_fast(
+            board_before, board_after, color, eval_result, evals
+        )
+
+        # ─── COACHING DECISION (< 2ms) ─────
+        move_quality = eval_result.get("move_quality", "good")
+
+        # No coaching for good moves (fast exit)
+        if move_quality == "good" and not fast_signals.get("hung_piece"):
+            elapsed_total = (_time.monotonic() - start) * 1000
+            logger.info(f"[FAST-EVAL] Good move, auto-commit in {elapsed_total:.0f}ms")
+            return {
+                "shouldAutoCommit": True,
+                "coachingMoment": None,
+                "moveEvaluation": {
+                    "moveQuality": move_quality,
+                    "cpLoss": eval_result.get("cp_loss", 0),
+                    "bestMove": eval_result.get("best_move"),
+                },
+                "debug": {
+                    "elapsedMs": round(elapsed_total),
+                    "depth": eval_result.get("depth", 0),
+                    "nodes": eval_result.get("nodes", 0),
+                },
+            }
+
+        # ─── BUILD CANDIDATES (fast, max 2) ─────
+        candidates = []
+
+        if fast_signals.get("hung_piece"):
+            hp = fast_signals["hung_piece"]
+            candidates.append({
+                "type": "critical_interrupt",
+                "base": 100,
+                "severity": "high",
+                "concept": "hung_piece",
+                "text": f"Stop. Your {hp['piece']} on {hp['square']} is undefended.",
+                "question": "Before moving, did you check if all your pieces are protected?",
+            })
+        elif fast_signals.get("missed_threat"):
+            mt = fast_signals["missed_threat"]
+            candidates.append({
+                "type": "critical_interrupt",
+                "base": 98,
+                "severity": "high",
+                "concept": "ignored_threat",
+                "text": f"You ignored the threat on your {mt['piece']}.",
+                "question": "What was your opponent threatening?",
+            })
+        elif fast_signals.get("ignored_capture"):
+            ic = fast_signals["ignored_capture"]
+            candidates.append({
+                "type": "critical_interrupt",
+                "base": 92,
+                "severity": "high",
+                "concept": "ignored_capture",
+                "text": f"Your opponent's {ic['piece']} on {ic['square']} was free to take.",
+                "question": "Did you check for captures first?",
+            })
+        elif move_quality == "blunder":
+            candidates.append({
+                "type": "critical_interrupt",
+                "base": 95,
+                "severity": "high",
+                "concept": "blunder",
+                "text": f"This loses significant ground.",
+                "question": "What can your opponent do after this?",
+            })
+
+        if fast_signals.get("lost_winning_position"):
+            candidates.append({
+                "type": "turning_point",
+                "base": 93,
+                "severity": "high",
+                "concept": "conversion_failure",
+                "text": "You were winning. This move lets the advantage slip.",
+                "question": None,
+            })
+        elif fast_signals.get("is_first_major_swing"):
+            candidates.append({
+                "type": "turning_point",
+                "base": 84,
+                "severity": "medium",
+                "concept": "game_shift",
+                "text": "This is where the game shifted.",
+                "question": None,
+            })
+
+        if move_quality in ("inaccuracy",) and not candidates:
+            move_number = len(session_doc.get("move_history", [])) // 2 + 1
+            if move_number <= 12:
+                candidates.append({
+                    "type": "opening_principle",
+                    "base": 58,
+                    "severity": "low",
+                    "concept": "opening_deviation",
+                    "text": "Finish development and king safety before starting action.",
+                    "question": None,
+                })
+
+        # Strong non-obvious move reinforcement
+        if fast_signals.get("is_strong_move") and fast_signals.get("is_non_obvious") and not candidates:
+            candidates.append({
+                "type": "reinforcement",
+                "base": 72,
+                "severity": "low",
+                "concept": "strong_move",
+                "text": "Good. You addressed the real priority.",
+                "question": None,
+            })
+
+        # ─── PICK WINNER ─────
+        if not candidates:
+            elapsed_total = (_time.monotonic() - start) * 1000
+            return {
+                "shouldAutoCommit": True,
+                "coachingMoment": None,
+                "moveEvaluation": {
+                    "moveQuality": move_quality,
+                    "cpLoss": eval_result.get("cp_loss", 0),
+                    "bestMove": eval_result.get("best_move"),
+                },
+                "debug": {
+                    "elapsedMs": round(elapsed_total),
+                    "depth": eval_result.get("depth", 0),
+                    "nodes": eval_result.get("nodes", 0),
+                },
+            }
+
+        # Simple scoring: just pick highest base (already ordered by priority)
+        winner = max(candidates, key=lambda c: c["base"])
+
+        # Check threshold
+        threshold = THRESHOLDS.get(winner["type"], 70)
+        if winner["base"] < threshold:
+            elapsed_total = (_time.monotonic() - start) * 1000
+            return {
+                "shouldAutoCommit": True,
+                "coachingMoment": None,
+                "moveEvaluation": {
+                    "moveQuality": move_quality,
+                    "cpLoss": eval_result.get("cp_loss", 0),
+                    "bestMove": eval_result.get("best_move"),
+                },
+                "debug": {
+                    "elapsedMs": round(elapsed_total),
+                    "depth": eval_result.get("depth", 0),
+                    "nodes": eval_result.get("nodes", 0),
+                },
+            }
+
+        # ─── COMPUTE HOLD TIME ─────
+        min_hold_ms = _get_hold_ms(winner["type"], winner["severity"])
+
+        elapsed_total = (_time.monotonic() - start) * 1000
+
+        logger.info(
+            f"[FAST-EVAL] {move_quality} move, coaching={winner['type']}, "
+            f"elapsed={elapsed_total:.0f}ms"
+        )
+
+        return {
+            "shouldAutoCommit": False,
+            "moveEvaluation": {
+                "moveQuality": move_quality,
+                "cpLoss": eval_result.get("cp_loss", 0),
+                "bestMove": eval_result.get("best_move"),
+            },
+            "coachingMoment": {
+                "messageType": winner["type"],
+                "severity": winner["severity"],
+                "text": winner["text"],
+                "question": {"prompt": winner["question"]} if winner.get("question") else None,
+                "conceptKey": winner["concept"],
+                "minHoldMs": min_hold_ms,
+            },
+            "debug": {
+                "elapsedMs": round(elapsed_total),
+                "depth": eval_result.get("depth", 0),
+                "nodes": eval_result.get("nodes", 0),
+            },
+        }
+
+    except Exception as e:
+        elapsed_total = (_time.monotonic() - start) * 1000
+        logger.error(f"[FAST-EVAL] Error after {elapsed_total:.0f}ms: {e}")
+        return {"shouldAutoCommit": True, "coachingMoment": None}
+
+
+def _get_hold_ms(message_type: str, severity: str) -> int:
+    """Compute adaptive hold duration."""
+    if message_type == "critical_interrupt":
+        return 4000
+    if message_type == "pattern_repeat":
+        return 5000
+    if severity == "medium":
+        return 2500
+    if message_type == "opening_principle":
+        return 2000
+    if message_type == "reinforcement":
+        return 1500
+    return 2000
+
+
 def _get_opening_family(name: str) -> str:
     """
     Extract the main opening family from a full opening name.

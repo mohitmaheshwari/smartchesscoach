@@ -23,6 +23,9 @@ import CoachPlaySidebar from "@/components/coach/CoachPlaySidebar";
 import useTeachingMode from "@/hooks/useTeachingMode";
 import usePlayerData from "@/hooks/usePlayerData";
 import useGuardian from "@/hooks/useGuardian";
+import { useCoachFlow, INTERACTION_STATES, CLOCK_STATES } from "@/coachFlow";
+import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
+import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -110,6 +113,12 @@ const CoachPlay = ({ user }) => {
   const guardian = useGuardian({
     session,
     onCancelRestore: handleCancelRestore,
+  });
+
+  // Coach Flow — pending move, hold states, clock commit, timeline
+  const coachFlow = useCoachFlow({
+    session,
+    userRating: session?.user_rating || 1200,
   });
 
   // Destructure for backwards compatibility with existing code
@@ -1847,12 +1856,57 @@ const CoachPlay = ({ user }) => {
     if (isInTeachingMode && activeLesson) {
       return await handleTeachingMove(sourceSquare, targetSquare);
     }
-    
+
+    // If in hold state, treat as move revision
+    if (coachFlow.isInHold) {
+      const chess = new Chess(currentFen);
+      let moveObj;
+      try {
+        moveObj = chess.move({
+          from: sourceSquare,
+          to: targetSquare,
+          promotion: piece?.[1]?.toLowerCase() === "p" ? "q" : undefined
+        });
+      } catch { return false; }
+      if (!moveObj) return false;
+
+      // Cancel current hold and re-evaluate with new move
+      coachFlow.cancelPendingMove();
+      // Reset board to pre-pending state
+      const fenBefore = coachFlow.pendingMove?.fenBefore || currentFen;
+      setCurrentFen(chess.fen());
+      highlightMove(moveObj.from + moveObj.to);
+
+      const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
+      const moveData = {
+        san: moveObj.san,
+        uci: moveObj.from + moveObj.to + (moveObj.promotion || ""),
+        from: moveObj.from,
+        to: moveObj.to,
+        promotion: moveObj.promotion || null,
+        fenBefore: fenBefore,
+        fenAfterPreview: chess.fen(),
+        moveIndexPreview: (session?.move_history?.length || 0),
+      };
+
+      const { autoCommitted } = await coachFlow.handleUserMove(
+        moveData,
+        (san, ts) => executeMove(san, ts),
+        timeSpent
+      );
+
+      if (autoCommitted) {
+        setIsPlayerTurn(false);
+      }
+      return true;
+    }
+
     if (!session || !isPlayerTurn || gameOver || !currentFen) return false;
 
-    // Clear coaching arrows and pre-move trap when making a new move
+    // Clear coaching state for new move
     setCoachArrows([]);
     setPreMoveTrap(null);
+    setV5Coaching(null);
 
     // Try to make the move locally first
     const chess = new Chess(currentFen);
@@ -1874,10 +1928,8 @@ const CoachPlay = ({ user }) => {
 
     // GUARDIAN CHECK: Evaluate move before making it
     const guardianResult = await evaluateMove(moveObj.san);
-    
+
     if (guardianResult?.should_intervene) {
-      // Show intervention modal - don't make the move yet
-      // Store the original FEN so we can reset if user cancels
       setGuardianPending(guardianResult, {
         moveSan: moveObj.san,
         moveObj: moveObj,
@@ -1886,25 +1938,40 @@ const CoachPlay = ({ user }) => {
         chess: chess,
         originalFen: currentFen
       });
-      return false; // Don't complete the move yet
-    }
-
-    // No intervention needed - proceed with move
-    setCurrentFen(chess.fen());
-    setIsPlayerTurn(false);
-    highlightMove(moveObj.from + moveObj.to);
-
-    const success = await executeMove(moveObj.san, timeSpent);
-    
-    if (!success) {
-      // Revert
-      setCurrentFen(currentFen);
-      setIsPlayerTurn(true);
       return false;
     }
 
+    // ─── INSTANT BOARD UPDATE ─────
+    setCurrentFen(chess.fen());
+    highlightMove(moveObj.from + moveObj.to);
+
+    // ─── COACH FLOW: 400ms eval window ─────
+    const moveData = {
+      san: moveObj.san,
+      uci: moveObj.from + moveObj.to + (moveObj.promotion || ""),
+      from: moveObj.from,
+      to: moveObj.to,
+      promotion: moveObj.promotion || null,
+      fenBefore: currentFen,
+      fenAfterPreview: chess.fen(),
+      moveIndexPreview: (session?.move_history?.length || 0),
+    };
+
+    const { autoCommitted } = await coachFlow.handleUserMove(
+      moveData,
+      (san, ts) => executeMove(san, ts),
+      timeSpent
+    );
+
+    if (autoCommitted) {
+      // Normal flow — move committed, wait for coach
+      setIsPlayerTurn(false);
+    }
+    // If not auto-committed, we're in hold state — board shows the move,
+    // but it's pending. Player can revise or tap clock to commit.
+
     return true;
-  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime, isInTeachingMode, activeLesson]);
+  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime, isInTeachingMode, activeLesson, coachFlow]);
 
   const resignGame = async () => {
     if (!session) return;
@@ -1957,6 +2024,7 @@ const CoachPlay = ({ user }) => {
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
     setFundamentalViolations([]);
+    coachFlow.resetFlow();
     setChatMessages([]);
     resetPlayerData();
     setEscapeSquaresQuiz(null);
@@ -2161,6 +2229,25 @@ const CoachPlay = ({ user }) => {
           })()}
         />
 
+        {/* Active Coaching Card — board-adjacent, shows during hold states */}
+        {coachFlow.isInHold && coachFlow.activeCoachingMoment && (
+          <div className="w-72 flex-shrink-0 p-3 flex flex-col justify-center">
+            <ActiveCoachingCard
+              moment={coachFlow.activeCoachingMoment}
+              clockState={coachFlow.clockState}
+              onClockTap={() => {
+                const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
+                coachFlow.handleClockTap(
+                  (san, ts) => executeMove(san, ts),
+                  timeSpent
+                ).then(success => {
+                  if (success) setIsPlayerTurn(false);
+                });
+              }}
+            />
+          </div>
+        )}
+
         {/* Right: Coach panel */}
         <CoachPlaySidebar
           session={session}
@@ -2225,6 +2312,8 @@ const CoachPlay = ({ user }) => {
           escapeSquaresQuiz={escapeSquaresQuiz}
           onEscapeQuizComplete={() => setEscapeSquaresQuiz(null)}
           newGame={newGame}
+          coachTimeline={coachFlow.timeline}
+          coachFlowState={coachFlow.interactionState}
         />
       </div>
 

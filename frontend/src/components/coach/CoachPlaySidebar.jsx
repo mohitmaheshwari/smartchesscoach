@@ -23,6 +23,7 @@ import EvalBadge from "@/components/shared/EvalBadge";
 import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 import PostGameLesson from "@/components/PostGameLesson";
 import PostGameReflection from "@/components/coach/PostGameReflection";
+import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
 import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
@@ -682,6 +683,8 @@ const CoachPlaySidebar = ({
   onEscapeQuizComplete,
   /* actions */
   newGame,
+  coachTimeline = [],
+  coachFlowState,
 }) => {
   const [showLessonPicker, setShowLessonPicker] = useState(false);
 
@@ -1079,6 +1082,11 @@ const CoachPlaySidebar = ({
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Coach Timeline — historical coaching moments (not live stream) */}
+            {coachTimeline && coachTimeline.length > 0 && !gameOver && (
+              <CoachTimelinePanel timeline={coachTimeline} />
             )}
 
             {/* Teaching Mode Instruction */}
