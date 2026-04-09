@@ -25,6 +25,7 @@ import usePlayerData from "@/hooks/usePlayerData";
 import useGuardian from "@/hooks/useGuardian";
 import { useCoachFlow, INTERACTION_STATES, CLOCK_STATES } from "@/coachFlow";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
+import ActiveCoachStrip from "@/components/coach/ActiveCoachStrip";
 import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 
 const CoachPlay = ({ user }) => {
@@ -2228,6 +2229,13 @@ const CoachPlay = ({ user }) => {
             return null;
           })()}
         />
+
+        {/* Active Coach Strip — ambient/advisory, between board and sidebar */}
+        {!coachFlow.isInHold && coachFlow.activeStripCoaching && (
+          <div className="w-72 flex-shrink-0 p-3 flex flex-col justify-start pt-8">
+            <ActiveCoachStrip coaching={coachFlow.activeStripCoaching} />
+          </div>
+        )}
 
         {/* Active Coaching Card — board-adjacent, shows during hold states */}
         {coachFlow.isInHold && coachFlow.activeCoachingMoment && (

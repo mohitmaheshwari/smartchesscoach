@@ -27,6 +27,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
   const [clockState, setClockState] = useState(CLOCK_STATES.NORMAL);
   const [pendingMove, setPendingMove] = useState(null);
   const [activeCoachingMoment, setActiveCoachingMoment] = useState(null);
+  const [activeStripCoaching, setActiveStripCoaching] = useState(null); // ambient/advisory
   const [timeline, setTimeline] = useState([]);
 
   // ─── Internal Refs ──────────────────────────────────────────
@@ -50,6 +51,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     _clearHoldTimer();
     setPendingMove(null);
     setActiveCoachingMoment(null);
+    setActiveStripCoaching(null);
     setClockState(CLOCK_STATES.NORMAL);
   }, [_clearHoldTimer]);
 
@@ -108,7 +110,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       const result = await Promise.race([evalPromise, timeoutPromise]);
 
       // If timeout won or eval failed → auto-commit
-      if (!result || result.shouldAutoCommit) {
+      if (!result) {
         await commitFn(pending.san, timeSpent);
         setInteractionState(INTERACTION_STATES.COACH_TURN);
         setPendingMove(null);
@@ -116,45 +118,71 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
         return { autoCommitted: true };
       }
 
-      // ─── COACHING EXISTS → Enter hold ─────
-      const moment = result.coachingMoment;
-      const presentation = getCoachingPresentation(moment.messageType, moment.severity);
+      const decision = result.coachingDecision || {};
+      const layer = decision.layer || "silent";
 
-      // Use server-provided minHoldMs or compute locally
+      // ─── SILENT: auto-commit, no coaching ─────
+      if (layer === "silent" || result.shouldAutoCommit) {
+        // But still show ambient/advisory strip if present
+        if (layer === "ambient" || layer === "advisory") {
+          setActiveStripCoaching({
+            layer,
+            text: decision.text,
+            question: decision.question,
+            category: decision.category,
+            conceptKey: decision.conceptKey,
+          });
+          // Add to timeline if advisory
+          if (decision.showInTimeline) {
+            setTimeline(prev => [...prev, createTimelineItem({
+              moveIndex: moveData.moveIndexPreview || 0,
+              moveSan: pending.san,
+              messageType: decision.category || layer,
+              severity: decision.severity || "low",
+              text: decision.text,
+              conceptKey: decision.conceptKey,
+            })]);
+          }
+        }
+        await commitFn(pending.san, timeSpent);
+        setInteractionState(INTERACTION_STATES.COACH_TURN);
+        setPendingMove(null);
+        setClockState(CLOCK_STATES.DISABLED);
+        return { autoCommitted: true };
+      }
+
+      // ─── CRITICAL: Enter hold ─────
+      const moment = result.coachingMoment || decision;
       const holdMs = moment.minHoldMs || getAdaptiveHoldMs({
-        messageType: moment.messageType,
-        severity: moment.severity,
-        conceptRepeatCount: sessionBehavior.current.repeatedConceptCounts[moment.conceptKey] || 0,
+        messageType: "critical_interrupt",
+        severity: decision.severity || "high",
+        conceptRepeatCount: sessionBehavior.current.repeatedConceptCounts[decision.conceptKey] || 0,
         repeatedRecently: false,
       });
 
       const coachingMoment = {
         id: `cm_${Date.now()}`,
-        messageType: moment.messageType,
-        severity: moment.severity,
-        text: moment.text,
-        question: moment.question || null,
-        conceptKey: moment.conceptKey,
+        messageType: decision.layer || "critical_interrupt",
+        severity: decision.severity || "high",
+        text: decision.text,
+        question: decision.question || null,
+        conceptKey: decision.conceptKey,
         moveIndex: moveData.moveIndexPreview || 0,
-        requiresClockCommit: presentation.requiresClockCommit,
+        requiresClockCommit: true,
         minHoldMs: holdMs,
-        canReviseMove: presentation.canReviseMove,
+        canReviseMove: true,
         shownAt: Date.now(),
         moveEvaluation: result.moveEvaluation,
       };
 
       setActiveCoachingMoment(coachingMoment);
+      setActiveStripCoaching(null); // Clear strip during hold
 
       // Track concept repeat
       const counts = sessionBehavior.current.repeatedConceptCounts;
-      counts[moment.conceptKey] = (counts[moment.conceptKey] || 0) + 1;
+      counts[decision.conceptKey] = (counts[decision.conceptKey] || 0) + 1;
 
-      // Set hold state based on severity
-      if (moment.severity === "high") {
-        setInteractionState(INTERACTION_STATES.CRITICAL_HOLD);
-      } else {
-        setInteractionState(INTERACTION_STATES.THINKING_HOLD);
-      }
+      setInteractionState(INTERACTION_STATES.CRITICAL_HOLD);
       setClockState(CLOCK_STATES.HOLD_LOCKED);
 
       // Start hold timer
@@ -290,6 +318,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     clockState,
     pendingMove,
     activeCoachingMoment,
+    activeStripCoaching,
     timeline,
 
     // Derived

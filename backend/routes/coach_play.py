@@ -3245,162 +3245,193 @@ async def evaluate_pending_move(
             board_before, board_after, color, eval_result, evals
         )
 
-        # ─── COACHING DECISION (< 2ms) ─────
+        # ─── 4-LAYER COACHING DECISION ─────
+        # Layer: silent / ambient / advisory / critical_interrupt
+        # Critical = hold. Everything else = auto-commit with coaching strip.
         move_quality = eval_result.get("move_quality", "good")
+        cp_loss_val = eval_result.get("cp_loss", 0)
+        move_number = len(session_doc.get("move_history", [])) // 2 + 1
 
-        # GATE: Only hold on mistake or blunder. Stockfish is the authority.
-        # Good moves and inaccuracies → auto-commit, no hold.
-        if move_quality not in ("mistake", "blunder"):
-            elapsed_total = (_time.monotonic() - start) * 1000
-            logger.info(f"[FAST-EVAL] {move_quality} move, auto-commit in {elapsed_total:.0f}ms")
-            return {
-                "shouldAutoCommit": True,
-                "coachingMoment": None,
-                "moveEvaluation": {
-                    "moveQuality": move_quality,
-                    "cpLoss": eval_result.get("cp_loss", 0),
-                    "bestMove": eval_result.get("best_move"),
-                },
-                "debug": {
-                    "elapsedMs": round(elapsed_total),
-                    "depth": eval_result.get("depth", 0),
-                    "nodes": eval_result.get("nodes", 0),
-                },
-            }
+        layer = "silent"
+        category = None
+        text = None
+        question = None
+        severity = None
+        concept_key = None
 
-        # ─── BUILD CANDIDATES (only for mistakes/blunders) ─────
-        # Heuristics explain WHY. Stockfish already decided this IS bad.
-        candidates = []
+        # ─── CRITICAL (mistake/blunder only) ─────
+        if move_quality in ("mistake", "blunder"):
+            layer = "critical_interrupt"
+            severity = "high"
 
-        if fast_signals.get("hung_piece"):
-            hp = fast_signals["hung_piece"]
-            candidates.append({
-                "type": "critical_interrupt",
-                "base": 100,
-                "severity": "high",
-                "concept": "hung_piece",
-                "text": f"Stop. Your {hp['piece']} on {hp['square']} is undefended.",
-                "question": "Before moving, did you check if all your pieces are protected?",
-            })
-        elif fast_signals.get("missed_threat"):
-            mt = fast_signals["missed_threat"]
-            candidates.append({
-                "type": "critical_interrupt",
-                "base": 98,
-                "severity": "high",
-                "concept": "ignored_threat",
-                "text": f"You ignored the threat on your {mt['piece']}.",
-                "question": "What was your opponent threatening?",
-            })
-        elif fast_signals.get("ignored_capture"):
-            ic = fast_signals["ignored_capture"]
-            candidates.append({
-                "type": "critical_interrupt",
-                "base": 92,
-                "severity": "high",
-                "concept": "ignored_capture",
-                "text": f"Your opponent's {ic['piece']} on {ic['square']} was free to take.",
-                "question": "Did you check for captures first?",
-            })
-        else:
-            # No specific heuristic matched, but Stockfish says it's bad
-            sev = "high" if move_quality == "blunder" else "medium"
-            candidates.append({
-                "type": "critical_interrupt",
-                "base": 95 if move_quality == "blunder" else 82,
-                "severity": sev,
-                "concept": "blunder" if move_quality == "blunder" else "mistake",
-                "text": "This move loses ground. Did you calculate your opponent's reply?",
-                "question": "What can your opponent do after this?",
-            })
+            if fast_signals.get("hung_piece"):
+                hp = fast_signals["hung_piece"]
+                text = f"Stop. Your {hp['piece']} on {hp['square']} is undefended."
+                question = "Did you check if all your pieces are protected?"
+                concept_key = "hung_piece"
+                category = "critical_tactic"
+            elif fast_signals.get("missed_threat"):
+                mt = fast_signals["missed_threat"]
+                text = f"You ignored the threat on your {mt['piece']}."
+                question = "What was your opponent threatening?"
+                concept_key = "ignored_threat"
+                category = "critical_tactic"
+            elif fast_signals.get("ignored_capture"):
+                ic = fast_signals["ignored_capture"]
+                text = f"Your opponent's {ic['piece']} on {ic['square']} was free to take."
+                question = "Did you check for captures first?"
+                concept_key = "ignored_capture"
+                category = "critical_tactic"
+            elif fast_signals.get("lost_winning_position"):
+                text = "You were winning. This move lets the advantage slip."
+                question = "When ahead, what should your priority be?"
+                concept_key = "conversion_failure"
+                category = "critical_tactic"
+            else:
+                text = "This move loses ground. Did you calculate your opponent's reply?"
+                question = "What can your opponent do after this?"
+                concept_key = "blunder" if move_quality == "blunder" else "mistake"
+                category = "critical_tactic"
 
-        if fast_signals.get("lost_winning_position"):
-            candidates.append({
-                "type": "turning_point",
-                "base": 93,
-                "severity": "high",
-                "concept": "conversion_failure",
-                "text": "You were winning. This move lets the advantage slip.",
-                "question": None,
-            })
-        elif fast_signals.get("is_first_major_swing"):
-            candidates.append({
-                "type": "turning_point",
-                "base": 84,
-                "severity": "medium",
-                "concept": "game_shift",
-                "text": "This is where the game shifted.",
-                "question": None,
-            })
+        # ─── ADVISORY (inaccuracy or positional drift) ─────
+        elif move_quality == "inaccuracy":
+            if fast_signals.get("premature_attack"):
+                layer = "advisory"
+                text = "You are attacking before finishing setup."
+                concept_key = "premature_attack"
+                category = "drift_warning"
+                severity = "medium"
+            elif fast_signals.get("king_unsafe") and fast_signals.get("is_opening_phase"):
+                layer = "advisory"
+                text = "Your king safety matters more than attack here."
+                concept_key = "king_safety"
+                category = "fundamental_warning"
+                severity = "medium"
+            elif fast_signals.get("development_incomplete"):
+                layer = "advisory"
+                text = "This is still a development position, not an attack yet."
+                concept_key = "development"
+                category = "opening_orientation"
+                severity = "medium"
+            else:
+                layer = "advisory"
+                text = "There was something more accurate here. Think about what the position needs."
+                concept_key = "inaccuracy"
+                category = "plan_guidance"
+                severity = "low"
 
-        # (inaccuracy and reinforcement candidates removed —
-        #  we only reach here on mistake/blunder)
+        # ─── AMBIENT (good moves — keep coach alive) ─────
+        elif move_quality == "good":
+            # Opponent created a threat worth mentioning
+            opp_threat = fast_signals.get("opponent_created_threat")
+            if opp_threat:
+                layer = "ambient"
+                text = f"Their {opp_threat['attacker']} now targets your {opp_threat['target']}."
+                concept_key = "opponent_idea"
+                category = "opponent_idea"
+                severity = "low"
+            # Strong non-obvious move
+            elif fast_signals.get("is_strong_move") and fast_signals.get("is_non_obvious"):
+                layer = "ambient"
+                text = "Good. You addressed the right priority."
+                concept_key = "reinforcement"
+                category = "reinforcement"
+                severity = "low"
+            # Development incomplete but good move
+            elif fast_signals.get("development_incomplete") and fast_signals.get("is_opening_phase"):
+                layer = "ambient"
+                text = "This is still a development position."
+                concept_key = "opening_phase"
+                category = "opening_orientation"
+                severity = "low"
+            # King unsafe reminder
+            elif fast_signals.get("king_unsafe") and move_number >= 10:
+                layer = "ambient"
+                text = "Your king is still uncommitted."
+                concept_key = "king_safety_ambient"
+                category = "opening_orientation"
+                severity = "low"
+            # Center under pressure
+            elif fast_signals.get("center_under_pressure"):
+                layer = "ambient"
+                text = "Your opponent controls more of the center right now."
+                concept_key = "center_pressure"
+                category = "opponent_idea"
+                severity = "low"
+            # Loose pieces
+            elif fast_signals.get("loose_pieces_present"):
+                layer = "advisory"
+                text = "You have loose pieces. Secure them before expanding."
+                concept_key = "loose_pieces"
+                category = "fundamental_warning"
+                severity = "medium"
+            # Opponent improved activity
+            elif fast_signals.get("opponent_improved_activity"):
+                layer = "ambient"
+                text = "Your opponent just improved a piece. Stay alert."
+                concept_key = "opponent_activity"
+                category = "opponent_idea"
+                severity = "low"
+            # else: silent — nothing useful to say
 
-        # ─── PICK WINNER ─────
-        if not candidates:
-            elapsed_total = (_time.monotonic() - start) * 1000
-            return {
-                "shouldAutoCommit": True,
-                "coachingMoment": None,
-                "moveEvaluation": {
-                    "moveQuality": move_quality,
-                    "cpLoss": eval_result.get("cp_loss", 0),
-                    "bestMove": eval_result.get("best_move"),
-                },
-                "debug": {
-                    "elapsedMs": round(elapsed_total),
-                    "depth": eval_result.get("depth", 0),
-                    "nodes": eval_result.get("nodes", 0),
-                },
-            }
-
-        # Simple scoring: just pick highest base (already ordered by priority)
-        winner = max(candidates, key=lambda c: c["base"])
-
-        # Check threshold
-        threshold = THRESHOLDS.get(winner["type"], 70)
-        if winner["base"] < threshold:
-            elapsed_total = (_time.monotonic() - start) * 1000
-            return {
-                "shouldAutoCommit": True,
-                "coachingMoment": None,
-                "moveEvaluation": {
-                    "moveQuality": move_quality,
-                    "cpLoss": eval_result.get("cp_loss", 0),
-                    "bestMove": eval_result.get("best_move"),
-                },
-                "debug": {
-                    "elapsedMs": round(elapsed_total),
-                    "depth": eval_result.get("depth", 0),
-                    "nodes": eval_result.get("nodes", 0),
-                },
-            }
-
-        # ─── COMPUTE HOLD TIME ─────
-        min_hold_ms = _get_hold_ms(winner["type"], winner["severity"])
-
+        # ─── BUILD RESPONSE ─────
         elapsed_total = (_time.monotonic() - start) * 1000
 
+        # Silent — no coaching
+        if layer == "silent":
+            logger.info(f"[FAST-EVAL] {move_quality}, silent, {elapsed_total:.0f}ms")
+            return {
+                "shouldAutoCommit": True,
+                "coachingDecision": {"layer": "silent"},
+                "moveEvaluation": {
+                    "moveQuality": move_quality,
+                    "cpLoss": cp_loss_val,
+                    "bestMove": eval_result.get("best_move"),
+                },
+                "debug": {
+                    "elapsedMs": round(elapsed_total),
+                    "depth": eval_result.get("depth", 0),
+                    "nodes": eval_result.get("nodes", 0),
+                },
+            }
+
+        # Compute hold time (only for critical)
+        requires_hold = layer == "critical_interrupt"
+        min_hold_ms = _get_hold_ms(layer, severity or "low") if requires_hold else 0
+        should_auto_commit = not requires_hold
+
         logger.info(
-            f"[FAST-EVAL] {move_quality} move, coaching={winner['type']}, "
-            f"elapsed={elapsed_total:.0f}ms"
+            f"[FAST-EVAL] {move_quality}, layer={layer}, cat={category}, "
+            f"hold={requires_hold}, {elapsed_total:.0f}ms"
         )
 
         return {
-            "shouldAutoCommit": False,
+            "shouldAutoCommit": should_auto_commit,
+            "coachingDecision": {
+                "layer": layer,
+                "category": category,
+                "severity": severity,
+                "text": text,
+                "question": {"prompt": question} if question else None,
+                "conceptKey": concept_key,
+                "requiresHold": requires_hold,
+                "minHoldMs": min_hold_ms,
+                "showInTimeline": layer in ("critical_interrupt", "advisory"),
+                "showInActiveStrip": layer in ("ambient", "advisory"),
+            },
             "moveEvaluation": {
                 "moveQuality": move_quality,
                 "cpLoss": eval_result.get("cp_loss", 0),
                 "bestMove": eval_result.get("best_move"),
             },
             "coachingMoment": {
-                "messageType": winner["type"],
-                "severity": winner["severity"],
-                "text": winner["text"],
-                "question": {"prompt": winner["question"]} if winner.get("question") else None,
-                "conceptKey": winner["concept"],
+                "messageType": layer,
+                "severity": severity,
+                "text": text,
+                "question": {"prompt": question} if question else None,
+                "conceptKey": concept_key,
                 "minHoldMs": min_hold_ms,
-            },
+            } if requires_hold else None,
             "debug": {
                 "elapsedMs": round(elapsed_total),
                 "depth": eval_result.get("depth", 0),

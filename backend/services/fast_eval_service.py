@@ -230,13 +230,25 @@ def detect_signals_fast(
     Must be < 5ms.
     """
     signals = {
+        # Critical signals
         "hung_piece": None,
         "missed_threat": None,
         "ignored_capture": None,
         "is_first_major_swing": False,
         "lost_winning_position": False,
+        # Reinforcement signals
         "is_strong_move": False,
         "is_non_obvious": False,
+        # Advisory/ambient signals (NEW)
+        "is_opening_phase": False,
+        "is_early_middlegame": False,
+        "development_incomplete": False,
+        "king_unsafe": False,
+        "center_under_pressure": False,
+        "premature_attack": False,
+        "loose_pieces_present": False,
+        "opponent_created_threat": None,
+        "opponent_improved_activity": False,
     }
 
     cp_loss = eval_result.get("cp_loss", 0)
@@ -348,7 +360,6 @@ def detect_signals_fast(
 
     # Strong non-obvious move
     if move_quality == "good" and eval_result.get("best_move"):
-        # Check if user played the best move
         played_move = board_after.peek() if board_after.move_stack else None
         if played_move:
             try:
@@ -356,7 +367,6 @@ def detect_signals_fast(
                 played_san = board_before.san(played_move)
                 if played_san == best_san:
                     signals["is_strong_move"] = True
-                    # Non-obvious: not a recapture, not a check
                     is_recapture = (board_before.is_capture(played_move) and
                                     board_before.move_stack and
                                     board_before.peek().to_square == played_move.to_square)
@@ -367,4 +377,93 @@ def detect_signals_fast(
             except Exception:
                 pass
 
+    # ─── AMBIENT / ADVISORY SIGNALS ──────────────────────────────
+
+    move_number = board_after.fullmove_number
+    signals["is_opening_phase"] = move_number <= 12
+    signals["is_early_middlegame"] = 10 <= move_number <= 20
+
+    # Development incomplete: minor pieces still on back rank
+    back_rank = 0 if user_color == chess.WHITE else 7
+    undeveloped = 0
+    for f in range(8):
+        sq = chess.square(f, back_rank)
+        p = board_after.piece_at(sq)
+        if p and p.color == user_color and p.piece_type in (chess.KNIGHT, chess.BISHOP):
+            undeveloped += 1
+    signals["development_incomplete"] = undeveloped >= 2 and move_number >= 5
+
+    # King unsafe: not castled by move 10+
+    king_sq = board_after.king(user_color)
+    if king_sq is not None:
+        castled_squares = (chess.G1, chess.C1) if user_color == chess.WHITE else (chess.G8, chess.C8)
+        is_castled = king_sq in castled_squares
+        signals["king_unsafe"] = not is_castled and move_number >= 8
+
+    # Center under pressure: opponent controls more center squares
+    center_sqs = [chess.E4, chess.D4, chess.E5, chess.D5]
+    our_center = sum(1 for sq in center_sqs if board_after.attackers(user_color, sq))
+    opp_center = sum(1 for sq in center_sqs if board_after.attackers(opponent, sq))
+    signals["center_under_pressure"] = opp_center > our_center + 2
+
+    # Premature attack: user moved piece past rank 5 while development incomplete
+    if signals["development_incomplete"] and move_quality in ("good", "inaccuracy"):
+        played_move = board_after.peek() if board_after.move_stack else None
+        if played_move:
+            to_rank = chess.square_rank(played_move.to_square)
+            attack_rank = 4 if user_color == chess.WHITE else 3  # rank 5 (0-indexed=4 for white)
+            piece = board_after.piece_at(played_move.to_square)
+            if piece and piece.color == user_color and piece.piece_type != chess.PAWN:
+                if (user_color == chess.WHITE and to_rank >= attack_rank) or \
+                   (user_color == chess.BLACK and to_rank <= attack_rank):
+                    signals["premature_attack"] = True
+
+    # Loose pieces: user has pieces attacked where attacker value < defender value
+    loose_count = 0
+    for sq in chess.SQUARES:
+        p = board_after.piece_at(sq)
+        if p and p.color == user_color and p.piece_type not in (chess.KING, chess.PAWN):
+            atts = board_after.attackers(opponent, sq)
+            defs = board_after.attackers(user_color, sq)
+            if atts and len(list(defs)) <= 1:
+                loose_count += 1
+    signals["loose_pieces_present"] = loose_count >= 2
+
+    # Opponent created threat: did opponent's last move attack something new?
+    if board_before.move_stack:
+        opp_last = board_before.peek()
+        opp_to = opp_last.to_square
+        # What does the opponent's piece now attack?
+        opp_attacks = board_after.attacks(opp_to) if board_after.piece_at(opp_to) else chess.SquareSet()
+        for sq in opp_attacks:
+            target = board_after.piece_at(sq)
+            if target and target.color == user_color and target.piece_type != chess.KING:
+                val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}.get(target.piece_type, 0)
+                if val >= 3:
+                    opp_piece = board_after.piece_at(opp_to)
+                    signals["opponent_created_threat"] = {
+                        "attacker": _piece_name_str(opp_piece.piece_type) if opp_piece else "piece",
+                        "target": _piece_name_str(target.piece_type),
+                        "target_square": chess.square_name(sq),
+                    }
+                    break
+
+    # Opponent improved activity: moved a piece to a more central square
+    if board_before.move_stack:
+        opp_last = board_before.peek()
+        from_central = _centrality(opp_last.from_square)
+        to_central = _centrality(opp_last.to_square)
+        if to_central > from_central + 2:
+            signals["opponent_improved_activity"] = True
+
     return signals
+
+
+def _piece_name_str(piece_type: int) -> str:
+    return {1: "pawn", 2: "knight", 3: "bishop", 4: "rook", 5: "queen", 6: "king"}.get(piece_type, "piece")
+
+
+def _centrality(sq: int) -> int:
+    """How central is a square? 0-4 scale."""
+    f, r = chess.square_file(sq), chess.square_rank(sq)
+    return min(f, 7-f) + min(r, 7-r)
