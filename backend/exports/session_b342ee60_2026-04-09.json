@@ -1,0 +1,1200 @@
+{
+  "exported_at": "2026-04-09T17:53:33.120651+00:00",
+  "session_id": "b342ee60-343e-43f7-83e8-6eaabe349576",
+  "summary": {
+    "user_id": "user_8b599930d7ef",
+    "user_color": "white",
+    "result": "loss",
+    "termination": "",
+    "total_moves": 36,
+    "user_rating": 1173,
+    "detected_opening": "french_defense",
+    "opening_teaching_active": true,
+    "focus_concept": null,
+    "created_at": "2026-04-09T17:47:47.093474+00:00",
+    "ended_at": null
+  },
+  "moves": [
+    {
+      "index": 0,
+      "move": "e4",
+      "by": "player",
+      "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "eval": {
+        "move_number": 1,
+        "move": "e4",
+        "by": "player",
+        "score": 0.46,
+        "eval_before": 0.29,
+        "eval_after": 0.46,
+        "best_move": "e4"
+      }
+    },
+    {
+      "index": 1,
+      "move": "e6",
+      "by": "coach",
+      "eval": {
+        "move_number": 2,
+        "move": "d4",
+        "by": "player",
+        "score": 0.38,
+        "eval_before": 0.43,
+        "eval_after": 0.38,
+        "best_move": "Nc3"
+      }
+    },
+    {
+      "index": 2,
+      "move": "d4",
+      "by": "player",
+      "eval": {
+        "move_number": 3,
+        "move": "exd5",
+        "by": "player",
+        "score": 0.24,
+        "eval_before": 0.43,
+        "eval_after": 0.24,
+        "best_move": "e5"
+      }
+    },
+    {
+      "index": 3,
+      "move": "d5",
+      "by": "coach",
+      "eval": {
+        "move_number": 4,
+        "move": "dxe6",
+        "by": "player",
+        "score": 1.12,
+        "eval_before": 1.02,
+        "eval_after": 1.12,
+        "best_move": "dxe6"
+      }
+    },
+    {
+      "index": 4,
+      "move": "exd5",
+      "by": "player",
+      "eval": {
+        "move_number": 5,
+        "move": "Be3",
+        "by": "player",
+        "score": 1.22,
+        "eval_before": 1.59,
+        "eval_after": 1.22,
+        "best_move": "Nf3"
+      }
+    },
+    {
+      "index": 5,
+      "move": "Nf6",
+      "by": "coach",
+      "eval": {
+        "move_number": 6,
+        "move": "Nc3",
+        "by": "player",
+        "score": 1.45,
+        "eval_before": 1.45,
+        "eval_after": 1.45,
+        "best_move": "Nf3"
+      }
+    },
+    {
+      "index": 6,
+      "move": "dxe6",
+      "by": "player",
+      "eval": {
+        "move_number": 7,
+        "move": "Ne4",
+        "by": "player",
+        "score": -0.46,
+        "eval_before": 1.8,
+        "eval_after": -0.46,
+        "best_move": "Nxd5"
+      }
+    },
+    {
+      "index": 7,
+      "move": "Qe7",
+      "by": "coach",
+      "eval": {
+        "move_number": 8,
+        "move": "Bb5",
+        "by": "player",
+        "score": -2.42,
+        "eval_before": -0.43,
+        "eval_after": -2.42,
+        "best_move": "c3"
+      }
+    },
+    {
+      "index": 8,
+      "move": "Be3",
+      "by": "player",
+      "eval": {
+        "move_number": 9,
+        "move": "Nc3",
+        "by": "player",
+        "score": -2.14,
+        "eval_before": -2.49,
+        "eval_after": -2.14,
+        "best_move": "Nc3"
+      }
+    },
+    {
+      "index": 9,
+      "move": "Bxe6",
+      "by": "coach",
+      "eval": {
+        "move_number": 10,
+        "move": "Ne2",
+        "by": "player",
+        "score": -3.2,
+        "eval_before": -2.41,
+        "eval_after": -3.2,
+        "best_move": "a3"
+      }
+    },
+    {
+      "index": 10,
+      "move": "Nc3",
+      "by": "player",
+      "eval": {
+        "move_number": 11,
+        "move": "dxe5",
+        "by": "player",
+        "score": -2.84,
+        "eval_before": -0.15,
+        "eval_after": -2.84,
+        "best_move": "Qc1"
+      }
+    },
+    {
+      "index": 11,
+      "move": "Nd5",
+      "by": "coach",
+      "eval": {
+        "move_number": 12,
+        "move": "Qc1",
+        "by": "player",
+        "score": -4.95,
+        "eval_before": -3.17,
+        "eval_after": -4.95,
+        "best_move": "Qxd8+"
+      }
+    },
+    {
+      "index": 12,
+      "move": "Ne4",
+      "by": "player",
+      "eval": {
+        "move_number": 13,
+        "move": "Kf1",
+        "by": "player",
+        "score": -4.34,
+        "eval_before": -4.85,
+        "eval_after": -4.34,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 13,
+      "move": "Nc6",
+      "by": "coach",
+      "eval": {
+        "move_number": 14,
+        "move": "a3",
+        "by": "player",
+        "score": -100,
+        "eval_before": -4.83,
+        "eval_after": -100,
+        "best_move": "Ng1"
+      }
+    },
+    {
+      "index": 14,
+      "move": "Bb5",
+      "by": "player",
+      "eval": {
+        "move_number": 15,
+        "move": "Ng3",
+        "by": "player",
+        "score": -6.89,
+        "eval_before": -5.56,
+        "eval_after": -6.89,
+        "best_move": "Ng1"
+      }
+    },
+    {
+      "index": 15,
+      "move": "Qb4+",
+      "by": "coach",
+      "eval": {
+        "move_number": 16,
+        "move": "Nce4",
+        "by": "player",
+        "score": -8.01,
+        "eval_before": -6.9,
+        "eval_after": -8.01,
+        "best_move": "Bd3"
+      }
+    },
+    {
+      "index": 16,
+      "move": "Nc3",
+      "by": "player",
+      "eval": {
+        "move_number": 17,
+        "move": "Be2",
+        "by": "player",
+        "score": -6.97,
+        "eval_before": -6.47,
+        "eval_after": -6.97,
+        "best_move": "Ng5"
+      }
+    },
+    {
+      "index": 17,
+      "move": "O-O-O",
+      "by": "coach",
+      "eval": {
+        "move_number": 18,
+        "move": "Kg1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -6.78,
+        "eval_after": -100,
+        "best_move": "Ke1"
+      }
+    },
+    {
+      "index": 18,
+      "move": "Ne2",
+      "by": "player"
+    },
+    {
+      "index": 19,
+      "move": "Ne5",
+      "by": "coach"
+    },
+    {
+      "index": 20,
+      "move": "dxe5",
+      "by": "player"
+    },
+    {
+      "index": 21,
+      "move": "Nxe3",
+      "by": "coach"
+    },
+    {
+      "index": 22,
+      "move": "Qc1",
+      "by": "player"
+    },
+    {
+      "index": 23,
+      "move": "Nxg2+",
+      "by": "coach"
+    },
+    {
+      "index": 24,
+      "move": "Kf1",
+      "by": "player"
+    },
+    {
+      "index": 25,
+      "move": "Bh3",
+      "by": "coach"
+    },
+    {
+      "index": 26,
+      "move": "a3",
+      "by": "player"
+    },
+    {
+      "index": 27,
+      "move": "Qg4",
+      "by": "coach"
+    },
+    {
+      "index": 28,
+      "move": "Ng3",
+      "by": "player"
+    },
+    {
+      "index": 29,
+      "move": "Bc5",
+      "by": "coach"
+    },
+    {
+      "index": 30,
+      "move": "Nce4",
+      "by": "player"
+    },
+    {
+      "index": 31,
+      "move": "Bb6",
+      "by": "coach"
+    },
+    {
+      "index": 32,
+      "move": "Be2",
+      "by": "player"
+    },
+    {
+      "index": 33,
+      "move": "Nf4+",
+      "by": "coach"
+    },
+    {
+      "index": 34,
+      "move": "Kg1",
+      "by": "player"
+    },
+    {
+      "index": 35,
+      "move": "Nxe2#",
+      "by": "coach"
+    }
+  ],
+  "messages": [
+    {
+      "session_id": "b342ee60-343e-43f7-83e8-6eaabe349576",
+      "type": "opening_teaching_offer",
+      "message": "Let's learn the French Defense! Space advantage with e5, attack kingside, target the weak light squares / Undermine White's center with c5 and f6, solve the light-squared bishop problem",
+      "trigger": "opening_detected",
+      "opening_name": "French Defense",
+      "opening_key": "french_defense",
+      "options": [
+        {
+          "id": "learn_main_line",
+          "label": "Learn the Advance Variation (12 moves deep)",
+          "description": "Step-by-step opening theory"
+        },
+        {
+          "id": "just_play",
+          "label": "Just play - I'll figure it out",
+          "description": "Continue the game without lesson"
+        }
+      ],
+      "trap_name": null,
+      "created_at": "2026-04-09T17:48:06.537000",
+      "read": true
+    }
+  ],
+  "evaluations": [
+    {
+      "move_number": 1,
+      "move": "e4",
+      "by": "player",
+      "score": 0.46,
+      "eval_before": 0.29,
+      "eval_after": 0.46,
+      "best_move": "e4"
+    },
+    {
+      "move_number": 2,
+      "move": "d4",
+      "by": "player",
+      "score": 0.38,
+      "eval_before": 0.43,
+      "eval_after": 0.38,
+      "best_move": "Nc3"
+    },
+    {
+      "move_number": 3,
+      "move": "exd5",
+      "by": "player",
+      "score": 0.24,
+      "eval_before": 0.43,
+      "eval_after": 0.24,
+      "best_move": "e5"
+    },
+    {
+      "move_number": 4,
+      "move": "dxe6",
+      "by": "player",
+      "score": 1.12,
+      "eval_before": 1.02,
+      "eval_after": 1.12,
+      "best_move": "dxe6"
+    },
+    {
+      "move_number": 5,
+      "move": "Be3",
+      "by": "player",
+      "score": 1.22,
+      "eval_before": 1.59,
+      "eval_after": 1.22,
+      "best_move": "Nf3"
+    },
+    {
+      "move_number": 6,
+      "move": "Nc3",
+      "by": "player",
+      "score": 1.45,
+      "eval_before": 1.45,
+      "eval_after": 1.45,
+      "best_move": "Nf3"
+    },
+    {
+      "move_number": 7,
+      "move": "Ne4",
+      "by": "player",
+      "score": -0.46,
+      "eval_before": 1.8,
+      "eval_after": -0.46,
+      "best_move": "Nxd5"
+    },
+    {
+      "move_number": 8,
+      "move": "Bb5",
+      "by": "player",
+      "score": -2.42,
+      "eval_before": -0.43,
+      "eval_after": -2.42,
+      "best_move": "c3"
+    },
+    {
+      "move_number": 9,
+      "move": "Nc3",
+      "by": "player",
+      "score": -2.14,
+      "eval_before": -2.49,
+      "eval_after": -2.14,
+      "best_move": "Nc3"
+    },
+    {
+      "move_number": 10,
+      "move": "Ne2",
+      "by": "player",
+      "score": -3.2,
+      "eval_before": -2.41,
+      "eval_after": -3.2,
+      "best_move": "a3"
+    },
+    {
+      "move_number": 11,
+      "move": "dxe5",
+      "by": "player",
+      "score": -2.84,
+      "eval_before": -0.15,
+      "eval_after": -2.84,
+      "best_move": "Qc1"
+    },
+    {
+      "move_number": 12,
+      "move": "Qc1",
+      "by": "player",
+      "score": -4.95,
+      "eval_before": -3.17,
+      "eval_after": -4.95,
+      "best_move": "Qxd8+"
+    },
+    {
+      "move_number": 13,
+      "move": "Kf1",
+      "by": "player",
+      "score": -4.34,
+      "eval_before": -4.85,
+      "eval_after": -4.34,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 14,
+      "move": "a3",
+      "by": "player",
+      "score": -100,
+      "eval_before": -4.83,
+      "eval_after": -100,
+      "best_move": "Ng1"
+    },
+    {
+      "move_number": 15,
+      "move": "Ng3",
+      "by": "player",
+      "score": -6.89,
+      "eval_before": -5.56,
+      "eval_after": -6.89,
+      "best_move": "Ng1"
+    },
+    {
+      "move_number": 16,
+      "move": "Nce4",
+      "by": "player",
+      "score": -8.01,
+      "eval_before": -6.9,
+      "eval_after": -8.01,
+      "best_move": "Bd3"
+    },
+    {
+      "move_number": 17,
+      "move": "Be2",
+      "by": "player",
+      "score": -6.97,
+      "eval_before": -6.47,
+      "eval_after": -6.97,
+      "best_move": "Ng5"
+    },
+    {
+      "move_number": 18,
+      "move": "Kg1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -6.78,
+      "eval_after": -100,
+      "best_move": "Ke1"
+    }
+  ],
+  "mde_debug_logs": [],
+  "behavior_summary": {
+    "counts": {
+      "ignored_threat": 1,
+      "hung_pieces": 0,
+      "premature_attack": 0,
+      "king_safety": 6,
+      "weak_development": 2
+    },
+    "total_moves": 11,
+    "top_issues": [
+      "king_safety",
+      "weak_development"
+    ]
+  },
+  "fundamental_violations": [
+    {
+      "move_number": 7,
+      "fundamental": "calculate",
+      "move": "Ne4"
+    },
+    {
+      "move_number": 8,
+      "fundamental": "calculate",
+      "move": "Bb5"
+    },
+    {
+      "move_number": 10,
+      "fundamental": "king_safety",
+      "move": "Ne2"
+    },
+    {
+      "move_number": 11,
+      "fundamental": "king_safety",
+      "move": "dxe5"
+    },
+    {
+      "move_number": 12,
+      "fundamental": "king_safety",
+      "move": "Qc1"
+    },
+    {
+      "move_number": 14,
+      "fundamental": "king_safety",
+      "move": "a3"
+    },
+    {
+      "move_number": 15,
+      "fundamental": "king_safety",
+      "move": "Ng3"
+    },
+    {
+      "move_number": 16,
+      "fundamental": "king_safety",
+      "move": "Nce4"
+    },
+    {
+      "move_number": 18,
+      "fundamental": "calculate",
+      "move": "Kg1"
+    }
+  ],
+  "last_coaching_move_index": 33,
+  "player_data": {
+    "strength_profile": {
+      "strongest": "positional_sense",
+      "weakest": "calculation_depth",
+      "overall_score": 63,
+      "overall_label": "solid",
+      "domains": {
+        "tactical_vision": {
+          "score": 64.3,
+          "rating": 1300,
+          "evidence": {
+            "brilliant_moves": 13,
+            "sacrifices": 48,
+            "tactical_best_moves": 4,
+            "mates_found": 10
+          },
+          "label": "solid"
+        },
+        "calculation_depth": {
+          "score": 25,
+          "rating": 600,
+          "evidence": {
+            "complex_best_moves": 3,
+            "best_when_losing": 86,
+            "mates_found": 10
+          },
+          "label": "emerging"
+        },
+        "positional_sense": {
+          "score": 100,
+          "rating": 1800,
+          "evidence": {
+            "quiet_best_moves": 485,
+            "middlegame_accuracy": 61.3
+          },
+          "label": "exceptional"
+        },
+        "endgame_technique": {
+          "score": 69.6,
+          "rating": 1300,
+          "evidence": {
+            "endgame_accuracy": 69.6,
+            "endgame_moves_analyzed": 79
+          },
+          "label": "solid"
+        },
+        "opening_knowledge": {
+          "score": 63.3,
+          "rating": 1300,
+          "evidence": {
+            "opening_accuracy": 63.3,
+            "opening_moves_analyzed": 441
+          },
+          "label": "solid"
+        },
+        "pressure_handling": {
+          "score": 51.8,
+          "rating": 1100,
+          "evidence": {
+            "accuracy_when_losing": 48,
+            "accuracy_when_winning": 51.1,
+            "accuracy_when_equal": 58.4
+          },
+          "label": "solid"
+        }
+      }
+    },
+    "profile": {
+      "average_accuracy": 60.4,
+      "top_weaknesses": [
+        {
+          "category": "tactical",
+          "subcategory": "one_move_blunder",
+          "occurrence_count": 44,
+          "first_occurrence": "2026-04-06T10:00:48.922749+00:00",
+          "last_occurrence": "2026-04-09T08:14:46.133524+00:00",
+          "decayed_score": 44
+        },
+        {
+          "category": "tactical",
+          "subcategory": "complex_tactical_miss",
+          "occurrence_count": 19,
+          "first_occurrence": "2026-04-06T10:00:48.922749+00:00",
+          "last_occurrence": "2026-04-09T08:45:28.489785+00:00",
+          "decayed_score": 19
+        }
+      ],
+      "phase_accuracy": {
+        "opening": [
+          70,
+          90,
+          100
+        ],
+        "middlegame": [
+          60,
+          69.2,
+          40
+        ],
+        "endgame": [
+          42.9,
+          75
+        ]
+      }
+    },
+    "recent_habit_scores": [
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 10,
+            "mistakes": 9,
+            "opportunities": 30,
+            "examples": [
+              {
+                "move_number": 7,
+                "move": "Rxc6",
+                "cp_loss": 127,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 9,
+                "move": "Bxc2",
+                "cp_loss": 117,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 10,
+                "move": "Qb6",
+                "cp_loss": 168,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 80,
+            "mistakes": 2,
+            "opportunities": 30,
+            "examples": [
+              {
+                "move_number": 17,
+                "move": "e6",
+                "cp_loss": 9178,
+                "explanation": "Move wasn't verified - it left a weakness"
+              },
+              {
+                "move_number": 26,
+                "move": "Bb8",
+                "cp_loss": 9264,
+                "explanation": "Move wasn't verified - it left a weakness"
+              }
+            ]
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          }
+        },
+        "overall_score": 73.5
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 86.4,
+            "mistakes": 1,
+            "opportunities": 22,
+            "examples": [
+              {
+                "move_number": 19,
+                "move": "Bf3",
+                "cp_loss": 253,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 22,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 22,
+            "examples": []
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 22,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 22,
+            "examples": []
+          }
+        },
+        "overall_score": 96.6
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          }
+        },
+        "overall_score": 100
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 80,
+            "mistakes": 1,
+            "opportunities": 15,
+            "examples": [
+              {
+                "move_number": 6,
+                "move": "a5",
+                "cp_loss": 130,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 15,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 80,
+            "mistakes": 1,
+            "opportunities": 15,
+            "examples": [
+              {
+                "move_number": 12,
+                "move": "Bg4",
+                "cp_loss": 540,
+                "explanation": "Move wasn't verified - it left a weakness"
+              }
+            ]
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 15,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 15,
+            "examples": []
+          }
+        },
+        "overall_score": 91
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 48.3,
+            "mistakes": 5,
+            "opportunities": 29,
+            "examples": [
+              {
+                "move_number": 10,
+                "move": "Bh5",
+                "cp_loss": 244,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 18,
+                "move": "e4",
+                "cp_loss": 150,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 19,
+                "move": "dxe4",
+                "cp_loss": 128,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 29,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 79.3,
+            "mistakes": 2,
+            "opportunities": 29,
+            "examples": [
+              {
+                "move_number": 23,
+                "move": "Rh5",
+                "cp_loss": 590,
+                "explanation": "Move wasn't verified - it left a weakness"
+              },
+              {
+                "move_number": 27,
+                "move": "Bxd1",
+                "cp_loss": 9280,
+                "explanation": "Move wasn't verified - it left a weakness"
+              }
+            ]
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 29,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 29,
+            "examples": []
+          }
+        },
+        "overall_score": 82.9
+      }
+    ],
+    "active_problems": [
+      {
+        "user_id": "user_8b599930d7ef",
+        "category": "threw_winning",
+        "anger": "recurring",
+        "count": 5,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-08T14:52:23.361119+00:00"
+      },
+      {
+        "user_id": "user_8b599930d7ef",
+        "category": "tactical_miss",
+        "anger": "recurring",
+        "count": 5,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-09T03:11:36.724426+00:00"
+      },
+      {
+        "category": "time_collapse",
+        "user_id": "user_8b599930d7ef",
+        "anger": "recurring",
+        "count": 5,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-09T17:47:05.445164+00:00"
+      }
+    ]
+  },
+  "postgame": {
+    "session_id": "b342ee60-343e-43f7-83e8-6eaabe349576",
+    "accuracy": 20,
+    "blunders": 4,
+    "created_at": "2026-04-09T17:53:21.883000",
+    "game_result": "loss",
+    "games_together": 24,
+    "habits_improved": [],
+    "habits_weak": [
+      "overconfidence"
+    ],
+    "inaccuracies": 3,
+    "memory_insights": [
+      {
+        "insight_type": "recurring_pattern",
+        "message": "We've seen 'Overconfidence in Winning Positions' before. Stay aware of this pattern.",
+        "pattern_name": "Overconfidence in Winning Positions",
+        "occurrence_count": 3,
+        "is_improving": false
+      },
+      {
+        "insight_type": "performance_comparison",
+        "message": "More blunders than usual (4 vs your avg 1.7). What happened?",
+        "pattern_name": null,
+        "occurrence_count": 0,
+        "is_improving": false
+      },
+      {
+        "insight_type": "first_time",
+        "message": "New pattern spotted: 'overconfidence'. I'll watch for this in future games.",
+        "pattern_name": "overconfidence",
+        "occurrence_count": 1,
+        "is_improving": false
+      }
+    ],
+    "mistakes": 4,
+    "performance_rating": {
+      "estimated_rating": 723,
+      "confidence": "medium",
+      "comparison_to_actual": "below",
+      "rating_change_suggested": -400,
+      "key_factors": [
+        "4 blunders significantly impacted your score",
+        "Consider slowing down - many inaccuracies"
+      ]
+    },
+    "user_id": "user_8b599930d7ef"
+  },
+  "raw_session": {
+    "session_id": "b342ee60-343e-43f7-83e8-6eaabe349576",
+    "user_id": "user_8b599930d7ef",
+    "status": "completed",
+    "user_color": "white",
+    "current_fen": "2kr3r/ppp2ppp/1b6/4P3/4N1q1/P5Nb/1PP1nP1P/R1Q3KR w - - 0 19",
+    "time_control": "15+10",
+    "user_time_remaining": 900,
+    "coach_time_remaining": 900,
+    "increment": 10,
+    "result": "loss",
+    "termination_reason": "",
+    "created_at": "2026-04-09T17:47:47.093474+00:00",
+    "last_move_at": null,
+    "ended_at": null,
+    "coach_interventions": [],
+    "behavior_events": [],
+    "cpr_before": null,
+    "cpr_after": null,
+    "remaining_interventions": 3,
+    "guardian_overrides": [],
+    "user_rating": 1173,
+    "coach_skill_level": 5,
+    "coach_move_pending": false,
+    "last_coach_move": {
+      "move": "Nxe2#",
+      "uci": "f4e2",
+      "timestamp": "2026-04-09T17:53:20.511024+00:00"
+    },
+    "evaluation": {
+      "score": -10,
+      "mate_in": 0
+    },
+    "action_revision": 18,
+    "teaching_mode": null,
+    "teaching_opening": null,
+    "teaching_data": {},
+    "detected_opening": "french_defense",
+    "opening_offer_shown": true,
+    "openings_taught_this_game": [],
+    "habits_checked": [],
+    "habit_violations": [],
+    "opening_to_teach": "philidor_defense",
+    "opening_teaching_moves": [
+      "e4",
+      "e5",
+      "Nf3",
+      "d6",
+      "d4",
+      "Nf6",
+      "Nc3",
+      "Nbd7",
+      "Bc4",
+      "Be7",
+      "O-O",
+      "O-O",
+      "Re1",
+      "c6",
+      "a4",
+      "Qc7",
+      "Ba2",
+      "b6"
+    ],
+    "opening_teaching_index": 2,
+    "opening_teaching_active": true,
+    "opening_teaching_complete": false,
+    "suggested_trap": null,
+    "available_traps": [],
+    "pedagogical_mode_active": true,
+    "last_pedagogical_move_index": -10,
+    "pending_opportunity": {},
+    "opportunity_history": [],
+    "opportunities_found": 0,
+    "opportunities_missed": 0,
+    "curriculum_active": false,
+    "opening_assessment": {},
+    "last_coaching_move_index": 33,
+    "behavior_summary": {
+      "counts": {
+        "ignored_threat": 1,
+        "hung_pieces": 0,
+        "premature_attack": 0,
+        "king_safety": 6,
+        "weak_development": 2
+      },
+      "total_moves": 11,
+      "top_issues": [
+        "king_safety",
+        "weak_development"
+      ]
+    },
+    "fundamental_violations": [
+      {
+        "move_number": 7,
+        "fundamental": "calculate",
+        "move": "Ne4"
+      },
+      {
+        "move_number": 8,
+        "fundamental": "calculate",
+        "move": "Bb5"
+      },
+      {
+        "move_number": 10,
+        "fundamental": "king_safety",
+        "move": "Ne2"
+      },
+      {
+        "move_number": 11,
+        "fundamental": "king_safety",
+        "move": "dxe5"
+      },
+      {
+        "move_number": 12,
+        "fundamental": "king_safety",
+        "move": "Qc1"
+      },
+      {
+        "move_number": 14,
+        "fundamental": "king_safety",
+        "move": "a3"
+      },
+      {
+        "move_number": 15,
+        "fundamental": "king_safety",
+        "move": "Ng3"
+      },
+      {
+        "move_number": 16,
+        "fundamental": "king_safety",
+        "move": "Nce4"
+      },
+      {
+        "move_number": 18,
+        "fundamental": "calculate",
+        "move": "Kg1"
+      }
+    ]
+  }
+}

@@ -135,7 +135,14 @@ async def compute_top_weaknesses(db, user_id: str, recent_games: int = 10) -> Li
         for doc in thinking_docs:
             habits = doc.get("habit_scores", {})
             for habit_key, signal_key in HABIT_TO_SIGNAL.items():
-                score = habits.get(habit_key, 100)
+                raw = habits.get(habit_key, 100)
+                # Handle both formats: plain number OR dict with "score" key
+                if isinstance(raw, dict):
+                    score = raw.get("score", 100)
+                elif isinstance(raw, (int, float)):
+                    score = raw
+                else:
+                    score = 100
                 signal_total_score[signal_key] += score
                 if score < 60:
                     signal_weak_count[signal_key] += 1
@@ -168,8 +175,11 @@ async def compute_top_weaknesses(db, user_id: str, recent_games: int = 10) -> Li
         )
         if profile:
             for tw in profile.get("top_weaknesses", []):
-                tw_name = tw.get("name", "").lower() if isinstance(tw, dict) else str(tw).lower()
-                if "threat" in tw_name or "tactic" in tw_name:
+                if isinstance(tw, dict):
+                    tw_name = (tw.get("name") or tw.get("subcategory") or tw.get("category") or "").lower()
+                else:
+                    tw_name = str(tw).lower()
+                if "threat" in tw_name or "tactic" in tw_name or "blunder" in tw_name:
                     signal_weak_count["ignored_threat"] += 2
                 elif "piece" in tw_name or "hanging" in tw_name:
                     signal_weak_count["hung_pieces"] += 2

@@ -3587,6 +3587,26 @@ async def evaluate_pending_move(
             except Exception:
                 pass
 
+        # Store decision in session for export/debugging
+        try:
+            decision_log = {
+                "move_index": move_index_preview,
+                "move_quality": move_quality,
+                "cp_loss": cp_loss_val,
+                "layer": layer,
+                "category": category,
+                "concept_key": concept_key,
+                "text": text[:80] if text else None,
+                "eval_valid": eval_is_valid,
+                "elapsed_ms": round(elapsed_total),
+            }
+            await db.coach_sessions.update_one(
+                {"session_id": session_id},
+                {"$push": {"coaching_decisions": decision_log}}
+            )
+        except Exception:
+            pass
+
         # Silent — no coaching text, but still return checklist
         if layer == "silent":
             game_phase = "opening" if move_number <= 12 else ("middlegame" if move_number <= 30 else "endgame")
@@ -5720,6 +5740,7 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
         "evaluations": evaluations,
 
         # Decision engine data
+        "coaching_decisions": session.get("coaching_decisions", []),
         "mde_debug_logs": session.get("mde_debug_logs", []),
         "behavior_summary": session.get("behavior_summary"),
         "fundamental_violations": session.get("fundamental_violations", []),
