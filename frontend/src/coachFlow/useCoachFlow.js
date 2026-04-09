@@ -106,11 +106,13 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
         }),
       }).then(r => r.ok ? r.json() : null);
 
+      // 800ms window — first call may be slow (Stockfish cold start)
       const timeoutPromise = new Promise(resolve =>
-        setTimeout(() => resolve(null), 400)
+        setTimeout(() => resolve(null), 800)
       );
 
       const result = await Promise.race([evalPromise, timeoutPromise]);
+      console.log("[CoachFlow] evaluate-pending result:", result ? "received" : "timeout", result);
 
       // If timeout won or eval failed → auto-commit
       if (!result) {
@@ -126,6 +128,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
 
       // Update checklist (always, even on silent)
       if (result.checklist) {
+        console.log("[CoachFlow] checklist:", result.checklist, "weaknesses:", result.weaknesses);
         setLiveChecklist(result.checklist);
         // Accumulate game-wide history
         setChecklistHistory(prev => {
