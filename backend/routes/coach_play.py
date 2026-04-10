@@ -3361,7 +3361,7 @@ async def evaluate_pending_move(
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "playerProfile": player_profile_data,
                 "rootProblem": root_problem,
-                "focusEnforcement": focus_enforcement,
+                "focusEnforcement": None,
                 "userFocus": user_focus,
                 "commentary": _timeout_commentary,
                 "coachingMoment": None,
@@ -4504,6 +4504,23 @@ async def start_play_with_coach(
         message = f"Game started! You are playing {user_color}."
         if practice_mode:
             message = f"Practice mode! Playing from a position in your game. You are {user_color}."
+
+        # Add opening instruction if teaching is active
+        if opening_name and update_fields.get("opening_teaching_moves"):
+            first_move = update_fields["opening_teaching_moves"][0]
+            tree_name = opening_name
+            try:
+                from services.opening_theory_tree_service import load_theory_tree
+                tree = load_theory_tree()
+                matched = update_fields.get("opening_key") or update_fields.get("opening_to_teach")
+                if matched and matched in tree:
+                    tree_name = tree[matched].get("name", opening_name)
+                    plan = tree[matched].get("white_plan" if user_color == "white" else "black_plan", "")
+                    message = f"Let's practice the {tree_name}. Play {first_move} to begin."
+                    if plan:
+                        message += f"\n\nYour plan: {plan}"
+            except Exception:
+                message = f"Let's practice the {tree_name}. Play {first_move} to begin."
         
         # Get memory-aware welcome message from Coach Memory + Human Coach
         welcome_message = message
@@ -5598,7 +5615,7 @@ async def _process_move_and_respond(
                     # === OPENING DETECTION AFTER COACH'S MOVE ===
                     # This enables immediate detection for openings where the coach makes the defining move
                     # (e.g., 1.e4 for French Defense: coach plays e4, user will play e6)
-                    if not coach_game_over and len(move_history) <= 24 and not session_doc.get("opening_offer_shown"):
+                    if not coach_game_over and len(move_history) <= 24 and not session_doc.get("opening_offer_shown") and not session_doc.get("opening_teaching_active"):
                         try:
                             from services.opening_teaching_integration import check_opening_and_offer_teaching
                             
