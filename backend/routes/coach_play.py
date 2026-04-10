@@ -5528,9 +5528,36 @@ async def _process_move_and_respond(
                     move_history=move_history_san,  # Pass move history for opening guidance
                     user_color=user_color  # Pass user's color for correct opening guidance
                 )
-                coach_move = await opponent.get_move(fen_after_user)
+                # If opening teaching is active, use the teaching moves
+                coach_move = None
+                if session_doc.get("opening_teaching_active"):
+                    # Re-fetch session to get latest teaching_index (may have been updated)
+                    _fresh_session = await db.coach_sessions.find_one(
+                        {"session_id": session_id},
+                        {"opening_teaching_moves": 1, "opening_teaching_index": 1, "opening_teaching_active": 1}
+                    )
+                    if _fresh_session and _fresh_session.get("opening_teaching_active"):
+                        teaching_moves = _fresh_session.get("opening_teaching_moves", [])
+                        teaching_index = _fresh_session.get("opening_teaching_index", 0)
+
+                        # The coach's move is at the current teaching_index
+                        # (user move already advanced the index past user's move)
+                        # Find the next move that belongs to the coach (opponent side)
+                        coach_move_idx = teaching_index
+                        if coach_move_idx < len(teaching_moves):
+                            expected_move = teaching_moves[coach_move_idx]
+                            try:
+                                board_check = chess.Board(fen_after_user)
+                                board_check.parse_san(expected_move)
+                                coach_move = expected_move
+                                logger.info(f"[COACH] Teaching move: {expected_move} (index {coach_move_idx}/{len(teaching_moves)})")
+                            except Exception:
+                                logger.warning(f"[COACH] Teaching move '{expected_move}' illegal at index {coach_move_idx}, using opponent")
+
+                if not coach_move:
+                    coach_move = await opponent.get_move(fen_after_user)
                 teaching_context = opponent.get_teaching_context()
-                
+
                 if coach_move:
                     chess_move = board.parse_san(coach_move)
                     board.push(chess_move)
