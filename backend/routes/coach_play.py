@@ -3609,7 +3609,20 @@ async def evaluate_pending_move(
             except Exception:
                 pass
 
-        # ─── POSITION COMMENTARY (board reading for left panel) ─────
+        # ─── FUNDAMENTALS (cheap, pure python-chess, < 5ms) ─────
+        # Must run BEFORE commentary (which is expensive)
+        game_phase = "opening" if move_number <= 12 else ("middlegame" if move_number <= 30 else "endgame")
+        try:
+            from services.fundamentals_evaluator import evaluate_fundamentals as _eval_fund
+            _fund_board = chess.Board(board_after.fen()) if board_after else chess.Board(fen_before)
+            fundamentals_data = _eval_fund(_fund_board, move_history, user_color,
+                                           {"cp_loss": cp_loss_val, "move_quality": move_quality})
+            logger.info(f"[FAST-EVAL] Fundamentals: phase={fundamentals_data.get('phase')}, count={len(fundamentals_data.get('fundamentals', []))}")
+        except Exception as _fe:
+            logger.error(f"[FAST-EVAL] Fundamentals eval failed: {_fe}", exc_info=True)
+            fundamentals_data = {"phase": game_phase, "fundamentals": []}
+
+        # ─── POSITION COMMENTARY (expensive, calls read_position) ─────
         commentary = None
         try:
             from services.position_intelligence import read_board_like_a_coach
@@ -3617,10 +3630,8 @@ async def evaluate_pending_move(
             commentary = read_board_like_a_coach(fen_after, user_color, user_rating)
             if commentary:
                 logger.info(f"[FAST-EVAL] Commentary generated: {commentary.get('summary', '')[:50]}")
-            else:
-                logger.warning(f"[FAST-EVAL] Commentary returned None")
         except Exception as e:
-            logger.error(f"[FAST-EVAL] Board reading failed: {e}", exc_info=True)
+            logger.warning(f"[FAST-EVAL] Board reading failed: {e}")
 
         # Store decision in session for export/debugging
         try:
@@ -3642,24 +3653,13 @@ async def evaluate_pending_move(
         except Exception:
             pass
 
-        # Silent — no coaching text, but still return checklist
+        # Silent — no coaching text, but still return fundamentals
         if layer == "silent":
-            game_phase = "opening" if move_number <= 12 else ("middlegame" if move_number <= 30 else "endgame")
-            # Compute fundamentals (stateless, derived from position + history)
-            try:
-                from services.fundamentals_evaluator import evaluate_fundamentals as _eval_fund
-                _fund_board = chess.Board(board_after.fen()) if board_after else chess.Board(fen_before)
-                checklist = _eval_fund(_fund_board, move_history, user_color,
-                                       {"cp_loss": cp_loss_val, "move_quality": move_quality})
-                logger.info(f"[FAST-EVAL] Fundamentals: phase={checklist.get('phase')}, count={len(checklist.get('fundamentals', []))}")
-            except Exception as _fe:
-                logger.error(f"[FAST-EVAL] Fundamentals eval failed: {_fe}", exc_info=True)
-                checklist = {"phase": game_phase, "fundamentals": []}
             logger.info(f"[FAST-EVAL] {move_quality}, silent, {elapsed_total:.0f}ms")
             return {
                 "shouldAutoCommit": True,
                 "coachingDecision": {"layer": "silent", "gamePhase": game_phase},
-                "checklist": checklist,
+                "checklist": fundamentals_data,
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "playerProfile": player_profile_data,
                 "commentary": commentary,
@@ -3685,9 +3685,7 @@ async def evaluate_pending_move(
             f"hold={requires_hold}, {elapsed_total:.0f}ms"
         )
 
-        # ─── BUILD CHECKLIST ─────
-        game_phase = "opening" if move_number <= 12 else ("middlegame" if move_number <= 30 else "endgame")
-        checklist = _build_checklist(fast_signals, move_quality, eval_is_valid, game_phase)
+        # Fundamentals already computed above (fundamentals_data)
 
         return {
             "shouldAutoCommit": should_auto_commit,
@@ -4686,7 +4684,7 @@ async def _process_move_and_respond(
                 move_idx = len(move_history) - 1
                 already_has = any(d.get("move_index") == move_idx for d in existing_decisions)
 
-                if not already_has and engine_handled:
+                if not already_has:
                     bg_eval_before = analysis.get("eval_before", 0)
                     bg_eval_after = analysis.get("eval_after", 0)
                     if user_color == "white":
