@@ -33,6 +33,8 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
   const [playerProfile, setPlayerProfile] = useState(null); // strengths/weaknesses/domains
   const [rootProblem, setRootProblem] = useState(null); // {primary, secondary, minor}
   const [commentary, setCommentary] = useState(null); // position-specific board reading
+  const [openingGuidance, setOpeningGuidance] = useState(null); // move idea + arrow
+  const [trapWarning, setTrapWarning] = useState(null); // approaching a known trap
   const [timeline, setTimeline] = useState([]);
 
   // ─── Internal Refs ──────────────────────────────────────────
@@ -145,6 +147,10 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       if (result.rootProblem) {
         setRootProblem(result.rootProblem);
       }
+      if (result.openingGuidance) {
+        setOpeningGuidance(result.openingGuidance);
+      }
+      setTrapWarning(result.trapWarning || null);
       console.log("[CoachFlow] full result keys:", Object.keys(result), "checklist:", !!result.checklist, "weaknesses:", !!result.weaknesses, "profile:", !!result.playerProfile, "commentary:", !!result.commentary, "commentary value:", result.commentary);
 
       // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
@@ -325,6 +331,8 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     setPlayerProfile(null);
     setRootProblem(null);
     setCommentary(null);
+    setOpeningGuidance(null);
+    setTrapWarning(null);
     setTimeline([]);
     sessionBehavior.current = {
       repeatedConceptCounts: {},
@@ -356,6 +364,8 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     playerProfile,
     rootProblem,
     commentary,
+    openingGuidance,
+    trapWarning,
     timeline,
 
     // Derived

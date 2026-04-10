@@ -794,6 +794,41 @@ async def end_coach_play_session(
         except Exception as e:
             logger.warning(f"Coach puzzle extraction failed: {e}")
 
+        # Update opening mastery after game
+        try:
+            session_for_mastery = await db.coach_sessions.find_one({"session_id": session_id})
+            if session_for_mastery:
+                teaching_opening = session_for_mastery.get("opening_to_teach") or session_for_mastery.get("opening_key")
+                if teaching_opening:
+                    from services.opening_mastery_tracker import update_mastery_after_game
+                    mh = session_for_mastery.get("move_history", [])
+                    teaching_moves = session_for_mastery.get("opening_teaching_moves", [])
+
+                    # Count how many teaching moves the user played correctly
+                    correct = 0
+                    total_teaching = 0
+                    for i, tm in enumerate(teaching_moves):
+                        if i >= len(mh):
+                            break
+                        move_entry = mh[i]
+                        played = move_entry.get("move", "") if isinstance(move_entry, dict) else str(move_entry)
+                        # Only count user's moves
+                        is_user = move_entry.get("by") == "player" if isinstance(move_entry, dict) else (i % 2 == 0)
+                        if is_user:
+                            total_teaching += 1
+                            if played.replace("+", "").replace("#", "").lower() == tm.replace("+", "").replace("#", "").lower():
+                                correct += 1
+
+                    if total_teaching > 0:
+                        await update_mastery_after_game(
+                            db, user.user_id, teaching_opening,
+                            moves_correct=correct,
+                            moves_total=total_teaching,
+                        )
+                        logger.info(f"[MASTERY] Updated {teaching_opening}: {correct}/{total_teaching} correct")
+        except Exception as e:
+            logger.warning(f"Opening mastery update failed: {e}")
+
         # Update focus after game (detect root problem, set/update focus)
         try:
             from services.focus_engine import update_focus_after_game
@@ -3693,6 +3728,40 @@ async def evaluate_pending_move(
             except Exception as e:
                 logger.warning(f"[FAST-EVAL] Escalation failed: {e}")
 
+        # ─── OPENING GUIDANCE + TRAP WARNING ─────
+        opening_guidance_data = None
+        trap_warning_data = None
+        try:
+            teaching_opening = session_doc.get("opening_to_teach") or session_doc.get("opening_key")
+            if teaching_opening:
+                from services.opening_mastery_tracker import (
+                    get_opening_mastery, get_move_guidance, get_trap_warning, get_phase_label
+                )
+                mastery = await get_opening_mastery(db, user_id, teaching_opening)
+                phase = mastery.get("phase", "introduction")
+                move_idx_for_guidance = len(move_history)  # current ply
+
+                # Get move guidance for next move (if in teaching phase)
+                guidance = get_move_guidance(teaching_opening, move_idx_for_guidance, phase)
+                if guidance:
+                    opening_guidance_data = {
+                        "opening_key": teaching_opening,
+                        "phase": phase,
+                        "phase_label": get_phase_label(phase),
+                        "move_idea": guidance.get("idea"),
+                        "expected_move": guidance.get("move"),
+                        "arrow": guidance.get("arrow"),
+                        "games_played": mastery.get("games_played", 0),
+                    }
+
+                # Check for trap proximity
+                moves_played = [m.get("move", "") for m in move_history if isinstance(m, dict)]
+                trap_warn = get_trap_warning(teaching_opening, moves_played)
+                if trap_warn:
+                    trap_warning_data = trap_warn
+        except Exception as e:
+            logger.warning(f"[FAST-EVAL] Opening guidance failed: {e}")
+
         # ─── BUILD RESPONSE ─────
         elapsed_total = (_time.monotonic() - start) * 1000
 
@@ -3771,6 +3840,8 @@ async def evaluate_pending_move(
                 "focusEnforcement": focus_enforcement,
                 "userFocus": user_focus,
                 "commentary": commentary,
+                "openingGuidance": opening_guidance_data,
+                "trapWarning": trap_warning_data,
                 "moveEvaluation": {
                     "moveQuality": move_quality,
                     "cpLoss": cp_loss_val,

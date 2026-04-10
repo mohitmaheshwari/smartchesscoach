@@ -187,6 +187,14 @@ const CoachPlay = ({ user }) => {
   // Board arrows for coaching visualization
   const [coachArrows, setCoachArrows] = useState([]);
 
+  // Show opening guidance arrow on the board
+  useEffect(() => {
+    const guidance = coachFlow.openingGuidance;
+    if (guidance?.arrow && isPlayerTurn && !gameOver) {
+      setCoachArrows([[guidance.arrow[0], guidance.arrow[1], "green"]]);
+    }
+  }, [coachFlow.openingGuidance, isPlayerTurn, gameOver]);
+
   // V5 Coaching State - Unified with Lab
   const [v5Coaching, setV5Coaching] = useState(null);
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
@@ -2248,7 +2256,11 @@ const CoachPlay = ({ user }) => {
         {/* Middle: Commentary panel (board reading) */}
         {coachFlow.commentary ? (
           <div className="w-64 flex-shrink-0 border-l border-border overflow-y-auto">
-            <CommentaryPanel commentary={coachFlow.commentary} />
+            <CommentaryPanel
+              commentary={coachFlow.commentary}
+              openingGuidance={coachFlow.openingGuidance}
+              trapWarning={coachFlow.trapWarning}
+            />
           </div>
         ) : gameStarted && session && !gameOver ? (
           <div className="w-64 flex-shrink-0 border-l border-border p-3">
