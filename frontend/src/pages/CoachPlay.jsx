@@ -2313,6 +2313,7 @@ const CoachPlay = ({ user }) => {
           liveChecklist={coachFlow.liveChecklist}
           playerWeaknessList={coachFlow.playerWeaknessList}
           playerProfile={coachFlow.playerProfile}
+          rootProblem={coachFlow.rootProblem}
           isInHold={coachFlow.isInHold}
           clockState={coachFlow.clockState}
           onClockTap={() => {

@@ -393,12 +393,14 @@ def detect_signals_fast(
             undeveloped += 1
     signals["development_incomplete"] = undeveloped >= 2 and move_number >= 5
 
-    # King unsafe: not castled by move 10+
-    king_sq = board_after.king(user_color)
-    if king_sq is not None:
-        castled_squares = (chess.G1, chess.C1) if user_color == chess.WHITE else (chess.G8, chess.C8)
-        is_castled = king_sq in castled_squares
-        signals["king_unsafe"] = not is_castled and move_number >= 8
+    # King unsafe: only if never castled AND still in opening/early middlegame
+    # After move 25, king safety through castling is no longer relevant
+    signals["king_unsafe"] = False
+    if 8 <= move_number <= 25:
+        king_sq = board_after.king(user_color)
+        if king_sq is not None:
+            castled_squares = (chess.G1, chess.C1) if user_color == chess.WHITE else (chess.G8, chess.C8)
+            signals["king_unsafe"] = king_sq not in castled_squares
 
     # Center under pressure: opponent controls more center squares
     center_sqs = [chess.E4, chess.D4, chess.E5, chess.D5]

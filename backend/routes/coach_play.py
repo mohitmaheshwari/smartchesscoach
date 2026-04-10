@@ -3262,6 +3262,24 @@ async def evaluate_pending_move(
         except Exception as e:
             logger.error(f"[FAST-EVAL] Strength profile load failed: {e}", exc_info=True)
 
+        # Compute root behavioral problem (collapsed clusters)
+        root_problem = None
+        try:
+            from services.root_behavior_engine import get_root_problem_for_session
+            # Get recent thinking scores and active problems
+            _thinking = await db.thinking_scores.find(
+                {"user_id": user_id}, {"_id": 0, "habit_scores": 1}
+            ).sort("calculated_at", -1).limit(5).to_list(5)
+            _problems = await db.problem_lifecycle.find(
+                {"user_id": user_id}, {"_id": 0, "category": 1, "count": 1}
+            ).to_list(10)
+
+            # Get current session behavior counts
+            _session_behavior = session_doc.get("behavior_summary", {})
+            root_problem = get_root_problem_for_session(_session_behavior, _thinking, _problems)
+        except Exception as e:
+            logger.warning(f"[FAST-EVAL] Root problem detection failed: {e}")
+
         # Get or create session behavior tracker (cached on function)
         _behavior_cache = getattr(evaluate_pending_move, '_behavior_cache', {})
         if session_id not in _behavior_cache:
@@ -3306,6 +3324,7 @@ async def evaluate_pending_move(
                 "checklist": {},
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "playerProfile": player_profile_data,
+                "rootProblem": root_problem,
                 "commentary": _timeout_commentary,
                 "coachingMoment": None,
                 "moveEvaluation": {
@@ -3393,9 +3412,14 @@ async def evaluate_pending_move(
             else:
                 concept_key = "blunder" if move_quality == "blunder" else "mistake"
                 category = "critical_tactic"
-                tmpl = pick_template("critical_interrupt", concept_key, {}, session_id)
+                # Generate position-specific detail
+                detail = _get_move_detail(board_before, board_after, user_color, cp_loss_val)
+                tmpl = pick_template("critical_interrupt", concept_key, {"detail": detail}, session_id)
 
             text = tmpl.get("text") or "This move needs another look."
+            # Clean up empty {detail} placeholders
+            if text and "{detail}" in text:
+                text = text.replace("{detail}", "").strip()
             question = tmpl.get("question")
 
         # ─── ADVISORY (drift detection — BEFORE blunders happen) ─────
@@ -3554,7 +3578,7 @@ async def evaluate_pending_move(
         # Rule 2: No silent gap > 2 moves — force ambient if coach has been quiet
         if layer == "silent" and moves_since_last_msg >= 3:
             # Generate a position-awareness message
-            board_for_ambient = chess.Board(fen_after_user)
+            board_for_ambient = board_after if board_after else chess.Board(fen_before)
             _ambient = _generate_gap_filler(board_for_ambient, user_color, move_number, fast_signals, session_id)
             if _ambient:
                 layer = _ambient["layer"]
@@ -3562,6 +3586,28 @@ async def evaluate_pending_move(
                 concept_key = _ambient["concept_key"]
                 category = _ambient["category"]
                 severity = _ambient["severity"]
+
+        # ─── DUPLICATE SUPPRESSION ─────
+        # Same concept within last 8 moves → downgrade to silent (except critical)
+        if layer in ("ambient", "advisory") and concept_key:
+            recent_decisions = session_doc.get("coaching_decisions", [])
+            recent_concepts = [
+                d.get("concept_key") for d in recent_decisions[-8:]
+                if d.get("concept_key") and d.get("layer") != "silent"
+            ]
+            if concept_key in recent_concepts:
+                # Same concept recently shown — suppress
+                layer = "silent"
+                text = None
+                concept_key = None
+
+        # Also suppress if same TEXT was used recently
+        if layer in ("ambient", "advisory") and text:
+            recent_decisions = session_doc.get("coaching_decisions", [])
+            recent_texts = [d.get("text", "") for d in recent_decisions[-6:] if d.get("text")]
+            if text in recent_texts:
+                layer = "silent"
+                text = None
 
         # ─── PATTERN ESCALATION + ADAPTIVE FRICTION ─────
         # Apply player weakness bias, escalate tone, adjust hold time
@@ -3662,6 +3708,7 @@ async def evaluate_pending_move(
                 "checklist": fundamentals_data,
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "playerProfile": player_profile_data,
+                "rootProblem": root_problem,
                 "commentary": commentary,
                 "moveEvaluation": {
                     "moveQuality": move_quality,
@@ -3802,6 +3849,50 @@ def _generate_gap_filler(board: chess.Board, user_color: str, move_number: int, 
         # Endgame
         return {"layer": "ambient", "text": "In the endgame, king activity and passed pawns matter most.",
                 "concept_key": "endgame_phase", "category": "opening_orientation", "severity": "low"}
+
+
+def _get_move_detail(board_before, board_after, user_color: str, cp_loss: int) -> str:
+    """Generate a short position-specific detail for why a move is bad."""
+    if not board_before or not board_after:
+        return ""
+    try:
+        color = chess.WHITE if user_color == "white" else chess.BLACK
+        opponent = not color
+
+        # Check what opponent can now do
+        if board_after.is_check():
+            return "Your king is now in check."
+
+        # Check for newly hanging pieces
+        for sq in chess.SQUARES:
+            p = board_after.piece_at(sq)
+            if p and p.color == color and p.piece_type not in (chess.KING, chess.PAWN):
+                atts = board_after.attackers(opponent, sq)
+                defs = board_after.attackers(color, sq)
+                real_atts = [a for a in atts if not board_after.is_pinned(opponent, a)]
+                if real_atts and not defs:
+                    pn = {2: "knight", 3: "bishop", 4: "rook", 5: "queen"}.get(p.piece_type, "piece")
+                    return f"Your {pn} on {chess.square_name(sq)} is now undefended."
+
+        # Check for opponent fork opportunity
+        for sq in chess.SQUARES:
+            p = board_after.piece_at(sq)
+            if p and p.color == opponent and p.piece_type == chess.KNIGHT:
+                targets = []
+                for t_sq in board_after.attacks(sq):
+                    t = board_after.piece_at(t_sq)
+                    if t and t.color == color and t.piece_type in (chess.ROOK, chess.QUEEN, chess.KING):
+                        targets.append(t)
+                if len(targets) >= 2:
+                    return "Your opponent has a fork opportunity."
+
+        if cp_loss >= 300:
+            return "You lost significant material."
+        elif cp_loss >= 150:
+            return "Your position weakened considerably."
+        return ""
+    except Exception:
+        return ""
 
 
 def _position_is_reasonable(eval_result: dict, user_color: str) -> bool:
@@ -4708,7 +4799,12 @@ async def _process_move_and_respond(
 
                     if bg_quality in ("blunder", "mistake"):
                         bg_layer = "critical_interrupt"
-                        bg_text = "This move loses ground."
+                        # Position-specific detail for fallback
+                        _bg_detail = _get_move_detail(
+                            chess.Board(fen_before) if fen_before else None,
+                            chess.Board(fen_after_user) if fen_after_user else None,
+                            user_color, bg_cp_loss)
+                        bg_text = f"This move loses ground. {_bg_detail}".strip()
                         bg_category = "critical_tactic"
                     elif bg_quality == "inaccuracy":
                         bg_layer = "advisory"

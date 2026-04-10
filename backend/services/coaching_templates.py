@@ -249,28 +249,33 @@ CRITICAL = {
         "needs": ["piece", "square"],
     },
 
-    # Generic blunder/mistake
+    # Generic blunder/mistake — use {detail} for position-specific info
     "blunder": {
         "texts": [
-            "This move drops material.",
-            "This turns a good position into a bad one.",
-            "This move loses your advantage.",
+            "This move drops material. {detail}",
+            "This turns a good position into a bad one. {detail}",
+            "This move costs you significantly. {detail}",
+            "Serious mistake here. {detail}",
         ],
         "questions": [
             "Did you check your opponent's reply?",
             "What can your opponent do after this?",
+            "What did you miss before playing this?",
         ],
+        "needs": ["detail"],
     },
     "mistake": {
         "texts": [
-            "This move loses ground.",
-            "This makes your position harder to play.",
-            "You gave your opponent an opportunity here.",
+            "This weakens your position. {detail}",
+            "Your opponent gets an opportunity here. {detail}",
+            "This wasn't the priority. {detail}",
+            "There was something better. {detail}",
         ],
         "questions": [
             "Did you calculate your opponent's reply?",
             "What does your opponent want to do now?",
         ],
+        "needs": ["detail"],
     },
 
     # Conversion failure

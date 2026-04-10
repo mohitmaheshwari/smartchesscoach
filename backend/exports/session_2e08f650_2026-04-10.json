@@ -1,0 +1,3540 @@
+{
+  "exported_at": "2026-04-10T09:19:45.804965+00:00",
+  "session_id": "2e08f650-846d-4025-84a4-610eecc87a07",
+  "summary": {
+    "user_id": "user_8b599930d7ef",
+    "user_color": "white",
+    "result": "loss",
+    "termination": "",
+    "total_moves": 108,
+    "user_rating": 1173,
+    "detected_opening": null,
+    "opening_teaching_active": true,
+    "focus_concept": {
+      "signal": "ignored_threat",
+      "label": "Checking opponent threats",
+      "count": 9,
+      "games": 10,
+      "severity": "high"
+    },
+    "created_at": "2026-04-10T09:00:07.785505+00:00",
+    "ended_at": null
+  },
+  "moves": [
+    {
+      "index": 0,
+      "move": "d4",
+      "by": "player",
+      "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "eval": {
+        "move_number": 1,
+        "move": "d4",
+        "by": "player",
+        "score": 0.33,
+        "eval_before": 0.29,
+        "eval_after": 0.33,
+        "best_move": "e4"
+      }
+    },
+    {
+      "index": 1,
+      "move": "d5",
+      "by": "coach",
+      "eval": {
+        "move_number": 2,
+        "move": "Nc3",
+        "by": "player",
+        "score": 0.02,
+        "eval_before": 0.26,
+        "eval_after": 0.02,
+        "best_move": "c4"
+      }
+    },
+    {
+      "index": 2,
+      "move": "Nc3",
+      "by": "player",
+      "eval": {
+        "move_number": 3,
+        "move": "Bf4",
+        "by": "player",
+        "score": -0.09,
+        "eval_before": -0.02,
+        "eval_after": -0.09,
+        "best_move": "Bf4"
+      }
+    },
+    {
+      "index": 3,
+      "move": "Nf6",
+      "by": "coach",
+      "eval": {
+        "move_number": 4,
+        "move": "e3",
+        "by": "player",
+        "score": 0.11,
+        "eval_before": 0.12,
+        "eval_after": 0.11,
+        "best_move": "Nf3"
+      }
+    },
+    {
+      "index": 4,
+      "move": "Bf4",
+      "by": "player",
+      "eval": {
+        "move_number": 5,
+        "move": "Bb5",
+        "by": "player",
+        "score": 0.17,
+        "eval_before": 0.23,
+        "eval_after": 0.17,
+        "best_move": "Bb5"
+      }
+    },
+    {
+      "index": 5,
+      "move": "Bf5",
+      "by": "coach",
+      "eval": {
+        "move_number": 6,
+        "move": "Nf3",
+        "by": "player",
+        "score": 0.09,
+        "eval_before": 0.11,
+        "eval_after": 0.09,
+        "best_move": "Nf3"
+      }
+    },
+    {
+      "index": 6,
+      "move": "e3",
+      "by": "player",
+      "eval": {
+        "move_number": 7,
+        "move": "O-O",
+        "by": "player",
+        "score": 0.11,
+        "eval_before": 0.15,
+        "eval_after": 0.11,
+        "best_move": "Bd3"
+      }
+    },
+    {
+      "index": 7,
+      "move": "Nc6",
+      "by": "coach",
+      "eval": {
+        "move_number": 8,
+        "move": "Bg3",
+        "by": "player",
+        "score": -0.03,
+        "eval_before": 0.13,
+        "eval_after": -0.03,
+        "best_move": "Ne2"
+      }
+    },
+    {
+      "index": 8,
+      "move": "Bb5",
+      "by": "player",
+      "eval": {
+        "move_number": 9,
+        "move": "e4",
+        "by": "player",
+        "score": -1.48,
+        "eval_before": 0.18,
+        "eval_after": -1.48,
+        "best_move": "Ne2"
+      }
+    },
+    {
+      "index": 9,
+      "move": "e6",
+      "by": "coach",
+      "eval": {
+        "move_number": 10,
+        "move": "Nxe4",
+        "by": "player",
+        "score": -0.83,
+        "eval_before": -1.14,
+        "eval_after": -0.83,
+        "best_move": "Nxe4"
+      }
+    },
+    {
+      "index": 10,
+      "move": "Nf3",
+      "by": "player",
+      "eval": {
+        "move_number": 11,
+        "move": "Ne5",
+        "by": "player",
+        "score": -2.26,
+        "eval_before": -1.18,
+        "eval_after": -2.26,
+        "best_move": "Bxc6"
+      }
+    },
+    {
+      "index": 11,
+      "move": "Nd7",
+      "by": "coach",
+      "eval": {
+        "move_number": 12,
+        "move": "dxe5",
+        "by": "player",
+        "score": -1.3,
+        "eval_before": -1.26,
+        "eval_after": -1.3,
+        "best_move": "dxe5"
+      }
+    },
+    {
+      "index": 12,
+      "move": "O-O",
+      "by": "player",
+      "eval": {
+        "move_number": 13,
+        "move": "f4",
+        "by": "player",
+        "score": -3.79,
+        "eval_before": -2,
+        "eval_after": -3.79,
+        "best_move": "Qd4"
+      }
+    },
+    {
+      "index": 13,
+      "move": "Bd6",
+      "by": "coach",
+      "eval": {
+        "move_number": 14,
+        "move": "Re1",
+        "by": "player",
+        "score": -3.78,
+        "eval_before": -2.83,
+        "eval_after": -3.78,
+        "best_move": "Bxc6"
+      }
+    },
+    {
+      "index": 14,
+      "move": "Bg3",
+      "by": "player",
+      "eval": {
+        "move_number": 15,
+        "move": "Bxc6",
+        "by": "player",
+        "score": -3.65,
+        "eval_before": -3.43,
+        "eval_after": -3.65,
+        "best_move": "c3"
+      }
+    },
+    {
+      "index": 15,
+      "move": "O-O",
+      "by": "coach",
+      "eval": {
+        "move_number": 16,
+        "move": "Bf2",
+        "by": "player",
+        "score": -3.43,
+        "eval_before": -3.46,
+        "eval_after": -3.43,
+        "best_move": "Kh1"
+      }
+    },
+    {
+      "index": 16,
+      "move": "e4",
+      "by": "player",
+      "eval": {
+        "move_number": 17,
+        "move": "Bxe3",
+        "by": "player",
+        "score": 0.38,
+        "eval_before": 0.57,
+        "eval_after": 0.38,
+        "best_move": "Bxe3"
+      }
+    },
+    {
+      "index": 17,
+      "move": "Bxe4",
+      "by": "coach",
+      "eval": {
+        "move_number": 18,
+        "move": "c3",
+        "by": "player",
+        "score": 4.97,
+        "eval_before": 5,
+        "eval_after": 4.97,
+        "best_move": "c3"
+      }
+    },
+    {
+      "index": 18,
+      "move": "Nxe4",
+      "by": "player",
+      "eval": {
+        "move_number": 19,
+        "move": "Raxd1",
+        "by": "player",
+        "score": 4.9,
+        "eval_before": 5.13,
+        "eval_after": 4.9,
+        "best_move": "Rexd1"
+      }
+    },
+    {
+      "index": 19,
+      "move": "dxe4",
+      "by": "coach",
+      "eval": {
+        "move_number": 20,
+        "move": "Bxb7",
+        "by": "player",
+        "score": 5.29,
+        "eval_before": 5.44,
+        "eval_after": 5.29,
+        "best_move": "Bd7"
+      }
+    },
+    {
+      "index": 20,
+      "move": "Ne5",
+      "by": "player",
+      "eval": {
+        "move_number": 21,
+        "move": "Bxa8",
+        "by": "player",
+        "score": 5.5,
+        "eval_before": 5.78,
+        "eval_after": 5.5,
+        "best_move": "Rb1"
+      }
+    },
+    {
+      "index": 21,
+      "move": "Ncxe5",
+      "by": "coach",
+      "eval": {
+        "move_number": 22,
+        "move": "Rb1",
+        "by": "player",
+        "score": 5.48,
+        "eval_before": 5.64,
+        "eval_after": 5.48,
+        "best_move": "Re2"
+      }
+    },
+    {
+      "index": 22,
+      "move": "dxe5",
+      "by": "player",
+      "eval": {
+        "move_number": 23,
+        "move": "Rb7",
+        "by": "player",
+        "score": 5.41,
+        "eval_before": 5.69,
+        "eval_after": 5.41,
+        "best_move": "h4"
+      }
+    },
+    {
+      "index": 23,
+      "move": "Nxe5",
+      "by": "coach",
+      "eval": {
+        "move_number": 24,
+        "move": "Rxa7",
+        "by": "player",
+        "score": 5.73,
+        "eval_before": 5.85,
+        "eval_after": 5.73,
+        "best_move": "Rd1"
+      }
+    },
+    {
+      "index": 24,
+      "move": "f4",
+      "by": "player",
+      "eval": {
+        "move_number": 25,
+        "move": "Rd1",
+        "by": "player",
+        "score": 4.97,
+        "eval_before": 5.78,
+        "eval_after": 4.97,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 25,
+      "move": "Nc6",
+      "by": "coach",
+      "eval": {
+        "move_number": 26,
+        "move": "Rd7",
+        "by": "player",
+        "score": 5.79,
+        "eval_before": 5.74,
+        "eval_after": 5.79,
+        "best_move": "a4"
+      }
+    },
+    {
+      "index": 26,
+      "move": "Re1",
+      "by": "player",
+      "eval": {
+        "move_number": 27,
+        "move": "c4",
+        "by": "player",
+        "score": 4.62,
+        "eval_before": 5.83,
+        "eval_after": 4.62,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 27,
+      "move": "f5",
+      "by": "coach",
+      "eval": {
+        "move_number": 28,
+        "move": "Bd2",
+        "by": "player",
+        "score": 2.17,
+        "eval_before": 6.41,
+        "eval_after": 2.17,
+        "best_move": "Rdxc7"
+      }
+    },
+    {
+      "index": 28,
+      "move": "Bxc6",
+      "by": "player",
+      "eval": {
+        "move_number": 29,
+        "move": "Kf1",
+        "by": "player",
+        "score": 2.24,
+        "eval_before": 2.44,
+        "eval_after": 2.24,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 29,
+      "move": "Bc5+",
+      "by": "coach",
+      "eval": {
+        "move_number": 30,
+        "move": "Bc3",
+        "by": "player",
+        "score": 1.89,
+        "eval_before": 2.19,
+        "eval_after": 1.89,
+        "best_move": "a4"
+      }
+    },
+    {
+      "index": 30,
+      "move": "Bf2",
+      "by": "player",
+      "eval": {
+        "move_number": 31,
+        "move": "Rxg7",
+        "by": "player",
+        "score": 2.16,
+        "eval_before": 2.27,
+        "eval_after": 2.16,
+        "best_move": "a4"
+      }
+    },
+    {
+      "index": 31,
+      "move": "e3",
+      "by": "coach",
+      "eval": {
+        "move_number": 32,
+        "move": "Rh7",
+        "by": "player",
+        "score": 2.15,
+        "eval_before": 2.78,
+        "eval_after": 2.15,
+        "best_move": "a4"
+      }
+    },
+    {
+      "index": 32,
+      "move": "Bxe3",
+      "by": "player",
+      "eval": {
+        "move_number": 33,
+        "move": "Rxh5",
+        "by": "player",
+        "score": 2.03,
+        "eval_before": 2.24,
+        "eval_after": 2.03,
+        "best_move": "Rh8+"
+      }
+    },
+    {
+      "index": 33,
+      "move": "Bb4",
+      "by": "coach",
+      "eval": {
+        "move_number": 34,
+        "move": "Bb4",
+        "by": "player",
+        "score": 0.02,
+        "eval_before": 1.73,
+        "eval_after": 0.02,
+        "best_move": "Rh3"
+      }
+    },
+    {
+      "index": 34,
+      "move": "c3",
+      "by": "player",
+      "eval": {
+        "move_number": 35,
+        "move": "a3",
+        "by": "player",
+        "score": 0.45,
+        "eval_before": 0.39,
+        "eval_after": 0.45,
+        "best_move": "a3"
+      }
+    },
+    {
+      "index": 35,
+      "move": "Qxd1",
+      "by": "coach",
+      "eval": {
+        "move_number": 36,
+        "move": "Be1",
+        "by": "player",
+        "score": 0.27,
+        "eval_before": 0.32,
+        "eval_after": 0.27,
+        "best_move": "Bd2"
+      }
+    },
+    {
+      "index": 36,
+      "move": "Raxd1",
+      "by": "player",
+      "eval": {
+        "move_number": 37,
+        "move": "Rh6",
+        "by": "player",
+        "score": 0.28,
+        "eval_before": 0.36,
+        "eval_after": 0.28,
+        "best_move": "Rh6"
+      }
+    },
+    {
+      "index": 37,
+      "move": "Ba3",
+      "by": "coach",
+      "eval": {
+        "move_number": 38,
+        "move": "Rh3",
+        "by": "player",
+        "score": 0.27,
+        "eval_before": 0.1,
+        "eval_after": 0.27,
+        "best_move": "Rh7+"
+      }
+    },
+    {
+      "index": 38,
+      "move": "Bxb7",
+      "by": "player",
+      "eval": {
+        "move_number": 39,
+        "move": "Rd3",
+        "by": "player",
+        "score": 0.1,
+        "eval_before": 0.21,
+        "eval_after": 0.1,
+        "best_move": "Bc3"
+      }
+    },
+    {
+      "index": 39,
+      "move": "Bxb2",
+      "by": "coach",
+      "eval": {
+        "move_number": 40,
+        "move": "h4",
+        "by": "player",
+        "score": 0.04,
+        "eval_before": 0.11,
+        "eval_after": 0.04,
+        "best_move": "Ke2"
+      }
+    },
+    {
+      "index": 40,
+      "move": "Bxa8",
+      "by": "player",
+      "eval": {
+        "move_number": 41,
+        "move": "Rg3+",
+        "by": "player",
+        "score": 0.14,
+        "eval_before": 0.03,
+        "eval_after": 0.14,
+        "best_move": "Ke2"
+      }
+    },
+    {
+      "index": 41,
+      "move": "Rxa8",
+      "by": "coach",
+      "eval": {
+        "move_number": 42,
+        "move": "Rg5+",
+        "by": "player",
+        "score": 0.12,
+        "eval_before": 0,
+        "eval_after": 0.12,
+        "best_move": "Rg5+"
+      }
+    },
+    {
+      "index": 42,
+      "move": "Rb1",
+      "by": "player",
+      "eval": {
+        "move_number": 43,
+        "move": "h5",
+        "by": "player",
+        "score": -0.18,
+        "eval_before": 0,
+        "eval_after": -0.18,
+        "best_move": "g4"
+      }
+    },
+    {
+      "index": 43,
+      "move": "Ba3",
+      "by": "coach",
+      "eval": {
+        "move_number": 44,
+        "move": "Rg6+",
+        "by": "player",
+        "score": 0,
+        "eval_before": 0,
+        "eval_after": 0,
+        "best_move": "g4"
+      }
+    },
+    {
+      "index": 44,
+      "move": "Rb7",
+      "by": "player",
+      "eval": {
+        "move_number": 45,
+        "move": "Rxe6",
+        "by": "player",
+        "score": 0.02,
+        "eval_before": 0.01,
+        "eval_after": 0.02,
+        "best_move": "Rxe6"
+      }
+    },
+    {
+      "index": 45,
+      "move": "Rc8",
+      "by": "coach",
+      "eval": {
+        "move_number": 46,
+        "move": "g3",
+        "by": "player",
+        "score": -0.08,
+        "eval_before": 0.08,
+        "eval_after": -0.08,
+        "best_move": "Re8"
+      }
+    },
+    {
+      "index": 46,
+      "move": "Rxa7",
+      "by": "player",
+      "eval": {
+        "move_number": 47,
+        "move": "Rc6",
+        "by": "player",
+        "score": -0.07,
+        "eval_before": 0.05,
+        "eval_after": -0.07,
+        "best_move": "Kg2"
+      }
+    },
+    {
+      "index": 47,
+      "move": "Bf8",
+      "by": "coach",
+      "eval": {
+        "move_number": 48,
+        "move": "Rc7",
+        "by": "player",
+        "score": -0.32,
+        "eval_before": 0.98,
+        "eval_after": -0.32,
+        "best_move": "Bf2"
+      }
+    },
+    {
+      "index": 48,
+      "move": "Rd1",
+      "by": "player",
+      "eval": {
+        "move_number": 49,
+        "move": "Kg2",
+        "by": "player",
+        "score": -3.49,
+        "eval_before": -0.05,
+        "eval_after": -3.49,
+        "best_move": "Ke2"
+      }
+    },
+    {
+      "index": 49,
+      "move": "h5",
+      "by": "coach",
+      "eval": {
+        "move_number": 50,
+        "move": "Rh7",
+        "by": "player",
+        "score": -3.46,
+        "eval_before": -3.76,
+        "eval_after": -3.46,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 50,
+      "move": "Rd7",
+      "by": "player",
+      "eval": {
+        "move_number": 51,
+        "move": "Kf1",
+        "by": "player",
+        "score": -2.88,
+        "eval_before": -3.41,
+        "eval_after": -2.88,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 51,
+      "move": "Bd6",
+      "by": "coach",
+      "eval": {
+        "move_number": 52,
+        "move": "Rh4+",
+        "by": "player",
+        "score": -2.69,
+        "eval_before": -3.19,
+        "eval_after": -2.69,
+        "best_move": "Rd7"
+      }
+    },
+    {
+      "index": 52,
+      "move": "c4",
+      "by": "player",
+      "eval": {
+        "move_number": 53,
+        "move": "Rh5",
+        "by": "player",
+        "score": -4.57,
+        "eval_before": -3.12,
+        "eval_after": -4.57,
+        "best_move": "Rh3"
+      }
+    },
+    {
+      "index": 53,
+      "move": "Bf8",
+      "by": "coach",
+      "eval": {
+        "move_number": 54,
+        "move": "Rxf5",
+        "by": "player",
+        "score": -100,
+        "eval_before": -4.59,
+        "eval_after": -100,
+        "best_move": "Rh1"
+      }
+    },
+    {
+      "index": 54,
+      "move": "Bd2",
+      "by": "player"
+    },
+    {
+      "index": 55,
+      "move": "Bc5+",
+      "by": "coach"
+    },
+    {
+      "index": 56,
+      "move": "Kf1",
+      "by": "player"
+    },
+    {
+      "index": 57,
+      "move": "Bxa7",
+      "by": "coach"
+    },
+    {
+      "index": 58,
+      "move": "Bc3",
+      "by": "player"
+    },
+    {
+      "index": 59,
+      "move": "Kf8",
+      "by": "coach"
+    },
+    {
+      "index": 60,
+      "move": "Rxg7",
+      "by": "player"
+    },
+    {
+      "index": 61,
+      "move": "Ke8",
+      "by": "coach"
+    },
+    {
+      "index": 62,
+      "move": "Rh7",
+      "by": "player"
+    },
+    {
+      "index": 63,
+      "move": "Rd8",
+      "by": "coach"
+    },
+    {
+      "index": 64,
+      "move": "Rxh5",
+      "by": "player"
+    },
+    {
+      "index": 65,
+      "move": "Bd4",
+      "by": "coach"
+    },
+    {
+      "index": 66,
+      "move": "Bb4",
+      "by": "player"
+    },
+    {
+      "index": 67,
+      "move": "Rb8",
+      "by": "coach"
+    },
+    {
+      "index": 68,
+      "move": "a3",
+      "by": "player"
+    },
+    {
+      "index": 69,
+      "move": "c5",
+      "by": "coach"
+    },
+    {
+      "index": 70,
+      "move": "Be1",
+      "by": "player"
+    },
+    {
+      "index": 71,
+      "move": "Ra8",
+      "by": "coach"
+    },
+    {
+      "index": 72,
+      "move": "Rh6",
+      "by": "player"
+    },
+    {
+      "index": 73,
+      "move": "Ke7",
+      "by": "coach"
+    },
+    {
+      "index": 74,
+      "move": "Rh3",
+      "by": "player"
+    },
+    {
+      "index": 75,
+      "move": "Ra4",
+      "by": "coach"
+    },
+    {
+      "index": 76,
+      "move": "Rd3",
+      "by": "player"
+    },
+    {
+      "index": 77,
+      "move": "Kf7",
+      "by": "coach"
+    },
+    {
+      "index": 78,
+      "move": "h4",
+      "by": "player"
+    },
+    {
+      "index": 79,
+      "move": "Kg6",
+      "by": "coach"
+    },
+    {
+      "index": 80,
+      "move": "Rg3+",
+      "by": "player"
+    },
+    {
+      "index": 81,
+      "move": "Kh5",
+      "by": "coach"
+    },
+    {
+      "index": 82,
+      "move": "Rg5+",
+      "by": "player"
+    },
+    {
+      "index": 83,
+      "move": "Kh6",
+      "by": "coach"
+    },
+    {
+      "index": 84,
+      "move": "h5",
+      "by": "player"
+    },
+    {
+      "index": 85,
+      "move": "Be3",
+      "by": "coach"
+    },
+    {
+      "index": 86,
+      "move": "Rg6+",
+      "by": "player"
+    },
+    {
+      "index": 87,
+      "move": "Kxh5",
+      "by": "coach"
+    },
+    {
+      "index": 88,
+      "move": "Rxe6",
+      "by": "player"
+    },
+    {
+      "index": 89,
+      "move": "Bd4",
+      "by": "coach"
+    },
+    {
+      "index": 90,
+      "move": "g3",
+      "by": "player"
+    },
+    {
+      "index": 91,
+      "move": "Ba1",
+      "by": "coach"
+    },
+    {
+      "index": 92,
+      "move": "Rc6",
+      "by": "player"
+    },
+    {
+      "index": 93,
+      "move": "Bd4",
+      "by": "coach"
+    },
+    {
+      "index": 94,
+      "move": "Rc7",
+      "by": "player"
+    },
+    {
+      "index": 95,
+      "move": "Rxc4",
+      "by": "coach"
+    },
+    {
+      "index": 96,
+      "move": "Kg2",
+      "by": "player"
+    },
+    {
+      "index": 97,
+      "move": "Kg4",
+      "by": "coach"
+    },
+    {
+      "index": 98,
+      "move": "Rh7",
+      "by": "player"
+    },
+    {
+      "index": 99,
+      "move": "Rc2+",
+      "by": "coach"
+    },
+    {
+      "index": 100,
+      "move": "Kf1",
+      "by": "player"
+    },
+    {
+      "index": 101,
+      "move": "Ra2",
+      "by": "coach"
+    },
+    {
+      "index": 102,
+      "move": "Rh4+",
+      "by": "player"
+    },
+    {
+      "index": 103,
+      "move": "Kf3",
+      "by": "coach"
+    },
+    {
+      "index": 104,
+      "move": "Rh5",
+      "by": "player"
+    },
+    {
+      "index": 105,
+      "move": "Rg2",
+      "by": "coach"
+    },
+    {
+      "index": 106,
+      "move": "Rxf5",
+      "by": "player"
+    },
+    {
+      "index": 107,
+      "move": "Rg1#",
+      "by": "coach"
+    }
+  ],
+  "messages": [],
+  "evaluations": [
+    {
+      "move_number": 1,
+      "move": "d4",
+      "by": "player",
+      "score": 0.33,
+      "eval_before": 0.29,
+      "eval_after": 0.33,
+      "best_move": "e4"
+    },
+    {
+      "move_number": 2,
+      "move": "Nc3",
+      "by": "player",
+      "score": 0.02,
+      "eval_before": 0.26,
+      "eval_after": 0.02,
+      "best_move": "c4"
+    },
+    {
+      "move_number": 3,
+      "move": "Bf4",
+      "by": "player",
+      "score": -0.09,
+      "eval_before": -0.02,
+      "eval_after": -0.09,
+      "best_move": "Bf4"
+    },
+    {
+      "move_number": 4,
+      "move": "e3",
+      "by": "player",
+      "score": 0.11,
+      "eval_before": 0.12,
+      "eval_after": 0.11,
+      "best_move": "Nf3"
+    },
+    {
+      "move_number": 5,
+      "move": "Bb5",
+      "by": "player",
+      "score": 0.17,
+      "eval_before": 0.23,
+      "eval_after": 0.17,
+      "best_move": "Bb5"
+    },
+    {
+      "move_number": 6,
+      "move": "Nf3",
+      "by": "player",
+      "score": 0.09,
+      "eval_before": 0.11,
+      "eval_after": 0.09,
+      "best_move": "Nf3"
+    },
+    {
+      "move_number": 7,
+      "move": "O-O",
+      "by": "player",
+      "score": 0.11,
+      "eval_before": 0.15,
+      "eval_after": 0.11,
+      "best_move": "Bd3"
+    },
+    {
+      "move_number": 8,
+      "move": "Bg3",
+      "by": "player",
+      "score": -0.03,
+      "eval_before": 0.13,
+      "eval_after": -0.03,
+      "best_move": "Ne2"
+    },
+    {
+      "move_number": 9,
+      "move": "e4",
+      "by": "player",
+      "score": -1.48,
+      "eval_before": 0.18,
+      "eval_after": -1.48,
+      "best_move": "Ne2"
+    },
+    {
+      "move_number": 10,
+      "move": "Nxe4",
+      "by": "player",
+      "score": -0.83,
+      "eval_before": -1.14,
+      "eval_after": -0.83,
+      "best_move": "Nxe4"
+    },
+    {
+      "move_number": 11,
+      "move": "Ne5",
+      "by": "player",
+      "score": -2.26,
+      "eval_before": -1.18,
+      "eval_after": -2.26,
+      "best_move": "Bxc6"
+    },
+    {
+      "move_number": 12,
+      "move": "dxe5",
+      "by": "player",
+      "score": -1.3,
+      "eval_before": -1.26,
+      "eval_after": -1.3,
+      "best_move": "dxe5"
+    },
+    {
+      "move_number": 13,
+      "move": "f4",
+      "by": "player",
+      "score": -3.79,
+      "eval_before": -2,
+      "eval_after": -3.79,
+      "best_move": "Qd4"
+    },
+    {
+      "move_number": 14,
+      "move": "Re1",
+      "by": "player",
+      "score": -3.78,
+      "eval_before": -2.83,
+      "eval_after": -3.78,
+      "best_move": "Bxc6"
+    },
+    {
+      "move_number": 15,
+      "move": "Bxc6",
+      "by": "player",
+      "score": -3.65,
+      "eval_before": -3.43,
+      "eval_after": -3.65,
+      "best_move": "c3"
+    },
+    {
+      "move_number": 16,
+      "move": "Bf2",
+      "by": "player",
+      "score": -3.43,
+      "eval_before": -3.46,
+      "eval_after": -3.43,
+      "best_move": "Kh1"
+    },
+    {
+      "move_number": 17,
+      "move": "Bxe3",
+      "by": "player",
+      "score": 0.38,
+      "eval_before": 0.57,
+      "eval_after": 0.38,
+      "best_move": "Bxe3"
+    },
+    {
+      "move_number": 18,
+      "move": "c3",
+      "by": "player",
+      "score": 4.97,
+      "eval_before": 5,
+      "eval_after": 4.97,
+      "best_move": "c3"
+    },
+    {
+      "move_number": 19,
+      "move": "Raxd1",
+      "by": "player",
+      "score": 4.9,
+      "eval_before": 5.13,
+      "eval_after": 4.9,
+      "best_move": "Rexd1"
+    },
+    {
+      "move_number": 20,
+      "move": "Bxb7",
+      "by": "player",
+      "score": 5.29,
+      "eval_before": 5.44,
+      "eval_after": 5.29,
+      "best_move": "Bd7"
+    },
+    {
+      "move_number": 21,
+      "move": "Bxa8",
+      "by": "player",
+      "score": 5.5,
+      "eval_before": 5.78,
+      "eval_after": 5.5,
+      "best_move": "Rb1"
+    },
+    {
+      "move_number": 22,
+      "move": "Rb1",
+      "by": "player",
+      "score": 5.48,
+      "eval_before": 5.64,
+      "eval_after": 5.48,
+      "best_move": "Re2"
+    },
+    {
+      "move_number": 23,
+      "move": "Rb7",
+      "by": "player",
+      "score": 5.41,
+      "eval_before": 5.69,
+      "eval_after": 5.41,
+      "best_move": "h4"
+    },
+    {
+      "move_number": 24,
+      "move": "Rxa7",
+      "by": "player",
+      "score": 5.73,
+      "eval_before": 5.85,
+      "eval_after": 5.73,
+      "best_move": "Rd1"
+    },
+    {
+      "move_number": 25,
+      "move": "Rd1",
+      "by": "player",
+      "score": 4.97,
+      "eval_before": 5.78,
+      "eval_after": 4.97,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 26,
+      "move": "Rd7",
+      "by": "player",
+      "score": 5.79,
+      "eval_before": 5.74,
+      "eval_after": 5.79,
+      "best_move": "a4"
+    },
+    {
+      "move_number": 27,
+      "move": "c4",
+      "by": "player",
+      "score": 4.62,
+      "eval_before": 5.83,
+      "eval_after": 4.62,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 28,
+      "move": "Bd2",
+      "by": "player",
+      "score": 2.17,
+      "eval_before": 6.41,
+      "eval_after": 2.17,
+      "best_move": "Rdxc7"
+    },
+    {
+      "move_number": 29,
+      "move": "Kf1",
+      "by": "player",
+      "score": 2.24,
+      "eval_before": 2.44,
+      "eval_after": 2.24,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 30,
+      "move": "Bc3",
+      "by": "player",
+      "score": 1.89,
+      "eval_before": 2.19,
+      "eval_after": 1.89,
+      "best_move": "a4"
+    },
+    {
+      "move_number": 31,
+      "move": "Rxg7",
+      "by": "player",
+      "score": 2.16,
+      "eval_before": 2.27,
+      "eval_after": 2.16,
+      "best_move": "a4"
+    },
+    {
+      "move_number": 32,
+      "move": "Rh7",
+      "by": "player",
+      "score": 2.15,
+      "eval_before": 2.78,
+      "eval_after": 2.15,
+      "best_move": "a4"
+    },
+    {
+      "move_number": 33,
+      "move": "Rxh5",
+      "by": "player",
+      "score": 2.03,
+      "eval_before": 2.24,
+      "eval_after": 2.03,
+      "best_move": "Rh8+"
+    },
+    {
+      "move_number": 34,
+      "move": "Bb4",
+      "by": "player",
+      "score": 0.02,
+      "eval_before": 1.73,
+      "eval_after": 0.02,
+      "best_move": "Rh3"
+    },
+    {
+      "move_number": 35,
+      "move": "a3",
+      "by": "player",
+      "score": 0.45,
+      "eval_before": 0.39,
+      "eval_after": 0.45,
+      "best_move": "a3"
+    },
+    {
+      "move_number": 36,
+      "move": "Be1",
+      "by": "player",
+      "score": 0.27,
+      "eval_before": 0.32,
+      "eval_after": 0.27,
+      "best_move": "Bd2"
+    },
+    {
+      "move_number": 37,
+      "move": "Rh6",
+      "by": "player",
+      "score": 0.28,
+      "eval_before": 0.36,
+      "eval_after": 0.28,
+      "best_move": "Rh6"
+    },
+    {
+      "move_number": 38,
+      "move": "Rh3",
+      "by": "player",
+      "score": 0.27,
+      "eval_before": 0.1,
+      "eval_after": 0.27,
+      "best_move": "Rh7+"
+    },
+    {
+      "move_number": 39,
+      "move": "Rd3",
+      "by": "player",
+      "score": 0.1,
+      "eval_before": 0.21,
+      "eval_after": 0.1,
+      "best_move": "Bc3"
+    },
+    {
+      "move_number": 40,
+      "move": "h4",
+      "by": "player",
+      "score": 0.04,
+      "eval_before": 0.11,
+      "eval_after": 0.04,
+      "best_move": "Ke2"
+    },
+    {
+      "move_number": 41,
+      "move": "Rg3+",
+      "by": "player",
+      "score": 0.14,
+      "eval_before": 0.03,
+      "eval_after": 0.14,
+      "best_move": "Ke2"
+    },
+    {
+      "move_number": 42,
+      "move": "Rg5+",
+      "by": "player",
+      "score": 0.12,
+      "eval_before": 0,
+      "eval_after": 0.12,
+      "best_move": "Rg5+"
+    },
+    {
+      "move_number": 43,
+      "move": "h5",
+      "by": "player",
+      "score": -0.18,
+      "eval_before": 0,
+      "eval_after": -0.18,
+      "best_move": "g4"
+    },
+    {
+      "move_number": 44,
+      "move": "Rg6+",
+      "by": "player",
+      "score": 0,
+      "eval_before": 0,
+      "eval_after": 0,
+      "best_move": "g4"
+    },
+    {
+      "move_number": 45,
+      "move": "Rxe6",
+      "by": "player",
+      "score": 0.02,
+      "eval_before": 0.01,
+      "eval_after": 0.02,
+      "best_move": "Rxe6"
+    },
+    {
+      "move_number": 46,
+      "move": "g3",
+      "by": "player",
+      "score": -0.08,
+      "eval_before": 0.08,
+      "eval_after": -0.08,
+      "best_move": "Re8"
+    },
+    {
+      "move_number": 47,
+      "move": "Rc6",
+      "by": "player",
+      "score": -0.07,
+      "eval_before": 0.05,
+      "eval_after": -0.07,
+      "best_move": "Kg2"
+    },
+    {
+      "move_number": 48,
+      "move": "Rc7",
+      "by": "player",
+      "score": -0.32,
+      "eval_before": 0.98,
+      "eval_after": -0.32,
+      "best_move": "Bf2"
+    },
+    {
+      "move_number": 49,
+      "move": "Kg2",
+      "by": "player",
+      "score": -3.49,
+      "eval_before": -0.05,
+      "eval_after": -3.49,
+      "best_move": "Ke2"
+    },
+    {
+      "move_number": 50,
+      "move": "Rh7",
+      "by": "player",
+      "score": -3.46,
+      "eval_before": -3.76,
+      "eval_after": -3.46,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 51,
+      "move": "Kf1",
+      "by": "player",
+      "score": -2.88,
+      "eval_before": -3.41,
+      "eval_after": -2.88,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 52,
+      "move": "Rh4+",
+      "by": "player",
+      "score": -2.69,
+      "eval_before": -3.19,
+      "eval_after": -2.69,
+      "best_move": "Rd7"
+    },
+    {
+      "move_number": 53,
+      "move": "Rh5",
+      "by": "player",
+      "score": -4.57,
+      "eval_before": -3.12,
+      "eval_after": -4.57,
+      "best_move": "Rh3"
+    },
+    {
+      "move_number": 54,
+      "move": "Rxf5",
+      "by": "player",
+      "score": -100,
+      "eval_before": -4.59,
+      "eval_after": -100,
+      "best_move": "Rh1"
+    }
+  ],
+  "coaching_decisions": [
+    {
+      "move_index": 0,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "silent",
+      "category": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 2,
+      "move_quality": "good",
+      "cp_loss": 24,
+      "layer": "silent",
+      "category": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 4,
+      "move_quality": "good",
+      "cp_loss": 9,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "opening_phase",
+      "text": "Development is not complete yet.",
+      "eval_valid": true,
+      "elapsed_ms": 646
+    },
+    {
+      "move_index": 6,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Nice. You fixed a weakness before your opponent could exploit it.",
+      "eval_valid": true,
+      "elapsed_ms": 637
+    },
+    {
+      "move_index": 8,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "opening_phase",
+      "text": "This is still a development position.",
+      "eval_valid": true,
+      "elapsed_ms": 612
+    },
+    {
+      "move_index": 10,
+      "move_quality": "good",
+      "cp_loss": 5,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Nice. You handled the threat before continuing your plan.",
+      "eval_valid": true,
+      "elapsed_ms": 583
+    },
+    {
+      "move_index": 12,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "silent",
+      "category": null,
+      "concept_key": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 589
+    },
+    {
+      "move_index": 14,
+      "move_quality": "good",
+      "cp_loss": 16,
+      "layer": "silent",
+      "category": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 16,
+      "move_quality": "mistake",
+      "cp_loss": 166,
+      "layer": "critical_interrupt",
+      "category": "critical_tactic",
+      "text": "This move loses ground.",
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 18,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Good. You prioritized coordination over material.",
+      "eval_valid": true,
+      "elapsed_ms": 491
+    },
+    {
+      "move_index": 20,
+      "move_quality": "inaccuracy",
+      "cp_loss": 107,
+      "layer": "advisory",
+      "category": "plan_guidance",
+      "text": "There was something more accurate here.",
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 22,
+      "move_quality": "good",
+      "cp_loss": 4,
+      "layer": "silent",
+      "category": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 24,
+      "move_quality": "mistake",
+      "cp_loss": 179,
+      "layer": "critical_interrupt",
+      "category": "critical_tactic",
+      "text": "This move loses ground.",
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 26,
+      "move_quality": "inaccuracy",
+      "cp_loss": 94,
+      "layer": "advisory",
+      "category": "plan_guidance",
+      "text": "There was something more accurate here.",
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 28,
+      "move_quality": "good",
+      "cp_loss": 21,
+      "layer": "silent",
+      "category": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 30,
+      "move_quality": "good",
+      "cp_loss": 2,
+      "layer": "advisory",
+      "category": "fundamental_warning",
+      "concept_key": "loose_pieces",
+      "text": "Secure your pieces before expanding.",
+      "eval_valid": true,
+      "elapsed_ms": 574
+    },
+    {
+      "move_index": 32,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "advisory",
+      "category": "fundamental_warning",
+      "concept_key": "loose_pieces",
+      "text": "Some of your pieces are not properly protected.",
+      "eval_valid": true,
+      "elapsed_ms": 557
+    },
+    {
+      "move_index": 34,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Good. You improved your worst piece instead of chasing pawns.",
+      "eval_valid": true,
+      "elapsed_ms": 558
+    },
+    {
+      "move_index": 36,
+      "move_quality": "good",
+      "cp_loss": 12,
+      "layer": "silent",
+      "category": null,
+      "concept_key": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 554
+    },
+    {
+      "move_index": 38,
+      "move_quality": "good",
+      "cp_loss": 15,
+      "layer": "silent",
+      "category": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 40,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Good. You chose stability over aggression here.",
+      "eval_valid": true,
+      "elapsed_ms": 282
+    },
+    {
+      "move_index": 42,
+      "move_quality": "good",
+      "cp_loss": 11,
+      "layer": "silent",
+      "category": null,
+      "concept_key": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 315
+    },
+    {
+      "move_index": 44,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Good. You kept control instead of rushing an attack.",
+      "eval_valid": true,
+      "elapsed_ms": 235
+    },
+    {
+      "move_index": 46,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Good. You chose stability over aggression here.",
+      "eval_valid": true,
+      "elapsed_ms": 196
+    },
+    {
+      "move_index": 48,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "silent",
+      "category": null,
+      "concept_key": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 220
+    },
+    {
+      "move_index": 50,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Good. You kept control instead of rushing an attack.",
+      "eval_valid": true,
+      "elapsed_ms": 207
+    },
+    {
+      "move_index": 52,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "reinforcement",
+      "concept_key": "reinforcement",
+      "text": "Good. You improved your worst piece instead of chasing pawns.",
+      "eval_valid": true,
+      "elapsed_ms": 178
+    },
+    {
+      "move_index": 54,
+      "move_quality": "blunder",
+      "cp_loss": 424,
+      "layer": "critical_interrupt",
+      "category": "critical_tactic",
+      "text": "This move loses ground.",
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 56,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "This position is about king safety first.",
+      "eval_valid": true,
+      "elapsed_ms": 507
+    },
+    {
+      "move_index": 58,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still in the center.",
+      "eval_valid": true,
+      "elapsed_ms": 484
+    },
+    {
+      "move_index": 60,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "King safety is not settled yet.",
+      "eval_valid": true,
+      "elapsed_ms": 418
+    },
+    {
+      "move_index": 62,
+      "move_quality": "good",
+      "cp_loss": 14,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still uncommitted.",
+      "eval_valid": true,
+      "elapsed_ms": 576
+    },
+    {
+      "move_index": 64,
+      "move_quality": "inaccuracy",
+      "cp_loss": 79,
+      "layer": "critical_interrupt",
+      "category": "fundamental_warning",
+      "concept_key": "king_safety",
+      "text": "Your king keeps being the problem. This is a pattern.",
+      "eval_valid": true,
+      "elapsed_ms": 502
+    },
+    {
+      "move_index": 66,
+      "move_quality": "mistake",
+      "cp_loss": 171,
+      "layer": "critical_interrupt",
+      "category": "critical_tactic",
+      "text": "This move loses ground.",
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 68,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still uncommitted.",
+      "eval_valid": true,
+      "elapsed_ms": 506
+    },
+    {
+      "move_index": 70,
+      "move_quality": "good",
+      "cp_loss": 29,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "King safety is not settled yet.",
+      "eval_valid": true,
+      "elapsed_ms": 563
+    },
+    {
+      "move_index": 72,
+      "move_quality": "good",
+      "cp_loss": 5,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "This position is about king safety first.",
+      "eval_valid": true,
+      "elapsed_ms": 523
+    },
+    {
+      "move_index": 74,
+      "move_quality": "good",
+      "cp_loss": 20,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still in the center.",
+      "eval_valid": true,
+      "elapsed_ms": 543
+    },
+    {
+      "move_index": 76,
+      "move_quality": "good",
+      "cp_loss": 19,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still uncommitted.",
+      "eval_valid": true,
+      "elapsed_ms": 567
+    },
+    {
+      "move_index": 78,
+      "move_quality": "good",
+      "cp_loss": 5,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "This position is about king safety first.",
+      "eval_valid": true,
+      "elapsed_ms": 513
+    },
+    {
+      "move_index": 80,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "King safety is not settled yet.",
+      "eval_valid": true,
+      "elapsed_ms": 568
+    },
+    {
+      "move_index": 82,
+      "move_quality": "good",
+      "cp_loss": 16,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still in the center.",
+      "eval_valid": true,
+      "elapsed_ms": 678
+    },
+    {
+      "move_index": 84,
+      "move_quality": "good",
+      "cp_loss": 27,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still in the center.",
+      "eval_valid": true,
+      "elapsed_ms": 544
+    },
+    {
+      "move_index": 86,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still uncommitted.",
+      "eval_valid": true,
+      "elapsed_ms": 674
+    },
+    {
+      "move_index": 88,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "This position is about king safety first.",
+      "eval_valid": true,
+      "elapsed_ms": 515
+    },
+    {
+      "move_index": 90,
+      "move_quality": "good",
+      "cp_loss": 12,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "King safety is not settled yet.",
+      "eval_valid": true,
+      "elapsed_ms": 458
+    },
+    {
+      "move_index": 92,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "This position is about king safety first.",
+      "eval_valid": true,
+      "elapsed_ms": 570
+    },
+    {
+      "move_index": 94,
+      "move_quality": "good",
+      "cp_loss": 13,
+      "layer": "ambient",
+      "category": "opening_orientation",
+      "concept_key": "king_safety_ambient",
+      "text": "Your king is still uncommitted.",
+      "eval_valid": true,
+      "elapsed_ms": 422
+    },
+    {
+      "move_index": 96,
+      "move_quality": "blunder",
+      "cp_loss": 344,
+      "layer": "critical_interrupt",
+      "category": "critical_tactic",
+      "text": "This move loses ground.",
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 98,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "silent",
+      "category": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 100,
+      "move_quality": "inaccuracy",
+      "cp_loss": 74,
+      "layer": "critical_interrupt",
+      "category": "fundamental_warning",
+      "concept_key": "king_safety",
+      "text": "Your king keeps being the problem. This is a pattern.",
+      "eval_valid": true,
+      "elapsed_ms": 360
+    },
+    {
+      "move_index": 102,
+      "move_quality": "good",
+      "cp_loss": 0,
+      "layer": "silent",
+      "category": null,
+      "text": null,
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 104,
+      "move_quality": "mistake",
+      "cp_loss": 145,
+      "layer": "critical_interrupt",
+      "category": "critical_tactic",
+      "text": "This move loses ground.",
+      "eval_valid": true,
+      "elapsed_ms": 0,
+      "source": "background_fallback"
+    },
+    {
+      "move_index": 106,
+      "move_quality": "blunder",
+      "cp_loss": 9543,
+      "layer": "critical_interrupt",
+      "category": "critical_tactic",
+      "concept_key": "blunder",
+      "text": "This turns a good position into a bad one.",
+      "eval_valid": true,
+      "elapsed_ms": 528
+    }
+  ],
+  "mde_debug_logs": [],
+  "behavior_summary": {
+    "counts": {
+      "ignored_threat": 2,
+      "hung_pieces": 8,
+      "premature_attack": 0,
+      "king_safety": 21,
+      "weak_development": 0
+    },
+    "total_moves": 44,
+    "top_issues": [
+      "king_safety",
+      "hung_pieces",
+      "ignored_threat"
+    ]
+  },
+  "fundamental_violations": [
+    {
+      "move_number": 9,
+      "fundamental": "calculate",
+      "move": "e4"
+    },
+    {
+      "move_number": 11,
+      "fundamental": "calculate",
+      "move": "Ne5"
+    },
+    {
+      "move_number": 13,
+      "fundamental": "calculate",
+      "move": "f4"
+    },
+    {
+      "move_number": 27,
+      "fundamental": "calculate",
+      "move": "c4"
+    },
+    {
+      "move_number": 28,
+      "fundamental": "calculate",
+      "move": "Bd2"
+    },
+    {
+      "move_number": 33,
+      "fundamental": "calculate",
+      "move": "Rxh5"
+    },
+    {
+      "move_number": 34,
+      "fundamental": "calculate",
+      "move": "Bb4"
+    },
+    {
+      "move_number": 49,
+      "fundamental": "calculate",
+      "move": "Kg2"
+    },
+    {
+      "move_number": 53,
+      "fundamental": "calculate",
+      "move": "Rh5"
+    },
+    {
+      "move_number": 54,
+      "fundamental": "calculate",
+      "move": "Rxf5"
+    }
+  ],
+  "last_coaching_move_index": 105,
+  "player_data": {
+    "strength_profile": {
+      "strongest": "positional_sense",
+      "weakest": "calculation_depth",
+      "overall_score": 63,
+      "overall_label": "solid",
+      "domains": {
+        "tactical_vision": {
+          "score": 64.3,
+          "rating": 1300,
+          "evidence": {
+            "brilliant_moves": 13,
+            "sacrifices": 48,
+            "tactical_best_moves": 4,
+            "mates_found": 10
+          },
+          "label": "solid"
+        },
+        "calculation_depth": {
+          "score": 25,
+          "rating": 600,
+          "evidence": {
+            "complex_best_moves": 3,
+            "best_when_losing": 86,
+            "mates_found": 10
+          },
+          "label": "emerging"
+        },
+        "positional_sense": {
+          "score": 100,
+          "rating": 1800,
+          "evidence": {
+            "quiet_best_moves": 485,
+            "middlegame_accuracy": 61.3
+          },
+          "label": "exceptional"
+        },
+        "endgame_technique": {
+          "score": 69.6,
+          "rating": 1300,
+          "evidence": {
+            "endgame_accuracy": 69.6,
+            "endgame_moves_analyzed": 79
+          },
+          "label": "solid"
+        },
+        "opening_knowledge": {
+          "score": 63.3,
+          "rating": 1300,
+          "evidence": {
+            "opening_accuracy": 63.3,
+            "opening_moves_analyzed": 441
+          },
+          "label": "solid"
+        },
+        "pressure_handling": {
+          "score": 51.8,
+          "rating": 1100,
+          "evidence": {
+            "accuracy_when_losing": 48,
+            "accuracy_when_winning": 51.1,
+            "accuracy_when_equal": 58.4
+          },
+          "label": "solid"
+        }
+      }
+    },
+    "profile": {
+      "average_accuracy": 60.4,
+      "top_weaknesses": [
+        {
+          "category": "tactical",
+          "subcategory": "one_move_blunder",
+          "occurrence_count": 44,
+          "first_occurrence": "2026-04-06T10:00:48.922749+00:00",
+          "last_occurrence": "2026-04-09T08:14:46.133524+00:00",
+          "decayed_score": 44
+        },
+        {
+          "category": "tactical",
+          "subcategory": "complex_tactical_miss",
+          "occurrence_count": 19,
+          "first_occurrence": "2026-04-06T10:00:48.922749+00:00",
+          "last_occurrence": "2026-04-09T08:45:28.489785+00:00",
+          "decayed_score": 19
+        }
+      ],
+      "phase_accuracy": {
+        "opening": [
+          70,
+          90,
+          100
+        ],
+        "middlegame": [
+          60,
+          69.2,
+          40
+        ],
+        "endgame": [
+          42.9,
+          75
+        ]
+      }
+    },
+    "recent_habit_scores": [
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 10,
+            "mistakes": 9,
+            "opportunities": 30,
+            "examples": [
+              {
+                "move_number": 7,
+                "move": "Rxc6",
+                "cp_loss": 127,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 9,
+                "move": "Bxc2",
+                "cp_loss": 117,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 10,
+                "move": "Qb6",
+                "cp_loss": 168,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 80,
+            "mistakes": 2,
+            "opportunities": 30,
+            "examples": [
+              {
+                "move_number": 17,
+                "move": "e6",
+                "cp_loss": 9178,
+                "explanation": "Move wasn't verified - it left a weakness"
+              },
+              {
+                "move_number": 26,
+                "move": "Bb8",
+                "cp_loss": 9264,
+                "explanation": "Move wasn't verified - it left a weakness"
+              }
+            ]
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          }
+        },
+        "overall_score": 73.5
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 86.4,
+            "mistakes": 1,
+            "opportunities": 22,
+            "examples": [
+              {
+                "move_number": 19,
+                "move": "Bf3",
+                "cp_loss": 253,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 22,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 22,
+            "examples": []
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 22,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 22,
+            "examples": []
+          }
+        },
+        "overall_score": 96.6
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 25,
+            "examples": []
+          }
+        },
+        "overall_score": 100
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 80,
+            "mistakes": 1,
+            "opportunities": 15,
+            "examples": [
+              {
+                "move_number": 6,
+                "move": "a5",
+                "cp_loss": 130,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 15,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 80,
+            "mistakes": 1,
+            "opportunities": 15,
+            "examples": [
+              {
+                "move_number": 12,
+                "move": "Bg4",
+                "cp_loss": 540,
+                "explanation": "Move wasn't verified - it left a weakness"
+              }
+            ]
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 15,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 15,
+            "examples": []
+          }
+        },
+        "overall_score": 91
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 48.3,
+            "mistakes": 5,
+            "opportunities": 29,
+            "examples": [
+              {
+                "move_number": 10,
+                "move": "Bh5",
+                "cp_loss": 244,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 18,
+                "move": "e4",
+                "cp_loss": 150,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 19,
+                "move": "dxe4",
+                "cp_loss": 128,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 29,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 79.3,
+            "mistakes": 2,
+            "opportunities": 29,
+            "examples": [
+              {
+                "move_number": 23,
+                "move": "Rh5",
+                "cp_loss": 590,
+                "explanation": "Move wasn't verified - it left a weakness"
+              },
+              {
+                "move_number": 27,
+                "move": "Bxd1",
+                "cp_loss": 9280,
+                "explanation": "Move wasn't verified - it left a weakness"
+              }
+            ]
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 29,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 29,
+            "examples": []
+          }
+        },
+        "overall_score": 82.9
+      }
+    ],
+    "active_problems": [
+      {
+        "user_id": "user_8b599930d7ef",
+        "category": "threw_winning",
+        "anger": "recurring",
+        "count": 5,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-08T14:52:23.361119+00:00"
+      },
+      {
+        "user_id": "user_8b599930d7ef",
+        "category": "tactical_miss",
+        "anger": "recurring",
+        "count": 5,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-09T03:11:36.724426+00:00"
+      },
+      {
+        "category": "time_collapse",
+        "user_id": "user_8b599930d7ef",
+        "anger": "recurring",
+        "count": 5,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-10T08:59:58.729948+00:00"
+      }
+    ]
+  },
+  "postgame": {
+    "session_id": "2e08f650-846d-4025-84a4-610eecc87a07",
+    "accuracy": 20,
+    "blunders": 3,
+    "created_at": "2026-04-10T09:18:16.678000",
+    "game_result": "loss",
+    "games_together": 39,
+    "habits_improved": [
+      "early_queen"
+    ],
+    "habits_weak": [
+      "overconfidence"
+    ],
+    "inaccuracies": 3,
+    "memory_insights": [
+      {
+        "insight_type": "recurring_pattern",
+        "message": "'Overconfidence in Winning Positions' again - that's 4 times now. Let's focus on this.",
+        "pattern_name": "Overconfidence in Winning Positions",
+        "occurrence_count": 5,
+        "is_improving": true
+      },
+      {
+        "insight_type": "performance_comparison",
+        "message": "More blunders than usual (3 vs your avg 1.7). What happened?",
+        "pattern_name": null,
+        "occurrence_count": 0,
+        "is_improving": false
+      },
+      {
+        "insight_type": "first_time",
+        "message": "New pattern spotted: 'overconfidence'. I'll watch for this in future games.",
+        "pattern_name": "overconfidence",
+        "occurrence_count": 1,
+        "is_improving": false
+      }
+    ],
+    "mistakes": 7,
+    "performance_rating": {
+      "estimated_rating": 742,
+      "confidence": "high",
+      "comparison_to_actual": "below",
+      "rating_change_suggested": -381,
+      "key_factors": [
+        "3 blunders significantly impacted your score",
+        "Consider slowing down - many inaccuracies"
+      ]
+    },
+    "user_id": "user_8b599930d7ef"
+  },
+  "raw_session": {
+    "session_id": "2e08f650-846d-4025-84a4-610eecc87a07",
+    "user_id": "user_8b599930d7ef",
+    "status": "completed",
+    "user_color": "white",
+    "current_fen": "8/8/8/2p2R2/3b1P2/P4kP1/8/4BKr1 w - - 1 55",
+    "time_control": "15+10",
+    "user_time_remaining": 900,
+    "coach_time_remaining": 900,
+    "increment": 10,
+    "result": "loss",
+    "termination_reason": "",
+    "created_at": "2026-04-10T09:00:07.785505+00:00",
+    "last_move_at": null,
+    "ended_at": null,
+    "coach_interventions": [],
+    "behavior_events": [],
+    "cpr_before": null,
+    "cpr_after": null,
+    "remaining_interventions": 2,
+    "guardian_overrides": [
+      {
+        "move": "Bxg7+",
+        "risk_level": "medium",
+        "timestamp": "2026-04-10T09:10:10.443760+00:00"
+      }
+    ],
+    "user_rating": 1173,
+    "coach_skill_level": 5,
+    "coach_move_pending": false,
+    "last_coach_move": {
+      "move": "Rg1#",
+      "uci": "g2g1",
+      "timestamp": "2026-04-10T09:18:16.018046+00:00"
+    },
+    "evaluation": {
+      "score": -10,
+      "mate_in": 0
+    },
+    "action_revision": 54,
+    "teaching_mode": null,
+    "teaching_opening": null,
+    "teaching_data": {},
+    "detected_opening": null,
+    "opening_offer_shown": false,
+    "openings_taught_this_game": [],
+    "habits_checked": [],
+    "habit_violations": [],
+    "opening_to_teach": "italian_game",
+    "opening_teaching_moves": [
+      "e4",
+      "e5",
+      "Nf3",
+      "Nc6",
+      "Bc4",
+      "Bc5",
+      "c3",
+      "Nf6",
+      "d4",
+      "exd4",
+      "cxd4",
+      "Bb4+",
+      "Bd2",
+      "Bxd2+",
+      "Nbxd2"
+    ],
+    "opening_teaching_index": 2,
+    "opening_teaching_active": true,
+    "opening_teaching_complete": false,
+    "suggested_trap": {
+      "name": "Fried Liver Attack",
+      "difficulty": "beginner",
+      "moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Bc4",
+        "Nf6",
+        "Ng5",
+        "d5",
+        "exd5",
+        "Nxd5",
+        "Nxf7"
+      ],
+      "trap_move": "Nxf7",
+      "explanation": "White sacrifices the knight on f7 to drag Black's king into the open. If Black accepts, checks and tempo moves follow immediately.",
+      "refutation": "Black should know the defensive resources after Ng5 and be ready for sharp tactical play instead of drifting into the trap blindly.",
+      "victim_color": "black"
+    },
+    "available_traps": [
+      {
+        "name": "Fried Liver Attack",
+        "difficulty": "beginner",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6",
+          "Ng5",
+          "d5",
+          "exd5",
+          "Nxd5",
+          "Nxf7"
+        ],
+        "trap_move": "Nxf7",
+        "explanation": "White sacrifices the knight on f7 to drag Black's king into the open. If Black accepts, checks and tempo moves follow immediately.",
+        "refutation": "Black should know the defensive resources after Ng5 and be ready for sharp tactical play instead of drifting into the trap blindly.",
+        "victim_color": "black",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      },
+      {
+        "name": "Legal's Mate",
+        "difficulty": "beginner",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "d6",
+          "Nc3",
+          "Bg4",
+          "h3",
+          "Bh5",
+          "Nxe5"
+        ],
+        "trap_move": "Nxe5",
+        "explanation": "White sacrifices the queen only because the king and bishop coordination create a forced mating net. It works only if the tactical details are exact.",
+        "refutation": "Black should avoid greed and choose a defensive move instead of automatically taking the queen.",
+        "victim_color": "black",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      },
+      {
+        "name": "Blackburne Shilling Gambit",
+        "difficulty": "beginner",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nd4",
+          "Nxe5"
+        ],
+        "trap_move": "Nxe5",
+        "explanation": "White grabs the e5 pawn too quickly and Black gets immediate tactical counterplay against the queen and f2.",
+        "refutation": "White should not auto-grab on e5; developing or kicking the knight away is safer.",
+        "victim_color": "white",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      },
+      {
+        "name": "Traxler Counterattack",
+        "difficulty": "advanced",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6",
+          "Ng5",
+          "Bc5",
+          "Nxf7",
+          "Bxf2+"
+        ],
+        "trap_move": "Bxf2+",
+        "explanation": "Black ignores the rook and counterattacks the king immediately. The point is activity and king exposure, not material count.",
+        "refutation": "White should avoid blindly grabbing on f7 unless the full tactical line is known.",
+        "victim_color": "white",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      },
+      {
+        "name": "Jerome Gambit",
+        "difficulty": "advanced",
+        "moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Bc5",
+          "Bxf7+",
+          "Kxf7",
+          "Nxe5+"
+        ],
+        "trap_move": "Nxe5+",
+        "explanation": "White throws both minor pieces at the king to force chaos. This is only a real weapon if the follow-up checks are accurate.",
+        "refutation": "Black should stay calm and defend precisely rather than grabbing material without calculation.",
+        "victim_color": "black",
+        "learned": false,
+        "fen_before": null,
+        "fen_after": null
+      }
+    ],
+    "pedagogical_mode_active": true,
+    "last_pedagogical_move_index": -10,
+    "pending_opportunity": {},
+    "opportunity_history": [],
+    "opportunities_found": 0,
+    "opportunities_missed": 0,
+    "curriculum_active": false,
+    "opening_assessment": {},
+    "focus_concept": {
+      "signal": "ignored_threat",
+      "label": "Checking opponent threats",
+      "count": 9,
+      "games": 10,
+      "severity": "high"
+    },
+    "coaching_decisions": [
+      {
+        "move_index": 0,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "silent",
+        "category": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 2,
+        "move_quality": "good",
+        "cp_loss": 24,
+        "layer": "silent",
+        "category": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 4,
+        "move_quality": "good",
+        "cp_loss": 9,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "opening_phase",
+        "text": "Development is not complete yet.",
+        "eval_valid": true,
+        "elapsed_ms": 646
+      },
+      {
+        "move_index": 6,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Nice. You fixed a weakness before your opponent could exploit it.",
+        "eval_valid": true,
+        "elapsed_ms": 637
+      },
+      {
+        "move_index": 8,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "opening_phase",
+        "text": "This is still a development position.",
+        "eval_valid": true,
+        "elapsed_ms": 612
+      },
+      {
+        "move_index": 10,
+        "move_quality": "good",
+        "cp_loss": 5,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Nice. You handled the threat before continuing your plan.",
+        "eval_valid": true,
+        "elapsed_ms": 583
+      },
+      {
+        "move_index": 12,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "silent",
+        "category": null,
+        "concept_key": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 589
+      },
+      {
+        "move_index": 14,
+        "move_quality": "good",
+        "cp_loss": 16,
+        "layer": "silent",
+        "category": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 16,
+        "move_quality": "mistake",
+        "cp_loss": 166,
+        "layer": "critical_interrupt",
+        "category": "critical_tactic",
+        "text": "This move loses ground.",
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 18,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Good. You prioritized coordination over material.",
+        "eval_valid": true,
+        "elapsed_ms": 491
+      },
+      {
+        "move_index": 20,
+        "move_quality": "inaccuracy",
+        "cp_loss": 107,
+        "layer": "advisory",
+        "category": "plan_guidance",
+        "text": "There was something more accurate here.",
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 22,
+        "move_quality": "good",
+        "cp_loss": 4,
+        "layer": "silent",
+        "category": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 24,
+        "move_quality": "mistake",
+        "cp_loss": 179,
+        "layer": "critical_interrupt",
+        "category": "critical_tactic",
+        "text": "This move loses ground.",
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 26,
+        "move_quality": "inaccuracy",
+        "cp_loss": 94,
+        "layer": "advisory",
+        "category": "plan_guidance",
+        "text": "There was something more accurate here.",
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 28,
+        "move_quality": "good",
+        "cp_loss": 21,
+        "layer": "silent",
+        "category": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 30,
+        "move_quality": "good",
+        "cp_loss": 2,
+        "layer": "advisory",
+        "category": "fundamental_warning",
+        "concept_key": "loose_pieces",
+        "text": "Secure your pieces before expanding.",
+        "eval_valid": true,
+        "elapsed_ms": 574
+      },
+      {
+        "move_index": 32,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "advisory",
+        "category": "fundamental_warning",
+        "concept_key": "loose_pieces",
+        "text": "Some of your pieces are not properly protected.",
+        "eval_valid": true,
+        "elapsed_ms": 557
+      },
+      {
+        "move_index": 34,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Good. You improved your worst piece instead of chasing pawns.",
+        "eval_valid": true,
+        "elapsed_ms": 558
+      },
+      {
+        "move_index": 36,
+        "move_quality": "good",
+        "cp_loss": 12,
+        "layer": "silent",
+        "category": null,
+        "concept_key": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 554
+      },
+      {
+        "move_index": 38,
+        "move_quality": "good",
+        "cp_loss": 15,
+        "layer": "silent",
+        "category": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 40,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Good. You chose stability over aggression here.",
+        "eval_valid": true,
+        "elapsed_ms": 282
+      },
+      {
+        "move_index": 42,
+        "move_quality": "good",
+        "cp_loss": 11,
+        "layer": "silent",
+        "category": null,
+        "concept_key": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 315
+      },
+      {
+        "move_index": 44,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Good. You kept control instead of rushing an attack.",
+        "eval_valid": true,
+        "elapsed_ms": 235
+      },
+      {
+        "move_index": 46,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Good. You chose stability over aggression here.",
+        "eval_valid": true,
+        "elapsed_ms": 196
+      },
+      {
+        "move_index": 48,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "silent",
+        "category": null,
+        "concept_key": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 220
+      },
+      {
+        "move_index": 50,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Good. You kept control instead of rushing an attack.",
+        "eval_valid": true,
+        "elapsed_ms": 207
+      },
+      {
+        "move_index": 52,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "reinforcement",
+        "concept_key": "reinforcement",
+        "text": "Good. You improved your worst piece instead of chasing pawns.",
+        "eval_valid": true,
+        "elapsed_ms": 178
+      },
+      {
+        "move_index": 54,
+        "move_quality": "blunder",
+        "cp_loss": 424,
+        "layer": "critical_interrupt",
+        "category": "critical_tactic",
+        "text": "This move loses ground.",
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 56,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "This position is about king safety first.",
+        "eval_valid": true,
+        "elapsed_ms": 507
+      },
+      {
+        "move_index": 58,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still in the center.",
+        "eval_valid": true,
+        "elapsed_ms": 484
+      },
+      {
+        "move_index": 60,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "King safety is not settled yet.",
+        "eval_valid": true,
+        "elapsed_ms": 418
+      },
+      {
+        "move_index": 62,
+        "move_quality": "good",
+        "cp_loss": 14,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still uncommitted.",
+        "eval_valid": true,
+        "elapsed_ms": 576
+      },
+      {
+        "move_index": 64,
+        "move_quality": "inaccuracy",
+        "cp_loss": 79,
+        "layer": "critical_interrupt",
+        "category": "fundamental_warning",
+        "concept_key": "king_safety",
+        "text": "Your king keeps being the problem. This is a pattern.",
+        "eval_valid": true,
+        "elapsed_ms": 502
+      },
+      {
+        "move_index": 66,
+        "move_quality": "mistake",
+        "cp_loss": 171,
+        "layer": "critical_interrupt",
+        "category": "critical_tactic",
+        "text": "This move loses ground.",
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 68,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still uncommitted.",
+        "eval_valid": true,
+        "elapsed_ms": 506
+      },
+      {
+        "move_index": 70,
+        "move_quality": "good",
+        "cp_loss": 29,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "King safety is not settled yet.",
+        "eval_valid": true,
+        "elapsed_ms": 563
+      },
+      {
+        "move_index": 72,
+        "move_quality": "good",
+        "cp_loss": 5,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "This position is about king safety first.",
+        "eval_valid": true,
+        "elapsed_ms": 523
+      },
+      {
+        "move_index": 74,
+        "move_quality": "good",
+        "cp_loss": 20,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still in the center.",
+        "eval_valid": true,
+        "elapsed_ms": 543
+      },
+      {
+        "move_index": 76,
+        "move_quality": "good",
+        "cp_loss": 19,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still uncommitted.",
+        "eval_valid": true,
+        "elapsed_ms": 567
+      },
+      {
+        "move_index": 78,
+        "move_quality": "good",
+        "cp_loss": 5,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "This position is about king safety first.",
+        "eval_valid": true,
+        "elapsed_ms": 513
+      },
+      {
+        "move_index": 80,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "King safety is not settled yet.",
+        "eval_valid": true,
+        "elapsed_ms": 568
+      },
+      {
+        "move_index": 82,
+        "move_quality": "good",
+        "cp_loss": 16,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still in the center.",
+        "eval_valid": true,
+        "elapsed_ms": 678
+      },
+      {
+        "move_index": 84,
+        "move_quality": "good",
+        "cp_loss": 27,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still in the center.",
+        "eval_valid": true,
+        "elapsed_ms": 544
+      },
+      {
+        "move_index": 86,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still uncommitted.",
+        "eval_valid": true,
+        "elapsed_ms": 674
+      },
+      {
+        "move_index": 88,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "This position is about king safety first.",
+        "eval_valid": true,
+        "elapsed_ms": 515
+      },
+      {
+        "move_index": 90,
+        "move_quality": "good",
+        "cp_loss": 12,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "King safety is not settled yet.",
+        "eval_valid": true,
+        "elapsed_ms": 458
+      },
+      {
+        "move_index": 92,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "This position is about king safety first.",
+        "eval_valid": true,
+        "elapsed_ms": 570
+      },
+      {
+        "move_index": 94,
+        "move_quality": "good",
+        "cp_loss": 13,
+        "layer": "ambient",
+        "category": "opening_orientation",
+        "concept_key": "king_safety_ambient",
+        "text": "Your king is still uncommitted.",
+        "eval_valid": true,
+        "elapsed_ms": 422
+      },
+      {
+        "move_index": 96,
+        "move_quality": "blunder",
+        "cp_loss": 344,
+        "layer": "critical_interrupt",
+        "category": "critical_tactic",
+        "text": "This move loses ground.",
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 98,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "silent",
+        "category": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 100,
+        "move_quality": "inaccuracy",
+        "cp_loss": 74,
+        "layer": "critical_interrupt",
+        "category": "fundamental_warning",
+        "concept_key": "king_safety",
+        "text": "Your king keeps being the problem. This is a pattern.",
+        "eval_valid": true,
+        "elapsed_ms": 360
+      },
+      {
+        "move_index": 102,
+        "move_quality": "good",
+        "cp_loss": 0,
+        "layer": "silent",
+        "category": null,
+        "text": null,
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 104,
+        "move_quality": "mistake",
+        "cp_loss": 145,
+        "layer": "critical_interrupt",
+        "category": "critical_tactic",
+        "text": "This move loses ground.",
+        "eval_valid": true,
+        "elapsed_ms": 0,
+        "source": "background_fallback"
+      },
+      {
+        "move_index": 106,
+        "move_quality": "blunder",
+        "cp_loss": 9543,
+        "layer": "critical_interrupt",
+        "category": "critical_tactic",
+        "concept_key": "blunder",
+        "text": "This turns a good position into a bad one.",
+        "eval_valid": true,
+        "elapsed_ms": 528
+      }
+    ],
+    "last_coaching_move_index": 105,
+    "behavior_summary": {
+      "counts": {
+        "ignored_threat": 2,
+        "hung_pieces": 8,
+        "premature_attack": 0,
+        "king_safety": 21,
+        "weak_development": 0
+      },
+      "total_moves": 44,
+      "top_issues": [
+        "king_safety",
+        "hung_pieces",
+        "ignored_threat"
+      ]
+    },
+    "fundamental_violations": [
+      {
+        "move_number": 9,
+        "fundamental": "calculate",
+        "move": "e4"
+      },
+      {
+        "move_number": 11,
+        "fundamental": "calculate",
+        "move": "Ne5"
+      },
+      {
+        "move_number": 13,
+        "fundamental": "calculate",
+        "move": "f4"
+      },
+      {
+        "move_number": 27,
+        "fundamental": "calculate",
+        "move": "c4"
+      },
+      {
+        "move_number": 28,
+        "fundamental": "calculate",
+        "move": "Bd2"
+      },
+      {
+        "move_number": 33,
+        "fundamental": "calculate",
+        "move": "Rxh5"
+      },
+      {
+        "move_number": 34,
+        "fundamental": "calculate",
+        "move": "Bb4"
+      },
+      {
+        "move_number": 49,
+        "fundamental": "calculate",
+        "move": "Kg2"
+      },
+      {
+        "move_number": 53,
+        "fundamental": "calculate",
+        "move": "Rh5"
+      },
+      {
+        "move_number": 54,
+        "fundamental": "calculate",
+        "move": "Rxf5"
+      }
+    ]
+  }
+}

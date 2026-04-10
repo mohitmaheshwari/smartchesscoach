@@ -31,6 +31,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
   const [liveChecklist, setLiveChecklist] = useState(null); // {phase, fundamentals: [...]}
   const [playerWeaknessList, setPlayerWeaknessList] = useState([]); // from backend
   const [playerProfile, setPlayerProfile] = useState(null); // strengths/weaknesses/domains
+  const [rootProblem, setRootProblem] = useState(null); // {primary, secondary, minor}
   const [commentary, setCommentary] = useState(null); // position-specific board reading
   const [timeline, setTimeline] = useState([]);
 
@@ -139,8 +140,10 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
         setPlayerProfile(result.playerProfile);
       }
       if (result.commentary) {
-        console.log("[CoachFlow] commentary:", JSON.stringify(result.commentary).substring(0, 200));
         setCommentary(result.commentary);
+      }
+      if (result.rootProblem) {
+        setRootProblem(result.rootProblem);
       }
       console.log("[CoachFlow] full result keys:", Object.keys(result), "checklist:", !!result.checklist, "weaknesses:", !!result.weaknesses, "profile:", !!result.playerProfile, "commentary:", !!result.commentary, "commentary value:", result.commentary);
 
@@ -320,6 +323,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     setLiveChecklist(null);
     setPlayerWeaknessList([]);
     setPlayerProfile(null);
+    setRootProblem(null);
     setCommentary(null);
     setTimeline([]);
     sessionBehavior.current = {
@@ -350,6 +354,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     liveChecklist,
     playerWeaknessList,
     playerProfile,
+    rootProblem,
     commentary,
     timeline,
 
