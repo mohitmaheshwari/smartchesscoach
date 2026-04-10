@@ -1217,6 +1217,24 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         "coaching": coaching,
     }
 
+    # Add focus data (training lock, root problem)
+    try:
+        from services.focus_engine import get_user_focus
+        focus = await get_user_focus(db, user.user_id)
+        if focus:
+            result["focus"] = {
+                "name": focus.get("name"),
+                "rule": focus.get("rule"),
+                "cluster": focus.get("cluster"),
+                "enforcement_level": focus.get("enforcement_level"),
+                "training_locked": focus.get("training_locked", False),
+                "puzzles_completed": focus.get("puzzles_completed", 0),
+                "puzzles_required": focus.get("puzzles_required", 5),
+                "description": focus.get("description", ""),
+            }
+    except Exception:
+        pass
+
     # Cache for 5 minutes
     try:
         await db.coaching_cache.update_one(

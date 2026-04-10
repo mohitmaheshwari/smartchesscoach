@@ -785,6 +785,34 @@ async def end_coach_play_session(
         except Exception as e:
             logger.warning(f"Behavior save at end failed: {e}")
 
+        # Extract puzzles from this coach session
+        try:
+            from services.coach_puzzle_extractor import extract_puzzles_from_coach_session
+            puzzles = await extract_puzzles_from_coach_session(db, session_id, user.user_id)
+            if puzzles:
+                logger.info(f"[COACH] Extracted {len(puzzles)} puzzles from session {session_id[:8]}")
+        except Exception as e:
+            logger.warning(f"Coach puzzle extraction failed: {e}")
+
+        # Update focus after game (detect root problem, set/update focus)
+        try:
+            from services.focus_engine import update_focus_after_game
+            from services.root_behavior_engine import get_root_problem_for_session
+
+            session_for_focus = await db.coach_sessions.find_one({"session_id": session_id})
+            if session_for_focus:
+                beh_summary = session_for_focus.get("behavior_summary", {})
+                _thinking = await db.thinking_scores.find(
+                    {"user_id": user.user_id}, {"_id": 0, "habit_scores": 1}
+                ).sort("calculated_at", -1).limit(5).to_list(5)
+                _problems = await db.problem_lifecycle.find(
+                    {"user_id": user.user_id}, {"_id": 0, "category": 1, "count": 1}
+                ).to_list(10)
+                root = get_root_problem_for_session(beh_summary, _thinking, _problems)
+                await update_focus_after_game(db, user.user_id, beh_summary, root)
+        except Exception as e:
+            logger.warning(f"Focus update at end failed: {e}")
+
         result = await end_coach_session(
             db=db,
             session_id=session_id,
@@ -3280,6 +3308,14 @@ async def evaluate_pending_move(
         except Exception as e:
             logger.warning(f"[FAST-EVAL] Root problem detection failed: {e}")
 
+        # Load user's persistent focus
+        user_focus = None
+        try:
+            from services.focus_engine import get_user_focus, get_enforcement_message
+            user_focus = await get_user_focus(db, user_id)
+        except Exception as e:
+            logger.warning(f"[FAST-EVAL] Focus load failed: {e}")
+
         # Get or create session behavior tracker (cached on function)
         _behavior_cache = getattr(evaluate_pending_move, '_behavior_cache', {})
         if session_id not in _behavior_cache:
@@ -3325,6 +3361,8 @@ async def evaluate_pending_move(
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "playerProfile": player_profile_data,
                 "rootProblem": root_problem,
+                "focusEnforcement": focus_enforcement,
+                "userFocus": user_focus,
                 "commentary": _timeout_commentary,
                 "coachingMoment": None,
                 "moveEvaluation": {
@@ -3609,6 +3647,27 @@ async def evaluate_pending_move(
                 layer = "silent"
                 text = None
 
+        # ─── FOCUS ENFORCEMENT ─────
+        # If user has a focus and this move violates it, add enforcement
+        focus_enforcement = None
+        if user_focus and layer in ("critical_interrupt", "advisory"):
+            try:
+                from services.root_behavior_engine import ROOT_CLUSTERS
+                focus_cluster = user_focus.get("cluster")
+                focus_signals = ROOT_CLUSTERS.get(focus_cluster, {}).get("signals", [])
+                # Check if this concept maps to the focus cluster
+                is_focus_violation = concept_key in focus_signals
+                if is_focus_violation:
+                    # Count violations this game
+                    past_decisions = session_doc.get("coaching_decisions", [])
+                    focus_violations = sum(
+                        1 for d in past_decisions
+                        if d.get("concept_key") in focus_signals and d.get("layer") in ("critical_interrupt", "advisory")
+                    )
+                    focus_enforcement = get_enforcement_message(user_focus, focus_violations + 1)
+            except Exception as e:
+                logger.warning(f"[FAST-EVAL] Focus enforcement failed: {e}")
+
         # ─── PATTERN ESCALATION + ADAPTIVE FRICTION ─────
         # Apply player weakness bias, escalate tone, adjust hold time
         extra_hold_ms = 0
@@ -3709,6 +3768,8 @@ async def evaluate_pending_move(
                 "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
                 "playerProfile": player_profile_data,
                 "rootProblem": root_problem,
+                "focusEnforcement": focus_enforcement,
+                "userFocus": user_focus,
                 "commentary": commentary,
                 "moveEvaluation": {
                     "moveQuality": move_quality,
@@ -4002,6 +4063,113 @@ def _get_hold_ms(message_type: str, severity: str) -> int:
     return 2000
 
 
+# ─── TRAINING LOCK ────────────────────────────────────────────────
+
+@router.get("/training-lock")
+async def get_training_lock_status(user: User = Depends(get_current_user)):
+    """Check if user is training-locked (must complete puzzles before playing)."""
+    global db
+    try:
+        from services.focus_engine import get_user_focus, FOCUS_RULES
+        focus = await get_user_focus(db, user.user_id)
+
+        if not focus:
+            return {"locked": False, "focus": None}
+
+        locked = focus.get("training_locked", False)
+        puzzles_done = focus.get("puzzles_completed", 0)
+        puzzles_needed = focus.get("puzzles_required", 5)
+
+        return {
+            "locked": locked,
+            "focus": {
+                "name": focus.get("name"),
+                "rule": focus.get("rule"),
+                "short_rule": focus.get("short_rule"),
+                "cluster": focus.get("cluster"),
+                "enforcement_level": focus.get("enforcement_level"),
+                "puzzles_completed": puzzles_done,
+                "puzzles_required": puzzles_needed,
+            },
+        }
+    except Exception as e:
+        logger.warning(f"Training lock check failed: {e}")
+        return {"locked": False, "focus": None}
+
+
+@router.get("/training-lock/puzzles")
+async def get_focus_puzzles(user: User = Depends(get_current_user)):
+    """Get puzzles matched to the user's focus area."""
+    global db
+    try:
+        from services.focus_engine import get_user_focus, FOCUS_RULES
+
+        focus = await get_user_focus(db, user.user_id)
+        if not focus:
+            return {"puzzles": [], "focus": None}
+
+        cluster = focus.get("cluster")
+        rule_config = FOCUS_RULES.get(cluster, {})
+        puzzle_query = rule_config.get("puzzle_query", {})
+
+        # Get puzzles matching the focus pattern types
+        query = {
+            "source_user_id": user.user_id,
+            **puzzle_query,
+        }
+
+        puzzles = await db.community_training_positions.find(
+            query,
+            {"_id": 0, "position_id": 1, "fen": 1, "best_move_san": 1, "best_move_uci": 1,
+             "user_move_san": 1, "cp_loss": 1, "pattern_type": 1, "difficulty": 1,
+             "move_number": 1, "opening_name": 1}
+        ).sort("cp_loss", -1).limit(20).to_list(20)
+
+        # If not enough user puzzles, get community ones
+        if len(puzzles) < 10:
+            community_query = {**puzzle_query}
+            community_query.pop("source_user_id", None)
+            extra = await db.community_training_positions.find(
+                community_query,
+                {"_id": 0, "position_id": 1, "fen": 1, "best_move_san": 1, "best_move_uci": 1,
+                 "cp_loss": 1, "pattern_type": 1, "difficulty": 1}
+            ).sort("cp_loss", -1).limit(20 - len(puzzles)).to_list(20 - len(puzzles))
+            puzzles.extend(extra)
+
+        puzzles_needed = focus.get("puzzles_required", 5)
+        puzzles_done = focus.get("puzzles_completed", 0)
+
+        return {
+            "puzzles": puzzles,
+            "focus": {
+                "name": focus.get("name"),
+                "rule": focus.get("rule"),
+                "cluster": cluster,
+                "puzzles_completed": puzzles_done,
+                "puzzles_required": puzzles_needed,
+            },
+        }
+    except Exception as e:
+        logger.warning(f"Focus puzzles failed: {e}")
+        return {"puzzles": [], "focus": None}
+
+
+@router.post("/training-lock/complete-puzzle")
+async def complete_focus_puzzle(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """Record that user completed a focus puzzle."""
+    global db
+    try:
+        from services.focus_engine import record_puzzle_completion
+        result = await record_puzzle_completion(db, user.user_id)
+        return result or {"puzzles_completed": 0, "puzzles_required": 5, "training_locked": True}
+    except Exception as e:
+        logger.warning(f"Puzzle completion failed: {e}")
+        return {"puzzles_completed": 0, "puzzles_required": 5, "training_locked": True}
+
+
 def _get_opening_family(name: str) -> str:
     """
     Extract the main opening family from a full opening name.
@@ -4217,14 +4385,48 @@ async def start_play_with_coach(
             source_game_id=source_game_id
         )
 
-        # Store opening preference if user selected one
+        # Store opening preference and activate opening teaching if selected
         if opening_key or opening_name:
+            # Try to match opening_name to an opening_key for the teaching system
+            matched_key = opening_key
+            if not matched_key and opening_name:
+                try:
+                    from services.opening_theory_tree_service import load_theory_tree
+                    tree = load_theory_tree()
+                    for key, data in tree.items():
+                        if key == "_meta":
+                            continue
+                        name = data.get("name", "")
+                        if opening_name.lower() in name.lower() or name.lower() in opening_name.lower():
+                            matched_key = key
+                            break
+                except Exception:
+                    pass
+
+            update_fields = {
+                "opening_key": matched_key or opening_key,
+                "opening_name": opening_name,
+            }
+
+            # If we matched to a curriculum opening, activate teaching
+            if matched_key:
+                try:
+                    tree = load_theory_tree()
+                    opening_data = tree.get(matched_key, {})
+                    main_line = opening_data.get("main_line", [])
+                    if main_line:
+                        update_fields.update({
+                            "opening_to_teach": matched_key,
+                            "opening_teaching_moves": main_line,
+                            "opening_teaching_index": 0,
+                            "opening_teaching_active": True,
+                        })
+                except Exception:
+                    pass
+
             await db.coach_sessions.update_one(
                 {"session_id": session.session_id},
-                {"$set": {
-                    "opening_key": opening_key,
-                    "opening_name": opening_name,
-                }}
+                {"$set": update_fields}
             )
 
         # Clear conversation thread for new game
