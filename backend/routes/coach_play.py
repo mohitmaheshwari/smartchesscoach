@@ -4241,6 +4241,29 @@ async def complete_focus_puzzle(
         return {"puzzles_completed": 0, "puzzles_required": 5, "training_locked": True}
 
 
+def _get_initial_opening_guidance(update_fields: dict) -> Optional[Dict]:
+    """Get opening guidance for the FIRST move at game start."""
+    teaching_key = update_fields.get("opening_to_teach") or update_fields.get("opening_key")
+    if not teaching_key:
+        return None
+    try:
+        from services.opening_mastery_tracker import get_move_guidance, get_phase_label, INTRODUCTION
+        guidance = get_move_guidance(teaching_key, 0, INTRODUCTION)
+        if guidance:
+            return {
+                "opening_key": teaching_key,
+                "phase": INTRODUCTION,
+                "phase_label": get_phase_label(INTRODUCTION),
+                "move_idea": guidance.get("idea"),
+                "expected_move": guidance.get("move"),
+                "arrow": guidance.get("arrow"),
+                "games_played": 0,
+            }
+    except Exception:
+        pass
+    return None
+
+
 def _build_full_opening_line(opening_key: str) -> List[str]:
     """
     Build the full teaching line for an opening by combining:
@@ -4723,7 +4746,8 @@ async def start_play_with_coach(
                 "score": eval_score,
                 "mate_in": mate_in
             },
-            "practice_mode": practice_mode
+            "practice_mode": practice_mode,
+            "openingGuidance": _get_initial_opening_guidance(update_fields if (opening_key or opening_name) else {}),
         }
     except Exception as e:
         logger.error(f"Error starting coach session: {e}")
@@ -5629,11 +5653,30 @@ async def _process_move_and_respond(
                         teaching_index = _fresh_session.get("opening_teaching_index", 0)
 
                         # Find the coach's next move in the teaching line
-                        # The move_history length tells us which move number we're at
-                        # Coach's move = current move_history length (0-indexed)
-                        current_ply = len(move_history)  # includes the user move just played
-                        coach_move_idx = current_ply  # coach plays the NEXT ply
-                        if coach_move_idx < len(teaching_moves):
+                        # Verify the user has been following the line — if they deviated, stop teaching
+                        current_ply = len(move_history)
+                        coach_move_idx = current_ply
+
+                        # Check: did user follow the line up to this point?
+                        user_deviated = False
+                        for i, entry in enumerate(move_history):
+                            if i >= len(teaching_moves):
+                                break
+                            played = entry.get("move", "") if isinstance(entry, dict) else str(entry)
+                            expected = teaching_moves[i]
+                            if played.replace("+", "").replace("#", "").lower() != expected.replace("+", "").replace("#", "").lower():
+                                user_deviated = True
+                                logger.info(f"[COACH] User deviated at move {i}: played {played}, expected {expected}")
+                                break
+
+                        if user_deviated:
+                            # Stop teaching — user went off-book
+                            logger.info(f"[COACH] User deviated from opening line, switching to normal play")
+                            await db.coach_sessions.update_one(
+                                {"session_id": session_id},
+                                {"$set": {"opening_teaching_active": False}}
+                            )
+                        elif coach_move_idx < len(teaching_moves):
                             expected_move = teaching_moves[coach_move_idx]
                             try:
                                 board_check = chess.Board(fen_after_user)
@@ -5641,7 +5684,11 @@ async def _process_move_and_respond(
                                 coach_move = expected_move
                                 logger.info(f"[COACH] Teaching move: {expected_move} (index {coach_move_idx}/{len(teaching_moves)})")
                             except Exception:
-                                logger.warning(f"[COACH] Teaching move '{expected_move}' illegal at index {coach_move_idx}, using opponent")
+                                logger.warning(f"[COACH] Teaching move '{expected_move}' illegal at index {coach_move_idx}, stopping teaching")
+                                await db.coach_sessions.update_one(
+                                    {"session_id": session_id},
+                                    {"$set": {"opening_teaching_active": False}}
+                                )
 
                 if not coach_move:
                     coach_move = await opponent.get_move(fen_after_user)

@@ -756,7 +756,16 @@ const CoachPlay = ({ user }) => {
       setIsPlayerTurn(data.is_player_turn);
       setGameStarted(true);
       setMoveStartTime(Date.now());
-      
+
+      // Set initial opening guidance (show arrow + idea for first move)
+      if (data.openingGuidance) {
+        coachFlow.setOpeningGuidance(data.openingGuidance);
+        // Show arrow on board for the first move
+        if (data.openingGuidance.arrow) {
+          setCoachArrows([[data.openingGuidance.arrow[0], data.openingGuidance.arrow[1], "green"]]);
+        }
+      }
+
       // Set initial evaluation
       if (data.evaluation) {
         setEvaluation(data.evaluation);
