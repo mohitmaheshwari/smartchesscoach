@@ -130,59 +130,7 @@ const LiveChecklist = ({ checklist, weaknesses, playerProfile, gamePhase, coachN
         </div>
       )}
 
-      {/* Player Profile */}
-      {playerProfile && (
-        <div>
-          <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50 mb-2">
-            Your Profile
-          </p>
-          <div className="flex gap-2 mb-2">
-            {playerProfile.strongest && (
-              <div className="flex-1 rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-2.5 py-1.5">
-                <p className="text-[9px] uppercase tracking-wider text-emerald-600 font-bold mb-0.5">Strength</p>
-                <p className="text-xs text-foreground">{DOMAIN_LABELS[playerProfile.strongest] || playerProfile.strongest}</p>
-              </div>
-            )}
-            {playerProfile.weakest && (
-              <div className="flex-1 rounded-lg bg-red-500/5 border border-red-500/10 px-2.5 py-1.5">
-                <p className="text-[9px] uppercase tracking-wider text-red-500 font-bold mb-0.5">Weakness</p>
-                <p className="text-xs text-foreground">{DOMAIN_LABELS[playerProfile.weakest] || playerProfile.weakest}</p>
-              </div>
-            )}
-          </div>
-          {playerProfile.domains && Object.keys(playerProfile.domains).length > 0 && (
-            <div className="space-y-1">
-              {Object.entries(playerProfile.domains).map(([key, domain]) => {
-                const score = domain.score || 0;
-                const isStrong = key === playerProfile.strongest;
-                const isWeak = key === playerProfile.weakest;
-                return (
-                  <div key={key} className="flex items-center gap-2">
-                    <span className={`text-[11px] w-24 truncate ${
-                      isStrong ? "text-emerald-600 font-medium" :
-                      isWeak ? "text-red-400 font-medium" :
-                      "text-muted-foreground"
-                    }`}>
-                      {DOMAIN_LABELS[key] || key}
-                    </span>
-                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          isStrong ? "bg-emerald-500" : isWeak ? "bg-red-400" : "bg-muted-foreground/30"
-                        }`}
-                        style={{ width: `${Math.min(100, score)}%` }}
-                      />
-                    </div>
-                    <span className="text-[9px] font-mono text-muted-foreground/50 w-6 text-right">
-                      {Math.round(score)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Player Profile moved to Progress page */}
     </div>
   );
 };

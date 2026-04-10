@@ -56,15 +56,15 @@ def evaluate_fundamentals(
 
     fundamentals = []
 
-    # ─── OPENING FUNDAMENTALS ─────────────────────────────────
+    # ─── OPENING FUNDAMENTALS (always shown, evaluated from history) ───
+    fundamentals.append(_eval_piece_development(board, color))
+    fundamentals.append(_eval_king_safety_from_history(board, color, move_number, user_moves))
+    fundamentals.append(_eval_center_control(board, color, opponent))
     if phase == "OPENING":
-        fundamentals.append(_eval_piece_development(board, color))
-        fundamentals.append(_eval_king_safety(board, color, move_number))
-        fundamentals.append(_eval_center_control(board, color, opponent))
         fundamentals.append(_eval_piece_coordination(board, color))
         fundamentals.append(_eval_early_queen(board, color, user_moves, move_number))
         fundamentals.append(_eval_development_efficiency(user_moves, board, color))
-        fundamentals.append(_eval_pawn_discipline(board, color))
+    fundamentals.append(_eval_pawn_discipline(board, color))
 
     # ─── TACTICAL FUNDAMENTALS (always active) ────────────────
     fundamentals.append(_eval_threat_awareness(user_moves, board, color, opponent))
@@ -140,44 +140,51 @@ def _eval_piece_development(board: chess.Board, color: chess.Color) -> Dict:
         return _fund("Piece Development", "Opening", COMPLETED, 100, "All minor pieces are active.")
 
 
-def _eval_king_safety(board: chess.Board, color: chess.Color, move_number: int) -> Dict:
-    king_sq = board.king(color)
-    if king_sq is None:
-        return _fund("King Safety", "Opening", NOT_STARTED, 0, "King not found.")
+def _eval_king_safety_from_history(board: chess.Board, color: chess.Color,
+                                    move_number: int, user_moves: List[Dict]) -> Dict:
+    """Check king safety using move history (not just current king position)."""
+    # Check if player castled at any point in the game
+    has_castled = False
+    for m in user_moves:
+        san = m.get("move", "")
+        if san in ("O-O", "O-O-O", "0-0", "0-0-0"):
+            has_castled = True
+            break
 
-    castled_sqs = (chess.G1, chess.C1) if color == chess.WHITE else (chess.G8, chess.C8)
-    is_castled = king_sq in castled_sqs
+    if has_castled:
+        # Castled — check current pawn shield
+        king_sq = board.king(color)
+        if king_sq is not None:
+            king_file = chess.square_file(king_sq)
+            shield_rank = 1 if color == chess.WHITE else 6
+            intact = 0
+            for f in [max(0, king_file - 1), king_file, min(7, king_file + 1)]:
+                p = board.piece_at(chess.square(f, shield_rank))
+                if p and p.piece_type == chess.PAWN and p.color == color:
+                    intact += 1
+            if intact >= 2:
+                return _fund("King Safety", "Opening", COMPLETED, 100, "King castled with solid pawn shield.")
+            else:
+                return _fund("King Safety", "Opening", COMPLETED, 80, "King castled. Pawn shield slightly weakened.")
+        return _fund("King Safety", "Opening", COMPLETED, 90, "King castled earlier in the game.")
 
-    if is_castled:
-        # Check pawn shield
-        king_file = chess.square_file(king_sq)
-        shield_rank = 1 if color == chess.WHITE else 6
-        intact = 0
-        for f in [max(0, king_file - 1), king_file, min(7, king_file + 1)]:
-            p = board.piece_at(chess.square(f, shield_rank))
-            if p and p.piece_type == chess.PAWN and p.color == color:
-                intact += 1
-        if intact >= 2:
-            return _fund("King Safety", "Opening", COMPLETED, 100, "King castled with solid pawn shield.")
-        else:
-            return _fund("King Safety", "Opening", IN_PROGRESS, 70, "King castled but pawn shield is weakened.")
-
-    # Not castled
+    # Not castled — check if possible
     can_castle_ks = board.has_kingside_castling_rights(color)
     can_castle_qs = board.has_queenside_castling_rights(color)
 
     if not can_castle_ks and not can_castle_qs:
+        if move_number > 20:
+            # Late game, castling lost — might be OK in endgame
+            return _fund("King Safety", "Opening", IN_PROGRESS, 40,
+                          "Never castled. King safety was a concern earlier.")
         return _fund("King Safety", "Opening", FAILED, 10,
-                      "Castling rights lost. Your king is stuck in the center.")
+                      "Castling rights lost. King safety was not addressed.")
 
-    if can_castle_ks or can_castle_qs:
-        if move_number >= 10:
-            return _fund("King Safety", "Opening", IN_PROGRESS, 30,
-                          "Move 10+ and king still uncastled. Castle soon.")
-        return _fund("King Safety", "Opening", IN_PROGRESS, 40,
-                      "Castling available. Prioritize it.")
+    if move_number >= 10:
+        return _fund("King Safety", "Opening", IN_PROGRESS, 30,
+                      f"Move {move_number} and still uncastled. Castle soon.")
 
-    return _fund("King Safety", "Opening", NOT_STARTED, 0, "King safety not addressed.")
+    return _fund("King Safety", "Opening", IN_PROGRESS, 40, "Castling available. Prioritize it.")
 
 
 def _eval_center_control(board: chess.Board, color: chess.Color, opponent: chess.Color) -> Dict:
