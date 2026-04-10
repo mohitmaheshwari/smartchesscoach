@@ -4442,13 +4442,19 @@ async def start_play_with_coach(
                 try:
                     from services.opening_theory_tree_service import load_theory_tree
                     tree = load_theory_tree()
+                    # Match opening name — prefer longest/most specific match
+                    best_match = None
+                    best_match_len = 0
                     for key, data in tree.items():
                         if key == "_meta":
                             continue
                         name = data.get("name", "")
                         if opening_name.lower() in name.lower() or name.lower() in opening_name.lower():
-                            matched_key = key
-                            break
+                            match_len = len(name)
+                            if match_len > best_match_len:
+                                best_match = key
+                                best_match_len = match_len
+                    matched_key = best_match
                 except Exception:
                     pass
 

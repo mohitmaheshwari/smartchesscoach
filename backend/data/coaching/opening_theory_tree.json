@@ -1411,10 +1411,11 @@
           "Rb8",
           "g4",
           "Ne5",
-          "Nxe5",
-          "dxe5"
+          "Bh6",
+          "Bxh6",
+          "Qxh6"
         ],
-        "white_plan": "h4-h5-hxg6 pawn storm, Bh6 to trade dragons, g4-g5 to open lines",
+        "white_plan": "h4-h5-hxg6 pawn storm, Bh6 to trade dark-squared bishops, g4-g5 to open lines",
         "black_plan": "Rc8, Qa5 or Qb6, pressure on c-file, Ne5-c4 maneuver",
         "critical_positions": {
           "after_O-O-O": {
