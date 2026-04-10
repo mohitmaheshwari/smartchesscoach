@@ -3651,8 +3651,9 @@ async def evaluate_pending_move(
                 _fund_board = chess.Board(board_after.fen()) if board_after else chess.Board(fen_before)
                 checklist = _eval_fund(_fund_board, move_history, user_color,
                                        {"cp_loss": cp_loss_val, "move_quality": move_quality})
+                logger.info(f"[FAST-EVAL] Fundamentals: phase={checklist.get('phase')}, count={len(checklist.get('fundamentals', []))}")
             except Exception as _fe:
-                logger.warning(f"[FAST-EVAL] Fundamentals eval failed: {_fe}")
+                logger.error(f"[FAST-EVAL] Fundamentals eval failed: {_fe}", exc_info=True)
                 checklist = {"phase": game_phase, "fundamentals": []}
             logger.info(f"[FAST-EVAL] {move_quality}, silent, {elapsed_total:.0f}ms")
             return {
