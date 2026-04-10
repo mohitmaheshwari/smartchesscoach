@@ -4435,6 +4435,7 @@ async def start_play_with_coach(
         )
 
         # Store opening preference and activate opening teaching if selected
+        logger.info(f"[COACH-START] opening_key={opening_key}, opening_name={opening_name}")
         if opening_key or opening_name:
             # Try to match opening_name to an opening_key for the teaching system
             matched_key = opening_key
@@ -4455,8 +4456,9 @@ async def start_play_with_coach(
                                 best_match = key
                                 best_match_len = match_len
                     matched_key = best_match
-                except Exception:
-                    pass
+                    logger.info(f"[COACH-START] Matched '{opening_name}' -> {matched_key}")
+                except Exception as e:
+                    logger.warning(f"[COACH-START] Opening match failed: {e}")
 
             update_fields = {
                 "opening_key": matched_key or opening_key,
