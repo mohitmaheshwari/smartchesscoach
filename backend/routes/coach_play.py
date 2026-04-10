@@ -5540,10 +5540,11 @@ async def _process_move_and_respond(
                         teaching_moves = _fresh_session.get("opening_teaching_moves", [])
                         teaching_index = _fresh_session.get("opening_teaching_index", 0)
 
-                        # The coach's move is at the current teaching_index
-                        # (user move already advanced the index past user's move)
-                        # Find the next move that belongs to the coach (opponent side)
-                        coach_move_idx = teaching_index
+                        # Find the coach's next move in the teaching line
+                        # The move_history length tells us which move number we're at
+                        # Coach's move = current move_history length (0-indexed)
+                        current_ply = len(move_history)  # includes the user move just played
+                        coach_move_idx = current_ply  # coach plays the NEXT ply
                         if coach_move_idx < len(teaching_moves):
                             expected_move = teaching_moves[coach_move_idx]
                             try:
