@@ -500,8 +500,8 @@ const CoachPlay = ({ user }) => {
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.active_sessions && data.active_sessions.length > 0) {
-          // Resume existing session
+        if (data.active_sessions && data.active_sessions.length > 0 && !openingFromUrl) {
+          // Resume existing session (but NOT if user came with a specific opening to practice)
           const activeSession = data.active_sessions[0];
           await resumeSession(activeSession.session_id);
         }
