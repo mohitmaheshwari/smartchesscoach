@@ -17,7 +17,7 @@ Fully extracted from server.py (April 2026).
 
 from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import datetime, timezone
 import logging
 import json
@@ -4170,6 +4170,55 @@ async def complete_focus_puzzle(
         return {"puzzles_completed": 0, "puzzles_required": 5, "training_locked": True}
 
 
+def _build_full_opening_line(opening_key: str) -> List[str]:
+    """
+    Build the full teaching line for an opening by combining:
+    main_line + first variation's continuation + sub-variation if exists.
+
+    e.g., Italian Game:
+    main_line: e4 e5 Nf3 Nc6 Bc4
+    + Giuoco Piano: Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2
+    = 15 moves total
+    """
+    try:
+        from services.opening_theory_tree_service import load_theory_tree
+        tree = load_theory_tree()
+        opening = tree.get(opening_key, {})
+
+        main_line = list(opening.get("main_line", []))
+        if not main_line:
+            return []
+
+        # Walk into the first/main variation
+        variations = opening.get("variations", {})
+        if variations:
+            # Pick the first variation (usually the main one)
+            first_var_key = list(variations.keys())[0]
+            first_var = variations[first_var_key]
+
+            # Add the branching move
+            moves_from_parent = first_var.get("moves_from_parent", [])
+            if moves_from_parent:
+                main_line.extend(moves_from_parent)
+
+            # Add the continuation
+            continuation = first_var.get("continuation", [])
+            if continuation:
+                main_line.extend(continuation)
+
+            # Check for sub-variations
+            sub_vars = first_var.get("subvariations", first_var.get("sub_variations", {}))
+            if sub_vars and isinstance(sub_vars, dict):
+                first_sub_key = list(sub_vars.keys())[0]
+                first_sub = sub_vars[first_sub_key]
+                sub_moves = first_sub.get("moves", first_sub.get("continuation", []))
+                # Don't add sub-variation by default — it's a branch, not the main line
+
+        return main_line
+    except Exception:
+        return []
+
+
 def _get_opening_family(name: str) -> str:
     """
     Extract the main opening family from a full opening name.
@@ -4411,18 +4460,17 @@ async def start_play_with_coach(
             # If we matched to a curriculum opening, activate teaching
             if matched_key:
                 try:
-                    tree = load_theory_tree()
-                    opening_data = tree.get(matched_key, {})
-                    main_line = opening_data.get("main_line", [])
-                    if main_line:
+                    full_line = _build_full_opening_line(matched_key)
+                    if full_line:
                         update_fields.update({
                             "opening_to_teach": matched_key,
-                            "opening_teaching_moves": main_line,
+                            "opening_teaching_moves": full_line,
                             "opening_teaching_index": 0,
                             "opening_teaching_active": True,
                         })
-                except Exception:
-                    pass
+                        logger.info(f"[COACH] Opening teaching activated: {matched_key} ({len(full_line)} moves)")
+                except Exception as e:
+                    logger.warning(f"Opening teaching setup failed: {e}")
 
             await db.coach_sessions.update_one(
                 {"session_id": session.session_id},
