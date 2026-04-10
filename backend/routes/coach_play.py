@@ -3702,7 +3702,7 @@ async def evaluate_pending_move(
                 "showInActiveStrip": layer in ("ambient", "advisory"),
                 "gamePhase": game_phase,
             },
-            "checklist": checklist,
+            "checklist": fundamentals_data,
             "weaknesses": [{"signal": w["signal"], "label": w["label"], "severity": w["severity"]} for w in top_weaknesses[:3]],
             "playerProfile": player_profile_data,
             "commentary": commentary,
