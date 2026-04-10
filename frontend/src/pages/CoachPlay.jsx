@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
@@ -31,11 +31,11 @@ import CommentaryPanel from "@/components/coach/CommentaryPanel";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const boardRef = useRef(null);
 
   // Read opening from URL query params (from Progress page)
-  const urlParams = new URLSearchParams(window.location.search);
-  const openingFromUrl = urlParams.get("opening");
+  const openingFromUrl = searchParams.get("opening");
 
   // Session state
   const [session, setSession] = useState(null);
@@ -51,6 +51,14 @@ const CoachPlay = ({ user }) => {
   // Game settings
   const [selectedColor, setSelectedColor] = useState("white");
   const [selectedOpening, setSelectedOpening] = useState(openingFromUrl || null);
+
+  // Sync opening from URL when navigating from Progress page
+  useEffect(() => {
+    if (openingFromUrl && !gameStarted) {
+      setSelectedOpening(openingFromUrl);
+    }
+  }, [openingFromUrl, gameStarted]);
+
   const [timeControl, setTimeControl] = useState("15+10");
   const [coachingMode, setCoachingMode] = useState("intermediate"); // "beginner" | "intermediate" | "advanced"
   
@@ -707,8 +715,10 @@ const CoachPlay = ({ user }) => {
       };
 
       // If user selected a specific opening to practice, pass it
+      console.log("[CoachPlay] selectedOpening:", selectedOpening, "openingFromUrl:", openingFromUrl);
       if (selectedOpening) {
         requestBody.opening_name = selectedOpening;
+        console.log("[CoachPlay] Sending opening_name:", selectedOpening);
       }
       
       // If in practice mode, use custom starting position
