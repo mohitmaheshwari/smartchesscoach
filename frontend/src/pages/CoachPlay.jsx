@@ -2311,7 +2311,6 @@ const CoachPlay = ({ user }) => {
           activeStripCoaching={coachFlow.activeStripCoaching}
           activeCoachingMoment={coachFlow.activeCoachingMoment}
           liveChecklist={coachFlow.liveChecklist}
-          checklistHistory={coachFlow.checklistHistory}
           playerWeaknessList={coachFlow.playerWeaknessList}
           playerProfile={coachFlow.playerProfile}
           isInHold={coachFlow.isInHold}

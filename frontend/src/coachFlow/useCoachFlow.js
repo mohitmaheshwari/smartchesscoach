@@ -28,8 +28,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
   const [pendingMove, setPendingMove] = useState(null);
   const [activeCoachingMoment, setActiveCoachingMoment] = useState(null);
   const [activeStripCoaching, setActiveStripCoaching] = useState(null); // ambient/advisory
-  const [liveChecklist, setLiveChecklist] = useState(null); // fundamentals pass/fail (current move)
-  const [checklistHistory, setChecklistHistory] = useState({}); // {key: {passed: N, failed: N}} across game
+  const [liveChecklist, setLiveChecklist] = useState(null); // {phase, fundamentals: [...]}
   const [playerWeaknessList, setPlayerWeaknessList] = useState([]); // from backend
   const [playerProfile, setPlayerProfile] = useState(null); // strengths/weaknesses/domains
   const [commentary, setCommentary] = useState(null); // position-specific board reading
@@ -130,19 +129,8 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
 
       // Update checklist (always, even on silent)
       if (result.checklist) {
-        console.log("[CoachFlow] checklist:", result.checklist, "weaknesses:", result.weaknesses);
+        console.log("[CoachFlow] fundamentals:", result.checklist);
         setLiveChecklist(result.checklist);
-        // Accumulate game-wide history
-        setChecklistHistory(prev => {
-          const next = { ...prev };
-          for (const [key, status] of Object.entries(result.checklist)) {
-            if (status === "neutral") continue;
-            if (!next[key]) next[key] = { passed: 0, failed: 0 };
-            if (status === "passed") next[key].passed += 1;
-            if (status === "failed") next[key].failed += 1;
-          }
-          return next;
-        });
       }
       if (result.weaknesses) {
         setPlayerWeaknessList(result.weaknesses);
@@ -330,7 +318,6 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     _clearState();
     setInteractionState(INTERACTION_STATES.IDLE);
     setLiveChecklist(null);
-    setChecklistHistory({});
     setPlayerWeaknessList([]);
     setPlayerProfile(null);
     setCommentary(null);
@@ -361,7 +348,6 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     activeCoachingMoment,
     activeStripCoaching,
     liveChecklist,
-    checklistHistory,
     playerWeaknessList,
     playerProfile,
     commentary,

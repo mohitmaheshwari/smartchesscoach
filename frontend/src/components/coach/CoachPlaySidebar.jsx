@@ -691,7 +691,6 @@ const CoachPlaySidebar = ({
   activeStripCoaching,
   activeCoachingMoment,
   liveChecklist,
-  checklistHistory,
   playerWeaknessList,
   playerProfile,
   isInHold,
@@ -787,7 +786,6 @@ const CoachPlaySidebar = ({
             {suppressOldCoaching && !gameOver && (
               <LiveChecklist
                 checklist={liveChecklist}
-                checklistHistory={checklistHistory}
                 weaknesses={playerWeaknessList}
                 playerProfile={playerProfile}
                 gamePhase={activeStripCoaching?.gamePhase || (activeCoachingMoment ? "critical" : null)}
