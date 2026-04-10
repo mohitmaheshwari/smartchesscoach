@@ -4241,14 +4241,18 @@ async def complete_focus_puzzle(
         return {"puzzles_completed": 0, "puzzles_required": 5, "training_locked": True}
 
 
-def _get_initial_opening_guidance(update_fields: dict) -> Optional[Dict]:
+def _get_initial_opening_guidance(update_fields: dict, log=None) -> Optional[Dict]:
     """Get opening guidance for the FIRST move at game start."""
     teaching_key = update_fields.get("opening_to_teach") or update_fields.get("opening_key")
+    if log:
+        log.info(f"[COACH-GUIDANCE] update_fields keys: {list(update_fields.keys())}, teaching_key: {teaching_key}")
     if not teaching_key:
         return None
     try:
         from services.opening_mastery_tracker import get_move_guidance, get_phase_label, INTRODUCTION
         guidance = get_move_guidance(teaching_key, 0, INTRODUCTION)
+        if log:
+            log.info(f"[COACH-GUIDANCE] guidance for {teaching_key}: {guidance}")
         if guidance:
             return {
                 "opening_key": teaching_key,
@@ -4259,8 +4263,9 @@ def _get_initial_opening_guidance(update_fields: dict) -> Optional[Dict]:
                 "arrow": guidance.get("arrow"),
                 "games_played": 0,
             }
-    except Exception:
-        pass
+    except Exception as e:
+        if log:
+            log.error(f"[COACH-GUIDANCE] Failed: {e}")
     return None
 
 
@@ -4747,7 +4752,7 @@ async def start_play_with_coach(
                 "mate_in": mate_in
             },
             "practice_mode": practice_mode,
-            "openingGuidance": _get_initial_opening_guidance(update_fields if (opening_key or opening_name) else {}),
+            "openingGuidance": _get_initial_opening_guidance(update_fields if (opening_key or opening_name) else {}, logger),
         }
     except Exception as e:
         logger.error(f"Error starting coach session: {e}")

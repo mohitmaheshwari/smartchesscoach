@@ -758,10 +758,12 @@ const CoachPlay = ({ user }) => {
       setMoveStartTime(Date.now());
 
       // Set initial opening guidance (show arrow + idea for first move)
+      console.log("[CoachPlay] Start response openingGuidance:", data.openingGuidance);
       if (data.openingGuidance) {
         coachFlow.setOpeningGuidance(data.openingGuidance);
         // Show arrow on board for the first move
         if (data.openingGuidance.arrow) {
+          console.log("[CoachPlay] Setting initial arrow:", data.openingGuidance.arrow);
           setCoachArrows([[data.openingGuidance.arrow[0], data.openingGuidance.arrow[1], "green"]]);
         }
       }
