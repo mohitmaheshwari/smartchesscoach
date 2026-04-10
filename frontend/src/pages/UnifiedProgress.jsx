@@ -359,7 +359,10 @@ const OpeningRepertoire = ({ openings, navigate }) => {
               </div>
             </div>
             <button
-              onClick={() => navigate("/play-with-coach")}
+              onClick={() => {
+                const opening = bestWhite?.name || bestBlack?.name || "";
+                navigate(`/play-with-coach${opening ? `?opening=${encodeURIComponent(opening)}` : ""}`);
+              }}
               className="mt-3 ml-10 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
             >
               Practice with Coach

@@ -4543,8 +4543,8 @@ async def start_play_with_coach(
                             "opening_teaching_active": False,
                         }}
                     )
-                else:
-                    # Fallback: old system picks an opening
+                elif not opening_name:
+                    # Fallback: old system picks an opening ONLY if user didn't select one
                     opening_guidance = await suggest_opening_for_session(
                         db, user.user_id, user_color, session.user_rating
                     )

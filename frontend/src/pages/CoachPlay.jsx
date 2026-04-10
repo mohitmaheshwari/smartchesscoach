@@ -32,21 +32,25 @@ import CommentaryPanel from "@/components/coach/CommentaryPanel";
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
   const boardRef = useRef(null);
-  
+
+  // Read opening from URL query params (from Progress page)
+  const urlParams = new URLSearchParams(window.location.search);
+  const openingFromUrl = urlParams.get("opening");
+
   // Session state
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
-  
+
   // Board state
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [lastMove, setLastMove] = useState(null);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
-  
+
   // Game settings
   const [selectedColor, setSelectedColor] = useState("white");
-  const [selectedOpening, setSelectedOpening] = useState(null);
+  const [selectedOpening, setSelectedOpening] = useState(openingFromUrl || null);
   const [timeControl, setTimeControl] = useState("15+10");
   const [coachingMode, setCoachingMode] = useState("intermediate"); // "beginner" | "intermediate" | "advanced"
   
