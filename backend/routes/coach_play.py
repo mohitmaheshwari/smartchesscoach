@@ -3372,14 +3372,15 @@ async def evaluate_pending_move(
                 from services.opening_mastery_tracker import (
                     get_opening_mastery, get_move_guidance, get_trap_warning, get_phase_label
                 )
+                _mh = session_doc.get("move_history", [])
                 mastery = await get_opening_mastery(db, user_id, teaching_opening)
                 phase = mastery.get("phase", "introduction")
-                move_idx_for_guidance = len(move_history) + 1  # guidance for NEXT move after this one
+                move_idx_for_guidance = len(_mh) + 1  # guidance for NEXT move after this one
 
                 # Guidance for the move the user JUST played (was it correct?)
-                current_guidance = get_move_guidance(teaching_opening, len(move_history) - 1, phase)
+                current_guidance = get_move_guidance(teaching_opening, len(_mh) - 1, phase)
                 # Coach's upcoming move idea (the response to user's move)
-                coach_move_guidance = get_move_guidance(teaching_opening, len(move_history), phase)
+                coach_move_guidance = get_move_guidance(teaching_opening, len(_mh), phase)
                 # Guidance for the NEXT user move (after coach responds)
                 next_guidance = get_move_guidance(teaching_opening, move_idx_for_guidance, phase)
 
@@ -3418,7 +3419,7 @@ async def evaluate_pending_move(
                             }
 
                 # Trap warning
-                moves_played = [m.get("move", "") for m in move_history if isinstance(m, dict)]
+                moves_played = [m.get("move", "") for m in _mh if isinstance(m, dict)]
                 trap_warn = get_trap_warning(teaching_opening, moves_played)
                 if trap_warn:
                     trap_warning_data = trap_warn
