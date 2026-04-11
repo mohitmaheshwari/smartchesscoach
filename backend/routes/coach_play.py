@@ -3364,9 +3364,11 @@ async def evaluate_pending_move(
         # ─── OPENING GUIDANCE + TRAP (compute BEFORE eval — instant, <1ms) ─────
         opening_guidance_data = None
         trap_warning_data = None
+        _guidance_debug = {}
         try:
             teaching_opening = session_doc.get("opening_to_teach") or session_doc.get("opening_key")
             _ota = session_doc.get("opening_teaching_active")
+            _guidance_debug = {"teaching_opening": teaching_opening, "active": _ota}
             logger.info(f"[FAST-EVAL] Opening check: teaching_opening={teaching_opening}, active={_ota}")
             if teaching_opening and _ota:
                 from services.opening_mastery_tracker import (
@@ -3387,7 +3389,8 @@ async def evaluate_pending_move(
                 coach_move_guidance = get_move_guidance(teaching_opening, pending_ply + 1, phase)
                 # Guidance for the NEXT user move (after coach responds)
                 next_guidance = get_move_guidance(teaching_opening, pending_ply + 2, phase)
-                logger.info(f"[FAST-EVAL] Guidance: key={teaching_opening}, ply={pending_ply}, raw_phase={raw_phase}, phase={phase}, mh_len={len(_mh)}, current={current_guidance}, coach={coach_move_guidance}, next={next_guidance}")
+                _guidance_debug.update({"ply": pending_ply, "raw_phase": raw_phase, "phase": phase, "mh_len": len(_mh), "has_current": current_guidance is not None, "has_coach": coach_move_guidance is not None, "has_next": next_guidance is not None, "next_arrow": next_guidance.get("arrow") if next_guidance else None})
+                logger.info(f"[FAST-EVAL] Guidance: {_guidance_debug}")
 
                 if next_guidance or coach_move_guidance:
                     opening_guidance_data = {
@@ -3496,7 +3499,7 @@ async def evaluate_pending_move(
                     "cpLoss": eval_result.get("cp_loss", 0),
                     "bestMove": eval_result.get("best_move"),
                 },
-                "debug": {"elapsedMs": round(elapsed_eval), "depth": 0, "nodes": 0},
+                "debug": {"elapsedMs": round(elapsed_eval), "depth": 0, "nodes": 0, "guidance": _guidance_debug},
             }
 
         # ─── SIGNAL DETECTION (< 5ms) ─────
@@ -3939,6 +3942,7 @@ async def evaluate_pending_move(
                     "elapsedMs": round(elapsed_total),
                     "depth": eval_result.get("depth", 0),
                     "nodes": eval_result.get("nodes", 0),
+                    "guidance": _guidance_debug,
                 },
             }
 
@@ -3990,6 +3994,7 @@ async def evaluate_pending_move(
                 "elapsedMs": round(elapsed_total),
                 "depth": eval_result.get("depth", 0),
                 "nodes": eval_result.get("nodes", 0),
+                "guidance": _guidance_debug,
             },
         }
 
