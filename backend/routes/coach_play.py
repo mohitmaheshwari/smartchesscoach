@@ -3560,23 +3560,8 @@ async def evaluate_pending_move(
         # Hard timeout check — still return checklist/commentary even on timeout
         if elapsed_eval > 1000:
             logger.warning(f"[FAST-EVAL] Hard timeout at {elapsed_eval:.0f}ms")
-            # Use opening idea as commentary if teaching, otherwise board reading
+            # Board reading even on timeout
             _timeout_commentary = None
-            if opening_guidance_data and opening_guidance_data.get("move_idea"):
-                try:
-                    from services.opening_theory_tree_service import load_theory_tree
-                    _tree = load_theory_tree()
-                    _opening = _tree.get(opening_guidance_data["opening_key"], {})
-                    _plan_key = "white_plan" if user_color == "white" else "black_plan"
-                    _timeout_commentary = {
-                        "summary": opening_guidance_data["move_idea"],
-                        "phase": "opening",
-                        "material": "",
-                        "plan": _opening.get(_plan_key, ""),
-                        "observations": [],
-                    }
-                except Exception:
-                    pass
             if not _timeout_commentary:
                 try:
                     from services.position_intelligence import read_board_like_a_coach
@@ -3961,34 +3946,10 @@ async def evaluate_pending_move(
             fundamentals_data = {"phase": game_phase, "fundamentals": []}
 
         # ─── POSITION COMMENTARY ─────
-        # When opening teaching is active, override with opening-specific commentary
+        # Don't override commentary when opening guidance is active —
+        # the CommentaryPanel shows the guidance card separately.
+        # Always use real position reading so the board analysis is genuine.
         commentary = None
-        if opening_guidance_data and opening_guidance_data.get("move_idea"):
-            # Use opening idea as the main commentary
-            from services.opening_theory_tree_service import load_theory_tree
-            try:
-                _tree = load_theory_tree()
-                _opening = _tree.get(opening_guidance_data["opening_key"], {})
-                _plan_key = "white_plan" if user_color == "white" else "black_plan"
-                commentary = {
-                    "summary": opening_guidance_data["move_idea"],
-                    "phase": "opening",
-                    "material": "",
-                    "plan": _opening.get(_plan_key, ""),
-                    "plan_id": "opening_teaching",
-                    "observations": [],
-                }
-                # Add deviation warning as observation if user played wrong move
-                if opening_guidance_data.get("deviation"):
-                    dev = opening_guidance_data["deviation"]
-                    commentary["observations"].append({
-                        "category": "tactics",
-                        "title": f"You played {dev['played']} — the Italian Game idea is different",
-                        "description": dev["idea"],
-                        "actionable": f"Try {dev['expected']} next time.",
-                    })
-            except Exception:
-                pass
 
         if not commentary:
             try:
@@ -6564,6 +6525,9 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
                 }
                 for mi in (analysis.memory_insights or [])
             ],
+
+            # Phase-by-phase breakdown
+            "phase_analysis": analysis.phase_analysis,
 
             # What to do next
             "priority_focus": analysis.priority_focus,

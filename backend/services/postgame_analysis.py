@@ -126,6 +126,9 @@ class PostGameAnalysis:
     coach_summary: str
     encouragement: str
     
+    # Phase-by-phase breakdown
+    phase_analysis: Optional[Dict] = None
+
     # Fields with defaults must come last
     # MEMORY-BASED PERSONALIZATION
     memory_insights: List[MemoryInsight] = field(default_factory=list)
@@ -216,6 +219,12 @@ async def analyze_postgame(
     mistake_count = len([m for m in mistakes if m.mistake_type == MistakeType.MISTAKE])
     inaccuracies = len([m for m in mistakes if m.mistake_type == MistakeType.INACCURACY])
     
+    # ========== STEP 8.5: PHASE ANALYSIS ==========
+    session_doc = await db.coach_sessions.find_one(
+        {"session_id": session_id}, {"_id": 0, "opening_name": 1, "opening_to_teach": 1, "opening_branch": 1}
+    )
+    phase_analysis = _analyze_phases(move_history, evaluations, mistakes, user_color, session_doc)
+
     analysis = PostGameAnalysis(
         session_id=session_id,
         user_id=user_id,
@@ -236,7 +245,8 @@ async def analyze_postgame(
         training_suggestions=training_suggestions,
         opening_to_learn=opening_to_learn,
         coach_summary=summary,
-        encouragement=encouragement
+        encouragement=encouragement,
+        phase_analysis=phase_analysis,
     )
     
     # ========== STEP 9: SAVE ANALYSIS ==========
@@ -250,6 +260,145 @@ async def analyze_postgame(
     )
     
     return analysis
+
+
+def _analyze_phases(
+    move_history: List[Dict],
+    evaluations: List[Dict],
+    mistakes: List[MistakeAnalysis],
+    user_color: str,
+    session_doc: Dict = None,
+) -> Dict:
+    """
+    Break the game into Opening / Middlegame / Endgame phases.
+    Return accuracy, key moments, and verdict for each.
+    """
+    import chess
+
+    total_moves = len(move_history)
+    user_move_indices = []
+    for i, m in enumerate(move_history):
+        if m.get("by") == "player":
+            user_move_indices.append(i)
+
+    # Detect phase boundaries from the positions
+    # Opening: moves 1-12 (or until most pieces are developed)
+    # Middlegame: moves 13-30 (or until few pieces remain)
+    # Endgame: moves 31+ (or when queens are off + few pieces)
+    opening_end = min(24, total_moves)  # plies (12 full moves)
+    endgame_start = total_moves  # default: no endgame detected
+
+    for i, m in enumerate(move_history):
+        fen = m.get("fen_after", "")
+        if fen and i > 20:
+            try:
+                board = chess.Board(fen)
+                # Endgame: no queens or very few pieces
+                white_pieces = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.ROOK, chess.WHITE)) + len(board.pieces(chess.BISHOP, chess.WHITE)) + len(board.pieces(chess.KNIGHT, chess.WHITE))
+                black_pieces = len(board.pieces(chess.QUEEN, chess.BLACK)) + len(board.pieces(chess.ROOK, chess.BLACK)) + len(board.pieces(chess.BISHOP, chess.BLACK)) + len(board.pieces(chess.KNIGHT, chess.BLACK))
+                total_pieces = white_pieces + black_pieces
+                has_queens = bool(board.pieces(chess.QUEEN, chess.WHITE)) or bool(board.pieces(chess.QUEEN, chess.BLACK))
+                if total_pieces <= 6 or (not has_queens and total_pieces <= 8):
+                    endgame_start = i
+                    break
+            except Exception:
+                pass
+
+    middlegame_end = endgame_start
+
+    # Classify each mistake into a phase
+    def _get_phase(move_num):
+        # move_num is 1-indexed full move, convert to ply index
+        ply = (move_num - 1) * 2 if user_color == "white" else (move_num - 1) * 2 + 1
+        if ply < opening_end:
+            return "opening"
+        elif ply < middlegame_end:
+            return "middlegame"
+        else:
+            return "endgame"
+
+    phases = {
+        "opening": {"name": "Opening", "moves": 0, "user_moves": 0, "mistakes": 0, "blunders": 0, "accuracy": 0, "key_moments": [], "verdict": ""},
+        "middlegame": {"name": "Middlegame", "moves": 0, "user_moves": 0, "mistakes": 0, "blunders": 0, "accuracy": 0, "key_moments": [], "verdict": ""},
+        "endgame": {"name": "Endgame", "moves": 0, "user_moves": 0, "mistakes": 0, "blunders": 0, "accuracy": 0, "key_moments": [], "verdict": ""},
+    }
+
+    # Count moves per phase
+    for i, m in enumerate(move_history):
+        if i < opening_end:
+            phases["opening"]["moves"] += 1
+            if m.get("by") == "player":
+                phases["opening"]["user_moves"] += 1
+        elif i < middlegame_end:
+            phases["middlegame"]["moves"] += 1
+            if m.get("by") == "player":
+                phases["middlegame"]["user_moves"] += 1
+        else:
+            phases["endgame"]["moves"] += 1
+            if m.get("by") == "player":
+                phases["endgame"]["user_moves"] += 1
+
+    # Assign mistakes to phases
+    for mistake in mistakes:
+        phase = _get_phase(mistake.move_number)
+        if mistake.mistake_type == MistakeType.BLUNDER:
+            phases[phase]["blunders"] += 1
+        elif mistake.mistake_type in (MistakeType.MISTAKE, MistakeType.TACTICAL_MISS, MistakeType.POSITIONAL_ERROR):
+            phases[phase]["mistakes"] += 1
+        # Key moments (top 2 per phase)
+        if len(phases[phase]["key_moments"]) < 2:
+            phases[phase]["key_moments"].append({
+                "move": mistake.move_number,
+                "played": mistake.move_played,
+                "type": mistake.mistake_type.value,
+                "explanation": mistake.explanation[:100],
+                "better": mistake.better_move,
+            })
+
+    # Calculate per-phase accuracy
+    for key, phase in phases.items():
+        user_moves = phase["user_moves"]
+        if user_moves == 0:
+            phase["accuracy"] = None  # Phase didn't happen
+            continue
+        errors = phase["mistakes"] + phase["blunders"]
+        phase["accuracy"] = round(max(0, (1 - errors / user_moves)) * 100)
+
+    # Generate verdicts
+    for key, phase in phases.items():
+        if phase["accuracy"] is None:
+            phase["verdict"] = ""
+            continue
+        acc = phase["accuracy"]
+        blunders = phase["blunders"]
+        mistakes_ct = phase["mistakes"]
+        if blunders == 0 and mistakes_ct == 0:
+            phase["verdict"] = "Clean play. No significant errors."
+        elif blunders == 0 and mistakes_ct <= 1:
+            phase["verdict"] = "Solid. One small slip."
+        elif blunders >= 2:
+            phase["verdict"] = f"Rough. {blunders} blunders cost you here."
+        elif blunders == 1:
+            phase["verdict"] = "One critical moment changed the game."
+        else:
+            phase["verdict"] = f"{mistakes_ct} inaccuracies. Room to sharpen."
+
+    # Add opening-specific info if available
+    if session_doc:
+        opening_name = session_doc.get("opening_name") or session_doc.get("opening_to_teach")
+        if opening_name:
+            phases["opening"]["opening_name"] = opening_name
+        branch = session_doc.get("opening_branch")
+        if branch:
+            phases["opening"]["variation"] = branch
+
+    # Remove phases that didn't happen
+    result = {}
+    for key, phase in phases.items():
+        if phase["moves"] > 0:
+            result[key] = phase
+
+    return result
 
 
 def _generate_memory_insights(

@@ -168,6 +168,60 @@ const PostGameReflection = ({ data, onPlayAgain, onGoTrain }) => {
         </motion.div>
       )}
 
+      {/* ── PHASE-BY-PHASE BREAKDOWN ── */}
+      {data.phase_analysis && Object.keys(data.phase_analysis).length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <p className="text-[10px] tracking-[0.15em] uppercase font-bold text-muted-foreground/70 mb-2">
+            Game Phases
+          </p>
+          <div className="space-y-2">
+            {["opening", "middlegame", "endgame"].filter(k => data.phase_analysis[k]).map((key) => {
+              const phase = data.phase_analysis[key];
+              const acc = phase.accuracy;
+              const accColor = acc == null ? "text-muted-foreground"
+                : acc >= 90 ? "text-emerald-500"
+                : acc >= 70 ? "text-amber-500"
+                : "text-red-400";
+              return (
+                <div key={key} className="bg-card border border-border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-foreground">{phase.name}</span>
+                      {phase.opening_name && (
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {phase.opening_name}{phase.variation ? ` · ${phase.variation}` : ""}
+                        </span>
+                      )}
+                    </div>
+                    {acc != null && (
+                      <span className={`text-sm font-bold font-mono ${accColor}`}>{acc}%</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-snug">{phase.verdict}</p>
+                  {phase.key_moments?.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {phase.key_moments.map((m, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-[11px]">
+                          <span className="font-mono text-muted-foreground/60">m{m.move}</span>
+                          <span className="font-mono text-red-400">{m.played}</span>
+                          <span className="text-muted-foreground/30">→</span>
+                          <span className="font-mono text-emerald-500">{m.better || "?"}</span>
+                          <span className="text-muted-foreground/50 truncate max-w-[120px]">{m.explanation}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
       {/* ── FALLBACK ACTIONS (only if no pattern verdict) ── */}
       {!pv && (
         <motion.div

@@ -398,10 +398,43 @@ def _analyze_piece_activity(board, user_color, opp_color) -> List[PositionFeatur
     if board.fullmove_number < 8:
         return features
 
-    # Knights on the rim — skip starting squares and temporary developing squares
+    # Piece blocking own central pawn (e.g. Bd3 blocks d2-d4, Ne3 blocks e2-e4)
+    # Check any minor piece sitting on a central file with its own unmoved pawn behind it
+    home_rank = 0 if user_color == chess.WHITE else 7
+    pawn_start_rank = 1 if user_color == chess.WHITE else 6
+    direction = 1 if user_color == chess.WHITE else -1
+    central_files = (2, 3, 4, 5)  # c, d, e, f
+
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if not piece or piece.color != user_color or piece.piece_type not in (chess.BISHOP, chess.KNIGHT):
+            continue
+        file_idx = chess.square_file(sq)
+        rank_idx = chess.square_rank(sq)
+        if file_idx not in central_files:
+            continue
+        # Is this piece on rank 3 (white) or rank 6 (black) — one square ahead of pawn start?
+        expected_piece_rank = pawn_start_rank + direction
+        if rank_idx != expected_piece_rank:
+            continue
+        # Is there an unmoved pawn behind it?
+        pawn_sq = chess.square(file_idx, pawn_start_rank)
+        pawn = board.piece_at(pawn_sq)
+        if pawn and pawn.piece_type == chess.PAWN and pawn.color == user_color:
+            piece_name = "Bishop" if piece.piece_type == chess.BISHOP else "Knight"
+            sq_name = chess.square_name(sq)
+            pawn_name = chess.square_name(pawn_sq)
+            features.append(PositionFeature(
+                priority=6,
+                category="development",
+                title=f"{piece_name} on {sq_name} blocks your {pawn_name} pawn",
+                description=f"Your {piece_name.lower()} on {sq_name} prevents the {pawn_name} pawn from advancing. Develop where you don't block your own pawns.",
+                min_rating=800,
+                actionable=f"Look for a square where this {piece_name.lower()} is active without blocking your pawns.",
+            ))
+
+    # Knights on the rim — skip starting squares only
     starting_squares = {chess.B1, chess.G1, chess.B8, chess.G8}
-    # a3/h3/a6/h6 are common development squares (Na3-c4, Nh3-f4) — only flag truly stuck knights
-    temp_dev_squares = {chess.A3, chess.H3, chess.A6, chess.H6}
 
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
