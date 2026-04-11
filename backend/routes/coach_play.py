@@ -1284,30 +1284,44 @@ async def evaluate_coach_play_move(
     
     eval_before = None
     eval_after = None
-    
+    best_move_san = None
+    best_line_san = []
+    punishment_line = []
+
     try:
         engine = StockfishEngine()
         engine.start()
-        
+
         try:
             board_before = chess.Board(current_fen)
             eval_before_cp, _ = engine.evaluate_position(board_before, depth=12)
             eval_before = eval_before_cp / 100.0
-            
+
+            # Best move + principal variation from BEFORE position
+            best_move_obj, _, _ = engine.get_best_move(board_before, depth=14)
+            if best_move_obj:
+                best_move_san = board_before.san(best_move_obj)
+            best_line_san = engine.get_principal_variation(board_before, depth=14, pv_length=6)
+
+            # Evaluate AFTER user's move
             chess_move = board_before.parse_san(move)
-            board_before.push(chess_move)
-            
-            eval_after_cp, _ = engine.evaluate_position(board_before, depth=12)
+            board_after = board_before.copy()
+            board_after.push(chess_move)
+
+            eval_after_cp, _ = engine.evaluate_position(board_after, depth=12)
             eval_after = eval_after_cp / 100.0
-            
+
+            # Punishment line: opponent's best response after user's bad move
+            punishment_line = engine.get_principal_variation(board_after, depth=12, pv_length=4)
+
         finally:
             engine.stop()
-            
+
     except Exception as e:
         logger.warning(f"Stockfish evaluation failed: {e}")
-    
+
     from coach_play.pre_move_guardian import PreMoveGuardian
-    
+
     guardian = PreMoveGuardian(session_doc.get("remaining_interventions", 3))
     guardian_result = guardian.evaluate_move(
         fen=current_fen,
@@ -1316,16 +1330,46 @@ async def evaluate_coach_play_move(
         stockfish_eval_before=eval_before,
         stockfish_eval_after=eval_after
     )
-    
+
     result = guardian_result.to_dict()
     result["remaining_interventions"] = session_doc.get("remaining_interventions", 3)
-    
+
     details = result.get("details", {})
     if details.get("good_trade"):
         result["good_trade"] = True
     elif details.get("stockfish_approved"):
         result["stockfish_approved"] = True
-    
+
+    # Add engine analysis for the "Think Again" popup
+    if result.get("should_intervene"):
+        cp_loss = round((eval_before - eval_after) * 100) if eval_before is not None and eval_after is not None else 0
+        # Flip for black
+        if user_color == "black":
+            cp_loss = -cp_loss
+
+        # Categorize the mistake
+        risk_type = result.get("risk_type", "")
+        if risk_type in ("hanging_piece", "material_loss"):
+            mistake_category = "one_move_blunder"
+        elif risk_type in ("blunder_into_tactic",):
+            mistake_category = "tactical_miss"
+        elif risk_type in ("ignore_threat",):
+            mistake_category = "threat_blindness"
+        elif cp_loss > 200:
+            mistake_category = "calculation_error"
+        else:
+            mistake_category = "positional_mistake"
+
+        result["analysis"] = {
+            "best_move": best_move_san,
+            "best_line": best_line_san,  # e.g. ["Bc4", "Nf6", "d3", "Bc5"]
+            "punishment_line": punishment_line,  # What opponent does after your bad move
+            "cp_loss": cp_loss,
+            "eval_before": round(eval_before, 1) if eval_before is not None else None,
+            "eval_after": round(eval_after, 1) if eval_after is not None else None,
+            "mistake_category": mistake_category,
+        }
+
     return result
 
 
@@ -1380,11 +1424,69 @@ async def confirm_risky_move(
         {"$set": {"guardian_overrides": guardian_overrides}}
     )
     
-    return {
-        "success": True,
-        "remaining_interventions": remaining,
-        "message": "Okay, I'll let you learn from this one!"
-    }
+    # Now actually execute the move (same as /move endpoint)
+    time_spent = request.get("time_spent", 0)
+    try:
+        current_fen = session_doc.get("current_fen")
+        board = chess.Board(current_fen)
+        chess_move = board.parse_san(move)
+        board.push(chess_move)
+        fen_after_user = board.fen()
+
+        move_history = session_doc.get("move_history", [])
+        move_number = len([m for m in move_history if m.get("by") == "player"]) + 1
+
+        move_history.append({
+            "move": move,
+            "uci": chess_move.uci(),
+            "by": "player",
+            "fen_before": current_fen,
+            "fen_after": fen_after_user,
+            "time_spent": time_spent,
+            "risk_acknowledged": risk_level,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "current_fen": fen_after_user,
+                "move_history": move_history,
+                "coach_move_pending": True,
+            }}
+        )
+
+        # Check if game is over
+        game_over = board.is_game_over()
+        if game_over:
+            result = "draw"
+            if board.is_checkmate():
+                result = "win"
+            await db.coach_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"status": "completed", "result": result}}
+            )
+            return {
+                "success": True,
+                "remaining_interventions": remaining,
+                "current_fen": fen_after_user,
+                "game_over": True,
+                "result": result,
+            }
+
+        return {
+            "success": True,
+            "remaining_interventions": remaining,
+            "current_fen": fen_after_user,
+            "awaiting_coach": True,
+        }
+    except Exception as e:
+        logger.error(f"[GUARDIAN] Move execution after confirm failed: {e}")
+        return {
+            "success": True,
+            "remaining_interventions": remaining,
+            "message": "Move confirmed but execution failed. Try again.",
+        }
 
 
 
@@ -4340,6 +4442,58 @@ async def complete_focus_puzzle(
     except Exception as e:
         logger.warning(f"Puzzle completion failed: {e}")
         return {"puzzles_completed": 0, "puzzles_required": 5, "training_locked": True}
+
+
+@router.post("/opening-line-complete")
+async def opening_line_complete(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """Track when a user completes an opening teaching line."""
+    session_id = request.get("session_id")
+    opening_key = request.get("opening_key")
+    branch_key = request.get("branch_key")
+    guided_mode = request.get("guided_mode", True)
+    moves_total = request.get("moves_total", 0)
+    played_perfectly = request.get("played_perfectly", False)
+
+    if not opening_key:
+        return {"ok": True}
+
+    try:
+        # Update mastery with this completion
+        from services.opening_mastery_tracker import update_mastery_after_game
+        mastery = await update_mastery_after_game(
+            db, user.user_id, opening_key,
+            moves_correct=moves_total if played_perfectly else max(0, moves_total - 2),
+            moves_total=moves_total,
+            branch_played=branch_key,
+        )
+
+        # Store play record for progress tracking
+        await db.opening_play_history.insert_one({
+            "user_id": user.user_id,
+            "session_id": session_id,
+            "opening_key": opening_key,
+            "branch_key": branch_key,
+            "guided_mode": guided_mode,
+            "played_perfectly": played_perfectly,
+            "moves_total": moves_total,
+            "phase": mastery.get("phase", "introduction"),
+            "games_played": mastery.get("games_played", 1),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+        logger.info(f"[OPENING] Line complete: {opening_key}/{branch_key} guided={guided_mode} perfect={played_perfectly} phase={mastery.get('phase')}")
+        return {
+            "ok": True,
+            "phase": mastery.get("phase"),
+            "games_played": mastery.get("games_played"),
+            "branches_seen": mastery.get("branches_seen", []),
+        }
+    except Exception as e:
+        logger.warning(f"[OPENING] Line complete tracking failed: {e}")
+        return {"ok": True}
 
 
 def _get_initial_opening_guidance(update_fields: dict, log=None) -> Optional[Dict]:

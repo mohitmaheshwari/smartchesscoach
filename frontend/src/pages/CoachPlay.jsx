@@ -241,6 +241,59 @@ const CoachPlay = ({ user }) => {
     }
   }, [coachFlow.openingGuidance?.arrow?.[0], coachFlow.openingGuidance?.arrow?.[1], isPlayerTurn, gameOver, openingIdeas.length]);
 
+  // Opening line completion summary
+  const [openingComplete, setOpeningComplete] = useState(null);
+
+  // Detect when the teaching line is finished
+  useEffect(() => {
+    if (!openingIdeas.length || gameOver || openingComplete) return;
+    if (gamePly >= openingIdeas.length && isPlayerTurn) {
+      // All teaching moves played — show summary
+      const branchName = activeBranch?.name || selectedOpening || "opening";
+      const otherBranches = allBranches
+        ? Object.values(allBranches).filter(b => b.name !== activeBranch?.name).map(b => b.name)
+        : [];
+
+      // Get current eval from coachFlow or evaluation state
+      const evalScore = evaluation?.score || 0;
+      const evalText = evalScore > 50 ? "You have a slight advantage"
+        : evalScore > 150 ? "You have a clear advantage"
+        : evalScore < -50 ? "Black has a slight edge"
+        : "The position is roughly equal";
+
+      setOpeningComplete({
+        branchName,
+        evalText,
+        evalScore,
+        otherBranches,
+        totalMoves: openingIdeas.length,
+        deviations: 0, // TODO: track during play
+      });
+
+      // Log to backend for mastery tracking
+      if (session?.session_id) {
+        fetch(`${API}/coach/play/opening-line-complete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            session_id: session.session_id,
+            opening_key: activeBranch?.key || selectedOpening,
+            branch_key: activeBranch?.key || null,
+            guided_mode: guidedMode,
+            moves_total: openingIdeas.length,
+            played_perfectly: true, // no deviations if we got here
+          }),
+        }).catch(() => {}); // fire-and-forget
+      }
+
+      // Clear teaching data — game continues freely
+      setOpeningIdeas([]);
+      setCoachArrows([]);
+      coachFlow.setOpeningGuidance(null);
+    }
+  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, openingComplete]);
+
   // Opening deviation state — shown when user plays wrong move
   const [openingDeviation, setOpeningDeviation] = useState(null);
 
@@ -2285,6 +2338,7 @@ const CoachPlay = ({ user }) => {
     setAllBranches(null);
     setBranchPoint(null);
     setOpeningDeviation(null);
+    setOpeningComplete(null);
     setOpeningTraps([]);
   };
 
@@ -2490,7 +2544,7 @@ const CoachPlay = ({ user }) => {
         />
 
         {/* Middle: Commentary panel (board reading) */}
-        {coachFlow.commentary ? (
+        {(coachFlow.commentary || openingComplete || openingDeviation) ? (
           <div className="w-64 flex-shrink-0 border-l border-border overflow-y-auto">
             <CommentaryPanel
               commentary={coachFlow.commentary}
@@ -2498,6 +2552,7 @@ const CoachPlay = ({ user }) => {
               trapWarning={coachFlow.trapWarning}
               openingDeviation={openingDeviation}
               activeBranch={activeBranch}
+              openingComplete={openingComplete}
             />
           </div>
         ) : gameStarted && session && !gameOver ? (

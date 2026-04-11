@@ -130,6 +130,54 @@ const GuardianPanel = ({
         </span>
       </p>
 
+      {/* Engine analysis — why this move is bad */}
+      {guardianIntervention.analysis && (
+        <div className="space-y-2 mb-3">
+          {/* Punishment line: what happens after your bad move */}
+          {guardianIntervention.analysis.punishment_line?.length > 0 && (
+            <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+              <p className="text-[10px] uppercase tracking-widest text-red-400 font-bold mb-1">
+                What happens next
+              </p>
+              <p className="text-xs text-foreground font-mono">
+                {pendingMove.moveSan}{" "}
+                {guardianIntervention.analysis.punishment_line.join(" ")}
+              </p>
+            </div>
+          )}
+
+          {/* Best line: what you should play instead */}
+          {guardianIntervention.analysis.best_line?.length > 0 && (
+            <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20">
+              <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold mb-1">
+                Better plan
+              </p>
+              <p className="text-xs text-foreground font-mono">
+                {guardianIntervention.analysis.best_line.join(" ")}
+              </p>
+            </div>
+          )}
+
+          {/* Mistake category badge */}
+          {guardianIntervention.analysis.mistake_category && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px]">
+                {guardianIntervention.analysis.mistake_category === "one_move_blunder" ? "One-move blunder"
+                  : guardianIntervention.analysis.mistake_category === "tactical_miss" ? "Missed tactic"
+                  : guardianIntervention.analysis.mistake_category === "threat_blindness" ? "Missed threat"
+                  : guardianIntervention.analysis.mistake_category === "calculation_error" ? "Calculation error"
+                  : "Positional mistake"}
+              </Badge>
+              {guardianIntervention.analysis.cp_loss > 0 && (
+                <span className="text-[10px] text-muted-foreground">
+                  -{(guardianIntervention.analysis.cp_loss / 100).toFixed(1)} pawns
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2">
         <Button
           size="sm"

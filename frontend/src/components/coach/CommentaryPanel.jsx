@@ -18,8 +18,8 @@ const CATEGORY_CONFIG = {
   pawn_structure: { icon: Eye, color: "text-orange-500", bg: "bg-orange-500/5", border: "border-orange-500/10" },
 };
 
-const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch }) => {
-  const hasContent = commentary || openingGuidance || trapWarning || openingDeviation;
+const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch, openingComplete }) => {
+  const hasContent = commentary || openingGuidance || trapWarning || openingDeviation || openingComplete;
   if (!hasContent) return null;
 
   return (
@@ -36,6 +36,34 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+
+        {/* ─── Opening Line Complete ─── */}
+        {openingComplete && (
+          <div className="rounded-xl border-2 border-emerald-400/30 bg-emerald-500/[0.04] p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Target className="w-4 h-4 text-emerald-500" strokeWidth={2.5} />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500">
+                {openingComplete.branchName} Complete
+              </span>
+            </div>
+            <p className="text-sm text-foreground mb-2">
+              Well done! {openingComplete.evalText}. Play actively from here.
+            </p>
+            {openingComplete.otherBranches?.length > 0 && (
+              <div className="rounded-lg bg-muted/50 border border-border/50 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
+                  More to learn
+                </p>
+                <p className="text-xs text-foreground/70">
+                  {openingComplete.otherBranches.length === 1
+                    ? `The ${openingComplete.otherBranches[0]} is another variation — play again to learn it.`
+                    : `${openingComplete.otherBranches.join(" and ")} are other variations — play again to learn them.`
+                  }
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ─── Opening Deviation: Rejected (bad move) ─── */}
         {openingDeviation?.rejected && (
