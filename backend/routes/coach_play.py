@@ -3358,6 +3358,60 @@ async def evaluate_pending_move(
             evaluate_pending_move._behavior_cache = _behavior_cache
         session_tracker = _behavior_cache[session_id]
 
+        # ─── OPENING GUIDANCE + TRAP (compute BEFORE eval — instant, <1ms) ─────
+        opening_guidance_data = None
+        trap_warning_data = None
+        try:
+            teaching_opening = session_doc.get("opening_to_teach") or session_doc.get("opening_key")
+            if teaching_opening and session_doc.get("opening_teaching_active"):
+                from services.opening_mastery_tracker import (
+                    get_opening_mastery, get_move_guidance, get_trap_warning, get_phase_label
+                )
+                mastery = await get_opening_mastery(db, user_id, teaching_opening)
+                phase = mastery.get("phase", "introduction")
+                move_idx_for_guidance = len(move_history) + 1  # guidance for NEXT move after this one
+
+                # Guidance for the move the user JUST played (was it correct?)
+                current_guidance = get_move_guidance(teaching_opening, len(move_history) - 1, phase)
+                # Guidance for the NEXT move
+                next_guidance = get_move_guidance(teaching_opening, move_idx_for_guidance, phase)
+
+                if next_guidance:
+                    opening_guidance_data = {
+                        "opening_key": teaching_opening,
+                        "phase": phase,
+                        "phase_label": get_phase_label(phase),
+                        "move_idea": next_guidance.get("idea"),
+                        "expected_move": next_guidance.get("move"),
+                        "arrow": next_guidance.get("arrow"),
+                        "games_played": mastery.get("games_played", 0),
+                    }
+
+                    # Check if user played the WRONG move for the opening
+                    if current_guidance:
+                        expected = current_guidance.get("move", "")
+                        played_san = ""
+                        try:
+                            board_check = chess.Board(fen_before)
+                            played_san = board_check.san(chess.Move.from_uci(uci))
+                        except Exception:
+                            pass
+                        if expected and played_san and played_san.replace("+", "").replace("#", "").lower() != expected.replace("+", "").replace("#", "").lower():
+                            # User deviated — tell them
+                            opening_guidance_data["deviation"] = {
+                                "played": played_san,
+                                "expected": expected,
+                                "idea": current_guidance.get("idea", ""),
+                            }
+
+                # Trap warning
+                moves_played = [m.get("move", "") for m in move_history if isinstance(m, dict)]
+                trap_warn = get_trap_warning(teaching_opening, moves_played)
+                if trap_warn:
+                    trap_warning_data = trap_warn
+        except Exception as e:
+            logger.warning(f"[FAST-EVAL] Pre-eval guidance failed: {e}")
+
         # Cache eval_before from last evaluation
         cached_eval = None
         evals = session_doc.get("evaluations", [])
@@ -3399,6 +3453,8 @@ async def evaluate_pending_move(
                 "focusEnforcement": None,
                 "userFocus": user_focus,
                 "commentary": _timeout_commentary,
+                "openingGuidance": opening_guidance_data,
+                "trapWarning": trap_warning_data,
                 "coachingMoment": None,
                 "moveEvaluation": {
                     "moveQuality": eval_result.get("move_quality", "good"),
@@ -3728,39 +3784,7 @@ async def evaluate_pending_move(
             except Exception as e:
                 logger.warning(f"[FAST-EVAL] Escalation failed: {e}")
 
-        # ─── OPENING GUIDANCE + TRAP WARNING ─────
-        opening_guidance_data = None
-        trap_warning_data = None
-        try:
-            teaching_opening = session_doc.get("opening_to_teach") or session_doc.get("opening_key")
-            if teaching_opening:
-                from services.opening_mastery_tracker import (
-                    get_opening_mastery, get_move_guidance, get_trap_warning, get_phase_label
-                )
-                mastery = await get_opening_mastery(db, user_id, teaching_opening)
-                phase = mastery.get("phase", "introduction")
-                move_idx_for_guidance = len(move_history)  # current ply
-
-                # Get move guidance for next move (if in teaching phase)
-                guidance = get_move_guidance(teaching_opening, move_idx_for_guidance, phase)
-                if guidance:
-                    opening_guidance_data = {
-                        "opening_key": teaching_opening,
-                        "phase": phase,
-                        "phase_label": get_phase_label(phase),
-                        "move_idea": guidance.get("idea"),
-                        "expected_move": guidance.get("move"),
-                        "arrow": guidance.get("arrow"),
-                        "games_played": mastery.get("games_played", 0),
-                    }
-
-                # Check for trap proximity
-                moves_played = [m.get("move", "") for m in move_history if isinstance(m, dict)]
-                trap_warn = get_trap_warning(teaching_opening, moves_played)
-                if trap_warn:
-                    trap_warning_data = trap_warn
-        except Exception as e:
-            logger.warning(f"[FAST-EVAL] Opening guidance failed: {e}")
+        # (Opening guidance + trap warning already computed before eval)
 
         # ─── BUILD RESPONSE ─────
         elapsed_total = (_time.monotonic() - start) * 1000
@@ -3796,16 +3820,45 @@ async def evaluate_pending_move(
             logger.error(f"[FAST-EVAL] Fundamentals eval failed: {_fe}", exc_info=True)
             fundamentals_data = {"phase": game_phase, "fundamentals": []}
 
-        # ─── POSITION COMMENTARY (expensive, calls read_position) ─────
+        # ─── POSITION COMMENTARY ─────
+        # When opening teaching is active, override with opening-specific commentary
         commentary = None
-        try:
-            from services.position_intelligence import read_board_like_a_coach
-            fen_after = board_after.fen() if board_after else fen_before
-            commentary = read_board_like_a_coach(fen_after, user_color, user_rating)
-            if commentary:
-                logger.info(f"[FAST-EVAL] Commentary generated: {commentary.get('summary', '')[:50]}")
-        except Exception as e:
-            logger.warning(f"[FAST-EVAL] Board reading failed: {e}")
+        if opening_guidance_data and opening_guidance_data.get("move_idea"):
+            # Use opening idea as the main commentary
+            from services.opening_theory_tree_service import load_theory_tree
+            try:
+                _tree = load_theory_tree()
+                _opening = _tree.get(opening_guidance_data["opening_key"], {})
+                _plan_key = "white_plan" if user_color == "white" else "black_plan"
+                commentary = {
+                    "summary": opening_guidance_data["move_idea"],
+                    "phase": "opening",
+                    "material": "",
+                    "plan": _opening.get(_plan_key, ""),
+                    "plan_id": "opening_teaching",
+                    "observations": [],
+                }
+                # Add deviation warning as observation if user played wrong move
+                if opening_guidance_data.get("deviation"):
+                    dev = opening_guidance_data["deviation"]
+                    commentary["observations"].append({
+                        "category": "tactics",
+                        "title": f"You played {dev['played']} — the Italian Game idea is different",
+                        "description": dev["idea"],
+                        "actionable": f"Try {dev['expected']} next time.",
+                    })
+            except Exception:
+                pass
+
+        if not commentary:
+            try:
+                from services.position_intelligence import read_board_like_a_coach
+                fen_after = board_after.fen() if board_after else fen_before
+                commentary = read_board_like_a_coach(fen_after, user_color, user_rating)
+                if commentary:
+                    logger.info(f"[FAST-EVAL] Commentary generated: {commentary.get('summary', '')[:50]}")
+            except Exception as e:
+                logger.warning(f"[FAST-EVAL] Board reading failed: {e}")
 
         # Store decision in session for export/debugging
         try:

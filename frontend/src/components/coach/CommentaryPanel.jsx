@@ -58,8 +58,20 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning }) => {
               </p>
             )}
 
+            {/* Deviation warning */}
+            {openingGuidance.deviation && (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 mb-2">
+                <p className="text-xs text-amber-600 font-medium mb-1">
+                  You played {openingGuidance.deviation.played} — that's not the Italian Game plan
+                </p>
+                <p className="text-[11px] text-foreground/70">
+                  {openingGuidance.deviation.idea}
+                </p>
+              </div>
+            )}
+
             {/* Arrow indicator */}
-            {openingGuidance.arrow && (
+            {openingGuidance.arrow && !openingGuidance.deviation && (
               <div className="flex items-center gap-2 text-xs text-primary/70">
                 <span className="font-mono">{openingGuidance.arrow[0]}</span>
                 <span>→</span>
