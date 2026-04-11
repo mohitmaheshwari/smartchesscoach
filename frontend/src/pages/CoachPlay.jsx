@@ -1668,6 +1668,9 @@ const CoachPlay = ({ user }) => {
     } catch (error) {
       console.error("Move error:", error);
       toast.error("Connection error. Please try again.");
+      setIsPlayerTurn(true);
+      setIsCoachThinking(false);
+      setLoadingFeedback(false);
       return false;
     }
   };
@@ -1679,8 +1682,43 @@ const CoachPlay = ({ user }) => {
     
     const poll = async () => {
       if (attempts >= maxAttempts) {
+        console.warn("[CoachPlay] Poll timeout after", maxAttempts, "attempts");
+        // Try one last fetch to see if game ended or coach moved
+        try {
+          const lastCheck = await fetch(`${API}/coach/play/state/${session.session_id}`, { credentials: "include" });
+          if (lastCheck.ok) {
+            const lastData = await lastCheck.json();
+            if (lastData.game_over || lastData.session?.status === "completed") {
+              setGameOver(true);
+              setGameResult(lastData.session?.result || "draw");
+              setCoachThinking(false);
+              setIsCoachThinking(false);
+              setLoadingFeedback(false);
+              setSession(lastData.session);
+              if (lastData.current_fen) setCurrentFen(lastData.current_fen);
+              return;
+            }
+            if (!lastData.session?.coach_move_pending && lastData.current_fen) {
+              // Coach actually did move, we just missed it
+              setSession(lastData.session);
+              setCurrentFen(lastData.current_fen);
+              setIsPlayerTurn(true);
+              setCoachThinking(false);
+              setIsCoachThinking(false);
+              setLoadingFeedback(false);
+              setMoveStartTime(Date.now());
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("[CoachPlay] Last check failed:", e);
+        }
         setCoachThinking(false);
-        toast.error("Coach took too long to respond");
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+        setIsPlayerTurn(true);
+        setMoveStartTime(Date.now());
+        toast.error("Coach took too long to respond. Your turn.");
         return;
       }
       
@@ -1766,10 +1804,13 @@ const CoachPlay = ({ user }) => {
         }
         
         // Keep polling
+        if (attempts <= 3 || attempts % 10 === 0) {
+          console.log("[CoachPlay] Poll attempt", attempts, "- coach still thinking");
+        }
         setTimeout(poll, 1000);
-        
+
       } catch (error) {
-        console.error("Poll error:", error);
+        console.error("[CoachPlay] Poll error:", error);
         setTimeout(poll, 1000);
       }
     };
