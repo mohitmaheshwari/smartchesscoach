@@ -3275,7 +3275,10 @@ async def evaluate_pending_move(
         session_doc = await db.coach_sessions.find_one(
             {"session_id": session_id},
             {"_id": 0, "evaluations": 1, "user_color": 1, "user_id": 1, "move_history": 1,
-             "coaching_decisions": 1, "last_coaching_move_index": 1}
+             "coaching_decisions": 1, "last_coaching_move_index": 1,
+             "opening_to_teach": 1, "opening_key": 1, "opening_teaching_active": 1,
+             "opening_teaching_moves": 1, "opening_teaching_index": 1,
+             "behavior_summary": 1}
         )
         if not session_doc:
             return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None}
