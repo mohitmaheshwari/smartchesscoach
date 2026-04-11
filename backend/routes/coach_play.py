@@ -4343,18 +4343,20 @@ async def complete_focus_puzzle(
 
 
 def _get_initial_opening_guidance(update_fields: dict, log=None) -> Optional[Dict]:
-    """Get opening guidance for the FIRST move at game start."""
+    """Get opening guidance for the FIRST move + ALL move ideas for client-side guidance."""
     teaching_key = update_fields.get("opening_to_teach") or update_fields.get("opening_key")
     if log:
         log.info(f"[COACH-GUIDANCE] update_fields keys: {list(update_fields.keys())}, teaching_key: {teaching_key}")
     if not teaching_key:
         return None
     try:
-        from services.opening_mastery_tracker import get_move_guidance, get_phase_label, INTRODUCTION
+        from services.opening_mastery_tracker import get_move_guidance, get_phase_label, INTRODUCTION, OPENING_MOVE_IDEAS
         guidance = get_move_guidance(teaching_key, 0, INTRODUCTION)
         if log:
             log.info(f"[COACH-GUIDANCE] guidance for {teaching_key}: {guidance}")
         if guidance:
+            # Send ALL move ideas so frontend can compute arrows client-side
+            all_ideas = OPENING_MOVE_IDEAS.get(teaching_key, [])
             return {
                 "opening_key": teaching_key,
                 "phase": INTRODUCTION,
@@ -4363,6 +4365,7 @@ def _get_initial_opening_guidance(update_fields: dict, log=None) -> Optional[Dic
                 "expected_move": guidance.get("move"),
                 "arrow": guidance.get("arrow"),
                 "games_played": 0,
+                "all_ideas": all_ideas,  # Full list for client-side guidance
             }
     except Exception as e:
         if log:

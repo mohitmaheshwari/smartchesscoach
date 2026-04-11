@@ -132,7 +132,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
             if (lateResult.playerProfile) setPlayerProfile(prev => prev || lateResult.playerProfile);
             if (lateResult.commentary) setCommentary(lateResult.commentary);
             if (lateResult.rootProblem) setRootProblem(lateResult.rootProblem);
-            setOpeningGuidance(lateResult.openingGuidance || null);
+            if (lateResult.openingGuidance) setOpeningGuidance(lateResult.openingGuidance);
             setTrapWarning(lateResult.trapWarning || null);
           }
         }).catch(() => {});
@@ -173,12 +173,12 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       if (result.rootProblem) {
         setRootProblem(result.rootProblem);
       }
-      // Always update guidance — clear old if no new guidance
-      console.log("[CoachFlow] openingGuidance:", result.openingGuidance ? JSON.stringify({arrow: result.openingGuidance.arrow, move: result.openingGuidance.expected_move, idea: result.openingGuidance.move_idea?.substring(0, 40)}) : "null");
-      setOpeningGuidance(result.openingGuidance || null);
+      // Only update guidance from server if client-side ideas aren't driving it
+      // (client-side guidance via openingIdeas is the primary source now)
+      if (result.openingGuidance) {
+        setOpeningGuidance(result.openingGuidance);
+      }
       setTrapWarning(result.trapWarning || null);
-      const _dg = result.debug?.guidance || {};
-      console.log("[CoachFlow] GUIDANCE DEBUG:", "ply=" + _dg.ply, "active=" + _dg.active, "phase=" + _dg.phase, "has_next=" + _dg.has_next, "next_arrow=" + JSON.stringify(_dg.next_arrow), "openingGuidance=" + (result.openingGuidance ? JSON.stringify(result.openingGuidance.arrow) : "null"));
 
       // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
       if (layer === "silent" || result.shouldAutoCommit) {

@@ -187,14 +187,54 @@ const CoachPlay = ({ user }) => {
   // Board arrows for coaching visualization
   const [coachArrows, setCoachArrows] = useState([]);
 
-  // Show opening guidance arrow on the board
-  // Arrow stays visible until user makes their move
+  // Client-side opening guidance — no server dependency for arrows
+  const [openingIdeas, setOpeningIdeas] = useState([]); // ALL move ideas from /start
+  const [gamePly, setGamePly] = useState(0); // total half-moves played
+
+  // Compute and show guidance arrow from local data
+  useEffect(() => {
+    if (!openingIdeas.length || !isPlayerTurn || gameOver) return;
+    // The user's next move is at the current gamePly
+    const idea = openingIdeas[gamePly];
+    // The coach's last move (just played) is at gamePly - 1
+    const coachIdea = gamePly > 0 ? openingIdeas[gamePly - 1] : null;
+
+    if (idea?.arrow) {
+      console.log("[CoachPlay] Client-side arrow for ply", gamePly, ":", idea.arrow, idea.move);
+      setCoachArrows([[idea.arrow[0], idea.arrow[1], "green"]]);
+      // Update guidance for CommentaryPanel
+      coachFlow.setOpeningGuidance({
+        opening_key: openingIdeas._key || "",
+        move_idea: idea.idea,
+        expected_move: idea.move,
+        arrow: idea.arrow,
+        coach_move_idea: coachIdea?.idea || null,
+        coach_move: coachIdea?.move || null,
+      });
+    } else if (idea && !idea.arrow) {
+      // User move exists but has no arrow (shouldn't happen for user moves, but handle it)
+      coachFlow.setOpeningGuidance({
+        move_idea: idea.idea,
+        expected_move: idea.move,
+        arrow: null,
+        coach_move_idea: coachIdea?.idea || null,
+        coach_move: coachIdea?.move || null,
+      });
+      setCoachArrows([]);
+    } else {
+      // Past the teaching line — clear guidance
+      setCoachArrows([]);
+      coachFlow.setOpeningGuidance(null);
+    }
+  }, [gamePly, openingIdeas, isPlayerTurn, gameOver]);
+
+  // Legacy: still accept server-side guidance for fallback
   useEffect(() => {
     const guidance = coachFlow.openingGuidance;
-    if (guidance?.arrow && isPlayerTurn && !gameOver) {
+    if (guidance?.arrow && isPlayerTurn && !gameOver && !openingIdeas.length) {
       setCoachArrows([[guidance.arrow[0], guidance.arrow[1], "green"]]);
     }
-  }, [coachFlow.openingGuidance?.arrow?.[0], coachFlow.openingGuidance?.arrow?.[1], isPlayerTurn, gameOver]);
+  }, [coachFlow.openingGuidance?.arrow?.[0], coachFlow.openingGuidance?.arrow?.[1], isPlayerTurn, gameOver, openingIdeas.length]);
 
   // V5 Coaching State - Unified with Lab
   const [v5Coaching, setV5Coaching] = useState(null);
@@ -758,15 +798,16 @@ const CoachPlay = ({ user }) => {
       setGameStarted(true);
       setMoveStartTime(Date.now());
 
-      // Set initial opening guidance (show arrow + idea for first move)
+      // Set initial opening guidance — store ALL ideas for client-side arrows
       console.log("[CoachPlay] Start response openingGuidance:", data.openingGuidance);
       if (data.openingGuidance) {
         coachFlow.setOpeningGuidance(data.openingGuidance);
-        // Show arrow on board for the first move
-        if (data.openingGuidance.arrow) {
-          console.log("[CoachPlay] Setting initial arrow:", data.openingGuidance.arrow);
-          setCoachArrows([[data.openingGuidance.arrow[0], data.openingGuidance.arrow[1], "green"]]);
+        // Store full ideas list for client-side guidance (no server dependency)
+        if (data.openingGuidance.all_ideas?.length) {
+          console.log("[CoachPlay] Loaded", data.openingGuidance.all_ideas.length, "opening move ideas for client-side guidance");
+          setOpeningIdeas(data.openingGuidance.all_ideas);
         }
+        setGamePly(0); // Reset ply counter for new game
       }
 
       // Set initial evaluation
@@ -780,6 +821,8 @@ const CoachPlay = ({ user }) => {
         if (coachMove.uci) {
           setLastMove([coachMove.uci.slice(0, 2), coachMove.uci.slice(2, 4)]);
         }
+        // Coach already played move 0, so user's first move is at ply 1
+        if (openingIdeas.length) setGamePly(1);
       }
       
       // Store intro message for coach panel (don't toast — show in panel instead)
@@ -1596,6 +1639,8 @@ const CoachPlay = ({ user }) => {
             } else {
               setIsPlayerTurn(true);
               setMoveStartTime(Date.now());
+              // Increment ply for coach's response move
+              if (openingIdeas.length) setGamePly(prev => prev + 1);
               // Check for escape squares teaching moment
               checkEscapeSquares();
             }
@@ -1943,6 +1988,8 @@ const CoachPlay = ({ user }) => {
     setCoachArrows([]);
     setPreMoveTrap(null);
     setV5Coaching(null);
+    // Increment ply for user's move (coach's response adds +1 in pollForCoachResponse)
+    if (openingIdeas.length) setGamePly(prev => prev + 1);
 
     // Try to make the move locally first
     const chess = new Chess(currentFen);
@@ -2064,6 +2111,8 @@ const CoachPlay = ({ user }) => {
     setChatMessages([]);
     resetPlayerData();
     setEscapeSquaresQuiz(null);
+    setOpeningIdeas([]);
+    setGamePly(0);
   };
 
   const canUndoLastMove = () => {
