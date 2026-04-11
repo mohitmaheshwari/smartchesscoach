@@ -110,15 +110,41 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
         }),
       }).then(r => r.ok ? r.json() : null);
 
-      // 1200ms window — Stockfish needs time, especially early moves
+      // 3000ms window — Stockfish needs time, especially on cold start
+      const EVAL_TIMEOUT_MS = 3000;
       const timeoutPromise = new Promise(resolve =>
-        setTimeout(() => resolve(null), 1200)
+        setTimeout(() => resolve("__timeout__"), EVAL_TIMEOUT_MS)
       );
 
-      const result = await Promise.race([evalPromise, timeoutPromise]);
-      console.log("[CoachFlow] evaluate-pending result:", result ? "received" : "timeout", result);
+      const raceResult = await Promise.race([evalPromise, timeoutPromise]);
+      const timedOut = raceResult === "__timeout__";
+      const result = timedOut ? null : raceResult;
+      console.log("[CoachFlow] evaluate-pending result:", timedOut ? "timeout" : "received", result);
 
-      // If timeout won or eval failed → auto-commit
+      // If timeout won → auto-commit, but still grab guidance when eval finishes
+      if (timedOut) {
+        // Fire-and-forget: when eval eventually resolves, apply guidance/checklist
+        evalPromise.then(lateResult => {
+          if (lateResult) {
+            console.log("[CoachFlow] Late eval arrived, applying guidance:", Object.keys(lateResult));
+            if (lateResult.checklist) setLiveChecklist(lateResult.checklist);
+            if (lateResult.weaknesses) setPlayerWeaknessList(lateResult.weaknesses);
+            if (lateResult.playerProfile) setPlayerProfile(prev => prev || lateResult.playerProfile);
+            if (lateResult.commentary) setCommentary(lateResult.commentary);
+            if (lateResult.rootProblem) setRootProblem(lateResult.rootProblem);
+            setOpeningGuidance(lateResult.openingGuidance || null);
+            setTrapWarning(lateResult.trapWarning || null);
+          }
+        }).catch(() => {});
+
+        await commitFn(pending.san, timeSpent);
+        setInteractionState(INTERACTION_STATES.COACH_TURN);
+        setPendingMove(null);
+        setClockState(CLOCK_STATES.DISABLED);
+        return { autoCommitted: true };
+      }
+
+      // Eval failed
       if (!result) {
         await commitFn(pending.san, timeSpent);
         setInteractionState(INTERACTION_STATES.COACH_TURN);
