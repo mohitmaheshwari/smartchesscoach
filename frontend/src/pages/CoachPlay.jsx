@@ -2158,6 +2158,13 @@ const CoachPlay = ({ user }) => {
 
         console.log("[CoachPlay] Opening deviation:", moveObj.san, "expected:", expected.move);
 
+        // Save ideas before clearing — may need to restore if move is rejected
+        const savedIdeas = [...openingIdeas];
+        // Immediately stop arrows — prevent the effect from re-setting them during async eval
+        setOpeningIdeas([]);
+        setCoachArrows([]);
+        coachFlow.setOpeningGuidance(null);
+
         // Show move on board temporarily so user sees what they played
         setCurrentFen(chess.fen());
 
@@ -2185,6 +2192,8 @@ const CoachPlay = ({ user }) => {
           if (isBadMove) {
             // BAD deviation — reset the move, explain why
             setCurrentFen(currentFen); // Reset board to before the move
+            // Restore teaching ideas so user can try again with arrows
+            setOpeningIdeas(savedIdeas);
             setOpeningDeviation({
               played: moveObj.san,
               expected: expected.move,
@@ -2213,7 +2222,7 @@ const CoachPlay = ({ user }) => {
               accepted: true,
               reason: `${moveObj.san} is a reasonable move, but it leaves the ${activeBranch?.name || "opening"} line. We'll continue from here.`,
             });
-            setOpeningIdeas([]); // Stop teaching — position diverged
+            // openingIdeas already cleared above — teaching is done
             // Increment ply and fall through to normal move handling
             setGamePly(prev => prev + 1);
           }
