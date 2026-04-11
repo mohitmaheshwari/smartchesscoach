@@ -233,13 +233,8 @@ const CoachPlay = ({ user }) => {
     }
   }, [gamePly, openingIdeas, isPlayerTurn, gameOver]);
 
-  // Legacy: still accept server-side guidance for fallback
-  useEffect(() => {
-    const guidance = coachFlow.openingGuidance;
-    if (guidance?.arrow && isPlayerTurn && !gameOver && !openingIdeas.length) {
-      setCoachArrows([[guidance.arrow[0], guidance.arrow[1], "green"]]);
-    }
-  }, [coachFlow.openingGuidance?.arrow?.[0], coachFlow.openingGuidance?.arrow?.[1], isPlayerTurn, gameOver, openingIdeas.length]);
+  // Note: server-side guidance (coachFlow.openingGuidance) is used for CommentaryPanel text only.
+  // Arrows are driven exclusively by client-side openingIdeas to avoid conflicts.
 
   // Opening line completion summary
   const [openingComplete, setOpeningComplete] = useState(null);
