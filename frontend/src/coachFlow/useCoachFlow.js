@@ -394,6 +394,7 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
     openingGuidance,
     setOpeningGuidance,
     trapWarning,
+    setTrapWarning,
     timeline,
 
     // Derived
