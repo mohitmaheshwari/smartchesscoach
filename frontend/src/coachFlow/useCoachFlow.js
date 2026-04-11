@@ -177,7 +177,8 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       console.log("[CoachFlow] openingGuidance:", result.openingGuidance ? JSON.stringify({arrow: result.openingGuidance.arrow, move: result.openingGuidance.expected_move, idea: result.openingGuidance.move_idea?.substring(0, 40)}) : "null");
       setOpeningGuidance(result.openingGuidance || null);
       setTrapWarning(result.trapWarning || null);
-      console.log("[CoachFlow] debug.guidance:", result.debug?.guidance, "openingGuidance:", result.openingGuidance ? "present" : "null");
+      const _dg = result.debug?.guidance || {};
+      console.log("[CoachFlow] GUIDANCE DEBUG:", "ply=" + _dg.ply, "active=" + _dg.active, "phase=" + _dg.phase, "has_next=" + _dg.has_next, "next_arrow=" + JSON.stringify(_dg.next_arrow), "openingGuidance=" + (result.openingGuidance ? JSON.stringify(result.openingGuidance.arrow) : "null"));
 
       // ─── AUTO-COMMIT (silent, ambient, advisory) ─────
       if (layer === "silent" || result.shouldAutoCommit) {
