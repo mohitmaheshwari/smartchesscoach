@@ -58,6 +58,14 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning }) => {
               </p>
             )}
 
+            {/* Coach's move explanation */}
+            {openingGuidance.coach_move_idea && (
+              <div className="rounded-lg bg-blue-500/5 border border-blue-500/10 px-3 py-2 mb-2">
+                <p className="text-[9px] uppercase tracking-widest text-blue-500 font-bold mb-0.5">Opponent played {openingGuidance.coach_move}</p>
+                <p className="text-xs text-foreground/80">{openingGuidance.coach_move_idea}</p>
+              </div>
+            )}
+
             {/* Deviation warning */}
             {openingGuidance.deviation && (
               <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 mb-2">

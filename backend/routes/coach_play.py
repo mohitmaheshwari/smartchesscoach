@@ -3373,19 +3373,27 @@ async def evaluate_pending_move(
 
                 # Guidance for the move the user JUST played (was it correct?)
                 current_guidance = get_move_guidance(teaching_opening, len(move_history) - 1, phase)
-                # Guidance for the NEXT move
+                # Coach's upcoming move idea (the response to user's move)
+                coach_move_guidance = get_move_guidance(teaching_opening, len(move_history), phase)
+                # Guidance for the NEXT user move (after coach responds)
                 next_guidance = get_move_guidance(teaching_opening, move_idx_for_guidance, phase)
 
-                if next_guidance:
+                if next_guidance or coach_move_guidance:
                     opening_guidance_data = {
                         "opening_key": teaching_opening,
                         "phase": phase,
                         "phase_label": get_phase_label(phase),
-                        "move_idea": next_guidance.get("idea"),
-                        "expected_move": next_guidance.get("move"),
-                        "arrow": next_guidance.get("arrow"),
                         "games_played": mastery.get("games_played", 0),
                     }
+                    # Next user move guidance (with arrow)
+                    if next_guidance:
+                        opening_guidance_data["move_idea"] = next_guidance.get("idea")
+                        opening_guidance_data["expected_move"] = next_guidance.get("move")
+                        opening_guidance_data["arrow"] = next_guidance.get("arrow")
+                    # Coach's move explanation (no arrow, just idea)
+                    if coach_move_guidance:
+                        opening_guidance_data["coach_move_idea"] = coach_move_guidance.get("idea")
+                        opening_guidance_data["coach_move"] = coach_move_guidance.get("move")
 
                     # Check if user played the WRONG move for the opening
                     if current_guidance:
@@ -3436,13 +3444,29 @@ async def evaluate_pending_move(
         # Hard timeout check — still return checklist/commentary even on timeout
         if elapsed_eval > 1000:
             logger.warning(f"[FAST-EVAL] Hard timeout at {elapsed_eval:.0f}ms")
-            # Still try to get commentary even on eval timeout
+            # Use opening idea as commentary if teaching, otherwise board reading
             _timeout_commentary = None
-            try:
-                from services.position_intelligence import read_board_like_a_coach
-                _timeout_commentary = read_board_like_a_coach(fen_before, user_color, user_rating)
-            except Exception:
-                pass
+            if opening_guidance_data and opening_guidance_data.get("move_idea"):
+                try:
+                    from services.opening_theory_tree_service import load_theory_tree
+                    _tree = load_theory_tree()
+                    _opening = _tree.get(opening_guidance_data["opening_key"], {})
+                    _plan_key = "white_plan" if user_color == "white" else "black_plan"
+                    _timeout_commentary = {
+                        "summary": opening_guidance_data["move_idea"],
+                        "phase": "opening",
+                        "material": "",
+                        "plan": _opening.get(_plan_key, ""),
+                        "observations": [],
+                    }
+                except Exception:
+                    pass
+            if not _timeout_commentary:
+                try:
+                    from services.position_intelligence import read_board_like_a_coach
+                    _timeout_commentary = read_board_like_a_coach(fen_before, user_color, user_rating)
+                except Exception:
+                    pass
             return {
                 "shouldAutoCommit": True,
                 "coachingDecision": {"layer": "silent", "gamePhase": "opening" if move_index_preview < 24 else "middlegame"},
@@ -3961,7 +3985,15 @@ async def evaluate_pending_move(
     except Exception as e:
         elapsed_total = (_time.monotonic() - start) * 1000
         logger.error(f"[FAST-EVAL] Error after {elapsed_total:.0f}ms: {e}")
-        return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None}
+        try:
+            _og = opening_guidance_data
+        except NameError:
+            _og = None
+        try:
+            _tw = trap_warning_data
+        except NameError:
+            _tw = None
+        return {"shouldAutoCommit": True, "coachingMoment": None, "coachingDecision": {"layer": "silent"}, "checklist": {}, "weaknesses": [], "playerProfile": None, "commentary": None, "openingGuidance": _og, "trapWarning": _tw}
 
 
 def _generate_gap_filler(board: chess.Board, user_color: str, move_number: int, signals: dict, session_id: str) -> Optional[Dict]:

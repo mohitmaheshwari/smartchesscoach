@@ -187,18 +187,14 @@ const CoachPlay = ({ user }) => {
   // Board arrows for coaching visualization
   const [coachArrows, setCoachArrows] = useState([]);
 
-  // Show opening guidance arrow on the board (only when guidance changes)
-  const lastGuidanceMoveRef = useRef(null);
+  // Show opening guidance arrow on the board
+  // Arrow stays visible until user makes their move
   useEffect(() => {
     const guidance = coachFlow.openingGuidance;
     if (guidance?.arrow && isPlayerTurn && !gameOver) {
-      const guidanceKey = `${guidance.expected_move}_${guidance.arrow[0]}_${guidance.arrow[1]}`;
-      if (guidanceKey !== lastGuidanceMoveRef.current) {
-        setCoachArrows([[guidance.arrow[0], guidance.arrow[1], "green"]]);
-        lastGuidanceMoveRef.current = guidanceKey;
-      }
+      setCoachArrows([[guidance.arrow[0], guidance.arrow[1], "green"]]);
     }
-  }, [coachFlow.openingGuidance, isPlayerTurn, gameOver]);
+  }, [coachFlow.openingGuidance?.arrow?.[0], coachFlow.openingGuidance?.arrow?.[1], isPlayerTurn, gameOver]);
 
   // V5 Coaching State - Unified with Lab
   const [v5Coaching, setV5Coaching] = useState(null);
