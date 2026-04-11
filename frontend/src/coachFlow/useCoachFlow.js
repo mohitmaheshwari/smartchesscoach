@@ -147,9 +147,9 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
       if (result.rootProblem) {
         setRootProblem(result.rootProblem);
       }
-      if (result.openingGuidance) {
-        setOpeningGuidance(result.openingGuidance);
-      }
+      // Always update guidance — clear old if no new guidance
+      console.log("[CoachFlow] openingGuidance:", result.openingGuidance ? JSON.stringify({arrow: result.openingGuidance.arrow, move: result.openingGuidance.expected_move, idea: result.openingGuidance.move_idea?.substring(0, 40)}) : "null");
+      setOpeningGuidance(result.openingGuidance || null);
       setTrapWarning(result.trapWarning || null);
       console.log("[CoachFlow] full result keys:", Object.keys(result), "checklist:", !!result.checklist, "weaknesses:", !!result.weaknesses, "profile:", !!result.playerProfile, "commentary:", !!result.commentary, "commentary value:", result.commentary);
 
