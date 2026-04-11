@@ -37,23 +37,58 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
 
-        {/* ─── Opening Deviation Warning ─── */}
-        {openingDeviation && (
-          <div className="rounded-xl border-2 border-red-400/30 bg-red-500/[0.04] p-3">
+        {/* ─── Opening Deviation: Rejected (bad move) ─── */}
+        {openingDeviation?.rejected && (
+          <div className="rounded-xl border-2 border-red-400/40 bg-red-500/[0.06] p-3">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="w-4 h-4 text-red-500" strokeWidth={2.5} />
               <span className="text-[10px] uppercase tracking-widest font-bold text-red-500">
-                Off the {openingDeviation.branch || "Opening"} Line
+                Move Reset
+              </span>
+            </div>
+            <p className="text-sm font-medium text-foreground mb-1.5">
+              <span className="font-mono">{openingDeviation.played}</span> is not the right move here.
+            </p>
+            {openingDeviation.reason && (
+              <p className="text-xs text-foreground/70 leading-snug mb-2">
+                {openingDeviation.reason}
+              </p>
+            )}
+            <div className="rounded-lg bg-primary/10 border border-primary/20 px-3 py-2">
+              <p className="text-[9px] uppercase tracking-widest text-primary font-bold mb-0.5">
+                {openingDeviation.branch || "Opening"} plan
+              </p>
+              <p className="text-xs text-foreground">
+                Play <span className="font-mono font-semibold">{openingDeviation.expected}</span>
+                {openingDeviation.idea ? ` — ${openingDeviation.idea.toLowerCase()}` : ""}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Opening Deviation: Accepted (ok move, off-book) ─── */}
+        {openingDeviation?.accepted && (
+          <div className="rounded-xl border-2 border-amber-400/30 bg-amber-500/[0.04] p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="w-4 h-4 text-amber-500" strokeWidth={2} />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-amber-500">
+                Off-Book
               </span>
             </div>
             <p className="text-sm text-foreground mb-1.5">
-              You played <span className="font-mono font-semibold">{openingDeviation.played}</span> — the {openingDeviation.branch || "opening"} plan is <span className="font-mono font-semibold">{openingDeviation.expected}</span>
+              <span className="font-mono font-semibold">{openingDeviation.played}</span> is fine, but it leaves the {openingDeviation.branch || "opening"} line.
             </p>
-            {openingDeviation.idea && (
-              <p className="text-xs text-foreground/70 leading-snug">
-                {openingDeviation.idea}
+            {openingDeviation.reason && (
+              <p className="text-xs text-foreground/70 leading-snug mb-2">
+                {openingDeviation.reason}
               </p>
             )}
+            <p className="text-[11px] text-muted-foreground italic">
+              The {openingDeviation.branch || "opening"} plan was <span className="font-mono">{openingDeviation.expected}</span>{openingDeviation.idea ? ` — ${openingDeviation.idea.toLowerCase()}` : ""}.
+            </p>
+            <p className="text-[10px] text-muted-foreground/60 mt-2">
+              Opening guidance ended — playing freely now.
+            </p>
           </div>
         )}
 

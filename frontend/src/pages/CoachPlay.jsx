@@ -53,6 +53,8 @@ const CoachPlay = ({ user }) => {
   const [selectedOpening, setSelectedOpening] = useState(openingFromUrl || null);
   const [guidedMode, setGuidedMode] = useState(true); // true = Guide Me, false = I Know It
   const [activeBranch, setActiveBranch] = useState(null); // current variation being taught
+  const [allBranches, setAllBranches] = useState(null); // all available branches {key: {name, branch_move, ideas}}
+  const [branchPoint, setBranchPoint] = useState(null); // ply where branches diverge
   const [openingTraps, setOpeningTraps] = useState([]); // traps for current opening
 
   // Sync opening from URL when navigating from Progress page
@@ -854,6 +856,12 @@ const CoachPlay = ({ user }) => {
         // Store branch info for variation awareness
         if (data.openingGuidance.branch) {
           setActiveBranch(data.openingGuidance.branch);
+        }
+        if (data.openingGuidance.all_branches) {
+          setAllBranches(data.openingGuidance.all_branches);
+        }
+        if (data.openingGuidance.branch_point != null) {
+          setBranchPoint(data.openingGuidance.branch_point);
         }
         // Store traps for client-side awareness
         if (data.openingGuidance.traps?.length) {
@@ -2042,8 +2050,6 @@ const CoachPlay = ({ user }) => {
     setPreMoveTrap(null);
     setV5Coaching(null);
     setOpeningDeviation(null);
-    // Increment ply for user's move (coach's response adds +1 in pollForCoachResponse)
-    if (openingIdeas.length) setGamePly(prev => prev + 1);
 
     // Try to make the move locally first
     const chess = new Chess(currentFen);
@@ -2066,21 +2072,102 @@ const CoachPlay = ({ user }) => {
       const playedSan = moveObj.san.replace(/[+#]/g, "").toLowerCase();
       const expectedSan = (expected?.move || "").replace(/[+#]/g, "").toLowerCase();
       if (expectedSan && playedSan !== expectedSan) {
-        // User deviated from the opening line
+        // Check if this move matches ANOTHER variation of the same opening
+        if (allBranches && branchPoint != null && gamePly === branchPoint) {
+          const matchedBranch = Object.entries(allBranches).find(([key, b]) =>
+            b.branch_move?.replace(/[+#]/g, "").toLowerCase() === playedSan
+          );
+          if (matchedBranch) {
+            const [branchKey, branch] = matchedBranch;
+            console.log("[CoachPlay] User played into variation:", branch.name, "(" + branchKey + ")");
+            // Switch to this branch's ideas — it's a valid variation, not a deviation
+            const commonIdeas = openingIdeas.slice(0, branchPoint);
+            const branchIdeas = branch.ideas || [];
+            setOpeningIdeas([...commonIdeas, ...branchIdeas]);
+            setActiveBranch({ key: branchKey, name: branch.name, intro: branch.intro, branch_move: branch.branch_move, branch_point: branchPoint });
+            setGamePly(prev => prev + 1);
+            // Don't treat as deviation — fall through to normal move handling
+            // Skip the rest of the deviation block
+            setCurrentFen(chess.fen());
+            highlightMove(moveObj.from + moveObj.to);
+            const timeSpent2 = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
+            const moveData2 = {
+              san: moveObj.san, uci: moveObj.from + moveObj.to + (moveObj.promotion || ""),
+              from: moveObj.from, to: moveObj.to, promotion: moveObj.promotion || null,
+              fenBefore: currentFen, fenAfterPreview: chess.fen(),
+              moveIndexPreview: (session?.move_history?.length || 0),
+            };
+            const { autoCommitted: ac2 } = await coachFlow.handleUserMove(moveData2, (san, ts) => executeMove(san, ts), timeSpent2);
+            if (ac2) setIsPlayerTurn(false);
+            return true;
+          }
+        }
+
         console.log("[CoachPlay] Opening deviation:", moveObj.san, "expected:", expected.move);
-        setOpeningDeviation({
-          played: moveObj.san,
-          expected: expected.move,
-          idea: expected.idea,
-          arrow: expected.arrow,
-          branch: activeBranch?.name || selectedOpening,
-        });
-        // In guided mode: show the correct arrow, DON'T block the move — let backend handle it
-        // In test mode: show deviation card with the correction
-        if (expected.arrow) {
-          setCoachArrows([[expected.arrow[0], expected.arrow[1], "red"]]);
-          // Clear red arrow after 4 seconds
-          setTimeout(() => setCoachArrows([]), 4000);
+
+        // Show move on board temporarily so user sees what they played
+        setCurrentFen(chess.fen());
+
+        // Call evaluate-pending to check if this deviation is acceptable
+        try {
+          const evalRes = await fetch(`${API}/coach/play/evaluate-pending`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              sessionId: session.session_id,
+              fenBefore: currentFen,
+              uci: moveObj.from + moveObj.to + (moveObj.promotion || ""),
+              moveIndexPreview: session?.move_history?.length || 0,
+              userRating: session?.user_rating || 1200,
+            }),
+          });
+          const evalData = evalRes.ok ? await evalRes.json() : null;
+          const cpLoss = evalData?.moveEvaluation?.cpLoss || 0;
+          const quality = evalData?.moveEvaluation?.moveQuality || "good";
+          const isBadMove = ["mistake", "blunder"].includes(quality) || cpLoss > 100;
+
+          console.log("[CoachPlay] Deviation eval:", quality, "cpLoss:", cpLoss, "bad:", isBadMove);
+
+          if (isBadMove) {
+            // BAD deviation — reset the move, explain why
+            setCurrentFen(currentFen); // Reset board to before the move
+            setOpeningDeviation({
+              played: moveObj.san,
+              expected: expected.move,
+              idea: expected.idea,
+              arrow: expected.arrow,
+              branch: activeBranch?.name || selectedOpening,
+              rejected: true,
+              reason: evalData?.commentary?.summary
+                || `${moveObj.san} loses position strength. The ${activeBranch?.name || "opening"} plan is ${expected.move}.`,
+              quality,
+              cpLoss,
+            });
+            // Show correct move arrow in green
+            if (expected.arrow) {
+              setCoachArrows([[expected.arrow[0], expected.arrow[1], "green"]]);
+            }
+            return false; // Move rejected — user must try again
+          } else {
+            // OK deviation — accept it, but stop teaching this line
+            setOpeningDeviation({
+              played: moveObj.san,
+              expected: expected.move,
+              idea: expected.idea,
+              arrow: expected.arrow,
+              branch: activeBranch?.name || selectedOpening,
+              accepted: true,
+              reason: `${moveObj.san} is a reasonable move, but it leaves the ${activeBranch?.name || "opening"} line. We'll continue from here.`,
+            });
+            setOpeningIdeas([]); // Stop teaching — position diverged
+            // Increment ply and fall through to normal move handling
+            setGamePly(prev => prev + 1);
+          }
+        } catch (err) {
+          console.warn("[CoachPlay] Deviation eval failed, accepting move:", err);
+          setOpeningIdeas([]);
+          // Fall through to normal move handling
         }
       }
     }
@@ -2104,6 +2191,8 @@ const CoachPlay = ({ user }) => {
     }
 
     // ─── INSTANT BOARD UPDATE ─────
+    // Increment ply for user's move (coach's response adds +1 in pollForCoachResponse)
+    if (openingIdeas.length) setGamePly(prev => prev + 1);
     setCurrentFen(chess.fen());
     highlightMove(moveObj.from + moveObj.to);
 
@@ -2133,7 +2222,7 @@ const CoachPlay = ({ user }) => {
     // but it's pending. Player can revise or tap clock to commit.
 
     return true;
-  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime, isInTeachingMode, activeLesson, coachFlow]);
+  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime, isInTeachingMode, activeLesson, coachFlow, openingIdeas, gamePly, activeBranch, allBranches, branchPoint, selectedOpening]);
 
   const resignGame = async () => {
     if (!session) return;
@@ -2193,6 +2282,8 @@ const CoachPlay = ({ user }) => {
     setOpeningIdeas([]);
     setGamePly(0);
     setActiveBranch(null);
+    setAllBranches(null);
+    setBranchPoint(null);
     setOpeningDeviation(null);
     setOpeningTraps([]);
   };

@@ -4382,6 +4382,16 @@ def _get_initial_opening_guidance(update_fields: dict, log=None) -> Optional[Dic
                 bd = OPENING_BRANCH_DATA[teaching_key]
                 result["has_branches"] = True
                 result["branch_point"] = bd["branch_point"]
+                # Send all branches so frontend can detect variation switches
+                result["all_branches"] = {
+                    k: {
+                        "name": v["name"],
+                        "branch_move": v["branch_move"],
+                        "ideas": v.get("ideas", []),
+                        "intro": v.get("intro", ""),
+                    }
+                    for k, v in bd["branches"].items()
+                }
 
             # Include relevant traps for this opening (for client-side awareness)
             try:
