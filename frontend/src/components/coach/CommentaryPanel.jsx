@@ -18,8 +18,8 @@ const CATEGORY_CONFIG = {
   pawn_structure: { icon: Eye, color: "text-orange-500", bg: "bg-orange-500/5", border: "border-orange-500/10" },
 };
 
-const CommentaryPanel = ({ commentary, openingGuidance, trapWarning }) => {
-  const hasContent = commentary || openingGuidance || trapWarning;
+const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch }) => {
+  const hasContent = commentary || openingGuidance || trapWarning || openingDeviation;
   if (!hasContent) return null;
 
   return (
@@ -36,6 +36,41 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning }) => {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+
+        {/* ─── Opening Deviation Warning ─── */}
+        {openingDeviation && (
+          <div className="rounded-xl border-2 border-red-400/30 bg-red-500/[0.04] p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-red-500" strokeWidth={2.5} />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-red-500">
+                Off the {openingDeviation.branch || "Opening"} Line
+              </span>
+            </div>
+            <p className="text-sm text-foreground mb-1.5">
+              You played <span className="font-mono font-semibold">{openingDeviation.played}</span> — the {openingDeviation.branch || "opening"} plan is <span className="font-mono font-semibold">{openingDeviation.expected}</span>
+            </p>
+            {openingDeviation.idea && (
+              <p className="text-xs text-foreground/70 leading-snug">
+                {openingDeviation.idea}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ─── New Variation Intro ─── */}
+        {activeBranch?.intro && openingGuidance && !openingDeviation && (
+          <div className="rounded-xl border-2 border-blue-400/20 bg-blue-500/[0.03] p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="w-4 h-4 text-blue-500" strokeWidth={2} />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-blue-500">
+                {activeBranch.name || "Variation"}
+              </span>
+            </div>
+            <p className="text-xs text-foreground/80 leading-snug">
+              {activeBranch.intro}
+            </p>
+          </div>
+        )}
 
         {/* ─── Opening Guidance (when learning) ─── */}
         {openingGuidance && (

@@ -33,87 +33,167 @@ FREEPLAY_TO_MASTERED_ACCURACY = 0.8  # 80% correct moves without help
 FREEPLAY_TO_MASTERED_GAMES = 3  # Need 3 free play games at 80%+
 
 
-# ─── MOVE IDEAS (why each move matters, not notation) ─────────────
+# ─── MOVE IDEAS — loaded from JSON theory tree ───────────────────
+#
+# All teaching data (ideas, arrows, variations, intros) lives in
+# opening_theory_tree.json — the single source of truth.
+# This code just reads and indexes it.
 
-OPENING_MOVE_IDEAS = {
-    "italian_game": [
-        {"move": "e4", "idea": "Push your king's pawn forward to control the center", "arrow": ["e2", "e4"]},
-        {"move": "e5", "idea": "Opponent fights for the center too", "arrow": None},
-        {"move": "Nf3", "idea": "Develop your knight toward the center — it attacks e5", "arrow": ["g1", "f3"]},
-        {"move": "Nc6", "idea": "Opponent defends their pawn", "arrow": None},
-        {"move": "Bc4", "idea": "Point your bishop at f7 — the weakest square in Black's position", "arrow": ["f1", "c4"]},
-        {"move": "Bc5", "idea": "Opponent mirrors — their bishop targets f2", "arrow": None},
-        {"move": "c3", "idea": "Prepare to push d4 and build a big center", "arrow": ["c2", "c3"]},
-        {"move": "Nf6", "idea": "Opponent develops and attacks your e4 pawn", "arrow": None},
-        {"move": "d4", "idea": "Open the center! This is the key break in the Italian", "arrow": ["d2", "d4"]},
-    ],
-    "french_defense": [
-        {"move": "e4", "idea": "Control the center with your king's pawn", "arrow": ["e2", "e4"]},
-        {"move": "e6", "idea": "Opponent prepares to challenge with d5", "arrow": None},
-        {"move": "d4", "idea": "Take more space in the center", "arrow": ["d2", "d4"]},
-        {"move": "d5", "idea": "Opponent challenges your center — this is the French Defense", "arrow": None},
-        {"move": "e5", "idea": "Push forward to gain space. The Advance Variation.", "arrow": ["e4", "e5"]},
-        {"move": "c5", "idea": "Opponent attacks your center from the side", "arrow": None},
-        {"move": "c3", "idea": "Support your d4 pawn — keep the center strong", "arrow": ["c2", "c3"]},
-    ],
-    "queens_gambit": [
-        {"move": "d4", "idea": "Control the center with the queen's pawn", "arrow": ["d2", "d4"]},
-        {"move": "d5", "idea": "Opponent mirrors — both sides fight for center", "arrow": None},
-        {"move": "c4", "idea": "Offer a pawn to pull Black's center apart. This is the Queen's Gambit.", "arrow": ["c2", "c4"]},
-        {"move": "e6", "idea": "Opponent declines — keeps the center solid", "arrow": None},
-        {"move": "Nc3", "idea": "Develop your knight and support the center", "arrow": ["b1", "c3"]},
-        {"move": "Nf6", "idea": "Opponent develops toward the center", "arrow": None},
-        {"move": "Bg5", "idea": "Pin their knight to the queen. This creates pressure.", "arrow": ["c1", "g5"]},
-    ],
-    "london_system": [
-        {"move": "d4", "idea": "Control the center", "arrow": ["d2", "d4"]},
-        {"move": "d5", "idea": "Opponent mirrors", "arrow": None},
-        {"move": "Bf4", "idea": "Develop bishop BEFORE e3. This is the #1 rule of the London.", "arrow": ["c1", "f4"]},
-        {"move": "Nf6", "idea": "Opponent develops", "arrow": None},
-        {"move": "e3", "idea": "NOW play e3 — the bishop is already out", "arrow": ["e2", "e3"]},
-        {"move": "e6", "idea": "Opponent builds a solid structure", "arrow": None},
-        {"move": "Nf3", "idea": "Develop your knight to its natural square", "arrow": ["g1", "f3"]},
-    ],
-    "sicilian_defense": [
-        {"move": "e4", "idea": "Control the center", "arrow": ["e2", "e4"]},
-        {"move": "c5", "idea": "The Sicilian! Opponent fights for the center from the side", "arrow": None},
-        {"move": "Nf3", "idea": "Develop and prepare to open the center with d4", "arrow": ["g1", "f3"]},
-        {"move": "d6", "idea": "Opponent prepares a solid setup", "arrow": None},
-        {"move": "d4", "idea": "Open the center — this is the main plan against the Sicilian", "arrow": ["d2", "d4"]},
-        {"move": "cxd4", "idea": "Opponent takes — now you get an open file", "arrow": None},
-        {"move": "Nxd4", "idea": "Recapture with the knight — it's centralized and strong", "arrow": ["f3", "d4"]},
-    ],
-    "caro_kann": [
-        {"move": "e4", "idea": "Control the center", "arrow": ["e2", "e4"]},
-        {"move": "c6", "idea": "The Caro-Kann! Opponent prepares d5 with support", "arrow": None},
-        {"move": "d4", "idea": "Take more space", "arrow": ["d2", "d4"]},
-        {"move": "d5", "idea": "Opponent challenges your center — the key moment", "arrow": None},
-        {"move": "Nc3", "idea": "Defend your e4 pawn with the knight", "arrow": ["b1", "c3"]},
-    ],
-    "ruy_lopez": [
-        {"move": "e4", "idea": "Control the center", "arrow": ["e2", "e4"]},
-        {"move": "e5", "idea": "Opponent fights back", "arrow": None},
-        {"move": "Nf3", "idea": "Attack their e5 pawn", "arrow": ["g1", "f3"]},
-        {"move": "Nc6", "idea": "Opponent defends", "arrow": None},
-        {"move": "Bb5", "idea": "The Ruy Lopez! Pin the knight that defends e5. Long-term pressure.", "arrow": ["f1", "b5"]},
-        {"move": "a6", "idea": "Opponent challenges your bishop — the Morphy Defense", "arrow": None},
-        {"move": "Ba4", "idea": "Retreat but maintain the pin. The bishop is still powerful.", "arrow": ["b5", "a4"]},
-    ],
-    "scotch_game": [
-        {"move": "e4", "idea": "Control the center", "arrow": ["e2", "e4"]},
-        {"move": "e5", "idea": "Opponent mirrors", "arrow": None},
-        {"move": "Nf3", "idea": "Develop and attack e5", "arrow": ["g1", "f3"]},
-        {"move": "Nc6", "idea": "Opponent defends", "arrow": None},
-        {"move": "d4", "idea": "Open the center immediately! The Scotch Game — direct and aggressive.", "arrow": ["d2", "d4"]},
-    ],
-    "petrov_defense": [
-        {"move": "e4", "idea": "Control the center", "arrow": ["e2", "e4"]},
-        {"move": "e5", "idea": "Opponent mirrors", "arrow": None},
-        {"move": "Nf3", "idea": "Attack their e5 pawn", "arrow": ["g1", "f3"]},
-        {"move": "Nf6", "idea": "The Petrov! Opponent counterattacks your e4 instead of defending", "arrow": None},
-        {"move": "Nxe5", "idea": "Take the pawn. Now the critical moment begins.", "arrow": ["f3", "e5"]},
-    ],
-}
+def _load_teaching_data():
+    """Load move ideas from the theory tree JSON. Called once at import."""
+    import os, json
+    tree_path = os.path.join(os.path.dirname(__file__), "..", "data", "coaching", "opening_theory_tree.json")
+    try:
+        with open(tree_path, encoding="utf-8") as f:
+            tree = json.load(f)
+    except Exception:
+        logger.warning("[MASTERY] Could not load opening_theory_tree.json")
+        return {}, {}
+
+    flat_ideas = {}   # opening_key -> [{"move", "idea", "arrow"}, ...]
+    branch_data = {}  # opening_key -> {"common": [...], "branches": {key: {...}}}
+
+    for key, opening in tree.items():
+        if key.startswith("_") or not isinstance(opening, dict):
+            continue
+        main_line = opening.get("main_line", [])
+        move_ideas = opening.get("move_ideas", {})
+        variations = opening.get("variations", {})
+        if not main_line:
+            continue
+
+        # Build common (main_line) ideas
+        common_ideas = []
+        for move in main_line:
+            info = move_ideas.get(move, {})
+            common_ideas.append({
+                "move": move,
+                "idea": info.get("idea", ""),
+                "arrow": info.get("arrow"),
+            })
+
+        # Check if any variation has teaching data (move_ideas + priority)
+        has_branches = False
+        branches = {}
+        for var_key, var in variations.items():
+            if not var.get("move_ideas"):
+                continue
+            has_branches = True
+            var_moves_from_parent = var.get("moves_from_parent", [])
+            var_continuation = var.get("continuation", [])
+            var_move_ideas = var.get("move_ideas", {})
+            branch_move = var_moves_from_parent[0] if var_moves_from_parent else ""
+
+            branch_ideas = []
+            for move in var_moves_from_parent + var_continuation:
+                info = var_move_ideas.get(move, {})
+                branch_ideas.append({
+                    "move": move,
+                    "idea": info.get("idea", ""),
+                    "arrow": info.get("arrow"),
+                })
+
+            branches[var_key] = {
+                "name": var.get("name", var_key),
+                "branch_move": branch_move,
+                "priority": var.get("priority", 99),
+                "intro": var.get("intro", ""),
+                "ideas": branch_ideas,
+            }
+
+        if has_branches:
+            branch_data[key] = {
+                "name": opening.get("name", key),
+                "common": common_ideas,
+                "branch_point": len(common_ideas),
+                "branches": branches,
+            }
+            # Default flat list = common + highest priority branch
+            best_branch = min(branches.values(), key=lambda b: b.get("priority", 99))
+            flat_ideas[key] = common_ideas + best_branch.get("ideas", [])
+        else:
+            # No branch data — just use main_line + first variation continuation
+            full_ideas = list(common_ideas)
+            if variations:
+                first_var = next(iter(variations.values()))
+                for move in first_var.get("moves_from_parent", []) + first_var.get("continuation", []):
+                    info = move_ideas.get(move, {})
+                    full_ideas.append({
+                        "move": move,
+                        "idea": info.get("idea", ""),
+                        "arrow": info.get("arrow"),
+                    })
+            flat_ideas[key] = full_ideas
+
+    return flat_ideas, branch_data
+
+OPENING_MOVE_IDEAS, OPENING_BRANCH_DATA = _load_teaching_data()
+
+
+# ─── TEACHING LINE HELPERS ────────────────────────────────────────
+
+def get_teaching_line(opening_key: str, branch_key: str = None):
+    """
+    Resolve a flat list of move ideas for the given opening + branch.
+
+    Returns:
+        (flat_ideas, branch_info) where branch_info is None for single-variation openings.
+    """
+    bd = OPENING_BRANCH_DATA.get(opening_key)
+    if not bd:
+        return OPENING_MOVE_IDEAS.get(opening_key, []), None
+
+    branches = bd["branches"]
+    if not branch_key:
+        branch_key = min(branches, key=lambda k: branches[k].get("priority", 99))
+
+    branch = branches.get(branch_key)
+    if not branch:
+        branch_key = min(branches, key=lambda k: branches[k].get("priority", 99))
+        branch = branches[branch_key]
+
+    flat_list = bd["common"] + branch.get("ideas", [])
+    branch_info = {
+        "key": branch_key,
+        "name": branch.get("name", ""),
+        "branch_move": branch.get("branch_move", ""),
+        "branch_point": bd["branch_point"],
+        "intro": branch.get("intro", ""),
+    }
+    return flat_list, branch_info
+
+
+def select_branch_for_game(opening_key: str, branches_seen: List[str] = None) -> Optional[str]:
+    """Pick which branch to teach based on what user has already seen."""
+    bd = OPENING_BRANCH_DATA.get(opening_key)
+    if not bd:
+        return None
+
+    branches = bd["branches"]
+    seen = branches_seen or []
+
+    unseen = sorted(
+        [k for k in branches if k not in seen],
+        key=lambda k: branches[k].get("priority", 99)
+    )
+    if unseen:
+        return unseen[0]
+    return min(branches, key=lambda k: branches[k].get("priority", 99))
+
+
+def get_branch_info(opening_key: str) -> Optional[Dict]:
+    """Get branch metadata for frontend display."""
+    bd = OPENING_BRANCH_DATA.get(opening_key)
+    if not bd:
+        return None
+    return {
+        "name": bd["name"],
+        "branch_point": bd["branch_point"],
+        "branches": {
+            k: {"name": v["name"], "branch_move": v["branch_move"], "priority": v.get("priority", 99)}
+            for k, v in bd["branches"].items()
+        },
+    }
 
 
 # ─── GET / UPDATE MASTERY ────────────────────────────────────────
@@ -155,6 +235,7 @@ async def update_mastery_after_game(
     traps_encountered: List[str] = None,
     traps_handled: List[str] = None,
     traps_fallen_for: List[str] = None,
+    branch_played: str = None,
 ) -> Dict:
     """Update mastery after a coached game."""
     current = await get_opening_mastery(db, user_id, opening_key)
@@ -174,6 +255,11 @@ async def update_mastery_after_game(
     acc_history.append(round(accuracy, 2))
     acc_history = acc_history[-5:]
 
+    # Track which branches the user has seen
+    branches_seen = list(current.get("branches_seen", []))
+    if branch_played and branch_played not in branches_seen:
+        branches_seen.append(branch_played)
+
     # Phase transition
     current_phase = current.get("phase", INTRODUCTION)
     new_phase = _compute_phase(current_phase, games_played, acc_history)
@@ -189,6 +275,7 @@ async def update_mastery_after_game(
         "traps_handled": all_handled,
         "traps_fallen_for": all_fallen,
         "accuracy_history": acc_history,
+        "branches_seen": branches_seen,
         "last_played": datetime.now(timezone.utc).isoformat(),
     }
 

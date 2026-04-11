@@ -21,6 +21,8 @@ import {
   History,
   Target,
   Play,
+  Navigation,
+  GraduationCap,
 } from "lucide-react";
 
 /* ── Opening Suggestions sub-component ── */
@@ -123,6 +125,8 @@ const CoachPlaySetup = ({
   setSelectedColor,
   selectedOpening,
   setSelectedOpening,
+  guidedMode,
+  setGuidedMode,
   pastGamesHistory,
   playerIdentityData,
   startGame,
@@ -289,6 +293,39 @@ const CoachPlaySetup = ({
                 selectedOpening={selectedOpening}
                 onSelectOpening={setSelectedOpening}
               />
+            )}
+
+            {/* Guide Mode Toggle — only when an opening is selected */}
+            {!practiceMode && selectedOpening && (
+              <div>
+                <label className="text-sm font-medium mb-3 block">
+                  How would you like to practice?
+                </label>
+                <div className="flex gap-3">
+                  <Button
+                    variant={guidedMode ? "default" : "outline"}
+                    onClick={() => setGuidedMode(true)}
+                    className="flex-1 h-auto py-3"
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <Navigation className="w-5 h-5" />
+                      <span className="text-sm font-medium">Guide Me</span>
+                      <span className="text-[10px] text-inherit opacity-70">Arrows + ideas</span>
+                    </div>
+                  </Button>
+                  <Button
+                    variant={!guidedMode ? "default" : "outline"}
+                    onClick={() => setGuidedMode(false)}
+                    className="flex-1 h-auto py-3"
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <GraduationCap className="w-5 h-5" />
+                      <span className="text-sm font-medium">I Know It</span>
+                      <span className="text-[10px] text-inherit opacity-70">Test from memory</span>
+                    </div>
+                  </Button>
+                </div>
+              </div>
             )}
 
             {/* Start Button */}

@@ -51,6 +51,9 @@ const CoachPlay = ({ user }) => {
   // Game settings
   const [selectedColor, setSelectedColor] = useState("white");
   const [selectedOpening, setSelectedOpening] = useState(openingFromUrl || null);
+  const [guidedMode, setGuidedMode] = useState(true); // true = Guide Me, false = I Know It
+  const [activeBranch, setActiveBranch] = useState(null); // current variation being taught
+  const [openingTraps, setOpeningTraps] = useState([]); // traps for current opening
 
   // Sync opening from URL when navigating from Progress page
   useEffect(() => {
@@ -235,6 +238,46 @@ const CoachPlay = ({ user }) => {
       setCoachArrows([[guidance.arrow[0], guidance.arrow[1], "green"]]);
     }
   }, [coachFlow.openingGuidance?.arrow?.[0], coachFlow.openingGuidance?.arrow?.[1], isPlayerTurn, gameOver, openingIdeas.length]);
+
+  // Opening deviation state — shown when user plays wrong move
+  const [openingDeviation, setOpeningDeviation] = useState(null);
+
+  // Client-side trap detection — check if we're approaching a known trap
+  useEffect(() => {
+    if (!openingTraps.length || !openingIdeas.length || !isPlayerTurn || gameOver) return;
+    // Build the moves played so far from openingIdeas[0..gamePly-1]
+    const movesPlayed = openingIdeas.slice(0, gamePly).map(i => i.move);
+    if (movesPlayed.length < 3) return; // too early
+
+    for (const trap of openingTraps) {
+      const setup = trap.setup_moves;
+      // Check if current moves match the trap setup prefix
+      const matchLen = Math.min(movesPlayed.length, setup.length);
+      let matches = true;
+      for (let i = 0; i < matchLen; i++) {
+        if (movesPlayed[i]?.replace(/[+#]/g, "").toLowerCase() !== setup[i]?.replace(/[+#]/g, "").toLowerCase()) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) {
+        const remaining = setup.length - movesPlayed.length;
+        if (remaining >= 0 && remaining <= 2) {
+          // We're close to a trap — warn the user
+          coachFlow.setTrapWarning({
+            trap_name: trap.name,
+            warning: trap.explanation,
+            refutation: trap.refutation,
+            trap_move: trap.trap_move,
+            remaining_moves: remaining,
+          });
+          return;
+        }
+      }
+    }
+    // No trap nearby — clear warning
+    coachFlow.setTrapWarning(null);
+  }, [gamePly, openingTraps, openingIdeas, isPlayerTurn, gameOver]);
 
   // V5 Coaching State - Unified with Lab
   const [v5Coaching, setV5Coaching] = useState(null);
@@ -767,7 +810,8 @@ const CoachPlay = ({ user }) => {
       console.log("[CoachPlay] selectedOpening:", selectedOpening, "openingFromUrl:", openingFromUrl);
       if (selectedOpening) {
         requestBody.opening_name = selectedOpening;
-        console.log("[CoachPlay] Sending opening_name:", selectedOpening);
+        requestBody.guided_mode = guidedMode;
+        console.log("[CoachPlay] Sending opening_name:", selectedOpening, "guided_mode:", guidedMode);
       }
       
       // If in practice mode, use custom starting position
@@ -804,8 +848,17 @@ const CoachPlay = ({ user }) => {
         coachFlow.setOpeningGuidance(data.openingGuidance);
         // Store full ideas list for client-side guidance (no server dependency)
         if (data.openingGuidance.all_ideas?.length) {
-          console.log("[CoachPlay] Loaded", data.openingGuidance.all_ideas.length, "opening move ideas for client-side guidance");
+          console.log("[CoachPlay] Loaded", data.openingGuidance.all_ideas.length, "opening move ideas, branch:", data.openingGuidance.branch?.name || "default");
           setOpeningIdeas(data.openingGuidance.all_ideas);
+        }
+        // Store branch info for variation awareness
+        if (data.openingGuidance.branch) {
+          setActiveBranch(data.openingGuidance.branch);
+        }
+        // Store traps for client-side awareness
+        if (data.openingGuidance.traps?.length) {
+          console.log("[CoachPlay] Loaded", data.openingGuidance.traps.length, "traps for", data.openingGuidance.opening_key);
+          setOpeningTraps(data.openingGuidance.traps);
         }
         setGamePly(0); // Reset ply counter for new game
       }
@@ -1988,6 +2041,7 @@ const CoachPlay = ({ user }) => {
     setCoachArrows([]);
     setPreMoveTrap(null);
     setV5Coaching(null);
+    setOpeningDeviation(null);
     // Increment ply for user's move (coach's response adds +1 in pollForCoachResponse)
     if (openingIdeas.length) setGamePly(prev => prev + 1);
 
@@ -2005,6 +2059,31 @@ const CoachPlay = ({ user }) => {
     }
 
     if (!moveObj) return false;
+
+    // OPENING DEVIATION CHECK — if teaching is active and user plays wrong move
+    if (openingIdeas.length && gamePly < openingIdeas.length) {
+      const expected = openingIdeas[gamePly];
+      const playedSan = moveObj.san.replace(/[+#]/g, "").toLowerCase();
+      const expectedSan = (expected?.move || "").replace(/[+#]/g, "").toLowerCase();
+      if (expectedSan && playedSan !== expectedSan) {
+        // User deviated from the opening line
+        console.log("[CoachPlay] Opening deviation:", moveObj.san, "expected:", expected.move);
+        setOpeningDeviation({
+          played: moveObj.san,
+          expected: expected.move,
+          idea: expected.idea,
+          arrow: expected.arrow,
+          branch: activeBranch?.name || selectedOpening,
+        });
+        // In guided mode: show the correct arrow, DON'T block the move — let backend handle it
+        // In test mode: show deviation card with the correction
+        if (expected.arrow) {
+          setCoachArrows([[expected.arrow[0], expected.arrow[1], "red"]]);
+          // Clear red arrow after 4 seconds
+          setTimeout(() => setCoachArrows([]), 4000);
+        }
+      }
+    }
 
     // Calculate time spent
     const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
@@ -2113,6 +2192,9 @@ const CoachPlay = ({ user }) => {
     setEscapeSquaresQuiz(null);
     setOpeningIdeas([]);
     setGamePly(0);
+    setActiveBranch(null);
+    setOpeningDeviation(null);
+    setOpeningTraps([]);
   };
 
   const canUndoLastMove = () => {
@@ -2225,6 +2307,8 @@ const CoachPlay = ({ user }) => {
         setSelectedColor={setSelectedColor}
         selectedOpening={selectedOpening}
         setSelectedOpening={setSelectedOpening}
+        guidedMode={guidedMode}
+        setGuidedMode={setGuidedMode}
         pastGamesHistory={pastGamesHistory}
         playerIdentityData={playerIdentityData}
         startGame={startGame}
@@ -2321,6 +2405,8 @@ const CoachPlay = ({ user }) => {
               commentary={coachFlow.commentary}
               openingGuidance={coachFlow.openingGuidance}
               trapWarning={coachFlow.trapWarning}
+              openingDeviation={openingDeviation}
+              activeBranch={activeBranch}
             />
           </div>
         ) : gameStarted && session && !gameOver ? (

@@ -255,6 +255,60 @@
               "decline": "Bb6 is safe but passive"
             }
           }
+        },
+        "priority": 1,
+        "intro": "Opponent played Bc5 — this is the Giuoco Piano, the main Italian line. Your plan: push d4 to open the center.",
+        "move_ideas": {
+          "Bc5": {
+            "idea": "Opponent mirrors — their bishop targets f2"
+          },
+          "c3": {
+            "idea": "Prepare to push d4 and build a big center",
+            "arrow": [
+              "c2",
+              "c3"
+            ]
+          },
+          "Nf6": {
+            "idea": "Opponent develops and attacks your e4 pawn"
+          },
+          "d4": {
+            "idea": "Open the center! This is the key break in the Italian",
+            "arrow": [
+              "d2",
+              "d4"
+            ]
+          },
+          "exd4": {
+            "idea": "Opponent captures — now recapture to dominate the center"
+          },
+          "cxd4": {
+            "idea": "Recapture with the pawn — you now have a strong center duo",
+            "arrow": [
+              "c3",
+              "d4"
+            ]
+          },
+          "Bb4+": {
+            "idea": "Opponent checks — but don't worry, this is theory"
+          },
+          "Bd2": {
+            "idea": "Block with the bishop — develop and defend in one move",
+            "arrow": [
+              "c1",
+              "d2"
+            ]
+          },
+          "Bxd2+": {
+            "idea": "Opponent trades — you'll recapture with the knight"
+          },
+          "Nbxd2": {
+            "idea": "Recapture with the knight — both knights are developed now",
+            "arrow": [
+              "b1",
+              "d2"
+            ]
+          }
         }
       },
       "two_knights": {
@@ -293,6 +347,60 @@
               }
             }
           }
+        },
+        "priority": 2,
+        "intro": "Opponent played Nf6 instead of Bc5 — this is the Two Knights Defense. Play aggressively with Ng5, attacking f7!",
+        "move_ideas": {
+          "Nf6": {
+            "idea": "The Two Knights! Opponent counterattacks your e4 pawn"
+          },
+          "Ng5": {
+            "idea": "Attack f7 directly! Your knight and bishop both target the weakest square",
+            "arrow": [
+              "f3",
+              "g5"
+            ]
+          },
+          "d5": {
+            "idea": "Opponent strikes in the center to deflect your attack"
+          },
+          "exd5": {
+            "idea": "Take the pawn — open lines for your pieces",
+            "arrow": [
+              "e4",
+              "d5"
+            ]
+          },
+          "Na5": {
+            "idea": "Opponent attacks your bishop — but you have a plan"
+          },
+          "Bb5+": {
+            "idea": "Check! Force the king to deal with this before anything else",
+            "arrow": [
+              "c4",
+              "b5"
+            ]
+          },
+          "c6": {
+            "idea": "Opponent blocks with the pawn"
+          },
+          "dxc6": {
+            "idea": "Take! Open up the position — you're ahead in development",
+            "arrow": [
+              "d5",
+              "c6"
+            ]
+          },
+          "bxc6": {
+            "idea": "Opponent recaptures"
+          },
+          "Be2": {
+            "idea": "Retreat bishop to safety — now castle and consolidate",
+            "arrow": [
+              "b5",
+              "e2"
+            ]
+          }
         }
       }
     },
@@ -301,6 +409,158 @@
       "The d5 break is powerful but must be timed correctly",
       "f7 is the weak point early - defend it indirectly with development",
       "When attacked (Ng5), counter-attack (d5) rather than defend passively"
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Push your king's pawn forward to control the center",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "e5": {
+        "idea": "Opponent fights for the center too"
+      },
+      "Nf3": {
+        "idea": "Develop your knight toward the center — it attacks e5",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "Nc6": {
+        "idea": "Opponent defends their pawn"
+      },
+      "Bc4": {
+        "idea": "Point your bishop at f7 — the weakest square in Black's position",
+        "arrow": [
+          "f1",
+          "c4"
+        ]
+      }
+    },
+    "traps": [
+      {
+        "trap_id": "legals_mate",
+        "name": "Legal's Mate",
+        "variation": "giuoco_piano",
+        "setup_moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "d6",
+          "Nc3",
+          "Bg4",
+          "h3",
+          "Bh5"
+        ],
+        "full_line": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "d6",
+          "Nc3",
+          "Bg4",
+          "h3",
+          "Bh5",
+          "Nxe5",
+          "Bxd1",
+          "Bxf7+",
+          "Ke7",
+          "Nd5#"
+        ],
+        "trap_move": "Nxe5",
+        "explanation": "White sacrifices the queen. If Black takes it, Bxf7+ Ke7 Nd5# is checkmate. The bishop and knights create a perfect mating net.",
+        "refutation": "Black should NOT take the queen. Play dxe5 instead.",
+        "victim_color": "black",
+        "trap_for": "white",
+        "difficulty": "beginner",
+        "category": "trap"
+      },
+      {
+        "trap_id": "blackburne_shilling_mate",
+        "name": "Blackburne Shilling Gambit",
+        "variation": null,
+        "setup_moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nd4",
+          "Nxe5",
+          "Qg5",
+          "Nxf7"
+        ],
+        "full_line": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nd4",
+          "Nxe5",
+          "Qg5",
+          "Nxf7",
+          "Qxg2",
+          "Rf1",
+          "Qxe4+",
+          "Be2",
+          "Nf3#"
+        ],
+        "trap_move": "Qxg2",
+        "explanation": "Black sacrifices material to open lines to White's king. After Qxg2 Rf1 Qxe4+ Be2 Nf3# is checkmate. White's greed costs the game.",
+        "refutation": "White should NOT play Nxf7. Play d3 or O-O instead of grabbing pawns.",
+        "victim_color": "white",
+        "trap_for": "black",
+        "difficulty": "intermediate",
+        "category": "trap"
+      },
+      {
+        "trap_id": "fried_liver_attack",
+        "name": "Fried Liver Attack",
+        "variation": "two_knights",
+        "setup_moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6",
+          "Ng5",
+          "d5",
+          "exd5",
+          "Nxd5"
+        ],
+        "full_line": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6",
+          "Ng5",
+          "d5",
+          "exd5",
+          "Nxd5",
+          "Nxf7",
+          "Kxf7",
+          "Qf3+",
+          "Ke6",
+          "Nc3"
+        ],
+        "trap_move": "Nxf7",
+        "explanation": "White sacrifices a knight on f7 to drag Black's king to e6. The king is completely exposed in the center with no safety. White has a devastating attack.",
+        "refutation": "After Ng5, Black should play Na5 or d5 carefully. Accepting Nxf7 leads to a very dangerous position.",
+        "victim_color": "black",
+        "trap_for": "white",
+        "difficulty": "beginner",
+        "category": "trap"
+      }
     ]
   },
   "french_defense": {
@@ -599,7 +859,7 @@
                 "why_bad": "Blocks the c-file and doesn't target c3",
                 "consequence": "White gets time to consolidate the doubled pawns",
                 "better_move": "Ne7",
-                "learning": "In the Winawer, the knight belongs on e7\u2192f5, not c6"
+                "learning": "In the Winawer, the knight belongs on e7→f5, not c6"
               }
             }
           }
@@ -693,6 +953,107 @@
       "In the Advance, Nh6-f5 is the key knight maneuver",
       "In the Winawer, target the doubled c-pawns with Qa5",
       "In the Exchange, your light bishop is FREE - use it!"
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Control the center with your king's pawn",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "e6": {
+        "idea": "Opponent prepares to challenge with d5"
+      },
+      "d4": {
+        "idea": "Take more space in the center",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
+      },
+      "d5": {
+        "idea": "Opponent challenges your center — this is the French Defense"
+      },
+      "e5": {
+        "idea": "Push forward to gain space. The Advance Variation.",
+        "arrow": [
+          "e4",
+          "e5"
+        ]
+      },
+      "c5": {
+        "idea": "Opponent attacks your center from the side"
+      },
+      "c3": {
+        "idea": "Support your d4 pawn — keep the center strong",
+        "arrow": [
+          "c2",
+          "c3"
+        ]
+      },
+      "Nc6": {
+        "idea": "Opponent develops and pressures d4"
+      },
+      "Nf3": {
+        "idea": "Develop your knight — defend d4 and prepare to castle",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "Qb6": {
+        "idea": "Opponent targets b2 and d4 — but you have a plan"
+      },
+      "a3": {
+        "idea": "Prevent Bb4 pin and prepare a queenside expansion later",
+        "arrow": [
+          "a2",
+          "a3"
+        ]
+      },
+      "Nh6": {
+        "idea": "Opponent develops the knight — it will go to f5"
+      }
+    },
+    "traps": [
+      {
+        "trap_id": "french_milner_barry",
+        "name": "Milner-Barry Gambit Warning",
+        "variation": "french_advance",
+        "setup_moves": [
+          "e4",
+          "e6",
+          "d4",
+          "d5",
+          "e5",
+          "c5",
+          "c3",
+          "Nc6",
+          "Nf3",
+          "Qb6"
+        ],
+        "full_line": [
+          "e4",
+          "e6",
+          "d4",
+          "d5",
+          "e5",
+          "c5",
+          "c3",
+          "Nc6",
+          "Nf3",
+          "Qb6",
+          "Bd3"
+        ],
+        "trap_move": "Bd3",
+        "explanation": "White gambits the b2 pawn. If Black takes Qxb2, White gets rapid development and a dangerous attack while Black's queen is stranded.",
+        "refutation": "Black should NOT take b2. Develop with cxd4 instead.",
+        "victim_color": "black",
+        "trap_for": "white",
+        "difficulty": "intermediate",
+        "category": "warning"
+      }
     ]
   },
   "queens_gambit": {
@@ -840,6 +1201,83 @@
               }
             }
           }
+        },
+        "priority": 1,
+        "intro": "Opponent declined the gambit with e6 — solid choice. Your plan: develop pieces, control the center, and build slow pressure.",
+        "move_ideas": {
+          "e6": {
+            "idea": "Opponent declines — keeps the center solid"
+          },
+          "Nc3": {
+            "idea": "Develop your knight and support the center",
+            "arrow": [
+              "b1",
+              "c3"
+            ]
+          },
+          "Nf6": {
+            "idea": "Opponent develops toward the center"
+          },
+          "Bg5": {
+            "idea": "Pin their knight to the queen. This creates pressure.",
+            "arrow": [
+              "c1",
+              "g5"
+            ]
+          },
+          "Be7": {
+            "idea": "Opponent unpins — a standard response"
+          },
+          "e3": {
+            "idea": "Solid — support d4 and open the diagonal for your bishop",
+            "arrow": [
+              "e2",
+              "e3"
+            ]
+          },
+          "O-O": {
+            "idea": "Opponent castles — getting the king safe"
+          },
+          "Nf3": {
+            "idea": "Develop your last minor piece — prepare to castle",
+            "arrow": [
+              "g1",
+              "f3"
+            ]
+          },
+          "Nbd7": {
+            "idea": "Opponent develops the knight behind the d5 pawn"
+          },
+          "Rc1": {
+            "idea": "Put your rook on the open c-file — pressure their queenside",
+            "arrow": [
+              "a1",
+              "c1"
+            ]
+          },
+          "c6": {
+            "idea": "Opponent reinforces d5 — very solid"
+          },
+          "Bd3": {
+            "idea": "Develop bishop to its best diagonal — aims at the kingside",
+            "arrow": [
+              "f1",
+              "d3"
+            ]
+          },
+          "dxc4": {
+            "idea": "Opponent captures — but your bishop recaptures with tempo"
+          },
+          "Bxc4": {
+            "idea": "Recapture — your bishop is now perfectly placed",
+            "arrow": [
+              "d3",
+              "c4"
+            ]
+          },
+          "Nd5": {
+            "idea": "Opponent centralizes — a key position to understand"
+          }
         }
       },
       "qga": {
@@ -893,6 +1331,60 @@
                 "why_good": "Opens lines, activates pieces, challenges White's center"
               }
             }
+          }
+        },
+        "priority": 2,
+        "intro": "Opponent accepted the gambit! They took your c4 pawn. Don't worry — you'll get it back with interest. Focus on rapid development.",
+        "move_ideas": {
+          "dxc4": {
+            "idea": "Opponent takes the pawn — but can't hold it for long"
+          },
+          "e4": {
+            "idea": "Push for the center! With d5 gone, you dominate",
+            "arrow": [
+              "e2",
+              "e4"
+            ]
+          },
+          "e5": {
+            "idea": "Opponent tries to block"
+          },
+          "Nf3": {
+            "idea": "Develop and attack their e5 pawn",
+            "arrow": [
+              "g1",
+              "f3"
+            ]
+          },
+          "Bb4+": {
+            "idea": "Opponent checks — trying to disrupt"
+          },
+          "Bd2": {
+            "idea": "Block and develop — your pieces are coming out fast",
+            "arrow": [
+              "c1",
+              "d2"
+            ]
+          },
+          "Bxd2+": {
+            "idea": "Opponent trades"
+          },
+          "Nbxd2": {
+            "idea": "Recapture — knight heads for c4 or e4 next",
+            "arrow": [
+              "b1",
+              "d2"
+            ]
+          },
+          "exd4": {
+            "idea": "Opponent grabs another pawn"
+          },
+          "Bxc4": {
+            "idea": "Take your pawn back! Now you have a great center",
+            "arrow": [
+              "f1",
+              "c4"
+            ]
           }
         }
       },
@@ -948,6 +1440,72 @@
       "In the QGA, never try to hold the c4 pawn - develop instead",
       "In the Slav, develop Bf5 BEFORE playing e6 - that's the whole point",
       "c5 is Black's key break in almost all Queen's Gambit lines"
+    ],
+    "move_ideas": {
+      "d4": {
+        "idea": "Control the center with the queen's pawn",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
+      },
+      "d5": {
+        "idea": "Opponent mirrors — both sides fight for center"
+      },
+      "c4": {
+        "idea": "Offer a pawn to pull Black's center apart. This is the Queen's Gambit.",
+        "arrow": [
+          "c2",
+          "c4"
+        ]
+      }
+    },
+    "traps": [
+      {
+        "trap_id": "elephant_trap",
+        "name": "Elephant Trap",
+        "variation": "qgd_orthodox",
+        "setup_moves": [
+          "d4",
+          "d5",
+          "c4",
+          "e6",
+          "Nc3",
+          "Nf6",
+          "Bg5",
+          "Nbd7",
+          "cxd5",
+          "exd5",
+          "Nxd5"
+        ],
+        "full_line": [
+          "d4",
+          "d5",
+          "c4",
+          "e6",
+          "Nc3",
+          "Nf6",
+          "Bg5",
+          "Nbd7",
+          "cxd5",
+          "exd5",
+          "Nxd5",
+          "Nxd5",
+          "Bxd8",
+          "Bb4+",
+          "Qd2",
+          "Bxd2+",
+          "Kxd2",
+          "Kxd8"
+        ],
+        "trap_move": "Bb4+",
+        "explanation": "White thinks they won the queen with Bxd8, but Bb4+ is an intermezzo check. After Qd2 Bxd2+ Kxd2, Black takes back the bishop on d8. White lost a knight for nothing.",
+        "refutation": "White should NOT take the queen with Bxd8. It's a tactical illusion.",
+        "victim_color": "white",
+        "trap_for": "black",
+        "difficulty": "beginner",
+        "category": "trap"
+      }
     ]
   },
   "london_system": {
@@ -1125,6 +1683,124 @@
       "Ne5 is the dream square - aim for it with Nf3-e5",
       "Against the London, Black should play c5 early to challenge d4",
       "If Black plays Bd6, White should trade (Bxd6) or retreat (Bg3) - don't lose the bishop pair for nothing"
+    ],
+    "move_ideas": {
+      "d4": {
+        "idea": "Control the center",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
+      },
+      "d5": {
+        "idea": "Opponent mirrors"
+      },
+      "Bf4": {
+        "idea": "Develop bishop BEFORE e3. This is the #1 rule of the London.",
+        "arrow": [
+          "c1",
+          "f4"
+        ]
+      },
+      "Nf6": {
+        "idea": "Opponent develops"
+      },
+      "e3": {
+        "idea": "NOW play e3 — the bishop is already out",
+        "arrow": [
+          "e2",
+          "e3"
+        ]
+      },
+      "e6": {
+        "idea": "Opponent builds a solid structure"
+      },
+      "Nf3": {
+        "idea": "Develop your knight to its natural square",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "c5": {
+        "idea": "Opponent attacks your center — but you're ready"
+      },
+      "c3": {
+        "idea": "Support d4 — keep your center rock solid",
+        "arrow": [
+          "c2",
+          "c3"
+        ]
+      },
+      "Nc6": {
+        "idea": "Opponent develops"
+      },
+      "Nbd2": {
+        "idea": "Knight to d2 — supports e4 push and keeps things flexible",
+        "arrow": [
+          "b1",
+          "d2"
+        ]
+      },
+      "Bd6": {
+        "idea": "Opponent challenges your bishop — a key decision"
+      },
+      "Bg3": {
+        "idea": "Retreat to g3 — your bishop stays active on the long diagonal",
+        "arrow": [
+          "f4",
+          "g3"
+        ]
+      },
+      "O-O": {
+        "idea": "Opponent castles"
+      },
+      "Bd3": {
+        "idea": "Develop your bishop — it aims at the kingside",
+        "arrow": [
+          "f1",
+          "d3"
+        ]
+      },
+      "b6": {
+        "idea": "Opponent prepares to fianchetto"
+      },
+      "Ne5": {
+        "idea": "Knight to the outpost! This is the dream square in the London",
+        "arrow": [
+          "f3",
+          "e5"
+        ]
+      }
+    },
+    "traps": [
+      {
+        "trap_id": "london_move_order",
+        "name": "London Move Order Warning",
+        "variation": "london_main",
+        "setup_moves": [
+          "d4",
+          "d5"
+        ],
+        "full_line": [
+          "d4",
+          "d5",
+          "e3",
+          "Nf6",
+          "Bd3",
+          "c5",
+          "c3",
+          "Nc6",
+          "Nd2"
+        ],
+        "trap_move": "e3",
+        "explanation": "Playing e3 before Bf4 traps the dark-squared bishop behind the pawn chain forever. This is the #1 London System mistake.",
+        "refutation": "ALWAYS play Bf4 before e3. The bishop must get out first.",
+        "victim_color": "white",
+        "trap_for": "white",
+        "difficulty": "beginner",
+        "category": "warning"
+      }
     ]
   },
   "sicilian_dragon": {
@@ -1758,6 +2434,193 @@
       "The pawn structure is solid - don't rush to create weaknesses",
       "c5 is often a key break in the middlegame to challenge d4",
       "The endgame is often favorable for Black due to the solid, no-weakness structure"
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Control the center",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "c6": {
+        "idea": "The Caro-Kann! Opponent prepares d5 with support"
+      },
+      "d4": {
+        "idea": "Take more space",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
+      },
+      "d5": {
+        "idea": "Opponent challenges your center — the key moment"
+      },
+      "Nc3": {
+        "idea": "Defend your e4 pawn with the knight",
+        "arrow": [
+          "b1",
+          "c3"
+        ]
+      },
+      "dxe4": {
+        "idea": "Opponent captures — now recapture"
+      },
+      "Nxe4": {
+        "idea": "Recapture with the knight — it's powerful in the center",
+        "arrow": [
+          "c3",
+          "e4"
+        ]
+      },
+      "Bf5": {
+        "idea": "Opponent develops bishop OUTSIDE the pawn chain — the Caro-Kann idea"
+      },
+      "Ng3": {
+        "idea": "Attack their bishop — force it to decide where to go",
+        "arrow": [
+          "e4",
+          "g3"
+        ]
+      },
+      "Bg6": {
+        "idea": "Opponent retreats — bishop is safe but passive"
+      },
+      "h4": {
+        "idea": "Push h4! Threaten h5 to trap or chase their bishop",
+        "arrow": [
+          "h2",
+          "h4"
+        ]
+      },
+      "h6": {
+        "idea": "Opponent stops h5 — but weakens their kingside slightly"
+      },
+      "Nf3": {
+        "idea": "Develop naturally — you have great control of the center",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "Nd7": {
+        "idea": "Opponent develops the knight behind the pawns"
+      },
+      "h5": {
+        "idea": "Push the bishop back! You gain space on the kingside",
+        "arrow": [
+          "h4",
+          "h5"
+        ]
+      },
+      "Bh7": {
+        "idea": "Opponent's bishop is buried — one of your advantages"
+      },
+      "Bd3": {
+        "idea": "Develop bishop and offer a trade — if they take, open the h-file",
+        "arrow": [
+          "f1",
+          "d3"
+        ]
+      },
+      "Bxd3": {
+        "idea": "Opponent trades"
+      },
+      "Qxd3": {
+        "idea": "Recapture with queen — it's centralized and active",
+        "arrow": [
+          "d1",
+          "d3"
+        ]
+      }
+    },
+    "traps": [
+      {
+        "trap_id": "caro_kann_smothered_mate",
+        "name": "Caro-Kann Smothered Mate",
+        "variation": "caro_classical",
+        "setup_moves": [
+          "e4",
+          "c6",
+          "Nc3",
+          "d5",
+          "Nf3",
+          "dxe4",
+          "Nxe4",
+          "Nd7",
+          "Qe2",
+          "Ngf6"
+        ],
+        "full_line": [
+          "e4",
+          "c6",
+          "Nc3",
+          "d5",
+          "Nf3",
+          "dxe4",
+          "Nxe4",
+          "Nd7",
+          "Qe2",
+          "Ngf6",
+          "Nd6#"
+        ],
+        "trap_move": "Nd6#",
+        "explanation": "Checkmate! The knight on d6 delivers check and Black's own pieces block every escape square. A classic smothered mate.",
+        "refutation": "Black should NOT play Ngf6. Play e6 or g6 first to prevent Nd6.",
+        "victim_color": "black",
+        "trap_for": "white",
+        "difficulty": "beginner",
+        "category": "trap"
+      },
+      {
+        "trap_id": "caro_kann_pin_warning",
+        "name": "Caro-Kann Classical Pin",
+        "variation": "caro_classical",
+        "setup_moves": [
+          "e4",
+          "c6",
+          "d4",
+          "d5",
+          "Nc3",
+          "dxe4",
+          "Nxe4",
+          "Bf5",
+          "Ng3",
+          "Bg6",
+          "h4",
+          "h6",
+          "Nf3",
+          "Nd7"
+        ],
+        "full_line": [
+          "e4",
+          "c6",
+          "d4",
+          "d5",
+          "Nc3",
+          "dxe4",
+          "Nxe4",
+          "Bf5",
+          "Ng3",
+          "Bg6",
+          "h4",
+          "h6",
+          "Nf3",
+          "Nd7",
+          "h5",
+          "Bh7",
+          "Bd3",
+          "Bxd3",
+          "Qxd3"
+        ],
+        "trap_move": "h5",
+        "explanation": "White chases Black's bishop to h7 with h5, then trades it off with Bd3. Black loses the bishop pair and White gets a strong position.",
+        "refutation": "Black should consider Bg4 instead of Bg6 to avoid the h4-h5 chase.",
+        "victim_color": "black",
+        "trap_for": "white",
+        "difficulty": "intermediate",
+        "category": "warning"
+      }
     ]
   },
   "sicilian_najdorf": {
@@ -2315,6 +3178,158 @@
       "a6 challenges the bishop and is almost always the right response",
       "The Ruy Lopez is a long strategic battle - don't expect quick tactics",
       "Black's Breyer maneuver (Nb8-d7) is one of the deepest ideas in chess"
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Control the center",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "e5": {
+        "idea": "Opponent fights back"
+      },
+      "Nf3": {
+        "idea": "Attack their e5 pawn",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "Nc6": {
+        "idea": "Opponent defends"
+      },
+      "Bb5": {
+        "idea": "The Ruy Lopez! Pin the knight that defends e5. Long-term pressure.",
+        "arrow": [
+          "f1",
+          "b5"
+        ]
+      },
+      "a6": {
+        "idea": "Opponent challenges your bishop — the Morphy Defense"
+      },
+      "Ba4": {
+        "idea": "Retreat but maintain the pin. The bishop is still powerful.",
+        "arrow": [
+          "b5",
+          "a4"
+        ]
+      },
+      "Nf6": {
+        "idea": "Opponent counterattacks your e4 pawn"
+      },
+      "O-O": {
+        "idea": "Castle! Get your king safe and connect your rooks",
+        "arrow": [
+          "e1",
+          "g1"
+        ]
+      },
+      "Be7": {
+        "idea": "Opponent develops and prepares to castle"
+      },
+      "Re1": {
+        "idea": "Rook behind the e4 pawn — support the center",
+        "arrow": [
+          "f1",
+          "e1"
+        ]
+      },
+      "b5": {
+        "idea": "Opponent pushes your bishop back — but weakens c6"
+      },
+      "Bb3": {
+        "idea": "Bishop retreats to the perfect diagonal — aims at f7",
+        "arrow": [
+          "a4",
+          "b3"
+        ]
+      },
+      "d6": {
+        "idea": "Opponent solidifies — a typical closed Ruy Lopez"
+      },
+      "c3": {
+        "idea": "Prepare d4 — the central break that opens the position",
+        "arrow": [
+          "c2",
+          "c3"
+        ]
+      },
+      "h3": {
+        "idea": "Prevent Bg4 pin — a useful waiting move",
+        "arrow": [
+          "h2",
+          "h3"
+        ]
+      },
+      "Nb8": {
+        "idea": "The Breyer maneuver! Knight retreats to reroute to d7"
+      },
+      "d4": {
+        "idea": "Strike in the center! This is the payoff of all your preparation",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
+      },
+      "Nbd7": {
+        "idea": "Opponent re-develops the knight"
+      }
+    },
+    "traps": [
+      {
+        "trap_id": "ruy_lopez_noah_ark",
+        "name": "Noah's Ark Trap Warning",
+        "variation": "morphy_defense",
+        "setup_moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bb5",
+          "a6",
+          "Ba4",
+          "Nf6",
+          "O-O",
+          "d6",
+          "d4",
+          "b5",
+          "Bb3"
+        ],
+        "full_line": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bb5",
+          "a6",
+          "Ba4",
+          "Nf6",
+          "O-O",
+          "d6",
+          "d4",
+          "b5",
+          "Bb3",
+          "Nxd4",
+          "Nxd4",
+          "exd4",
+          "Qxd4",
+          "c5",
+          "Qd3",
+          "c4",
+          "Qxc4",
+          "Be6"
+        ],
+        "trap_move": "c5",
+        "explanation": "Black plays c5 and c4 to trap White's bishop on b3. The bishop has no escape squares -- a famous centuries-old trap pattern.",
+        "refutation": "White must retreat the bishop early. Don't let the c-pawn net close around it.",
+        "victim_color": "white",
+        "trap_for": "black",
+        "difficulty": "beginner",
+        "category": "warning"
+      }
     ]
   },
   "sicilian_defense": {
@@ -2449,6 +3464,153 @@
       "In the Open Sicilian, both sides often castle on opposite wings",
       "The Alapin (c3) is White's attempt to play d4 without allowing typical Sicilian structures",
       "d5 is always the key equalizing break for Black"
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Control the center",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "c5": {
+        "idea": "The Sicilian! Opponent fights for the center from the side"
+      },
+      "Nf3": {
+        "idea": "Develop and prepare to open the center with d4",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "d6": {
+        "idea": "Opponent prepares a solid setup"
+      },
+      "d4": {
+        "idea": "Open the center — this is the main plan against the Sicilian",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
+      },
+      "cxd4": {
+        "idea": "Opponent takes — now you get an open file"
+      },
+      "Nxd4": {
+        "idea": "Recapture with the knight — it's centralized and strong",
+        "arrow": [
+          "f3",
+          "d4"
+        ]
+      },
+      "Nf6": {
+        "idea": "Opponent develops and attacks your e4 pawn"
+      },
+      "Nc3": {
+        "idea": "Defend e4 and develop — your pieces are coming out fast",
+        "arrow": [
+          "b1",
+          "c3"
+        ]
+      },
+      "a6": {
+        "idea": "The Najdorf! Opponent prepares b5 expansion"
+      },
+      "Be3": {
+        "idea": "Develop bishop — support d4 knight and prepare queenside castling",
+        "arrow": [
+          "c1",
+          "e3"
+        ]
+      },
+      "e5": {
+        "idea": "Opponent pushes your knight away — but opens holes"
+      },
+      "Nb3": {
+        "idea": "Retreat knight — it still controls key squares from b3",
+        "arrow": [
+          "d4",
+          "b3"
+        ]
+      },
+      "Be6": {
+        "idea": "Opponent develops their bishop"
+      },
+      "f3": {
+        "idea": "Support e4 and prepare a kingside attack with g4",
+        "arrow": [
+          "f2",
+          "f3"
+        ]
+      },
+      "Be7": {
+        "idea": "Opponent develops"
+      },
+      "Qd2": {
+        "idea": "Connect rooks and prepare to castle queenside",
+        "arrow": [
+          "d1",
+          "d2"
+        ]
+      },
+      "O-O": {
+        "idea": "Opponent castles kingside — your attack will target there"
+      },
+      "O-O-O": {
+        "idea": "Castle queenside! Now you can attack the kingside with pawns",
+        "arrow": [
+          "e1",
+          "c1"
+        ]
+      }
+    },
+    "traps": [
+      {
+        "trap_id": "siberian_trap",
+        "name": "Siberian Trap",
+        "variation": "open_sicilian",
+        "setup_moves": [
+          "e4",
+          "c5",
+          "Nf3",
+          "e6",
+          "d4",
+          "cxd4",
+          "Nxd4",
+          "a6",
+          "Nc3",
+          "Qc7"
+        ],
+        "full_line": [
+          "e4",
+          "c5",
+          "Nf3",
+          "e6",
+          "d4",
+          "cxd4",
+          "Nxd4",
+          "a6",
+          "Nc3",
+          "Qc7",
+          "Bd3",
+          "Nf6",
+          "O-O",
+          "Bc5",
+          "Nb3",
+          "Ba7",
+          "Kh1",
+          "Ng4",
+          "Qe1",
+          "Qxh2#"
+        ],
+        "trap_move": "Qxh2#",
+        "explanation": "Black delivers checkmate on h2. White's king is stuck on h1 with no escape. The bishop on a7 and knight on g4 control all the key squares.",
+        "refutation": "White should not play Kh1 blindly. Watch for the Ng4-Qh2 pattern when the h-pawn has moved.",
+        "victim_color": "white",
+        "trap_for": "black",
+        "difficulty": "intermediate",
+        "category": "trap"
+      }
     ]
   },
   "philidor_defense": {
@@ -2700,6 +3862,45 @@
       "d5 is the key break for Black - time it carefully",
       "Don't exchange on d4 unless you have a specific plan",
       "The Hanham setup (Nbd7, Be7, O-O, c6) is the most reliable for Black"
+    ],
+    "traps": [
+      {
+        "trap_id": "philidor_legal_mate_pattern",
+        "name": "Philidor Legal's Mate",
+        "variation": null,
+        "setup_moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "d6",
+          "Bc4",
+          "Bg4",
+          "Nc3",
+          "h6"
+        ],
+        "full_line": [
+          "e4",
+          "e5",
+          "Nf3",
+          "d6",
+          "Bc4",
+          "Bg4",
+          "Nc3",
+          "h6",
+          "Nxe5",
+          "Bxd1",
+          "Bxf7+",
+          "Ke7",
+          "Nd5#"
+        ],
+        "trap_move": "Nxe5",
+        "explanation": "Same pattern as Legal's Mate. White sacrifices the queen, then Bxf7+ Ke7 Nd5# is checkmate. Works when Black's bishop takes the queen greedily.",
+        "refutation": "Black should NOT take the queen. Play dxe5 to stay safe.",
+        "victim_color": "black",
+        "trap_for": "white",
+        "difficulty": "beginner",
+        "category": "trap"
+      }
     ]
   },
   "vienna_game": {
@@ -3077,7 +4278,119 @@
       "After d4 exd4 Nxd4, White has a lead in development",
       "Black should develop aggressively (Bc5, Qf6) to create counterplay",
       "The Scotch Gambit (Bc4 instead of Nxd4) offers sharp tactical play"
-    ]
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Control the center",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "e5": {
+        "idea": "Opponent mirrors"
+      },
+      "Nf3": {
+        "idea": "Develop and attack e5",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "Nc6": {
+        "idea": "Opponent defends"
+      },
+      "d4": {
+        "idea": "Open the center immediately! The Scotch Game — direct and aggressive.",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
+      },
+      "exd4": {
+        "idea": "Opponent captures"
+      },
+      "Nxd4": {
+        "idea": "Recapture — your knight is a monster in the center",
+        "arrow": [
+          "f3",
+          "d4"
+        ]
+      },
+      "Bc5": {
+        "idea": "Opponent develops and targets f2"
+      },
+      "Be3": {
+        "idea": "Challenge their bishop — and develop at the same time",
+        "arrow": [
+          "c1",
+          "e3"
+        ]
+      },
+      "Qf6": {
+        "idea": "Opponent puts the queen on f6 — targeting f2 and the knight"
+      },
+      "c3": {
+        "idea": "Support the knight on d4 — it's not going anywhere",
+        "arrow": [
+          "c2",
+          "c3"
+        ]
+      },
+      "Nge7": {
+        "idea": "Opponent develops"
+      },
+      "Bc4": {
+        "idea": "Develop bishop to the Italian diagonal — aims at f7",
+        "arrow": [
+          "f1",
+          "c4"
+        ]
+      },
+      "Ne5": {
+        "idea": "Opponent centralizes"
+      },
+      "Be2": {
+        "idea": "Retreat bishop — prepare to castle and regroup",
+        "arrow": [
+          "c4",
+          "e2"
+        ]
+      },
+      "Qg6": {
+        "idea": "Opponent shifts queen — eyes the g2 pawn"
+      },
+      "O-O": {
+        "idea": "Castle! Your king is safe and rooks are connected",
+        "arrow": [
+          "e1",
+          "g1"
+        ]
+      },
+      "d6": {
+        "idea": "Opponent solidifies"
+      },
+      "f4": {
+        "idea": "Push! Drive their knight back and gain space",
+        "arrow": [
+          "f2",
+          "f4"
+        ]
+      },
+      "Nc4": {
+        "idea": "Opponent reroutes the knight"
+      },
+      "Bxc4": {
+        "idea": "Trade — open lines for your rooks",
+        "arrow": [
+          "e2",
+          "c4"
+        ]
+      },
+      "Qxe4": {
+        "idea": "Opponent grabs a pawn — but you have compensation with development"
+      }
+    }
   },
   "petrov_defense": {
     "name": "Petrov Defense",
@@ -3335,6 +4648,134 @@
       "The Petrov is a drawing weapon - Black aims for equality, not an advantage",
       "Symmetry in the Petrov is deceptive - one wrong move and you're lost",
       "If you want a quiet, solid game as Black, the Petrov is your weapon"
+    ],
+    "move_ideas": {
+      "e4": {
+        "idea": "Control the center",
+        "arrow": [
+          "e2",
+          "e4"
+        ]
+      },
+      "e5": {
+        "idea": "Opponent mirrors"
+      },
+      "Nf3": {
+        "idea": "Attack their e5 pawn",
+        "arrow": [
+          "g1",
+          "f3"
+        ]
+      },
+      "Nf6": {
+        "idea": "The Petrov! Opponent counterattacks your e4 instead of defending"
+      },
+      "Nxe5": {
+        "idea": "Take the pawn. Now the critical moment begins.",
+        "arrow": [
+          "f3",
+          "e5"
+        ]
+      },
+      "d6": {
+        "idea": "Opponent kicks your knight — the right move"
+      },
+      "Nxe4": {
+        "idea": "Opponent takes back the pawn — material is equal"
+      },
+      "d4": {
+        "idea": "Push for the center — you have more space",
+        "arrow": [
+          "d2",
+          "d4"
+        ]
+      },
+      "d5": {
+        "idea": "Opponent blocks — position becomes symmetrical"
+      },
+      "Bd3": {
+        "idea": "Develop bishop — it attacks the knight on e4",
+        "arrow": [
+          "f1",
+          "d3"
+        ]
+      },
+      "Nc6": {
+        "idea": "Opponent develops"
+      },
+      "O-O": {
+        "idea": "Castle! Get your king safe — you're ahead in development",
+        "arrow": [
+          "e1",
+          "g1"
+        ]
+      },
+      "Be7": {
+        "idea": "Opponent develops"
+      },
+      "c4": {
+        "idea": "Attack their center — open lines for your pieces",
+        "arrow": [
+          "c2",
+          "c4"
+        ]
+      },
+      "Nb4": {
+        "idea": "Opponent attacks your bishop"
+      },
+      "Be2": {
+        "idea": "Retreat — bishop stays useful on the e2-a6 diagonal",
+        "arrow": [
+          "d3",
+          "e2"
+        ]
+      },
+      "Nc3": {
+        "idea": "Develop your last piece — challenge the knight on e4",
+        "arrow": [
+          "b1",
+          "c3"
+        ]
+      },
+      "Bf5": {
+        "idea": "Opponent develops bishop outside the pawn chain"
+      }
+    },
+    "traps": [
+      {
+        "trap_id": "petrov_fork_trap",
+        "name": "Petrov Fork Trap",
+        "variation": "classical_petrov",
+        "setup_moves": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nf6",
+          "Nxe5",
+          "Nxe4"
+        ],
+        "full_line": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nf6",
+          "Nxe5",
+          "Nxe4",
+          "Qe2",
+          "Nf6",
+          "Nc6+",
+          "Be7",
+          "Nxd8",
+          "Kxd8"
+        ],
+        "trap_move": "Qe2",
+        "explanation": "White pins Black's knight with Qe2. After the knight retreats, Nc6+ forks king and queen. White wins Black's queen for a knight.",
+        "refutation": "Black MUST play d6 first (not Nxe4). This is the #1 rule in the Petrov Defense.",
+        "victim_color": "black",
+        "trap_for": "white",
+        "difficulty": "beginner",
+        "category": "trap"
+      }
     ]
   },
   "kings_indian_defense": {
@@ -5582,6 +7023,61 @@
       "Ng4 is the main move (more sound), Ne4 is the Fajarowicz (trickier)",
       "White should stay calm, develop naturally, and hold the extra pawn",
       "If White plays accurately, they keep a small edge - but practical chances are good for Black"
+    ],
+    "traps": [
+      {
+        "trap_id": "budapest_kieninger_mate",
+        "name": "Kieninger Trap",
+        "variation": null,
+        "setup_moves": [
+          "d4",
+          "Nf6",
+          "c4",
+          "e5",
+          "dxe5",
+          "Ng4",
+          "Bf4",
+          "Nc6",
+          "Nf3",
+          "Bb4+",
+          "Nbd2",
+          "Qe7",
+          "a3",
+          "Ngxe5",
+          "Nxe5",
+          "Nxe5",
+          "e3"
+        ],
+        "full_line": [
+          "d4",
+          "Nf6",
+          "c4",
+          "e5",
+          "dxe5",
+          "Ng4",
+          "Bf4",
+          "Nc6",
+          "Nf3",
+          "Bb4+",
+          "Nbd2",
+          "Qe7",
+          "a3",
+          "Ngxe5",
+          "Nxe5",
+          "Nxe5",
+          "e3",
+          "Bxd2+",
+          "Qxd2",
+          "Nd3#"
+        ],
+        "trap_move": "Nd3#",
+        "explanation": "Smothered checkmate! Black's knight lands on d3 with check and White's own pieces block all escape. One of the most beautiful traps in chess.",
+        "refutation": "White should avoid the mechanical capture sequence. Be aware of the Nd3 mating square.",
+        "victim_color": "white",
+        "trap_for": "black",
+        "difficulty": "intermediate",
+        "category": "trap"
+      }
     ]
   },
   "dutch_defense": {
@@ -5857,6 +7353,47 @@
       "Qa5 is the modern main line - safe and active",
       "The Nf6 variation avoids queen moves but gives White a bigger center",
       "Bf5 should come out BEFORE e6 (same idea as the Caro-Kann and Slav)"
+    ],
+    "traps": [
+      {
+        "trap_id": "scandinavian_queen_danger",
+        "name": "Scandinavian Queen Danger",
+        "variation": null,
+        "setup_moves": [
+          "e4",
+          "d5",
+          "exd5",
+          "Qxd5",
+          "Nc3",
+          "Qa5",
+          "d4",
+          "Nf6",
+          "Nf3",
+          "Bf5"
+        ],
+        "full_line": [
+          "e4",
+          "d5",
+          "exd5",
+          "Qxd5",
+          "Nc3",
+          "Qa5",
+          "d4",
+          "Nf6",
+          "Nf3",
+          "Bf5",
+          "Bd2",
+          "c6",
+          "Nd5"
+        ],
+        "trap_move": "Nd5",
+        "explanation": "Nd5 attacks the queen and threatens Nxf6+ discovering an attack. Black's queen is overworked and must give up material.",
+        "refutation": "Black should castle quickly and not leave the queen exposed on a5 for too long.",
+        "victim_color": "black",
+        "trap_for": "white",
+        "difficulty": "intermediate",
+        "category": "warning"
+      }
     ]
   },
   "nimzowitsch_defense": {

@@ -4350,23 +4350,58 @@ def _get_initial_opening_guidance(update_fields: dict, log=None) -> Optional[Dic
     if not teaching_key:
         return None
     try:
-        from services.opening_mastery_tracker import get_move_guidance, get_phase_label, INTRODUCTION, OPENING_MOVE_IDEAS
-        guidance = get_move_guidance(teaching_key, 0, INTRODUCTION)
+        from services.opening_mastery_tracker import (
+            get_teaching_line, get_phase_label, INTRODUCTION, OPENING_BRANCH_DATA,
+        )
+        branch_key = update_fields.get("opening_branch")
+        guided_mode = update_fields.get("opening_guided_mode", True)
+
+        # Get the full teaching line for this branch
+        all_ideas, branch_info = get_teaching_line(teaching_key, branch_key)
         if log:
-            log.info(f"[COACH-GUIDANCE] guidance for {teaching_key}: {guidance}")
-        if guidance:
-            # Send ALL move ideas so frontend can compute arrows client-side
-            all_ideas = OPENING_MOVE_IDEAS.get(teaching_key, [])
-            return {
+            log.info(f"[COACH-GUIDANCE] {teaching_key}: {len(all_ideas)} ideas, branch={branch_info}")
+
+        if all_ideas:
+            first = all_ideas[0]
+            result = {
                 "opening_key": teaching_key,
                 "phase": INTRODUCTION,
                 "phase_label": get_phase_label(INTRODUCTION),
-                "move_idea": guidance.get("idea"),
-                "expected_move": guidance.get("move"),
-                "arrow": guidance.get("arrow"),
+                "move_idea": first.get("idea"),
+                "expected_move": first.get("move"),
+                "arrow": first.get("arrow") if guided_mode else None,
                 "games_played": 0,
-                "all_ideas": all_ideas,  # Full list for client-side guidance
+                "all_ideas": all_ideas if guided_mode else [],
+                "guided_mode": guided_mode,
             }
+            # Include branch info so frontend knows about the variation
+            if branch_info:
+                result["branch"] = branch_info
+            # Include all available branches for this opening
+            if teaching_key in OPENING_BRANCH_DATA:
+                bd = OPENING_BRANCH_DATA[teaching_key]
+                result["has_branches"] = True
+                result["branch_point"] = bd["branch_point"]
+
+            # Include relevant traps for this opening (for client-side awareness)
+            try:
+                from services.verified_opening_traps import get_all_for_opening
+                traps = get_all_for_opening(teaching_key)
+                if traps:
+                    result["traps"] = [{
+                        "trap_id": t.trap_id,
+                        "name": t.name,
+                        "trap_move": t.trap_move,
+                        "setup_moves": t.setup_moves,
+                        "explanation": t.explanation,
+                        "refutation": t.refutation,
+                        "victim_color": t.victim_color,
+                        "difficulty": t.difficulty,
+                    } for t in traps]
+            except Exception:
+                pass
+
+            return result
     except Exception as e:
         if log:
             log.error(f"[COACH-GUIDANCE] Failed: {e}")
@@ -4621,6 +4656,7 @@ async def start_play_with_coach(
     source_game_id = request.get("source_game_id", None)
     opening_key = request.get("opening_key", None)  # Curriculum opening to teach
     opening_name = request.get("opening_name", None)  # Opening name from user's repertoire
+    guided_mode = request.get("guided_mode", True)  # True = arrows+ideas, False = test mode
 
     # Validate user_color
     if user_color not in ["white", "black"]:
@@ -4671,17 +4707,47 @@ async def start_play_with_coach(
             # If we matched to a curriculum opening, activate teaching
             if matched_key:
                 try:
-                    full_line = _build_full_opening_line(matched_key)
+                    from services.opening_mastery_tracker import (
+                        get_teaching_line, select_branch_for_game, get_opening_mastery,
+                        OPENING_BRANCH_DATA,
+                    )
+                    # Pick which branch to teach based on what user has seen
+                    selected_branch = None
+                    mastery_doc = await get_opening_mastery(db, user.user_id, matched_key)
+                    branches_seen = mastery_doc.get("branches_seen", [])
+                    if matched_key in OPENING_BRANCH_DATA:
+                        selected_branch = select_branch_for_game(matched_key, branches_seen)
+                        logger.info(f"[COACH] Branch selected: {selected_branch} (seen: {branches_seen})")
+
+                    # Build teaching line for the selected branch
+                    teaching_ideas, branch_info = get_teaching_line(matched_key, selected_branch)
+                    full_line = [idea["move"] for idea in teaching_ideas]
+
                     if full_line:
                         update_fields.update({
                             "opening_to_teach": matched_key,
                             "opening_teaching_moves": full_line,
                             "opening_teaching_index": 0,
                             "opening_teaching_active": True,
+                            "opening_guided_mode": guided_mode,
+                            "opening_branch": selected_branch,
                         })
-                        logger.info(f"[COACH] Opening teaching activated: {matched_key} ({len(full_line)} moves)")
+                        logger.info(f"[COACH] Opening teaching activated: {matched_key}, branch={selected_branch}, guided={guided_mode}, {len(full_line)} moves")
                 except Exception as e:
                     logger.warning(f"Opening teaching setup failed: {e}")
+                    # Fallback to old method
+                    try:
+                        full_line = _build_full_opening_line(matched_key)
+                        if full_line:
+                            update_fields.update({
+                                "opening_to_teach": matched_key,
+                                "opening_teaching_moves": full_line,
+                                "opening_teaching_index": 0,
+                                "opening_teaching_active": True,
+                                "opening_guided_mode": guided_mode,
+                            })
+                    except Exception:
+                        pass
 
             await db.coach_sessions.update_one(
                 {"session_id": session.session_id},
