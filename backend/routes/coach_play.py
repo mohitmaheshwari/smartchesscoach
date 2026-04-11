@@ -3366,7 +3366,9 @@ async def evaluate_pending_move(
         trap_warning_data = None
         try:
             teaching_opening = session_doc.get("opening_to_teach") or session_doc.get("opening_key")
-            if teaching_opening and session_doc.get("opening_teaching_active"):
+            _ota = session_doc.get("opening_teaching_active")
+            logger.info(f"[FAST-EVAL] Opening check: teaching_opening={teaching_opening}, active={_ota}")
+            if teaching_opening and _ota:
                 from services.opening_mastery_tracker import (
                     get_opening_mastery, get_move_guidance, get_trap_warning, get_phase_label
                 )
