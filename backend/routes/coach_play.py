@@ -3374,7 +3374,9 @@ async def evaluate_pending_move(
                 )
                 _mh = session_doc.get("move_history", [])
                 mastery = await get_opening_mastery(db, user_id, teaching_opening)
-                phase = mastery.get("phase", "introduction")
+                raw_phase = mastery.get("phase", "introduction")
+                # Always use introduction phase during active teaching — guidance should always show
+                phase = "introduction" if _ota else raw_phase
                 # _mh does NOT include the pending move yet (it's not committed)
                 # So the pending user move is at ply len(_mh)
                 pending_ply = len(_mh)  # index of the move the user just played
@@ -3385,7 +3387,7 @@ async def evaluate_pending_move(
                 coach_move_guidance = get_move_guidance(teaching_opening, pending_ply + 1, phase)
                 # Guidance for the NEXT user move (after coach responds)
                 next_guidance = get_move_guidance(teaching_opening, pending_ply + 2, phase)
-                logger.info(f"[FAST-EVAL] Guidance indices: pending_ply={pending_ply}, current={current_guidance is not None}, coach={coach_move_guidance is not None}, next={next_guidance is not None}")
+                logger.info(f"[FAST-EVAL] Guidance: key={teaching_opening}, ply={pending_ply}, raw_phase={raw_phase}, phase={phase}, mh_len={len(_mh)}, current={current_guidance}, coach={coach_move_guidance}, next={next_guidance}")
 
                 if next_guidance or coach_move_guidance:
                     opening_guidance_data = {
