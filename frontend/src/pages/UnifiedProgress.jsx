@@ -24,16 +24,19 @@ const UnifiedProgress = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(null);
   const [openings, setOpenings] = useState(null);
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, openingsRes] = await Promise.all([
+        const [progressRes, openingsRes, profileRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
           fetch(`${API}/coach/play/opening-suggestions`, { credentials: "include" }),
+          fetch(`${API}/progress/full-profile`, { credentials: "include" }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
         if (openingsRes.ok) setOpenings(await openingsRes.json());
+        if (profileRes.ok) setProfile(await profileRes.json());
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -67,13 +70,31 @@ const UnifiedProgress = ({ user }) => {
             </p>
           </div>
 
+          {/* Player Identity Header */}
+          {profile && <PlayerHeader profile={profile} />}
+
           {/* Focus Area Card */}
           <FocusCard state={state} progress={progress} navigate={navigate} />
+
+          {/* Thinking Habits */}
+          {profile?.thinking_habits && <ThinkingHabits data={profile.thinking_habits} />}
+
+          {/* Phase Accuracy */}
+          {profile?.phase_accuracy && <PhaseAccuracy data={profile.phase_accuracy} />}
+
+          {/* Accuracy Trend */}
+          {profile?.accuracy_trend?.length >= 3 && <AccuracyTrend data={profile.accuracy_trend} />}
+
+          {/* Pattern Lifecycle */}
+          {profile?.patterns?.length > 0 && <PatternLifecycle patterns={profile.patterns} />}
 
           {/* Opening Repertoire */}
           {openings && openings.total_games > 0 && (
             <OpeningRepertoire openings={openings} navigate={navigate} />
           )}
+
+          {/* Opening Mastery (coach sessions) */}
+          {profile?.opening_mastery?.length > 0 && <OpeningMastery data={profile.opening_mastery} navigate={navigate} />}
 
           {/* Quick Actions */}
           <QuickActions state={state} progress={progress} navigate={navigate} />
@@ -83,6 +104,314 @@ const UnifiedProgress = ({ user }) => {
     </Layout>
   );
 };
+
+
+// ─── Player Header ──────────────────────────────────────────────
+
+const PlayerHeader = ({ profile }) => {
+  const identity = profile.identity;
+  const strength = profile.strength;
+  const memory = profile.coach_memory;
+  if (!identity && !strength && !memory) return null;
+
+  const style = identity?.style_profile?.primary_style;
+  const gamesPlayed = identity?.games_analyzed || memory?.games_played || 0;
+  const wins = identity?.total_wins || 0;
+  const losses = identity?.total_losses || 0;
+  const draws = identity?.total_draws || 0;
+  const winRate = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">
+            {style ? style.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "Your Profile"}
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {gamesPlayed} games analyzed
+            {memory?.avg_accuracy ? ` · ${Math.round(memory.avg_accuracy)}% avg accuracy` : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-emerald-600 font-mono">{wins}W</span>
+          <span className="text-muted-foreground font-mono">{draws}D</span>
+          <span className="text-red-400 font-mono">{losses}L</span>
+        </div>
+      </div>
+
+      {/* Strength domains */}
+      {strength?.domains && Object.keys(strength.domains).length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {Object.entries(strength.domains).slice(0, 6).map(([key, val]) => {
+            const score = val?.score || 0;
+            const color = score >= 70 ? "text-emerald-500 bg-emerald-500" :
+                          score >= 40 ? "text-amber-500 bg-amber-500" :
+                          "text-red-400 bg-red-400";
+            return (
+              <div key={key} className="text-center p-2 rounded-lg bg-muted/30">
+                <div className="w-full h-1 bg-muted rounded-full mb-1.5 overflow-hidden">
+                  <div className={`h-full rounded-full ${color.split(" ")[1]}`} style={{ width: `${score}%` }} />
+                </div>
+                <p className="text-[10px] text-muted-foreground truncate">{key.replace(/_/g, " ")}</p>
+                <p className={`text-xs font-mono font-semibold ${color.split(" ")[0]}`}>{score}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// ─── Thinking Habits ────────────────────────────────────────────
+
+const HABIT_LABELS = {
+  threat_awareness: "Threats",
+  tactical_vision: "Tactics",
+  move_verification: "Checks",
+  king_safety: "King",
+  patience: "Patience",
+};
+
+const ThinkingHabits = ({ data }) => {
+  const habits = data.habits || {};
+  if (Object.keys(habits).length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+          <Activity className="w-4 h-4 text-purple-500" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Thinking Habits</h3>
+          <p className="text-[10px] text-muted-foreground">Last {data.games_sampled} games averaged</p>
+        </div>
+        <span className="ml-auto text-lg font-bold font-mono text-foreground">{data.overall}</span>
+      </div>
+
+      <div className="space-y-2">
+        {Object.entries(habits).map(([key, score]) => {
+          const label = HABIT_LABELS[key] || key.replace(/_/g, " ");
+          const color = score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-amber-400" : "bg-red-400";
+          return (
+            <div key={key} className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground w-16 text-right">{label}</span>
+              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
+              </div>
+              <span className="text-xs font-mono w-6 text-right">{score}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+
+// ─── Phase Accuracy ─────────────────────────────────────────────
+
+const PhaseAccuracy = ({ data }) => {
+  const phases = ["opening", "middlegame", "endgame"];
+  const hasData = phases.some(p => data[p] != null);
+  if (!hasData) return null;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+          <Shield className="w-4 h-4 text-blue-500" />
+        </div>
+        <h3 className="text-sm font-semibold text-foreground">Phase Accuracy</h3>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        {phases.map(phase => {
+          const acc = data[phase];
+          if (acc == null) return (
+            <div key={phase} className="text-center p-3 rounded-xl bg-muted/30">
+              <p className="text-2xl font-bold font-mono text-muted-foreground/30">—</p>
+              <p className="text-[10px] text-muted-foreground mt-1 capitalize">{phase}</p>
+            </div>
+          );
+          const color = acc >= 80 ? "text-emerald-500" : acc >= 60 ? "text-amber-500" : "text-red-400";
+          return (
+            <div key={phase} className="text-center p-3 rounded-xl bg-muted/30">
+              <p className={`text-2xl font-bold font-mono ${color}`}>{acc}%</p>
+              <p className="text-[10px] text-muted-foreground mt-1 capitalize">{phase}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+
+// ─── Accuracy Trend ─────────────────────────────────────────────
+
+const AccuracyTrend = ({ data }) => {
+  const max = Math.max(...data.map(d => d.accuracy), 100);
+  const min = Math.min(...data.map(d => d.accuracy), 0);
+  const range = max - min || 1;
+
+  // Trend direction
+  const first3 = data.slice(0, 3).reduce((s, d) => s + d.accuracy, 0) / 3;
+  const last3 = data.slice(-3).reduce((s, d) => s + d.accuracy, 0) / 3;
+  const trend = last3 - first3;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+            trend >= 3 ? "bg-emerald-500/10" : trend <= -3 ? "bg-red-500/10" : "bg-muted"
+          }`}>
+            {trend >= 3 ? <TrendingUp className="w-4 h-4 text-emerald-500" /> :
+             trend <= -3 ? <TrendingDown className="w-4 h-4 text-red-400" /> :
+             <Minus className="w-4 h-4 text-muted-foreground" />}
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">Accuracy Trend</h3>
+        </div>
+        <span className={`text-xs font-medium ${
+          trend >= 3 ? "text-emerald-600" : trend <= -3 ? "text-red-400" : "text-muted-foreground"
+        }`}>
+          {trend >= 3 ? `+${trend.toFixed(0)}% improving` : trend <= -3 ? `${trend.toFixed(0)}% declining` : "Steady"}
+        </span>
+      </div>
+
+      {/* Mini bar chart */}
+      <div className="flex items-end gap-1 h-16">
+        {data.map((d, i) => {
+          const height = Math.max(8, ((d.accuracy - min) / range) * 100);
+          const color = d.accuracy >= 80 ? "bg-emerald-500" :
+                        d.accuracy >= 60 ? "bg-amber-400" : "bg-red-400";
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+              <div className={`w-full rounded-sm ${color}`} style={{ height: `${height}%` }}
+                   title={`${d.accuracy}% accuracy, ${d.blunders} blunders`} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-[9px] text-muted-foreground/40">Oldest</span>
+        <span className="text-[9px] text-muted-foreground/40">Latest</span>
+      </div>
+    </div>
+  );
+};
+
+
+// ─── Pattern Lifecycle ──────────────────────────────────────────
+
+const ANGER_COLORS = {
+  first_time: "text-blue-500 bg-blue-500/10",
+  recurring: "text-amber-500 bg-amber-500/10",
+  returned: "text-orange-500 bg-orange-500/10",
+  chronic: "text-red-500 bg-red-500/10",
+};
+
+const PatternLifecycle = ({ patterns }) => {
+  const active = patterns.filter(p => p.state === "active");
+  const declining = patterns.filter(p => p.state === "declining");
+  const fading = patterns.filter(p => p.state === "fading");
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+          <Flame className="w-4 h-4 text-red-400" />
+        </div>
+        <h3 className="text-sm font-semibold text-foreground">Mistake Patterns</h3>
+      </div>
+
+      {active.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] uppercase tracking-widest font-bold text-red-400/60 mb-1.5">Active</p>
+          {active.map(p => <PatternRow key={p.category} pattern={p} />)}
+        </div>
+      )}
+      {declining.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] uppercase tracking-widest font-bold text-amber-400/60 mb-1.5">Declining</p>
+          {declining.map(p => <PatternRow key={p.category} pattern={p} />)}
+        </div>
+      )}
+      {fading.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1.5">Fading</p>
+          {fading.map(p => <PatternRow key={p.category} pattern={p} />)}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PatternRow = ({ pattern }) => {
+  const label = pattern.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  const anger = ANGER_COLORS[pattern.anger] || ANGER_COLORS.first_time;
+  return (
+    <div className="flex items-center justify-between py-1.5">
+      <span className="text-sm text-foreground">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-mono text-muted-foreground">{pattern.count}x</span>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${anger}`}>
+          {pattern.anger?.replace(/_/g, " ")}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+
+// ─── Opening Mastery (Coach sessions) ───────────────────────────
+
+const PHASE_LABELS = {
+  introduction: { label: "Learning", color: "text-blue-500 bg-blue-500/10" },
+  awareness: { label: "Practicing", color: "text-amber-500 bg-amber-500/10" },
+  free_play: { label: "Testing", color: "text-purple-500 bg-purple-500/10" },
+  mastered: { label: "Mastered", color: "text-emerald-500 bg-emerald-500/10" },
+};
+
+const OpeningMastery = ({ data, navigate }) => (
+  <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+    <div className="flex items-center gap-2.5 mb-4">
+      <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+        <Crown className="w-4 h-4 text-indigo-500" />
+      </div>
+      <h3 className="text-sm font-semibold text-foreground">Opening Mastery</h3>
+      <span className="text-[10px] text-muted-foreground">with Coach</span>
+    </div>
+
+    <div className="space-y-2">
+      {data.map(m => {
+        const phaseInfo = PHASE_LABELS[m.phase] || PHASE_LABELS.introduction;
+        const key = m.opening_key?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        return (
+          <div key={m.opening_key}
+               onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(key)}`)}
+               className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all"
+          >
+            <div>
+              <p className="text-sm font-medium text-foreground">{key}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {m.games_played} game{m.games_played !== 1 ? "s" : ""}
+                {m.branches_seen?.length > 0 && ` · ${m.branches_seen.length} variation${m.branches_seen.length !== 1 ? "s" : ""}`}
+              </p>
+            </div>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${phaseInfo.color}`}>
+              {phaseInfo.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
 
 
 // ─── Focus Card ─────────────────────────────────────────────────

@@ -1498,6 +1498,168 @@ async def get_opening_evolution(user: User = Depends(get_current_user)):
     return await get_user_opening_evolution(db, user.user_id, window_size=25)
 
 
+@router.get("/progress/full-profile")
+async def get_full_profile(user: User = Depends(get_current_user)):
+    """
+    Comprehensive player profile for the Progress page.
+    Aggregates all player data into one response.
+    """
+    user_id = user.user_id
+    result = {}
+
+    # 1. Player identity (style, blunder taxonomy)
+    try:
+        identity = await db.player_identities.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "style_profile": 1, "blunder_taxonomy": 1,
+             "games_analyzed": 1, "total_wins": 1, "total_losses": 1, "total_draws": 1,
+             "current_rating": 1, "peak_rating": 1}
+        )
+        if identity:
+            result["identity"] = identity
+    except Exception:
+        pass
+
+    # 2. Strength profile (domains, strongest, weakest)
+    try:
+        strength = await db.player_strength_profiles.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "domains": 1, "strongest": 1, "weakest": 1,
+             "overall_score": 1, "overall_label": 1}
+        )
+        if strength:
+            result["strength"] = strength
+    except Exception:
+        pass
+
+    # 3. Thinking habits (last 10 games averaged)
+    try:
+        thinking_docs = await db.thinking_scores.find(
+            {"user_id": user_id}, {"_id": 0, "habit_scores": 1, "overall_score": 1}
+        ).sort("calculated_at", -1).limit(10).to_list(10)
+
+        if thinking_docs:
+            # Average each habit across games
+            habit_names = ["threat_awareness", "tactical_vision", "move_verification", "king_safety", "patience"]
+            habit_avgs = {}
+            for habit in habit_names:
+                scores = []
+                for doc in thinking_docs:
+                    hs = doc.get("habit_scores", {}).get(habit)
+                    if isinstance(hs, dict):
+                        scores.append(hs.get("score", 0))
+                    elif isinstance(hs, (int, float)):
+                        scores.append(hs)
+                if scores:
+                    habit_avgs[habit] = round(sum(scores) / len(scores))
+
+            overall_scores = [d.get("overall_score", 0) for d in thinking_docs if d.get("overall_score")]
+            result["thinking_habits"] = {
+                "habits": habit_avgs,
+                "overall": round(sum(overall_scores) / len(overall_scores)) if overall_scores else 0,
+                "games_sampled": len(thinking_docs),
+            }
+    except Exception:
+        pass
+
+    # 4. Problem lifecycle (active patterns with decay state)
+    try:
+        problems = await db.problem_lifecycle.find(
+            {"user_id": user_id},
+            {"_id": 0, "category": 1, "state": 1, "count": 1, "anger": 1}
+        ).to_list(20)
+        if problems:
+            result["patterns"] = [
+                {"category": p["category"], "state": p.get("state", "active"),
+                 "count": p.get("count", 0), "anger": p.get("anger", "first_time")}
+                for p in problems
+            ]
+    except Exception:
+        pass
+
+    # 5. Opening mastery (all openings user has played with coach)
+    try:
+        mastery_docs = await db.user_opening_mastery.find(
+            {"user_id": user_id}, {"_id": 0}
+        ).to_list(20)
+        if mastery_docs:
+            result["opening_mastery"] = [
+                {"opening_key": m.get("opening_key"), "phase": m.get("phase", "introduction"),
+                 "games_played": m.get("games_played", 0),
+                 "branches_seen": m.get("branches_seen", []),
+                 "accuracy_history": m.get("accuracy_history", [])[-5:],
+                 "last_played": m.get("last_played")}
+                for m in mastery_docs
+            ]
+    except Exception:
+        pass
+
+    # 6. Coach memory (what the coach remembers about you)
+    try:
+        memory = await db.coach_memory.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "weaknesses": 1, "strengths": 1, "games_played": 1,
+             "avg_accuracy": 1, "avg_blunders_per_game": 1,
+             "improvement_rate": 1, "recent_results": 1,
+             "current_focus": 1}
+        )
+        if memory:
+            result["coach_memory"] = {
+                "games_played": memory.get("games_played", 0),
+                "avg_accuracy": memory.get("avg_accuracy", 0),
+                "avg_blunders": memory.get("avg_blunders_per_game", 0),
+                "improvement_rate": memory.get("improvement_rate"),
+                "recent_results": memory.get("recent_results", [])[-10:],
+                "current_focus": memory.get("current_focus"),
+                "strengths_count": len(memory.get("strengths", [])),
+                "weaknesses_count": len(memory.get("weaknesses", [])),
+            }
+    except Exception:
+        pass
+
+    # 7. Recent game accuracy trend (last 15 games)
+    try:
+        recent_analyses = await db.game_analyses.find(
+            {"user_id": user_id},
+            {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.blunders": 1,
+             "stockfish_analysis.mistakes": 1, "created_at": 1}
+        ).sort("created_at", -1).limit(15).to_list(15)
+
+        if recent_analyses:
+            accuracies = []
+            for a in reversed(recent_analyses):  # oldest first
+                acc = a.get("stockfish_analysis", {}).get("accuracy")
+                blunders = a.get("stockfish_analysis", {}).get("blunders", 0)
+                if acc is not None:
+                    accuracies.append({"accuracy": round(acc, 1), "blunders": blunders})
+            result["accuracy_trend"] = accuracies
+    except Exception:
+        pass
+
+    # 8. Phase accuracy (from recent coach sessions postgame)
+    try:
+        recent_postgames = await db.postgame_analyses.find(
+            {"user_id": user_id},
+            {"_id": 0, "phase_analysis": 1}
+        ).sort("created_at", -1).limit(5).to_list(5)
+
+        if recent_postgames:
+            phase_totals = {"opening": [], "middlegame": [], "endgame": []}
+            for pg in recent_postgames:
+                pa = pg.get("phase_analysis", {})
+                for phase in phase_totals:
+                    if phase in pa and pa[phase].get("accuracy") is not None:
+                        phase_totals[phase].append(pa[phase]["accuracy"])
+            result["phase_accuracy"] = {
+                phase: round(sum(scores) / len(scores)) if scores else None
+                for phase, scores in phase_totals.items()
+            }
+    except Exception:
+        pass
+
+    return result
+
+
 @router.get("/positional-insight/{structure_id}")
 async def get_structure_deep_dive(structure_id: str, user: User = Depends(get_current_user)):
     """
