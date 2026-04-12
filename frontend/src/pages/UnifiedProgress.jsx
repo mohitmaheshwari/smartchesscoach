@@ -168,11 +168,11 @@ const PlayerHeader = ({ profile }) => {
 // ─── Thinking Habits ────────────────────────────────────────────
 
 const HABIT_LABELS = {
-  threat_awareness: "Threats",
-  tactical_vision: "Tactics",
-  move_verification: "Checks",
-  king_safety: "King",
-  patience: "Patience",
+  threat_awareness: "Seeing opponent threats",
+  tactical_vision: "Finding tactics",
+  move_verification: "Double-checking before moving",
+  king_safety: "Keeping your king safe",
+  patience: "Not rushing moves",
 };
 
 const ThinkingHabits = ({ data }) => {
@@ -198,7 +198,7 @@ const ThinkingHabits = ({ data }) => {
           const color = score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-amber-400" : "bg-red-400";
           return (
             <div key={key} className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground w-16 text-right">{label}</span>
+              <span className="text-xs text-muted-foreground w-48 text-right">{label}</span>
               <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                 <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
               </div>
