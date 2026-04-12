@@ -566,6 +566,235 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
     return result
 
 
+@router.get("/home/coach-home")
+async def get_coach_home(user: User = Depends(get_current_user)):
+    """
+    Personalized home page — feels like opening a text from your coach.
+    Combines: greeting, last session recap, current problem, today's plan.
+    """
+    user_id = user.user_id
+    result = {}
+
+    # ─── 1. GREETING + RELATIONSHIP ───
+    try:
+        memory = await db.coach_memory.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "games_played": 1, "avg_accuracy": 1, "avg_blunders_per_game": 1,
+             "recent_results": 1, "improvement_rate": 1}
+        )
+        games_together = memory.get("games_played", 0) if memory else 0
+        avg_acc = memory.get("avg_accuracy", 0) if memory else 0
+        recent_results = memory.get("recent_results", []) if memory else []
+
+        # Accuracy improvement (compare first half vs second half of recent games)
+        recent_analyses = await db.game_analyses.find(
+            {"user_id": user_id},
+            {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.blunders": 1}
+        ).sort("created_at", -1).limit(20).to_list(20)
+
+        acc_improving = False
+        acc_old = 0
+        acc_new = 0
+        if len(recent_analyses) >= 6:
+            recent_5 = [a.get("stockfish_analysis", {}).get("accuracy", 0) for a in recent_analyses[:5]]
+            older_5 = [a.get("stockfish_analysis", {}).get("accuracy", 0) for a in recent_analyses[-5:]]
+            acc_new = sum(recent_5) / len(recent_5) if recent_5 else 0
+            acc_old = sum(older_5) / len(older_5) if older_5 else 0
+            acc_improving = acc_new > acc_old + 3
+
+        result["greeting"] = {
+            "games_together": games_together,
+            "avg_accuracy": round(avg_acc) if avg_acc else None,
+            "improving": acc_improving,
+            "acc_old": round(acc_old) if acc_old else None,
+            "acc_new": round(acc_new) if acc_new else None,
+            "recent_results": recent_results[-10:],
+        }
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Greeting failed: {e}")
+
+    # ─── 2. LAST COACH SESSION RECAP ───
+    try:
+        last_session = await db.coach_sessions.find_one(
+            {"user_id": user_id, "status": "completed"},
+            {"_id": 0, "session_id": 1, "result": 1, "user_color": 1,
+             "opening_name": 1, "opening_to_teach": 1, "opening_branch": 1,
+             "move_history": 1, "created_at": 1, "evaluations": 1,
+             "opening_teaching_active": 1}
+        , sort=[("created_at", -1)])
+
+        if last_session:
+            mh = last_session.get("move_history", [])
+            user_moves = [m for m in mh if m.get("by") == "player"]
+            total_moves = len(user_moves)
+
+            # Find the worst blunder
+            worst_blunder = None
+            for m in user_moves:
+                eb = m.get("eval_before")
+                ea = m.get("eval_after")
+                if eb is not None and ea is not None:
+                    drop = abs(eb - ea)
+                    if drop > 1.5 and (not worst_blunder or drop > worst_blunder["drop"]):
+                        worst_blunder = {
+                            "move": m.get("move"),
+                            "move_number": mh.index(m) // 2 + 1,
+                            "drop": drop,
+                        }
+
+            # Opening info
+            opening_name = last_session.get("opening_name") or last_session.get("opening_to_teach", "")
+            if opening_name:
+                opening_name = opening_name.replace("_", " ").title()
+
+            # Simple accuracy: count good moves
+            good_moves = sum(1 for m in user_moves
+                           if m.get("eval_before") is not None and m.get("eval_after") is not None
+                           and abs(m["eval_before"] - m["eval_after"]) < 0.5)
+            accuracy = round(good_moves / total_moves * 100) if total_moves > 0 else 0
+
+            recap = {
+                "result": last_session.get("result", "unknown"),
+                "opening": opening_name,
+                "branch": last_session.get("opening_branch"),
+                "total_moves": total_moves,
+                "accuracy": accuracy,
+            }
+
+            # Build the story
+            result_word = {"win": "You won", "loss": "You lost", "draw": "It was a draw"}.get(
+                last_session.get("result"), "Game finished"
+            )
+
+            story_parts = []
+            if opening_name:
+                branch_name = last_session.get("opening_branch", "").replace("_", " ").title()
+                if branch_name:
+                    story_parts.append(f"You played the {opening_name} — {branch_name} variation.")
+                else:
+                    story_parts.append(f"You played the {opening_name}.")
+
+            if worst_blunder:
+                story_parts.append(
+                    f"Then blundered with {worst_blunder['move']} on move {worst_blunder['move_number']}."
+                )
+            elif accuracy >= 80:
+                story_parts.append("You played accurately throughout.")
+
+            recap["story"] = f"{result_word}. " + " ".join(story_parts)
+            result["last_session"] = recap
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Last session failed: {e}")
+
+    # ─── 3. CURRENT PROBLEM ───
+    try:
+        problems = await db.problem_lifecycle.find(
+            {"user_id": user_id, "state": "active"},
+            {"_id": 0, "category": 1, "count": 1, "anger": 1}
+        ).sort("count", -1).to_list(3)
+
+        if problems:
+            top = problems[0]
+            category = top.get("category", "")
+            count = top.get("count", 0)
+            anger = top.get("anger", "first_time")
+
+            # Check recent trend — compare last 5 games vs previous 5
+            trending_better = False
+            if len(recent_analyses) >= 10:
+                recent_blunders = sum(a.get("stockfish_analysis", {}).get("blunders", 0) for a in recent_analyses[:5])
+                older_blunders = sum(a.get("stockfish_analysis", {}).get("blunders", 0) for a in recent_analyses[5:10])
+                trending_better = recent_blunders < older_blunders
+
+            result["problem"] = {
+                "category": category,
+                "count": count,
+                "anger": anger,
+                "trending_better": trending_better,
+            }
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Problem detection failed: {e}")
+
+    # ─── 4. TODAY'S PLAN (what to play next) ───
+    try:
+        from services.opening_mastery_tracker import (
+            select_branch_for_game, get_branch_info, OPENING_BRANCH_DATA
+        )
+
+        # Find the best opening to suggest
+        mastery_docs = await db.user_opening_mastery.find(
+            {"user_id": user_id}, {"_id": 0}
+        ).to_list(10)
+
+        suggested_opening = None
+        suggested_branch = None
+        suggested_reason = None
+
+        if mastery_docs:
+            # Prefer opening with unseen branches
+            for m in mastery_docs:
+                key = m.get("opening_key", "")
+                if key in OPENING_BRANCH_DATA:
+                    branches_seen = m.get("branches_seen", [])
+                    total = len(OPENING_BRANCH_DATA[key]["branches"])
+                    if len(branches_seen) < total:
+                        next_branch = select_branch_for_game(key, branches_seen)
+                        if next_branch:
+                            branch_data = OPENING_BRANCH_DATA[key]["branches"].get(next_branch, {})
+                            suggested_opening = key.replace("_", " ").title()
+                            suggested_branch = branch_data.get("name", next_branch.replace("_", " ").title())
+                            seen_names = [OPENING_BRANCH_DATA[key]["branches"][b]["name"]
+                                         for b in branches_seen if b in OPENING_BRANCH_DATA[key]["branches"]]
+                            if seen_names:
+                                suggested_reason = f"You know the {', '.join(seen_names)}. Let's try the {suggested_branch}."
+                            else:
+                                suggested_reason = f"Let's start with the {suggested_branch} variation."
+                            break
+
+            # Fallback: continue practicing the last opening
+            if not suggested_opening and mastery_docs:
+                last = max(mastery_docs, key=lambda m: m.get("last_played") or "")
+                key = last.get("opening_key", "")
+                suggested_opening = key.replace("_", " ").title()
+                games = last.get("games_played", 0)
+                suggested_reason = f"You've played {games} game{'s' if games != 1 else ''} — keep building your knowledge."
+
+        # Fallback: suggest based on last session
+        if not suggested_opening and result.get("last_session", {}).get("opening"):
+            suggested_opening = result["last_session"]["opening"]
+            suggested_reason = "Continue where you left off."
+
+        result["todays_plan"] = {
+            "opening": suggested_opening,
+            "branch": suggested_branch,
+            "reason": suggested_reason,
+        }
+
+        # Puzzle warmup available?
+        problem_cat = result.get("problem", {}).get("category", "")
+        if problem_cat:
+            puzzle_count = await db.community_puzzles.count_documents(
+                {"issue_type": problem_cat, "difficulty": {"$lte": 1400}}
+            )
+            if puzzle_count >= 3:
+                PUZZLE_LABELS = {
+                    "one_move_blunder": "piece safety", "piece_safety": "piece safety",
+                    "tactical_miss": "finding tactics", "missed_tactic": "finding tactics",
+                    "calculation_error": "calculation", "calculation_depth": "calculation",
+                    "king_safety": "king safety",
+                }
+                result["warmup"] = {
+                    "available": True,
+                    "label": PUZZLE_LABELS.get(problem_cat, problem_cat.replace("_", " ")),
+                    "pattern": problem_cat,
+                    "count": min(puzzle_count, 5),
+                }
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Today's plan failed: {e}")
+
+    return result
+
+
 @router.get("/home/pattern-prescription")
 async def get_pattern_prescription(
     user: User = Depends(get_current_user)
