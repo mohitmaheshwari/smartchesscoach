@@ -687,23 +687,25 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             pass
 
         # Generate behavioral story for this game
-        game_behavior = ""
-        try:
-            sf = a.get("stockfish_analysis", {})
-            _blunders = sf.get("blunders", 0)
-            _mistakes = sf.get("mistakes", 0)
-            _accuracy = sf.get("accuracy", 0)
-            _is_draw = g.get("result") == "D"
-            _user_won = g.get("result") == "W"
-            _max_adv = g.get("max_advantage", 0) * 100 if g.get("max_advantage") else 0
-            game_behavior = _generate_game_story(
-                evals, g.get("user_color", "white"),
-                _user_won, _is_draw, was_winning, _max_adv,
-                _blunders, _mistakes, _accuracy, 0,
-                pattern_history, 0,
-            )
-        except Exception:
-            pass
+        # Use the behavior already computed in the enriched list
+        game_behavior = g.get("behavior", "")
+        if not game_behavior:
+            try:
+                sf = a.get("stockfish_analysis", {})
+                _blunders = sf.get("blunders", 0) or g.get("blunders", 0)
+                _mistakes = sf.get("mistakes", 0) or g.get("mistakes", 0)
+                _accuracy = sf.get("accuracy", 0) or g.get("accuracy", 0)
+                _is_draw = g.get("result") == "D"
+                _user_won = g.get("result") == "W"
+                _max_adv = (g.get("max_advantage", 0) or 0) * 100
+                game_behavior = _generate_game_story(
+                    evals, g.get("user_color", "white"),
+                    _user_won, _is_draw, was_winning, _max_adv,
+                    _blunders, _mistakes, _accuracy, 0,
+                    pattern_history, 0,
+                )
+            except Exception as e:
+                logger.debug(f"Game story for {gid} failed: {e}")
 
         problem_games.append({
             "game_id": gid,
