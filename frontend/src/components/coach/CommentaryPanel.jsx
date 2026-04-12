@@ -7,6 +7,7 @@
  *   3. Board Reading (pins, forks, activity, structure)
  */
 
+import { useRef } from "react";
 import { AlertTriangle, BookOpen, Eye, Target, Zap, Shield, Crown } from "lucide-react";
 
 const CATEGORY_CONFIG = {
@@ -18,8 +19,24 @@ const CATEGORY_CONFIG = {
   pawn_structure: { icon: Eye, color: "text-orange-500", bg: "bg-orange-500/5", border: "border-orange-500/10" },
 };
 
-const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch, openingComplete }) => {
-  const hasContent = commentary || openingGuidance || trapWarning || openingDeviation || openingComplete;
+const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch, openingComplete, coachMoveExplanation, lastCoachMoveSan }) => {
+  const hasContent = commentary || openingGuidance || trapWarning || openingDeviation || openingComplete || coachMoveExplanation;
+  const prevObsTitles = useRef(new Set());
+
+  // Filter out observations that were shown on the previous move
+  const filteredCommentary = commentary ? {
+    ...commentary,
+    observations: (commentary.observations || []).filter(obs => {
+      return !prevObsTitles.current.has(obs.title);
+    }),
+  } : null;
+
+  // Update tracking for next render
+  if (commentary?.observations) {
+    const currentTitles = new Set(commentary.observations.map(o => o.title));
+    prevObsTitles.current = currentTitles;
+  }
+
   if (!hasContent) return null;
 
   return (
@@ -36,6 +53,21 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+
+        {/* ─── Coach Move Explanation ─── */}
+        {coachMoveExplanation && (
+          <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Zap className="w-3 h-3 text-muted-foreground/60" strokeWidth={2} />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">
+                Opponent{lastCoachMoveSan ? ` played ${lastCoachMoveSan}` : ""}
+              </span>
+            </div>
+            <p className="text-xs text-foreground/80 leading-snug">
+              {coachMoveExplanation}
+            </p>
+          </div>
+        )}
 
         {/* ─── Opening Line Complete ─── */}
         {openingComplete && (
@@ -211,30 +243,30 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
         )}
 
         {/* ─── Board Reading ─── */}
-        {commentary && (
+        {filteredCommentary && (
           <>
             {/* Material */}
-            {commentary.material && (
-              <p className="text-[11px] text-muted-foreground font-medium">{commentary.material}</p>
+            {filteredCommentary.material && (
+              <p className="text-[11px] text-muted-foreground font-medium">{filteredCommentary.material}</p>
             )}
 
             {/* Summary */}
-            {commentary.summary && (
-              <p className="text-sm text-foreground leading-snug">{commentary.summary}</p>
+            {filteredCommentary.summary && (
+              <p className="text-sm text-foreground leading-snug">{filteredCommentary.summary}</p>
             )}
 
             {/* Plan */}
-            {commentary.plan && (
+            {filteredCommentary.plan && (
               <div className="rounded-lg bg-primary/5 border border-primary/10 px-3 py-2">
                 <p className="text-[9px] uppercase tracking-widest text-primary/60 font-bold mb-1">Plan</p>
-                <p className="text-xs text-foreground leading-snug">{commentary.plan}</p>
+                <p className="text-xs text-foreground leading-snug">{filteredCommentary.plan}</p>
               </div>
             )}
 
-            {/* Observations */}
-            {commentary.observations && commentary.observations.length > 0 && (
+            {/* Observations — deduplicated (same title won't repeat next move) */}
+            {filteredCommentary.observations && filteredCommentary.observations.length > 0 && (
               <div className="space-y-1.5">
-                {commentary.observations.map((obs, i) => {
+                {filteredCommentary.observations.map((obs, i) => {
                   const config = CATEGORY_CONFIG[obs.category] || CATEGORY_CONFIG.piece_activity;
                   const Icon = config.icon;
                   return (

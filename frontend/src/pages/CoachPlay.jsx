@@ -191,6 +191,10 @@ const CoachPlay = ({ user }) => {
   
   // Board arrows for coaching visualization
   const [coachArrows, setCoachArrows] = useState([]);
+  // Coach move explanation — shown after coach plays
+  const [coachMoveExplanation, setCoachMoveExplanation] = useState(null);
+  // Track last commentary observation titles to suppress repeats
+  const lastObservationTitles = useRef(new Set());
 
   // Client-side opening guidance — no server dependency for arrows
   const [openingIdeas, setOpeningIdeas] = useState([]); // ALL move ideas from /start
@@ -1769,9 +1773,15 @@ const CoachPlay = ({ user }) => {
             if (lastMove?.uci) {
               highlightMove(lastMove.uci);
             }
-            // Track coach move SAN for display
+            // Track coach move SAN + explanation for display
             if (lastMove?.move || lastMove?.san) {
               setLastCoachMoveSan(lastMove.san || lastMove.move);
+            }
+            // Store coach move explanation for display
+            if (lastMove?.explanation) {
+              setCoachMoveExplanation(lastMove.explanation);
+            } else {
+              setCoachMoveExplanation(null);
             }
             
             // Check if game over
@@ -2139,6 +2149,7 @@ const CoachPlay = ({ user }) => {
     setPreMoveTrap(null);
     setV5Coaching(null);
     setOpeningDeviation(null);
+    setCoachMoveExplanation(null);
 
     // Try to make the move locally first
     const chess = new Chess(currentFen);
@@ -2156,6 +2167,7 @@ const CoachPlay = ({ user }) => {
     if (!moveObj) return false;
 
     // OPENING DEVIATION CHECK — if teaching is active and user plays wrong move
+    let deviationHandled = false;
     if (openingIdeas.length && gamePly < openingIdeas.length) {
       const expected = openingIdeas[gamePly];
       const playedSan = moveObj.san.replace(/[+#]/g, "").toLowerCase();
@@ -2261,6 +2273,7 @@ const CoachPlay = ({ user }) => {
             // openingIdeas already cleared above — teaching is done
             // Increment ply and fall through to normal move handling
             setGamePly(prev => prev + 1);
+            deviationHandled = true; // Skip guardian — we already evaluated this move
           }
         } catch (err) {
           console.warn("[CoachPlay] Deviation eval failed, accepting move:", err);
@@ -2274,7 +2287,8 @@ const CoachPlay = ({ user }) => {
     const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
 
     // GUARDIAN CHECK: Evaluate move before making it
-    const guardianResult = await evaluateMove(moveObj.san);
+    // Skip if deviation check already evaluated this move via evaluate-pending
+    const guardianResult = deviationHandled ? null : await evaluateMove(moveObj.san);
 
     if (guardianResult?.should_intervene) {
       setGuardianPending(guardianResult, {
@@ -2589,7 +2603,7 @@ const CoachPlay = ({ user }) => {
         />
 
         {/* Middle: Commentary panel (board reading) */}
-        {(coachFlow.commentary || openingComplete || openingDeviation) ? (
+        {(coachFlow.commentary || openingComplete || openingDeviation || coachMoveExplanation) ? (
           <div className="w-64 flex-shrink-0 border-l border-border overflow-y-auto">
             <CommentaryPanel
               commentary={coachFlow.commentary}
@@ -2598,6 +2612,8 @@ const CoachPlay = ({ user }) => {
               openingDeviation={openingDeviation}
               activeBranch={activeBranch}
               openingComplete={openingComplete}
+              coachMoveExplanation={coachMoveExplanation}
+              lastCoachMoveSan={lastCoachMoveSan}
             />
           </div>
         ) : gameStarted && session && !gameOver ? (

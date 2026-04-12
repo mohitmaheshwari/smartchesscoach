@@ -122,9 +122,10 @@ def is_common_opening_move(move_san: str) -> bool:
     return move_san in mainline_moves
 
 
-def get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str, move_number: int) -> str:
+def get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str = "", move_number: int = 0) -> str:
     """
-    Generate POSITION-SPECIFIC explanation for coach's move.
+    Generate position-aware explanation for coach's move.
+    Analyzes what the move actually DOES: captures, threats, development, etc.
     """
     try:
         board_before = chess.Board(fen_before)
@@ -132,65 +133,94 @@ def get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str, m
         from_sq = chess_move.from_square
         to_sq = chess_move.to_square
         piece = board_before.piece_at(from_sq)
-        
+        captured = board_before.piece_at(to_sq)
+        coach_color = piece.color if piece else chess.WHITE
+        user_color = not coach_color
+
         if piece is None:
             return f"I played {move_san}."
-        
+
+        # Castling
+        if board_before.is_castling(chess_move):
+            side = "kingside" if board_before.is_kingside_castling(chess_move) else "queenside"
+            return f"Castling {side} — king is safe, rook joins the fight."
+
+        # Capture — explain what was taken and why
+        if captured:
+            cap_name = chess.piece_name(captured.piece_type)
+            piece_name = chess.piece_name(piece.piece_type)
+            if captured.piece_type > piece.piece_type:
+                return f"Took your {cap_name} with my {piece_name} — winning material."
+            elif captured.piece_type == piece.piece_type:
+                return f"Traded {piece_name}s — simplifying the position."
+            else:
+                return f"Captured your {cap_name} on {chess.square_name(to_sq)}."
+
+        # Make the move to check what it creates
+        board_after = board_before.copy()
+        board_after.push(chess_move)
+
+        # Check
+        if board_after.is_check():
+            return f"{move_san} — check! Your king must respond."
+
+        # New threats: does this move attack an undefended piece?
+        new_threat = None
+        for sq in chess.SQUARES:
+            target = board_after.piece_at(sq)
+            if target and target.color == user_color and target.piece_type != chess.KING:
+                if to_sq in board_after.attacks(to_sq) or sq in board_after.attacks(to_sq):
+                    # Check if newly attacked
+                    attackers_after = board_after.attackers(coach_color, sq)
+                    defenders = board_after.attackers(user_color, sq)
+                    if to_sq in attackers_after and not defenders:
+                        new_threat = (chess.piece_name(target.piece_type), chess.square_name(sq))
+                        break
+                    elif to_sq in attackers_after and len(defenders) < len(attackers_after):
+                        target_val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}.get(target.piece_type, 0)
+                        piece_val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}.get(piece.piece_type, 0)
+                        if piece_val <= target_val:
+                            new_threat = (chess.piece_name(target.piece_type), chess.square_name(sq))
+                            break
+
+        if new_threat:
+            return f"{move_san} — now attacking your {new_threat[0]} on {new_threat[1]}. How will you respond?"
+
+        # Piece-specific explanations
         if piece.piece_type == chess.PAWN:
             file = chess.square_file(to_sq)
-            rank = chess.square_rank(to_sq)
-            
-            if file in [0, 7]:
-                if rank in [2, 5]:
-                    return f"I played {move_san}. This prepares a potential retreat square for my bishop or prevents your pieces from using that square."
-                else:
-                    return f"I played {move_san}. A flank pawn move."
-            elif file in [3, 4]:
-                return f"I played {move_san}. Fighting for the center."
-            elif file in [2, 5]:
-                return f"I played {move_san}. Supporting my central control."
-            else:
-                return f"I played {move_san}."
-        
-        if board_before.is_castling(chess_move):
-            if board_before.is_kingside_castling(chess_move):
-                return f"I played {move_san}. Castling kingside - my king is now safe and my rook is ready for action."
-            else:
-                return f"I played {move_san}. Castling queenside - my king is tucked away and my rook eyes the center."
-        
+            if file in (3, 4):
+                return f"{move_san} — fighting for the center."
+            elif file in (2, 5):
+                return f"{move_san} — supporting central control."
+            return f"{move_san} — advancing on the flank."
+
         if piece.piece_type == chess.KNIGHT:
-            central_squares = [chess.D4, chess.D5, chess.E4, chess.E5, chess.C4, chess.C5, chess.F4, chess.F5]
-            development_squares = [chess.F3, chess.C3, chess.F6, chess.C6]
-            if to_sq in central_squares:
-                return f"I played {move_san}. The knight is powerful in the center - it controls many squares from here."
-            elif to_sq in development_squares:
-                return f"I played {move_san}. Developing the knight to its natural square - knights should be developed early."
-            else:
-                return f"I played {move_san}. Repositioning my knight."
-        
+            central = {chess.C3, chess.C6, chess.F3, chess.F6, chess.D4, chess.D5, chess.E4, chess.E5}
+            if to_sq in central:
+                return f"{move_san} — knight to an active central square."
+            return f"{move_san} — repositioning the knight."
+
         if piece.piece_type == chess.BISHOP:
-            if to_sq in [chess.G2, chess.B2, chess.G7, chess.B7]:
-                return f"I played {move_san}. Fianchettoing my bishop - it will be powerful on this diagonal."
-            elif to_sq in [chess.C4, chess.F4, chess.C5, chess.F5]:
-                return f"I played {move_san}. Active bishop pointing at your position."
-            else:
-                return f"I played {move_san}. Developing my bishop."
-        
-        if piece.piece_type == chess.QUEEN:
-            if move_number <= 5:
-                return f"I played {move_san}. An early queen move - can you punish it?"
-            else:
-                return f"I played {move_san}. The queen enters the game."
-        
+            # Count squares the bishop controls on its new diagonal
+            mobility = len(list(board_after.attacks(to_sq)))
+            if mobility >= 7:
+                return f"{move_san} — bishop on a long diagonal, controlling {mobility} squares."
+            return f"{move_san} — developing the bishop."
+
         if piece.piece_type == chess.ROOK:
+            # Check if on an open/semi-open file
             file = chess.square_file(to_sq)
-            if file in [3, 4]:
-                return f"I played {move_san}. Centralizing my rook on an open file."
-            else:
-                return f"I played {move_san}."
-        
-        return f"I played {move_san}."
-        
+            own_pawns = any(board_after.piece_at(chess.square(file, r)) == chess.Piece(chess.PAWN, coach_color) for r in range(8))
+            if not own_pawns:
+                return f"{move_san} — rook on an open file. It controls the whole column."
+            return f"{move_san} — activating the rook."
+
+        if piece.piece_type == chess.QUEEN:
+            return f"{move_san} — the queen enters play."
+
+        return f"{move_san}."
+
     except Exception as e:
         logger.warning(f"Error generating coach move explanation: {e}")
         return f"I played {move_san}."
@@ -1933,11 +1963,16 @@ async def trigger_coach_move_endpoint(
                     "current_fen": new_fen,
                     "move_history": move_history,
                     "coach_move_pending": False,
-                    "last_coach_move": coach_move_san
+                    "last_coach_move": {
+                        "move": coach_move_san,
+                        "san": coach_move_san,
+                        "uci": coach_move_uci,
+                        "explanation": get_coach_move_explanation(coach_move_san, current_fen),
+                    }
                 }
             }
         )
-        
+
         # Add a coach message
         await db.coach_messages.insert_one({
             "session_id": session_id,
@@ -5282,6 +5317,7 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
                 "move": coach_move_san,
                 "san": coach_move_san,
                 "uci": chess_move.uci(),
+                "explanation": get_coach_move_explanation(coach_move_san, fen),
             },
         }
 
@@ -6232,7 +6268,8 @@ async def _process_move_and_respond(
                             "last_coach_move": {
                                 "move": coach_move,
                                 "uci": chess_move.uci(),
-                                "timestamp": datetime.now(timezone.utc).isoformat()
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "explanation": get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, len(move_history) // 2),
                             },
                             "status": status,
                             "result": coach_result,
