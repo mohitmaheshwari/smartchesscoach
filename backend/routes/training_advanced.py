@@ -875,6 +875,9 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                 "opening": g.get("opening", ""),
                 "result": g.get("result", ""),
                 "sub_cause": g.get("game_reason", {}).get("label", ""),
+                "behavior": g.get("behavior", ""),
+                "is_new": g.get("is_new", False),
+                "was_winning": g.get("was_winning", False),
                 "reviewed": g.get("reviewed", False),
             })
 
