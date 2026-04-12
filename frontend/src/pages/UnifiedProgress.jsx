@@ -24,21 +24,18 @@ const UnifiedProgress = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(null);
   const [openings, setOpenings] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [narrative, setNarrative] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, openingsRes, profileRes, narrativeRes] = await Promise.all([
+        const [progressRes, openingsRes, narrativeRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
           fetch(`${API}/coach/play/opening-suggestions`, { credentials: "include" }),
-          fetch(`${API}/progress/full-profile`, { credentials: "include" }),
           fetch(`${API}/progress/narrative`, { credentials: "include" }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
         if (openingsRes.ok) setOpenings(await openingsRes.json());
-        if (profileRes.ok) setProfile(await profileRes.json());
         if (narrativeRes.ok) setNarrative(await narrativeRes.json());
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
@@ -211,9 +208,13 @@ const JourneyCard = ({ journey }) => {
 };
 
 
-// ─── Player Header ──────────────────────────────────────────────
+// ─── Focus Card ─────────────────────────────────────────────────
 
-const PlayerHeader = ({ profile }) => {
+// NOTE: Score-based components (PlayerHeader, ThinkingHabits, PhaseAccuracy,
+// AccuracyTrend, PatternLifecycle, OpeningMastery) were removed.
+// The narrative sections above replace them with human-readable stories.
+
+const _UNUSED_PlayerHeader = ({ profile }) => {
   const identity = profile.identity;
   const strength = profile.strength;
   const memory = profile.coach_memory;
