@@ -372,6 +372,75 @@ def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_
     return ""
 
 
+async def _generate_llm_game_story(
+    det_story: str, user_color: str, user_won: bool, is_draw: bool,
+    was_winning: bool, blunders: int, mistakes: int, accuracy: float,
+    brilliant_count: int, evals: list, opponent: str, opening: str,
+) -> str:
+    """
+    Generate a unique, short game story using LLM.
+    Max 40 words. Falls back to deterministic story on failure.
+    """
+    try:
+        from llm_service import call_llm
+    except ImportError:
+        return ""
+
+    # Build concise context from the game
+    result_word = "won" if user_won else ("drew" if is_draw else "lost")
+
+    # Find the critical moment
+    critical_move = ""
+    critical_cp = 0
+    for e in evals:
+        cp = e.get("cp_loss", 0) or 0
+        if cp > critical_cp:
+            critical_cp = cp
+            critical_move = f"move {e.get('move_number', '?')} ({e.get('move', '?')})"
+
+    # Find the behavior
+    gaps = {}
+    for e in evals:
+        gap = e.get("cognitive_gap", "")
+        if gap and (e.get("cp_loss", 0) or 0) >= 80:
+            gaps[gap] = gaps.get(gap, 0) + 1
+    dominant = max(gaps, key=gaps.get) if gaps else ""
+
+    context = f"""Game: {user_color} vs {opponent}. Opening: {opening or 'unknown'}. Result: {result_word}.
+Accuracy: {accuracy:.0f}%. Blunders: {blunders}. Mistakes: {mistakes}. Brilliant moves: {brilliant_count}.
+Was winning: {was_winning}. Critical moment: {critical_move} (lost {critical_cp} centipawns).
+Main issue: {dominant.replace('_', ' ') if dominant else 'none detected'}.
+Deterministic summary: {det_story}"""
+
+    system = """You are a chess coach writing a 1-2 sentence game summary for a student's game list.
+Rules:
+- Maximum 40 words. Be specific to THIS game.
+- Talk about behavior, not moves. WHY they lost, not which square.
+- No motivational filler. No "keep it up" or "you can do this."
+- No scores or percentages.
+- If they won cleanly, be brief and positive.
+- If they lost, be honest but not harsh. State the behavior that cost them.
+- Each game story must feel different from others. Vary your sentence structure.
+- Write as a coach, not a computer. Natural language."""
+
+    try:
+        response = await call_llm(system, context, model="gpt-4o-mini")
+        # Clean up — strip quotes, ensure short
+        response = response.strip().strip('"').strip("'")
+        if len(response.split()) > 50:
+            # Too long — truncate at last sentence within limit
+            words = response.split()[:45]
+            response = " ".join(words)
+            if not response.endswith("."):
+                last_period = response.rfind(".")
+                if last_period > 20:
+                    response = response[:last_period + 1]
+        return response
+    except Exception as e:
+        logger.debug(f"LLM game story failed: {e}")
+        return ""
+
+
 # =============================================================================
 # SECTION A: Lab pick + puzzles
 # =============================================================================
@@ -1027,7 +1096,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         {"user_id": user.user_id},
         {"_id": 0, "game_id": 1, "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1,
          "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.accuracy": 1,
-         "coach_summary": 1, "decryption_v5_data.core_lesson": 1}
+         "coach_summary": 1, "decryption_v5_data.core_lesson": 1, "llm_game_story": 1}
     )
     analyses = {a["game_id"]: a async for a in analyses_cursor}
 
@@ -1053,6 +1122,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
 
     # Build enriched game list
     enriched = []
+    llm_calls_remaining = 5  # Limit LLM calls per request to avoid slow loads
     for g in games:
         gid = g.get("game_id", "")
         a = analyses.get(gid, {})
@@ -1116,9 +1186,13 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         if brilliant_count > 0 and not lesson_label:
             lesson_label = f"Brilliant sacrifice" if sacrifice_count > 0 else "Brilliant play"
 
-        # Generate coach-style game summary (no LLM — pure deterministic)
+        # Generate game story — LLM-powered, cached, with deterministic fallback
         behavior = coach_sum.get("behavioral_insight") or coach_sum.get("key_observation") or ""
-        if not behavior:
+        # Check for cached LLM story first
+        cached_story = a.get("llm_game_story", "")
+        if cached_story:
+            behavior = cached_story
+        elif not behavior:
             try:
                 # Compute recovery_consecutive: how many recent games lack the top pattern
                 rc = 0
@@ -1137,12 +1211,39 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                         rc += 1
                     rc = min(rc, 10)
 
-                behavior = _generate_game_story(
+                # First get deterministic story as fallback
+                det_story = _generate_game_story(
                     evals, uc, user_won, is_draw, was_winning, max_advantage,
                     blunders, mistakes, accuracy, brilliant_count,
                     pattern_history, rc
                 )
-                # No coach voice wrapper — keep stories clean and short for Lab cards
+
+                # Try LLM for a unique, short story (limited calls per request)
+                if llm_calls_remaining > 0 and not reviewed:
+                    try:
+                        llm_story = await _generate_llm_game_story(
+                            det_story, uc, user_won, is_draw, was_winning,
+                            blunders, mistakes, accuracy, brilliant_count,
+                            evals, opp, g.get("opening", ""),
+                        )
+                        if llm_story:
+                            behavior = llm_story
+                            llm_calls_remaining -= 1
+                    except Exception:
+                        pass
+
+                if not behavior:
+                    behavior = det_story
+
+                # Cache the LLM story so we don't regenerate next time
+                if behavior and behavior != det_story:
+                    try:
+                        await db.game_analyses.update_one(
+                            {"game_id": gid},
+                            {"$set": {"llm_game_story": behavior}}
+                        )
+                    except Exception:
+                        pass
 
             except Exception as story_err:
                 logger.warning(f"Game story generation failed for {gid}: {story_err}")
