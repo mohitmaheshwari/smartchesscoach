@@ -289,90 +289,85 @@ def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_
             return "You calculated deeply here — and it worked. This is the level you're capable of. Do this consistently."
         return "You found a brilliant sacrifice but couldn't convert. The vision is there — the technique needs to catch up."
 
-    # ═══ PRIORITY 2: LOST WINNING POSITION (SHARP_HEAVY) ═══
+    # Human-readable behavior descriptions (not raw keys)
+    BEHAVIOR_SENTENCE = {
+        "ignore_threat": "You didn't check what your opponent was threatening.",
+        "piece_safety": "You left a piece undefended.",
+        "calculation_depth": "You didn't calculate deep enough.",
+        "missed_tactic": "You missed a tactic that was there.",
+        "tactical_oversight": "You didn't check your opponent's reply.",
+        "king_safety": "Your king wasn't safe.",
+        "time_pressure": "You rushed and made mistakes under time pressure.",
+        "conversion": "You got creative when you should have kept it simple.",
+        "pawn_structure": "You weakened your pawn structure.",
+        "piece_activity": "Your pieces were passive.",
+    }
+    behavior_text = BEHAVIOR_SENTENCE.get(behavior_key, "")
+
+    # ═══ PRIORITY 2: LOST WINNING POSITION ═══
     if lost_winning:
-        moment = f"You had full control — then lost it around move {collapse_move} {phase}." if collapse_move else "You had the advantage and let it slip."
-        behavior = behavior_key.replace("_", " ")
-        if pattern_active:
-            prefix = _pattern_prefix(pattern_count)
-            release = _get_release(behavior_key)
-            return f"{moment} {prefix}{behavior}. {_pattern_phrase(pattern_count)} {release}"
-        return f"{moment} {rule}"
+        moment = f"Winning until move {collapse_move}" if collapse_move else "Had the advantage"
+        if behavior_text:
+            return f"{moment}. {behavior_text}"
+        return f"{moment}, then the position slipped away."
 
     if was_winning and is_draw:
-        moment = f"You had a winning position {phase} but couldn't convert."
-        if pattern_active:
-            prefix = _pattern_prefix(pattern_count)
-            release = _get_release(behavior_key)
-            return f"{moment} {prefix}conversion issues. {_pattern_phrase(pattern_count)} {release}"
-        return f"{moment} {rule}"
+        if behavior_text:
+            return f"Winning position but drew. {behavior_text}"
+        return "Had a winning position but couldn't convert."
 
-    # ═══ PRIORITY 3: CRITICAL MOVE ═══
+    # ═══ PRIORITY 3: SINGLE CRITICAL MOVE ═══
     if not user_won and not is_draw and blunders == 1 and critical:
         mn = critical.get("move_number", "?")
-        ms = critical.get("move", "")
-        moment = f"One moment on move {mn} ({ms}) {phase} cost you the game."
-        behavior = behavior_key.replace("_", " ")
-        if pattern_active:
-            prefix = _pattern_prefix(pattern_count)
-            release = _get_release(behavior_key)
-            return f"{moment} {prefix}{behavior}. {_pattern_phrase(pattern_count)} {release}"
-        return f"{moment} {rule}"
+        if behavior_text:
+            return f"One mistake on move {mn} cost the game. {behavior_text}"
+        return f"One mistake on move {mn} {phase} decided the game."
 
-    # ═══ PRIORITY 4: PATTERN (in THIS game + count >= 3) ═══
-    if pattern_active and not user_won and biggest_gap:
-        gap_label = biggest_gap.replace("_", " ")
-        prefix = _pattern_prefix(pattern_count)
-        release = _get_release(behavior_key) if intensity == "sharp_heavy" else ""
-        return f"{prefix}{gap_label} {phase}. {_pattern_phrase(pattern_count)} {release} {rule}".strip()
+    # ═══ PRIORITY 4: PATTERN IN THIS GAME ═══
+    if pattern_active and not user_won and behavior_text:
+        return f"{behavior_text} This keeps happening."
 
     # ═══ PRIORITY 5: BLUNDER COUNT ═══
-
-    # 3+ blunders
     if blunders >= 3:
         if rushed >= 2:
-            return f"You're playing faster than you're thinking. {_get_rule('time_pressure')}"
-        if biggest_gap:
-            gap_label = biggest_gap.replace("_", " ")
-            return f"Several critical mistakes {phase}, mostly {gap_label}. {rule}"
-        return f"Several critical mistakes {phase}. {rule}"
+            return "Playing too fast. Mistakes came from rushing, not from chess."
+        if behavior_text:
+            return f"Several mistakes {phase}. {behavior_text}"
+        return f"Rough game — {blunders} blunders {phase}."
 
-    # 2 blunders
     if blunders >= 2:
-        if biggest_gap:
-            gap_label = biggest_gap.replace("_", " ")
-            return f"Two moments of {gap_label} {phase}. {rule}"
-        return f"Two critical moments {phase}. {rule}"
+        if behavior_text:
+            return f"Two critical moments {phase}. {behavior_text}"
+        return f"Two blunders {phase} turned the game."
 
-    # Won with 1 blunder
-    if user_won and blunders == 1 and critical:
-        mn = critical.get("move_number", "?")
-        ms = critical.get("move", "")
-        return f"You won, but {ms} on move {mn} showed a drop in focus. One lapse — the rest was solid."
+    # Won with mistakes
+    if user_won and blunders == 1:
+        mn = critical.get("move_number", "?") if critical else "?"
+        return f"You won, but slipped on move {mn}. The rest was solid."
 
-    # Won with 2+ blunders
     if user_won and blunders >= 2:
-        return "You won, but gave your opponent real chances. They didn't take them — next opponent might."
+        return "You won, but your opponent missed chances. Next opponent might not."
 
-    # ═══ PRIORITY 6: GENERAL RESULT ═══
-
+    # ═══ PRIORITY 6: GENERAL ═══
     if user_won and blunders == 0 and mistakes <= 2:
-        return f"Clean, controlled game. This is what disciplined play looks like. Rule: Consistency — follow the same thinking process every move."
+        return "Clean game. No major errors."
 
     if is_draw and blunders == 0:
-        return "Solid, disciplined game. The position was equal and you handled it well."
+        return "Solid, balanced game. Well handled."
 
     if user_won:
-        return "Good result. You controlled the game when it mattered."
+        return "Good result. You controlled the game."
 
     if not user_won and not is_draw and blunders == 0:
-        return "No major mistakes, but your opponent outplayed you in small ways. The position gradually slipped."
+        return "No blunders, but your opponent outplayed you positionally."
 
     if not user_won and not is_draw:
-        return f"A game with clear lessons {phase}. {rule}"
+        if behavior_text:
+            return f"{behavior_text}"
+        return f"A tough game with lessons {phase}."
 
     if is_draw:
-        return "A balanced fight. Look for moments where you could have pushed for more."
+        return "A balanced fight."
 
     return ""
 
@@ -1147,42 +1142,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                     blunders, mistakes, accuracy, brilliant_count,
                     pattern_history, rc
                 )
-
-                # Apply coach voice personality
-                try:
-                    from services.coach_voice import apply_coach_voice
-
-                    lost_winning_g = was_winning and not user_won and not is_draw
-
-                    # Find dominant gap in this game's evals
-                    g_gaps = {}
-                    for ev in evals:
-                        gap_val = ev.get("cognitive_gap", "")
-                        if gap_val and (ev.get("cp_loss", 0) or 0) >= 80:
-                            g_gaps[gap_val] = g_gaps.get(gap_val, 0) + 1
-                    top_g = max(g_gaps, key=g_gaps.get) if g_gaps else None
-                    pc = pattern_history.get(top_g, 0) if top_g and top_g in g_gaps else 0
-
-                    if lost_winning_g or pc >= 5:
-                        v_intensity = "sharp_heavy"
-                    elif blunders >= 2 or pc >= 3:
-                        v_intensity = "sharp_light"
-                    elif brilliant_count > 0:
-                        v_intensity = "brilliant"
-                    elif rc > 0 and top_g and top_g not in g_gaps:
-                        v_intensity = "recovery"
-                    elif blunders == 1 or mistakes >= 3:
-                        v_intensity = "firm"
-                    else:
-                        v_intensity = "calm"
-
-                    behavior = apply_coach_voice(behavior, v_intensity, {
-                        "games_together": len(games),
-                        "pattern_count": pc,
-                        "is_recovery": rc > 0 and top_g and top_g not in g_gaps,
-                    })
-                except Exception:
-                    pass  # Voice wrapper is non-fatal
+                # No coach voice wrapper — keep stories clean and short for Lab cards
 
             except Exception as story_err:
                 logger.warning(f"Game story generation failed for {gid}: {story_err}")
