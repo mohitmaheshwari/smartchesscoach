@@ -161,41 +161,53 @@ const Dashboard = ({ user }) => {
                 {selectedGames.map((g) => (
                   <div
                     key={g.game_id}
-                    className={`bg-card border border-border rounded-xl cursor-pointer transition-all hover:border-primary/20 group ${g.reviewed ? "opacity-50" : ""}`}
+                    className={`bg-card border rounded-xl cursor-pointer transition-all hover:border-primary/20 group ${
+                      g.reviewed ? "opacity-50 border-border" : g.is_new ? "border-primary/30 ring-1 ring-primary/10" : "border-border"
+                    }`}
                     onClick={() => navigate(`/game/${g.game_id}`)}
                   >
-                    <div className="p-3.5 flex items-center gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                        g.result === "L" ? "bg-red-400" : g.result === "D" ? "bg-muted-foreground/40" : "bg-emerald-500"
-                      }`} />
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-sm font-medium text-foreground">vs {g.opponent}</span>
-                          <span className={`text-[9px] px-1.5 py-0 font-bold rounded border ${
-                            g.result === "L" ? "bg-red-500/15 text-red-400 border-red-500/25"
-                            : g.result === "D" ? "bg-muted text-muted-foreground border-border"
-                            : "bg-emerald-500/15 text-emerald-500 border-emerald-500/25"
-                          }`}>{g.result}</span>
-                          {g.opening && <span className="text-xs text-muted-foreground/40 hidden sm:inline">{g.opening}</span>}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{g.sub_cause}</p>
+                    <div className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          g.result === "L" ? "bg-red-400" : g.result === "D" ? "bg-muted-foreground/40" : "bg-emerald-500"
+                        }`} />
+                        <span className="text-sm font-medium text-foreground">vs {g.opponent}</span>
+                        <span className={`text-[9px] px-1.5 py-0 font-bold rounded border ${
+                          g.result === "L" ? "bg-red-500/15 text-red-400 border-red-500/25"
+                          : g.result === "D" ? "bg-muted text-muted-foreground border-border"
+                          : "bg-emerald-500/15 text-emerald-500 border-emerald-500/25"
+                        }`}>{g.result}</span>
+                        {g.is_new && !g.reviewed && (
+                          <span className="text-[9px] px-1.5 py-0 font-bold rounded bg-primary/15 text-primary border border-primary/25">New</span>
+                        )}
+                        {g.opening && <span className="text-[10px] text-muted-foreground/40 ml-auto">{g.opening}</span>}
                       </div>
 
-                      {g.reviewed ? (
-                        <Check className="w-4 h-4 text-emerald-500/40 flex-shrink-0" strokeWidth={2} />
-                      ) : (
-                        <div className="flex items-center gap-2">
+                      {/* Behavioral story — the main content */}
+                      {(g.behavior || g.sub_cause) && (
+                        <p className="text-xs text-muted-foreground leading-relaxed mb-2">
+                          {g.behavior || g.sub_cause}
+                        </p>
+                      )}
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between">
+                        {g.reviewed ? (
+                          <div className="flex items-center gap-1 text-emerald-500/40">
+                            <Check className="w-3 h-3" strokeWidth={2} />
+                            <span className="text-[10px]">Reviewed</span>
+                          </div>
+                        ) : (
                           <button
                             onClick={(e) => { e.stopPropagation(); markReviewed(g.game_id); }}
-                            className="p-1 text-muted-foreground/20 hover:text-emerald-500 transition-colors opacity-0 group-hover:opacity-100"
-                            title="Mark reviewed"
+                            className="flex items-center gap-1 text-muted-foreground/30 hover:text-emerald-500 transition-colors text-[10px]"
                           >
-                            <Check className="w-3.5 h-3.5" strokeWidth={1.5} />
+                            <Check className="w-3 h-3" strokeWidth={1.5} />
+                            Mark reviewed
                           </button>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground/20 group-hover:text-primary transition-colors" />
-                        </div>
-                      )}
+                        )}
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-colors" />
+                      </div>
                     </div>
                   </div>
                 ))}

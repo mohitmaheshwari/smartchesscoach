@@ -609,6 +609,25 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             except Exception:
                 pass
 
+        # Generate behavioral story for this game
+        game_behavior = ""
+        try:
+            sf = a.get("stockfish_analysis", {})
+            _blunders = sf.get("blunders", 0)
+            _mistakes = sf.get("mistakes", 0)
+            _accuracy = sf.get("accuracy", 0)
+            _is_draw = g.get("result") == "D"
+            _user_won = g.get("result") == "W"
+            _max_adv = g.get("max_advantage", 0) * 100 if g.get("max_advantage") else 0
+            game_behavior = _generate_game_story(
+                evals, g.get("user_color", "white"),
+                _user_won, _is_draw, was_winning, _max_adv,
+                _blunders, _mistakes, _accuracy, 0,
+                pattern_history, 0,
+            )
+        except Exception:
+            pass
+
         problem_games.append({
             "game_id": gid,
             "opponent": g.get("opponent", "Opponent"),
@@ -616,6 +635,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             "result": g.get("result", ""),
             "was_winning": was_winning,
             "sub_cause": sub_cause,
+            "behavior": game_behavior,
             "pain": pain,
             "reviewed": is_reviewed,
             "user_color": g.get("user_color", "white"),
@@ -1087,6 +1107,19 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         termination = g.get("termination", "unknown")
         termination_label = _termination_display(termination, "W" if user_won else ("D" if is_draw else "L"))
 
+        # Mark recently analyzed games
+        is_new = False
+        try:
+            imported = g.get("imported_at") or g.get("created_at")
+            if imported:
+                if isinstance(imported, str):
+                    from datetime import datetime, timezone
+                    imported = datetime.fromisoformat(imported.replace("Z", "+00:00"))
+                age_hours = (datetime.now(timezone.utc) - imported).total_seconds() / 3600
+                is_new = age_hours < 24
+        except Exception:
+            pass
+
         # Classify game reason — WHY was this game won/lost?
         game_reason = None
         try:
@@ -1124,6 +1157,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "termination": termination,
             "termination_label": termination_label,
             "game_reason": game_reason,
+            "is_new": is_new,
         })
 
     # ── SMART PICK: find the best unreviewed game ──
