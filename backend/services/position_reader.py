@@ -85,6 +85,9 @@ def read_position(fen: str, user_color: str = "white", user_rating: int = 1200) 
     # ─── OUR PINNED PIECES (all levels) ───
     features.extend(_analyze_our_pins(board, user_color_bool, opp_color_bool))
 
+    # ─── OUTPOSTS + OVERLOADED PIECES (1200+) ───
+    features.extend(_analyze_outposts_and_overloaded(board, user_color_bool, opp_color_bool))
+
     # Filter by rating
     filtered = [f for f in features if f.min_rating <= user_rating]
 
@@ -403,7 +406,7 @@ def _analyze_piece_activity(board, user_color, opp_color) -> List[PositionFeatur
     home_rank = 0 if user_color == chess.WHITE else 7
     pawn_start_rank = 1 if user_color == chess.WHITE else 6
     direction = 1 if user_color == chess.WHITE else -1
-    central_files = (2, 3, 4, 5)  # c, d, e, f
+    central_files = (3, 4)  # d and e files only — blocking these pawns is a real problem
 
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
@@ -877,5 +880,90 @@ def _analyze_our_pins(board, user_color, opp_color) -> List[PositionFeature]:
                     actionable=f"Consider breaking the pin — move your king, block the pin line, or challenge the pinner.",
                 ))
                 break  # One is enough
+
+    return features
+
+
+def _analyze_outposts_and_overloaded(board, user_color, opp_color) -> List[PositionFeature]:
+    """
+    Detect:
+    1. Knight/bishop outposts (squares we control that can't be attacked by enemy pawns)
+    2. Overloaded opponent pieces (one piece defending two things)
+    """
+    features = []
+
+    # ── OUTPOSTS: piece in opponent's half, no enemy pawn can attack it ──
+    our_rank_range = range(4, 7) if user_color == chess.WHITE else range(1, 4)
+
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if not piece or piece.color != user_color or piece.piece_type not in (chess.KNIGHT, chess.BISHOP):
+            continue
+        rank = chess.square_rank(sq)
+        if rank not in our_rank_range:
+            continue
+
+        file_idx = chess.square_file(sq)
+        can_be_attacked_by_pawn = False
+        pawn_direction = -1 if opp_color == chess.WHITE else 1
+        for adj_file in [file_idx - 1, file_idx + 1]:
+            if 0 <= adj_file <= 7:
+                for r in range(8):
+                    p = board.piece_at(chess.square(adj_file, r))
+                    if p and p.piece_type == chess.PAWN and p.color == opp_color:
+                        attack_rank = rank + pawn_direction
+                        if (opp_color == chess.WHITE and r <= attack_rank) or \
+                           (opp_color == chess.BLACK and r >= attack_rank):
+                            can_be_attacked_by_pawn = True
+                            break
+                if can_be_attacked_by_pawn:
+                    break
+
+        if not can_be_attacked_by_pawn:
+            piece_name = chess.piece_name(piece.piece_type)
+            sq_name = chess.square_name(sq)
+            pawn_defended = any(
+                board.piece_at(att) and board.piece_at(att).piece_type == chess.PAWN
+                for att in board.attackers(user_color, sq)
+            )
+            if pawn_defended:
+                features.append(PositionFeature(
+                    priority=5,
+                    category="piece_activity",
+                    title=f"Strong outpost on {sq_name}",
+                    description=f"Your {piece_name} on {sq_name} is on a protected outpost — no enemy pawn can chase it away.",
+                    min_rating=1200,
+                    actionable=f"This {piece_name} is perfectly placed. Build your plan around it.",
+                ))
+                break
+
+    # ── OVERLOADED OPPONENT PIECES ──
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if not piece or piece.color != opp_color or piece.piece_type in (chess.KING, chess.PAWN):
+            continue
+
+        defending = []
+        for target_sq in board.attacks(sq):
+            target = board.piece_at(target_sq)
+            if target and target.color == opp_color and target.piece_type != chess.KING:
+                real_defenders = [d for d in board.attackers(opp_color, target_sq) if d != target_sq]
+                if len(real_defenders) <= 1:
+                    if board.attackers(user_color, target_sq):
+                        defending.append(target_sq)
+
+        if len(defending) >= 2:
+            piece_name = chess.piece_name(piece.piece_type)
+            sq_name = chess.square_name(sq)
+            targets = " and ".join(chess.square_name(d) for d in defending[:2])
+            features.append(PositionFeature(
+                priority=4,
+                category="tactics",
+                title=f"Opponent's {piece_name} is overloaded",
+                description=f"Their {piece_name} on {sq_name} is defending both {targets}. It can't protect everything.",
+                min_rating=1200,
+                actionable=f"Attack one of the targets — the defender can't save both.",
+            ))
+            break
 
     return features

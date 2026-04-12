@@ -76,6 +76,7 @@ def evaluate_fundamentals(
     if phase in ("MIDDLEGAME", "ENDGAME"):
         fundamentals.append(_eval_playing_with_plan(user_moves, eval_data))
         fundamentals.append(_eval_piece_activity(board, color))
+        fundamentals.append(_eval_rook_usage(board, color))
         fundamentals.append(_eval_pawn_structure_awareness(board, color))
 
     # ─── ENDGAME FUNDAMENTALS ─────────────────────────────────
@@ -152,7 +153,7 @@ def _eval_piece_development(board: chess.Board, color: chess.Color) -> Dict:
             # Bishop blocking own unmoved central pawn
             direction = 1 if color == chess.WHITE else -1
             expected_rank = pawn_start_rank + direction
-            if rank_idx == expected_rank and file_idx in (2, 3, 4, 5):
+            if rank_idx == expected_rank and file_idx in (3, 4):  # d and e files only
                 pawn_sq = chess.square(file_idx, pawn_start_rank)
                 pawn = board.piece_at(pawn_sq)
                 if pawn and pawn.piece_type == chess.PAWN and pawn.color == color:
@@ -168,7 +169,16 @@ def _eval_piece_development(board: chess.Board, color: chess.Color) -> Dict:
         return _fund("Piece Development", "Opening", COMPLETED, 100, "All minor pieces traded or active.")
 
     if developed == 0:
-        return _fund("Piece Development", "Opening", NOT_STARTED, 0, "No minor pieces developed yet.")
+        return _fund("Piece Development", "Opening", NOT_STARTED, 0, "No minor pieces developed yet. Get your knights and bishops into the game.")
+
+    # Find undeveloped pieces to name them specifically
+    undeveloped_pieces = []
+    for sq in chess.SQUARES:
+        p = board.piece_at(sq)
+        if p and p.color == color and p.piece_type in (chess.KNIGHT, chess.BISHOP):
+            if chess.square_rank(sq) == back_rank:
+                piece_name = "knight" if p.piece_type == chess.KNIGHT else "bishop"
+                undeveloped_pieces.append(f"{piece_name} on {chess.square_name(sq)}")
 
     # Score: base from development ratio, penalty for bad placement
     base_progress = round(developed / total * 100)
@@ -184,6 +194,10 @@ def _eval_piece_development(board: chess.Board, color: chess.Color) -> Dict:
             return _fund("Piece Development", "Opening", IN_PROGRESS, progress,
                           f"All pieces out, but {worst}.")
     elif developed < total:
+        if undeveloped_pieces:
+            still_home = undeveloped_pieces[0]
+            return _fund("Piece Development", "Opening", IN_PROGRESS, progress,
+                          f"{developed}/{total} developed. Your {still_home} is still at home.")
         return _fund("Piece Development", "Opening", IN_PROGRESS, progress,
                       f"{developed}/{total} minor pieces developed. Keep going.")
     else:
@@ -245,33 +259,70 @@ def _eval_king_safety_from_history(board: chess.Board, color: chess.Color,
 
 
 def _eval_center_control(board: chess.Board, color: chess.Color, opponent: chess.Color) -> Dict:
-    center = [chess.E4, chess.D4, chess.E5, chess.D5]
-    our_pawns = 0
-    our_attacks = 0
-    opp_attacks = 0
+    """
+    Evaluate center control: pawns on central squares + piece pressure.
+    Inner center (e4/d4/e5/d5) counts double. Extended center (c3-f3 to c6-f6) counts once.
+    """
+    inner_center = [chess.E4, chess.D4, chess.E5, chess.D5]
+    extended_center = [chess.C3, chess.D3, chess.E3, chess.F3,
+                       chess.C4, chess.F4, chess.C5, chess.F5,
+                       chess.C6, chess.D6, chess.E6, chess.F6]
 
-    for sq in center:
+    our_score = 0
+    opp_score = 0
+    our_pawns = 0
+    our_pieces_on_center = 0
+
+    # Inner center: pawns = 3 pts, pieces on square = 2 pts, attacks = 1 pt each
+    for sq in inner_center:
         p = board.piece_at(sq)
-        if p and p.color == color and p.piece_type == chess.PAWN:
-            our_pawns += 1
-        our_attacks += len(board.attackers(color, sq))
-        opp_attacks += len(board.attackers(opponent, sq))
+        if p and p.color == color:
+            if p.piece_type == chess.PAWN:
+                our_score += 3
+                our_pawns += 1
+            else:
+                our_score += 2
+                our_pieces_on_center += 1
+        elif p and p.color == opponent:
+            if p.piece_type == chess.PAWN:
+                opp_score += 3
+            else:
+                opp_score += 2
+        our_score += len(board.attackers(color, sq))
+        opp_score += len(board.attackers(opponent, sq))
+
+    # Extended center: lighter weight
+    for sq in extended_center:
+        p = board.piece_at(sq)
+        if p and p.color == color and p.piece_type in (chess.KNIGHT, chess.BISHOP):
+            our_score += 1
+            our_pieces_on_center += 1
+        elif p and p.color == opponent and p.piece_type in (chess.KNIGHT, chess.BISHOP):
+            opp_score += 1
+
+    total = our_score + opp_score
+    if total == 0:
+        return _fund("Center Control", "Opening", NOT_STARTED, 0,
+                      "No influence on center squares yet.")
+
+    ratio = our_score / total if total > 0 else 0
+    progress = round(ratio * 100)
 
     if our_pawns >= 2:
         return _fund("Center Control", "Opening", COMPLETED, 100,
-                      "Strong center with pawns. Well done.")
-    elif our_pawns >= 1 and our_attacks > opp_attacks:
-        return _fund("Center Control", "Opening", IN_PROGRESS, 60,
-                      "One pawn in center. Your pieces support it.")
-    elif our_attacks > opp_attacks:
-        return _fund("Center Control", "Opening", IN_PROGRESS, 50,
-                      "Pieces influence the center but no pawn presence.")
-    elif our_attacks == 0:
-        return _fund("Center Control", "Opening", NOT_STARTED, 0,
-                      "No influence on center squares.")
+                      "Strong pawn center. You're controlling the key squares.")
+    elif ratio >= 0.6:
+        if our_pieces_on_center >= 2:
+            return _fund("Center Control", "Opening", COMPLETED, progress,
+                          f"Good center control — {our_pawns} pawn(s) and {our_pieces_on_center} pieces influence the center.")
+        return _fund("Center Control", "Opening", IN_PROGRESS, progress,
+                      "Decent center presence. Add more piece pressure to central squares.")
+    elif ratio >= 0.4:
+        return _fund("Center Control", "Opening", IN_PROGRESS, progress,
+                      "Center is contested. Look for a pawn push or piece move to claim more space.")
     else:
-        return _fund("Center Control", "Opening", IN_PROGRESS, 30,
-                      "Opponent controls more of the center.")
+        return _fund("Center Control", "Opening", FAILED, progress,
+                      "Opponent dominates the center. Challenge it with a pawn break or piece development.")
 
 
 def _eval_piece_coordination(board: chess.Board, color: chess.Color) -> Dict:
@@ -578,24 +629,67 @@ def _eval_piece_safety(board: chess.Board, color: chess.Color, opponent: chess.C
 
 
 def _eval_calculation_depth(user_moves: List[Dict], eval_data: Dict) -> Dict:
-    blunders = sum(1 for m in user_moves
-                   if m.get("evaluation") in ("BLUNDER",) or
-                   (m.get("eval_before") and m.get("eval_after") and
-                    abs(m["eval_before"] - m["eval_after"]) >= 3.0))
+    """
+    Did the user calculate before moving?
+    Checks two things:
+    1. Blunders (big eval drops — missed something deep)
+    2. Walked into 1-move tactics (opponent can capture for free after user's move)
+    """
+    blunders = 0
+    walked_into_tactic = 0
+    last_tactic_detail = ""
 
+    for m in user_moves:
+        eb = m.get("eval_before")
+        ea = m.get("eval_after")
+
+        # Big eval drop = calculation error
+        if m.get("evaluation") in ("BLUNDER",):
+            blunders += 1
+        elif eb is not None and ea is not None and abs(eb - ea) >= 3.0:
+            blunders += 1
+
+        # Check if user's move left a piece hanging (1-move tactic)
+        fen_after = m.get("fen_after")
+        if fen_after:
+            try:
+                board_after = chess.Board(fen_after)
+                user_color = board_after.turn  # it's opponent's turn after user moved
+                # opponent = whose turn it is now (they can capture)
+                for sq in chess.SQUARES:
+                    p = board_after.piece_at(sq)
+                    if not p or p.color == user_color or p.piece_type in (chess.KING, chess.PAWN):
+                        continue
+                    # Is this user's piece attacked and undefended?
+                    attackers = board_after.attackers(user_color, sq)
+                    real_atts = [a for a in attackers if not board_after.is_pinned(user_color, a)]
+                    defenders = board_after.attackers(not user_color, sq)
+                    if real_atts and not defenders:
+                        piece_name = chess.piece_name(p.piece_type)
+                        walked_into_tactic += 1
+                        last_tactic_detail = f"Your {piece_name} on {chess.square_name(sq)} was left undefended"
+                        break
+            except Exception:
+                pass
+
+    total_errors = blunders + walked_into_tactic
     total = len(user_moves)
     if total == 0:
         return _fund("Calculation", "Tactical", NOT_STARTED, 0, "No moves to evaluate.")
 
-    if blunders == 0:
+    if total_errors == 0:
         return _fund("Calculation", "Tactical", COMPLETED, 100,
                       "No calculation errors so far. Clean, accurate play.")
-    elif blunders <= 1:
+    elif total_errors == 1:
+        detail = last_tactic_detail or "Check 2 moves ahead before committing"
         return _fund("Calculation", "Tactical", IN_PROGRESS, 70,
-                      "1 calculation error. Check 2 moves ahead before committing.")
+                      f"1 calculation slip. {detail}.")
     else:
-        return _fund("Calculation", "Tactical", FAILED, max(0, 100 - blunders * 25),
-                      f"{blunders} calculation errors. Slow down on critical moves.")
+        detail = ""
+        if walked_into_tactic > 0:
+            detail = f" {walked_into_tactic} time(s) you left a piece undefended."
+        return _fund("Calculation", "Tactical", FAILED, max(0, 100 - total_errors * 25),
+                      f"{total_errors} calculation errors.{detail} Slow down on critical moves.")
 
 
 def _eval_tactical_awareness(board: chess.Board, color: chess.Color, opponent: chess.Color) -> Dict:
@@ -761,6 +855,73 @@ def _eval_piece_activity(board: chess.Board, color: chess.Color) -> Dict:
     else:
         return _fund("Piece Activity", "Positional", FAILED, progress,
                       "Most pieces are passive. Find better squares for them.")
+
+
+def _eval_rook_usage(board: chess.Board, color: chess.Color) -> Dict:
+    """Check if rooks are connected and on useful files (open/semi-open)."""
+    rook_squares = [sq for sq in chess.SQUARES
+                    if board.piece_at(sq) and board.piece_at(sq).piece_type == chess.ROOK
+                    and board.piece_at(sq).color == color]
+
+    if len(rook_squares) == 0:
+        return _fund("Rook Usage", "Positional", IN_PROGRESS, 50, "No rooks on the board.")
+    if len(rook_squares) == 1:
+        # Check if on open/semi-open file
+        sq = rook_squares[0]
+        file_idx = chess.square_file(sq)
+        own_pawn_on_file = any(
+            board.piece_at(chess.square(file_idx, r))
+            and board.piece_at(chess.square(file_idx, r)).piece_type == chess.PAWN
+            and board.piece_at(chess.square(file_idx, r)).color == color
+            for r in range(8)
+        )
+        if not own_pawn_on_file:
+            return _fund("Rook Usage", "Positional", COMPLETED, 80,
+                          f"Rook on {chess.square_name(sq)} is on an open file. Good placement.")
+        return _fund("Rook Usage", "Positional", IN_PROGRESS, 50,
+                      f"Rook on a closed file. Look for an open file to move it to.")
+
+    # Two rooks — check if connected (can see each other on same rank/file with nothing between)
+    r1, r2 = rook_squares[0], rook_squares[1]
+    connected = False
+    if chess.square_rank(r1) == chess.square_rank(r2):
+        # Same rank — check if path is clear
+        rank = chess.square_rank(r1)
+        f1, f2 = sorted([chess.square_file(r1), chess.square_file(r2)])
+        clear = all(not board.piece_at(chess.square(f, rank)) for f in range(f1 + 1, f2))
+        connected = clear
+    elif chess.square_file(r1) == chess.square_file(r2):
+        # Same file — check if path is clear
+        file_idx = chess.square_file(r1)
+        rk1, rk2 = sorted([chess.square_rank(r1), chess.square_rank(r2)])
+        clear = all(not board.piece_at(chess.square(file_idx, r)) for r in range(rk1 + 1, rk2))
+        connected = clear
+
+    # Check open file usage
+    on_open_file = 0
+    for sq in rook_squares:
+        file_idx = chess.square_file(sq)
+        own_pawn_on_file = any(
+            board.piece_at(chess.square(file_idx, r))
+            and board.piece_at(chess.square(file_idx, r)).piece_type == chess.PAWN
+            and board.piece_at(chess.square(file_idx, r)).color == color
+            for r in range(8)
+        )
+        if not own_pawn_on_file:
+            on_open_file += 1
+
+    if connected and on_open_file >= 1:
+        return _fund("Rook Usage", "Positional", COMPLETED, 100,
+                      "Rooks connected and active on open files. Strong setup.")
+    elif connected:
+        return _fund("Rook Usage", "Positional", IN_PROGRESS, 70,
+                      "Rooks are connected. Now get them on open files.")
+    elif on_open_file >= 1:
+        return _fund("Rook Usage", "Positional", IN_PROGRESS, 60,
+                      "A rook is on an open file, but rooks aren't connected yet. Clear the back rank.")
+    else:
+        return _fund("Rook Usage", "Positional", FAILED, 30,
+                      "Rooks are disconnected and on closed files. Connect them and find open files.")
 
 
 def _eval_pawn_structure_awareness(board: chess.Board, color: chess.Color) -> Dict:
