@@ -1644,14 +1644,11 @@ const CoachPlay = ({ user }) => {
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
         
-        // Skip heavy V5 feedback when curriculum is handling coaching
-        // The curriculum provides its own feedback via the opening-guide endpoint
-        if (!session?.curriculum_active && !session?.teaching_opening) {
-          fetchUserMoveCoaching(session.session_id);
-        } else {
-          setLoadingFeedback(false);
-          setIsCoachThinking(false);
-        }
+        // Skip V5 feedback — the new coaching system (evaluate-pending + coachFlow)
+        // already provides fundamentals, commentary, and coaching decisions.
+        // V5 was the old system and would show duplicate/conflicting messages.
+        setLoadingFeedback(false);
+        setIsCoachThinking(false);
         
         // Add thinking message to chat
         setChatMessages(prev => [...prev.filter(m => m.type !== "thinking"), {
@@ -1804,10 +1801,8 @@ const CoachPlay = ({ user }) => {
             
             setCoachThinking(false);
             
-            // Skip heavy coaching fetch when curriculum is active
-            if (!session?.curriculum_active && !session?.teaching_opening) {
-              fetchCoachMoveExplanation(session.session_id);
-            }
+            // Coach move explanation is now provided directly via last_coach_move.explanation
+            // No need for the separate V5 interactive-feedback call
             
             return;
           }

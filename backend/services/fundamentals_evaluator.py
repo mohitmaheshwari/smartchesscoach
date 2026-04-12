@@ -187,7 +187,7 @@ def _eval_piece_development(board: chess.Board, color: chess.Color) -> Dict:
         return _fund("Piece Development", "Opening", IN_PROGRESS, progress,
                       f"{developed}/{total} minor pieces developed. Keep going.")
     else:
-        return _fund("Piece Development", "Opening", COMPLETED, 100, "All minor pieces are active and well placed.")
+        return _fund("Piece Development", "Opening", COMPLETED, 100, "Excellent — all pieces are developed to active squares. That's textbook.")
 
 
 def _eval_king_safety_from_history(board: chess.Board, color: chess.Color,
@@ -220,7 +220,7 @@ def _eval_king_safety_from_history(board: chess.Board, color: chess.Color,
                 if p and p.piece_type == chess.PAWN and p.color == color:
                     intact += 1
             if intact >= 2:
-                return _fund("King Safety", "Opening", COMPLETED, 100, "King castled with solid pawn shield.")
+                return _fund("King Safety", "Opening", COMPLETED, 100, "Nice — king is safe behind a solid pawn shield. Well done castling early.")
             else:
                 return _fund("King Safety", "Opening", COMPLETED, 80, "King castled. Pawn shield slightly weakened.")
         return _fund("King Safety", "Opening", COMPLETED, 90, "King castled earlier in the game.")
@@ -322,7 +322,7 @@ def _eval_early_queen(board: chess.Board, color: chess.Color,
     elif queen_moves == 1:
         return _fund("Avoid Early Queen", "Opening", IN_PROGRESS, 60,
                       "Queen moved once early. Be careful not to overuse it.")
-    return _fund("Avoid Early Queen", "Opening", COMPLETED, 100, "Queen not overused in opening.")
+    return _fund("Avoid Early Queen", "Opening", COMPLETED, 100, "Good discipline — queen stayed back while other pieces developed.")
 
 
 def _eval_development_efficiency(user_moves: List[Dict], board: chess.Board, color: chess.Color) -> Dict:
@@ -386,7 +386,7 @@ def _eval_pawn_discipline(board: chess.Board, color: chess.Color) -> Dict:
     elif doubled == 1 or isolated == 1:
         return _fund("Pawn Structure", "Opening", IN_PROGRESS, 60,
                       "Minor pawn weakness. Be careful with future pawn trades.")
-    return _fund("Pawn Structure", "Opening", COMPLETED, 100, "Pawn structure is clean.")
+    return _fund("Pawn Structure", "Opening", COMPLETED, 100, "Pawn structure is clean. No weaknesses to worry about.")
 
 
 # ─── TACTICAL EVALUATORS ─────────────────────────────────────────
@@ -467,7 +467,7 @@ def _eval_threat_awareness(user_moves: List[Dict], board: chess.Board,
 
     if missed_threats == 0:
         return _fund("Threat Awareness", "Tactical", COMPLETED, 100,
-                      "You addressed every opponent threat. Keep checking each move.")
+                      "Good habit — you addressed every opponent threat. Keep doing this.")
     elif missed_threats == 1:
         reason = f"1 threat missed. {last_missed_detail}." if last_missed_detail else "1 missed threat."
         reason += " Before moving, ask: what is my opponent attacking?"
@@ -568,7 +568,7 @@ def _eval_piece_safety(board: chess.Board, color: chess.Color, opponent: chess.C
                 hanging += 1
 
     if hanging == 0:
-        return _fund("Piece Safety", "Tactical", COMPLETED, 100, "All pieces are defended.")
+        return _fund("Piece Safety", "Tactical", COMPLETED, 100, "All pieces are defended. Good board awareness.")
     elif hanging == 1:
         return _fund("Piece Safety", "Tactical", FAILED, 40,
                       "1 piece is hanging. Check defenders before moving.")
@@ -589,7 +589,7 @@ def _eval_calculation_depth(user_moves: List[Dict], eval_data: Dict) -> Dict:
 
     if blunders == 0:
         return _fund("Calculation", "Tactical", COMPLETED, 100,
-                      "No calculation errors. Clean play.")
+                      "No calculation errors so far. Clean, accurate play.")
     elif blunders <= 1:
         return _fund("Calculation", "Tactical", IN_PROGRESS, 70,
                       "1 calculation error. Check 2 moves ahead before committing.")

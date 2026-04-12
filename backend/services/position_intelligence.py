@@ -198,7 +198,88 @@ PLAN_RULES = [
             "A passed pawn is a future queen. Push it forward and protect it.",
         ]),
     },
+
+    # ── PIECE ACTIVITY ──
+    {
+        "id": "improve_passive_piece",
+        "conditions": lambda f, m, p: _has_feature(f, "piece_activity", "stuck") or _has_feature(f, "piece_activity", "passive"),
+        "priority": "positional",
+        "plan": lambda f, m, p: f"You have a passive piece. {_get_feature_text(f, 'piece_activity', 'stuck') or _get_feature_text(f, 'piece_activity', 'passive')} Find it a better square.",
+        "summary": lambda f, m, p: _build_summary([
+            _get_feature_text(f, "piece_activity", "stuck") or _get_feature_text(f, "piece_activity", "passive"),
+            "Every piece should have a job. Reposition the one that's doing the least.",
+        ]),
+    },
+
+    # ── BISHOP BLOCKS PAWN ──
+    {
+        "id": "bishop_blocks_pawn",
+        "conditions": lambda f, m, p: _has_feature(f, "development", "blocks"),
+        "priority": "development",
+        "plan": lambda f, m, p: f"{_get_feature_text(f, 'development', 'blocks')} Move the bishop to a diagonal where it doesn't block your own pawns.",
+        "summary": lambda f, m, p: _build_summary([
+            _get_feature_text(f, "development", "blocks"),
+            "Bishops work best on open diagonals.",
+        ]),
+    },
+
+    # ── SLIGHT ADVANTAGE: IMPROVE ──
+    {
+        "id": "slight_advantage",
+        "conditions": lambda f, m, p: 0.5 <= m.get("advantage", 0) < 3 and p == "middlegame",
+        "priority": "positional",
+        "plan": lambda f, m, p: "You have a small advantage. Don't rush — improve your worst piece and look for a favorable trade.",
+        "summary": lambda f, m, p: _build_summary([
+            m.get("eval_text", "Slight edge."),
+            "Find your least active piece and give it a better square.",
+        ]),
+    },
+
+    # ── EQUAL MIDDLEGAME: CREATE IMBALANCE ──
+    {
+        "id": "equal_middlegame",
+        "conditions": lambda f, m, p: abs(m.get("advantage", 0)) < 0.5 and p == "middlegame",
+        "priority": "positional",
+        "plan": lambda f, m, p: _equal_middlegame_plan(f, m),
+        "summary": lambda f, m, p: _equal_middlegame_summary(f, m),
+    },
+
+    # ── EQUAL OPENING: DEVELOP AND CASTLE ──
+    {
+        "id": "equal_opening",
+        "conditions": lambda f, m, p: abs(m.get("advantage", 0)) < 1 and p == "opening",
+        "priority": "development",
+        "plan": lambda f, m, p: "Develop your remaining pieces and castle. Don't start attacking until your pieces are out.",
+        "summary": lambda f, m, p: _build_summary([
+            m.get("eval_text", "Position is balanced."),
+            "Focus on development and king safety before looking for tactics.",
+        ]),
+    },
 ]
+
+
+def _equal_middlegame_plan(features, meta):
+    """Generate a specific plan for equal middlegame positions."""
+    # Try to find something concrete to suggest
+    if _has_feature(features, "pawn_structure", "weak"):
+        return f"The position is equal. {_get_feature_text(features, 'pawn_structure', 'weak')} Target their pawn weaknesses."
+    if _has_feature(features, "piece_activity", "open"):
+        return f"The position is equal. {_get_feature_text(features, 'piece_activity', 'open')} Control the open file with your rook."
+    if _has_feature(features, "center", ""):
+        return "The position is equal. Fight for the center — whoever controls it will get the initiative."
+    return "Equal position. Look for your opponent's weakest point and build pressure there."
+
+
+def _equal_middlegame_summary(features, meta):
+    """Generate a specific summary for equal middlegame positions."""
+    parts = [meta.get("eval_text", "Position is balanced.")]
+    if _has_feature(features, "piece_activity", "stuck"):
+        parts.append(_get_feature_text(features, "piece_activity", "stuck"))
+    elif _has_feature(features, "pawn_structure", ""):
+        parts.append(_get_feature_text(features, "pawn_structure", ""))
+    else:
+        parts.append("Look for the weakest point in your opponent's position and build pressure.")
+    return _build_summary(parts)
 
 
 # ─── LLM-POWERED BOARD READING ────────────────────────────────────────
@@ -487,23 +568,43 @@ def read_board_like_a_coach(
             logger.debug(f"Plan rule {rule['id']} failed: {e}")
             continue
 
-    # Step 4: Fallback if no plan matched
+    # Step 4: Fallback if no plan matched — build from what we DO have
     if not matched_plan:
         if features:
             top = features[0]
+            second = features[1] if len(features) > 1 else None
+            summary_parts = [top.get("description", "")]
+            if second:
+                summary_parts.append(second.get("description", ""))
             matched_plan = {
                 "id": "general",
                 "priority": "general",
-                "plan": top.get("actionable", "Look at the whole board. What stands out?"),
-                "summary": top.get("description", "Take a moment to scan the board."),
+                "plan": top.get("actionable", "Scan the board for the most important feature and act on it."),
+                "summary": _build_summary(summary_parts),
             }
         else:
-            matched_plan = {
-                "id": "neutral",
-                "priority": "general",
-                "plan": "The position is roughly equal. Improve your worst-placed piece.",
-                "summary": "No immediate tactics. Look for the piece that's doing the least and find it a better square.",
-            }
+            # Truly quiet position — give phase-appropriate advice
+            if phase == "opening":
+                matched_plan = {
+                    "id": "quiet_opening",
+                    "priority": "development",
+                    "plan": "Develop your pieces toward the center and castle. Every move should improve a piece.",
+                    "summary": "Quiet position. Focus on getting all your pieces into the game before looking for tactics.",
+                }
+            elif phase == "endgame":
+                matched_plan = {
+                    "id": "quiet_endgame",
+                    "priority": "endgame",
+                    "plan": "Activate your king. In the endgame, the king is a fighting piece — walk it toward the center.",
+                    "summary": "Endgame position. Your king should be active. Push passed pawns if you have them.",
+                }
+            else:
+                matched_plan = {
+                    "id": "quiet_middlegame",
+                    "priority": "positional",
+                    "plan": "No immediate threats. Find your least active piece and improve it. Whoever improves their pieces faster gets the advantage.",
+                    "summary": "Quiet position. Look at each of your pieces — which one is doing the least? That's the one to move.",
+                }
 
     # Step 5: Pick the single most important thing to focus on
     focus = ""
@@ -526,7 +627,7 @@ def read_board_like_a_coach(
                 "actionable": f.get("actionable", ""),
                 "category": f.get("category", ""),
             }
-            for f in features[:3]
+            for f in features[:5]
         ],
     }
 
