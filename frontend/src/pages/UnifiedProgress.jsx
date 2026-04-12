@@ -25,18 +25,21 @@ const UnifiedProgress = ({ user }) => {
   const [progress, setProgress] = useState(null);
   const [openings, setOpenings] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [narrative, setNarrative] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, openingsRes, profileRes] = await Promise.all([
+        const [progressRes, openingsRes, profileRes, narrativeRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
           fetch(`${API}/coach/play/opening-suggestions`, { credentials: "include" }),
           fetch(`${API}/progress/full-profile`, { credentials: "include" }),
+          fetch(`${API}/progress/narrative`, { credentials: "include" }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
         if (openingsRes.ok) setOpenings(await openingsRes.json());
         if (profileRes.ok) setProfile(await profileRes.json());
+        if (narrativeRes.ok) setNarrative(await narrativeRes.json());
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -70,31 +73,92 @@ const UnifiedProgress = ({ user }) => {
             </p>
           </div>
 
-          {/* Player Identity Header */}
-          {profile && <PlayerHeader profile={profile} />}
+          {/* Narrative: Who You Are */}
+          {narrative?.who_you_are && <NarrativeSection
+            title={null}
+            content={<>
+              <p className="text-sm text-foreground leading-relaxed">{narrative.who_you_are.style}</p>
+              <p className="text-xs text-muted-foreground mt-1.5">{narrative.who_you_are.record}</p>
+            </>}
+          />}
 
-          {/* Focus Area Card */}
-          <FocusCard state={state} progress={progress} navigate={navigate} />
+          {/* Narrative: Your Journey (improvement verdict) */}
+          {narrative?.journey && <JourneyCard journey={narrative.journey} />}
 
-          {/* Thinking Habits */}
-          {profile?.thinking_habits && <ThinkingHabits data={profile.thinking_habits} />}
+          {/* Narrative: What You Do Well */}
+          {narrative?.strengths?.length > 0 && <NarrativeSection
+            title="What you do well"
+            icon={<Check className="w-4 h-4 text-emerald-500" strokeWidth={2.5} />}
+            content={
+              <div className="space-y-2">
+                {narrative.strengths.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
+                    <p className="text-sm text-foreground leading-snug">{s}</p>
+                  </div>
+                ))}
+              </div>
+            }
+          />}
 
-          {/* Phase Accuracy */}
-          {profile?.phase_accuracy && <PhaseAccuracy data={profile.phase_accuracy} />}
+          {/* Narrative: What Costs You Games */}
+          {narrative?.weaknesses?.length > 0 && <NarrativeSection
+            title="What costs you games"
+            icon={<Target className="w-4 h-4 text-red-400" strokeWidth={2} />}
+            content={
+              <div className="space-y-3">
+                {narrative.weaknesses.map((w, i) => (
+                  <p key={i} className="text-sm text-foreground leading-snug">{w.description}</p>
+                ))}
+              </div>
+            }
+          />}
 
-          {/* Accuracy Trend */}
-          {profile?.accuracy_trend?.length >= 3 && <AccuracyTrend data={profile.accuracy_trend} />}
+          {/* Narrative: Your Openings */}
+          {narrative?.openings?.length > 0 && <NarrativeSection
+            title="Your openings"
+            icon={<BookOpen className="w-4 h-4 text-primary" strokeWidth={2} />}
+            content={
+              <div className="space-y-3">
+                {narrative.openings.map((o, i) => (
+                  <div key={i}
+                    onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(o.name)}`)}
+                    className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-foreground">{o.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{o.games} game{o.games !== 1 ? "s" : ""}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-snug">{o.story}</p>
+                  </div>
+                ))}
+              </div>
+            }
+          />}
 
-          {/* Pattern Lifecycle */}
-          {profile?.patterns?.length > 0 && <PatternLifecycle patterns={profile.patterns} />}
-
-          {/* Opening Repertoire */}
+          {/* Opening Repertoire from real games */}
           {openings && openings.total_games > 0 && (
             <OpeningRepertoire openings={openings} navigate={navigate} />
           )}
 
-          {/* Opening Mastery (coach sessions) */}
-          {profile?.opening_mastery?.length > 0 && <OpeningMastery data={profile.opening_mastery} navigate={navigate} />}
+          {/* Narrative: Next Step */}
+          {narrative?.next_step && (
+            <div className="rounded-2xl border-2 border-primary/20 bg-primary/[0.03] p-5 mb-6">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-primary mb-2">Next step</p>
+              <p className="text-sm text-foreground leading-relaxed mb-4">{narrative.next_step}</p>
+              <button
+                onClick={() => navigate("/play-with-coach")}
+                className="w-full py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
+              >
+                <Swords className="w-4 h-4" strokeWidth={2} />
+                Play with Coach
+                <ChevronRight className="w-4 h-4 opacity-60" />
+              </button>
+            </div>
+          )}
+
+          {/* Focus Area (training state) */}
+          {state !== "not_started" && <FocusCard state={state} progress={progress} navigate={navigate} />}
 
           {/* Quick Actions */}
           <QuickActions state={state} progress={progress} navigate={navigate} />
@@ -102,6 +166,47 @@ const UnifiedProgress = ({ user }) => {
         </motion.div>
       </div>
     </Layout>
+  );
+};
+
+
+// ─── Narrative Section (generic card) ────────────────────────────
+
+const NarrativeSection = ({ title, icon, content }) => (
+  <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+    {title && (
+      <div className="flex items-center gap-2 mb-3">
+        {icon}
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      </div>
+    )}
+    {content}
+  </div>
+);
+
+
+// ─── Journey Card ───────────────────────────────────────────────
+
+const JourneyCard = ({ journey }) => {
+  const verdictConfig = {
+    improving: { icon: <TrendingUp className="w-5 h-5 text-emerald-500" />, bg: "border-emerald-500/20 bg-emerald-500/[0.03]" },
+    slipping: { icon: <TrendingDown className="w-5 h-5 text-red-400" />, bg: "border-red-400/20 bg-red-500/[0.03]" },
+    mixed: { icon: <Activity className="w-5 h-5 text-amber-500" />, bg: "border-amber-400/20 bg-amber-500/[0.03]" },
+    steady: { icon: <Minus className="w-5 h-5 text-muted-foreground" />, bg: "border-border" },
+    early: { icon: <Activity className="w-5 h-5 text-blue-500" />, bg: "border-blue-400/20 bg-blue-500/[0.03]" },
+  };
+  const config = verdictConfig[journey.verdict] || verdictConfig.steady;
+
+  return (
+    <div className={`rounded-2xl border-2 ${config.bg} p-5 mb-6`}>
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5">{config.icon}</div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-1">Your Journey</h3>
+          <p className="text-sm text-foreground leading-relaxed">{journey.story}</p>
+        </div>
+      </div>
+    </div>
   );
 };
 

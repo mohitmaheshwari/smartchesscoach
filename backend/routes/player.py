@@ -1498,6 +1498,320 @@ async def get_opening_evolution(user: User = Depends(get_current_user)):
     return await get_user_opening_evolution(db, user.user_id, window_size=25)
 
 
+@router.get("/progress/narrative")
+async def get_progress_narrative(user: User = Depends(get_current_user)):
+    """
+    Human-readable player profile narrative.
+    No scores, no percentages — stories from their actual data.
+    """
+    user_id = user.user_id
+    sections = {}
+
+    # ─── 1. WHO YOU ARE (style + identity) ───
+    try:
+        identity = await db.player_identities.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "style_profile": 1, "blunder_taxonomy": 1,
+             "games_analyzed": 1, "total_wins": 1, "total_losses": 1, "total_draws": 1}
+        )
+        if identity:
+            style = identity.get("style_profile", {})
+            primary = style.get("primary_style", "").replace("_", " ")
+            games = identity.get("games_analyzed", 0)
+            wins = identity.get("total_wins", 0)
+            losses = identity.get("total_losses", 0)
+            win_pct = round(wins / games * 100) if games > 0 else 0
+
+            # Build style description
+            tactical = style.get("tactical_tendency", 0)
+            aggressive = style.get("aggressive_tendency", 0)
+            if tactical > 60 and aggressive > 60:
+                style_text = "You're an aggressive player who loves tactical battles. You look for sharp positions and fight for the initiative."
+            elif tactical > 60:
+                style_text = "You have a good eye for tactics. You spot combinations and aren't afraid to sacrifice material when it works."
+            elif aggressive > 60:
+                style_text = "You play actively and push for the attack. You prefer open positions where your pieces can be aggressive."
+            elif style.get("positional_tendency", 0) > 60:
+                style_text = "You're a solid, positional player. You build advantages slowly and prefer structure over chaos."
+            else:
+                style_text = "You have a balanced style — sometimes tactical, sometimes positional. You adapt to what the position needs."
+
+            record_text = f"Across {games} games, you've won {win_pct}% ({wins} wins, {losses} losses)."
+            sections["who_you_are"] = {
+                "style": style_text,
+                "record": record_text,
+            }
+    except Exception:
+        pass
+
+    # ─── 2. WHAT YOU DO WELL (strengths) ───
+    try:
+        strength_doc = await db.player_strength_profiles.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "domains": 1, "strongest": 1}
+        )
+        memory = await db.coach_memory.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "strengths": 1, "avg_accuracy": 1}
+        )
+
+        strengths = []
+        if strength_doc:
+            strongest = strength_doc.get("strongest")
+            domains = strength_doc.get("domains", {})
+            if strongest and strongest in domains:
+                score = domains[strongest].get("score", 0) if isinstance(domains[strongest], dict) else 0
+                name = strongest.replace("_", " ")
+                if score >= 70:
+                    strengths.append(f"Your {name} is strong — this is consistently one of your best areas.")
+                elif score >= 50:
+                    strengths.append(f"Your {name} is developing well.")
+
+        # Check thinking habits for strengths
+        thinking_docs = await db.thinking_scores.find(
+            {"user_id": user_id}, {"_id": 0, "habit_scores": 1}
+        ).sort("calculated_at", -1).limit(10).to_list(10)
+
+        if thinking_docs:
+            habit_avgs = {}
+            for habit in ["threat_awareness", "tactical_vision", "king_safety", "patience"]:
+                scores = []
+                for doc in thinking_docs:
+                    hs = doc.get("habit_scores", {}).get(habit)
+                    if isinstance(hs, dict):
+                        scores.append(hs.get("score", 0))
+                    elif isinstance(hs, (int, float)):
+                        scores.append(hs)
+                if scores:
+                    habit_avgs[habit] = sum(scores) / len(scores)
+
+            HABIT_NAMES = {
+                "threat_awareness": "seeing what your opponent is threatening",
+                "tactical_vision": "spotting tactics and combinations",
+                "king_safety": "keeping your king safe",
+                "patience": "taking your time on critical moves",
+            }
+            for habit, avg in sorted(habit_avgs.items(), key=lambda x: -x[1]):
+                if avg >= 80 and len(strengths) < 3:
+                    strengths.append(f"You're good at {HABIT_NAMES.get(habit, habit.replace('_', ' '))}.")
+
+        if not strengths:
+            strengths.append("Keep playing — your strengths will become clear with more games.")
+
+        sections["strengths"] = strengths
+    except Exception:
+        sections["strengths"] = []
+
+    # ─── 3. WHAT COSTS YOU GAMES (weaknesses — from real data) ───
+    try:
+        problems = await db.problem_lifecycle.find(
+            {"user_id": user_id, "state": "active"},
+            {"_id": 0, "category": 1, "count": 1, "anger": 1}
+        ).sort("count", -1).to_list(5)
+
+        # Also check thinking habits for weak areas
+        weaknesses = []
+        PROBLEM_DESCRIPTIONS = {
+            "one_move_blunder": "You leave pieces undefended. This is the #1 thing costing you games.",
+            "tactical_miss": "You miss tactics — forks, pins, skewers that win material.",
+            "calculation_error": "In sharp positions, you don't calculate deep enough. You see 1 move ahead but miss what happens after.",
+            "calculation_depth": "When the position gets complicated, your calculation breaks down.",
+            "piece_safety": "You move pieces to squares where they can be captured for free.",
+            "king_safety": "Your king gets into trouble — either you don't castle or your pawn shield gets weakened.",
+            "threw_winning": "You get good positions but then throw them away. Conversion is the issue.",
+            "opening_disaster": "Your games sometimes go wrong in the first 10 moves. Opening preparation would help.",
+            "time_collapse": "You run out of time and blunder in the last few moves.",
+            "positional": "You make positional mistakes — bad piece placement, weak pawns, passive positions.",
+            "endgame_collapse": "Your endgames need work. You struggle to convert advantages.",
+            "ignore_threat": "You don't always check what your opponent is threatening before moving.",
+        }
+
+        for p in problems[:3]:
+            cat = p.get("category", "")
+            count = p.get("count", 0)
+            anger = p.get("anger", "first_time")
+            desc = PROBLEM_DESCRIPTIONS.get(cat, f"Your {cat.replace('_', ' ')} needs improvement.")
+
+            if anger == "chronic":
+                desc += f" This has come up {count} times — it's a persistent pattern."
+            elif anger == "returned":
+                desc += " This problem came back after improving for a while."
+            elif count >= 5:
+                desc += f" It's happened {count} times in recent games."
+
+            weaknesses.append({"category": cat, "description": desc})
+
+        # Add from thinking habits (weak areas)
+        if thinking_docs:
+            for habit, avg in sorted(habit_avgs.items(), key=lambda x: x[1]):
+                if avg < 40 and len(weaknesses) < 3:
+                    HABIT_WEAKNESS = {
+                        "threat_awareness": "You often miss what your opponent is threatening. Before each move, ask: what did their last move attack?",
+                        "tactical_vision": "You're missing tactics in your games. Practice looking for forks, pins, and skewers.",
+                        "king_safety": "Your king safety needs attention. Prioritize castling early.",
+                        "patience": "You're rushing moves. Take an extra few seconds on important decisions.",
+                    }
+                    desc = HABIT_WEAKNESS.get(habit, f"Your {habit.replace('_', ' ')} needs work.")
+                    weaknesses.append({"category": habit, "description": desc})
+
+        sections["weaknesses"] = weaknesses
+    except Exception:
+        sections["weaknesses"] = []
+
+    # ─── 4. YOUR OPENINGS ───
+    try:
+        mastery_docs = await db.user_opening_mastery.find(
+            {"user_id": user_id}, {"_id": 0}
+        ).to_list(20)
+
+        from services.opening_mastery_tracker import OPENING_BRANCH_DATA, OPENING_MOVE_IDEAS
+
+        opening_stories = []
+        for m in mastery_docs:
+            key = m.get("opening_key", "")
+            name = key.replace("_", " ").title()
+            phase = m.get("phase", "introduction")
+            games = m.get("games_played", 0)
+            branches_seen = m.get("branches_seen", [])
+            acc_history = m.get("accuracy_history", [])
+
+            # How well do they know it?
+            if phase == "mastered":
+                knowledge = f"You've mastered the {name}. You play it accurately and consistently."
+            elif phase == "free_play":
+                knowledge = f"You know the {name} well. Playing without guidance now."
+            elif phase == "awareness":
+                knowledge = f"You're getting familiar with the {name}. {games} games so far."
+            else:
+                knowledge = f"You're just starting to learn the {name}."
+
+            # Branch awareness
+            bd = OPENING_BRANCH_DATA.get(key)
+            if bd:
+                total_branches = len(bd["branches"])
+                seen_count = len(branches_seen)
+                branch_names = [bd["branches"][k]["name"] for k in branches_seen if k in bd["branches"]]
+                unseen = [bd["branches"][k]["name"] for k in bd["branches"] if k not in branches_seen]
+
+                if seen_count == 0:
+                    knowledge += f" It has {total_branches} main variations — you haven't explored any yet."
+                elif seen_count < total_branches:
+                    knowledge += f" You've seen the {', '.join(branch_names)}."
+                    knowledge += f" The {', '.join(unseen)} {'is' if len(unseen) == 1 else 'are'} still new to you."
+                else:
+                    knowledge += f" You've seen all {total_branches} variations."
+
+            # Accuracy trend
+            if len(acc_history) >= 2:
+                recent = acc_history[-1]
+                older = acc_history[0]
+                if recent > older + 0.1:
+                    knowledge += " Your accuracy is improving."
+                elif recent < older - 0.1:
+                    knowledge += " Your accuracy has dipped recently."
+
+            opening_stories.append({"name": name, "key": key, "story": knowledge, "phase": phase, "games": games})
+
+        sections["openings"] = opening_stories
+    except Exception:
+        sections["openings"] = []
+
+    # ─── 5. YOUR JOURNEY (improvement over time) ───
+    try:
+        recent_analyses = await db.game_analyses.find(
+            {"user_id": user_id},
+            {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.blunders": 1, "created_at": 1}
+        ).sort("created_at", -1).limit(20).to_list(20)
+
+        if len(recent_analyses) >= 6:
+            recent_5 = recent_analyses[:5]
+            older_5 = recent_analyses[-5:]
+
+            recent_acc = [a.get("stockfish_analysis", {}).get("accuracy", 0) for a in recent_5]
+            older_acc = [a.get("stockfish_analysis", {}).get("accuracy", 0) for a in older_5]
+            recent_blunders = [a.get("stockfish_analysis", {}).get("blunders", 0) for a in recent_5]
+            older_blunders = [a.get("stockfish_analysis", {}).get("blunders", 0) for a in older_5]
+
+            avg_recent_acc = sum(recent_acc) / len(recent_acc) if recent_acc else 0
+            avg_older_acc = sum(older_acc) / len(older_acc) if older_acc else 0
+            avg_recent_blunders = sum(recent_blunders) / len(recent_blunders) if recent_blunders else 0
+            avg_older_blunders = sum(older_blunders) / len(older_blunders) if older_blunders else 0
+
+            improving_parts = []
+            declining_parts = []
+
+            acc_diff = avg_recent_acc - avg_older_acc
+            if acc_diff >= 5:
+                improving_parts.append(f"Your accuracy went from {avg_older_acc:.0f}% to {avg_recent_acc:.0f}%.")
+            elif acc_diff <= -5:
+                declining_parts.append(f"Your accuracy dipped from {avg_older_acc:.0f}% to {avg_recent_acc:.0f}%.")
+
+            blunder_diff = avg_older_blunders - avg_recent_blunders
+            if blunder_diff >= 1:
+                improving_parts.append(f"You went from {avg_older_blunders:.1f} blunders per game to {avg_recent_blunders:.1f}.")
+            elif blunder_diff <= -1:
+                declining_parts.append(f"Blunders increased from {avg_older_blunders:.1f} to {avg_recent_blunders:.1f} per game.")
+
+            if improving_parts and not declining_parts:
+                verdict = "improving"
+                story = "You're improving. " + " ".join(improving_parts) + " Keep playing and this trend will continue."
+            elif declining_parts and not improving_parts:
+                verdict = "slipping"
+                story = "Your recent games haven't been as strong. " + " ".join(declining_parts) + " Slow down and focus on one thing at a time."
+            elif improving_parts and declining_parts:
+                verdict = "mixed"
+                story = "Mixed results. " + " ".join(improving_parts) + " But " + " ".join(declining_parts).lower() + " Focus on consistency."
+            else:
+                verdict = "steady"
+                story = "Your play is consistent. You're not getting worse, but you'll need to push yourself to improve. Try harder positions or new openings."
+
+            sections["journey"] = {
+                "verdict": verdict,
+                "story": story,
+                "games_analyzed": len(recent_analyses),
+            }
+        elif len(recent_analyses) > 0:
+            sections["journey"] = {
+                "verdict": "early",
+                "story": f"You have {len(recent_analyses)} games analyzed. Play a few more and we'll track your improvement.",
+                "games_analyzed": len(recent_analyses),
+            }
+    except Exception:
+        pass
+
+    # ─── 6. NEXT STEP ───
+    try:
+        next_step = None
+        if sections.get("weaknesses"):
+            top_weakness = sections["weaknesses"][0]["category"]
+            NEXT_STEPS = {
+                "one_move_blunder": "Play with Coach and before every move, count attackers vs defenders on every piece.",
+                "tactical_miss": "Practice tactical puzzles. 10 minutes a day makes a real difference.",
+                "calculation_error": "In your next game, on every capture, look one move deeper. What happens AFTER?",
+                "piece_safety": "Before moving, check: is every one of my pieces defended?",
+                "king_safety": "Make castling your priority in the next 3 games. Don't start attacking until your king is safe.",
+                "threw_winning": "When you're ahead, trade pieces not pawns. Simplify to win.",
+                "opening_disaster": "Pick one opening and play it 5 times with Coach.",
+                "time_collapse": "Practice with 15+10 time control. Use the increment.",
+            }
+            next_step = NEXT_STEPS.get(top_weakness,
+                f"Play with Coach and focus on {top_weakness.replace('_', ' ')}.")
+        elif sections.get("openings"):
+            # Suggest learning a new variation
+            for o in sections["openings"]:
+                if o["phase"] == "introduction":
+                    next_step = f"Continue learning the {o['name']} with Coach."
+                    break
+        if not next_step:
+            next_step = "Play a game with Coach. The more you play, the more we learn about your game."
+
+        sections["next_step"] = next_step
+    except Exception:
+        sections["next_step"] = "Play with Coach to get personalized recommendations."
+
+    return sections
+
+
 @router.get("/progress/full-profile")
 async def get_full_profile(user: User = Depends(get_current_user)):
     """
