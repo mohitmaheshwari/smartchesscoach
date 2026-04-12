@@ -609,6 +609,83 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             except Exception:
                 pass
 
+        # Phase mini-analysis for this game
+        phase_mini = {}
+        try:
+            uc = g.get("user_color", "white")
+            opening_moves = [ev for ev in evals if (ev.get("move_number", 0) or 0) <= 12]
+            middle_moves = [ev for ev in evals if 12 < (ev.get("move_number", 0) or 0) <= 30]
+            end_moves = [ev for ev in evals if (ev.get("move_number", 0) or 0) > 30]
+
+            def _phase_verdict(moves_list, phase_name):
+                if not moves_list:
+                    return None
+                bl = sum(1 for e in moves_list if (e.get("cp_loss", 0) or 0) >= 300)
+                ms = sum(1 for e in moves_list if 100 <= (e.get("cp_loss", 0) or 0) < 300)
+                total = len(moves_list)
+                errors = bl + ms
+                acc = round(max(0, (1 - errors / total)) * 100) if total > 0 else 0
+                if bl == 0 and ms == 0:
+                    return {"phase": phase_name, "verdict": "Clean", "acc": acc}
+                elif bl >= 2:
+                    return {"phase": phase_name, "verdict": f"{bl} blunders", "acc": acc}
+                elif bl == 1:
+                    return {"phase": phase_name, "verdict": "1 critical error", "acc": acc}
+                else:
+                    return {"phase": phase_name, "verdict": f"{ms} inaccuracies", "acc": acc}
+
+            op = _phase_verdict(opening_moves, "Opening")
+            if op:
+                phase_mini["opening"] = op
+            mid = _phase_verdict(middle_moves, "Middlegame")
+            if mid:
+                phase_mini["middlegame"] = mid
+            eg = _phase_verdict(end_moves, "Endgame")
+            if eg:
+                phase_mini["endgame"] = eg
+        except Exception:
+            pass
+
+        # Trap detection — did this game's opening match a known trap?
+        trap_found = None
+        try:
+            opening_name = g.get("opening", "")
+            if opening_name:
+                from services.opening_mastery_tracker import OPENING_MOVE_IDEAS
+                from services.verified_opening_traps import get_all_for_opening
+
+                # Match opening name to key
+                opening_key = None
+                for key in OPENING_MOVE_IDEAS:
+                    name = key.replace("_", " ")
+                    if name in opening_name.lower() or opening_name.lower() in name:
+                        opening_key = key
+                        break
+
+                if opening_key:
+                    traps = get_all_for_opening(opening_key)
+                    if traps:
+                        # Check if game moves match any trap setup
+                        game_moves = [ev.get("move", "") for ev in evals if ev.get("move")]
+                        for trap in traps:
+                            setup = trap.setup_moves
+                            if len(game_moves) >= len(setup):
+                                match = all(
+                                    (game_moves[i] or "").replace("+", "").replace("#", "").lower() ==
+                                    (setup[i] or "").replace("+", "").replace("#", "").lower()
+                                    for i in range(len(setup))
+                                )
+                                if match:
+                                    trap_found = {
+                                        "name": trap.name,
+                                        "trap_move": trap.trap_move,
+                                        "explanation": trap.explanation[:120],
+                                        "victim": trap.victim_color,
+                                    }
+                                    break
+        except Exception:
+            pass
+
         # Generate behavioral story for this game
         game_behavior = ""
         try:
@@ -636,6 +713,8 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             "was_winning": was_winning,
             "sub_cause": sub_cause,
             "behavior": game_behavior,
+            "phases": phase_mini,
+            "trap": trap_found,
             "pain": pain,
             "reviewed": is_reviewed,
             "user_color": g.get("user_color", "white"),

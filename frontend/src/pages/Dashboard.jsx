@@ -190,6 +190,49 @@ const Dashboard = ({ user }) => {
                         </p>
                       )}
 
+                      {/* Phase mini-analysis */}
+                      {g.phases && Object.keys(g.phases).length > 0 && (
+                        <div className="flex gap-2 mb-2">
+                          {["opening", "middlegame", "endgame"].map(phase => {
+                            const p = g.phases[phase];
+                            if (!p) return null;
+                            const color = p.verdict === "Clean" ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/15"
+                              : p.verdict.includes("blunder") ? "text-red-400 bg-red-500/10 border-red-500/15"
+                              : "text-amber-500 bg-amber-500/10 border-amber-500/15";
+                            return (
+                              <div key={phase} className={`text-[10px] px-2 py-1 rounded-lg border ${color}`}>
+                                <span className="font-medium">{p.phase}</span>
+                                <span className="ml-1 opacity-70">{p.verdict}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Trap detection */}
+                      {g.trap && (
+                        <div className="rounded-lg bg-amber-500/5 border border-amber-500/15 px-2.5 py-1.5 mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <Zap className="w-3 h-3 text-amber-500 flex-shrink-0" strokeWidth={2.5} />
+                            <span className="text-[10px] font-bold text-amber-500">{g.trap.name}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                            {g.trap.explanation}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Opening link — practice with coach */}
+                      {g.opening && g.phases?.opening?.verdict !== "Clean" && !g.reviewed && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/play-with-coach?opening=${encodeURIComponent(g.opening)}`); }}
+                          className="text-[10px] text-primary hover:text-primary/80 transition-colors flex items-center gap-1 mb-1"
+                        >
+                          Practice {g.opening} with Coach
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      )}
+
                       {/* Footer */}
                       <div className="flex items-center justify-between">
                         {g.reviewed ? (
