@@ -1353,6 +1353,50 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     except Exception:
         pass
 
+    # Spotlight: newest unreviewed game with the richest story
+    spotlight = None
+    try:
+        new_unreviewed = [g for g in enriched if g.get("is_new") and not g.get("reviewed")]
+        if not new_unreviewed:
+            # Fallback: any unreviewed game
+            new_unreviewed = [g for g in enriched if not g.get("reviewed")]
+
+        if new_unreviewed:
+            # Pick the one with highest pain (was_winning + loss > loss > draw)
+            def _pain(g):
+                if g.get("was_winning") and g.get("result") == "L":
+                    return 100
+                elif g.get("result") == "L":
+                    return 50 + g.get("blunders", 0) * 10
+                elif g.get("result") == "D":
+                    return 20
+                return 0
+
+            best = max(new_unreviewed, key=_pain)
+            if best.get("behavior") or best.get("game_reason"):
+                # Check if this game repeats the top problem
+                top_cat = coaching.get("top_problems", [{}])[0].get("category", "") if coaching else ""
+                best_cat = best.get("game_reason", {}).get("category", "")
+                repeats_problem = top_cat and best_cat == top_cat
+
+                spotlight = {
+                    "game_id": best.get("game_id"),
+                    "opponent": best.get("opponent", "Opponent"),
+                    "result": best.get("result"),
+                    "opening": best.get("opening", ""),
+                    "behavior": best.get("behavior", ""),
+                    "was_winning": best.get("was_winning", False),
+                    "blunders": best.get("blunders", 0),
+                    "accuracy": best.get("accuracy", 0),
+                    "is_new": best.get("is_new", False),
+                    "repeats_problem": repeats_problem,
+                    "problem_label": coaching.get("top_problems", [{}])[0].get("label", "") if repeats_problem and coaching else "",
+                }
+    except Exception:
+        pass
+
+    result["spotlight"] = spotlight
+
     # Cache for 5 minutes
     try:
         await db.coaching_cache.update_one(

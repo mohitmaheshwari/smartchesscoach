@@ -12,8 +12,74 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import {
-  Import, ChevronRight, Check, Zap, Trophy, Shield
+  Import, ChevronRight, Check, Zap, Trophy, Shield, XCircle, Minus, Eye
 } from "lucide-react";
+
+
+/* ── Spotlight Card — coach's reaction to newest game ── */
+const SpotlightCard = ({ spotlight, onReview, onDismiss }) => {
+  const s = spotlight;
+  const resultWord = s.result === "L" ? "You lost" : s.result === "D" ? "Draw" : "You won";
+  const resultColor = s.result === "L" ? "border-red-500/30 bg-red-500/[0.04]"
+    : s.result === "W" ? "border-emerald-500/30 bg-emerald-500/[0.04]"
+    : "border-border";
+  const ResultIcon = s.result === "L" ? XCircle : s.result === "W" ? Trophy : Minus;
+  const iconColor = s.result === "L" ? "text-red-400" : s.result === "W" ? "text-emerald-500" : "text-muted-foreground";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      className={`rounded-2xl border-2 ${resultColor} p-5 mb-6`}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+        <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60">
+          {s.is_new ? "Just analyzed" : "Unreviewed"}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 mb-2">
+        <ResultIcon className={`w-4 h-4 ${iconColor}`} strokeWidth={2} />
+        <span className="text-sm font-medium text-foreground">
+          {resultWord} vs {s.opponent}
+        </span>
+        {s.opening && (
+          <span className="text-[10px] text-muted-foreground/40 ml-auto">{s.opening}</span>
+        )}
+      </div>
+
+      {s.behavior && (
+        <p className="text-sm text-foreground/80 leading-relaxed mb-3">
+          {s.behavior}
+        </p>
+      )}
+
+      {s.repeats_problem && s.problem_label && (
+        <p className="text-xs text-red-400/80 font-medium mb-3">
+          Same pattern: {s.problem_label}
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={onReview}
+          className="flex-1 py-2.5 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-1.5"
+        >
+          <Eye className="w-3.5 h-3.5" strokeWidth={2} />
+          Review this game
+        </button>
+        <button
+          onClick={onDismiss}
+          className="px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground rounded-xl border border-border hover:bg-muted/50 transition-all"
+        >
+          I know
+        </button>
+      </div>
+    </motion.div>
+  );
+};
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
@@ -53,6 +119,7 @@ const Dashboard = ({ user }) => {
 
   const coaching = data?.coaching;
   const games = data?.games || [];
+  const spotlight = data?.spotlight;
 
   if (games.length === 0) {
     return (
@@ -82,6 +149,15 @@ const Dashboard = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="max-w-2xl mx-auto px-4 py-8" data-testid="lab-page">
+
+        {/* ═══ 0. SPOTLIGHT — newest game, coach reaction ═══ */}
+        {spotlight && (
+          <SpotlightCard
+            spotlight={spotlight}
+            onReview={() => navigate(`/game/${spotlight.game_id}`)}
+            onDismiss={() => { markReviewed(spotlight.game_id); }}
+          />
+        )}
 
         {/* ═══ 1. PLAYER PROFILE ═══ */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
