@@ -165,11 +165,34 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
     avg_recent = round(sum(recent_acc) / len(recent_acc), 1) if recent_acc else 0
     avg_older = round(sum(older_acc) / len(older_acc), 1) if older_acc else 0
 
+    # ─── DEBUG: collect all raw gap values from DB ───
+    raw_gaps = {}
+    for gid in game_ids[:20]:
+        a = analyses.get(gid, {})
+        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        for ev in evals:
+            gap = ev.get("cognitive_gap", "")
+            cp = ev.get("cp_loss", 0) or 0
+            if gap:
+                if gap not in raw_gaps:
+                    raw_gaps[gap] = {"count": 0, "high_cp": 0}
+                raw_gaps[gap]["count"] += 1
+                if cp >= 100:
+                    raw_gaps[gap]["high_cp"] += 1
+
+    # Also check what eval fields exist
+    sample_fields = set()
+    for gid in game_ids[:3]:
+        a = analyses.get(gid, {})
+        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        for ev in evals[:3]:
+            sample_fields.update(ev.keys())
+
     return {
         "has_data": True,
         "primary_pattern": primary,
         "all_patterns": improvements,
-        "before_after": before_after[:2],  # Top 2 examples
+        "before_after": before_after[:2],
         "streaks": streaks,
         "accuracy": {
             "recent": avg_recent,
@@ -179,6 +202,8 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
         "games_analyzed": len(game_ids),
         "recent_window": len(recent_ids),
         "older_window": len(older_ids),
+        "_debug_raw_gaps": raw_gaps,
+        "_debug_eval_fields": list(sample_fields),
     }
 
 
