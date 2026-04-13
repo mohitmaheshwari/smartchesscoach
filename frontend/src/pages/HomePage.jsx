@@ -168,7 +168,7 @@ const HomePage = ({ user }) => {
           </div>
 
           {/* ─── IMPROVEMENT PROOF ─── */}
-          {proof?.has_data && (proof?.primary_pattern?.reduction_pct > 0 || proof?.streaks?.no_blunder_games >= 3 || proof?.accuracy?.delta >= 2) && (
+          {proof?.has_data && (proof?.primary_pattern?.reduction_pct > 0 || proof?.streaks?.no_blunder_games >= 3 || proof?.streaks?.no_hanging_piece_games >= 5 || proof?.accuracy?.delta >= 2) && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
