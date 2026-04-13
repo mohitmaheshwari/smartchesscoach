@@ -84,22 +84,30 @@ const Dashboard = ({ user }) => {
   const priorityGame = coaching?.priority_game;
 
   // The ONE problem to focus on
-  const primaryProblem = topProblems[0];
+  const primaryProblem = topProblems.length > 0 ? topProblems[0] : null;
   const primaryGames = primaryProblem ? (groupedGames[primaryProblem.category]?.games || []) : [];
   const unreviewed = primaryGames.filter(g => !g.reviewed);
 
-  // The ONE game to show with a board — priority game or first unreviewed
-  // Normalize field names (priority_game uses replay.mistake_fen, grouped uses critical_fen)
+  // The ONE game to show with a board
   let featuredGame = null;
-  if (priorityGame) {
-    featuredGame = {
-      ...priorityGame,
-      critical_fen: priorityGame.critical_fen || priorityGame.replay?.mistake_fen,
-      critical_move: priorityGame.critical_move || priorityGame.move_number,
-    };
-  }
-  if (!featuredGame?.critical_fen && unreviewed[0]) {
-    featuredGame = unreviewed[0];
+  try {
+    if (priorityGame) {
+      featuredGame = {
+        ...priorityGame,
+        critical_fen: priorityGame.critical_fen || priorityGame.replay?.mistake_fen || null,
+        critical_move: priorityGame.critical_move || priorityGame.move_number || null,
+      };
+    }
+    if (!featuredGame?.critical_fen && unreviewed.length > 0) {
+      featuredGame = unreviewed[0];
+    }
+    // Validate FEN before passing to board
+    if (featuredGame?.critical_fen && featuredGame.critical_fen.split(" ").length < 2) {
+      featuredGame.critical_fen = null; // Invalid FEN
+    }
+  } catch (e) {
+    console.error("Featured game setup error:", e);
+    featuredGame = null;
   }
 
   return (
