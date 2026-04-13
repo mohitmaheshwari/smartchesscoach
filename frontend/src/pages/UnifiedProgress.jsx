@@ -111,31 +111,60 @@ const UnifiedProgress = ({ user }) => {
             }
           />}
 
-          {/* Narrative: Your Openings */}
-          {narrative?.openings?.length > 0 && <NarrativeSection
-            title="Your openings"
-            icon={<BookOpen className="w-4 h-4 text-primary" strokeWidth={2} />}
-            content={
-              <div className="space-y-3">
-                {narrative.openings.map((o, i) => (
-                  <div key={i}
-                    onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(o.name)}`)}
-                    className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 cursor-pointer transition-all"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-foreground">{o.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{o.games} game{o.games !== 1 ? "s" : ""}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-snug">{o.story}</p>
-                  </div>
-                ))}
-              </div>
-            }
-          />}
+          {/* Your Openings — merged: coach stories + real game win rates */}
+          {(narrative?.openings?.length > 0 || (openings && openings.total_games > 0)) && (
+            <NarrativeSection
+              title="Your openings"
+              icon={<BookOpen className="w-4 h-4 text-primary" strokeWidth={2} />}
+              content={
+                <div className="space-y-3">
+                  {/* Coach session openings with stories */}
+                  {narrative?.openings?.map((o, i) => {
+                    // Find matching win rate from real games
+                    const allReal = [...(openings?.white || []), ...(openings?.black || [])];
+                    const match = allReal.find(r => r.name?.toLowerCase().includes(o.name?.toLowerCase().split(" ")[0]));
+                    return (
+                      <div key={i}
+                        onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(o.name)}`)}
+                        className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 cursor-pointer transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-foreground">{o.name}</span>
+                          <div className="flex items-center gap-2">
+                            {match && (
+                              <span className={`text-xs font-mono ${match.win_rate >= 50 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                                {match.win_rate}% in {match.games}g
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">{o.games} with coach</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-snug">{o.story}</p>
+                      </div>
+                    );
+                  })}
 
-          {/* Opening Repertoire from real games */}
-          {openings && openings.total_games > 0 && (
-            <OpeningRepertoire openings={openings} navigate={navigate} />
+                  {/* Real game openings NOT covered by coach sessions */}
+                  {openings && [...(openings.white || []), ...(openings.black || [])].filter(r => {
+                    const coachNames = (narrative?.openings || []).map(o => o.name?.toLowerCase().split(" ")[0]);
+                    return !coachNames.some(cn => r.name?.toLowerCase().includes(cn));
+                  }).slice(0, 4).map((r, i) => (
+                    <div key={`real-${i}`}
+                      onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(r.name)}`)}
+                      className="p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all flex items-center justify-between"
+                    >
+                      <span className="text-sm text-foreground">{r.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-mono ${r.win_rate >= 50 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                          {r.win_rate}%
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">{r.games}g</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              }
+            />
           )}
 
           {/* Narrative: Next Step */}
