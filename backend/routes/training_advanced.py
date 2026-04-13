@@ -1024,13 +1024,30 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "opponent_blundered": {"label": "Punishing mistakes",    "desc": "You capitalized on opponent errors in {count} games"},
     }
 
-    # Always show brilliants if any (it's a skill, never conflicts)
+    # Always show brilliants if any — with type breakdown
     if total_brilliants > 0:
+        # Count types across all games
+        type_counts = {}
+        for g in enriched_games:
+            for bd in g.get("brilliant_detail", []):
+                bt = bd.get("type", "Strong move")
+                type_counts[bt] = type_counts.get(bt, 0) + 1
+
+        type_parts = []
+        for bt, count in sorted(type_counts.items(), key=lambda x: -x[1]):
+            type_parts.append(f"{count} {bt.lower()}{'s' if count > 1 else ''}")
+        type_text = ", ".join(type_parts[:3]) if type_parts else ""
+
+        desc = f"You found {total_brilliants} brilliant moves"
+        if type_text:
+            desc += f" — {type_text}"
+
         strengths.append({
             "category": "brilliant_play",
             "label": "Deep calculation",
-            "description": f"You found {total_brilliants} brilliant moves across your games",
+            "description": desc,
             "count": total_brilliants,
+            "breakdown": type_counts,
         })
 
     # Add win-based strengths (filtered)
@@ -1212,10 +1229,32 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         # Count brilliant moves and sacrifices in this game
         brilliant_count = sum(1 for e in evals if e.get("is_brilliant"))
         sacrifice_count = sum(1 for e in evals if e.get("is_sacrifice"))
-        brilliant_moves_detail = [
-            {"move": e.get("move", ""), "move_number": e.get("move_number", 0)}
-            for e in evals if e.get("is_brilliant")
-        ]
+        brilliant_moves_detail = []
+        for e in evals:
+            if not e.get("is_brilliant"):
+                continue
+            move_san = e.get("move", "")
+            is_sac = e.get("is_sacrifice", False)
+            cp_swing = abs((e.get("eval_after", 0) or 0) - (e.get("eval_before", 0) or 0))
+
+            # Infer type from move characteristics
+            if is_sac:
+                btype = "Sacrifice"
+            elif "x" in move_san and cp_swing > 200:
+                btype = "Tactical strike"
+            elif "+" in move_san or "#" in move_san:
+                btype = "Forcing move"
+            elif cp_swing > 300:
+                btype = "Deep calculation"
+            else:
+                btype = "Strong move"
+
+            brilliant_moves_detail.append({
+                "move": move_san,
+                "move_number": e.get("move_number", 0),
+                "fen": e.get("fen_before", ""),
+                "type": btype,
+            })
 
         opp = g.get("opponent_name") or (g.get("white_player") if uc == "black" else g.get("black_player")) or ""
 
