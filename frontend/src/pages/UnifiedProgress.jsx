@@ -218,7 +218,8 @@ const ImprovementProof = ({ proof }) => {
   // Streak text
   const streakParts = [];
   if (streaks.no_blunder_games >= 2) streakParts.push(`${streaks.no_blunder_games} games with no blunders`);
-  if (streaks.no_hanging_piece_games >= 2) streakParts.push(`${streaks.no_hanging_piece_games} games with no hanging pieces`);
+  if (streaks.no_big_mistake_games >= 2) streakParts.push(`${streaks.no_big_mistake_games} games without a major mistake`);
+  if (streaks.no_threat_miss_games >= 3) streakParts.push(`${streaks.no_threat_miss_games} games without missing a threat`);
 
   return (
     <motion.div

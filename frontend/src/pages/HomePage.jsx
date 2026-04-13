@@ -168,7 +168,7 @@ const HomePage = ({ user }) => {
           </div>
 
           {/* ─── IMPROVEMENT PROOF ─── */}
-          {proof?.has_data && (proof?.primary_pattern?.reduction_pct > 0 || proof?.streaks?.no_blunder_games >= 3 || proof?.streaks?.no_hanging_piece_games >= 5 || proof?.accuracy?.delta >= 2) && (
+          {proof?.has_data && (proof?.primary_pattern?.reduction_pct > 0 || proof?.streaks?.no_blunder_games >= 3 || proof?.streaks?.no_big_mistake_games >= 3 || proof?.streaks?.no_threat_miss_games >= 3 || proof?.accuracy?.delta >= 2) && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -193,9 +193,15 @@ const HomePage = ({ user }) => {
                 </p>
               )}
 
-              {proof.streaks?.no_hanging_piece_games >= 5 && (
+              {proof.streaks?.no_big_mistake_games >= 3 && (
                 <p className="text-xs text-emerald-500/70 mb-2">
-                  <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_hanging_piece_games} games without hanging a piece
+                  <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_big_mistake_games} games without a major mistake
+                </p>
+              )}
+
+              {proof.streaks?.no_threat_miss_games >= 3 && (
+                <p className="text-xs text-emerald-500/70 mb-2">
+                  <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_threat_miss_games} games without missing a threat
                 </p>
               )}
 

@@ -165,29 +165,6 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
     avg_recent = round(sum(recent_acc) / len(recent_acc), 1) if recent_acc else 0
     avg_older = round(sum(older_acc) / len(older_acc), 1) if older_acc else 0
 
-    # ─── DEBUG: collect all raw gap values from DB ───
-    raw_gaps = {}
-    for gid in game_ids[:20]:
-        a = analyses.get(gid, {})
-        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
-        for ev in evals:
-            gap = ev.get("cognitive_gap", "")
-            cp = ev.get("cp_loss", 0) or 0
-            if gap:
-                if gap not in raw_gaps:
-                    raw_gaps[gap] = {"count": 0, "high_cp": 0}
-                raw_gaps[gap]["count"] += 1
-                if cp >= 100:
-                    raw_gaps[gap]["high_cp"] += 1
-
-    # Also check what eval fields exist
-    sample_fields = set()
-    for gid in game_ids[:3]:
-        a = analyses.get(gid, {})
-        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
-        for ev in evals[:3]:
-            sample_fields.update(ev.keys())
-
     return {
         "has_data": True,
         "primary_pattern": primary,
@@ -202,26 +179,50 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
         "games_analyzed": len(game_ids),
         "recent_window": len(recent_ids),
         "older_window": len(older_ids),
-        "_debug_raw_gaps": raw_gaps,
-        "_debug_eval_fields": list(sample_fields),
     }
 
 
 def _count_patterns(game_ids: List[str], analyses: Dict) -> Dict[str, int]:
-    """Count root pattern occurrences across a set of games."""
+    """
+    Count root pattern occurrences across a set of games.
+    Uses cognitive_gap when available, but ALSO infers from move context:
+    - threat field populated + high cp_loss → threat_awareness
+    - high cp_loss with no threat → calculation
+    - eval was winning then collapsed → endgame (if late) or coordination (if mid)
+    """
     counts = {}
     for gid in game_ids:
         a = analyses.get(gid, {})
         evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
-        seen_roots = set()  # Count each root pattern once per game
+        seen_roots = set()
+
         for ev in evals:
-            gap = ev.get("cognitive_gap", "")
             cp = ev.get("cp_loss", 0) or 0
-            if gap and cp >= 100:
+            if cp < 100:
+                continue  # Only count real mistakes
+
+            gap = ev.get("cognitive_gap", "")
+            move_num = ev.get("move_number", 0) or 0
+            has_threat = bool(ev.get("threat"))
+            evaluation = ev.get("evaluation", "")
+
+            # Classify into root pattern
+            if gap:
                 root = _classify_gap(gap)
-                if root not in seen_roots:
-                    counts[root] = counts.get(root, 0) + 1
-                    seen_roots.add(root)
+            elif has_threat and cp >= 150:
+                root = "threat_awareness"  # Missed a threat
+            elif move_num > 30:
+                root = "endgame"  # Late game mistake
+            elif cp >= 300:
+                root = "calculation"  # Big blunder = calculation failure
+            elif move_num <= 12:
+                root = "coordination"  # Early game = development/coordination
+            else:
+                root = "calculation"  # Default for middlegame mistakes
+
+            if root not in seen_roots:
+                counts[root] = counts.get(root, 0) + 1
+                seen_roots.add(root)
     return counts
 
 
@@ -240,26 +241,42 @@ def _find_before_after_moments(
 
     Returns [{old_fen, new_fen, old_game_id, new_game_id, old_move, new_move, message}]
     """
-    target_gaps = ROOT_PATTERNS[pattern_key]["gaps"]
-
-    # Collect OLD mistakes (high cp_loss, matching pattern)
+    # Collect OLD mistakes (high cp_loss, matching root pattern by inference)
     old_mistakes = []
     for gid in older_ids:
         a = analyses.get(gid, {})
         evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
         for ev in evals:
-            gap = ev.get("cognitive_gap", "")
             cp = ev.get("cp_loss", 0) or 0
             fen = ev.get("fen_before", "")
-            if gap in target_gaps and cp >= 150 and fen:
+            if cp < 150 or not fen:
+                continue
+
+            # Classify this mistake
+            gap = ev.get("cognitive_gap", "")
+            has_threat = bool(ev.get("threat"))
+            move_num = ev.get("move_number", 0) or 0
+
+            if gap:
+                root = _classify_gap(gap)
+            elif has_threat:
+                root = "threat_awareness"
+            elif move_num > 30:
+                root = "endgame"
+            elif cp >= 300:
+                root = "calculation"
+            else:
+                root = "calculation"
+
+            if root == pattern_key:
                 old_mistakes.append({
                     "game_id": gid,
                     "fen": fen,
                     "move": ev.get("move", ""),
-                    "move_number": ev.get("move_number", 0),
+                    "move_number": move_num,
                     "cp_loss": cp,
-                    "gap": gap,
-                    "phase": _move_phase(ev.get("move_number", 0)),
+                    "gap": gap or root,
+                    "phase": _move_phase(move_num),
                     "date": game_dates.get(gid),
                 })
 
@@ -361,24 +378,35 @@ def _compute_streaks(game_ids: List[str], analyses: Dict) -> Dict:
         else:
             break
 
-    # No-hanging-piece streak (no piece_safety/hung_pieces gap)
-    no_hanging_streak = 0
-    hanging_gaps = {"piece_safety", "hung_pieces", "hanging_piece"}
+    # No-big-mistake streak (no move with cp_loss >= 300 = blunder-level)
+    no_big_mistake_streak = 0
     for gid in game_ids:
         a = analyses.get(gid, {})
         evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
-        has_hanging = any(
-            ev.get("cognitive_gap", "") in hanging_gaps and (ev.get("cp_loss", 0) or 0) >= 100
+        has_big = any((ev.get("cp_loss", 0) or 0) >= 300 for ev in evals)
+        if not has_big:
+            no_big_mistake_streak += 1
+        else:
+            break
+
+    # No-threat-miss streak (no move where threat existed + high cp_loss)
+    no_threat_miss_streak = 0
+    for gid in game_ids:
+        a = analyses.get(gid, {})
+        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        missed_threat = any(
+            ev.get("threat") and (ev.get("cp_loss", 0) or 0) >= 150
             for ev in evals
         )
-        if not has_hanging:
-            no_hanging_streak += 1
+        if not missed_threat:
+            no_threat_miss_streak += 1
         else:
             break
 
     return {
         "no_blunder_games": no_blunder_streak,
-        "no_hanging_piece_games": no_hanging_streak,
+        "no_big_mistake_games": no_big_mistake_streak,
+        "no_threat_miss_games": no_threat_miss_streak,
     }
 
 
