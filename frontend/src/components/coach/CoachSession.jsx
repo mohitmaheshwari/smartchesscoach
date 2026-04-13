@@ -11,11 +11,12 @@
  * Not a dashboard. A conversation.
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
+import { API } from "@/App";
 import {
   ChevronRight, Target, Swords, Trophy, XCircle, Minus,
   Check, ArrowRight, Zap, Eye
@@ -26,7 +27,18 @@ const CoachSession = ({ review, onComplete, gameId }) => {
   const [step, setStep] = useState(0);
   const [tryResult, setTryResult] = useState(null); // null | "correct" | "wrong"
   const [showThreat, setShowThreat] = useState(false);
+  const [proofData, setProofData] = useState(null);
   const boardRef = useRef(null);
+
+  // Fetch improvement proof for before/after comparison
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API}/progress/improvement-proof`, { credentials: "include" });
+        if (res.ok) setProofData(await res.json());
+      } catch (e) { /* non-fatal */ }
+    })();
+  }, []);
 
   if (!review?.session) return null;
 
@@ -268,7 +280,7 @@ const CoachSession = ({ review, onComplete, gameId }) => {
           </motion.div>
         )}
 
-        {/* ═══ STEP 3: THE PATTERN — cross-game ═══ */}
+        {/* ═══ STEP 3: THE PATTERN — cross-game with before/after ═══ */}
         {step === 3 && (
           <motion.div key="step3" {...pageTransition} className="space-y-5">
             {pattern?.is_recurring ? (
@@ -280,11 +292,46 @@ const CoachSession = ({ review, onComplete, gameId }) => {
                   {pattern.label} — this happened in {pattern.games_with} of your last {pattern.games_checked} games.
                 </p>
 
+                {/* BEFORE / AFTER boards — the emotional proof */}
+                {proofData?.before_after?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {proofData.before_after[0].message}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Then</p>
+                        <div className="rounded-lg overflow-hidden border-2 border-red-500/20">
+                          <LichessBoard fen={proofData.before_after[0].old_fen} viewOnly={true} width={170} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Move {proofData.before_after[0].old_move_number}:
+                          <span className="font-mono text-red-400 ml-1">{proofData.before_after[0].old_move}</span>
+                          <span className="text-red-400/40 ml-1">mistake</span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
+                        <div className="rounded-lg overflow-hidden border-2 border-emerald-500/20">
+                          <LichessBoard fen={proofData.before_after[0].new_fen} viewOnly={true} width={170} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Move {proofData.before_after[0].new_move_number}:
+                          <span className="font-mono text-emerald-400 ml-1">{proofData.before_after[0].new_move}</span>
+                          <span className="text-emerald-400/40 ml-1">clean</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {pattern.is_improving ? (
                   <div className="p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/15">
                     <p className="text-sm text-foreground">
-                      But it's getting better. You went {pattern.recent_clean_streak} games without this.
-                      Keep going.
+                      It's getting better. You went {pattern.recent_clean_streak} game{pattern.recent_clean_streak !== 1 ? "s" : ""} without this.
+                      {proofData?.primary_pattern?.reduction_pct > 0 &&
+                        ` ${proofData.primary_pattern.reduction_pct}% fewer mistakes than before.`
+                      }
                     </p>
                   </div>
                 ) : (
