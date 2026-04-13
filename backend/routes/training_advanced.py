@@ -1108,12 +1108,21 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     games = await db.games.find(
         {"user_id": user.user_id, "is_analyzed": True},
         {"_id": 0}
-    ).sort("imported_at", -1).to_list(100)
+    ).sort("imported_at", -1).to_list(40)
 
+    # Only load move_evaluations fields we actually use (not the full array)
     analyses_cursor = db.game_analyses.find(
         {"user_id": user.user_id},
         {"_id": 0, "game_id": 1, "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1,
-         "stockfish_analysis.move_evaluations": 1, "stockfish_analysis.accuracy": 1,
+         "stockfish_analysis.accuracy": 1,
+         "stockfish_analysis.move_evaluations.cognitive_gap": 1,
+         "stockfish_analysis.move_evaluations.cp_loss": 1,
+         "stockfish_analysis.move_evaluations.move_number": 1,
+         "stockfish_analysis.move_evaluations.move": 1,
+         "stockfish_analysis.move_evaluations.is_brilliant": 1,
+         "stockfish_analysis.move_evaluations.is_sacrifice": 1,
+         "stockfish_analysis.move_evaluations.eval_before": 1,
+         "stockfish_analysis.move_evaluations.threat": 1,
          "coach_summary": 1, "decryption_v5_data.core_lesson": 1, "llm_game_story": 1}
     )
     analyses = {a["game_id"]: a async for a in analyses_cursor}
@@ -1292,33 +1301,32 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "is_new": is_new,
         })
 
-    # ── BATCH LLM: generate unique stories for uncached games (one call) ──
+    # ── BATCH LLM: fire-and-forget — generate stories in background ──
+    # Don't block the response. Stories will be cached for next load.
+    import asyncio
     try:
-        games_needing_stories = []
-        for g in enriched:
-            if not g.get("reviewed") and not analyses.get(g["game_id"], {}).get("llm_game_story"):
-                games_needing_stories.append(g)
-
+        games_needing_stories = [
+            g for g in enriched
+            if not g.get("reviewed") and not analyses.get(g["game_id"], {}).get("llm_game_story")
+        ]
         if games_needing_stories:
-            # Limit to 10 games per batch
-            batch = games_needing_stories[:10]
-            llm_stories = await _batch_generate_game_stories(batch)
-
-            # Apply stories to enriched list and cache them
-            for g in enriched:
-                gid = g.get("game_id", "")
-                if gid in llm_stories and llm_stories[gid]:
-                    g["behavior"] = llm_stories[gid]
-                    # Cache in DB
-                    try:
-                        await db.game_analyses.update_one(
-                            {"game_id": gid},
-                            {"$set": {"llm_game_story": llm_stories[gid]}}
-                        )
-                    except Exception:
-                        pass
-    except Exception as e:
-        logger.warning(f"Batch LLM game stories failed (non-fatal): {e}")
+            async def _bg_generate():
+                try:
+                    batch = games_needing_stories[:10]
+                    llm_stories = await _batch_generate_game_stories(batch)
+                    for gid, story in llm_stories.items():
+                        if story:
+                            await db.game_analyses.update_one(
+                                {"game_id": gid}, {"$set": {"llm_game_story": story}}
+                            )
+                    # Invalidate cache so next load picks up LLM stories
+                    await db.coaching_cache.delete_one({"user_id": user.user_id})
+                    logger.info(f"[LAB] Background LLM generated {len(llm_stories)} stories")
+                except Exception as e:
+                    logger.warning(f"Background LLM stories failed: {e}")
+            asyncio.create_task(_bg_generate())
+    except Exception:
+        pass
 
     # ── SMART PICK: find the best unreviewed game ──
     unreviewed = [g for g in enriched if not g["reviewed"]]
