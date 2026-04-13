@@ -165,24 +165,6 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
     avg_recent = round(sum(recent_acc) / len(recent_acc), 1) if recent_acc else 0
     avg_older = round(sum(older_acc) / len(older_acc), 1) if older_acc else 0
 
-    # Debug: sample 3 moves with cp_loss >= 100 to see actual data shape
-    debug_sample = []
-    for gid in game_ids[:5]:
-        a = analyses.get(gid, {})
-        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
-        for ev in evals:
-            cp = ev.get("cp_loss", 0) or 0
-            if cp >= 100 and len(debug_sample) < 5:
-                debug_sample.append({
-                    "game": gid[:8],
-                    "move": ev.get("move_number"),
-                    "cp_loss": cp,
-                    "cognitive_gap": ev.get("cognitive_gap", ""),
-                    "threat": ev.get("threat", ""),
-                    "evaluation": ev.get("evaluation", ""),
-                    "has_fen": bool(ev.get("fen_before")),
-                })
-
     return {
         "has_data": True,
         "primary_pattern": primary,
@@ -197,14 +179,6 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
         "games_analyzed": len(game_ids),
         "recent_window": len(recent_ids),
         "older_window": len(older_ids),
-        "_debug": {
-            "recent_counts": recent_counts,
-            "older_counts": older_counts,
-            "recent_ids_count": len(recent_ids),
-            "older_ids_count": len(older_ids),
-            "analyses_loaded": len(analyses),
-            "sample_mistakes": debug_sample,
-        },
     }
 
 
@@ -220,7 +194,6 @@ def _count_patterns(game_ids: List[str], analyses: Dict) -> Dict[str, int]:
     for gid in game_ids:
         a = analyses.get(gid, {})
         evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
-        seen_roots = set()
 
         for ev in evals:
             cp = ev.get("cp_loss", 0) or 0
@@ -230,25 +203,26 @@ def _count_patterns(game_ids: List[str], analyses: Dict) -> Dict[str, int]:
             gap = ev.get("cognitive_gap", "")
             move_num = ev.get("move_number", 0) or 0
             has_threat = bool(ev.get("threat"))
-            evaluation = ev.get("evaluation", "")
 
-            # Classify into root pattern
-            if gap:
-                root = _classify_gap(gap)
-            elif has_threat and cp >= 150:
-                root = "threat_awareness"  # Missed a threat
+            # Classify into root pattern — ORDER MATTERS
+            # 1. Threat present + big loss = missed threat (most specific)
+            # 2. Endgame phase = endgame issue
+            # 3. Opening phase = coordination issue
+            # 4. Cognitive gap or default = calculation
+            if has_threat and cp >= 150:
+                root = "threat_awareness"
             elif move_num > 30:
-                root = "endgame"  # Late game mistake
+                root = "endgame"
+            elif move_num <= 10 and cp >= 150:
+                root = "coordination"
             elif cp >= 300:
-                root = "calculation"  # Big blunder = calculation failure
-            elif move_num <= 12:
-                root = "coordination"  # Early game = development/coordination
+                root = "calculation"
+            elif gap:
+                root = _classify_gap(gap)
             else:
-                root = "calculation"  # Default for middlegame mistakes
+                root = "calculation"
 
-            if root not in seen_roots:
-                counts[root] = counts.get(root, 0) + 1
-                seen_roots.add(root)
+            counts[root] = counts.get(root, 0) + 1
     return counts
 
 
@@ -278,19 +252,21 @@ def _find_before_after_moments(
             if cp < 150 or not fen:
                 continue
 
-            # Classify this mistake
+            # Classify this mistake — same logic as _count_patterns
             gap = ev.get("cognitive_gap", "")
             has_threat = bool(ev.get("threat"))
             move_num = ev.get("move_number", 0) or 0
 
-            if gap:
-                root = _classify_gap(gap)
-            elif has_threat:
+            if has_threat and cp >= 150:
                 root = "threat_awareness"
             elif move_num > 30:
                 root = "endgame"
+            elif move_num <= 10 and cp >= 150:
+                root = "coordination"
             elif cp >= 300:
                 root = "calculation"
+            elif gap:
+                root = _classify_gap(gap)
             else:
                 root = "calculation"
 
