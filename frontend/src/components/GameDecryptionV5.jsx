@@ -562,14 +562,6 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const currentMove = currentMoveIndex >= 0 ? decryptionData?.[currentMoveIndex] : null;
   const orientation = userColor === "black" ? "black" : "white";
 
-  // Debug: verify enrichment data is arriving
-  if (currentMoveIndex >= 0 && currentMove) {
-    console.log("[Decrypt] Move", currentMove.move_number, currentMove.move_san,
-      "coachReview:", coachReview ? "yes" : "no",
-      "posCommentary:", posCommentary[currentMoveIndex] ? "yes" : "no",
-      "severity:", currentMove.severity);
-  }
-
   // Fetch position commentary for mistake moves (lazy, one at a time)
   useEffect(() => {
     if (!currentMove || posCommentary[currentMoveIndex]) return;
@@ -589,8 +581,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         if (res.ok) {
           const data = await res.json();
           setPosCommentary(prev => ({ ...prev, [currentMoveIndex]: data }));
+        } else {
+          console.warn("[Decrypt] Position read failed:", res.status);
         }
-      } catch (e) { /* non-blocking */ }
+      } catch (e) {
+        console.warn("[Decrypt] Position read error:", e.message);
+      }
     })();
   }, [currentMoveIndex, currentMove?.fen_before]);
 
