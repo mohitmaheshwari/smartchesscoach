@@ -572,7 +572,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
     (async () => {
       try {
-        const res = await fetch(`${API}/coach/play/read-position`, {
+        const res = await fetch(`${API}/coach/play/position/read`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -1039,18 +1039,18 @@ const MoveCoachingCardV5 = ({
         )}
 
         {/* ─── STOCKFISH BRANCHING (what if best move?) ────────── */}
-        {isMistake && move.best_move && onPlayBestLine && (
+        {isMistake && (move.best_move_san || move.best_move) && (
           <button
-            onClick={() => onPlayBestLine({
-              fen: move.fen_before || move.fen,
-              best_move: move.best_move_san || move.best_move,
-              pv_after_best: move.pv_after_best,
-              best_line: move.best_line,
-            })}
+            onClick={() => {
+              // Play the best move from fen_before, then PV continuation
+              const bestMove = move.best_move_san || move.best_move;
+              // First show the best move as an alternative
+              onShowAlternativeMove(bestMove);
+            }}
             className="w-full text-xs text-blue-400 hover:text-blue-300 bg-blue-500/5 hover:bg-blue-500/10 rounded-lg p-2.5 border border-blue-500/15 transition-all flex items-center justify-center gap-1.5"
           >
             <Eye className="w-3 h-3" />
-            What if I played {move.best_move_san || move.best_move}? See the line
+            What if I played {move.best_move_san || move.best_move}? See on board
           </button>
         )}
 
