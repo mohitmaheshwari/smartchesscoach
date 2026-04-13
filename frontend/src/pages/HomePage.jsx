@@ -334,19 +334,45 @@ const HomePage = ({ user }) => {
             </motion.div>
           )}
 
-          {/* ─── MAIN CTA ─── */}
+          {/* ─── MAIN CTA — after loss: train first. after win: play. ─── */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
             className="space-y-3"
           >
+            {/* After a loss: training is the PRIMARY action */}
+            {mood === "confronting" && problem?.category && (
+              <button
+                onClick={() => {
+                  const patternMap = {
+                    threw_winning: "calculation_depth", tactical_miss: "tactical_oversight",
+                    one_move_blunder: "piece_safety", calculation_error: "calculation_depth",
+                    time_collapse: "calculation_depth", opening_disaster: "piece_safety",
+                    endgame_collapse: "endgame_technique", positional: "calculation_depth",
+                  };
+                  navigate(`/training/pattern/${patternMap[problem.category] || problem.category}`);
+                }}
+                className="w-full py-4 text-[15px] font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                data-testid="train-cta"
+              >
+                <Target className="w-4 h-4" strokeWidth={2} />
+                Fix this first — 3 min
+                <ChevronRight className="w-4 h-4 opacity-60" />
+              </button>
+            )}
+
+            {/* Play with Coach — primary after win, secondary after loss */}
             <button
               onClick={() => {
                 const opening = plan.opening || "";
                 navigate(`/play-with-coach${opening ? `?opening=${encodeURIComponent(opening)}` : ""}`);
               }}
-              className="w-full py-4 text-[15px] font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+              className={`w-full py-4 text-[15px] font-semibold rounded-xl flex items-center justify-center gap-2 ${
+                mood === "confronting"
+                  ? "border border-border text-foreground hover:bg-muted/50 transition-all"
+                  : "gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20"
+              }`}
               data-testid="coach-cta"
             >
               <Swords className="w-4 h-4" strokeWidth={2} />
@@ -357,8 +383,8 @@ const HomePage = ({ user }) => {
               <ChevronRight className="w-4 h-4 opacity-60" />
             </button>
 
-            {/* Warmup puzzles */}
-            {warmup?.available && (
+            {/* Warmup puzzles — only show when NOT in confronting mode (training CTA handles it) */}
+            {mood !== "confronting" && warmup?.available && (
               <button
                 onClick={() => navigate(`/training/pattern/${warmup.pattern}`)}
                 className="w-full py-3 text-sm text-muted-foreground hover:text-foreground border border-border rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
