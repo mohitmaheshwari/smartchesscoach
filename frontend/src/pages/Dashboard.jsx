@@ -1,9 +1,8 @@
 /**
- * LAB — Player Profile + Weakness Groups
+ * LAB — "Let me show you the exact moment you keep losing."
  *
- * 1. Player profile — strengths + top 3 weaknesses
- * 2. Weakness tabs — selectable
- * 3. Games grouped under selected weakness — clickable to review
+ * ONE problem. ONE board. ONE question.
+ * Not a dashboard. Not a list. A teaching moment.
  */
 
 import { useState, useEffect } from "react";
@@ -11,81 +10,26 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import LichessBoard from "@/components/LichessBoard";
 import {
-  Import, ChevronRight, Check, Zap, Trophy, Shield, XCircle, Minus, Eye
+  Import, ChevronRight, Check, Zap, Trophy, Shield, Eye, Swords
 } from "lucide-react";
 
-
-/* ── Spotlight Card — coach's reaction to newest game ── */
-const SpotlightCard = ({ spotlight, onReview, onDismiss }) => {
-  const s = spotlight;
-  const resultWord = s.result === "L" ? "You lost" : s.result === "D" ? "Draw" : "You won";
-  const resultColor = s.result === "L" ? "border-red-500/30 bg-red-500/[0.04]"
-    : s.result === "W" ? "border-emerald-500/30 bg-emerald-500/[0.04]"
-    : "border-border";
-  const ResultIcon = s.result === "L" ? XCircle : s.result === "W" ? Trophy : Minus;
-  const iconColor = s.result === "L" ? "text-red-400" : s.result === "W" ? "text-emerald-500" : "text-muted-foreground";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.3 }}
-      className={`rounded-2xl border-2 ${resultColor} p-5 mb-6`}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-        <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60">
-          {s.is_new ? "Just analyzed" : "Unreviewed"}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2 mb-2">
-        <ResultIcon className={`w-4 h-4 ${iconColor}`} strokeWidth={2} />
-        <span className="text-sm font-medium text-foreground">
-          {resultWord} vs {s.opponent}
-        </span>
-        {s.opening && (
-          <span className="text-[10px] text-muted-foreground/40 ml-auto">{s.opening}</span>
-        )}
-      </div>
-
-      {s.behavior && (
-        <p className="text-sm text-foreground/80 leading-relaxed mb-3">
-          {s.behavior}
-        </p>
-      )}
-
-      {s.repeats_problem && s.problem_label && (
-        <p className="text-xs text-red-400/80 font-medium mb-3">
-          Same pattern: {s.problem_label}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        <button
-          onClick={onReview}
-          className="flex-1 py-2.5 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-1.5"
-        >
-          <Eye className="w-3.5 h-3.5" strokeWidth={2} />
-          Review this game
-        </button>
-        <button
-          onClick={onDismiss}
-          className="px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground rounded-xl border border-border hover:bg-muted/50 transition-all"
-        >
-          I know
-        </button>
-      </div>
-    </motion.div>
-  );
+const BEHAVIOR_DESCRIPTIONS = {
+  threw_winning: "You stop paying attention once you're ahead. The game slips away.",
+  tactical_miss: "You're missing tactics that are right in front of you.",
+  one_move_blunder: "You're moving without checking if your pieces are safe.",
+  calculation_error: "You stop thinking too early. One move deeper would save you.",
+  time_collapse: "You run out of time and panic. The mistakes come from rushing.",
+  opening_disaster: "Your games go wrong in the first 10 moves.",
+  endgame_collapse: "You reach winning endgames but can't finish them.",
+  positional: "Your opponent outplays you in small ways. The position gradually slips.",
 };
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedWeakness, setSelectedWeakness] = useState(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -93,15 +37,7 @@ const Dashboard = ({ user }) => {
     try {
       setLoading(true);
       const res = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
-      if (res.ok) {
-        const d = await res.json();
-        setData(d);
-        // Auto-select first weakness
-        const problems = d.coaching?.top_problems;
-        if (problems?.length > 0 && !selectedWeakness) {
-          setSelectedWeakness(problems[0].category);
-        }
-      }
+      if (res.ok) setData(await res.json());
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -119,7 +55,6 @@ const Dashboard = ({ user }) => {
 
   const coaching = data?.coaching;
   const games = data?.games || [];
-  const spotlight = data?.spotlight;
 
   if (games.length === 0) {
     return (
@@ -129,10 +64,15 @@ const Dashboard = ({ user }) => {
             <Import className="w-7 h-7 text-muted-foreground/40" strokeWidth={1.5} />
           </div>
           <h2 className="text-xl font-heading font-semibold text-foreground mb-2">No games yet</h2>
-          <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-8">Import your games. Your coach will analyze them.</p>
-          <button onClick={() => navigate("/import")} className="px-6 py-3 text-sm font-semibold rounded-lg gradient-gold text-black shadow-lg shadow-amber-500/20 hover:opacity-90 transition-all" data-testid="lab-empty-import-btn">
-            Import your games
-          </button>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-8">Import your games or play with the coach.</p>
+          <div className="space-y-3">
+            <button onClick={() => navigate("/play-with-coach")} className="w-full px-6 py-3 text-sm font-semibold rounded-xl gradient-gold text-black shadow-lg shadow-amber-500/20 hover:opacity-90 transition-all flex items-center justify-center gap-2">
+              <Swords className="w-4 h-4" />Play with Coach
+            </button>
+            <button onClick={() => navigate("/import")} className="w-full px-6 py-3 text-sm border border-border text-foreground rounded-xl hover:bg-muted/50 transition-all">
+              Import your games
+            </button>
+          </div>
         </div>
       </Layout>
     );
@@ -141,218 +81,187 @@ const Dashboard = ({ user }) => {
   const topProblems = coaching?.top_problems || [];
   const groupedGames = coaching?.grouped_games || {};
   const strengths = coaching?.strengths || [];
+  const priorityGame = coaching?.priority_game;
 
-  // Get games for selected weakness
-  const selectedGroup = selectedWeakness ? groupedGames[selectedWeakness] : null;
-  const selectedGames = selectedGroup?.games || [];
+  // The ONE problem to focus on
+  const primaryProblem = topProblems[0];
+  const primaryGames = primaryProblem ? (groupedGames[primaryProblem.category]?.games || []) : [];
+  const unreviewed = primaryGames.filter(g => !g.reviewed);
+
+  // The ONE game to show with a board — priority game or first unreviewed
+  const featuredGame = priorityGame || unreviewed[0];
 
   return (
     <Layout user={user}>
-      <div className="max-w-2xl mx-auto px-4 py-8" data-testid="lab-page">
+      <div className="max-w-lg mx-auto px-4 py-8" data-testid="lab-page">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
-        {/* ═══ 0. SPOTLIGHT — newest game, coach reaction ═══ */}
-        {spotlight && (
-          <SpotlightCard
-            spotlight={spotlight}
-            onReview={() => navigate(`/game/${spotlight.game_id}`)}
-            onDismiss={() => { markReviewed(spotlight.game_id); }}
-          />
-        )}
-
-        {/* ═══ 1. PLAYER PROFILE ═══ */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-
-          {/* Strengths */}
-          {strengths.length > 0 && (
-            <div className="mb-5">
-              <p className="text-[10px] tracking-[0.15em] uppercase font-bold text-emerald-500/70 mb-2.5">What you do well</p>
-              <div className="space-y-2">
-                {strengths.map((s, i) => (
-                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-500/[0.04] border border-emerald-500/10">
-                    <div className="w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-                      {s.category === "brilliant_play" ? <Zap className="w-3 h-3 text-emerald-500" strokeWidth={2.5} /> :
-                       s.category === "tactical_win" ? <Zap className="w-3 h-3 text-emerald-500" strokeWidth={2.5} /> :
-                       s.category === "endgame_conversion" ? <Trophy className="w-3 h-3 text-emerald-500" strokeWidth={2} /> :
-                       <Shield className="w-3 h-3 text-emerald-500" strokeWidth={2} />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground">{s.description}</p>
-                    </div>
-                    <span className="text-xs font-mono text-emerald-500/60">{s.count} games</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Weaknesses header */}
-          {topProblems.length > 0 && (
-            <p className="text-[10px] tracking-[0.15em] uppercase font-bold text-red-400/70 mb-2.5">What's holding you back</p>
-          )}
-
-          {/* Weakness tabs */}
-          {topProblems.length > 0 && (
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-              {topProblems.map((tp) => {
-                const isActive = selectedWeakness === tp.category;
-                return (
-                  <button
-                    key={tp.category}
-                    onClick={() => setSelectedWeakness(tp.category)}
-                    className={`flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                      isActive
-                        ? "bg-red-500/10 text-red-500 border border-red-500/20"
-                        : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/10"
-                    }`}
-                  >
-                    {tp.label}
-                    <span className={`ml-2 text-xs font-mono ${isActive ? "text-red-400/60" : "text-muted-foreground/40"}`}>
-                      {tp.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </motion.div>
-
-        {/* ═══ 2. GAMES FOR SELECTED WEAKNESS ═══ */}
-        {selectedGroup && (
-          <motion.div
-            key={selectedWeakness}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-          >
-            {/* Description */}
-            {selectedGroup.description && (
-              <p className="text-sm text-muted-foreground mb-4">
-                {selectedGroup.description}
+          {/* ═══ THE PROBLEM ═══ */}
+          {primaryProblem && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
+                Your biggest issue right now
               </p>
-            )}
+              <h1 className="text-xl font-heading font-semibold text-foreground leading-snug mb-2">
+                {BEHAVIOR_DESCRIPTIONS[primaryProblem.category] || primaryProblem.label}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {primaryProblem.count >= 8
+                  ? "This is happening in almost every game."
+                  : `This happened in ${primaryProblem.count} of your recent games.`
+                }
+              </p>
+            </div>
+          )}
 
-            {/* Games list */}
-            {selectedGames.length > 0 ? (
-              <div className="space-y-2">
-                {selectedGames.map((g) => (
+          {/* ═══ THE MOMENT — board + context ═══ */}
+          {featuredGame && featuredGame.critical_fen && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="rounded-2xl border border-border bg-card overflow-hidden"
+            >
+              <div className="px-4 pt-4 pb-2">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-red-400/60">
+                    The moment that decided it
+                  </p>
+                  {featuredGame.is_new && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/15">New</span>
+                  )}
+                </div>
+                <p className="text-sm text-foreground">
+                  vs {featuredGame.opponent} — {featuredGame.opening || "Unknown opening"}
+                </p>
+              </div>
+
+              {/* Chess board showing the critical position */}
+              <div className="px-4">
+                <div className="rounded-lg overflow-hidden border border-border">
+                  <LichessBoard
+                    fen={featuredGame.critical_fen}
+                    viewOnly={true}
+                    width={400}
+                  />
+                </div>
+              </div>
+
+              <div className="p-4">
+                <p className="text-sm text-foreground mb-1">
+                  <span className="font-mono text-red-400">Move {featuredGame.critical_move || featuredGame.move_number}</span>
+                  {featuredGame.was_winning && <span className="text-muted-foreground"> — you were winning.</span>}
+                </p>
+
+                {featuredGame.behavior && (
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                    {featuredGame.behavior}
+                  </p>
+                )}
+
+                <button
+                  onClick={() => navigate(`/game/${featuredGame.game_id}${featuredGame.critical_move ? `?move=${featuredGame.critical_move}` : ""}`)}
+                  className="w-full py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                >
+                  <Eye className="w-4 h-4" strokeWidth={2} />
+                  What should I have done?
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══ OTHER GAMES WITH SAME ISSUE ═══ */}
+          {unreviewed.length > 1 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
+                Same issue in other games
+              </p>
+              <div className="space-y-1">
+                {unreviewed.filter(g => g.game_id !== featuredGame?.game_id).slice(0, 5).map(g => (
                   <div
                     key={g.game_id}
-                    className={`bg-card border rounded-xl cursor-pointer transition-all hover:border-primary/20 group ${
-                      g.reviewed ? "opacity-50 border-border" : g.is_new ? "border-primary/30 ring-1 ring-primary/10" : "border-border"
-                    }`}
-                    onClick={() => navigate(`/game/${g.game_id}`)}
+                    onClick={() => navigate(`/game/${g.game_id}${g.critical_move ? `?move=${g.critical_move}` : ""}`)}
+                    className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all group"
                   >
-                    <div className="p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          g.result === "L" ? "bg-red-400" : g.result === "D" ? "bg-muted-foreground/40" : "bg-emerald-500"
-                        }`} />
-                        <span className="text-sm font-medium text-foreground">vs {g.opponent}</span>
-                        <span className={`text-[9px] px-1.5 py-0 font-bold rounded border ${
-                          g.result === "L" ? "bg-red-500/15 text-red-400 border-red-500/25"
-                          : g.result === "D" ? "bg-muted text-muted-foreground border-border"
-                          : "bg-emerald-500/15 text-emerald-500 border-emerald-500/25"
-                        }`}>{g.result}</span>
-                        {g.is_new && !g.reviewed && (
-                          <span className="text-[9px] px-1.5 py-0 font-bold rounded bg-primary/15 text-primary border border-primary/25">New</span>
-                        )}
-                        {g.opening && <span className="text-[10px] text-muted-foreground/40 ml-auto">{g.opening}</span>}
-                      </div>
-
-                      {/* Behavioral story — the main content */}
-                      {(g.behavior || g.sub_cause) && (
-                        <p className="text-xs text-muted-foreground leading-relaxed mb-2">
-                          {g.behavior || g.sub_cause}
-                        </p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
+                      <span className="text-sm text-foreground">vs {g.opponent}</span>
+                      {g.critical_move && (
+                        <span className="text-xs font-mono text-muted-foreground/50">move {g.critical_move}</span>
                       )}
-
-                      {/* Phase mini-analysis */}
-                      {g.phases && Object.keys(g.phases).length > 0 && (
-                        <div className="flex gap-2 mb-2">
-                          {["opening", "middlegame", "endgame"].map(phase => {
-                            const p = g.phases[phase];
-                            if (!p) return null;
-                            const color = p.verdict === "Clean" ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/15"
-                              : p.verdict.includes("blunder") ? "text-red-400 bg-red-500/10 border-red-500/15"
-                              : "text-amber-500 bg-amber-500/10 border-amber-500/15";
-                            return (
-                              <div key={phase} className={`text-[10px] px-2 py-1 rounded-lg border ${color}`}>
-                                <span className="font-medium">{p.phase}</span>
-                                <span className="ml-1 opacity-70">{p.verdict}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Trap detection */}
-                      {g.trap && (
-                        <div className="rounded-lg bg-amber-500/5 border border-amber-500/15 px-2.5 py-1.5 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Zap className="w-3 h-3 text-amber-500 flex-shrink-0" strokeWidth={2.5} />
-                            <span className="text-[10px] font-bold text-amber-500">{g.trap.name}</span>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                            {g.trap.explanation}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Opening link — practice with coach */}
-                      {g.opening && g.phases?.opening?.verdict !== "Clean" && !g.reviewed && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/play-with-coach?opening=${encodeURIComponent(g.opening)}`); }}
-                          className="text-[10px] text-primary hover:text-primary/80 transition-colors flex items-center gap-1 mb-1"
-                        >
-                          Practice {g.opening} with Coach
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      )}
-
-                      {/* Footer */}
-                      <div className="flex items-center justify-between">
-                        {g.reviewed ? (
-                          <div className="flex items-center gap-1 text-emerald-500/40">
-                            <Check className="w-3 h-3" strokeWidth={2} />
-                            <span className="text-[10px]">Reviewed</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); markReviewed(g.game_id); }}
-                            className="flex items-center gap-1 text-muted-foreground/30 hover:text-emerald-500 transition-colors text-[10px]"
-                          >
-                            <Check className="w-3 h-3" strokeWidth={1.5} />
-                            Mark reviewed
-                          </button>
-                        )}
-                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-colors" />
-                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground/40">{g.opening}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-colors" />
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-8 text-center">No games found for this weakness.</p>
-            )}
-          </motion.div>
-        )}
+            </motion.div>
+          )}
 
-        {/* No coaching data fallback */}
-        {topProblems.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-sm text-muted-foreground mb-4">Your coach is still analyzing your games.</p>
-            <button onClick={() => navigate("/import")} className="text-sm text-primary hover:text-primary/80 transition-colors">
-              Import more games
+          {/* ═══ REVIEWED GAMES ═══ */}
+          {primaryGames.filter(g => g.reviewed).length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/20 mb-2">
+                Reviewed
+              </p>
+              <div className="space-y-1 opacity-40">
+                {primaryGames.filter(g => g.reviewed).slice(0, 3).map(g => (
+                  <div key={g.game_id} className="flex items-center gap-3 p-2 rounded-lg">
+                    <Check className="w-3.5 h-3.5 text-emerald-500/50" strokeWidth={2} />
+                    <span className="text-xs text-muted-foreground">vs {g.opponent}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ STRENGTHS (compact) ═══ */}
+          {strengths.length > 0 && (
+            <div className="pt-2">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/40 mb-2">What you do well</p>
+              <div className="space-y-1.5">
+                {strengths.slice(0, 2).map((s, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Zap className="w-3 h-3 text-emerald-500/40 flex-shrink-0" strokeWidth={2} />
+                    <span>{s.description}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ ACTIONS ═══ */}
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button
+              onClick={() => navigate("/play-with-coach")}
+              className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all"
+            >
+              <Swords className="w-4 h-4 text-primary" strokeWidth={2} />
+              <span className="text-sm text-foreground">Play</span>
+            </button>
+            <button
+              onClick={() => navigate("/import")}
+              className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all"
+            >
+              <Import className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
+              <span className="text-sm text-foreground">Import</span>
             </button>
           </div>
-        )}
 
-        {/* Import more */}
-        <div className="text-center pt-6">
-          <button onClick={() => navigate("/import")} className="text-xs text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-            Import more games
-          </button>
-        </div>
+          {/* No coaching data fallback */}
+          {topProblems.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-sm text-muted-foreground mb-4">Your coach is still analyzing your games.</p>
+            </div>
+          )}
+
+        </motion.div>
       </div>
     </Layout>
   );

@@ -951,16 +951,34 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             continue
         cat = gr.get("category", "")
         if cat in grouped_games and g.get("result") != "W":
+            # Find critical move for this game
+            gid = g.get("game_id", "")
+            a = analyses.get(gid, {})
+            evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+            critical_move_num = None
+            critical_fen = None
+            critical_best = None
+            critical_cp = 0
+            for ev in evals:
+                cp = ev.get("cp_loss", 0) or 0
+                if cp > critical_cp:
+                    critical_cp = cp
+                    critical_move_num = ev.get("move_number")
+                    critical_fen = ev.get("fen_before", "")
+                    critical_best = ev.get("best_move", "")
+
             grouped_games[cat]["games"].append({
-                "game_id": g.get("game_id", ""),
+                "game_id": gid,
                 "opponent": g.get("opponent", "Opponent"),
                 "opening": g.get("opening", ""),
                 "result": g.get("result", ""),
-                "sub_cause": g.get("game_reason", {}).get("label", ""),
                 "behavior": g.get("behavior", ""),
                 "is_new": g.get("is_new", False),
                 "was_winning": g.get("was_winning", False),
                 "reviewed": g.get("reviewed", False),
+                "critical_move": critical_move_num,
+                "critical_fen": critical_fen,
+                "critical_best": critical_best,
             })
 
     # ── PLAYER STRENGTHS ──
@@ -1123,6 +1141,8 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
          "stockfish_analysis.move_evaluations.is_sacrifice": 1,
          "stockfish_analysis.move_evaluations.eval_before": 1,
          "stockfish_analysis.move_evaluations.threat": 1,
+         "stockfish_analysis.move_evaluations.fen_before": 1,
+         "stockfish_analysis.move_evaluations.best_move": 1,
          "coach_summary": 1, "decryption_v5_data.core_lesson": 1, "llm_game_story": 1}
     )
     analyses = {a["game_id"]: a async for a in analyses_cursor}
