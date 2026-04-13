@@ -1667,8 +1667,12 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
         from services.opening_mastery_tracker import OPENING_BRANCH_DATA, OPENING_MOVE_IDEAS
 
         opening_stories = []
+        seen_keys = set()
         for m in mastery_docs:
             key = m.get("opening_key", "")
+            if key in seen_keys:
+                continue  # Skip duplicate mastery docs
+            seen_keys.add(key)
             name = key.replace("_", " ").title()
             phase = m.get("phase", "introduction")
             games = m.get("games_played", 0)
@@ -1681,7 +1685,7 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
             elif phase == "free_play":
                 knowledge = f"You know the {name} well. Playing without guidance now."
             elif phase == "awareness":
-                knowledge = f"You're getting familiar with the {name}. {games} games so far."
+                knowledge = f"You're getting familiar with the {name}. {games} game{'s' if games != 1 else ''} so far."
             else:
                 knowledge = f"You're just starting to learn the {name}."
 
@@ -1693,13 +1697,13 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
                 branch_names = [bd["branches"][k]["name"] for k in branches_seen if k in bd["branches"]]
                 unseen = [bd["branches"][k]["name"] for k in bd["branches"] if k not in branches_seen]
 
-                if seen_count == 0:
-                    knowledge += f" It has {total_branches} main variations — you haven't explored any yet."
-                elif seen_count < total_branches:
+                if seen_count == 0 and total_branches > 1:
+                    knowledge += f" It has {total_branches} variations to learn."
+                elif seen_count < total_branches and unseen:
                     knowledge += f" You've seen the {', '.join(branch_names)}."
-                    knowledge += f" The {', '.join(unseen)} {'is' if len(unseen) == 1 else 'are'} still new to you."
-                else:
-                    knowledge += f" You've seen all {total_branches} variations."
+                    knowledge += f" Try the {', '.join(unseen)} next."
+                elif seen_count >= total_branches:
+                    knowledge += f" You've covered all {total_branches} variations."
 
             # Accuracy trend
             if len(acc_history) >= 2:
