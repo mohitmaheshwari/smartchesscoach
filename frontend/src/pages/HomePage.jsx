@@ -168,7 +168,7 @@ const HomePage = ({ user }) => {
           </div>
 
           {/* ─── IMPROVEMENT PROOF ─── */}
-          {proof?.has_data && proof?.primary_pattern?.reduction_pct > 0 && (
+          {proof?.has_data && (proof?.primary_pattern?.reduction_pct > 0 || proof?.streaks?.no_blunder_games >= 3 || proof?.accuracy?.delta >= 2) && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -178,13 +178,24 @@ const HomePage = ({ user }) => {
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-4 h-4 text-emerald-500" strokeWidth={2} />
                 <span className="text-sm font-semibold text-foreground">
-                  {proof.primary_pattern.reduction_pct}% fewer {proof.primary_pattern.label.toLowerCase()} mistakes
+                  {proof.primary_pattern?.reduction_pct > 0
+                    ? `${proof.primary_pattern.reduction_pct}% fewer ${proof.primary_pattern.label.toLowerCase()} mistakes`
+                    : proof.accuracy?.delta >= 2
+                      ? `Accuracy up ${proof.accuracy.delta}% recently`
+                      : "You're staying consistent"
+                  }
                 </span>
               </div>
 
               {proof.streaks?.no_blunder_games >= 2 && (
                 <p className="text-xs text-emerald-500/70 mb-2">
                   <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_blunder_games} games in a row with no blunders
+                </p>
+              )}
+
+              {proof.streaks?.no_hanging_piece_games >= 5 && (
+                <p className="text-xs text-emerald-500/70 mb-2">
+                  <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_hanging_piece_games} games without hanging a piece
                 </p>
               )}
 
@@ -209,9 +220,11 @@ const HomePage = ({ user }) => {
                 </div>
               )}
 
-              <p className="text-xs text-foreground/60 mt-3">
-                This used to happen every game. Now it doesn't.
-              </p>
+              {proof.primary_pattern?.reduction_pct > 0 && (
+                <p className="text-xs text-foreground/60 mt-3">
+                  This used to happen every game. Now it doesn't.
+                </p>
+              )}
             </motion.div>
           )}
 
