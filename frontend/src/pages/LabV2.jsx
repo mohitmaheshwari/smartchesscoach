@@ -1577,7 +1577,7 @@ const LabV2 = ({ user }) => {
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-mono text-muted-foreground">{b.count}x</span>
                             <button
-                              onClick={() => navigate(`/training/prescribed?focus=${b.behavior}`)}
+                              onClick={() => navigate(`/training/prescribed?weakness=${b.behavior}`)}
                               className="text-[10px] text-primary hover:text-primary/80 transition-colors"
                             >
                               Practice
