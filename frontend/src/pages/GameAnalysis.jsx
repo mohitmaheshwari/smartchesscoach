@@ -37,6 +37,132 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
+/* ── Game Overview: phases + opening + behaviors ── */
+const GameOverview = ({ review, navigate }) => {
+  const phases = review.phases || {};
+  const opening = review.opening_analysis;
+  const behaviors = review.behaviors || [];
+  const keyMoments = review.key_moments || [];
+  const fundamentals = review.fundamentals || {};
+
+  return (
+    <div className="mb-4 space-y-3">
+      {/* Phase Accuracy Bar */}
+      <div className="flex gap-2">
+        {["opening", "middlegame", "endgame"].map(key => {
+          const p = phases[key];
+          if (!p) return null;
+          const color = p.accuracy >= 80 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+            : p.accuracy >= 60 ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+            : "bg-red-500/10 border-red-500/20 text-red-400";
+          return (
+            <div key={key} className={`flex-1 rounded-xl border p-3 ${color}`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold">{p.name}</span>
+                <span className="text-sm font-bold font-mono">{p.accuracy}%</span>
+              </div>
+              <p className="text-[10px] opacity-70">{p.verdict} · {p.moves} moves</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Opening Awareness */}
+      {opening && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-primary/60">Opening</span>
+              <span className="text-sm font-medium text-white">{opening.name}</span>
+            </div>
+            <span className="text-[10px] text-zinc-500">
+              {opening.moves_in_theory}/{opening.total_theory_moves} theory moves
+            </span>
+          </div>
+
+          {opening.deviation && (
+            <p className="text-xs text-zinc-400 mb-2">
+              Deviated on move {Math.floor(opening.deviation.ply / 2) + 1}: played <span className="font-mono text-red-400">{opening.deviation.played}</span> instead of <span className="font-mono text-emerald-400">{opening.deviation.expected}</span>
+              {opening.deviation.idea && <span className="text-zinc-500"> — {opening.deviation.idea.toLowerCase()}</span>}
+            </p>
+          )}
+
+          {!opening.deviation && opening.moves_in_theory === opening.total_theory_moves && (
+            <p className="text-xs text-emerald-400/70">Followed theory perfectly.</p>
+          )}
+
+          {opening.traps?.length > 0 && opening.traps.map((t, i) => (
+            <div key={i} className="mt-2 rounded-lg bg-amber-500/5 border border-amber-500/15 px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <Zap className="w-3 h-3 text-amber-500" strokeWidth={2.5} />
+                <span className="text-[10px] font-bold text-amber-400">{t.name}</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-0.5">{t.explanation}</p>
+            </div>
+          ))}
+
+          {opening.branches && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[10px] text-zinc-500">Variations:</span>
+              {opening.branches.branches.map((b, i) => (
+                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">{b.name}</span>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(opening.name)}`)}
+            className="mt-2 text-[10px] text-primary hover:text-primary/80 flex items-center gap-1"
+          >
+            Practice this opening with Coach <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
+      {/* Behavioral Summary + Fundamentals */}
+      {(behaviors.length > 0 || Object.keys(fundamentals).length > 0) && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+          {/* Behaviors */}
+          {behaviors.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-red-400/60 mb-2">What went wrong</p>
+              {behaviors.map((b, i) => (
+                <div key={i} className="flex items-center justify-between py-1">
+                  <span className="text-sm text-zinc-300">{b.label}</span>
+                  <span className="text-xs font-mono text-zinc-500">{b.count}x</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Fundamentals by phase */}
+          {Object.entries(fundamentals).map(([phase, funds]) => {
+            if (!funds || funds.length === 0) return null;
+            return (
+              <div key={phase} className="mb-2">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1 capitalize">{phase} fundamentals</p>
+                {funds.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 py-0.5">
+                    <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${f.progress >= 70 ? "bg-emerald-500" : f.progress >= 40 ? "bg-amber-400" : "bg-red-400"}`}
+                        style={{ width: `${f.progress}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-zinc-400 w-32 truncate">{f.name}</span>
+                    <span className="text-[10px] font-mono text-zinc-500 w-6 text-right">{f.progress}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 const GameAnalysis = ({ user }) => {
   const { gameId } = useParams();
   const navigate = useNavigate();
@@ -55,6 +181,9 @@ const GameAnalysis = ({ user }) => {
   const [decryptionLoading, setDecryptionLoading] = useState(false);
   const [decryptionStatus, setDecryptionStatus] = useState(null);
   
+  // Coach Review (fundamentals, phases, opening, behaviors)
+  const [coachReview, setCoachReview] = useState(null);
+
   // Ask About Move
   const [askQuestion, setAskQuestion] = useState("");
   const [askLoading, setAskLoading] = useState(false);
@@ -87,6 +216,17 @@ const GameAnalysis = ({ user }) => {
     };
     fetchData();
   }, [gameId, navigate]);
+
+  // Fetch coach review (fundamentals, phases, opening)
+  useEffect(() => {
+    if (!analysis) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/games/${gameId}/coach-review`, { credentials: "include" });
+        if (res.ok) setCoachReview(await res.json());
+      } catch (e) { console.error("Coach review fetch failed:", e); }
+    })();
+  }, [analysis, gameId]);
 
   // Fetch V5 decryption data
   useEffect(() => {
@@ -297,9 +437,12 @@ const GameAnalysis = ({ user }) => {
           )}
         </div>
 
+        {/* Game Overview — Phase analysis + Opening + Behaviors */}
+        {coachReview && <GameOverview review={coachReview} navigate={navigate} />}
+
         {/* Main Content - Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          
+
           {/* LEFT: Board + Coaching (3 cols) */}
           <div className="lg:col-span-3 space-y-4">
             

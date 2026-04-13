@@ -466,3 +466,271 @@ async def regenerate_coaching(
         "success": True,
         "message": "Coaching cleared. Open the game in The Lab to regenerate with improved logic."
     }
+
+
+@router.get("/{game_id}/coach-review")
+async def get_game_coach_review(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Comprehensive game review using the coaching engine.
+    Replaces V5 narratives with: fundamentals, phase analysis, opening awareness, position commentary.
+    """
+    import chess
+
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id}, {"_id": 0}
+    )
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id}, {"_id": 0}
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game not analyzed yet")
+
+    user_color = game.get("user_color", "white")
+    evals = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+    opening_name = game.get("opening", "")
+
+    result = {
+        "game_id": game_id,
+        "opening": opening_name,
+        "user_color": user_color,
+        "result": game.get("result", ""),
+    }
+
+    # ─── 1. PHASE ANALYSIS ───
+    try:
+        total_user_moves = len([e for e in evals if True])  # all moves
+        opening_evals = [e for e in evals if (e.get("move_number", 0) or 0) <= 12]
+        middle_evals = [e for e in evals if 12 < (e.get("move_number", 0) or 0) <= 30]
+        end_evals = [e for e in evals if (e.get("move_number", 0) or 0) > 30]
+
+        def _phase_stats(move_evals, name):
+            if not move_evals:
+                return None
+            bl = sum(1 for e in move_evals if (e.get("cp_loss", 0) or 0) >= 300)
+            ms = sum(1 for e in move_evals if 100 <= (e.get("cp_loss", 0) or 0) < 300)
+            total = len(move_evals)
+            acc = round(max(0, (1 - (bl + ms) / total)) * 100) if total > 0 else 0
+            return {
+                "name": name, "moves": total, "blunders": bl, "mistakes": ms,
+                "accuracy": acc,
+                "verdict": "Clean" if bl == 0 and ms == 0
+                    else f"{bl} blunder{'s' if bl != 1 else ''}" if bl > 0
+                    else f"{ms} inaccurac{'ies' if ms != 1 else 'y'}",
+            }
+
+        result["phases"] = {
+            "opening": _phase_stats(opening_evals, "Opening"),
+            "middlegame": _phase_stats(middle_evals, "Middlegame"),
+            "endgame": _phase_stats(end_evals, "Endgame"),
+        }
+    except Exception as e:
+        logger.warning(f"Phase analysis failed: {e}")
+
+    # ─── 2. OPENING AWARENESS ───
+    try:
+        from services.opening_mastery_tracker import OPENING_MOVE_IDEAS, OPENING_BRANCH_DATA
+        from services.verified_opening_traps import get_all_for_opening
+
+        # Match opening name to key
+        opening_key = None
+        for key in OPENING_MOVE_IDEAS:
+            name = key.replace("_", " ")
+            if name in opening_name.lower() or opening_name.lower().replace("'", "").replace("'", "") in name:
+                opening_key = key
+                break
+
+        opening_info = None
+        if opening_key:
+            ideas = OPENING_MOVE_IDEAS.get(opening_key, [])
+
+            # Find where user deviated from theory
+            deviation_move = None
+            moves_in_theory = 0
+            pgn = game.get("pgn", "")
+            if pgn:
+                # Extract moves from PGN
+                import re as _re
+                move_text = _re.sub(r'\{[^}]*\}', '', pgn)  # Remove comments
+                move_text = _re.sub(r'\[.*?\]\s*', '', move_text)  # Remove headers
+                move_text = _re.sub(r'\d+\.+\s*', '', move_text)  # Remove move numbers
+                game_moves = [m.strip() for m in move_text.split() if m.strip() and m.strip() not in ("1-0", "0-1", "1/2-1/2", "*")]
+
+                for i, idea in enumerate(ideas):
+                    if i >= len(game_moves):
+                        break
+                    played = game_moves[i].replace("+", "").replace("#", "").lower()
+                    expected = idea["move"].replace("+", "").replace("#", "").lower()
+                    if played == expected:
+                        moves_in_theory += 1
+                    else:
+                        deviation_move = {
+                            "ply": i,
+                            "played": game_moves[i],
+                            "expected": idea["move"],
+                            "idea": idea.get("idea", ""),
+                        }
+                        break
+
+            # Branch info
+            branch_data = None
+            if opening_key in OPENING_BRANCH_DATA:
+                bd = OPENING_BRANCH_DATA[opening_key]
+                branch_data = {
+                    "branch_point": bd["branch_point"],
+                    "branches": [{"name": v["name"], "branch_move": v["branch_move"]}
+                                 for v in bd["branches"].values()],
+                }
+
+            # Traps
+            traps_matched = []
+            traps = get_all_for_opening(opening_key)
+            if traps and pgn:
+                for trap in traps:
+                    setup = trap.setup_moves
+                    if len(game_moves) >= len(setup):
+                        match = all(
+                            game_moves[j].replace("+", "").replace("#", "").lower() ==
+                            setup[j].replace("+", "").replace("#", "").lower()
+                            for j in range(len(setup))
+                        )
+                        if match:
+                            traps_matched.append({
+                                "name": trap.name,
+                                "explanation": trap.explanation,
+                                "trap_move": trap.trap_move,
+                                "victim": trap.victim_color,
+                            })
+
+            opening_info = {
+                "key": opening_key,
+                "name": opening_name,
+                "moves_in_theory": moves_in_theory,
+                "total_theory_moves": len(ideas),
+                "deviation": deviation_move,
+                "branches": branch_data,
+                "traps": traps_matched,
+            }
+
+        result["opening_analysis"] = opening_info
+    except Exception as e:
+        logger.warning(f"Opening awareness failed: {e}")
+
+    # ─── 3. KEY MOMENTS WITH POSITION COMMENTARY ───
+    try:
+        from services.position_intelligence import read_board_like_a_coach
+
+        key_moments = []
+        for e in evals:
+            cp_loss = e.get("cp_loss", 0) or 0
+            if cp_loss < 100:
+                continue  # Only show mistakes/blunders
+
+            fen = e.get("fen_before", "")
+            if not fen:
+                continue
+
+            # Position commentary for this moment
+            commentary = None
+            try:
+                commentary = read_board_like_a_coach(fen, user_color, 1200)
+            except Exception:
+                pass
+
+            moment = {
+                "move_number": e.get("move_number"),
+                "move": e.get("move", ""),
+                "best_move": e.get("best_move", ""),
+                "cp_loss": cp_loss,
+                "severity": "blunder" if cp_loss >= 300 else "mistake",
+                "phase": "opening" if (e.get("move_number", 0) or 0) <= 12
+                    else "endgame" if (e.get("move_number", 0) or 0) > 30
+                    else "middlegame",
+                "cognitive_gap": e.get("cognitive_gap", ""),
+                "commentary": {
+                    "summary": commentary.get("summary", "") if commentary else "",
+                    "plan": commentary.get("plan", "") if commentary else "",
+                    "observations": commentary.get("observations", [])[:3] if commentary else [],
+                } if commentary else None,
+            }
+            key_moments.append(moment)
+
+        # Sort by cp_loss, take top 5
+        key_moments.sort(key=lambda m: -m["cp_loss"])
+        result["key_moments"] = key_moments[:5]
+    except Exception as e:
+        logger.warning(f"Key moments failed: {e}")
+
+    # ─── 4. FUNDAMENTALS SNAPSHOT (at key moments) ───
+    try:
+        from services.fundamentals_evaluator import evaluate_fundamentals
+
+        # Build move history from evals
+        move_history = []
+        for e in evals:
+            move_history.append({
+                "move": e.get("move", ""),
+                "by": "player" if e.get("is_user_move", True) else "coach",
+                "fen_before": e.get("fen_before", ""),
+                "fen_after": e.get("fen_after", ""),
+                "eval_before": (e.get("eval_before", 0) or 0) / 100 if e.get("eval_before") else None,
+                "eval_after": (e.get("eval_after", 0) or 0) / 100 if e.get("eval_after") else None,
+            })
+
+        # Evaluate at the end of each phase
+        phase_fundamentals = {}
+        for phase_name, phase_evals in [("opening", opening_evals), ("middlegame", middle_evals), ("endgame", end_evals)]:
+            if not phase_evals:
+                continue
+            last_eval = phase_evals[-1]
+            fen = last_eval.get("fen_after") or last_eval.get("fen_before", "")
+            if fen:
+                try:
+                    board = chess.Board(fen)
+                    # Use moves up to this point
+                    phase_end_idx = evals.index(last_eval) + 1
+                    partial_history = move_history[:phase_end_idx]
+                    fund = evaluate_fundamentals(board, partial_history, user_color)
+                    # Only include non-perfect fundamentals (interesting ones)
+                    interesting = [f for f in fund.get("fundamentals", []) if f.get("progress", 100) < 100]
+                    phase_fundamentals[phase_name] = interesting[:4]
+                except Exception:
+                    pass
+
+        result["fundamentals"] = phase_fundamentals
+    except Exception as e:
+        logger.warning(f"Fundamentals failed: {e}")
+
+    # ─── 5. BEHAVIORAL SUMMARY ───
+    try:
+        # Count behavior patterns
+        gap_counts = {}
+        for e in evals:
+            gap = e.get("cognitive_gap", "")
+            if gap and (e.get("cp_loss", 0) or 0) >= 80:
+                gap_counts[gap] = gap_counts.get(gap, 0) + 1
+
+        BEHAVIOR_LABELS = {
+            "ignore_threat": "Missed opponent's threats",
+            "piece_safety": "Left pieces undefended",
+            "calculation_depth": "Didn't calculate deep enough",
+            "missed_tactic": "Missed winning tactics",
+            "tactical_oversight": "Didn't check opponent's reply",
+            "king_safety": "King safety neglected",
+        }
+
+        behaviors = []
+        for gap, count in sorted(gap_counts.items(), key=lambda x: -x[1]):
+            behaviors.append({
+                "behavior": gap,
+                "label": BEHAVIOR_LABELS.get(gap, gap.replace("_", " ").title()),
+                "count": count,
+            })
+
+        result["behaviors"] = behaviors[:3]
+    except Exception as e:
+        logger.warning(f"Behavioral summary failed: {e}")
+
+    return result
