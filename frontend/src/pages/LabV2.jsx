@@ -1321,6 +1321,8 @@ const LabV2 = ({ user }) => {
               coreLesson={coreLesson}
               gameResult={result}
               opponentName={game?.opponent_name}
+              coachReview={coachReview}
+              onPlayBestLine={playBestLine}
             />
           </div>
         ) : (

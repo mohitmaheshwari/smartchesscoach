@@ -48,7 +48,7 @@ import {
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import { API } from "@/App";
 
-const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName }) => {
+const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName, coachReview, onPlayBestLine }) => {
   const [decryptionData, setDecryptionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,6 +59,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
   const [habitsReport, setHabitsReport] = useState(null);
+  const [posCommentary, setPosCommentary] = useState({}); // {moveIndex: commentary}
   const [showingFutureMoves, setShowingFutureMoves] = useState(false);
   const [futureMoveIndex, setFutureMoveIndex] = useState(0);
   const [highlights, setHighlights] = useState([]);
@@ -481,6 +482,30 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const currentMove = currentMoveIndex >= 0 ? decryptionData?.[currentMoveIndex] : null;
   const orientation = userColor === "black" ? "black" : "white";
 
+  // Fetch position commentary for mistake moves (lazy, one at a time)
+  useEffect(() => {
+    if (!currentMove || posCommentary[currentMoveIndex]) return;
+    const sev = currentMove.severity;
+    if (sev !== "blunder" && sev !== "mistake" && sev !== "inaccuracy") return;
+    const fen = currentMove.fen_before || currentMove.fen;
+    if (!fen) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`${API}/coach/play/read-position`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ fen, user_color: userColor }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setPosCommentary(prev => ({ ...prev, [currentMoveIndex]: data }));
+        }
+      } catch (e) { /* non-blocking */ }
+    })();
+  }, [currentMoveIndex, currentMove?.fen_before]);
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-96" data-testid="decryption-loading">
       <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
@@ -623,6 +648,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             onCancelPlan={cancelPlanMode}
             onSubmitPlan={() => submitPlan(currentMove)}
             onPlanReasoningChange={setPlanReasoning}
+            // Enrichment props
+            positionCommentary={posCommentary[currentMoveIndex]}
+            openingAnalysis={coachReview?.opening_analysis}
+            patternContext={coachReview?.pattern_context}
+            onPlayBestLine={onPlayBestLine}
           />
         )}
         
@@ -744,13 +774,13 @@ const GameStartCard = ({ decryptionData, habitsReport, coachSummary, coreLesson,
 
 // ─── MOVE COACHING CARD V5 ──────────────────────────────────────────
 
-const MoveCoachingCardV5 = ({ 
-  move, 
+const MoveCoachingCardV5 = ({
+  move,
   gameId,
-  acknowledgedConcepts, 
-  onAcknowledge, 
-  onShowFutureMoves, 
-  onShowAlternativeMove, 
+  acknowledgedConcepts,
+  onAcknowledge,
+  onShowFutureMoves,
+  onShowAlternativeMove,
   onFeedbackClick,
   // Thought reflection props
   userThought,
@@ -771,7 +801,12 @@ const MoveCoachingCardV5 = ({
   onUndoPlanMove,
   onCancelPlan,
   onSubmitPlan,
-  onPlanReasoningChange
+  onPlanReasoningChange,
+  // Enrichment props
+  positionCommentary,
+  openingAnalysis,
+  patternContext,
+  onPlayBestLine,
 }) => {
   const [expanded, setExpanded] = useState(false);
   if (!move) return null;
@@ -873,6 +908,70 @@ const MoveCoachingCardV5 = ({
             <p className="text-sm text-gray-700 inline">{move.narrative}</p>
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
           </div>
+        )}
+
+        {/* ─── POSITION COMMENTARY (what the board says) ──────── */}
+        {positionCommentary && (isMistake || move.is_best_move) && (
+          <div className="bg-blue-500/5 rounded-lg p-3 border border-blue-500/15">
+            <p className="text-xs text-blue-400/70 font-semibold mb-1">What the position demands</p>
+            {positionCommentary.plan && (
+              <p className="text-sm text-gray-700 mb-1">{positionCommentary.plan}</p>
+            )}
+            {positionCommentary.observations?.slice(0, 2).map((obs, i) => (
+              <p key={i} className="text-xs text-gray-500 leading-snug">• {obs.title}: {obs.description}</p>
+            ))}
+          </div>
+        )}
+
+        {/* ─── OPENING THEORY (if in opening phase) ────────────── */}
+        {openingAnalysis && move.phase === "opening" && move.move_number <= 12 && (
+          <div className="bg-primary/5 rounded-lg p-3 border border-primary/15">
+            <p className="text-xs text-primary/70 font-semibold mb-1">
+              Opening: {openingAnalysis.name}
+              <span className="text-primary/40 ml-2">{openingAnalysis.moves_in_theory}/{openingAnalysis.total_theory_moves} theory</span>
+            </p>
+            {openingAnalysis.deviation && openingAnalysis.deviation.ply <= (move.move_number * 2) && (
+              <p className="text-xs text-gray-500">
+                Deviated: played <span className="font-mono text-red-400">{openingAnalysis.deviation.played}</span>
+                {" "}instead of <span className="font-mono text-emerald-400">{openingAnalysis.deviation.expected}</span>
+                {openingAnalysis.deviation.idea && <span className="text-gray-400"> — {openingAnalysis.deviation.idea}</span>}
+              </p>
+            )}
+            {openingAnalysis.traps?.map((t, i) => (
+              <p key={i} className="text-xs text-amber-500 mt-1">
+                <span className="font-semibold">{t.name}:</span> {t.story || t.explanation}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* ─── PATTERN CONNECTION (cross-game) ─────────────────── */}
+        {patternContext?.is_recurring && isMistake && (
+          <div className="bg-red-500/5 rounded-lg p-2.5 border border-red-500/15">
+            <p className="text-xs text-red-400">
+              This type of mistake happened in {patternContext.games_with} of your last {patternContext.games_checked} games.
+              {patternContext.is_improving
+                ? " But it's getting less frequent — you're improving."
+                : " This is your most consistent pattern right now."
+              }
+            </p>
+          </div>
+        )}
+
+        {/* ─── STOCKFISH BRANCHING (what if best move?) ────────── */}
+        {isMistake && move.best_move && onPlayBestLine && (
+          <button
+            onClick={() => onPlayBestLine({
+              fen: move.fen_before || move.fen,
+              best_move: move.best_move_san || move.best_move,
+              pv_after_best: move.pv_after_best,
+              best_line: move.best_line,
+            })}
+            className="w-full text-xs text-blue-400 hover:text-blue-300 bg-blue-500/5 hover:bg-blue-500/10 rounded-lg p-2.5 border border-blue-500/15 transition-all flex items-center justify-center gap-1.5"
+          >
+            <Eye className="w-3 h-3" />
+            What if I played {move.best_move_san || move.best_move}? See the line
+          </button>
         )}
 
         {/* ─── OPPONENT MOVE: YOUR PLAN NOW ─────────────────── */}
