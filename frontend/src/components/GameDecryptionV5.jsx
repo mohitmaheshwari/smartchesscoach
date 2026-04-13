@@ -562,6 +562,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const currentMove = currentMoveIndex >= 0 ? decryptionData?.[currentMoveIndex] : null;
   const orientation = userColor === "black" ? "black" : "white";
 
+  // Debug: verify enrichment data is arriving
+  if (currentMoveIndex >= 0 && currentMove) {
+    console.log("[Decrypt] Move", currentMove.move_number, currentMove.move_san,
+      "coachReview:", coachReview ? "yes" : "no",
+      "posCommentary:", posCommentary[currentMoveIndex] ? "yes" : "no",
+      "severity:", currentMove.severity);
+  }
+
   // Fetch position commentary for mistake moves (lazy, one at a time)
   useEffect(() => {
     if (!currentMove || posCommentary[currentMoveIndex]) return;
