@@ -1498,6 +1498,16 @@ async def get_opening_evolution(user: User = Depends(get_current_user)):
     return await get_user_opening_evolution(db, user.user_id, window_size=25)
 
 
+@router.get("/progress/improvement-proof")
+async def get_improvement_proof(user: User = Depends(get_current_user)):
+    """
+    Proof of Improvement — visual, emotional evidence the player is getting better.
+    One primary pattern. Before/after board positions. Streaks.
+    """
+    from services.improvement_proof_engine import compute_improvement_proof
+    return await compute_improvement_proof(db, user.user_id)
+
+
 @router.get("/progress/narrative")
 async def get_progress_narrative(user: User = Depends(get_current_user)):
     """

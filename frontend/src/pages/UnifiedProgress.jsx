@@ -16,8 +16,9 @@ import Layout from "@/components/Layout";
 import {
   ChevronRight, Target, Swords, Check, X as XIcon, ArrowRight,
   Crown, BookOpen, TrendingUp, TrendingDown, Minus,
-  Activity, Flame, Shield, Loader2
+  Activity, Flame, Shield, Loader2, Zap
 } from "lucide-react";
+import LichessBoard from "@/components/LichessBoard";
 
 const UnifiedProgress = ({ user }) => {
   const navigate = useNavigate();
@@ -25,18 +26,21 @@ const UnifiedProgress = ({ user }) => {
   const [progress, setProgress] = useState(null);
   const [openings, setOpenings] = useState(null);
   const [narrative, setNarrative] = useState(null);
+  const [proof, setProof] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, openingsRes, narrativeRes] = await Promise.all([
+        const [progressRes, openingsRes, narrativeRes, proofRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
           fetch(`${API}/coach/play/opening-suggestions`, { credentials: "include" }),
           fetch(`${API}/progress/narrative`, { credentials: "include" }),
+          fetch(`${API}/progress/improvement-proof`, { credentials: "include" }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
         if (openingsRes.ok) setOpenings(await openingsRes.json());
         if (narrativeRes.ok) setNarrative(await narrativeRes.json());
+        if (proofRes.ok) setProof(await proofRes.json());
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -81,6 +85,11 @@ const UnifiedProgress = ({ user }) => {
 
           {/* Narrative: Your Journey (improvement verdict) */}
           {narrative?.journey && <JourneyCard journey={narrative.journey} />}
+
+          {/* Proof of Improvement */}
+          {proof?.has_data && proof?.primary_pattern && (
+            <ImprovementProof proof={proof} />
+          )}
 
           {/* Narrative: What You Do Well */}
           {narrative?.strengths?.length > 0 && <NarrativeSection
@@ -192,6 +201,118 @@ const UnifiedProgress = ({ user }) => {
         </motion.div>
       </div>
     </Layout>
+  );
+};
+
+
+// ─── Improvement Proof ──────────────────────────────────────────
+
+const ImprovementProof = ({ proof }) => {
+  const primary = proof.primary_pattern;
+  const examples = proof.before_after || [];
+  const streaks = proof.streaks || {};
+  const acc = proof.accuracy || {};
+
+  if (!primary || primary.reduction_pct <= 0) return null;
+
+  // Streak text
+  const streakParts = [];
+  if (streaks.no_blunder_games >= 2) streakParts.push(`${streaks.no_blunder_games} games with no blunders`);
+  if (streaks.no_hanging_piece_games >= 2) streakParts.push(`${streaks.no_hanging_piece_games} games with no hanging pieces`);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.15 }}
+      className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/[0.03] p-5 mb-6"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+          <TrendingUp className="w-4 h-4 text-emerald-500" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">
+            You're improving in {primary.label}
+          </h3>
+          <p className="text-xs text-muted-foreground">{primary.description}</p>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="flex items-center gap-4 mb-4">
+        <div className="text-center">
+          <p className="text-2xl font-bold font-mono text-emerald-500">{primary.reduction_pct}%</p>
+          <p className="text-[10px] text-muted-foreground">fewer mistakes</p>
+        </div>
+        <div className="text-xs text-muted-foreground leading-relaxed">
+          <p>{primary.old_per_game}/game → {primary.new_per_game}/game</p>
+          {streakParts.length > 0 && (
+            <p className="text-emerald-500/70 mt-0.5">
+              Current streak: {streakParts.join(", ")}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Before vs After Boards */}
+      {examples.length > 0 && (
+        <div className="space-y-4">
+          {examples.map((ex, i) => (
+            <div key={i}>
+              <p className="text-xs text-muted-foreground mb-2">{ex.message}</p>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Before board */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Before</p>
+                  <div className="rounded-lg overflow-hidden border border-red-500/20">
+                    <LichessBoard
+                      fen={ex.old_fen}
+                      viewOnly={true}
+                      width={180}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Move {ex.old_move_number}: <span className="font-mono text-red-400">{ex.old_move}</span>
+                    <span className="text-red-400/50 ml-1">−{Math.round(ex.old_cp_loss / 100)}p</span>
+                  </p>
+                </div>
+
+                {/* After board */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
+                  <div className="rounded-lg overflow-hidden border border-emerald-500/20">
+                    <LichessBoard
+                      fen={ex.new_fen}
+                      viewOnly={true}
+                      width={180}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Move {ex.new_move_number}: <span className="font-mono text-emerald-400">{ex.new_move}</span>
+                    <span className="text-emerald-400/50 ml-1">clean</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Accuracy improvement */}
+      {acc.delta > 0 && (
+        <p className="text-xs text-muted-foreground mt-3">
+          Overall accuracy: {acc.older}% → {acc.recent}%
+          <span className="text-emerald-500 ml-1">(+{acc.delta}%)</span>
+        </p>
+      )}
+
+      {/* Emotional close */}
+      <p className="text-sm text-foreground mt-4 font-medium">
+        This used to happen every game. Now it doesn't.
+      </p>
+    </motion.div>
   );
 };
 
