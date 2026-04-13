@@ -48,6 +48,70 @@ import {
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import { API } from "@/App";
 
+/**
+ * Generate smart dropdown options for "Why did you play this?"
+ * Based on move characteristics, position commentary, and common thinking errors.
+ */
+function _generateThoughtOptions(move, posCommentary) {
+  const options = [];
+  const san = move.move_san || "";
+  const isCapture = san.includes("x");
+  const isCheck = san.includes("+") || san.includes("#");
+  const hasThreat = !!move.threat;
+  const severity = move.severity || "";
+  const phase = move.phase || "";
+
+  // Capture-based options
+  if (isCapture) {
+    options.push({ text: "I wanted to win material" });
+    options.push({ text: "I thought the trade was good for me" });
+  }
+
+  // Check-based
+  if (isCheck) {
+    options.push({ text: "I saw the check and played it without thinking further" });
+  }
+
+  // Threat-based (opponent had a threat user might have missed)
+  if (hasThreat) {
+    options.push({ text: "I didn't see what my opponent was threatening" });
+  }
+
+  // Position commentary insights
+  if (posCommentary?.observations) {
+    for (const obs of posCommentary.observations.slice(0, 1)) {
+      if (obs.title?.toLowerCase().includes("pin")) {
+        options.push({ text: "I didn't notice the pin" });
+      } else if (obs.title?.toLowerCase().includes("fork")) {
+        options.push({ text: "I missed the fork possibility" });
+      } else if (obs.title?.toLowerCase().includes("undefended") || obs.title?.toLowerCase().includes("hanging")) {
+        options.push({ text: "I didn't realize my piece was undefended" });
+      }
+    }
+  }
+
+  // General thinking errors
+  if (!isCapture && !isCheck) {
+    options.push({ text: "I was developing my piece" });
+    options.push({ text: "I thought this was the right plan" });
+  }
+
+  // Always include these
+  options.push({ text: "I was rushing and didn't think" });
+  if (phase === "opening") {
+    options.push({ text: "I didn't know the theory here" });
+  }
+
+  // Deduplicate and limit to 5
+  const seen = new Set();
+  return options.filter(o => {
+    if (seen.has(o.text)) return false;
+    seen.add(o.text);
+    return true;
+  }).slice(0, 5);
+}
+
+
 const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName, coachReview, onPlayBestLine }) => {
   const [decryptionData, setDecryptionData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1134,7 +1198,7 @@ const MoveCoachingCardV5 = ({
           </div>
         )}
 
-        {/* ─── WHAT WERE YOU THINKING? (for user mistakes) ────── */}
+        {/* ─── WHAT WERE YOU THINKING? (smart dropdown + board play) ── */}
         {isMistake && !planMode && !planAnalysis && (
           <div className="bg-violet-500/5 rounded-lg p-3 border border-violet-500/20" data-testid="thought-prompt">
             {hasThought ? (
@@ -1147,7 +1211,6 @@ const MoveCoachingCardV5 = ({
                     <p className="text-sm text-gray-600 italic">"{userThought.text}"</p>
                   </div>
                 </div>
-                {/* Show my plan button */}
                 <Button
                   size="sm"
                   variant="outline"
@@ -1159,41 +1222,73 @@ const MoveCoachingCardV5 = ({
                 </Button>
               </div>
             ) : thoughtInputOpen ? (
-              // Input open
+              // Smart dropdown with context-aware options
               <div className="space-y-2">
                 <p className="text-xs text-violet-400 flex items-center gap-1">
-                  <Eye className="w-3 h-3" /> What were you thinking here?
+                  <Eye className="w-3 h-3" /> Why did you play {move.move_san}?
                 </p>
-                <Textarea
-                  value={userThought?.text || ""}
-                  onChange={(e) => onThoughtChange(move.move_number, e.target.value)}
-                  placeholder="e.g., I thought I was winning the exchange... / I didn't see the threat..."
-                  className="min-h-[60px] text-sm bg-gray-50 border-gray-200 resize-none"
-                  data-testid="thought-input"
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => onSaveThought(move.move_number, move.fen_before)}
-                    disabled={savingThought === move.move_number || !userThought?.text?.trim()}
-                    className="text-xs bg-violet-600 hover:bg-violet-700"
+                {/* Smart options generated from position context */}
+                <div className="space-y-1">
+                  {_generateThoughtOptions(move, positionCommentary).map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        onThoughtChange(move.move_number, opt.text);
+                        // Auto-save after selection
+                        setTimeout(() => onSaveThought(move.move_number, move.fen_before), 100);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                        userThought?.text === opt.text
+                          ? "bg-violet-500/20 border border-violet-500/30 text-violet-300"
+                          : "bg-gray-50 hover:bg-violet-500/10 text-gray-700 border border-transparent"
+                      }`}
+                    >
+                      {opt.text}
+                    </button>
+                  ))}
+                  {/* Other — show text input */}
+                  <button
+                    onClick={() => onThoughtChange(move.move_number, "")}
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm bg-gray-50 hover:bg-violet-500/10 text-gray-500 border border-transparent"
                   >
-                    {savingThought === move.move_number ? (
-                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    ) : (
-                      <Check className="w-3 h-3 mr-1" />
-                    )}
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onToggleThoughtInput(move.move_number)}
-                    className="text-xs text-gray-500"
-                  >
-                    Cancel
-                  </Button>
+                    Other...
+                  </button>
                 </div>
+                {/* Text input shows when "Other" is selected or text is custom */}
+                {userThought?.text !== undefined && !_generateThoughtOptions(move, positionCommentary).some(o => o.text === userThought?.text) && (
+                  <div className="space-y-2 pt-1">
+                    <Textarea
+                      value={userThought?.text || ""}
+                      onChange={(e) => onThoughtChange(move.move_number, e.target.value)}
+                      placeholder="What were you thinking..."
+                      className="min-h-[50px] text-sm bg-gray-50 border-gray-200 resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => onSaveThought(move.move_number, move.fen_before)}
+                        disabled={savingThought === move.move_number || !userThought?.text?.trim()}
+                        className="text-xs bg-violet-600 hover:bg-violet-700"
+                      >
+                        {savingThought === move.move_number ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => onToggleThoughtInput(move.move_number)} className="text-xs text-gray-500">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {/* Play my intended move on the board */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onStartPlanMode}
+                  className="w-full text-xs border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 mt-1"
+                >
+                  <Swords className="w-3 h-3 mr-2" />
+                  Or show what I wanted to play on the board
+                </Button>
               </div>
             ) : (
               // Collapsed - show button to expand
@@ -1203,7 +1298,7 @@ const MoveCoachingCardV5 = ({
                   className="flex items-center gap-2 text-xs text-violet-400 hover:text-violet-300 transition-colors w-full"
                 >
                   <Eye className="w-3 h-3" />
-                  <span>What were you thinking here?</span>
+                  <span>Why did you play {move.move_san}?</span>
                   <ChevronDown className="w-3 h-3 ml-auto" />
                 </button>
               </div>
