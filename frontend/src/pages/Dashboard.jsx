@@ -12,7 +12,7 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import {
-  Import, ChevronRight, Check, Zap, Trophy, Shield, Eye, Swords
+  Import, ChevronRight, Check, Zap, Trophy, Shield, Eye, Swords, Target
 } from "lucide-react";
 
 const BEHAVIOR_DESCRIPTIONS = {
