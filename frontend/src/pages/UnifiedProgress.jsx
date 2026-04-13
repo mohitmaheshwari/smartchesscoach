@@ -83,13 +83,12 @@ const UnifiedProgress = ({ user }) => {
             </>}
           />}
 
-          {/* Narrative: Your Journey (improvement verdict) */}
-          {narrative?.journey && <JourneyCard journey={narrative.journey} />}
-
-          {/* Proof of Improvement */}
-          {proof?.has_data && proof?.primary_pattern && (
+          {/* Proof of Improvement — OR Journey (not both, to avoid contradiction) */}
+          {proof?.has_data && proof?.primary_pattern?.reduction_pct > 0 ? (
             <ImprovementProof proof={proof} />
-          )}
+          ) : narrative?.journey ? (
+            <JourneyCard journey={narrative.journey} />
+          ) : null}
 
           {/* Narrative: What You Do Well */}
           {narrative?.strengths?.length > 0 && <NarrativeSection
@@ -127,8 +126,8 @@ const UnifiedProgress = ({ user }) => {
               icon={<BookOpen className="w-4 h-4 text-primary" strokeWidth={2} />}
               content={
                 <div className="space-y-3">
-                  {/* Coach session openings with stories */}
-                  {narrative?.openings?.map((o, i) => {
+                  {/* Coach session openings with stories (deduplicated) */}
+                  {narrative?.openings?.filter((o, i, arr) => arr.findIndex(x => x.name === o.name) === i).map((o, i) => {
                     // Find matching win rate from real games
                     const allReal = [...(openings?.white || []), ...(openings?.black || [])];
                     const match = allReal.find(r => r.name?.toLowerCase().includes(o.name?.toLowerCase().split(" ")[0]));
@@ -192,8 +191,7 @@ const UnifiedProgress = ({ user }) => {
             </div>
           )}
 
-          {/* Focus Area (training state) */}
-          {state !== "not_started" && <FocusCard state={state} progress={progress} navigate={navigate} />}
+          {/* Focus Area — removed, replaced by focus plan on Home page */}
 
           {/* Quick Actions */}
           <QuickActions state={state} progress={progress} navigate={navigate} />
@@ -257,10 +255,10 @@ const ImprovementProof = ({ proof }) => {
         </div>
       </div>
 
-      {/* Before vs After Boards */}
+      {/* Before vs After Boards — only show FIRST example */}
       {examples.length > 0 && (
-        <div className="space-y-4">
-          {examples.map((ex, i) => (
+        <div>
+          {[examples[0]].map((ex, i) => (
             <div key={i}>
               <p className="text-xs text-muted-foreground mb-2">{ex.message}</p>
               <div className="grid grid-cols-2 gap-3">
@@ -276,7 +274,7 @@ const ImprovementProof = ({ proof }) => {
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
                     Move {ex.old_move_number}: <span className="font-mono text-red-400">{ex.old_move}</span>
-                    <span className="text-red-400/50 ml-1">−{Math.round(ex.old_cp_loss / 100)}p</span>
+                    <span className="text-red-400/50 ml-1">mistake</span>
                   </p>
                 </div>
 

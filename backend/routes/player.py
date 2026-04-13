@@ -1708,7 +1708,10 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
                 unseen = [bd["branches"][k]["name"] for k in bd["branches"] if k not in branches_seen]
 
                 if seen_count == 0 and total_branches > 1:
-                    knowledge += f" It has {total_branches} variations to learn."
+                    if phase == "mastered":
+                        knowledge += f" You know the main line. {total_branches} other variations to explore."
+                    else:
+                        knowledge += f" It has {total_branches} variations to learn."
                 elif seen_count < total_branches and unseen:
                     knowledge += f" You've seen the {', '.join(branch_names)}."
                     knowledge += f" Try the {', '.join(unseen)} next."
