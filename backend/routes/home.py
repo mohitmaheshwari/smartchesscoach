@@ -715,6 +715,31 @@ async def get_coach_home(user: User = Depends(get_current_user)):
     except Exception as e:
         logger.warning(f"[COACH-HOME] Problem detection failed: {e}")
 
+    # ─── 3.5. ACTIVE FOCUS PLAN ───
+    try:
+        from services.focus_engine import get_user_focus
+        focus = await get_user_focus(db, user_id)
+        if focus:
+            game_results = focus.get("game_results", [])
+            clean_count = sum(1 for r in game_results if r.get("clean"))
+            total_played = len(game_results)
+            target = focus.get("games_target", 5)
+
+            result["focus_plan"] = {
+                "name": focus.get("name"),
+                "rule": focus.get("rule"),
+                "short_rule": focus.get("short_rule"),
+                "cluster": focus.get("cluster"),
+                "games_played": total_played,
+                "games_target": target,
+                "clean_count": clean_count,
+                "clean_threshold": focus.get("clean_threshold", 3),
+                "game_results": [{"clean": r.get("clean"), "violations": r.get("violations", 0)} for r in game_results],
+                "last_game_clean": focus.get("last_game_clean"),
+            }
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Focus plan failed: {e}")
+
     # ─── 4. TODAY'S PLAN (what to play next) ───
     try:
         from services.opening_mastery_tracker import (

@@ -135,6 +135,10 @@ async def set_user_focus(db, user_id: str, root_problem: Dict) -> Dict:
         "set_at": datetime.now(timezone.utc).isoformat(),
         "games_with_focus": 0,
         "violations_history": [],
+        # Game-based graduation tracking
+        "games_target": 5,  # Graduate after 3/5 clean games
+        "clean_threshold": 3,  # Need 3 clean out of 5
+        "game_results": [],  # [{clean: bool, game_id, timestamp}] — last 5
     }
 
     await db.users.update_one(
@@ -146,15 +150,18 @@ async def set_user_focus(db, user_id: str, root_problem: Dict) -> Dict:
     return focus
 
 
-async def update_focus_after_game(db, user_id: str, behavior_summary: Dict, root_problem: Dict) -> Dict:
+async def update_focus_after_game(
+    db, user_id: str, behavior_summary: Dict, root_problem: Dict,
+    game_id: str = None, session_id: str = None,
+) -> Dict:
     """
     Update focus after a game ends.
-    Check if the problem improved, worsened, or stayed the same.
+    Tracks whether this game was "clean" for the focus behavior.
+    Graduates focus when 3/5 games are clean.
     """
     current_focus = await get_user_focus(db, user_id)
 
     if not current_focus:
-        # No focus yet — set one
         return await set_user_focus(db, user_id, root_problem)
 
     primary = root_problem.get("primary")
@@ -162,64 +169,100 @@ async def update_focus_after_game(db, user_id: str, behavior_summary: Dict, root
         return current_focus
 
     current_cluster = current_focus.get("cluster")
+
+    # ─── CHECK IF THIS GAME WAS CLEAN FOR THE FOCUS BEHAVIOR ───
+    from services.root_behavior_engine import ROOT_CLUSTERS
+    cluster_signals = ROOT_CLUSTERS.get(current_cluster, {}).get("signals", [])
+    violations = behavior_summary.get("counts", {})
+    cluster_violations = sum(violations.get(s, 0) for s in cluster_signals)
+
+    # A game is "clean" if zero violations of the focus behavior
+    is_clean = cluster_violations == 0
+
+    # Update game results (keep last 5)
+    game_results = list(current_focus.get("game_results", []))
+    game_results.append({
+        "clean": is_clean,
+        "violations": cluster_violations,
+        "game_id": game_id or session_id or "",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    game_results = game_results[-5:]  # Keep only last 5
+
+    games = current_focus.get("games_with_focus", 0) + 1
+    clean_threshold = current_focus.get("clean_threshold", 3)
+    games_target = current_focus.get("games_target", 5)
+
+    # ─── CHECK GRADUATION ───
+    graduated = False
+    if len(game_results) >= games_target:
+        clean_count = sum(1 for r in game_results if r["clean"])
+        if clean_count >= clean_threshold:
+            graduated = True
+            logger.info(f"[FOCUS] GRADUATED {user_id}: {current_cluster} ({clean_count}/{games_target} clean)")
+
+    if graduated:
+        # Save graduation to history
+        await db.focus_history.insert_one({
+            "user_id": user_id,
+            "cluster": current_cluster,
+            "name": current_focus.get("name"),
+            "rule": current_focus.get("rule"),
+            "games_played": games,
+            "game_results": game_results,
+            "graduated_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": current_focus.get("set_at"),
+        })
+
+        # Auto-pick next focus — the SECOND highest problem
+        secondary = root_problem.get("secondary", [])
+        if secondary:
+            next_problem = {"primary": secondary[0]}
+            logger.info(f"[FOCUS] Next focus for {user_id}: {secondary[0].get('key')}")
+            return await set_user_focus(db, user_id, next_problem)
+        else:
+            # No secondary problem — clear focus
+            await db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {"focus": None}}
+            )
+            return None
+
+    # ─── NOT GRADUATED — UPDATE STATS ───
     new_cluster = primary["key"]
     new_score = primary.get("score", 0)
+    old_score = current_focus.get("score", 0)
 
-    # Same focus? Update stats
-    if new_cluster == current_cluster:
-        violations = behavior_summary.get("counts", {})
-        cluster_violations = sum(
-            violations.get(s, 0) for s in
-            FOCUS_RULES.get(current_cluster, {}).get("puzzle_query", {}).get("$in", [])
-        )
+    # Adjust enforcement based on trend
+    new_level = current_focus["enforcement_level"]
+    if new_score < old_score * 0.6:
+        # Significant improvement — reduce enforcement
+        if new_level == "STRICT":
+            new_level = "MEDIUM"
+        elif new_level == "MEDIUM":
+            new_level = "LIGHT"
 
-        # Count violations for this cluster's signals
-        from services.root_behavior_engine import ROOT_CLUSTERS
-        cluster_signals = ROOT_CLUSTERS.get(current_cluster, {}).get("signals", [])
-        cluster_violations = sum(violations.get(s, 0) for s in cluster_signals)
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "focus.score": new_score,
+            "focus.games_with_focus": games,
+            "focus.enforcement_level": new_level,
+            "focus.last_game_violations": cluster_violations,
+            "focus.last_game_clean": is_clean,
+            "focus.game_results": game_results,
+            "focus.updated_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
 
-        games = current_focus.get("games_with_focus", 0) + 1
+    # Switch focus if a MUCH stronger problem emerged
+    if new_cluster != current_cluster and new_score > old_score * 2:
+        logger.info(f"[FOCUS] Switching {user_id}: {current_cluster} -> {new_cluster} (score {old_score} -> {new_score})")
+        return await set_user_focus(db, user_id, root_problem)
 
-        # Check improvement
-        old_score = current_focus.get("score", 0)
-        if new_score < old_score * 0.6:
-            # Significant improvement — reduce enforcement
-            new_level = "LIGHT" if current_focus["enforcement_level"] == "MEDIUM" else "MEDIUM"
-            if current_focus["enforcement_level"] == "LIGHT":
-                new_level = "LIGHT"
-        else:
-            new_level = current_focus["enforcement_level"]
-
-        # Still needs training?
-        puzzles_done = current_focus.get("puzzles_completed", 0)
-        puzzles_needed = ENFORCEMENT_LEVELS[new_level]["puzzles_required"]
-        still_locked = puzzles_done < puzzles_needed
-
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {
-                "focus.score": new_score,
-                "focus.games_with_focus": games,
-                "focus.enforcement_level": new_level,
-                "focus.training_locked": still_locked,
-                "focus.puzzles_required": puzzles_needed,
-                "focus.last_game_violations": cluster_violations,
-                "focus.updated_at": datetime.now(timezone.utc).isoformat(),
-            }}
-        )
-
-        updated = await get_user_focus(db, user_id)
-        logger.info(f"[FOCUS] Updated {user_id}: {current_cluster}, score {old_score}->{new_score}, level={new_level}")
-        return updated
-
-    else:
-        # Different root problem emerged — switch focus if new one is stronger
-        if new_score > current_focus.get("score", 0) * 1.5:
-            logger.info(f"[FOCUS] Switching {user_id}: {current_cluster} -> {new_cluster}")
-            return await set_user_focus(db, user_id, root_problem)
-        else:
-            # Keep current focus — don't rotate too fast
-            return current_focus
+    updated = await get_user_focus(db, user_id)
+    logger.info(f"[FOCUS] Game {games}: {'CLEAN' if is_clean else f'{cluster_violations} violations'} for {current_cluster}")
+    return updated
 
 
 async def record_puzzle_completion(db, user_id: str) -> Dict:

@@ -126,6 +126,7 @@ const HomePage = ({ user }) => {
   const problem = data?.problem;
   const plan = data?.todays_plan || {};
   const warmup = data?.warmup;
+  const focusPlan = data?.focus_plan;
 
   // Extract a reasonable display name from email
   const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
@@ -230,6 +231,57 @@ const HomePage = ({ user }) => {
                 <p className="text-xs text-foreground/60 mt-3">
                   This used to happen every game. Now it doesn't.
                 </p>
+              )}
+            </motion.div>
+          )}
+
+          {/* ─── FOCUS PLAN ─── */}
+          {focusPlan && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12 }}
+              className="rounded-2xl border border-border bg-card p-4"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-primary" strokeWidth={2} />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-primary/60">
+                  This week's focus
+                </span>
+              </div>
+
+              <p className="text-sm font-medium text-foreground mb-1">{focusPlan.name}</p>
+              <p className="text-xs text-muted-foreground mb-3">{focusPlan.rule}</p>
+
+              {/* Game results dots */}
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-1.5">
+                  {Array.from({ length: focusPlan.games_target }).map((_, i) => {
+                    const result = focusPlan.game_results?.[i];
+                    return (
+                      <div
+                        key={i}
+                        className={`w-3 h-3 rounded-full border ${
+                          !result ? "border-border bg-transparent"
+                          : result.clean ? "border-emerald-500 bg-emerald-500"
+                          : "border-red-400 bg-red-400"
+                        }`}
+                        title={result ? (result.clean ? "Clean" : `${result.violations} violations`) : "Not played yet"}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {focusPlan.clean_count}/{focusPlan.clean_threshold} clean games needed
+                </span>
+              </div>
+
+              {/* Last game feedback */}
+              {focusPlan.last_game_clean === true && (
+                <p className="text-xs text-emerald-500">Last game: clean. Keep it up.</p>
+              )}
+              {focusPlan.last_game_clean === false && (
+                <p className="text-xs text-red-400/80">Last game: the rule wasn't applied. Try again.</p>
               )}
             </motion.div>
           )}
