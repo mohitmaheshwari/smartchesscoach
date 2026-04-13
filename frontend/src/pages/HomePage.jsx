@@ -16,8 +16,9 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import {
   ChevronRight, Swords, Target, Brain, Import,
-  TrendingUp, Trophy, XCircle, Minus, BookOpen, Zap,
+  TrendingUp, Trophy, XCircle, Minus, BookOpen, Zap, Flame,
 } from "lucide-react";
+import LichessBoard from "@/components/LichessBoard";
 
 const PROBLEM_HEADLINES = {
   tactical_miss: "You are missing tactics that are right in front of you.",
@@ -58,19 +59,22 @@ const HomePage = ({ user }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasGames, setHasGames] = useState(false);
+  const [proof, setProof] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [homeRes, dashRes] = await Promise.all([
+        const [homeRes, dashRes, proofRes] = await Promise.all([
           fetch(`${API}/home/coach-home`, { credentials: "include" }),
           fetch(`${API}/home/dashboard-v2`, { credentials: "include" }),
+          fetch(`${API}/progress/improvement-proof`, { credentials: "include" }),
         ]);
         if (homeRes.ok) setData(await homeRes.json());
         if (dashRes.ok) {
           const d = await dashRes.json();
           if (d.games_analyzed > 0 || d.games_imported > 0) setHasGames(true);
         }
+        if (proofRes.ok) setProof(await proofRes.json());
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -119,8 +123,14 @@ const HomePage = ({ user }) => {
   const plan = data?.todays_plan || {};
   const warmup = data?.warmup;
 
-  const firstName = user?.email?.split("@")[0]?.split(".")[0] || "";
-  const displayName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+  // Extract a reasonable display name from email
+  const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
+  // Split on dots, underscores, or camelCase boundaries to get first name
+  const nameParts = rawName.split(/[._-]/).filter(Boolean);
+  const firstName = nameParts[0] || "";
+  const displayName = firstName.length <= 12
+    ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
+    : "";
 
   return (
     <Layout user={user}>
@@ -152,6 +162,54 @@ const HomePage = ({ user }) => {
               </p>
             )}
           </div>
+
+          {/* ─── IMPROVEMENT PROOF ─── */}
+          {proof?.has_data && proof?.primary_pattern?.reduction_pct > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+              className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/[0.03] p-4"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4 text-emerald-500" strokeWidth={2} />
+                <span className="text-sm font-semibold text-foreground">
+                  {proof.primary_pattern.reduction_pct}% fewer {proof.primary_pattern.label.toLowerCase()} mistakes
+                </span>
+              </div>
+
+              {proof.streaks?.no_blunder_games >= 2 && (
+                <p className="text-xs text-emerald-500/70 mb-2">
+                  <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_blunder_games} games in a row with no blunders
+                </p>
+              )}
+
+              {/* Before/After — show first example only on home */}
+              {proof.before_after?.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-muted-foreground mb-2">{proof.before_after[0].message}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Before</p>
+                      <div className="rounded-lg overflow-hidden border border-red-500/20">
+                        <LichessBoard fen={proof.before_after[0].old_fen} viewOnly={true} width={150} />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
+                      <div className="rounded-lg overflow-hidden border border-emerald-500/20">
+                        <LichessBoard fen={proof.before_after[0].new_fen} viewOnly={true} width={150} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-foreground/60 mt-3">
+                This used to happen every game. Now it doesn't.
+              </p>
+            </motion.div>
+          )}
 
           {/* ─── LAST SESSION RECAP ─── */}
           {lastSession && (
