@@ -372,73 +372,85 @@ def _generate_game_story(evals, user_color, user_won, is_draw, was_winning, max_
     return ""
 
 
-async def _generate_llm_game_story(
-    det_story: str, user_color: str, user_won: bool, is_draw: bool,
-    was_winning: bool, blunders: int, mistakes: int, accuracy: float,
-    brilliant_count: int, evals: list, opponent: str, opening: str,
-) -> str:
+async def _batch_generate_game_stories(games: list) -> dict:
     """
-    Generate a unique, short game story using LLM.
-    Max 40 words. Falls back to deterministic story on failure.
+    Generate unique stories for multiple games in ONE LLM call.
+    Returns {game_id: story} dict.
     """
+    if not games:
+        return {}
+
     try:
         from llm_service import call_llm
     except ImportError:
-        return ""
+        return {}
 
-    # Build concise context from the game
-    result_word = "won" if user_won else ("drew" if is_draw else "lost")
+    # Build compact context for each game
+    game_contexts = []
+    for g in games:
+        result = g.get("result", "?")
+        result_word = "won" if result == "W" else ("drew" if result == "D" else "lost")
+        det_story = g.get("behavior", "")
 
-    # Find the critical moment
-    critical_move = ""
-    critical_cp = 0
-    for e in evals:
-        cp = e.get("cp_loss", 0) or 0
-        if cp > critical_cp:
-            critical_cp = cp
-            critical_move = f"move {e.get('move_number', '?')} ({e.get('move', '?')})"
+        # Find critical moment from cognitive_gaps
+        gaps = g.get("cognitive_gaps", [])
+        dominant = gaps[0] if gaps else ""
 
-    # Find the behavior
-    gaps = {}
-    for e in evals:
-        gap = e.get("cognitive_gap", "")
-        if gap and (e.get("cp_loss", 0) or 0) >= 80:
-            gaps[gap] = gaps.get(gap, 0) + 1
-    dominant = max(gaps, key=gaps.get) if gaps else ""
+        game_contexts.append(
+            f"GAME {g['game_id'][:8]}: {result_word} vs {g.get('opponent', '?')}. "
+            f"Opening: {g.get('opening', '?')}. "
+            f"Blunders: {g.get('blunders', 0)}. Was winning: {g.get('was_winning', False)}. "
+            f"Issue: {dominant.replace('_', ' ') if dominant else 'none'}. "
+            f"Draft: {det_story}"
+        )
 
-    context = f"""Game: {user_color} vs {opponent}. Opening: {opening or 'unknown'}. Result: {result_word}.
-Accuracy: {accuracy:.0f}%. Blunders: {blunders}. Mistakes: {mistakes}. Brilliant moves: {brilliant_count}.
-Was winning: {was_winning}. Critical moment: {critical_move} (lost {critical_cp} centipawns).
-Main issue: {dominant.replace('_', ' ') if dominant else 'none detected'}.
-Deterministic summary: {det_story}"""
+    user_msg = "Write a unique 1-2 sentence story for each game below. Return as:\nGAME_ID: story\n\n" + "\n".join(game_contexts)
 
-    system = """You are a chess coach writing a 1-2 sentence game summary for a student's game list.
+    system = """You are a chess coach writing short game summaries for a student's game list.
 Rules:
-- Maximum 40 words. Be specific to THIS game.
-- Talk about behavior, not moves. WHY they lost, not which square.
+- Each story: max 30 words. One to two sentences.
+- Talk about BEHAVIOR, not specific moves or squares.
 - No motivational filler. No "keep it up" or "you can do this."
-- No scores or percentages.
-- If they won cleanly, be brief and positive.
-- If they lost, be honest but not harsh. State the behavior that cost them.
-- Each game story must feel different from others. Vary your sentence structure.
-- Write as a coach, not a computer. Natural language."""
+- No scores, percentages, or ratings.
+- If they won cleanly: brief, positive. If they lost: honest, not harsh.
+- EVERY story must be DIFFERENT. Vary sentence structure, word choice, angle.
+- Use the draft as context but REWRITE it — don't copy.
+- Format: one line per game. Start each line with the game ID (first 8 chars), then colon, then the story."""
 
     try:
-        response = await call_llm(system, context, model="gpt-4o-mini")
-        # Clean up — strip quotes, ensure short
-        response = response.strip().strip('"').strip("'")
-        if len(response.split()) > 50:
-            # Too long — truncate at last sentence within limit
-            words = response.split()[:45]
-            response = " ".join(words)
-            if not response.endswith("."):
-                last_period = response.rfind(".")
-                if last_period > 20:
-                    response = response[:last_period + 1]
-        return response
+        response = await call_llm(system, user_msg, model="gpt-4o-mini")
+
+        # Parse response into {game_id: story}
+        result = {}
+        for line in response.strip().split("\n"):
+            line = line.strip()
+            if not line or ":" not in line:
+                continue
+            # Find the game ID prefix
+            parts = line.split(":", 1)
+            if len(parts) != 2:
+                continue
+            gid_prefix = parts[0].strip().replace("GAME ", "").replace("GAME_", "").strip()
+            story = parts[1].strip().strip('"').strip("'")
+
+            # Match to actual game_id
+            for g in games:
+                if g["game_id"][:8] == gid_prefix or g["game_id"].startswith(gid_prefix):
+                    # Enforce word limit
+                    words = story.split()
+                    if len(words) > 40:
+                        story = " ".join(words[:35])
+                        last_period = story.rfind(".")
+                        if last_period > 15:
+                            story = story[:last_period + 1]
+                    result[g["game_id"]] = story
+                    break
+
+        logger.info(f"[LAB] Batch LLM generated {len(result)} stories from {len(games)} games")
+        return result
     except Exception as e:
-        logger.debug(f"LLM game story failed: {e}")
-        return ""
+        logger.warning(f"Batch LLM game stories failed: {e}")
+        return {}
 
 
 # =============================================================================
@@ -1122,7 +1134,6 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
 
     # Build enriched game list
     enriched = []
-    llm_calls_remaining = 5  # Limit LLM calls per request to avoid slow loads
     for g in games:
         gid = g.get("game_id", "")
         a = analyses.get(gid, {})
@@ -1186,7 +1197,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         if brilliant_count > 0 and not lesson_label:
             lesson_label = f"Brilliant sacrifice" if sacrifice_count > 0 else "Brilliant play"
 
-        # Generate game story — LLM-powered, cached, with deterministic fallback
+        # Generate game story — cached LLM or deterministic fallback
         behavior = coach_sum.get("behavioral_insight") or coach_sum.get("key_observation") or ""
         # Check for cached LLM story first
         cached_story = a.get("llm_game_story", "")
@@ -1194,7 +1205,6 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             behavior = cached_story
         elif not behavior:
             try:
-                # Compute recovery_consecutive: how many recent games lack the top pattern
                 rc = 0
                 top_pattern_key = max(pattern_history, key=pattern_history.get) if pattern_history else None
                 if top_pattern_key and pattern_history.get(top_pattern_key, 0) >= 3:
@@ -1211,40 +1221,11 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                         rc += 1
                     rc = min(rc, 10)
 
-                # First get deterministic story as fallback
-                det_story = _generate_game_story(
+                behavior = _generate_game_story(
                     evals, uc, user_won, is_draw, was_winning, max_advantage,
                     blunders, mistakes, accuracy, brilliant_count,
                     pattern_history, rc
                 )
-
-                # Try LLM for a unique, short story (limited calls per request)
-                if llm_calls_remaining > 0 and not reviewed:
-                    try:
-                        llm_story = await _generate_llm_game_story(
-                            det_story, uc, user_won, is_draw, was_winning,
-                            blunders, mistakes, accuracy, brilliant_count,
-                            evals, opp, g.get("opening", ""),
-                        )
-                        if llm_story:
-                            behavior = llm_story
-                            llm_calls_remaining -= 1
-                    except Exception:
-                        pass
-
-                if not behavior:
-                    behavior = det_story
-
-                # Cache the LLM story so we don't regenerate next time
-                if behavior and behavior != det_story:
-                    try:
-                        await db.game_analyses.update_one(
-                            {"game_id": gid},
-                            {"$set": {"llm_game_story": behavior}}
-                        )
-                    except Exception:
-                        pass
-
             except Exception as story_err:
                 logger.warning(f"Game story generation failed for {gid}: {story_err}")
                 behavior = ""
@@ -1304,6 +1285,34 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "game_reason": game_reason,
             "is_new": is_new,
         })
+
+    # ── BATCH LLM: generate unique stories for uncached games (one call) ──
+    try:
+        games_needing_stories = []
+        for g in enriched:
+            if not g.get("reviewed") and not analyses.get(g["game_id"], {}).get("llm_game_story"):
+                games_needing_stories.append(g)
+
+        if games_needing_stories:
+            # Limit to 10 games per batch
+            batch = games_needing_stories[:10]
+            llm_stories = await _batch_generate_game_stories(batch)
+
+            # Apply stories to enriched list and cache them
+            for g in enriched:
+                gid = g.get("game_id", "")
+                if gid in llm_stories and llm_stories[gid]:
+                    g["behavior"] = llm_stories[gid]
+                    # Cache in DB
+                    try:
+                        await db.game_analyses.update_one(
+                            {"game_id": gid},
+                            {"$set": {"llm_game_story": llm_stories[gid]}}
+                        )
+                    except Exception:
+                        pass
+    except Exception as e:
+        logger.warning(f"Batch LLM game stories failed (non-fatal): {e}")
 
     # ── SMART PICK: find the best unreviewed game ──
     unreviewed = [g for g in enriched if not g["reviewed"]]
