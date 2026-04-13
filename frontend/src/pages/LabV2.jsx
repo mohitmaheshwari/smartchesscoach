@@ -1258,9 +1258,8 @@ const LabV2 = ({ user }) => {
             <div className="flex items-center gap-3">
               <div className="flex items-center bg-muted/60 rounded-lg p-0.5" data-testid="view-mode-tabs">
                 {[
-                  { key: "coach", label: "Coach", icon: Brain },
-                  { key: "habits", label: "Habits", icon: Target },
-                  { key: "decrypt", label: "Decrypt", icon: BookOpen },
+                  { key: "decrypt", label: "Review", icon: BookOpen },
+                  { key: "habits", label: "Insights", icon: Target },
                 ].map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
@@ -1518,23 +1517,8 @@ const LabV2 = ({ user }) => {
           {/* Right Panel: Coach Move Panel (dynamic) OR Habits */}
           <div className="w-[45%] flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
-              {viewMode === "coach" ? (
-                <CoachMovePanel
-                  gameId={gameId}
-                  currentMoveIndex={currentMoveIndex}
-                  moves={moves}
-                  analysis={analysis}
-                  userColor={userColor}
-                  currentFen={currentMoveIndex >= 0 ? allFens[currentMoveIndex] : allFens[0]}
-                  onPlayBestLine={(moment) => playBestLine(moment)}
-                  isPlayingBestLine={isPlayingBestLine}
-                  bestLineIndex={bestLineIndex}
-                  currentBestLine={currentBestLine}
-                  onBestLineNext={() => setBestLineIndex(Math.min(bestLineIndex + 1, (currentBestLine?.fens.length || 1) - 1))}
-                  onBestLineExit={() => { setIsPlayingBestLine(false); setCurrentBestLine(null); setBestLineIndex(0); }}
-                  onGoToNextMoment={goToNext}
-                />
-              ) : (
+              {/* Insights panel — phases, behaviors, key moments, fundamentals */}
+              {true && (
                 <div className="p-6 space-y-4">
                   {/* Phase Analysis */}
                   {coachReview?.phases && (
