@@ -1177,6 +1177,12 @@ const LabV2 = ({ user }) => {
     );
   }
   
+  // Debug: log coach review state
+  console.log("[LabV2] coachReview:", coachReview ? "loaded" : "null",
+    "session:", coachReview?.session ? "yes" : "no",
+    "moment:", coachReview?.session?.primary_moment ? "yes" : "no",
+    "showSession:", showCoachSession);
+
   // Show guided coach session FIRST (if data is available)
   if (showCoachSession && coachReview?.session?.primary_moment) {
     return (
