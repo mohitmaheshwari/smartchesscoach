@@ -165,6 +165,24 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
     avg_recent = round(sum(recent_acc) / len(recent_acc), 1) if recent_acc else 0
     avg_older = round(sum(older_acc) / len(older_acc), 1) if older_acc else 0
 
+    # Debug: sample 3 moves with cp_loss >= 100 to see actual data shape
+    debug_sample = []
+    for gid in game_ids[:5]:
+        a = analyses.get(gid, {})
+        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        for ev in evals:
+            cp = ev.get("cp_loss", 0) or 0
+            if cp >= 100 and len(debug_sample) < 5:
+                debug_sample.append({
+                    "game": gid[:8],
+                    "move": ev.get("move_number"),
+                    "cp_loss": cp,
+                    "cognitive_gap": ev.get("cognitive_gap", ""),
+                    "threat": ev.get("threat", ""),
+                    "evaluation": ev.get("evaluation", ""),
+                    "has_fen": bool(ev.get("fen_before")),
+                })
+
     return {
         "has_data": True,
         "primary_pattern": primary,
@@ -179,6 +197,14 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
         "games_analyzed": len(game_ids),
         "recent_window": len(recent_ids),
         "older_window": len(older_ids),
+        "_debug": {
+            "recent_counts": recent_counts,
+            "older_counts": older_counts,
+            "recent_ids_count": len(recent_ids),
+            "older_ids_count": len(older_ids),
+            "analyses_loaded": len(analyses),
+            "sample_mistakes": debug_sample,
+        },
     }
 
 
