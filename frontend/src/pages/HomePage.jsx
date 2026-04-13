@@ -128,6 +128,17 @@ const HomePage = ({ user }) => {
   const warmup = data?.warmup;
   const focusPlan = data?.focus_plan;
 
+  // Determine the page mood — ONE message, not contradictory signals
+  // 1. Last game clean + improving → celebrate
+  // 2. Last game bad / focus violated → confront
+  // 3. No recent data → neutral, just plan
+  const lastGameWasGood = lastSession?.result === "win" || (lastSession?.accuracy >= 75 && lastSession?.total_moves >= 15);
+  const hasImprovement = proof?.has_data && (proof?.primary_pattern?.reduction_pct > 15 || proof?.streaks?.no_big_mistake_games >= 3);
+  const mood = lastGameWasGood && hasImprovement ? "celebrating"
+    : lastGameWasGood ? "encouraging"
+    : problem?.category ? "confronting"
+    : "neutral";
+
   // Extract a reasonable display name from email
   const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
   // Split on dots, underscores, or camelCase boundaries to get first name
@@ -152,202 +163,148 @@ const HomePage = ({ user }) => {
             <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">
               {displayName ? `Hey ${displayName}.` : "Welcome back."}
             </h1>
-            {greeting.games_together > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {greeting.games_together > 1
-                  ? `You've played ${greeting.games_together} games with me.`
-                  : "We've played 1 game together."
-                }
-                {greeting.improving && greeting.acc_old && greeting.acc_new
-                  ? ` Your accuracy went from ${greeting.acc_old}% to ${greeting.acc_new}%. That's real improvement.`
-                  : greeting.avg_accuracy
-                    ? ` ${greeting.avg_accuracy}% average accuracy.`
-                    : ""
-                }
-              </p>
-            )}
           </div>
 
-          {/* ─── IMPROVEMENT PROOF ─── */}
-          {proof?.has_data && (proof?.primary_pattern?.reduction_pct > 0 || proof?.streaks?.no_blunder_games >= 3 || proof?.streaks?.no_big_mistake_games >= 3 || proof?.streaks?.no_threat_miss_games >= 3 || proof?.accuracy?.delta >= 2) && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08 }}
-              className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/[0.03] p-4"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                <span className="text-sm font-semibold text-foreground">
-                  {proof.primary_pattern?.reduction_pct > 0
-                    ? `${proof.primary_pattern.reduction_pct}% fewer ${proof.primary_pattern.label.toLowerCase()} mistakes`
-                    : proof.accuracy?.delta >= 2
-                      ? `Accuracy up ${proof.accuracy.delta}% recently`
-                      : "You're staying consistent"
-                  }
-                </span>
-              </div>
-
-              {proof.streaks?.no_blunder_games >= 2 && (
-                <p className="text-xs text-emerald-500/70 mb-2">
-                  <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_blunder_games} games in a row with no blunders
-                </p>
-              )}
-
-              {proof.streaks?.no_big_mistake_games >= 3 && (
-                <p className="text-xs text-emerald-500/70 mb-2">
-                  <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_big_mistake_games} games without a major mistake
-                </p>
-              )}
-
-              {proof.streaks?.no_threat_miss_games >= 3 && (
-                <p className="text-xs text-emerald-500/70 mb-2">
-                  <Flame className="w-3 h-3 inline mr-1" />{proof.streaks.no_threat_miss_games} games without missing a threat
-                </p>
-              )}
-
-              {/* Before/After — show first example only on home */}
-              {proof.before_after?.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-xs text-muted-foreground mb-2">{proof.before_after[0].message}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Before</p>
-                      <div className="rounded-lg overflow-hidden border border-red-500/20">
-                        <LichessBoard fen={proof.before_after[0].old_fen} viewOnly={true} width={150} />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
-                      <div className="rounded-lg overflow-hidden border border-emerald-500/20">
-                        <LichessBoard fen={proof.before_after[0].new_fen} viewOnly={true} width={150} />
-                      </div>
-                    </div>
+          {/* ═══ MOOD: CELEBRATING — last game good + improving ═══ */}
+          {mood === "celebrating" && (
+            <>
+              {/* Improvement proof */}
+              {proof?.primary_pattern?.reduction_pct > 0 && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+                  className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/[0.03] p-4"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-500" strokeWidth={2} />
+                    <span className="text-sm font-semibold text-foreground">
+                      {proof.primary_pattern.reduction_pct}% fewer {proof.primary_pattern.label.toLowerCase()} mistakes
+                    </span>
                   </div>
-                </div>
+                  {proof.before_after?.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-2">{proof.before_after[0].message}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-[9px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Before</p>
+                          <div className="rounded-lg overflow-hidden border border-red-500/20">
+                            <LichessBoard fen={proof.before_after[0].old_fen} viewOnly={true} width={150} />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[9px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
+                          <div className="rounded-lg overflow-hidden border border-emerald-500/20">
+                            <LichessBoard fen={proof.before_after[0].new_fen} viewOnly={true} width={150} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-foreground/60 mt-3">This used to happen every game. Now it doesn't.</p>
+                </motion.div>
               )}
 
-              {proof.primary_pattern?.reduction_pct > 0 && (
-                <p className="text-xs text-foreground/60 mt-3">
-                  This used to happen every game. Now it doesn't.
-                </p>
+              {/* Last session — brief, positive */}
+              {lastSession && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+                  className="rounded-2xl border border-emerald-500/15 bg-card p-4"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Trophy className="w-4 h-4 text-emerald-500" strokeWidth={2} />
+                    <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Last session</span>
+                  </div>
+                  <p className="text-sm text-foreground">{lastSession.story}</p>
+                </motion.div>
+              )}
+            </>
+          )}
+
+          {/* ═══ MOOD: ENCOURAGING — last game good, no strong improvement data ═══ */}
+          {mood === "encouraging" && lastSession && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+              className="rounded-2xl border border-emerald-500/15 bg-card p-4"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Trophy className="w-4 h-4 text-emerald-500" strokeWidth={2} />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Last session</span>
+              </div>
+              <p className="text-sm text-foreground">{lastSession.story}</p>
+              {lastSession.accuracy > 0 && lastSession.total_moves >= 15 && (
+                <p className="text-xs text-muted-foreground mt-1.5">{lastSession.total_moves} moves · {lastSession.accuracy}% accuracy</p>
               )}
             </motion.div>
           )}
 
-          {/* ─── FOCUS PLAN ─── */}
+          {/* ═══ MOOD: CONFRONTING — last game bad, show the problem ═══ */}
+          {mood === "confronting" && (
+            <>
+              {/* Last session — brief, not the focus */}
+              {lastSession && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+                  className="rounded-2xl border border-border bg-card p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-3.5 h-3.5 text-red-400" strokeWidth={2} />
+                    <p className="text-xs text-muted-foreground">{lastSession.story}</p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* The problem — the main event */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+                <p className="text-[15px] text-foreground font-medium leading-snug mb-3">
+                  {PROBLEM_HEADLINES[problem.category] || `Your ${problem.category.replace(/_/g, " ")} needs work.`}
+                </p>
+                {problem.count >= 2 && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {problem.trending_better
+                      ? `This happened in ${problem.count} games. But it's getting less frequent.`
+                      : problem.count >= 7
+                        ? "This is happening in almost every game."
+                        : `This happened in ${problem.count} of your recent games.`
+                    }
+                  </p>
+                )}
+                <div className="py-3 px-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/10">
+                  <p className="text-sm text-foreground font-medium">
+                    {focusPlan?.rule || PROBLEM_RULES[problem.category] || "Think before you move."}
+                  </p>
+                </div>
+              </motion.div>
+            </>
+          )}
+
+          {/* ═══ MOOD: NEUTRAL — no strong signal ═══ */}
+          {mood === "neutral" && lastSession && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+              className="rounded-2xl border border-border bg-card p-4"
+            >
+              <p className="text-sm text-foreground">{lastSession.story}</p>
+            </motion.div>
+          )}
+
+          {/* ─── FOCUS PLAN (all moods, if exists) ─── */}
           {focusPlan && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12 }}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
               className="rounded-2xl border border-border bg-card p-4"
             >
               <div className="flex items-center gap-2 mb-2">
                 <Target className="w-4 h-4 text-primary" strokeWidth={2} />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-primary/60">
-                  This week's focus
-                </span>
+                <span className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Your focus</span>
               </div>
-
               <p className="text-sm font-medium text-foreground mb-1">{focusPlan.name}</p>
-              <p className="text-xs text-muted-foreground mb-3">{focusPlan.rule}</p>
-
-              {/* Game results dots */}
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mt-2">
                 <div className="flex items-center gap-1.5">
                   {Array.from({ length: focusPlan.games_target }).map((_, i) => {
-                    const result = focusPlan.game_results?.[i];
+                    const r = focusPlan.game_results?.[i];
                     return (
-                      <div
-                        key={i}
-                        className={`w-3 h-3 rounded-full border ${
-                          !result ? "border-border bg-transparent"
-                          : result.clean ? "border-emerald-500 bg-emerald-500"
-                          : "border-red-400 bg-red-400"
-                        }`}
-                        title={result ? (result.clean ? "Clean" : `${result.violations} violations`) : "Not played yet"}
-                      />
+                      <div key={i} className={`w-3 h-3 rounded-full border ${
+                        !r ? "border-border" : r.clean ? "border-emerald-500 bg-emerald-500" : "border-red-400 bg-red-400"
+                      }`} />
                     );
                   })}
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {focusPlan.clean_count}/{focusPlan.clean_threshold} clean games needed
+                  {focusPlan.clean_count}/{focusPlan.clean_threshold} clean
                 </span>
-              </div>
-
-              {/* Last game feedback */}
-              {focusPlan.last_game_clean === true && (
-                <p className="text-xs text-emerald-500">Last game: clean. Keep it up.</p>
-              )}
-              {focusPlan.last_game_clean === false && (
-                <p className="text-xs text-red-400/80">Last game: the rule wasn't applied. Try again.</p>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── LAST SESSION RECAP ─── */}
-          {lastSession && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                {lastSession.result === "win" ? (
-                  <Trophy className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                ) : lastSession.result === "loss" ? (
-                  <XCircle className="w-4 h-4 text-red-400" strokeWidth={2} />
-                ) : (
-                  <Minus className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
-                )}
-                <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">
-                  Last session
-                </span>
-              </div>
-              <p className="text-sm text-foreground leading-relaxed">
-                {lastSession.story}
-              </p>
-              {lastSession.accuracy > 0 && (
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  {lastSession.total_moves} moves · {lastSession.accuracy}% accuracy
-                </p>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── WHAT'S HOLDING YOU BACK ─── */}
-          {problem?.category && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-            >
-              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
-                The thing that's still holding you back
-              </p>
-              <p className="text-[15px] text-foreground font-medium leading-snug mb-3">
-                {PROBLEM_HEADLINES[problem.category] || `Your ${problem.category.replace(/_/g, " ")} needs work.`}
-              </p>
-
-              {/* Evidence + trend */}
-              {problem.count >= 2 && (
-                <p className="text-sm text-muted-foreground mb-3">
-                  {problem.trending_better
-                    ? `This happened in ${problem.count} games. But it's getting less frequent — you're improving.`
-                    : problem.count >= 7
-                      ? "This is happening in almost every game."
-                      : `This happened in ${problem.count} of your recent games.`
-                  }
-                </p>
-              )}
-
-              {/* The rule */}
-              <div className="py-3 px-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/10">
-                <p className="text-sm text-foreground font-medium">
-                  {PROBLEM_RULES[problem.category] || "Think before you move."}
-                </p>
               </div>
             </motion.div>
           )}
