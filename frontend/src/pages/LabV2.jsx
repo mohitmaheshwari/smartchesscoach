@@ -376,6 +376,7 @@ const LabV2 = ({ user }) => {
   const [game, setGame] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [labData, setLabData] = useState(null);
+  const [coachReview, setCoachReview] = useState(null);
   const [deepStrategy, setDeepStrategy] = useState(null);
   const [loadingDeepStrategy, setLoadingDeepStrategy] = useState(false);
   const [focusModule, setFocusModule] = useState(null);
@@ -451,6 +452,12 @@ const LabV2 = ({ user }) => {
         if (labRes.ok) {
           setLabData(await labRes.json());
         }
+
+        // Fetch coach review (phases, opening, behaviors, fundamentals)
+        try {
+          const crRes = await fetch(`${API}/games/${gameId}/coach-review`, { credentials: "include" });
+          if (crRes.ok) setCoachReview(await crRes.json());
+        } catch (e) { /* non-fatal */ }
         
         // Fetch focus module
         try {
@@ -1503,11 +1510,128 @@ const LabV2 = ({ user }) => {
                   onGoToNextMoment={goToNext}
                 />
               ) : (
-                <div className="p-6">
-                  <CoachInsightPanel
-                    gameId={gameId}
-                    onMoveClick={(moveNum) => navigateToMoveNumber(moveNum)}
-                  />
+                <div className="p-6 space-y-4">
+                  {/* Phase Analysis */}
+                  {coachReview?.phases && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">Game phases</p>
+                      <div className="flex gap-2">
+                        {["opening", "middlegame", "endgame"].map(key => {
+                          const p = coachReview.phases[key];
+                          if (!p) return null;
+                          const color = p.accuracy >= 80 ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                            : p.accuracy >= 60 ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                            : "text-red-400 bg-red-500/10 border-red-500/20";
+                          return (
+                            <div key={key} className={`flex-1 rounded-xl border p-3 ${color}`}>
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="text-xs font-semibold">{p.name}</span>
+                                <span className="text-sm font-bold font-mono">{p.accuracy}%</span>
+                              </div>
+                              <p className="text-[10px] opacity-70">{p.verdict}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Opening Analysis */}
+                  {coachReview?.opening_analysis && (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-primary/60 uppercase tracking-widest">Opening</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {coachReview.opening_analysis.moves_in_theory}/{coachReview.opening_analysis.total_theory_moves} theory
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground">{coachReview.opening_analysis.name}</p>
+                      {coachReview.opening_analysis.deviation && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Deviated on move {Math.floor(coachReview.opening_analysis.deviation.ply / 2) + 1}:
+                          played <span className="font-mono text-red-400">{coachReview.opening_analysis.deviation.played}</span>
+                          {" "}instead of <span className="font-mono text-emerald-400">{coachReview.opening_analysis.deviation.expected}</span>
+                        </p>
+                      )}
+                      {coachReview.opening_analysis.traps?.map((t, i) => (
+                        <div key={i} className={`mt-2 rounded-lg px-2.5 py-1.5 ${
+                          t.sprung && t.victim_color === coachReview.user_color ? "bg-red-500/10 border border-red-500/20" : "bg-amber-500/5 border border-amber-500/15"
+                        }`}>
+                          <div className="flex items-center gap-1.5">
+                            <Zap className="w-3 h-3 text-amber-500" strokeWidth={2.5} />
+                            <span className="text-[10px] font-bold text-amber-400">{t.name}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{t.story || t.explanation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Behavioral Summary */}
+                  {coachReview?.behaviors?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-red-400/60 mb-2">What went wrong</p>
+                      {coachReview.behaviors.map((b, i) => (
+                        <div key={i} className="flex items-center justify-between py-1.5">
+                          <span className="text-sm text-foreground">{b.label}</span>
+                          <span className="text-xs font-mono text-muted-foreground">{b.count}x</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Key Moments */}
+                  {coachReview?.key_moments?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">Key moments</p>
+                      <div className="space-y-2">
+                        {coachReview.key_moments.slice(0, 3).map((m, i) => (
+                          <div key={i}
+                            onClick={() => navigateToMoveNumber(m.move_number)}
+                            className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 cursor-pointer transition-all"
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-mono text-muted-foreground">Move {m.move_number}</span>
+                              <span className="text-xs font-mono text-red-400">{m.move}</span>
+                              <span className="text-muted-foreground/30">→</span>
+                              <span className="text-xs font-mono text-emerald-400">{m.best_move || "?"}</span>
+                              <span className={`text-[9px] px-1.5 py-0 rounded ${
+                                m.severity === "blunder" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"
+                              }`}>{m.severity}</span>
+                            </div>
+                            {m.commentary?.summary && (
+                              <p className="text-[11px] text-muted-foreground leading-snug">{m.commentary.summary}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fundamentals */}
+                  {coachReview?.fundamentals && Object.keys(coachReview.fundamentals).length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">Fundamentals</p>
+                      {Object.entries(coachReview.fundamentals).map(([phase, funds]) => (
+                        funds?.length > 0 && (
+                          <div key={phase} className="mb-2">
+                            <p className="text-[9px] uppercase tracking-widest text-muted-foreground/30 mb-1 capitalize">{phase}</p>
+                            {funds.map((f, i) => (
+                              <div key={i} className="flex items-center gap-2 py-0.5">
+                                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${f.progress >= 70 ? "bg-emerald-500" : f.progress >= 40 ? "bg-amber-400" : "bg-red-400"}`}
+                                    style={{ width: `${f.progress}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground w-28 truncate">{f.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
