@@ -198,7 +198,7 @@ const UnifiedProgress = ({ user }) => {
                         threw_winning: "calculation_depth", king_safety: "piece_safety",
                       };
                       const p = patternMap[narrative.weaknesses[0].category] || narrative.weaknesses[0].category;
-                      navigate(`/training/pattern/${p}`);
+                      navigate(`/training/prescribed?focus=${p}`);
                     }}
                     className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
                   >

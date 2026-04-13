@@ -263,7 +263,7 @@ const Dashboard = ({ user }) => {
                     endgame_collapse: "endgame_technique",
                   };
                   const pattern = patternMap[primaryProblem.category] || primaryProblem.category;
-                  navigate(`/training/pattern/${pattern}`);
+                  navigate(`/training/prescribed?focus=${pattern}`);
                 }}
                 className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-primary/20 bg-primary/[0.03] hover:bg-primary/[0.06] transition-all"
               >

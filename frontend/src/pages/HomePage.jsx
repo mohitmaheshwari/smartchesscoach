@@ -351,7 +351,7 @@ const HomePage = ({ user }) => {
                     time_collapse: "calculation_depth", opening_disaster: "piece_safety",
                     endgame_collapse: "endgame_technique", positional: "calculation_depth",
                   };
-                  navigate(`/training/pattern/${patternMap[problem.category] || problem.category}`);
+                  navigate(`/training/prescribed?focus=${patternMap[problem.category] || problem.category}`);
                 }}
                 className="w-full py-4 text-[15px] font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
                 data-testid="train-cta"
@@ -386,7 +386,7 @@ const HomePage = ({ user }) => {
             {/* Warmup puzzles — only show when NOT in confronting mode (training CTA handles it) */}
             {mood !== "confronting" && warmup?.available && (
               <button
-                onClick={() => navigate(`/training/pattern/${warmup.pattern}`)}
+                onClick={() => navigate(`/training/prescribed?focus=${warmup.pattern}`)}
                 className="w-full py-3 text-sm text-muted-foreground hover:text-foreground border border-border rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
               >
                 <Zap className="w-3.5 h-3.5" strokeWidth={2} />
