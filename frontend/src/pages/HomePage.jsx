@@ -74,7 +74,11 @@ const HomePage = ({ user }) => {
           const d = await dashRes.json();
           if (d.games_analyzed > 0 || d.games_imported > 0) setHasGames(true);
         }
-        if (proofRes.ok) setProof(await proofRes.json());
+        if (proofRes.ok) {
+          const proofData = await proofRes.json();
+          console.log("[Home] Improvement proof:", proofData?.has_data, "primary:", proofData?.primary_pattern?.label, "reduction:", proofData?.primary_pattern?.reduction_pct);
+          setProof(proofData);
+        }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
