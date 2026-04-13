@@ -59,74 +59,70 @@ function _generateThoughtOptions(move, posCommentary) {
 
   // 1. What the move ACTUALLY does — from the move itself
   if (move.plan?.goal) {
-    options.push({ text: move.plan.goal });
+    options.push({ text: move.plan.goal, category: "intention" });
   }
 
   // 2. If it's a capture — name the piece and square
-  if (san.includes("x")) {
-    // The narrative often explains what was captured
-    if (move.narrative) {
-      const captureMatch = move.narrative.match(/(?:takes?|captures?|took)\s+(?:the\s+)?(\w+\s+on\s+[a-h][1-8])/i);
-      if (captureMatch) {
-        options.push({ text: `I wanted to take the ${captureMatch[1]}` });
-      }
+  if (san.includes("x") && move.narrative) {
+    const captureMatch = move.narrative.match(/(?:takes?|captures?|took)\s+(?:the\s+)?(\w+\s+on\s+[a-h][1-8])/i);
+    if (captureMatch) {
+      options.push({ text: `I wanted to take the ${captureMatch[1]}`, category: "piece_safety" });
     }
   }
 
   // 3. From position commentary — specific observations
   if (posCommentary?.observations) {
     for (const obs of posCommentary.observations.slice(0, 2)) {
-      const title = obs.title || "";
+      const title = (obs.title || "").toLowerCase();
       const desc = obs.description || "";
-      // Turn the observation into a "I thought..." option
-      if (title.toLowerCase().includes("undefended") || title.toLowerCase().includes("hanging")) {
-        options.push({ text: `I didn't see that ${desc.split(".")[0].toLowerCase()}` });
-      } else if (title.toLowerCase().includes("pin")) {
-        options.push({ text: `I missed the pin — ${desc.split(".")[0].toLowerCase()}` });
-      } else if (title.toLowerCase().includes("fork")) {
-        options.push({ text: `I didn't see the fork — ${desc.split(".")[0].toLowerCase()}` });
-      } else if (title.toLowerCase().includes("threat") || title.toLowerCase().includes("attack")) {
-        options.push({ text: `I didn't notice ${desc.split(".")[0].toLowerCase()}` });
+      const shortDesc = desc.split(".")[0].toLowerCase();
+      if (title.includes("undefended") || title.includes("hanging")) {
+        options.push({ text: `I didn't see that ${shortDesc}`, category: "piece_safety" });
+      } else if (title.includes("pin")) {
+        options.push({ text: `I missed the pin — ${shortDesc}`, category: "tactical_vision" });
+      } else if (title.includes("fork")) {
+        options.push({ text: `I didn't see the fork — ${shortDesc}`, category: "tactical_vision" });
+      } else if (title.includes("overloaded")) {
+        options.push({ text: `I didn't notice ${shortDesc}`, category: "calculation" });
+      } else if (title.includes("threat") || title.includes("attack")) {
+        options.push({ text: `I didn't notice ${shortDesc}`, category: "threat_awareness" });
       }
     }
   }
 
   // 4. From the threat field — what opponent was threatening
   if (move.threat) {
-    options.push({ text: `I didn't see their ${move.threat} was threatening` });
+    options.push({ text: `I didn't see their ${move.threat} was threatening`, category: "threat_awareness" });
   }
 
-  // 5. From the best move — what the user SHOULD have done (inverted)
-  if (move.best_move_san || move.best_move) {
+  // 5. From the best move — what the user SHOULD have done
+  if ((move.best_move_san || move.best_move) && move.plan?.better_approach) {
     const best = move.best_move_san || move.best_move;
-    if (move.plan?.better_approach) {
-      options.push({ text: `I didn't consider ${best} — ${move.plan.better_approach.split(".")[0].toLowerCase()}` });
-    }
+    options.push({ text: `I didn't consider ${best} — ${move.plan.better_approach.split(".")[0].toLowerCase()}`, category: "calculation" });
   }
 
   // 6. Position-specific plan from commentary
-  if (posCommentary?.plan && !options.some(o => o.text.length > 40)) {
-    options.push({ text: `I didn't see that the position needed: ${posCommentary.plan.split(".")[0].toLowerCase()}` });
-  }
-
-  // 7. Phase-specific fallback
-  if (options.length < 3) {
-    if (phase === "opening") {
-      options.push({ text: "I didn't know the theory in this position" });
-    } else if (phase === "endgame") {
-      options.push({ text: "I wasn't sure about the endgame technique here" });
+  if (posCommentary?.plan) {
+    const planShort = posCommentary.plan.split(".")[0].toLowerCase();
+    if (planShort.length > 15 && !options.some(o => o.text.includes(planShort.slice(0, 20)))) {
+      options.push({ text: `I didn't see that the position needed: ${planShort}`, category: "planning" });
     }
-    options.push({ text: "I was rushing and didn't calculate" });
   }
 
-  // Deduplicate, clean up, limit to 5
+  // 7. Opening theory — only if actually in opening
+  if (phase === "opening" && move.opening_name) {
+    options.push({ text: `I didn't know the theory for the ${move.opening_name}`, category: "opening_knowledge" });
+  }
+
+  // Only genuine options — no padding, no forced minimums
+  // Deduplicate and clean
   const seen = new Set();
   return options.filter(o => {
-    const t = o.text.trim();
+    const t = o.text?.trim();
     if (!t || t.length < 10 || seen.has(t)) return false;
     seen.add(t);
     return true;
-  }).slice(0, 5);
+  });
 }
 
 
@@ -247,13 +243,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   };
   
   // Save user thought for a move
-  const saveThought = async (moveNumber, fen) => {
+  const saveThought = async (moveNumber, fen, category) => {
     const thoughtText = userThoughts[moveNumber]?.text?.trim();
+    const thoughtCategory = category || userThoughts[moveNumber]?.category || null;
     if (!thoughtText) {
       toast.error("Please enter your thought");
       return;
     }
-    
+
     setSavingThought(moveNumber);
     try {
       const res = await fetch(`${API}/games/${gameId}/thought`, {
@@ -263,7 +260,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         body: JSON.stringify({
           move_number: moveNumber,
           fen: fen || "",
-          thought_text: thoughtText
+          thought_text: thoughtText,
+          weakness_category: thoughtCategory,
         })
       });
       
@@ -714,7 +712,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             userThought={userThoughts[currentMove?.move_number]}
             thoughtInputOpen={thoughtInputOpen[currentMove?.move_number]}
             onToggleThoughtInput={(moveNum) => setThoughtInputOpen(prev => ({ ...prev, [moveNum]: !prev[moveNum] }))}
-            onThoughtChange={(moveNum, text) => setUserThoughts(prev => ({ ...prev, [moveNum]: { text, saved: false } }))}
+            onThoughtChange={(moveNum, text, category) => setUserThoughts(prev => ({ ...prev, [moveNum]: { text, category, saved: false } }))}
             onSaveThought={saveThought}
             savingThought={savingThought}
             // Plan mode props
@@ -1251,9 +1249,9 @@ const MoveCoachingCardV5 = ({
                     <button
                       key={i}
                       onClick={() => {
-                        onThoughtChange(move.move_number, opt.text);
+                        onThoughtChange(move.move_number, opt.text, opt.category);
                         // Auto-save after selection
-                        setTimeout(() => onSaveThought(move.move_number, move.fen_before), 100);
+                        setTimeout(() => onSaveThought(move.move_number, move.fen_before, opt.category), 100);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
                         userThought?.text === opt.text

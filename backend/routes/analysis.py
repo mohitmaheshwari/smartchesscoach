@@ -57,6 +57,7 @@ class ThoughtSubmission(BaseModel):
     move_number: int
     fen: str = ""
     thought_text: str
+    weakness_category: Optional[str] = None  # e.g. "threat_awareness", "piece_safety", "calculation"
 
 class PlanAnalysisRequest(BaseModel):
     fen: str  # Position before user's move
@@ -1169,6 +1170,7 @@ async def save_user_thought(
             "move_number": data.move_number,
             "fen": data.fen,
             "thought_text": data.thought_text,
+            "weakness_category": data.weakness_category,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
 
@@ -1179,7 +1181,26 @@ async def save_user_thought(
             upsert=True
         )
 
-        return {"success": True, "message": "Thought saved"}
+        # Feed into coach memory as a self-reported weakness signal
+        if data.weakness_category:
+            try:
+                await db.coach_memory.update_one(
+                    {"user_id": user.user_id},
+                    {"$push": {
+                        "self_reported_weaknesses": {
+                            "category": data.weakness_category,
+                            "thought": data.thought_text[:100],
+                            "game_id": game_id,
+                            "move_number": data.move_number,
+                            "reported_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    }},
+                    upsert=True
+                )
+            except Exception:
+                pass  # Non-blocking — coach memory update is a bonus
+
+        return {"success": True, "message": "Thought saved", "category": data.weakness_category}
     except Exception as e:
         logger.error(f"Failed to save thought: {e}")
         raise HTTPException(status_code=500, detail="Failed to save thought")
