@@ -775,4 +775,109 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
     except Exception as e:
         logger.warning(f"Behavioral summary failed: {e}")
 
+    # ─── 6. PATTERN CONTEXT (cross-game) ───
+    try:
+        # How many times has the top behavior occurred across recent games?
+        if result.get("behaviors"):
+            top_behavior = result["behaviors"][0]["behavior"]
+            recent_games = await db.game_analyses.find(
+                {"user_id": user.user_id},
+                {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations.cognitive_gap": 1,
+                 "stockfish_analysis.move_evaluations.cp_loss": 1}
+            ).sort("created_at", -1).limit(20).to_list(20)
+
+            games_with_pattern = 0
+            games_without = 0
+            recent_clean_streak = 0
+            for rg in recent_games:
+                rg_evals = rg.get("stockfish_analysis", {}).get("move_evaluations", [])
+                has_pattern = any(
+                    e.get("cognitive_gap") == top_behavior and (e.get("cp_loss", 0) or 0) >= 100
+                    for e in rg_evals
+                )
+                if has_pattern:
+                    games_with_pattern += 1
+                    if games_without == recent_clean_streak:
+                        recent_clean_streak = games_without
+                    games_without = 0
+                else:
+                    games_without += 1
+
+            result["pattern_context"] = {
+                "behavior": top_behavior,
+                "label": result["behaviors"][0]["label"],
+                "games_with": games_with_pattern,
+                "games_checked": len(recent_games),
+                "recent_clean_streak": recent_clean_streak,
+                "is_recurring": games_with_pattern >= 3,
+                "is_improving": recent_clean_streak >= 2,
+            }
+    except Exception as e:
+        logger.warning(f"Pattern context failed: {e}")
+
+    # ─── 7. COACHING SESSION DATA (for guided review) ───
+    try:
+        # Get the user's focus rule
+        from services.focus_engine import get_user_focus, FOCUS_RULES
+        focus = await get_user_focus(db, user.user_id)
+
+        # Determine which rule to show for the top behavior
+        behavior_key = result.get("behaviors", [{}])[0].get("behavior", "") if result.get("behaviors") else ""
+        BEHAVIOR_TO_CLUSTER = {
+            "calculation_depth": "calculation", "tactical_oversight": "calculation",
+            "ignore_threat": "threat_awareness", "piece_safety": "threat_awareness",
+            "positional_misread": "planning",
+        }
+        cluster = BEHAVIOR_TO_CLUSTER.get(behavior_key, "calculation")
+        rule_config = FOCUS_RULES.get(cluster, FOCUS_RULES.get("calculation", {}))
+
+        # Phase-specific opening text
+        phases = result.get("phases", {})
+        opening_p = phases.get("opening")
+        middle_p = phases.get("middlegame")
+        endgame_p = phases.get("endgame")
+
+        if opening_p and opening_p.get("accuracy", 100) < 60:
+            phase_story = "The game went wrong early — your opening had problems."
+        elif middle_p and middle_p.get("accuracy", 100) < 50:
+            phase_story = "Your opening was fine, but the middlegame is where it fell apart."
+        elif endgame_p and endgame_p.get("accuracy", 100) < 50:
+            phase_story = "You played well until the endgame, then it collapsed."
+        elif opening_p and opening_p.get("accuracy", 0) >= 80 and middle_p and middle_p.get("accuracy", 0) >= 80:
+            phase_story = "You played well throughout. Clean game."
+        else:
+            phase_story = "A game with some key lessons."
+
+        # Get the primary moment for interactive play
+        primary_moment = None
+        if result.get("key_moments"):
+            pm = result["key_moments"][0]
+            primary_moment = {
+                "fen": pm.get("fen_before") if pm.get("fen_before") else None,
+                "move_number": pm.get("move_number"),
+                "your_move": pm.get("move"),
+                "best_move": pm.get("best_move"),
+                "threat": None,
+                "phase": pm.get("phase"),
+                "commentary": pm.get("commentary", {}).get("summary", ""),
+            }
+            # Find the threat from the eval data
+            for e in evals:
+                if e.get("move_number") == pm.get("move_number") and e.get("move") == pm.get("move"):
+                    primary_moment["threat"] = e.get("threat", "")
+                    break
+
+        result["session"] = {
+            "phase_story": phase_story,
+            "primary_moment": primary_moment,
+            "rule": rule_config.get("rule", "Think before you move."),
+            "rule_name": rule_config.get("name", ""),
+            "focus_cluster": cluster,
+            "game_result": game.get("result", ""),
+            "opponent": (game.get("white_player") if user_color == "black" else game.get("black_player")) or "Opponent",
+            "opening_name": opening_name,
+        }
+    except Exception as e:
+        logger.warning(f"Session data failed: {e}")
+
     return result

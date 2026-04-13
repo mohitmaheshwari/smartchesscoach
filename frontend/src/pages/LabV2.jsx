@@ -65,6 +65,7 @@ import {
 import FeedbackModal from "@/components/FeedbackModal";
 import GameDecryptionV5 from "@/components/GameDecryptionV5";
 import CoachInsightPanel from "@/components/Lab/CoachInsightPanel";
+import CoachSession from "@/components/coach/CoachSession";
 import CoachAction from "@/components/Lab/CoachAction";
 import CoachMovePanel from "@/components/coach/CoachMovePanel";
 
@@ -377,6 +378,7 @@ const LabV2 = ({ user }) => {
   const [analysis, setAnalysis] = useState(null);
   const [labData, setLabData] = useState(null);
   const [coachReview, setCoachReview] = useState(null);
+  const [showCoachSession, setShowCoachSession] = useState(true); // Show guided session first
   const [deepStrategy, setDeepStrategy] = useState(null);
   const [loadingDeepStrategy, setLoadingDeepStrategy] = useState(false);
   const [focusModule, setFocusModule] = useState(null);
@@ -1175,6 +1177,29 @@ const LabV2 = ({ user }) => {
     );
   }
   
+  // Show guided coach session FIRST (if data is available)
+  if (showCoachSession && coachReview?.session?.primary_moment) {
+    return (
+      <Layout user={user} hideNav>
+        <div className="min-h-screen bg-background">
+          <div className="shrink-0 border-b border-border px-5 py-3">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/lab")} className="h-8 w-8">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm font-medium text-foreground">Game Review</span>
+            </div>
+          </div>
+          <CoachSession
+            review={coachReview}
+            gameId={gameId}
+            onComplete={() => setShowCoachSession(false)}
+          />
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout user={user} hideNav>
       <div className="h-screen flex flex-col overflow-hidden bg-background">
