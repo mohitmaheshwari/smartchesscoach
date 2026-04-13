@@ -584,25 +584,67 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
                                  for v in bd["branches"].values()],
                 }
 
-            # Traps
+            # Traps — check if setup was reached AND if trap was sprung
             traps_matched = []
             traps = get_all_for_opening(opening_key)
             if traps and pgn:
                 for trap in traps:
                     setup = trap.setup_moves
-                    if len(game_moves) >= len(setup):
-                        match = all(
-                            game_moves[j].replace("+", "").replace("#", "").lower() ==
-                            setup[j].replace("+", "").replace("#", "").lower()
-                            for j in range(len(setup))
-                        )
-                        if match:
-                            traps_matched.append({
-                                "name": trap.name,
-                                "explanation": trap.explanation,
-                                "trap_move": trap.trap_move,
-                                "victim": trap.victim_color,
-                            })
+                    full_line = trap.full_line
+
+                    # Check if game moves match the setup
+                    if len(game_moves) < len(setup):
+                        continue
+                    setup_match = all(
+                        game_moves[j].replace("+", "").replace("#", "").lower() ==
+                        setup[j].replace("+", "").replace("#", "").lower()
+                        for j in range(len(setup))
+                    )
+                    if not setup_match:
+                        continue
+
+                    # Setup was reached — now check if the trap was sprung
+                    # The trap_move is the key move AFTER the setup
+                    trap_sprung = False
+                    trap_avoided = False
+                    if len(full_line) > len(setup) and len(game_moves) > len(setup):
+                        # The move after setup in the full line is the trap move
+                        expected_trap = full_line[len(setup)].replace("+", "").replace("#", "").lower()
+                        actual_played = game_moves[len(setup)].replace("+", "").replace("#", "").lower()
+                        if actual_played == expected_trap:
+                            trap_sprung = True
+                        else:
+                            trap_avoided = True
+                    elif len(game_moves) == len(setup):
+                        # Game reached the setup but stopped — trap was set up but not yet sprung
+                        pass
+
+                    # Who was the victim?
+                    victim_is_user = trap.victim_color == user_color
+                    trap_for_user = trap.trap_for == user_color
+
+                    trap_entry = {
+                        "name": trap.name,
+                        "explanation": trap.explanation,
+                        "refutation": trap.refutation,
+                        "trap_move": trap.trap_move,
+                        "victim_color": trap.victim_color,
+                        "sprung": trap_sprung,
+                        "avoided": trap_avoided,
+                    }
+
+                    if trap_sprung and victim_is_user:
+                        trap_entry["story"] = f"You fell into the {trap.name}. {trap.refutation}"
+                    elif trap_sprung and trap_for_user:
+                        trap_entry["story"] = f"You played the {trap.name} and it worked!"
+                    elif trap_avoided and victim_is_user:
+                        trap_entry["story"] = f"You avoided the {trap.name}. Good awareness."
+                    elif trap_avoided and trap_for_user:
+                        trap_entry["story"] = f"You set up the {trap.name} but your opponent didn't fall for it."
+                    else:
+                        trap_entry["story"] = f"The {trap.name} position was reached in this game."
+
+                    traps_matched.append(trap_entry)
 
             opening_info = {
                 "key": opening_key,

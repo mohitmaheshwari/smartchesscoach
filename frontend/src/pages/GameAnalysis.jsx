@@ -91,15 +91,34 @@ const GameOverview = ({ review, navigate }) => {
             <p className="text-xs text-emerald-400/70">Followed theory perfectly.</p>
           )}
 
-          {opening.traps?.length > 0 && opening.traps.map((t, i) => (
-            <div key={i} className="mt-2 rounded-lg bg-amber-500/5 border border-amber-500/15 px-3 py-2">
-              <div className="flex items-center gap-1.5">
-                <Zap className="w-3 h-3 text-amber-500" strokeWidth={2.5} />
-                <span className="text-[10px] font-bold text-amber-400">{t.name}</span>
+          {opening.traps?.length > 0 && opening.traps.map((t, i) => {
+            const trapColor = t.sprung && t.victim_color === review.user_color
+              ? "bg-red-500/10 border-red-500/20"  // User fell for it
+              : t.sprung
+              ? "bg-emerald-500/10 border-emerald-500/20"  // User sprung it on opponent
+              : t.avoided
+              ? "bg-emerald-500/5 border-emerald-500/15"  // User avoided it
+              : "bg-amber-500/5 border-amber-500/15";  // Position reached
+            const iconColor = t.sprung && t.victim_color === review.user_color
+              ? "text-red-400" : t.sprung ? "text-emerald-400" : "text-amber-500";
+
+            return (
+              <div key={i} className={`mt-2 rounded-lg border px-3 py-2 ${trapColor}`}>
+                <div className="flex items-center gap-1.5">
+                  <Zap className={`w-3 h-3 ${iconColor}`} strokeWidth={2.5} />
+                  <span className={`text-[10px] font-bold ${iconColor}`}>{t.name}</span>
+                  {t.sprung && <span className="text-[9px] px-1 py-0 rounded bg-zinc-800 text-zinc-400 ml-auto">
+                    {t.victim_color === review.user_color ? "Fell for it" : "Caught them"}
+                  </span>}
+                  {t.avoided && <span className="text-[9px] px-1 py-0 rounded bg-zinc-800 text-emerald-400 ml-auto">Avoided</span>}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-0.5">{t.story || t.explanation}</p>
+                {t.sprung && t.victim_color === review.user_color && t.refutation && (
+                  <p className="text-[10px] text-zinc-500 mt-1 italic">How to avoid: {t.refutation}</p>
+                )}
               </div>
-              <p className="text-[10px] text-zinc-400 mt-0.5">{t.explanation}</p>
-            </div>
-          ))}
+            );
+          })}
 
           {opening.branches && (
             <div className="mt-2 flex items-center gap-2">
