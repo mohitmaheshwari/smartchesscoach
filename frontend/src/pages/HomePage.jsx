@@ -160,7 +160,7 @@ const HomePage = ({ user }) => {
 
           {/* ─── GREETING ─── */}
           <div>
-            <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">
+            <h1 className="text-2xl font-heading text-foreground tracking-tight">
               {displayName ? `Hey ${displayName}.` : "Welcome back."}
             </h1>
           </div>
@@ -265,7 +265,7 @@ const HomePage = ({ user }) => {
                 )}
                 <div className="py-3 px-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/10">
                   <p className="text-sm text-foreground font-medium">
-                    {focusPlan?.rule || PROBLEM_RULES[problem.category] || "Think before you move."}
+                    {PROBLEM_RULES[problem.category] || focusPlan?.rule || "Think before you move."}
                   </p>
                 </div>
               </motion.div>
@@ -281,8 +281,8 @@ const HomePage = ({ user }) => {
             </motion.div>
           )}
 
-          {/* ─── FOCUS PLAN (all moods, if exists) ─── */}
-          {focusPlan && (
+          {/* ─── FOCUS PLAN (show only if games tracked, otherwise looks empty) ─── */}
+          {focusPlan && focusPlan.games_played > 0 && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
               className="rounded-2xl border border-border bg-card p-4"
             >
