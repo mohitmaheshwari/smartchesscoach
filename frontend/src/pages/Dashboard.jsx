@@ -89,7 +89,18 @@ const Dashboard = ({ user }) => {
   const unreviewed = primaryGames.filter(g => !g.reviewed);
 
   // The ONE game to show with a board — priority game or first unreviewed
-  const featuredGame = priorityGame || unreviewed[0];
+  // Normalize field names (priority_game uses replay.mistake_fen, grouped uses critical_fen)
+  let featuredGame = null;
+  if (priorityGame) {
+    featuredGame = {
+      ...priorityGame,
+      critical_fen: priorityGame.critical_fen || priorityGame.replay?.mistake_fen,
+      critical_move: priorityGame.critical_move || priorityGame.move_number,
+    };
+  }
+  if (!featuredGame?.critical_fen && unreviewed[0]) {
+    featuredGame = unreviewed[0];
+  }
 
   return (
     <Layout user={user}>

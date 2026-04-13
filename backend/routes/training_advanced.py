@@ -1237,15 +1237,21 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             is_sac = e.get("is_sacrifice", False)
             cp_swing = abs((e.get("eval_after", 0) or 0) - (e.get("eval_before", 0) or 0))
 
-            # Infer type from move characteristics
-            if is_sac:
-                btype = "Sacrifice"
-            elif "x" in move_san and cp_swing > 200:
+            # Infer type — be specific, not "all sacrifices"
+            if "#" in move_san:
+                btype = "Checkmate"
+            elif "+" in move_san and cp_swing > 300:
+                btype = "Winning check"
+            elif "x" in move_san and cp_swing > 300:
                 btype = "Tactical strike"
-            elif "+" in move_san or "#" in move_san:
-                btype = "Forcing move"
-            elif cp_swing > 300:
+            elif "x" in move_san and is_sac:
+                btype = "Sacrifice"
+            elif cp_swing > 400:
                 btype = "Deep calculation"
+            elif "+" in move_san:
+                btype = "Forcing move"
+            elif is_sac:
+                btype = "Positional sacrifice"
             else:
                 btype = "Strong move"
 
