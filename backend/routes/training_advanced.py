@@ -406,16 +406,17 @@ async def _batch_generate_game_stories(games: list) -> dict:
 
     user_msg = "Write a unique 1-2 sentence story for each game below. Return as:\nGAME_ID: story\n\n" + "\n".join(game_contexts)
 
-    system = """You are a chess coach writing short game summaries for a student's game list.
-Rules:
-- Each story: max 30 words. One to two sentences.
-- Talk about BEHAVIOR, not specific moves or squares.
-- No motivational filler. No "keep it up" or "you can do this."
-- No scores, percentages, or ratings.
-- If they won cleanly: brief, positive. If they lost: honest, not harsh.
-- EVERY story must be DIFFERENT. Vary sentence structure, word choice, angle.
-- Use the draft as context but REWRITE it — don't copy.
-- Format: one line per game. Start each line with the game ID (first 8 chars), then colon, then the story."""
+    system = """You write chess game summaries. Short. Unique. Coach voice.
+
+STRICT RULES:
+- MAX 20 words per game. Two sentences maximum.
+- About BEHAVIOR (why they lost), not moves or squares.
+- NO advice. NO "focus on" or "try to" or "in future games."
+- NO scores, percentages, or ratings.
+- Each story MUST sound different from the others.
+- Won cleanly → brief praise. Lost → what went wrong (behavior, not move).
+
+FORMAT: Each line starts with the 8-character game ID, then colon, then the story. One line per game. Nothing else."""
 
     try:
         response = await call_llm(system, user_msg, model="gpt-4o-mini")
@@ -430,19 +431,24 @@ Rules:
             parts = line.split(":", 1)
             if len(parts) != 2:
                 continue
-            gid_prefix = parts[0].strip().replace("GAME ", "").replace("GAME_", "").strip()
-            story = parts[1].strip().strip('"').strip("'")
+            gid_prefix = parts[0].strip().replace("GAME ", "").replace("GAME_", "").replace("**", "").strip()
+            story = parts[1].strip().strip('"').strip("'").strip("*")
 
-            # Match to actual game_id
+            if not story or len(story) < 5:
+                continue
+
+            # Match to actual game_id (flexible — prefix match)
             for g in games:
-                if g["game_id"][:8] == gid_prefix or g["game_id"].startswith(gid_prefix):
-                    # Enforce word limit
+                if g["game_id"][:8] == gid_prefix or g["game_id"].startswith(gid_prefix) or gid_prefix in g["game_id"]:
+                    # Enforce strict word limit
                     words = story.split()
-                    if len(words) > 40:
-                        story = " ".join(words[:35])
+                    if len(words) > 25:
+                        story = " ".join(words[:20])
                         last_period = story.rfind(".")
-                        if last_period > 15:
+                        if last_period > 10:
                             story = story[:last_period + 1]
+                        elif not story.endswith("."):
+                            story += "."
                     result[g["game_id"]] = story
                     break
 
@@ -1493,6 +1499,20 @@ async def mark_game_reviewed(game_id: str, user: User = Depends(get_current_user
     except Exception:
         pass
     return {"success": result.modified_count > 0}
+
+
+@router.post("/lab-refresh-stories")
+async def refresh_game_stories(user: User = Depends(get_current_user)):
+    """Clear cached LLM stories so they regenerate on next load."""
+    try:
+        result = await db.game_analyses.update_many(
+            {"user_id": user.user_id},
+            {"$unset": {"llm_game_story": ""}}
+        )
+        await db.coaching_cache.delete_one({"user_id": user.user_id})
+        return {"cleared": result.modified_count}
+    except Exception as e:
+        return {"cleared": 0, "error": str(e)}
 
 
 @router.get("/replay/{game_id}")
