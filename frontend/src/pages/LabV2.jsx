@@ -1574,7 +1574,15 @@ const LabV2 = ({ user }) => {
                       {coachReview.behaviors.map((b, i) => (
                         <div key={i} className="flex items-center justify-between py-1.5">
                           <span className="text-sm text-foreground">{b.label}</span>
-                          <span className="text-xs font-mono text-muted-foreground">{b.count}x</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-muted-foreground">{b.count}x</span>
+                            <button
+                              onClick={() => navigate(`/training/pattern/${b.behavior}`)}
+                              className="text-[10px] text-primary hover:text-primary/80 transition-colors"
+                            >
+                              Practice
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

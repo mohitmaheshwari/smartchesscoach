@@ -248,21 +248,50 @@ const Dashboard = ({ user }) => {
           )}
 
           {/* ═══ ACTIONS ═══ */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={() => navigate("/play-with-coach")}
-              className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all"
-            >
-              <Swords className="w-4 h-4 text-primary" strokeWidth={2} />
-              <span className="text-sm text-foreground">Play</span>
-            </button>
-            <button
-              onClick={() => navigate("/import")}
-              className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all"
-            >
-              <Import className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
-              <span className="text-sm text-foreground">Import</span>
-            </button>
+          <div className="space-y-2 pt-2">
+            {/* Train this weakness — links to puzzle training */}
+            {primaryProblem && (
+              <button
+                onClick={() => {
+                  const patternMap = {
+                    threw_winning: "calculation_depth",
+                    tactical_miss: "tactical_oversight",
+                    one_move_blunder: "piece_safety",
+                    calculation_error: "calculation_depth",
+                    time_collapse: "calculation_depth",
+                    opening_disaster: "piece_safety",
+                    endgame_collapse: "endgame_technique",
+                  };
+                  const pattern = patternMap[primaryProblem.category] || primaryProblem.category;
+                  navigate(`/training/pattern/${pattern}`);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-primary/20 bg-primary/[0.03] hover:bg-primary/[0.06] transition-all"
+              >
+                <Target className="w-4 h-4 text-primary" strokeWidth={2} />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-foreground">Practice this weakness</p>
+                  <p className="text-[10px] text-muted-foreground">Solve positions from your games — 3 min</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/30 ml-auto" />
+              </button>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => navigate("/play-with-coach")}
+                className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all"
+              >
+                <Swords className="w-4 h-4 text-primary" strokeWidth={2} />
+                <span className="text-sm text-foreground">Play</span>
+              </button>
+              <button
+                onClick={() => navigate("/import")}
+                className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all"
+              >
+                <Import className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
+                <span className="text-sm text-foreground">Import</span>
+              </button>
+            </div>
           </div>
 
           {/* No coaching data fallback */}

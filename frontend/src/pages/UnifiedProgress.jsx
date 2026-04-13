@@ -180,14 +180,33 @@ const UnifiedProgress = ({ user }) => {
             <div className="rounded-2xl border-2 border-primary/20 bg-primary/[0.03] p-5 mb-6">
               <p className="text-[10px] uppercase tracking-widest font-bold text-primary mb-2">Next step</p>
               <p className="text-sm text-foreground leading-relaxed mb-4">{narrative.next_step}</p>
-              <button
-                onClick={() => navigate("/play-with-coach")}
-                className="w-full py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
-              >
-                <Swords className="w-4 h-4" strokeWidth={2} />
-                Play with Coach
-                <ChevronRight className="w-4 h-4 opacity-60" />
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate("/play-with-coach")}
+                  className="w-full py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                >
+                  <Swords className="w-4 h-4" strokeWidth={2} />
+                  Play with Coach
+                  <ChevronRight className="w-4 h-4 opacity-60" />
+                </button>
+                {narrative?.weaknesses?.[0]?.category && (
+                  <button
+                    onClick={() => {
+                      const patternMap = {
+                        one_move_blunder: "piece_safety", piece_safety: "piece_safety",
+                        tactical_miss: "tactical_oversight", calculation_error: "calculation_depth",
+                        threw_winning: "calculation_depth", king_safety: "piece_safety",
+                      };
+                      const p = patternMap[narrative.weaknesses[0].category] || narrative.weaknesses[0].category;
+                      navigate(`/training/pattern/${p}`);
+                    }}
+                    className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Target className="w-3.5 h-3.5" strokeWidth={2} />
+                    Practice your weakness — puzzles from your games
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
