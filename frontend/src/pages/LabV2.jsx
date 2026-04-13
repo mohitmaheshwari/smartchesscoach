@@ -378,7 +378,7 @@ const LabV2 = ({ user }) => {
   const [analysis, setAnalysis] = useState(null);
   const [labData, setLabData] = useState(null);
   const [coachReview, setCoachReview] = useState(null);
-  const [showCoachSession, setShowCoachSession] = useState(true); // Show guided session first
+  const [sessionDismissed, setSessionDismissed] = useState(false); // User explicitly dismissed
   const [deepStrategy, setDeepStrategy] = useState(null);
   const [loadingDeepStrategy, setLoadingDeepStrategy] = useState(false);
   const [focusModule, setFocusModule] = useState(null);
@@ -1177,14 +1177,8 @@ const LabV2 = ({ user }) => {
     );
   }
   
-  // Debug: log coach review state
-  console.log("[LabV2] coachReview:", coachReview ? "loaded" : "null",
-    "session:", coachReview?.session ? "yes" : "no",
-    "moment:", coachReview?.session?.primary_moment ? "yes" : "no",
-    "showSession:", showCoachSession);
-
-  // Show guided coach session FIRST (if data is available)
-  if (showCoachSession && coachReview?.session?.primary_moment) {
+  // Show guided coach session FIRST (if data is available and not dismissed)
+  if (!sessionDismissed && coachReview?.session?.primary_moment) {
     return (
       <Layout user={user} hideNav>
         <div className="min-h-screen bg-background">
@@ -1199,7 +1193,7 @@ const LabV2 = ({ user }) => {
           <CoachSession
             review={coachReview}
             gameId={gameId}
-            onComplete={() => setShowCoachSession(false)}
+            onComplete={() => setSessionDismissed(true)}
           />
         </div>
       </Layout>
