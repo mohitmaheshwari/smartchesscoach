@@ -1156,23 +1156,97 @@ def derive_transferable_learning(candidate_types: List[str], piece_type: Optiona
 def generate_coach_move_explanation(
     board_before: chess.Board,
     move: chess.Move,
-    user_color: str = "white"
+    user_color: str = "white",
+    v2_context: Optional[Dict] = None,
 ) -> Dict:
     """
     Generate a rich explanation for the COACH's move.
-    
-    This tells the user:
-    - What the coach is doing
-    - What plan the coach is following
-    - What threats this creates
-    - What the user should watch out for
-    - Teaching point (why this is a good move)
-    
-    This makes the game EDUCATIONAL, not just playing moves.
+
+    When v2 teaching context is available, the explanation is driven by
+    the teaching intent (what the coach was TRYING to teach), not generic
+    piece-type descriptions.
     """
     move_san = board_before.san(move)
     piece = board_before.piece_at(move.from_square)
     get_fun_piece_name(piece) if piece else "piece"
+
+    # ═══ V2 INTENT-DRIVEN EXPLANATION ═══
+    # When the v2 selector chose this move for a specific teaching reason,
+    # use THAT as the explanation instead of generic commentary.
+    if v2_context and v2_context.get("v2"):
+        intent = v2_context.get("teaching_goal", "")
+        why = v2_context.get("why_instructive", "")
+        breakdown = v2_context.get("v2_breakdown", {})
+        sub = breakdown.get("sub_scores", {})
+
+        explanation = ""
+        plan = ""
+        threats = []
+        teaching_point = ""
+        hint_for_user = ""
+
+        if intent == "hanging_piece_punishment":
+            if sub.get("capture_punishment", 0) > 0:
+                # Coach captured an undefended piece
+                captured = board_before.piece_at(move.to_square)
+                cap_name = get_fun_piece_name(captured) if captured else "piece"
+                explanation = f"Your {cap_name} was undefended — I took it."
+                plan = "Before every move, check: is anything I own undefended?"
+                teaching_point = "Count attackers vs defenders on every piece before you move."
+                hint_for_user = "Scan the board: which of your pieces has no defender right now?"
+            elif sub.get("undefended", 0) > 0:
+                # Coach played a move that leaves student's piece hanging
+                explanation = f"{move_san} — look carefully at your pieces."
+                plan = "One of your pieces is now undefended. Can you find which one?"
+                teaching_point = "After every opponent move, ask: did anything change? Is something now attacked?"
+                hint_for_user = "Check every piece. Is anything undefended?"
+            else:
+                explanation = f"{move_san} — watch your pieces."
+                plan = "Something may be under pressure."
+
+        elif intent == "fork_opportunity":
+            explanation = f"{move_san} — this piece is attacking two things at once."
+            plan = "You can only save one. Which is more valuable?"
+            teaching_point = "Double attacks (forks) win material because the opponent can't save everything."
+            hint_for_user = "Count what this piece is attacking. Can you save both targets?"
+            if why and "forks" in why:
+                explanation = f"{move_san} — {why}."
+
+        elif intent == "threat_awareness":
+            if sub.get("attacks_undefended", 0) > 0:
+                explanation = f"{move_san} — I'm now threatening something undefended."
+                plan = "Before you play, ask: what is my opponent threatening?"
+                teaching_point = "The #1 habit of improving players: check what changed after the opponent's move."
+                hint_for_user = "What am I threatening? Find it before you move."
+            elif sub.get("checks", 0) > 0:
+                explanation = f"{move_san} — I have a check available next move."
+                plan = "Checks are forcing. Be aware of potential checks."
+                hint_for_user = "Can I give check? If so, you need to address that first."
+            elif sub.get("safe_captures", 0) > 0:
+                explanation = f"{move_san} — I now have a safe capture available."
+                plan = "Look at what I can take. Is everything defended?"
+                hint_for_user = "Check: can I capture something for free?"
+            else:
+                explanation = f"{move_san} — what changed on the board?"
+                plan = "Always ask: what does my opponent's move do?"
+
+        elif intent == "opening_guidance":
+            explanation = f"{move_san} — following opening principles."
+            plan = "Develop pieces, control the center, castle early."
+
+        # Fallback for unknown intent
+        if not explanation:
+            explanation = f"I play {move_san}."
+            plan = why if why else "Improving my position."
+
+        return {
+            "move_san": move_san,
+            "explanation": explanation,
+            "plan": plan,
+            "threats": threats,
+            "teaching_point": teaching_point,
+            "hint_for_user": hint_for_user,
+        }
     
     board_after = board_before.copy()
     board_after.push(move)

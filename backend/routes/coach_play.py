@@ -2562,27 +2562,30 @@ async def get_interactive_coaching(
             board = chess.Board(last_coach_move["fen_before"])
             move = board.parse_san(last_coach_move["move"])
 
+            # Pass v2 teaching context so explanation is intent-driven
+            v2_ctx = None
+            if last_coach_move.get("v2"):
+                v2_ctx = {
+                    "v2": True,
+                    "teaching_goal": last_coach_move.get("teaching_intent"),
+                    "why_instructive": last_coach_move.get("why_instructive"),
+                    "v2_breakdown": last_coach_move.get("v2_breakdown", {}),
+                }
+
             coach_explanation = generate_coach_move_explanation(
-                board, move, user_color
+                board, move, user_color, v2_context=v2_ctx
             )
 
-            # Enrich with v2 teaching intent when available
-            if last_coach_move.get("v2") and last_coach_move.get("why_instructive"):
-                v2_intent = last_coach_move.get("teaching_intent", "")
-                v2_explanation = last_coach_move.get("why_instructive", "")
-
-                # Replace generic explanation with intent-specific one
+            # Add intent badge data for frontend
+            if last_coach_move.get("v2"):
                 intent_labels = {
                     "fork_opportunity": "Double Attack",
                     "hanging_piece_punishment": "Piece Safety",
                     "threat_awareness": "Creating Threats",
                 }
-                label = intent_labels.get(v2_intent, "")
-
-                if v2_explanation and v2_explanation != "no meaningful threats":
-                    coach_explanation["v2_intent"] = v2_intent
-                    coach_explanation["v2_label"] = label
-                    coach_explanation["v2_explanation"] = v2_explanation
+                v2_intent = last_coach_move.get("teaching_intent", "")
+                coach_explanation["v2_intent"] = v2_intent
+                coach_explanation["v2_label"] = intent_labels.get(v2_intent, "")
 
             result["coach_move_coaching"] = coach_explanation
         except Exception as e:

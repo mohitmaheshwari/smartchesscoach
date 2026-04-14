@@ -965,13 +965,17 @@ const CoachPlaySidebar = ({
                     </p>
                   </div>
                 )}
-                {interactiveCoaching.coachMoveCoaching.teaching_point && (
+                {interactiveCoaching.coachMoveCoaching.hint_for_user && (
                   <div className="mt-2 pt-2 border-t border-blue-500/20">
-                    <p className="text-amber-700 text-xs italic">
-                      {
-                        interactiveCoaching.coachMoveCoaching
-                          .teaching_point
-                      }
+                    <p className="text-amber-700 text-sm font-medium">
+                      🤔 {interactiveCoaching.coachMoveCoaching.hint_for_user}
+                    </p>
+                  </div>
+                )}
+                {interactiveCoaching.coachMoveCoaching.teaching_point && (
+                  <div className={`${interactiveCoaching.coachMoveCoaching.hint_for_user ? 'mt-1' : 'mt-2 pt-2 border-t border-blue-500/20'}`}>
+                    <p className="text-blue-600 text-xs italic">
+                      {interactiveCoaching.coachMoveCoaching.teaching_point}
                     </p>
                   </div>
                 )}

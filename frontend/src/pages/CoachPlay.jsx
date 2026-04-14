@@ -1829,10 +1829,11 @@ const CoachPlay = ({ user }) => {
             }
             
             setCoachThinking(false);
-            
-            // Coach move explanation is now provided directly via last_coach_move.explanation
-            // No need for the separate V5 interactive-feedback call
-            
+
+            // Fetch V5 interactive feedback — this runs fundamentals checklist,
+            // Socratic coaching, stores move snapshots, and gets coach move explanation
+            fetchInteractiveCoaching(session?.session_id || sessionId);
+
             return;
           }
         }
