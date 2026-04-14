@@ -1231,8 +1231,29 @@ def generate_coach_move_explanation(
                 plan = "Always ask: what does my opponent's move do?"
 
         elif intent == "opening_guidance":
-            explanation = f"{move_san} — following opening principles."
-            plan = "Develop pieces, control the center, castle early."
+            # Piece-aware opening explanation
+            if piece:
+                if piece.piece_type == chess.KNIGHT:
+                    explanation = f"{move_san} — developing the knight toward the center."
+                    plan = "Knights should come out early. They're strongest near the center."
+                    teaching_point = "Develop knights before bishops — they need more moves to get active."
+                elif piece.piece_type == chess.BISHOP:
+                    explanation = f"{move_san} — developing the bishop to an active diagonal."
+                    plan = "Bishops need open diagonals. Place them where they see the whole board."
+                elif piece.piece_type == chess.PAWN:
+                    explanation = f"{move_san} — controlling the center with a pawn."
+                    plan = "Central pawns give your pieces room to develop."
+                elif board_before.is_castling(move):
+                    side = "kingside" if chess.square_file(move.to_square) > 4 else "queenside"
+                    explanation = f"Castling {side} — getting the king safe."
+                    plan = "Castle early! A safe king lets you play aggressively."
+                else:
+                    explanation = f"{move_san} — following opening principles."
+                    plan = "Develop pieces, control the center, castle early."
+            else:
+                explanation = f"{move_san} — following opening principles."
+                plan = "Develop pieces, control the center, castle early."
+            hint_for_user = "Focus on developing YOUR pieces too. Are any still on the back rank?"
 
         # Fallback for unknown intent
         if not explanation:

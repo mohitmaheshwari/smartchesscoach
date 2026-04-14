@@ -1105,13 +1105,13 @@ const CoachPlaySidebar = ({
               </div>
             )}
 
-            {/* Position Evaluation — only in old mode */}
-            {!suppressOldCoaching && v5Coaching?.eval_label && (
+            {/* Position Evaluation — hide when v2 coach explanation is showing */}
+            {!suppressOldCoaching && v5Coaching?.eval_label && !interactiveCoaching?.coachMoveCoaching?.v2_intent && (
               <EvalBadge evalLabel={v5Coaching.eval_label} size="md" showDescription />
             )}
 
-            {/* Position Intelligence — only in old mode */}
-            {!suppressOldCoaching && v5Coaching?.position_read && (
+            {/* Position Intelligence — hide when v2 coach explanation is showing */}
+            {!suppressOldCoaching && v5Coaching?.position_read && !interactiveCoaching?.coachMoveCoaching?.v2_intent && (
               <div className="p-3 rounded-lg border border-blue-500/15 bg-blue-500/5" data-testid="position-read">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-500">

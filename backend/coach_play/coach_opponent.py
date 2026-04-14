@@ -450,12 +450,13 @@ class PedagogicalOpponent(CoachOpponent):
             if guided_move:
                 self.last_teaching_context = {
                     "teaching_goal": "opening_guidance",
-                    "why_instructive": "Guiding toward a known opening for teaching",
+                    "why_instructive": "Following opening principles — develop pieces and control the center",
                     "concept_taught": "opening_principles",
                     "student_challenge": "Learn the opening ideas",
                     "is_best_move": True,
                     "move_type": "opening_guide",
-                    "v2": False,
+                    "v2": True,  # Use v2 path so explanation is intent-driven
+                    "v2_breakdown": {},
                 }
                 print(f"[CoachOpponent] Using opening guide move: {guided_move} for FEN: {fen[:50]}...")
                 return guided_move
