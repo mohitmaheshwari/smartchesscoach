@@ -361,6 +361,7 @@ class FundamentalsChecklistService:
         user_color: str,
         opponent_last_move: Optional[chess.Move] = None,
         opening_match: Optional[dict] = None,
+        coach_intent: Optional[str] = None,
     ) -> FundamentalsDiagnosis:
         """Run all 7 checks, return the primary violated fundamental."""
 
@@ -408,11 +409,27 @@ class FundamentalsChecklistService:
         details[Fundamental.HAVE_A_PLAN] = det
 
         # Find primary violated fundamental (highest priority)
+        # If the coach had a specific teaching intent, prioritize the matching
+        # fundamental so the Socratic question connects to what the coach set up.
+        INTENT_TO_FUNDAMENTAL = {
+            "hanging_piece_punishment": Fundamental.HANGING_PIECES,
+            "fork_opportunity": Fundamental.CALCULATE,
+            "threat_awareness": Fundamental.CHECK_OPPONENTS_MOVE,
+        }
+
         violated = None
-        for f in FUNDAMENTAL_PRIORITY:
-            if not results.get(f, True):
-                violated = f
-                break
+        # First: check if the coach's intended fundamental was violated
+        if coach_intent and coach_intent in INTENT_TO_FUNDAMENTAL:
+            intent_fundamental = INTENT_TO_FUNDAMENTAL[coach_intent]
+            if not results.get(intent_fundamental, True):
+                violated = intent_fundamental
+
+        # Fallback: normal priority order
+        if violated is None:
+            for f in FUNDAMENTAL_PRIORITY:
+                if not results.get(f, True):
+                    violated = f
+                    break
 
         # Build the checklist snapshot
         checklist = {f.value: results.get(f, True) for f in Fundamental}

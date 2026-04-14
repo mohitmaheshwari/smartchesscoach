@@ -2223,6 +2223,11 @@ async def get_interactive_coaching(
             except Exception:
                 pass
 
+            # Get coach's teaching intent from last coach move (v2 data)
+            _coach_intent = None
+            if last_coach_move and last_coach_move.get("v2"):
+                _coach_intent = last_coach_move.get("teaching_intent")
+
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
                 board_before=board,
@@ -2237,6 +2242,7 @@ async def get_interactive_coaching(
                 user_color=user_color,
                 opponent_last_move=opp_last_move,
                 opening_match=opening_match,
+                coach_intent=_coach_intent,
             )
 
             coaching_dict = coaching.to_dict()

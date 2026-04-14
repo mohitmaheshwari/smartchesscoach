@@ -611,6 +611,7 @@ def _enrich_with_fundamentals(
     opponent_last_move: Optional[chess.Move],
     opening_match: Optional[Any],
     context: 'CoachingContext',
+    coach_intent: Optional[str] = None,
 ) -> 'V5Coaching':
     """
     Enrich a mistake/blunder coaching object with fundamentals diagnosis.
@@ -632,6 +633,7 @@ def _enrich_with_fundamentals(
             user_color=user_color,
             opponent_last_move=opponent_last_move,
             opening_match=opening_match,
+            coach_intent=coach_intent,
         )
 
         if diagnosis.violated:
@@ -665,6 +667,7 @@ async def generate_move_coaching(
     user_color: str = "white",
     opponent_last_move: Optional[chess.Move] = None,
     opening_match: Optional[Any] = None,
+    coach_intent: Optional[str] = None,
 ) -> V5Coaching:
     """
     Generate V5 coaching for a move.
@@ -808,7 +811,8 @@ async def generate_move_coaching(
         )
         return _enrich_with_fundamentals(
             mate_coaching, board_before, board_after, move, best_move_san,
-            cp_loss, phase, user_color, opponent_last_move, opening_match, context
+            cp_loss, phase, user_color, opponent_last_move, opening_match, context,
+            coach_intent=coach_intent,
         )
     
     # Get Stockfish candidates
@@ -851,7 +855,8 @@ async def generate_move_coaching(
         )
         return _enrich_with_fundamentals(
             fork_coaching, board_before, board_after, move, best_move_san,
-            cp_loss, phase, user_color, opponent_last_move, opening_match, context
+            cp_loss, phase, user_color, opponent_last_move, opening_match, context,
+            coach_intent=coach_intent,
         )
     
     # Generate coaching based on piece type and position
@@ -867,7 +872,8 @@ async def generate_move_coaching(
     # Enrich with fundamentals for live coaching
     coaching = _enrich_with_fundamentals(
         coaching, board_before, board_after, move, best_move_san,
-        cp_loss, phase, user_color, opponent_last_move, opening_match, context
+        cp_loss, phase, user_color, opponent_last_move, opening_match, context,
+        coach_intent=coach_intent,
     )
 
     return coaching

@@ -468,7 +468,7 @@ class PedagogicalOpponent(CoachOpponent):
             board = chess.Board(fen)
             coach_color = board.turn  # Coach is the side to move
 
-            selector = TeachingMoveSelectorV2()
+            selector = TeachingMoveSelectorV2(user_rating=self.user_rating)
             result = selector.select_move(
                 board=board,
                 coach_color=coach_color,
