@@ -82,6 +82,14 @@ def score_candidate(
     # 6. Final score
     final = raw_score * 0.72 + engine_quality * 0.23 + variety * 0.05
 
+    # 7. Soft penalty for low engine rank on non-capture "creation" moves.
+    # A rank 7-8 move that "creates a hanging piece" looks suspicious to
+    # the student. Captures are exempt — taking an undefended piece at any
+    # rank is natural. This preserves trust without hard-filtering.
+    if candidate.eval_rank >= 5 and not board.is_capture(candidate.move):
+        rank_penalty = 0.80 if candidate.eval_rank <= 6 else 0.65
+        final *= rank_penalty
+
     return IntentScore(
         intent=intent,
         raw_score=raw_score,
