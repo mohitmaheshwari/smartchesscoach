@@ -5999,23 +5999,40 @@ async def _process_move_and_respond(
                 # Get student weaknesses from their profile (if available)
                 student_weaknesses = session_doc.get("student_weaknesses", [])
                 teaching_focus = session_doc.get("teaching_focus", None)
-                
+
                 # Get move history for opening guidance
                 move_history = session_doc.get("move_history", [])
                 move_history_san = [m.get("move") for m in move_history if m.get("move")]
-                
+
                 # Get user's color (coach plays opposite)
                 user_color = session_doc.get("user_color", "white")
-                
-                # Use Pedagogical Opponent with Teaching Move Selector
+
+                # Learning loop: get violations from the user's PREVIOUS session
+                last_game_violations = []
+                try:
+                    prev_session = await db.coach_sessions.find_one(
+                        {"user_id": user.user_id, "session_id": {"$ne": session_id}},
+                        {"fundamental_violations": 1},
+                        sort=[("created_at", -1)],
+                    )
+                    if prev_session and prev_session.get("fundamental_violations"):
+                        last_game_violations = list({
+                            v.get("fundamental") for v in prev_session["fundamental_violations"]
+                            if v.get("fundamental")
+                        })
+                except Exception:
+                    pass  # Non-critical
+
+                # Use Pedagogical Opponent with Teaching Move Selector v2
                 from coach_play.coach_opponent import PedagogicalOpponent
                 opponent = PedagogicalOpponent(
                     user_rating=user_rating,
                     teaching_mode="balanced",
                     student_weaknesses=student_weaknesses,
                     teaching_focus=teaching_focus,
-                    move_history=move_history_san,  # Pass move history for opening guidance
-                    user_color=user_color  # Pass user's color for correct opening guidance
+                    move_history=move_history_san,
+                    user_color=user_color,
+                    last_game_violations=last_game_violations,
                 )
                 # If opening teaching is active, use the teaching moves
                 coach_move = None

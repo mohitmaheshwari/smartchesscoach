@@ -1,0 +1,239 @@
+"""
+Intent Selector — pick ONE teaching intent based on student profile + position.
+
+Two-step process:
+1. Rank intents by student need (what they struggle with)
+2. Feasibility gate: verify the position can support the intent
+
+If the top intent isn't feasible (no candidate move scores well for it),
+fall through to the next. If nothing is feasible, return THREAT_AWARENESS
+as the default (every position has some threats to notice).
+"""
+
+import logging
+from typing import List, Optional, Dict
+
+import chess
+
+from .types import TeachingIntent, CandidateMove
+from .teaching_evaluator import score_all_candidates, is_intent_feasible
+
+logger = logging.getLogger(__name__)
+
+
+# Maps student weakness clusters (from focus_engine) to teaching intents.
+# Order within each list = priority when multiple intents match.
+WEAKNESS_TO_INTENTS = {
+    # Hangs pieces, doesn't see captures
+    "threat_awareness": [
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.THREAT_AWARENESS,
+    ],
+    # Misses tactics
+    "calculation": [
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.THREAT_AWARENESS,
+    ],
+    # Doesn't coordinate, leaves pieces loose
+    "coordination": [
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.FORK_OPPORTUNITY,
+    ],
+    # Rushed, doesn't check threats
+    "patience": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    ],
+    # No clear plan
+    "planning": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.FORK_OPPORTUNITY,
+    ],
+}
+
+# Maps teaching_focus strings (from session) to intents
+FOCUS_TO_INTENTS = {
+    "tactics": [
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.THREAT_AWARENESS,
+    ],
+    "prophylaxis": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    ],
+    "king_safety": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    ],
+    "endgame_technique": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    ],
+    "development": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    ],
+    "piece_activity": [
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.THREAT_AWARENESS,
+    ],
+    "natural_play": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    ],
+}
+
+# Default intent order when no student profile is available
+DEFAULT_INTENT_ORDER = [
+    TeachingIntent.THREAT_AWARENESS,
+    TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    TeachingIntent.FORK_OPPORTUNITY,
+]
+
+
+def rank_intents(
+    teaching_focus: Optional[str] = None,
+    student_weaknesses: Optional[List[str]] = None,
+    last_game_violations: Optional[List[str]] = None,
+) -> List[TeachingIntent]:
+    """
+    Rank intents by student need. Returns ordered list, best first.
+
+    Args:
+        teaching_focus: Session-level focus string (e.g. "tactics", "prophylaxis")
+        student_weaknesses: Weakness clusters from focus_engine
+        last_game_violations: Fundamental violations from previous game session
+            (for learning loop — bias toward repeating these patterns)
+
+    Returns:
+        Ordered list of TeachingIntent, most relevant first
+    """
+    # Start with an intent→score dict
+    scores: Dict[TeachingIntent, float] = {
+        intent: 0.0 for intent in TeachingIntent
+    }
+
+    # 1. Teaching focus (strongest signal — explicit user/system choice)
+    if teaching_focus and teaching_focus in FOCUS_TO_INTENTS:
+        for i, intent in enumerate(FOCUS_TO_INTENTS[teaching_focus]):
+            scores[intent] += 3.0 - i * 0.5  # 3.0, 2.5, 2.0
+
+    # 2. Student weaknesses from focus_engine
+    if student_weaknesses:
+        for weakness in student_weaknesses:
+            if weakness in WEAKNESS_TO_INTENTS:
+                for i, intent in enumerate(WEAKNESS_TO_INTENTS[weakness]):
+                    scores[intent] += 2.0 - i * 0.5
+
+    # 3. Learning loop: bias toward last game's violations
+    if last_game_violations:
+        violation_to_intent = {
+            "check_opponents_move": TeachingIntent.THREAT_AWARENESS,
+            "hanging_pieces": TeachingIntent.HANGING_PIECE_PUNISHMENT,
+            "calculate": TeachingIntent.FORK_OPPORTUNITY,
+        }
+        for violation in last_game_violations:
+            intent = violation_to_intent.get(violation)
+            if intent:
+                scores[intent] += 1.5  # Meaningful but doesn't override explicit focus
+
+    # 4. If nothing scored, use defaults
+    if all(v == 0.0 for v in scores.values()):
+        for i, intent in enumerate(DEFAULT_INTENT_ORDER):
+            scores[intent] = 1.0 - i * 0.1
+
+    # Sort by score descending
+    ranked = sorted(scores.keys(), key=lambda k: scores[k], reverse=True)
+    return ranked
+
+
+def select_intent(
+    board: chess.Board,
+    candidates: List[CandidateMove],
+    coach_color: chess.Color,
+    teaching_focus: Optional[str] = None,
+    student_weaknesses: Optional[List[str]] = None,
+    last_game_violations: Optional[List[str]] = None,
+) -> tuple:
+    """
+    Select the best feasible teaching intent for this position.
+
+    Two-step: rank by student need, then verify position supports it.
+
+    Args:
+        board: Current position (before coach's move)
+        candidates: Generated candidate moves
+        coach_color: Coach's color
+        teaching_focus: Session focus string
+        student_weaknesses: Focus engine clusters
+        last_game_violations: Previous session violations (learning loop)
+
+    Returns:
+        (selected_intent, intent_reason, all_scores, fallback_count)
+        - selected_intent: The TeachingIntent to use
+        - intent_reason: Why this intent was chosen
+        - all_scores: IntentScore list for the selected intent
+        - fallback_count: How many intents were tried before finding a feasible one
+    """
+    ranked = rank_intents(teaching_focus, student_weaknesses, last_game_violations)
+
+    fallbacks = 0
+    for intent in ranked:
+        # Score all candidates for this intent
+        scores = score_all_candidates(board, candidates, intent, coach_color)
+
+        if is_intent_feasible(scores):
+            reason = _build_reason(intent, teaching_focus, student_weaknesses,
+                                   last_game_violations, fallbacks)
+            logger.info(
+                f"[INTENT] Selected {intent.value} "
+                f"(fallbacks={fallbacks}, focus={teaching_focus})"
+            )
+            return intent, reason, scores, fallbacks
+
+        fallbacks += 1
+        logger.debug(f"[INTENT] {intent.value} not feasible, trying next")
+
+    # Nothing feasible — fall back to THREAT_AWARENESS with whatever scores we get
+    # (every position has SOME threats, even if weak)
+    logger.warning("[INTENT] No intent feasible, defaulting to THREAT_AWARENESS")
+    scores = score_all_candidates(
+        board, candidates, TeachingIntent.THREAT_AWARENESS, coach_color
+    )
+    return (
+        TeachingIntent.THREAT_AWARENESS,
+        "default fallback — no intent had feasible positions",
+        scores,
+        fallbacks,
+    )
+
+
+def _build_reason(
+    intent: TeachingIntent,
+    teaching_focus: Optional[str],
+    student_weaknesses: Optional[List[str]],
+    last_game_violations: Optional[List[str]],
+    fallbacks: int,
+) -> str:
+    """Build a human-readable reason for the intent selection."""
+    parts = []
+
+    if fallbacks > 0:
+        parts.append(f"after {fallbacks} fallback(s)")
+
+    if teaching_focus:
+        parts.append(f"session focus: {teaching_focus}")
+
+    if student_weaknesses:
+        parts.append(f"student struggles with: {', '.join(student_weaknesses)}")
+
+    if last_game_violations:
+        parts.append(f"repeated from last game: {', '.join(last_game_violations[:2])}")
+
+    if not parts:
+        parts.append("default priority order")
+
+    return f"{intent.value} — {'; '.join(parts)}"

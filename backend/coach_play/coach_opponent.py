@@ -306,17 +306,18 @@ class PedagogicalOpponent(CoachOpponent):
     }
     
     def __init__(
-        self, 
-        user_rating: int = 1200, 
+        self,
+        user_rating: int = 1200,
         teaching_mode: str = "balanced",
         student_weaknesses: list = None,
         teaching_focus: str = None,
         move_history: list = None,
-        user_color: str = "white"  # What color is the USER playing
+        user_color: str = "white",  # What color is the USER playing
+        last_game_violations: list = None,  # Learning loop: previous session's violations
     ):
         """
         Initialize pedagogical opponent.
-        
+
         Args:
             user_rating: User's estimated rating for difficulty matching
             teaching_mode: "challenging", "balanced", or "supportive"
@@ -324,6 +325,7 @@ class PedagogicalOpponent(CoachOpponent):
             teaching_focus: Specific concept to teach (optional)
             move_history: List of moves played so far (for opening guidance)
             user_color: What color the user is playing ("white" or "black")
+            last_game_violations: Fundamental violations from previous game (learning loop)
         """
         super().__init__(user_rating=user_rating)
         self.teaching_mode = teaching_mode
@@ -332,6 +334,7 @@ class PedagogicalOpponent(CoachOpponent):
         self.last_teaching_context = {}
         self.move_history = move_history or []
         self.user_color = user_color.lower() if user_color else "white"
+        self.last_game_violations = last_game_violations or []
         self.skill_tier = self._get_skill_tier(user_rating)
     
     def _get_skill_tier(self, rating: int) -> str:
@@ -431,86 +434,84 @@ class PedagogicalOpponent(CoachOpponent):
     
     async def get_move(self, fen: str) -> Optional[str]:
         """
-        Get pedagogical move using Teaching Move Selector.
-        
-        In the opening (first 6 moves), prioritizes moves that guide
-        toward known openings in our database for teaching.
-        
-        Selects moves that CREATE LEARNING OPPORTUNITIES rather than
-        just the strongest moves.
-        
+        Get pedagogical move using Teaching Move Selector v2.
+
+        Pipeline:
+        1. Opening guide (first few moves) — scripted opening lines
+        2. V2 selector: intent-driven, position-based scoring
+        3. Fallback: raw Stockfish
+
         Returns:
             Move in SAN notation
         """
-        from services.teaching_move_selector import TeachingMoveSelector, TeachingGoal
-        from services.game_phase_service import get_game_phase
-        
         try:
             # OPENING GUIDE: In early game, prefer moves that lead to known openings
             guided_move = self._get_opening_guided_move(fen)
             if guided_move:
-                # Store teaching context for the guided move
                 self.last_teaching_context = {
                     "teaching_goal": "opening_guidance",
                     "why_instructive": "Guiding toward a known opening for teaching",
                     "concept_taught": "opening_principles",
                     "student_challenge": "Learn the opening ideas",
                     "is_best_move": True,
-                    "move_type": "opening_guide"
+                    "move_type": "opening_guide",
+                    "v2": False,
                 }
                 print(f"[CoachOpponent] Using opening guide move: {guided_move} for FEN: {fen[:50]}...")
                 return guided_move
-            
-            # Get game phase for context
-            print(f"[CoachOpponent] Using TeachingMoveSelector for FEN: {fen[:50]}...")
-            phase_info = get_game_phase(fen)
-            game_phase = phase_info.get("phase_label", "middlegame")
-            
-            # Map teaching mode to avoid_crushing
-            avoid_crushing = self.teaching_mode != "challenging"
-            
-            # Convert teaching_focus string to enum if provided
-            focus = None
-            if self.teaching_focus:
-                try:
-                    focus = TeachingGoal(self.teaching_focus)
-                except ValueError:
-                    pass
-            
-            # Use Teaching Move Selector
-            selector = TeachingMoveSelector()
+
+            # V2 SELECTOR: position-based, intent-driven
+            print(f"[CoachOpponent] Using TeachingMoveSelectorV2 for FEN: {fen[:50]}...")
+
+            from coach_play.teaching.move_selector_v2 import TeachingMoveSelectorV2
+
+            board = chess.Board(fen)
+            coach_color = board.turn  # Coach is the side to move
+
+            selector = TeachingMoveSelectorV2()
             result = selector.select_move(
-                board=chess.Board(fen),
-                student_rating=self.user_rating,
+                board=board,
+                coach_color=coach_color,
+                teaching_focus=self.teaching_focus,
                 student_weaknesses=self.student_weaknesses,
-                teaching_focus=focus,
-                game_phase=game_phase,
-                avoid_crushing=avoid_crushing
+                last_game_violations=self.last_game_violations,
             )
-            
-            if result.get("error"):
-                # Fallback to regular move
-                return await super().get_move(fen)
-            
+
             # Store teaching context for later use
             self.last_teaching_context = {
-                "teaching_goal": result.get("teaching_goal"),
-                "why_instructive": result.get("why_instructive"),
-                "concept_taught": result.get("concept_taught"),
-                "student_challenge": result.get("student_challenge"),
-                "teaching_content": result.get("teaching_content", {}),
-                "is_best_move": result.get("is_best_move", False),
-                "move_type": result.get("move_type"),
-                "eval_rank": result.get("eval_rank", 1)
+                "teaching_goal": result.intent.value,
+                "intent_reason": result.intent_reason,
+                "why_instructive": result.score_breakdown.explanation,
+                "concept_taught": result.intent.value,
+                "student_challenge": f"What is the coach threatening with this move?",
+                "is_best_move": result.eval_rank == 1,
+                "move_type": result.intent.value,
+                "eval_rank": result.eval_rank,
+                "v2": True,
+                "v2_breakdown": {
+                    "raw_score": round(result.score_breakdown.raw_score, 3),
+                    "engine_quality": round(result.score_breakdown.engine_quality, 3),
+                    "final_score": round(result.score_breakdown.final_score, 3),
+                    "sub_scores": {
+                        k: round(v, 3) for k, v in result.score_breakdown.sub_scores.items()
+                    },
+                    "feasibility_fallbacks": result.feasibility_fallbacks,
+                },
             }
-            
-            selected_move = result.get("selected_move")
-            print(f"[CoachOpponent] Selected move: {selected_move}, eval_rank: {result.get('eval_rank')}")
-            return selected_move
-            
+
+            print(
+                f"[CoachOpponent] V2 selected: {result.selected_san} "
+                f"(intent={result.intent.value}, "
+                f"score={result.score_breakdown.final_score:.2f}, "
+                f"rank={result.eval_rank})"
+            )
+            return result.selected_san
+
         except Exception as e:
-            print(f"Teaching Move Selector error: {e}")
-            # Fallback to regular move
+            print(f"Teaching Move Selector v2 error: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to regular Stockfish move
             return await super().get_move(fen)
     
     def get_teaching_context(self) -> dict:
