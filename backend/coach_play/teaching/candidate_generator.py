@@ -59,6 +59,7 @@ def generate_candidates(
         return candidates
 
     best_eval = None
+    MIN_CANDIDATES = 4  # Always keep at least this many for teaching variety
 
     for i, info in enumerate(result):
         if "pv" not in info or not info["pv"]:
@@ -77,14 +78,14 @@ def generate_candidates(
         if best_eval is None:
             best_eval = eval_cp
 
-        # Soft filter: keep moves within max_eval_drop_cp of best
-        # These still get generated — scoring penalizes them
-        eval_drop = best_eval - eval_cp
-        if eval_drop > max_eval_drop_cp:
-            continue
-
         # Hard filter: never play a move that hangs a piece
         if _hangs_piece(board, move):
+            continue
+
+        # Soft filter: keep moves within max_eval_drop_cp of best
+        # BUT always keep at least MIN_CANDIDATES for teaching variety
+        eval_drop = best_eval - eval_cp
+        if eval_drop > max_eval_drop_cp and len(candidates) >= MIN_CANDIDATES:
             continue
 
         candidates.append(CandidateMove(

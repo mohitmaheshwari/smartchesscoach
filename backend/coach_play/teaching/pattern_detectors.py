@@ -137,13 +137,22 @@ def count_forcing_moves(
     - Captures where captured piece value >= attacker value OR target is undefended
     - Attacks on queen/rook that are real threats
 
-    Must be called when it's `side`'s turn to move. If it's not their turn,
-    returns (0, 0, 0).
+    Works regardless of whose turn it is. If it's not `side`'s turn,
+    we temporarily flip the turn to generate legal moves for `side`.
 
     Returns (checks, safe_captures, high_value_attacks).
     """
-    if board.turn != side:
-        return 0, 0, 0
+    # If it's not our turn, we need to flip the board to generate our moves.
+    # This happens after pushing the coach's move — it becomes the student's turn,
+    # but we want to count the coach's THREATS (what the coach could do next).
+    needs_flip = board.turn != side
+    if needs_flip:
+        # Flip turn by modifying FEN (safe, doesn't affect the actual game)
+        parts = board.fen().split()
+        parts[1] = 'w' if side == chess.WHITE else 'b'
+        # Clear en passant since it's artificial
+        parts[3] = '-'
+        board = chess.Board(' '.join(parts))
 
     checks = 0
     captures = 0

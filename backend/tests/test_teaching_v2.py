@@ -118,12 +118,13 @@ class TestForcingMoves:
         checks, captures, hv = count_forcing_moves(board, chess.WHITE)
         assert checks >= 1  # Qe8+, Qe5+, Qh8+, etc.
 
-    def test_no_forcing_on_wrong_turn(self):
-        """When it's not our turn, return zeros."""
+    def test_forcing_on_either_turn(self):
+        """count_forcing_moves works even when it's not side's turn (flips board)."""
+        # It's Black's turn, but we ask for White's threats
         board = chess.Board("4k3/8/8/7Q/8/8/8/4K3 b - - 0 1")
         checks, captures, hv = count_forcing_moves(board, chess.WHITE)
-        assert checks == 0
-        assert captures == 0
+        # White's queen should have checks available even though it's Black's turn
+        assert checks >= 1
 
 
 class TestPositionAnalysis:

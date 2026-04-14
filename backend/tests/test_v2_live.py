@@ -24,8 +24,10 @@ import logging
 from coach_play.teaching.move_selector_v2 import TeachingMoveSelectorV2
 from coach_play.teaching.types import TeachingIntent
 
-# Enable debug logging
-logging.basicConfig(level=logging.DEBUG, format="%(message)s")
+# Enable info logging for our code, suppress Stockfish UCI noise
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+# Suppress chess.engine debug output (the UCI protocol lines)
+logging.getLogger("chess.engine").setLevel(logging.WARNING)
 
 # ─── TEST POSITIONS ─────────────────────────────────────────────
 # 15 real middlegame positions covering different scenarios
