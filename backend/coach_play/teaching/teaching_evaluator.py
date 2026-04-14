@@ -140,12 +140,32 @@ def _score_hanging_piece(
     and defend it (or lose material).
     """
     sub_scores = {}
+    student_color = not coach_color
 
-    # Score based on student's hanging pieces in the resulting position
-    # Weight: undefended piece is worth more than underdefended
+    # 1. Does this move CAPTURE an already-hanging piece? (direct punishment)
+    # This is the strongest signal: the student left something hanging,
+    # and this move takes it. Score highly when the capture is free.
+    capture_punishment = 0.0
+    if board_before.is_capture(candidate.move):
+        captured = board_before.piece_at(candidate.move.to_square)
+        if captured and captured.color == student_color:
+            cap_value = PIECE_VALUES.get(captured.piece_type, 0)
+            # Was the target undefended before the capture?
+            defenders = list(board_before.attackers(student_color, candidate.move.to_square))
+            mover = board_before.piece_at(candidate.move.from_square)
+            mover_value = PIECE_VALUES.get(mover.piece_type, 0) if mover else 0
+            if len(defenders) == 0:
+                # Free capture of undefended piece — maximum punishment
+                capture_punishment = cap_value * 0.4  # knight=1.2, rook=2.0, queen=3.6
+            elif cap_value > mover_value:
+                # Winning exchange (e.g. bishop takes queen)
+                capture_punishment = (cap_value - mover_value) * 0.3
+    sub_scores["capture_punishment"] = min(capture_punishment, 3.0)
+
+    # 2. Does the resulting position leave student pieces hanging? (Socratic)
     undefended_score = 0.0
     for hp in features.opponent_hanging:
-        undefended_score += hp.piece_value * 0.3  # e.g., hanging knight = 0.9
+        undefended_score += hp.piece_value * 0.3
     sub_scores["undefended"] = min(undefended_score, 2.0)
 
     underdefended_score = 0.0
@@ -153,19 +173,26 @@ def _score_hanging_piece(
         underdefended_score += hp.piece_value * 0.15
     sub_scores["underdefended"] = min(underdefended_score, 1.0)
 
-    # Bonus: did THIS move create the hanging situation?
-    # Compare before vs after — new hanging pieces are more instructive
-    student_color = not coach_color
+    # 3. Did THIS move create new hanging situations?
     before_hanging = _count_hanging(board_before, student_color)
     after_hanging = len(features.opponent_hanging) + len(features.opponent_underdefended)
     new_threats = max(0, after_hanging - before_hanging)
     sub_scores["new_threats_created"] = min(new_threats * 0.4, 1.0)
 
-    raw_score = sub_scores["undefended"] + sub_scores["underdefended"] + sub_scores["new_threats_created"]
-    raw_score = min(raw_score, 3.0)  # Cap
+    raw_score = (
+        sub_scores["capture_punishment"]
+        + sub_scores["undefended"]
+        + sub_scores["underdefended"]
+        + sub_scores["new_threats_created"]
+    )
+    raw_score = min(raw_score, 4.0)  # Higher cap with more sub-scores
 
     # Build explanation
     parts = []
+    if capture_punishment > 0:
+        captured = board_before.piece_at(candidate.move.to_square)
+        if captured:
+            parts.append(f"captures undefended {chess.piece_name(captured.piece_type)}")
     if features.opponent_hanging:
         names = [chess.piece_name(h.piece_type) for h in features.opponent_hanging]
         parts.append(f"leaves opponent's {', '.join(names)} hanging")
