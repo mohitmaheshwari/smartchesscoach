@@ -878,6 +878,13 @@ async def end_coach_play_session(
         except Exception as e:
             logger.warning(f"Focus update at end failed: {e}")
 
+        # Convert coach session to a game in the games collection
+        # so it appears in Lab for review/decryption
+        try:
+            await _promote_session_to_game(db, session_id, user.user_id)
+        except Exception as e:
+            logger.warning(f"[COACH] Session-to-game promotion failed (non-fatal): {e}")
+
         result = await end_coach_session(
             db=db,
             session_id=session_id,
@@ -5352,6 +5359,138 @@ def _classify_move(eval_before: float, eval_after: float, user_color: str) -> st
         return "good"
 
 
+async def _promote_session_to_game(db, session_id: str, user_id: str):
+    """
+    Convert a completed coach session into a games + game_analyses document
+    so it appears in the Lab for review and decryption.
+
+    Uses the move history (which already has evals from the live session)
+    to build the analysis without needing another Stockfish pass.
+    """
+    import chess
+
+    session = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session:
+        return
+
+    # Don't duplicate — check if already promoted
+    existing = await db.games.find_one({"coach_session_id": session_id})
+    if existing:
+        return
+
+    move_history = session.get("move_history", [])
+    if len(move_history) < 4:
+        return  # Too short to be useful
+
+    user_color = session.get("user_color", "white")
+
+    # Build PGN from move history
+    board = chess.Board()
+    pgn_moves = []
+    for entry in move_history:
+        move_san = entry.get("move") if isinstance(entry, dict) else str(entry)
+        if not move_san:
+            continue
+        try:
+            move = board.parse_san(move_san)
+            pgn_moves.append(board.san(move))
+            board.push(move)
+        except Exception:
+            break
+
+    # Build PGN string
+    result_map = {"win": "1-0" if user_color == "white" else "0-1",
+                  "loss": "0-1" if user_color == "white" else "1-0",
+                  "draw": "1/2-1/2"}
+    game_result = result_map.get(session.get("result", ""), "*")
+
+    pgn_parts = []
+    for i, san in enumerate(pgn_moves):
+        if i % 2 == 0:
+            pgn_parts.append(f"{i // 2 + 1}.")
+        pgn_parts.append(san)
+    pgn_str = " ".join(pgn_parts) + f" {game_result}"
+
+    # Create game document
+    game_id = f"coach_{session_id[:12]}"
+    opening_name = session.get("opening_name") or session.get("opening_to_teach", "")
+
+    game_doc = {
+        "game_id": game_id,
+        "user_id": user_id,
+        "platform": "coach",
+        "pgn": pgn_str,
+        "user_color": user_color,
+        "result": game_result,
+        "imported_at": datetime.now(timezone.utc).isoformat(),
+        "is_analyzed": True,  # We already have evals
+        "coach_session_id": session_id,
+        "opponent_name": "Coach",
+        "time_control": "untimed",
+        "opening": opening_name.replace("_", " ").title() if opening_name else "",
+        "white_player": "You" if user_color == "white" else "Coach",
+        "black_player": "Coach" if user_color == "white" else "You",
+    }
+
+    # Build move evaluations from session data
+    move_evaluations = []
+    user_moves_only = [m for m in move_history if isinstance(m, dict) and m.get("by") == "player"]
+
+    blunders = 0
+    mistakes = 0
+    total_cp_loss = 0
+
+    for m in user_moves_only:
+        eb = m.get("eval_before")
+        ea = m.get("eval_after")
+        if eb is None or ea is None:
+            continue
+
+        if user_color == "white":
+            cp_loss = max(0, int((eb - ea) * 100))
+        else:
+            cp_loss = max(0, int((ea - eb) * 100))
+
+        total_cp_loss += cp_loss
+        if cp_loss >= 300:
+            blunders += 1
+        elif cp_loss >= 100:
+            mistakes += 1
+
+        move_evaluations.append({
+            "move": m.get("move"),
+            "move_number": move_history.index(m) // 2 + 1,
+            "eval_before": eb,
+            "eval_after": ea,
+            "cp_loss": cp_loss,
+            "best_move": m.get("best_move"),
+            "fen_before": m.get("fen_before", ""),
+            "cognitive_gap": m.get("cognitive_gap"),
+            "threat": m.get("threat"),
+        })
+
+    total_user_moves = len(user_moves_only)
+    accuracy = round((1 - total_cp_loss / max(total_user_moves * 100, 1)) * 100)
+    accuracy = max(0, min(100, accuracy))
+
+    analysis_doc = {
+        "game_id": game_id,
+        "user_id": user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "stockfish_analysis": {
+            "accuracy": accuracy,
+            "blunders": blunders,
+            "mistakes": mistakes,
+            "move_evaluations": move_evaluations,
+        },
+    }
+
+    await db.games.insert_one(game_doc)
+    await db.game_analyses.insert_one(analysis_doc)
+    logger.info(f"[COACH] Promoted session {session_id[:8]} → game {game_id} "
+                f"({len(pgn_moves)} moves, {blunders}B {mistakes}M, acc={accuracy}%)")
+
+
 async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, move_history: list) -> bool:
     """
     ONE function to apply a coach move. ALL paths use this.
@@ -6421,6 +6560,13 @@ async def _process_move_and_respond(
                         loss_phase=loss_phase
                     )
                     logger.info(f"Updated coach memory after game {session_id}")
+
+                    # Promote to games collection for Lab review
+                    try:
+                        user_id = session_doc.get("user_id")
+                        await _promote_session_to_game(db, session_id, user_id)
+                    except Exception as promo_err:
+                        logger.warning(f"Session promotion failed (non-fatal): {promo_err}")
 
                     # P1-2: Auto-trigger full postgame analysis immediately
                     # This attaches detailed review data to the user's profile
