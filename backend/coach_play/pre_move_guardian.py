@@ -242,12 +242,14 @@ class PreMoveGuardian:
             
             # Significant eval drop - this IS a mistake
             # Now use heuristics to explain WHY it's bad
-            if eval_drop >= 2.0:
-                risk_level = RiskLevel.CRITICAL
-            elif eval_drop >= 1.0:
-                risk_level = RiskLevel.HIGH
+            # Only CRITICAL for catastrophic drops (queen loss / mate threat)
+            # Smaller mistakes get handled by Socratic coaching after the move
+            if eval_drop >= 4.0:
+                risk_level = RiskLevel.CRITICAL  # Losing queen or getting mated
+            elif eval_drop >= 2.0:
+                risk_level = RiskLevel.HIGH      # Big mistake — but let Socratic teach
             else:
-                risk_level = RiskLevel.MEDIUM
+                risk_level = RiskLevel.MEDIUM    # Normal mistake — Socratic handles it
         
         # === HEURISTIC FALLBACK ===
         # When no Stockfish data, use heuristics (less accurate)
@@ -670,18 +672,21 @@ class PreMoveGuardian:
     ) -> Tuple[bool, InterventionType]:
         """
         Decide whether to intervene based on risk level and remaining interventions.
+
+        Philosophy: The Socratic coaching system (fundamentals checklist) teaches
+        from mistakes AFTER they happen. The guardian should only block truly
+        catastrophic blunders (losing a queen for nothing, back rank mate).
+        For smaller mistakes (hanging a minor piece, missing a tactic), let the
+        student make the mistake and learn from the Socratic question that follows.
         """
         if self.remaining_interventions <= 0:
-            # No more interventions allowed
             return False, InterventionType.NONE
-        
+
         if risk_level == RiskLevel.CRITICAL:
-            return True, InterventionType.BLOCK
-        elif risk_level == RiskLevel.HIGH:
+            # Catastrophic: losing queen, getting mated — still block
             return True, InterventionType.WARN
-        elif risk_level == RiskLevel.MEDIUM:
-            return True, InterventionType.SUGGEST
         else:
+            # HIGH, MEDIUM, LOW — let the Socratic system teach from the mistake
             return False, InterventionType.NONE
     
     def _suggest_alternatives(
