@@ -878,13 +878,6 @@ async def end_coach_play_session(
         except Exception as e:
             logger.warning(f"Focus update at end failed: {e}")
 
-        # Convert coach session to a game in the games collection
-        # so it appears in Lab for review/decryption
-        try:
-            await _promote_session_to_game(db, session_id, user.user_id)
-        except Exception as e:
-            logger.warning(f"[COACH] Session-to-game promotion failed (non-fatal): {e}")
-
         result = await end_coach_session(
             db=db,
             session_id=session_id,
@@ -893,6 +886,12 @@ async def end_coach_play_session(
 
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error", "End failed"))
+
+        # Promote AFTER end_coach_session so result/status are set
+        try:
+            await _promote_session_to_game(db, session_id, user.user_id)
+        except Exception as e:
+            logger.warning(f"[COACH] Session-to-game promotion failed (non-fatal): {e}")
 
         return result
     except HTTPException:
@@ -2528,6 +2527,9 @@ async def get_interactive_coaching(
                     {"session_id": session_id},
                     {"$push": {"move_snapshots": snapshot}}
                 )
+                logger.info(f"[SNAPSHOT] User move {move_san}: severity={coaching.severity}, "
+                           f"fundamental={coaching_dict.get('fundamental_violated')}, "
+                           f"coach_intent={_coach_intent}, cp_loss={cp_loss}")
             except Exception as snap_err:
                 logger.warning(f"Move snapshot save failed (non-fatal): {snap_err}")
 
@@ -6353,8 +6355,12 @@ async def _process_move_and_respond(
                             {"session_id": session_id},
                             {"$push": {"move_snapshots": coach_snapshot}}
                         )
-                    except Exception:
-                        pass
+                        logger.info(f"[SNAPSHOT] Coach move {coach_move}: "
+                                   f"intent={teaching_context.get('teaching_goal')}, "
+                                   f"rank={teaching_context.get('eval_rank')}, "
+                                   f"source={coach_snapshot['move_source']}")
+                    except Exception as e:
+                        logger.warning(f"Coach snapshot failed: {e}")
 
                     # Check if game over after coach move
                     coach_game_over = board.is_game_over()

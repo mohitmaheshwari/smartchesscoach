@@ -1077,6 +1077,14 @@ const CoachPlay = ({ user }) => {
             fen_before: data.feedback.fen_before
           };
           
+          console.log("[V2-DEBUG] V5 coaching set:", JSON.stringify({
+            severity: v5Data.severity,
+            fundamental: v5Data.fundamental_violated,
+            socratic: v5Data.socratic_question?.substring(0, 50),
+            hide_best: v5Data.hide_best_move,
+            checklist: v5Data.checklist_snapshot,
+            narrative: v5Data.narrative?.substring(0, 50),
+          }));
           setV5Coaching(v5Data);
 
           // Track fundamental violations for post-game summary
@@ -1197,6 +1205,13 @@ const CoachPlay = ({ user }) => {
         const data = await response.json();
         
         if (data.coach_move_coaching) {
+          console.log("[V2-DEBUG] Coach move coaching received:", JSON.stringify({
+            v2_intent: data.coach_move_coaching.v2_intent,
+            v2_label: data.coach_move_coaching.v2_label,
+            v2_explanation: data.coach_move_coaching.v2_explanation,
+            explanation: data.coach_move_coaching.explanation,
+            move_san: data.coach_move_coaching.move_san,
+          }));
           setInteractiveCoaching(prev => ({
             ...prev,
             coachMoveCoaching: data.coach_move_coaching
@@ -1240,11 +1255,20 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         
+        console.log("[V2-DEBUG] Interactive coaching received:", JSON.stringify({
+          has_user: !!data.user_move_coaching,
+          has_coach: !!data.coach_move_coaching,
+          user_severity: data.user_move_coaching?.severity,
+          user_fundamental: data.user_move_coaching?.fundamental_violated,
+          user_socratic: data.user_move_coaching?.socratic_question?.substring(0, 50),
+          coach_v2_intent: data.coach_move_coaching?.v2_intent,
+          coach_v2_label: data.coach_move_coaching?.v2_label,
+        }));
         setInteractiveCoaching({
           userMoveCoaching: data.user_move_coaching || null,
           coachMoveCoaching: data.coach_move_coaching || null
         });
-        
+
         if (data.user_move_coaching) {
           setV5Coaching(data.user_move_coaching);
         }
