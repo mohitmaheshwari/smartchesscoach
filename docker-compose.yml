@@ -49,6 +49,9 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-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}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://chessguru.ai/api/auth/google/callback}
+      - LICHESS_CLIENT_ID=chessguru-app
+      - LICHESS_REDIRECT_URI=https://chessguru.ai/api/oauth/lichess/callback
+      - FRONTEND_URL=https://chessguru.ai
     depends_on:
       mongodb:
         condition: service_healthy
