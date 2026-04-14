@@ -420,7 +420,11 @@ const HomePage = ({ user }) => {
             <button
               onClick={() => {
                 const opening = plan.opening || "";
-                navigate(`/play-with-coach${opening ? `?opening=${encodeURIComponent(opening)}` : ""}`);
+                const focus = problem?.category || "";
+                const params = new URLSearchParams();
+                if (opening) params.set("opening", opening);
+                if (focus) params.set("focus", focus);
+                navigate(`/play-with-coach${params.toString() ? `?${params}` : ""}`);
               }}
               className={`w-full py-4 text-[15px] font-semibold rounded-xl flex items-center justify-center gap-2 ${
                 mood === "confronting"

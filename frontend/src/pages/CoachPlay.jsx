@@ -34,8 +34,9 @@ const CoachPlay = ({ user }) => {
   const [searchParams] = useSearchParams();
   const boardRef = useRef(null);
 
-  // Read opening from URL query params (from Progress page)
+  // Read opening and focus from URL query params
   const openingFromUrl = searchParams.get("opening");
+  const focusFromUrl = searchParams.get("focus");
 
   // Session state
   const [session, setSession] = useState(null);
@@ -865,6 +866,10 @@ const CoachPlay = ({ user }) => {
       if (selectedOpening) {
         requestBody.opening_name = selectedOpening;
         requestBody.guided_mode = guidedMode;
+      }
+      // Pass teaching focus from URL (when coming from "Fix this" or Home page)
+      if (focusFromUrl) {
+        requestBody.teaching_focus = focusFromUrl;
         console.log("[CoachPlay] Sending opening_name:", selectedOpening, "guided_mode:", guidedMode);
       }
       

@@ -4817,6 +4817,7 @@ async def start_play_with_coach(
     opening_key = request.get("opening_key", None)  # Curriculum opening to teach
     opening_name = request.get("opening_name", None)  # Opening name from user's repertoire
     guided_mode = request.get("guided_mode", True)  # True = arrows+ideas, False = test mode
+    teaching_focus = request.get("teaching_focus", None)  # e.g. "tactics", "king_safety", "endgame_technique"
 
     # Validate user_color
     if user_color not in ["white", "black"]:
@@ -4912,6 +4913,46 @@ async def start_play_with_coach(
             await db.coach_sessions.update_one(
                 {"session_id": session.session_id},
                 {"$set": update_fields}
+            )
+
+        # Store teaching focus and student weaknesses on session
+        focus_update = {}
+        if teaching_focus:
+            # Map weakness categories to TeachingGoal values
+            WEAKNESS_TO_FOCUS = {
+                "piece_safety": "tactics",
+                "tactical_miss": "tactics",
+                "tactical_oversight": "tactics",
+                "calculation_depth": "tactics",
+                "ignore_threat": "prophylaxis",
+                "threat_awareness": "prophylaxis",
+                "king_safety": "king_safety",
+                "threw_winning": "endgame_technique",
+                "endgame_collapse": "endgame_technique",
+                "opening_disaster": "development",
+                "time_collapse": "natural_play",
+                "positional": "piece_activity",
+            }
+            focus_update["teaching_focus"] = WEAKNESS_TO_FOCUS.get(teaching_focus, teaching_focus)
+            logger.info(f"[COACH-START] Teaching focus: {teaching_focus} → {focus_update['teaching_focus']}")
+
+        # Auto-detect student weaknesses from focus engine
+        try:
+            from services.focus_engine import get_user_focus
+            user_focus = await get_user_focus(db, user.user_id)
+            if user_focus:
+                focus_update["student_weaknesses"] = [user_focus.get("cluster", "")]
+                if not teaching_focus:
+                    focus_update["teaching_focus"] = WEAKNESS_TO_FOCUS.get(
+                        user_focus.get("cluster", ""), "natural_play"
+                    )
+        except Exception:
+            pass
+
+        if focus_update:
+            await db.coach_sessions.update_one(
+                {"session_id": session.session_id},
+                {"$set": focus_update}
             )
 
         # Clear conversation thread for new game
