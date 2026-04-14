@@ -2480,7 +2480,57 @@ async def get_interactive_coaching(
             
             result["user_move_coaching"] = coaching_dict
             result["best_move_uci"] = coaching_dict.get("best_move_uci", "")
-            
+
+            # === MOVE SNAPSHOT: Capture everything for testing/review ===
+            try:
+                snapshot = {
+                    "move_number": board.fullmove_number,
+                    "move": move_san,
+                    "by": "player",
+                    "fen_before": fen_before,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    # Stockfish eval
+                    "eval_before": eval_before,
+                    "eval_after": eval_after,
+                    "cp_loss": cp_loss,
+                    "best_move": best_move,
+                    "severity": coaching.severity,
+                    # V5 Coaching shown
+                    "narrative": coaching_dict.get("narrative"),
+                    "consequence": coaching_dict.get("consequence"),
+                    "better_approach": coaching_dict.get("better_approach"),
+                    # Fundamentals / Socratic
+                    "fundamental_violated": coaching_dict.get("fundamental_violated"),
+                    "fundamental_label": coaching_dict.get("fundamental_label"),
+                    "socratic_question": coaching_dict.get("socratic_question"),
+                    "socratic_hint": coaching_dict.get("socratic_hint"),
+                    "focus_plan": coaching_dict.get("focus_plan"),
+                    "checklist_snapshot": coaching_dict.get("checklist_snapshot"),
+                    "hide_best_move": coaching_dict.get("hide_best_move", False),
+                    # Coach's teaching intent (what was the coach trying to do?)
+                    "coach_intent": _coach_intent,
+                    # Adaptation
+                    "adaptation": coaching_dict.get("adaptation"),
+                    "encouragement": coaching_dict.get("encouragement"),
+                    # Pattern memory
+                    "pattern_memory": coaching_dict.get("pattern_memory"),
+                    # Trap
+                    "trap_opportunity": coaching_dict.get("trap_opportunity"),
+                    # Position read
+                    "position_read": coaching_dict.get("position_read"),
+                    # Theory
+                    "theory_applied": coaching_dict.get("theory_applied"),
+                    "opening_idea": coaching_dict.get("opening_idea"),
+                    # Eval label
+                    "eval_label": coaching_dict.get("eval_label"),
+                }
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$push": {"move_snapshots": snapshot}}
+                )
+            except Exception as snap_err:
+                logger.warning(f"Move snapshot save failed (non-fatal): {snap_err}")
+
             # === BEHAVIORAL COACHING (Smart Coach) ===
             try:
                 behavior_events = session_doc.get("behavior_events", [])
@@ -6279,6 +6329,33 @@ async def _process_move_and_respond(
                         "v2": teaching_context.get("v2", False),
                     })
                     
+                    # === COACH MOVE SNAPSHOT ===
+                    try:
+                        coach_snapshot = {
+                            "move_number": board.fullmove_number,
+                            "move": coach_move,
+                            "by": "coach",
+                            "fen_before": fen_after_user,
+                            "fen_after": fen_after_coach,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            # V2 teaching system data
+                            "v2": teaching_context.get("v2", False),
+                            "teaching_intent": teaching_context.get("teaching_goal"),
+                            "intent_reason": teaching_context.get("intent_reason"),
+                            "why_instructive": teaching_context.get("why_instructive"),
+                            "is_best_move": teaching_context.get("is_best_move", True),
+                            "eval_rank": teaching_context.get("eval_rank"),
+                            "v2_breakdown": teaching_context.get("v2_breakdown"),
+                            # Opening guide vs v2
+                            "move_source": "opening_guide" if teaching_context.get("teaching_goal") == "opening_guidance" else "v2_selector",
+                        }
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$push": {"move_snapshots": coach_snapshot}}
+                        )
+                    except Exception:
+                        pass
+
                     # Check if game over after coach move
                     coach_game_over = board.is_game_over()
                     coach_result = None
@@ -6943,6 +7020,9 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
         "moves": moves,
         "messages": messages,
         "evaluations": evaluations,
+
+        # Per-move snapshots — complete coaching data per move
+        "move_snapshots": session.get("move_snapshots", []),
 
         # Decision engine data
         "coaching_decisions": session.get("coaching_decisions", []),
