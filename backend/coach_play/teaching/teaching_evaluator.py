@@ -237,46 +237,64 @@ def _score_threat_awareness(
     """
     Score: does this move create threats the student must notice?
 
-    Threat awareness means the student must look at what the coach's
-    move does BEFORE playing their own move. We want positions where
-    the coach creates checks, captures, or attacks on high-value pieces.
-
-    The student needs to ask: "What is my opponent threatening?"
+    Scores threat QUALITY not just quantity:
+    - Safe checks (piece not lost) are most valuable
+    - Attacks on undefended pieces > attacks on defended pieces
+    - Material gain potential matters (threatening a queen > threatening a pawn)
+    - New threats (created by THIS move) > pre-existing threats
     """
     sub_scores = {}
 
     # Checks available (most forcing — student MUST respond)
     sub_scores["checks"] = min(features.checks_available * 0.5, 1.0)
 
-    # Captures available (coach threatens to take something)
-    sub_scores["captures"] = min(features.captures_available * 0.2, 1.0)
+    # Attacks on undefended pieces (strong teaching signal — "you left this hanging")
+    sub_scores["attacks_undefended"] = min(features.attacks_on_undefended * 0.5, 1.5)
 
-    # Attacks on high-value pieces (queen/rook under threat)
-    sub_scores["high_value_attacks"] = min(features.high_value_attacks * 0.4, 1.0)
+    # Safe captures that win material (real threats, not just any capture)
+    sub_scores["safe_captures"] = min(features.safe_captures * 0.3, 1.0)
 
-    # Did this move create NEW threats vs what existed before?
-    before_checks, before_captures, before_hv = _count_forcing(board_before, coach_color)
-    new_checks = max(0, features.checks_available - before_checks)
-    new_captures = max(0, features.captures_available - before_captures)
-    sub_scores["new_forcing_moves"] = min((new_checks * 0.4 + new_captures * 0.15), 1.0)
+    # Material gain potential (threatening a queen is more instructive than a pawn)
+    # material_gain is in centipawns: 300 = minor piece, 500 = rook, 900 = queen
+    gain_score = min(features.material_gain_possible / 500.0, 1.0)  # normalize to 0-1
+    sub_scores["material_gain"] = gain_score
+
+    # Attacks on high-value pieces (queen/rook under direct threat)
+    sub_scores["high_value_attacks"] = min(features.high_value_attacks * 0.5, 1.0)
+
+    # NEW threats created by this move (delta from before)
+    before = _count_forcing(board_before, coach_color)
+    new_safe = max(0, features.safe_captures - before.get("safe_captures", 0))
+    new_checks = max(0, features.checks_available - before.get("checks", 0))
+    new_undefended = max(0, features.attacks_on_undefended - before.get("attacks_on_undefended", 0))
+    sub_scores["new_threats"] = min(
+        new_checks * 0.4 + new_safe * 0.3 + new_undefended * 0.4,
+        1.5,
+    )
 
     raw_score = (
         sub_scores["checks"]
-        + sub_scores["captures"]
+        + sub_scores["attacks_undefended"]
+        + sub_scores["safe_captures"]
+        + sub_scores["material_gain"]
         + sub_scores["high_value_attacks"]
-        + sub_scores["new_forcing_moves"]
+        + sub_scores["new_threats"]
     )
-    raw_score = min(raw_score, 3.0)
+    raw_score = min(raw_score, 4.0)  # Higher cap — more sub-scores now
 
-    # Explanation
+    # Explanation — quality-focused
     parts = []
     if features.checks_available:
-        parts.append(f"{features.checks_available} checks available")
+        parts.append(f"{features.checks_available} safe checks")
+    if features.attacks_on_undefended:
+        parts.append(f"{features.attacks_on_undefended} undefended pieces attacked")
     if features.high_value_attacks:
-        parts.append(f"attacks on {features.high_value_attacks} high-value pieces")
-    if features.captures_available:
-        parts.append(f"{features.captures_available} captures possible")
-    explanation = "; ".join(parts) if parts else "no immediate threats"
+        parts.append(f"threatens {features.high_value_attacks} high-value pieces")
+    if features.material_gain_possible > 0:
+        parts.append(f"+{features.material_gain_possible}cp gain possible")
+    if not parts and features.safe_captures:
+        parts.append(f"{features.safe_captures} safe captures")
+    explanation = "; ".join(parts) if parts else "no meaningful threats"
 
     return raw_score, sub_scores, explanation
 

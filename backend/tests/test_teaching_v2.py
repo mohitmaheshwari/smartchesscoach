@@ -115,16 +115,27 @@ class TestForcingMoves:
         """Position with available checks."""
         # White: Ke1, Qh5  Black: Ke8
         board = chess.Board("4k3/8/8/7Q/8/8/8/4K3 w - - 0 1")
-        checks, captures, hv = count_forcing_moves(board, chess.WHITE)
-        assert checks >= 1  # Qe8+, Qe5+, Qh8+, etc.
+        result = count_forcing_moves(board, chess.WHITE)
+        assert result["checks"] >= 1  # Qe8+, Qe5+, Qh8+, etc.
 
     def test_forcing_on_either_turn(self):
         """count_forcing_moves works even when it's not side's turn (flips board)."""
         # It's Black's turn, but we ask for White's threats
-        board = chess.Board("4k3/8/8/7Q/8/8/8/4K3 b - - 0 1")
-        checks, captures, hv = count_forcing_moves(board, chess.WHITE)
-        # White's queen should have checks available even though it's Black's turn
-        assert checks >= 1
+        # White: Ke1, Qd1  Black: Ke8, Nd5 — queen not giving check
+        board = chess.Board("4k3/8/8/3n4/8/8/8/3QK3 b - - 0 1")
+        result = count_forcing_moves(board, chess.WHITE)
+        # White's queen should have captures/threats even though it's Black's turn
+        assert result["captures"] >= 1 or result["checks"] >= 1
+
+    def test_no_inflated_checks_when_in_check(self):
+        """After a checking move, don't count fake threats (opponent must respond)."""
+        # White just played Bb4+, Black king is in check
+        # When we flip turn to count White's threats, should return zeros
+        board = chess.Board("r1bqk2r/pppp1ppp/2n2n2/4p3/1B2P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 4")
+        # Black is in check from Bb4 — if we ask for White's forcing moves
+        # with turn flip, it should return 0 since opponent is in check
+        result = count_forcing_moves(board, chess.WHITE)
+        assert result["checks"] == 0  # Can't count threats when opponent must deal with check
 
 
 class TestPositionAnalysis:
@@ -222,8 +233,9 @@ class TestIntentSelector:
         assert ranked[0] == TeachingIntent.FORK_OPPORTUNITY
 
     def test_rank_with_threat_awareness_weakness(self):
-        """Student weakness 'threat_awareness' should rank HANGING_PIECE first."""
+        """Student weakness 'threat_awareness' should boost HANGING_PIECE."""
         ranked = rank_intents(student_weaknesses=["threat_awareness"])
+        # HANGING_PIECE gets +2.0 from weakness AND +1.0 from default order
         assert ranked[0] == TeachingIntent.HANGING_PIECE_PUNISHMENT
 
     def test_rank_with_learning_loop(self):

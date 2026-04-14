@@ -47,8 +47,9 @@ WEAKNESS_TO_INTENTS = {
     ],
     # No clear plan
     "planning": [
-        TeachingIntent.THREAT_AWARENESS,
         TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.THREAT_AWARENESS,
     ],
 }
 
@@ -80,17 +81,19 @@ FOCUS_TO_INTENTS = {
         TeachingIntent.THREAT_AWARENESS,
     ],
     "natural_play": [
-        TeachingIntent.THREAT_AWARENESS,
-        TeachingIntent.FORK_OPPORTUNITY,
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.THREAT_AWARENESS,
     ],
 }
 
-# Default intent order when no student profile is available
+# Default intent order: most specific first, broadest last.
+# Hanging piece and fork are harder to satisfy but produce stronger teaching
+# signals when they DO trigger. Threat awareness is the catch-all fallback.
 DEFAULT_INTENT_ORDER = [
-    TeachingIntent.THREAT_AWARENESS,
     TeachingIntent.HANGING_PIECE_PUNISHMENT,
     TeachingIntent.FORK_OPPORTUNITY,
+    TeachingIntent.THREAT_AWARENESS,
 ]
 
 

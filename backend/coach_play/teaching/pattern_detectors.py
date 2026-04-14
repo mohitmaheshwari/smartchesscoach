@@ -128,64 +128,88 @@ def find_fork_opportunities(
 def count_forcing_moves(
     board: chess.Board,
     side: chess.Color,
-) -> Tuple[int, int, int]:
+) -> Dict:
     """
-    Count meaningful checks, captures, and attacks on high-value pieces.
+    Count meaningful checks, captures, and attacks with quality assessment.
 
-    Only counts:
-    - Checks that don't lose the checking piece (not trapped after check)
-    - Captures where captured piece value >= attacker value OR target is undefended
-    - Attacks on queen/rook that are real threats
+    Returns dict with:
+    - checks: safe checks (piece not immediately lost)
+    - captures: net-positive captures (win material or target undefended)
+    - high_value_attacks: captures of queen/rook
+    - safe_captures: captures that clearly win material
+    - attacks_on_undefended: captures of undefended pieces
+    - material_gain: total cp gain from safe captures
 
     Works regardless of whose turn it is. If it's not `side`'s turn,
     we temporarily flip the turn to generate legal moves for `side`.
-
-    Returns (checks, safe_captures, high_value_attacks).
     """
-    # If it's not our turn, we need to flip the board to generate our moves.
-    # This happens after pushing the coach's move — it becomes the student's turn,
-    # but we want to count the coach's THREATS (what the coach could do next).
+    empty = {"checks": 0, "captures": 0, "high_value_attacks": 0,
+             "safe_captures": 0, "attacks_on_undefended": 0, "material_gain": 0}
+
     needs_flip = board.turn != side
     if needs_flip:
-        # Flip turn by modifying FEN (safe, doesn't affect the actual game)
+        # If the opponent is in check, our "next move threats" are meaningless —
+        # the opponent MUST respond to check first, changing the position.
+        if board.is_check():
+            return empty
+
         parts = board.fen().split()
         parts[1] = 'w' if side == chess.WHITE else 'b'
-        # Clear en passant since it's artificial
         parts[3] = '-'
         board = chess.Board(' '.join(parts))
 
     checks = 0
     captures = 0
     high_value_attacks = 0
+    safe_captures = 0
+    attacks_on_undefended = 0
+    material_gain = 0
 
     for move in board.legal_moves:
         mover = board.piece_at(move.from_square)
         mover_value = PIECE_VALUES.get(mover.piece_type, 0) if mover else 0
 
-        # Check — only count if the checking piece isn't immediately captured
+        # Check — only count if checking piece isn't immediately lost
         board.push(move)
         if board.is_check():
-            # Is our piece safe on its new square?
             if not board.is_attacked_by(board.turn, move.to_square):
                 checks += 1
             elif mover_value <= 1:
-                # Pawn checks are always meaningful even if pawn is captured
                 checks += 1
         board.pop()
 
-        # Capture — only count net-positive or safe captures
+        # Capture — assess quality
         if board.is_capture(move):
             captured = board.piece_at(move.to_square)
             if captured:
                 cap_value = PIECE_VALUES.get(captured.piece_type, 0)
-                # Safe if: target undefended, or we capture equal/higher value
                 target_defended = board.is_attacked_by(not side, move.to_square)
-                if cap_value >= mover_value or not target_defended:
+
+                if not target_defended:
+                    # Free capture — target is undefended
                     captures += 1
+                    safe_captures += 1
+                    attacks_on_undefended += 1
+                    material_gain += cap_value * 100  # in centipawns
+                    if captured.piece_type in (chess.QUEEN, chess.ROOK):
+                        high_value_attacks += 1
+                elif cap_value >= mover_value:
+                    # Equal or winning trade
+                    captures += 1
+                    safe_captures += 1
+                    gain = (cap_value - mover_value) * 100
+                    material_gain += gain
                     if captured.piece_type in (chess.QUEEN, chess.ROOK):
                         high_value_attacks += 1
 
-    return checks, captures, high_value_attacks
+    return {
+        "checks": checks,
+        "captures": captures,
+        "high_value_attacks": high_value_attacks,
+        "safe_captures": safe_captures,
+        "attacks_on_undefended": attacks_on_undefended,
+        "material_gain": material_gain,
+    }
 
 
 def analyze_position(
@@ -213,13 +237,16 @@ def analyze_position(
     coach_forks = find_fork_opportunities(board, forker_color=coach_color)
 
     # What forcing moves does the coach have?
-    checks, captures, hv_attacks = count_forcing_moves(board, side=coach_color)
+    threats = count_forcing_moves(board, side=coach_color)
 
     return PositionFeatures(
         opponent_hanging=student_hanging,
         opponent_underdefended=student_underdefended,
         fork_opportunities=coach_forks,
-        checks_available=checks,
-        captures_available=captures,
-        high_value_attacks=hv_attacks,
+        checks_available=threats["checks"],
+        captures_available=threats["captures"],
+        high_value_attacks=threats["high_value_attacks"],
+        safe_captures=threats["safe_captures"],
+        attacks_on_undefended=threats["attacks_on_undefended"],
+        material_gain_possible=threats["material_gain"],
     )

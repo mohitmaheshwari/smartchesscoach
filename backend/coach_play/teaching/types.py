@@ -62,10 +62,15 @@ class PositionFeatures:
     # Fork opportunities (our pieces forking opponent pieces)
     fork_opportunities: List[ForkInfo] = field(default_factory=list)
 
-    # Threats we create
+    # Threats we create (from count_forcing_moves)
     checks_available: int = 0
     captures_available: int = 0
     high_value_attacks: int = 0  # attacks on Q/R
+
+    # Enriched threat data (quality, not just quantity)
+    safe_captures: int = 0       # captures that win material or are free
+    attacks_on_undefended: int = 0  # pieces under attack with no defender
+    material_gain_possible: int = 0  # total cp gain from safe captures
 
     # King exposure (phase 2)
     # opponent_king_zone_attacks: int = 0
