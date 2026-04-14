@@ -166,6 +166,22 @@ const ImportGames = ({ user }) => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* OAuth Connect — one click, no username needed */}
+                <Button
+                  onClick={() => {
+                    window.location.href = `${API}/oauth/lichess/connect`;
+                  }}
+                  className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Connect with Lichess
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or import by username</span></div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="lichess-username">Username</Label>
                   <div className="flex gap-2">
@@ -176,9 +192,10 @@ const ImportGames = ({ user }) => {
                       onChange={(e) => setLichessUsername(e.target.value)}
                       data-testid="lichess-username-input"
                     />
-                    <Button 
+                    <Button
                       onClick={() => handleImport('lichess')}
                       disabled={importing}
+                      variant="outline"
                       data-testid="lichess-import-btn"
                     >
                       {importing && importPlatform === 'lichess' ? (

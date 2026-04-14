@@ -262,6 +262,7 @@ from routes import analysis as analysis_routes
 from routes import player as player_routes
 from routes import training_advanced as training_advanced_routes
 from routes import coach_advanced as coach_advanced_routes
+from routes import oauth as oauth_routes
 
 
 # ==================== INJECT DEPENDENCIES ====================
@@ -316,6 +317,7 @@ player_routes.set_llm(call_llm)
 training_advanced_routes.set_db(db)
 training_advanced_routes.set_llm(call_llm)
 coach_advanced_routes.set_db(db)
+oauth_routes.init_db(db)
 coach_advanced_routes.set_llm(call_llm)
 
 
@@ -351,6 +353,7 @@ app.include_router(analysis_routes.router, prefix="/api")
 app.include_router(player_routes.router, prefix="/api")
 app.include_router(training_advanced_routes.router, prefix="/api")
 app.include_router(coach_advanced_routes.router, prefix="/api")
+app.include_router(oauth_routes.router, prefix="/api")
 
 
 # ==================== CORS ====================
