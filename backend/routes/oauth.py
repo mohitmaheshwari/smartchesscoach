@@ -42,7 +42,7 @@ def init_db(database):
 
 LICHESS_CLIENT_ID = os.environ.get("LICHESS_CLIENT_ID", "chessguru-app")
 LICHESS_REDIRECT_URI = os.environ.get("LICHESS_REDIRECT_URI", "")  # Set in env
-LICHESS_SCOPES = "preference:read game:read email:read"
+LICHESS_SCOPES = "preference:read email:read"
 
 LICHESS_AUTH_URL = "https://lichess.org/oauth"
 LICHESS_TOKEN_URL = "https://lichess.org/api/token"
@@ -85,7 +85,8 @@ async def lichess_connect(request: Request, user: User = Depends(get_current_use
         upsert=True,
     )
 
-    # Build authorization URL
+    # Build authorization URL with proper encoding
+    from urllib.parse import urlencode
     params = {
         "response_type": "code",
         "client_id": LICHESS_CLIENT_ID,
@@ -95,8 +96,7 @@ async def lichess_connect(request: Request, user: User = Depends(get_current_use
         "code_challenge": code_challenge,
         "state": state,
     }
-    query = "&".join(f"{k}={v}" for k, v in params.items())
-    auth_url = f"{LICHESS_AUTH_URL}?{query}"
+    auth_url = f"{LICHESS_AUTH_URL}?{urlencode(params)}"
 
     logger.info(f"[OAUTH] Lichess connect: redirecting user {user.user_id}")
     return RedirectResponse(url=auth_url)
