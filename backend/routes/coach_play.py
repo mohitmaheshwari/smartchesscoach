@@ -2496,10 +2496,29 @@ async def get_interactive_coaching(
         try:
             board = chess.Board(last_coach_move["fen_before"])
             move = board.parse_san(last_coach_move["move"])
-            
+
             coach_explanation = generate_coach_move_explanation(
                 board, move, user_color
             )
+
+            # Enrich with v2 teaching intent when available
+            if last_coach_move.get("v2") and last_coach_move.get("why_instructive"):
+                v2_intent = last_coach_move.get("teaching_intent", "")
+                v2_explanation = last_coach_move.get("why_instructive", "")
+
+                # Replace generic explanation with intent-specific one
+                intent_labels = {
+                    "fork_opportunity": "Double Attack",
+                    "hanging_piece_punishment": "Piece Safety",
+                    "threat_awareness": "Creating Threats",
+                }
+                label = intent_labels.get(v2_intent, "")
+
+                if v2_explanation and v2_explanation != "no meaningful threats":
+                    coach_explanation["v2_intent"] = v2_intent
+                    coach_explanation["v2_label"] = label
+                    coach_explanation["v2_explanation"] = v2_explanation
+
             result["coach_move_coaching"] = coach_explanation
         except Exception as e:
             logger.warning(f"Error generating coach move explanation: {e}")
@@ -6107,7 +6126,12 @@ async def _process_move_and_respond(
                         "fen_after": fen_after_coach,
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                         "teaching_goal": teaching_context.get("teaching_goal"),
-                        "is_best_move": teaching_context.get("is_best_move", True)
+                        "is_best_move": teaching_context.get("is_best_move", True),
+                        # V2 teaching data
+                        "teaching_intent": teaching_context.get("teaching_goal"),
+                        "intent_reason": teaching_context.get("intent_reason"),
+                        "why_instructive": teaching_context.get("why_instructive"),
+                        "v2": teaching_context.get("v2", False),
                     })
                     
                     # Check if game over after coach move
@@ -6240,7 +6264,11 @@ async def _process_move_and_respond(
                                         "concept_taught": teaching_context.get("concept_taught", ""),
                                         "student_challenge": teaching_context.get("student_challenge", ""),
                                         "move_san": coach_move,
-                                        "game_phase": teaching_context.get("teaching_content", {}).get("game_phase", "middlegame")
+                                        "game_phase": teaching_context.get("teaching_content", {}).get("game_phase", "middlegame"),
+                                        # V2 enriched data
+                                        "v2": teaching_context.get("v2", False),
+                                        "intent_reason": teaching_context.get("intent_reason", ""),
+                                        "v2_breakdown": teaching_context.get("v2_breakdown", {}),
                                     }
                                 )
                                 

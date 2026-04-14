@@ -922,7 +922,22 @@ const CoachPlaySidebar = ({
                     className="ml-auto"
                   />
                 </div>
-                {interactiveCoaching.coachMoveCoaching.explanation && (
+                {interactiveCoaching.coachMoveCoaching.v2_label && (
+                  <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full ${
+                    interactiveCoaching.coachMoveCoaching.v2_intent === 'fork_opportunity'
+                      ? 'bg-red-100 text-red-700'
+                      : interactiveCoaching.coachMoveCoaching.v2_intent === 'hanging_piece_punishment'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-purple-100 text-purple-700'
+                  }`}>
+                    {interactiveCoaching.coachMoveCoaching.v2_label}
+                  </span>
+                )}
+                {interactiveCoaching.coachMoveCoaching.v2_explanation ? (
+                  <p className="text-blue-800 text-sm font-medium">
+                    {interactiveCoaching.coachMoveCoaching.v2_explanation}
+                  </p>
+                ) : interactiveCoaching.coachMoveCoaching.explanation && (
                   <p className="text-blue-800 text-sm">
                     {interactiveCoaching.coachMoveCoaching.explanation}
                   </p>
