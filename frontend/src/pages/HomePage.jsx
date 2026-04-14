@@ -94,28 +94,82 @@ const HomePage = ({ user }) => {
     );
   }
 
-  // Empty state — no games yet
+  // New user onboarding — no games, no sessions
+  const coachGamesPlayed = data?.greeting?.games_together || 0;
+
   if (!hasGames && !data?.last_session) {
     return (
       <Layout user={user}>
-        <div className="max-w-md mx-auto px-6 py-24 text-center" data-testid="home-page">
-          <div className="w-14 h-14 rounded-2xl gradient-gold flex items-center justify-center mx-auto mb-6 shadow-lg shadow-amber-500/20">
-            <Brain className="w-6 h-6 text-black" strokeWidth={2} />
-          </div>
-          <h1 className="text-2xl font-heading text-foreground tracking-tight mb-3">Your coach is waiting.</h1>
-          <p className="text-muted-foreground mb-8 text-sm">Import your games or play with the coach to get started.</p>
-          <div className="space-y-3">
-            <button onClick={() => navigate("/play-with-coach")}
-              className="w-full px-6 py-3 text-sm gradient-gold text-black rounded-xl hover:opacity-90 transition-all font-semibold shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
-            >
-              <Swords className="w-4 h-4" strokeWidth={2} />Play with Coach
-            </button>
-            <button onClick={() => navigate("/import")}
-              className="w-full px-6 py-3 text-sm border border-border text-foreground rounded-xl hover:bg-muted/50 transition-all font-medium flex items-center justify-center gap-2"
-            >
-              <Import className="w-4 h-4" strokeWidth={2} />Import Games
-            </button>
-          </div>
+        <div className="max-w-md mx-auto px-6 py-10" data-testid="home-page">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+
+            {/* Welcome */}
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-2xl gradient-gold flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/20">
+                <Brain className="w-6 h-6 text-black" strokeWidth={2} />
+              </div>
+              <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">
+                Welcome to ChessGuru
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                I'm your personal chess coach. Let's find out how you play.
+              </p>
+            </div>
+
+            {/* Step indicator */}
+            <div className="flex items-center justify-center gap-2">
+              <div className={`w-2.5 h-2.5 rounded-full ${coachGamesPlayed >= 1 ? "bg-emerald-500" : "bg-primary"}`} />
+              <div className={`w-2.5 h-2.5 rounded-full ${coachGamesPlayed >= 2 ? "bg-emerald-500" : "bg-muted"}`} />
+              <div className={`w-2.5 h-2.5 rounded-full ${coachGamesPlayed >= 3 ? "bg-emerald-500" : "bg-muted"}`} />
+              <span className="text-xs text-muted-foreground ml-2">
+                {coachGamesPlayed === 0 ? "Play your first game" :
+                 coachGamesPlayed < 3 ? `${coachGamesPlayed}/3 games — ${3 - coachGamesPlayed} more to build your profile` :
+                 "Profile ready!"}
+              </span>
+            </div>
+
+            {/* Main CTA — Play with Coach */}
+            <div className="rounded-2xl border-2 border-primary/20 bg-primary/[0.03] p-5">
+              <h2 className="text-base font-semibold text-foreground mb-2">
+                {coachGamesPlayed === 0
+                  ? "Play a game with me"
+                  : coachGamesPlayed < 3
+                    ? "Keep going — I'm learning how you think"
+                    : "I know your game now"
+                }
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                {coachGamesPlayed === 0
+                  ? "I'll watch how you play and tell you what I see. No preparation needed — just play your natural game."
+                  : coachGamesPlayed < 3
+                    ? `After ${3 - coachGamesPlayed} more game${3 - coachGamesPlayed > 1 ? "s" : ""}, I'll have your full profile — strengths, weaknesses, and a plan to improve.`
+                    : "Your profile is ready. Let's keep improving."
+                }
+              </p>
+              <button onClick={() => navigate("/play-with-coach")}
+                className="w-full py-4 text-[15px] font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+              >
+                <Swords className="w-4 h-4" strokeWidth={2} />
+                {coachGamesPlayed === 0 ? "Play my first game" : "Play another game"}
+                <ChevronRight className="w-4 h-4 opacity-60" />
+              </button>
+            </div>
+
+            {/* Already have an account? */}
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <p className="text-sm text-foreground mb-3">Already play on Chess.com or Lichess?</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Connect your account and I'll analyze your existing games. Instant profile — no games with me needed.
+              </p>
+              <button onClick={() => navigate("/import")}
+                className="w-full py-2.5 text-sm border border-border text-foreground rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
+              >
+                <Import className="w-4 h-4" strokeWidth={2} />
+                Connect Chess.com or Lichess
+              </button>
+            </div>
+
+          </motion.div>
         </div>
       </Layout>
     );

@@ -602,8 +602,14 @@ async def get_coach_home(user: User = Depends(get_current_user)):
             acc_old = sum(older_5) / len(older_5) if older_5 else 0
             acc_improving = acc_new > acc_old + 3
 
+        # Also count completed coach sessions directly (for onboarding)
+        coach_session_count = await db.coach_sessions.count_documents(
+            {"user_id": user_id, "status": "completed"}
+        )
+
         result["greeting"] = {
-            "games_together": games_together,
+            "games_together": max(games_together, coach_session_count),
+            "coach_sessions": coach_session_count,
             "avg_accuracy": round(avg_acc) if avg_acc else None,
             "improving": acc_improving,
             "acc_old": round(acc_old) if acc_old else None,
