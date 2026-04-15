@@ -5763,6 +5763,20 @@ async def _process_move_and_respond(
             }}
         )
 
+        # Generate trigger from cached analysis (no extra Stockfish call)
+        trigger = should_coach_speak(
+            user_rating=user_rating,
+            move_san=user_move,
+            eval_before=analysis.get("eval_before", 0),
+            eval_after=analysis.get("eval_after", 0),
+            is_best_move=analysis.get("is_best_move", False),
+            is_candidate=analysis.get("is_candidate", False),
+            best_move_san=analysis.get("best_move"),
+            phase=analysis.get("phase", "middlegame"),
+            move_number=move_number,
+            opening_name=analysis.get("opening_name")
+        )
+
             # === FALLBACK DECISION: If evaluate-pending missed this move ===
             # Use the deeper background analysis to create a decision
             try:
