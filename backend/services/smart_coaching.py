@@ -156,7 +156,10 @@ async def generate_smart_coach_explanation(
         except Exception:
             position_features = []
     for f in (position_features or [])[:3]:
-        feature_facts.append(f"{f.title}: {f.description}")
+        title = f.title if hasattr(f, 'title') else f.get("title", "") if isinstance(f, dict) else str(f)
+        desc = f.description if hasattr(f, 'description') else f.get("description", "") if isinstance(f, dict) else ""
+        if title:
+            feature_facts.append(f"{title}: {desc}")
 
     # Fact 5: New threats created by this move
     threat_facts = []
