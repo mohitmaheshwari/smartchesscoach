@@ -199,8 +199,8 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
           </div>
         )}
 
-        {/* ─── Opening Guidance (when learning) ─── */}
-        {openingGuidance && (
+        {/* ─── Opening Guidance (when learning) — hide when v2 coaching is showing ─── */}
+        {openingGuidance && !coachMoveCoaching?.v2_intent && (
           <div className="rounded-xl border-2 border-primary/20 bg-primary/[0.03] p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] uppercase tracking-widest font-bold text-primary">
@@ -232,7 +232,7 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
             {openingGuidance.deviation && (
               <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 mb-2">
                 <p className="text-xs text-amber-600 font-medium mb-1">
-                  You played {openingGuidance.deviation.played} — that's not the Italian Game plan
+                  You played {openingGuidance.deviation.played} — that's not the {openingGuidance.opening_name || "opening"} plan
                 </p>
                 <p className="text-[11px] text-foreground/70">
                   {openingGuidance.deviation.idea}
