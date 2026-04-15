@@ -127,10 +127,10 @@ class TeachingMoveSelectorV2:
                 else:
                     max_eval_drop = 75    # advanced: near-optimal moves only
 
-            # Step 1: Generate candidates
+            # Step 1: Generate candidates (6 moves, depth 10 — fast enough for live play)
             candidates = generate_candidates(
                 board, engine,
-                max_candidates=8,
+                max_candidates=6,
                 max_eval_drop_cp=max_eval_drop,
             )
 

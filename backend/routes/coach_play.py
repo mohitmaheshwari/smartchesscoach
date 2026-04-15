@@ -5686,71 +5686,82 @@ async def _process_move_and_respond(
                 {"session_id": session_id}, {"$set": {"coach_move_pending": False}})
             return
         
-        # NORMAL PATH: Full analysis + coaching
-        # Step 1: Quick analysis of user's move
-        analysis = await get_quick_analysis(
-            fen_before=fen_before,
-            move_san=user_move,
-            fen_after=fen_after_user,
-            user_color=user_color,
-            move_number=move_number
-        )
-        
-        # Step 2: Check if coach should comment
-        trigger = should_coach_speak(
-            user_rating=user_rating,
-            move_san=user_move,
-            eval_before=analysis["eval_before"],
-            eval_after=analysis["eval_after"],
-            is_best_move=analysis["is_best_move"],
-            is_candidate=analysis["is_candidate"],
-            best_move_san=analysis["best_move"],
-            phase=analysis["phase"],
-            move_number=move_number,
-            opening_name=analysis.get("opening_name")
-        )
-        
-        # === CRITICAL: Store evaluations in move_history for post-game analysis ===
+        # NORMAL PATH: Reuse eval from evaluate-pending (no duplicate Stockfish!)
+        # evaluate-pending already ran Stockfish and stored the result in coaching_decisions.
+        # We just need to read it and store in move_history for post-game analysis.
         if not await _is_current_revision():
             logger.info(f"Skipping stale coach task for session {session_id}")
             return
 
         session_doc = await db.coach_sessions.find_one({"session_id": session_id})
-        if session_doc:
-            move_history = session_doc.get("move_history", [])
-            # Find and update the last user move with evaluations
-            for i in range(len(move_history) - 1, -1, -1):
-                if move_history[i].get("move") == user_move and move_history[i].get("by") == "player":
-                    move_history[i]["eval_before"] = analysis.get("eval_before", 0)
-                    move_history[i]["eval_after"] = analysis.get("eval_after", 0)
-                    move_history[i]["is_best_move"] = analysis.get("is_best_move", False)
-                    move_history[i]["best_move"] = analysis.get("best_move")
-                    move_history[i]["evaluation"] = _classify_move(
-                        analysis.get("eval_before", 0),
-                        analysis.get("eval_after", 0),
-                        user_color
-                    )
-                    break
-            
-            # Store evaluations list for post-game analysis
-            evaluations = session_doc.get("evaluations", [])
-            evaluations.append({
-                "move_number": move_number,
-                "move": user_move,
-                "by": "player",
-                "score": analysis.get("eval_after", 0),
-                "eval_before": analysis.get("eval_before", 0),
-                "eval_after": analysis.get("eval_after", 0),
-                "best_move": analysis.get("best_move")
-            })
-            
-            await db.coach_sessions.update_one(
-                {"session_id": session_id},
-                {"$set": {
-                    "move_history": move_history,
-                    "evaluations": evaluations
-                }}
-            )
+        if not session_doc:
+            return
+
+        # Get eval data from the coaching_decision that evaluate-pending just stored
+        analysis = {"eval_before": 0, "eval_after": 0, "best_move": None,
+                    "is_best_move": False, "is_candidate": False, "phase": "middlegame"}
+        decisions = session_doc.get("coaching_decisions", [])
+        if decisions:
+            last_decision = decisions[-1]
+            # Use eval from evaluate-pending's fast_eval
+            analysis["best_move"] = last_decision.get("best_move")
+            cp_loss_from_ep = last_decision.get("cp_loss", 0)
+            # Reconstruct rough evals from cp_loss (evaluate-pending stores this)
+            analysis["eval_before"] = 0  # Will be overwritten below if available
+            analysis["eval_after"] = 0
+
+        # Check if the move_history entry already has eval (from evaluate-pending's fast path)
+        move_history = session_doc.get("move_history", [])
+        for i in range(len(move_history) - 1, -1, -1):
+            if move_history[i].get("move") == user_move and move_history[i].get("by") == "player":
+                # If evaluate-pending already stored evals, use them
+                if move_history[i].get("eval_before") is not None:
+                    analysis["eval_before"] = move_history[i]["eval_before"]
+                    analysis["eval_after"] = move_history[i]["eval_after"]
+                    analysis["best_move"] = move_history[i].get("best_move", analysis["best_move"])
+                    analysis["is_best_move"] = move_history[i].get("is_best_move", False)
+                else:
+                    # Fallback: run quick analysis only if we have NO eval data at all
+                    try:
+                        quick = await get_quick_analysis(
+                            fen_before=fen_before, move_san=user_move,
+                            fen_after=fen_after_user, user_color=user_color,
+                            move_number=move_number
+                        )
+                        analysis = quick
+                        move_history[i]["eval_before"] = quick.get("eval_before", 0)
+                        move_history[i]["eval_after"] = quick.get("eval_after", 0)
+                        move_history[i]["is_best_move"] = quick.get("is_best_move", False)
+                        move_history[i]["best_move"] = quick.get("best_move")
+                    except Exception:
+                        pass
+
+                move_history[i]["evaluation"] = _classify_move(
+                    analysis.get("eval_before", 0),
+                    analysis.get("eval_after", 0),
+                    user_color
+                )
+                break
+
+        # Store evaluations list for post-game analysis
+        evaluations = session_doc.get("evaluations", [])
+        evaluations.append({
+            "move_number": move_number,
+            "move": user_move,
+            "by": "player",
+            "score": analysis.get("eval_after", 0),
+            "eval_before": analysis.get("eval_before", 0),
+            "eval_after": analysis.get("eval_after", 0),
+            "best_move": analysis.get("best_move")
+        })
+
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "move_history": move_history,
+                "evaluations": evaluations
+            }}
+        )
 
             # === FALLBACK DECISION: If evaluate-pending missed this move ===
             # Use the deeper background analysis to create a decision

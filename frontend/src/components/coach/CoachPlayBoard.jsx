@@ -95,16 +95,8 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
           </Badge>
         </div>
 
-        {/* Eval Bar + Board */}
+        {/* Board (eval bar removed — coach doesn't give away the position) */}
         <div className="flex gap-2 items-stretch">
-          <div className="w-8 md:w-10 shrink-0">
-            <EvalBar
-              evaluation={evaluation}
-              userColor={selectedColor}
-              gameOver={gameOver}
-              hidden={hideEvalBar}
-            />
-          </div>
 
           <div
             className="flex-1 relative rounded-lg overflow-hidden aspect-square"

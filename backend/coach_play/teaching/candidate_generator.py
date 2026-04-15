@@ -20,7 +20,7 @@ def generate_candidates(
     engine: chess.engine.SimpleEngine,
     max_candidates: int = 8,
     max_eval_drop_cp: int = 150,
-    depth: int = 15,
+    depth: int = 10,
 ) -> List[CandidateMove]:
     """
     Generate candidate moves using Stockfish multipv analysis.
