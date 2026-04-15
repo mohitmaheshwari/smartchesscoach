@@ -199,8 +199,8 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
           </div>
         )}
 
-        {/* ─── Opening Guidance (when learning) — hide when v2 coaching is showing ─── */}
-        {openingGuidance && !coachMoveCoaching?.v2_intent && (
+        {/* ─── Opening Guidance — disabled, v2 coaching system handles this now ─── */}
+        {false && openingGuidance && (
           <div className="rounded-xl border-2 border-primary/20 bg-primary/[0.03] p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] uppercase tracking-widest font-bold text-primary">
