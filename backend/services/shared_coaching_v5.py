@@ -1426,18 +1426,75 @@ def generate_coach_move_explanation(
     if not explanation:
         explanation = f"I play {move_san}."
         plan = "Improving my position step by step."
-    
+
     # Generate hint for user
     if threats:
         hint_for_user = f"Careful! {threats[0].replace('Your ', 'your ')}"
     elif not hint_for_user:
-        hint_for_user = "Think about what you want to achieve. Development? King safety? Attack?"
-    
-    return {
+        hint_for_user = ""
+
+    # ═══ OPPONENT READING: What can the student exploit? ═══
+    # Scan the position AFTER coach's move for opportunities the student should see.
+    # This teaches the student to READ the opponent's position, not just avoid mistakes.
+    opponent_opportunity = None
+    try:
+        from coach_play.teaching.pattern_detectors import find_hanging_pieces, find_fork_opportunities
+
+        # Find COACH pieces that are hanging (student can capture them)
+        coach_hanging, coach_underdefended = find_hanging_pieces(
+            board_after, victim_color=coach_color
+        )
+
+        # Find forks the STUDENT can make
+        student_forks = find_fork_opportunities(board_after, forker_color=user_chess_color)
+
+        if coach_hanging:
+            best = max(coach_hanging, key=lambda h: h.piece_value)
+            piece_name = chess.piece_name(best.piece_type)
+            sq_name = chess.square_name(best.square)
+            opponent_opportunity = {
+                "type": "hanging_piece",
+                "message": f"Look at my {piece_name} on {sq_name}. Is it defended?",
+                "piece": piece_name,
+                "square": sq_name,
+            }
+            if not hint_for_user:
+                hint_for_user = f"Before you plan your move — look at my {piece_name} on {sq_name}. What do you notice?"
+
+        elif student_forks:
+            best_fork = max(student_forks, key=lambda f: f.total_target_value)
+            targets = [chess.piece_name(t) for t in best_fork.target_types[:2]]
+            opponent_opportunity = {
+                "type": "fork_available",
+                "message": f"Can any of your pieces attack two things at once?",
+                "targets": targets,
+            }
+            if not hint_for_user:
+                hint_for_user = "Look for a move that attacks two of my pieces at the same time."
+
+        elif coach_underdefended:
+            best = max(coach_underdefended, key=lambda h: h.piece_value)
+            piece_name = chess.piece_name(best.piece_type)
+            sq_name = chess.square_name(best.square)
+            opponent_opportunity = {
+                "type": "pressure",
+                "message": f"My {piece_name} on {sq_name} doesn't have enough defenders. Can you add pressure?",
+            }
+    except Exception:
+        pass
+
+    if not hint_for_user:
+        hint_for_user = "What do you want to achieve with your next move?"
+
+    result = {
         "move_san": move_san,
         "explanation": explanation,
         "plan": plan,
         "threats": threats,
         "teaching_point": teaching_point,
-        "hint_for_user": hint_for_user
+        "hint_for_user": hint_for_user,
     }
+    if opponent_opportunity:
+        result["opponent_opportunity"] = opponent_opportunity
+
+    return result

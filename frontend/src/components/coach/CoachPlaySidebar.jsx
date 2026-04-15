@@ -912,7 +912,7 @@ const CoachPlaySidebar = ({
               }
               return null;
             })()}
-            {!suppressOldCoaching && interactiveCoaching.coachMoveCoaching && (
+            {interactiveCoaching.coachMoveCoaching && (
               <div
                 data-testid="coach-move-explanation"
                 className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2"
@@ -997,6 +997,18 @@ const CoachPlaySidebar = ({
               </div>
             )}
 
+            {/* Opponent Opportunity — teach student to read the board */}
+            {interactiveCoaching?.coachMoveCoaching?.opponent_opportunity && (
+              <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50 space-y-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                  Can you see it?
+                </span>
+                <p className="text-sm text-emerald-800 font-medium">
+                  {interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
+                </p>
+              </div>
+            )}
+
             {/* Consequence Feedback (Pedagogical Opponent) */}
             {consequenceFeedback && (
               <ConsequenceFeedback
@@ -1074,7 +1086,7 @@ const CoachPlaySidebar = ({
               }
               return null;
             })()}
-            {!suppressOldCoaching && v5Coaching && !session?.curriculum_active && (
+            {v5Coaching && !session?.curriculum_active && (
               <V5CoachingCard
                 coaching={v5Coaching}
                 moveSan={v5Coaching.move_san}
@@ -1090,12 +1102,12 @@ const CoachPlaySidebar = ({
             )}
 
             {/* Fundamentals Checklist — only in old mode */}
-            {!suppressOldCoaching && v5Coaching?.checklist_snapshot && (
+            {v5Coaching?.checklist_snapshot && (
               <FundamentalsChecklist snapshot={v5Coaching.checklist_snapshot} />
             )}
 
             {/* Trap Opportunity — only in old mode */}
-            {!suppressOldCoaching && v5Coaching?.trap_opportunity && (
+            {v5Coaching?.trap_opportunity && (
               <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5" data-testid="trap-opportunity">
                 <div className="flex items-center gap-2 mb-2">
                   <Target className="w-4 h-4 text-amber-500" strokeWidth={2} />
@@ -1134,12 +1146,12 @@ const CoachPlaySidebar = ({
             )}
 
             {/* Position Evaluation — hide when v2 coach explanation is showing */}
-            {!suppressOldCoaching && v5Coaching?.eval_label && !interactiveCoaching?.coachMoveCoaching?.v2_intent && (
+            {v5Coaching?.eval_label && !interactiveCoaching?.coachMoveCoaching?.v2_intent && (
               <EvalBadge evalLabel={v5Coaching.eval_label} size="md" showDescription />
             )}
 
             {/* Position Intelligence — hide when v2 coach explanation is showing */}
-            {!suppressOldCoaching && v5Coaching?.position_read && !interactiveCoaching?.coachMoveCoaching?.v2_intent && (
+            {v5Coaching?.position_read && !interactiveCoaching?.coachMoveCoaching?.v2_intent && (
               <div className="p-3 rounded-lg border border-blue-500/15 bg-blue-500/5" data-testid="position-read">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-500">
