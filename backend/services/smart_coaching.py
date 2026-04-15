@@ -122,31 +122,43 @@ async def generate_smart_coach_explanation(
 
     # ─── BUILD PROMPT WITH ONLY VERIFIED FACTS ───
 
-    facts_block = f"""VERIFIED FACTS (from Stockfish and our analysis — these are true):
-- Move played: {move_san}
-- {'; '.join(move_facts)}
-{f'- Teaching intent: {intent_fact}' if intent_fact else ''}
-{f'- New threats: {"; ".join(threat_facts)}' if threat_facts else '- No new threats created'}
-{f'- Student opportunities: {opportunities}' if opportunities else '- No obvious student opportunities'}
-{f'- Position features: {"; ".join(feature_facts)}' if feature_facts else ''}
-- Game phase: {phase}
-{f'- Opening: {opening_name}' if opening_name else ''}
-- Student rating: {user_rating}
-{f'- Student weaknesses: {", ".join(player_weaknesses)}' if player_weaknesses else ''}"""
+    # ─── BUILD FACTS BLOCK (only from our systems, never Stockfish raw) ───
 
-    system_prompt = """You are a chess coach converting analysis data into coaching language.
+    facts_lines = [f"Move played: {move_san}"]
+    facts_lines.append("; ".join(move_facts))
 
-CRITICAL RULES:
-- ONLY use the VERIFIED FACTS provided. Do NOT infer, calculate, or analyze the position yourself.
-- You do NOT know chess well enough to analyze positions. The facts are already computed for you.
-- Write as if speaking to the student sitting next to you during the game.
-- 2-3 sentences max for explanation.
-- End with ONE question that makes them look at the board.
-- Do NOT reveal the best move or tell them what to play.
-- If there's a student opportunity, hint at it without naming the move.
+    if intent_fact:
+        facts_lines.append(f"Why coach played this: {intent_fact}")
 
-Respond in JSON only (no markdown):
-{"explanation": "...", "question": "...", "hint": "..."}"""
+    if threat_facts:
+        facts_lines.append(f"Threats created: {'; '.join(threat_facts)}")
+
+    if opportunities:
+        facts_lines.append(f"Student can exploit: {opportunities}")
+
+    if feature_facts:
+        facts_lines.append(f"Board features: {'; '.join(feature_facts)}")
+
+    facts_lines.append(f"Game phase: {phase}")
+
+    if opening_name:
+        facts_lines.append(f"Opening: {opening_name}")
+
+    if player_weaknesses:
+        facts_lines.append(f"Student struggles with: {', '.join(player_weaknesses)}")
+
+    facts_block = "FACTS:\n" + "\n".join(f"- {line}" for line in facts_lines)
+
+    system_prompt = f"""You are a chess coach converting analysis into coaching language for a {user_rating}-rated student.
+
+RULES:
+- ONLY use the FACTS below. Do NOT analyze chess yourself — you don't know how.
+- Speak directly to the student: "I played...", "Notice...", "Can you see..."
+- 2-3 sentences max. End with ONE question making them look at the board.
+- Do NOT reveal best moves. If they can exploit something, hint — don't name the move.
+- No generic principles. Every word must come from the facts.
+
+Respond in JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
 
     try:
         response = await call_llm(system_prompt, facts_block)
@@ -249,24 +261,21 @@ async def generate_smart_user_feedback(
         if coach_intent in intent_map:
             problem_facts.append(intent_map[coach_intent])
 
-    facts_block = f"""VERIFIED FACTS:
+    facts_block = f"""FACTS:
 - Student played: {move_san} ({move_desc})
-- This was a {severity} (lost {cp_loss} centipawns)
-- Best move was: {best_move_san or 'unknown'}
+- This was a {severity}
 - What went wrong: {'; '.join(problem_facts) if problem_facts else 'unclear'}
-- Game phase: {phase}
-- Student rating: {user_rating}"""
+- Game phase: {phase}"""
 
-    system_prompt = """You convert chess analysis into ONE Socratic question for a student.
+    system_prompt = f"""You convert chess analysis into ONE Socratic question for a {user_rating}-rated student.
 
 RULES:
-- ONLY use the VERIFIED FACTS. Do NOT analyze the position yourself.
-- Ask about what they MISSED — do NOT tell them the answer.
+- ONLY use the FACTS below. Do NOT analyze chess yourself.
+- Ask about what they MISSED — never tell them the answer or the best move.
 - Reference specific pieces and squares from the facts.
-- ONE question, under 20 words.
-- ONE hint sentence if they can't answer.
+- ONE question, under 20 words. ONE hint sentence.
 
-Respond in JSON only: {"question": "...", "hint": "..."}"""
+Respond in JSON only: {{"question": "...", "hint": "..."}}"""
 
     try:
         response = await call_llm(system_prompt, facts_block)
