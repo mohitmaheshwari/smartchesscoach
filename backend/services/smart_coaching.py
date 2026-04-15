@@ -284,7 +284,9 @@ RULES:
 Respond in JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
 
     try:
+        logger.info(f"[SMART-COACHING] Calling LLM for coach move: {move_san}, key={scenario_key}")
         response = await call_llm(system_prompt, facts_block)
+        logger.info(f"[SMART-COACHING] LLM response received: {len(response)} chars")
 
         import json
         clean = response.strip()

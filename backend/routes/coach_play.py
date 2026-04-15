@@ -2569,6 +2569,7 @@ async def get_interactive_coaching(
 
             coach_explanation = None
             try:
+                logger.info(f"[COACH-EXPLAIN] Attempting smart coaching for {last_coach_move.get('move')}")
                 from services.smart_coaching import generate_smart_coach_explanation
                 # Get player weaknesses for context
                 _player_weaknesses = []
@@ -2594,7 +2595,7 @@ async def get_interactive_coaching(
                     db=db,
                 )
             except Exception as llm_err:
-                logger.warning(f"Smart coaching failed, using template: {llm_err}")
+                logger.error(f"[COACH-EXPLAIN] Smart coaching FAILED: {llm_err}", exc_info=True)
 
             # Fallback to template-based explanation
             if not coach_explanation:
