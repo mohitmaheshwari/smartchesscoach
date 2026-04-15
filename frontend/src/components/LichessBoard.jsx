@@ -16,15 +16,15 @@ import "chessground/assets/chessground.cburnett.css";
  */
 // Move classification icons (like Chess.com)
 const CLASSIFICATION_ICONS = {
-  brilliant:    { symbol: "!!", bg: "bg-cyan-500",    text: "text-white" },
-  best:         { symbol: "★",  bg: "bg-emerald-500", text: "text-white" },
-  excellent:    { symbol: "!",  bg: "bg-emerald-400", text: "text-white" },
-  good:         { symbol: "●",  bg: "bg-emerald-400", text: "text-white" },
-  book:         { symbol: "📖", bg: "bg-blue-400",    text: "text-white" },
-  inaccuracy:   { symbol: "?!", bg: "bg-amber-400",   text: "text-black" },
-  mistake:      { symbol: "?",  bg: "bg-orange-500",  text: "text-white" },
-  blunder:      { symbol: "??", bg: "bg-red-500",     text: "text-white" },
-  miss:         { symbol: "✕",  bg: "bg-red-400",     text: "text-white" },
+  brilliant:    { symbol: "Brilliant", bg: "bg-cyan-500",    text: "text-white" },
+  best:         { symbol: "Best",     bg: "bg-emerald-500", text: "text-white" },
+  excellent:    { symbol: "Excellent", bg: "bg-emerald-400", text: "text-white" },
+  good:         { symbol: "Good",     bg: "bg-emerald-400", text: "text-white" },
+  book:         { symbol: "Book",     bg: "bg-blue-400",    text: "text-white" },
+  inaccuracy:   { symbol: "Inaccuracy", bg: "bg-amber-400", text: "text-black" },
+  mistake:      { symbol: "Mistake",  bg: "bg-orange-500",  text: "text-white" },
+  blunder:      { symbol: "Blunder",  bg: "bg-red-500",     text: "text-white" },
+  miss:         { symbol: "Miss",     bg: "bg-red-400",     text: "text-white" },
 };
 
 const LichessBoard = forwardRef(({
@@ -537,7 +537,7 @@ const LichessBoard = forwardRef(({
             height: "12.5%",
           }}
         >
-          <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full ${classIcon.bg} ${classIcon.text} flex items-center justify-center text-[10px] font-bold shadow-md z-10 border border-white/30`}>
+          <div className={`absolute -top-2 -right-1 px-1.5 py-0.5 rounded ${classIcon.bg} ${classIcon.text} flex items-center justify-center text-[8px] font-bold shadow-md z-10 border border-white/30 whitespace-nowrap`}>
             {classIcon.symbol}
           </div>
         </div>
