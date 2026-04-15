@@ -2283,6 +2283,7 @@ async def get_interactive_coaching(
                         coach_intent=_coach_intent,
                         user_rating=session_doc.get("user_rating", 1200),
                         phase=phase_str,
+                        db=db,
                     )
                     if smart_fb:
                         if smart_fb.get("question"):
@@ -2590,6 +2591,7 @@ async def get_interactive_coaching(
                     player_weaknesses=_player_weaknesses,
                     user_rating=session_doc.get("user_rating", 1200),
                     opening_name=_opening,
+                    db=db,
                 )
             except Exception as llm_err:
                 logger.warning(f"Smart coaching failed, using template: {llm_err}")

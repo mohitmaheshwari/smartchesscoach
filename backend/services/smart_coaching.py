@@ -1,18 +1,16 @@
 """
 Smart Coaching — LLM converts structured chess data into natural coaching language.
 
-IMPORTANT: The LLM does NOT analyze chess positions. All chess analysis comes
-from Stockfish and our detector classes. The LLM's only job is to take those
-FACTS and write them as a human coach would say them.
+Architecture:
+  1. Our detectors produce FACTS (intent, threats, hanging pieces, phase)
+  2. Facts form a SCENARIO KEY (intent + piece types + threat type + phase)
+  3. Check coaching_phrases DB for cached response matching this scenario
+  4. If cache miss → call LLM → store response with scenario key
+  5. Over time, the DB fills up → LLM calls drop to zero
 
-Data flow:
-  Stockfish → evals, best moves, cp_loss
-  V2 selector → teaching intent, why this move was chosen
-  Pattern detectors → hanging pieces, forks, threats
-  Position reader → pins, development, center control
-  Player profile → weaknesses, rating
-  ──────────────────────────────────────────────────
-  ALL OF THE ABOVE → LLM → natural coaching sentence
+The scenario key is NOT position-specific (not FEN-based). It captures the
+COACHING SITUATION: "hanging_piece_punishment + undefended_knight + middlegame"
+so the same phrase works for any position with that pattern.
 """
 
 import chess
@@ -20,6 +18,55 @@ import logging
 from typing import Optional, Dict, List
 
 logger = logging.getLogger(__name__)
+
+
+def build_scenario_key(
+    intent: str,
+    move_type: str,  # "capture", "check", "quiet", "castle"
+    piece_moved: str,  # "knight", "bishop", etc.
+    target_piece: Optional[str] = None,  # piece being threatened/captured
+    threat_type: Optional[str] = None,  # "undefended", "underdefended", "fork", "check_threat"
+    phase: str = "middlegame",
+    has_opportunity: bool = False,  # student can exploit something
+) -> str:
+    """
+    Build a scenario key for coaching phrase lookup.
+
+    Same key = same coaching situation = same phrase works.
+    Examples:
+      "hanging_piece_punishment:capture:pawn:knight:undefended:middlegame"
+      "fork_opportunity:quiet:knight:queen+rook:fork:middlegame"
+      "threat_awareness:quiet:bishop:none:check_threat:opening"
+    """
+    parts = [
+        intent or "unknown",
+        move_type or "quiet",
+        piece_moved or "piece",
+        target_piece or "none",
+        threat_type or "none",
+        phase,
+        "opp" if has_opportunity else "no_opp",
+    ]
+    return ":".join(parts)
+
+
+def build_user_scenario_key(
+    severity: str,
+    fundamental: Optional[str],
+    hanging_piece: Optional[str] = None,  # "knight", "bishop", etc.
+    hanging_square: Optional[str] = None,
+    coach_intent: Optional[str] = None,
+    phase: str = "middlegame",
+) -> str:
+    """Scenario key for user move feedback (Socratic questions)."""
+    parts = [
+        severity,
+        fundamental or "unknown",
+        hanging_piece or "none",
+        coach_intent or "none",
+        phase,
+    ]
+    return ":".join(parts)
 
 
 async def generate_smart_coach_explanation(
@@ -31,10 +78,14 @@ async def generate_smart_coach_explanation(
     player_weaknesses: Optional[List[str]] = None,
     user_rating: int = 1200,
     opening_name: Optional[str] = None,
+    db=None,
 ) -> Dict:
     """
     Generate coaching text using LLM as a language layer only.
     All chess facts are computed by our systems and passed to the LLM.
+
+    Caching: Each response is stored in coaching_phrases collection with
+    a scenario key. Future identical scenarios serve from cache.
     """
     from llm_service import call_llm
     from services.position_reader import read_position
@@ -120,9 +171,80 @@ async def generate_smart_coach_explanation(
                 defenders = len(list(board_after.attackers(user_chess_color, sq)))
                 threat_facts.append(f"Student's {t_name} on {t_sq} is now attacked (defenders: {defenders})")
 
-    # ─── BUILD PROMPT WITH ONLY VERIFIED FACTS ───
+    # ─── BUILD SCENARIO KEY ───
 
-    # ─── BUILD FACTS BLOCK (only from our systems, never Stockfish raw) ───
+    # Determine move type
+    if board_before.is_castling(move):
+        move_type = "castle"
+    elif captured:
+        move_type = "capture"
+    elif board_after.is_check():
+        move_type = "check"
+    else:
+        move_type = "quiet"
+
+    piece_name = chess.piece_name(piece.piece_type) if piece else "piece"
+    target_piece_name = None
+    threat_type_key = None
+
+    intent_key = ""
+    if v2_context and v2_context.get("v2"):
+        intent_key = v2_context.get("teaching_goal", "")
+        sub = v2_context.get("v2_breakdown", {}).get("sub_scores", {})
+        if sub.get("capture_punishment", 0) > 0:
+            threat_type_key = "capture_punishment"
+            if captured:
+                target_piece_name = chess.piece_name(captured.piece_type)
+        elif sub.get("undefended", 0) > 0:
+            threat_type_key = "undefended"
+        elif sub.get("underdefended", 0) > 0:
+            threat_type_key = "underdefended"
+        elif intent_key == "fork_opportunity":
+            threat_type_key = "fork"
+        elif sub.get("checks", 0) > 0:
+            threat_type_key = "check_threat"
+        elif sub.get("attacks_undefended", 0) > 0:
+            threat_type_key = "attacks_undefended"
+        elif sub.get("safe_captures", 0) > 0:
+            threat_type_key = "safe_capture"
+
+    # Find target piece from threats if not from capture
+    if not target_piece_name and threat_facts:
+        for tf in threat_facts:
+            for pt in ["queen", "rook", "bishop", "knight"]:
+                if pt in tf.lower():
+                    target_piece_name = pt
+                    break
+            if target_piece_name:
+                break
+
+    scenario_key = build_scenario_key(
+        intent=intent_key,
+        move_type=move_type,
+        piece_moved=piece_name,
+        target_piece=target_piece_name,
+        threat_type=threat_type_key,
+        phase=phase,
+        has_opportunity=bool(opportunities),
+    )
+
+    # ─── CHECK CACHE ───
+    if db:
+        try:
+            cached = await db.coaching_phrases.find_one(
+                {"scenario_key": scenario_key, "type": "coach_move"},
+                {"_id": 0, "response": 1}
+            )
+            if cached and cached.get("response"):
+                logger.info(f"[SMART-COACHING] Cache hit: {scenario_key}")
+                result = cached["response"]
+                result["move_san"] = move_san  # Update move-specific field
+                result["from_cache"] = True
+                return result
+        except Exception:
+            pass
+
+    # ─── BUILD FACTS BLOCK (only from our systems) ───
 
     facts_lines = [f"Move played: {move_san}"]
     facts_lines.append("; ".join(move_facts))
@@ -157,6 +279,7 @@ RULES:
 - 2-3 sentences max. End with ONE question making them look at the board.
 - Do NOT reveal best moves. If they can exploit something, hint — don't name the move.
 - No generic principles. Every word must come from the facts.
+- Use the PIECE NAMES and SQUARE NAMES from the facts. Be specific.
 
 Respond in JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
 
@@ -186,6 +309,31 @@ Respond in JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}
                 "type": "smart",
                 "message": data["hint"],
             }
+
+        # ─── STORE IN CACHE ───
+        if db:
+            try:
+                await db.coaching_phrases.update_one(
+                    {"scenario_key": scenario_key, "type": "coach_move"},
+                    {"$set": {
+                        "scenario_key": scenario_key,
+                        "type": "coach_move",
+                        "response": result,
+                        "facts": facts_lines,
+                        "intent": intent_key,
+                        "phase": phase,
+                        "piece_moved": piece_name,
+                        "target_piece": target_piece_name,
+                        "threat_type": threat_type_key,
+                        "created_at": __import__("datetime").datetime.now(
+                            __import__("datetime").timezone.utc).isoformat(),
+                    }},
+                    upsert=True,
+                )
+                logger.info(f"[SMART-COACHING] Cached: {scenario_key}")
+            except Exception as cache_err:
+                logger.debug(f"Cache store failed: {cache_err}")
+
         return result
 
     except Exception as e:
@@ -203,10 +351,11 @@ async def generate_smart_user_feedback(
     coach_intent: Optional[str],
     user_rating: int = 1200,
     phase: str = "middlegame",
+    db=None,
 ) -> Optional[Dict]:
     """
     Generate Socratic question for mistakes using LLM as language layer.
-    All chess facts come from Stockfish and fundamentals checker.
+    All chess facts come from our fundamentals checker and detectors.
     """
     if severity in ("good", "brilliant"):
         return None
@@ -221,28 +370,31 @@ async def generate_smart_user_feedback(
 
     # ─── GATHER FACTS ───
 
-    # What the move did
     move_desc = _describe_move(board_before, user_move, piece, captured)
 
     # What went wrong (from our fundamentals checker)
     problem_facts = []
+    hanging_piece_name = None
+    hanging_square_name = None
+
     if fundamental_violated == "check_opponents_move":
         problem_facts.append("Student did not respond to the opponent's threat from the previous move")
     elif fundamental_violated == "hanging_pieces":
-        # Find which piece is now hanging
         user_color_bool = chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK
         for sq in chess.SQUARES:
             p = board_after.piece_at(sq)
-            if p and p.color == user_color_bool and p.piece_type != chess.KING and p.piece_type != chess.PAWN:
+            if p and p.color == user_color_bool and p.piece_type not in (chess.KING, chess.PAWN):
                 attackers = list(board_after.attackers(not user_color_bool, sq))
                 defenders = list(board_after.attackers(user_color_bool, sq))
                 if attackers and not defenders:
-                    problem_facts.append(f"Student's {chess.piece_name(p.piece_type)} on {chess.square_name(sq)} is now undefended and attacked")
+                    hanging_piece_name = chess.piece_name(p.piece_type)
+                    hanging_square_name = chess.square_name(sq)
+                    problem_facts.append(f"Student's {hanging_piece_name} on {hanging_square_name} is now undefended and attacked")
                     break
         if not problem_facts:
             problem_facts.append("Student left a piece undefended")
     elif fundamental_violated == "calculate":
-        problem_facts.append(f"Student didn't calculate the response — lost {cp_loss} centipawns")
+        problem_facts.append("Student didn't calculate the opponent's response")
     elif fundamental_violated == "king_safety":
         problem_facts.append("Student's king is in danger")
     elif fundamental_violated == "development":
@@ -254,12 +406,35 @@ async def generate_smart_user_feedback(
 
     if coach_intent:
         intent_map = {
-            "hanging_piece_punishment": "The coach deliberately created a position to test piece safety awareness",
-            "fork_opportunity": "The coach set up a double attack that the student needed to handle",
+            "hanging_piece_punishment": "The coach created a position to test piece safety awareness",
+            "fork_opportunity": "The coach set up a double attack the student needed to handle",
             "threat_awareness": "The coach created a threat the student needed to notice",
         }
         if coach_intent in intent_map:
             problem_facts.append(intent_map[coach_intent])
+
+    # ─── CHECK CACHE ───
+    user_scenario_key = build_user_scenario_key(
+        severity=severity,
+        fundamental=fundamental_violated,
+        hanging_piece=hanging_piece_name,
+        coach_intent=coach_intent,
+        phase=phase,
+    )
+
+    if db:
+        try:
+            cached = await db.coaching_phrases.find_one(
+                {"scenario_key": user_scenario_key, "type": "user_feedback"},
+                {"_id": 0, "response": 1}
+            )
+            if cached and cached.get("response"):
+                logger.info(f"[SMART-COACHING] User cache hit: {user_scenario_key}")
+                return cached["response"]
+        except Exception:
+            pass
+
+    # ─── LLM CALL ───
 
     facts_block = f"""FACTS:
 - Student played: {move_san} ({move_desc})
@@ -286,7 +461,31 @@ Respond in JSON only: {{"question": "...", "hint": "..."}}"""
             if clean.endswith("```"):
                 clean = clean[:-3]
             clean = clean.strip()
-        return json.loads(clean)
+        result = json.loads(clean)
+
+        # ─── STORE IN CACHE ───
+        if db:
+            try:
+                await db.coaching_phrases.update_one(
+                    {"scenario_key": user_scenario_key, "type": "user_feedback"},
+                    {"$set": {
+                        "scenario_key": user_scenario_key,
+                        "type": "user_feedback",
+                        "response": result,
+                        "facts": problem_facts,
+                        "severity": severity,
+                        "fundamental": fundamental_violated,
+                        "phase": phase,
+                        "created_at": __import__("datetime").datetime.now(
+                            __import__("datetime").timezone.utc).isoformat(),
+                    }},
+                    upsert=True,
+                )
+                logger.info(f"[SMART-COACHING] User cached: {user_scenario_key}")
+            except Exception:
+                pass
+
+        return result
     except Exception as e:
         logger.warning(f"[SMART-COACHING] User feedback LLM failed: {e}")
         return None
