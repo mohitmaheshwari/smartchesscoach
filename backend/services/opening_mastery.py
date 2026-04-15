@@ -364,7 +364,52 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
     if len(moves_lower) >= 2:
         if moves_lower[:2] == ["e4", "nc6"]:
             return _build_opening_result("nimzowitsch_defense", moves)
-    
+
+    # === EARLY FAMILY DETECTION (2 moves — broad categories) ===
+    # These detect the opening FAMILY before the specific line is known
+
+    # King's Pawn Opening: e4 e5 (could become Italian, Ruy Lopez, Scotch, etc.)
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["e4", "e5"]:
+            return {
+                "opening_key": "kings_pawn",
+                "opening_name": "King's Pawn Opening",
+                "variation": None,
+                "description": "Open game — both sides fight for the center with e-pawns. Can lead to Italian Game, Ruy Lopez, Scotch, or many others.",
+                "character": "open",
+                "introduction": "King's Pawn Opening — develop pieces quickly and fight for the center!",
+                "has_traps": False,
+                "trap_names": [],
+            }
+
+    # Queen's Pawn Opening: d4 d5 (could become Queen's Gambit, London, Slav, etc.)
+    if len(moves_lower) >= 2:
+        if moves_lower[0] == "d4" and moves_lower[1] == "d5":
+            return {
+                "opening_key": "queens_pawn",
+                "opening_name": "Queen's Pawn Opening",
+                "variation": None,
+                "description": "Closed game — both sides fight for the center with d-pawns. Can lead to Queen's Gambit, London System, Slav, or others.",
+                "character": "closed",
+                "introduction": "Queen's Pawn Opening — control the center and develop solidly!",
+                "has_traps": False,
+                "trap_names": [],
+            }
+
+    # Indian Defense family: d4 Nf6 (could become King's Indian, Nimzo, Queen's Indian, etc.)
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["d4", "nf6"]:
+            return {
+                "opening_key": "indian_defense",
+                "opening_name": "Indian Defense",
+                "variation": None,
+                "description": "Black delays d5, choosing to control the center with pieces first. Can lead to King's Indian, Nimzo-Indian, or Queen's Indian.",
+                "character": "flexible",
+                "introduction": "Indian Defense — flexible and modern approach!",
+                "has_traps": False,
+                "trap_names": [],
+            }
+
     return None
 
 
