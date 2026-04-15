@@ -3758,10 +3758,16 @@ async def evaluate_pending_move(
 
         from services.coaching_templates import pick_template
 
-        # ─── CRITICAL (mistake/blunder only) ─────
-        if move_quality in ("mistake", "blunder"):
+        # ─── MISTAKE/BLUNDER HANDLING ─────
+        # With the v2 Socratic coaching system, mistakes are teaching moments
+        # that happen AFTER the move. Only hold for catastrophic blunders (4+ pawns).
+        # Everything else auto-commits so the Socratic question can fire after.
+        if move_quality == "blunder" and cp_loss_val >= 400:
             layer = "critical_interrupt"
             severity = "high"
+        elif move_quality in ("mistake", "blunder"):
+            layer = "advisory"
+            severity = "medium"
 
             if fast_signals.get("hung_piece"):
                 hp = fast_signals["hung_piece"]
