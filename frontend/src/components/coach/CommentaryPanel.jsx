@@ -274,8 +274,8 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
           </div>
         )}
 
-        {/* ─── Board Reading ─── */}
-        {filteredCommentary && (
+        {/* ─── Board Reading (hidden when v2 coach explanation is showing) ─── */}
+        {filteredCommentary && !coachMoveCoaching?.v2_intent && (
           <>
             {/* Material */}
             {filteredCommentary.material && (
