@@ -38,16 +38,16 @@ import {
 } from "lucide-react";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
-// Severity colors and icons
+// Severity colors and labels — text only, no cryptic icons
 const SEVERITY_CONFIG = {
-  brilliant: { color: "cyan", icon: Zap, label: "Brilliant!" },
-  great: { color: "emerald", icon: CheckCircle2, label: "Great move" },
-  good: { color: "green", icon: CheckCircle2, label: "Good move" },
-  book: { color: "blue", icon: CheckCircle2, label: "Book move" },
-  context: { color: "zinc", icon: Eye, label: "Opponent's move" },
-  inaccuracy: { color: "yellow", icon: AlertTriangle, label: "Inaccuracy" },
-  mistake: { color: "orange", icon: AlertTriangle, label: "Mistake" },
-  blunder: { color: "red", icon: AlertTriangle, label: "Blunder" }
+  brilliant: { color: "cyan", label: "Brilliant" },
+  great: { color: "emerald", label: "Excellent" },
+  good: { color: "green", label: "Good move" },
+  book: { color: "blue", label: "Best" },
+  context: { color: "zinc", label: "Opponent's move" },
+  inaccuracy: { color: "yellow", label: "Inaccuracy" },
+  mistake: { color: "orange", label: "Mistake" },
+  blunder: { color: "red", label: "Blunder" }
 };
 
 // Move type colors for candidate moves
@@ -92,7 +92,6 @@ const V5CoachingCard = ({
   
   const severity = coaching.severity || "context";
   const config = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.context;
-  const SeverityIcon = config.icon;
   
   const isGoodMove = ["brilliant", "great", "good", "book"].includes(severity);
   const isMistake = ["inaccuracy", "mistake", "blunder"].includes(severity);
@@ -156,7 +155,6 @@ const V5CoachingCard = ({
               variant="outline" 
               className={`text-${config.color}-400 border-${config.color}-500/30`}
             >
-              <SeverityIcon className="w-3 h-3 mr-1" />
               {config.label}
             </Badge>
           </div>
