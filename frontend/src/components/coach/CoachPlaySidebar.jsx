@@ -912,7 +912,9 @@ const CoachPlaySidebar = ({
               }
               return null;
             })()}
-            {interactiveCoaching.coachMoveCoaching && (
+            {/* Coach move explanation now renders in CommentaryPanel (next to board).
+                Only show here if CommentaryPanel is not available (fallback). */}
+            {interactiveCoaching.coachMoveCoaching && !interactiveCoaching.coachMoveCoaching.v2_intent && (
               <div
                 data-testid="coach-move-explanation"
                 className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2"

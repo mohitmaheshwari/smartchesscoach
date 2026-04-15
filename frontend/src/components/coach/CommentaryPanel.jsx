@@ -19,7 +19,7 @@ const CATEGORY_CONFIG = {
   pawn_structure: { icon: Eye, color: "text-orange-500", bg: "bg-orange-500/5", border: "border-orange-500/10" },
 };
 
-const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch, openingComplete, coachMoveExplanation, lastCoachMoveSan }) => {
+const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch, openingComplete, coachMoveExplanation, lastCoachMoveSan, coachMoveCoaching }) => {
   const hasContent = commentary || openingGuidance || trapWarning || openingDeviation || openingComplete || coachMoveExplanation;
   const prevObsTitles = useRef(new Set());
 
@@ -54,18 +54,50 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
 
-        {/* ─── Coach Move Explanation ─── */}
-        {coachMoveExplanation && (
-          <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-1">
+        {/* ─── Coach Move Explanation (v2 intent-driven) ─── */}
+        {(coachMoveCoaching || coachMoveExplanation) && (
+          <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2 space-y-2">
+            <div className="flex items-center gap-1.5">
               <Zap className="w-3 h-3 text-muted-foreground/60" strokeWidth={2} />
               <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">
                 Opponent{lastCoachMoveSan ? ` played ${lastCoachMoveSan}` : ""}
               </span>
+              {coachMoveCoaching?.v2_label && (
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                  coachMoveCoaching.v2_intent === 'fork_opportunity'
+                    ? 'bg-red-100 text-red-700'
+                    : coachMoveCoaching.v2_intent === 'hanging_piece_punishment'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-purple-100 text-purple-700'
+                }`}>
+                  {coachMoveCoaching.v2_label}
+                </span>
+              )}
             </div>
+
             <p className="text-xs text-foreground/80 leading-snug">
-              {coachMoveExplanation}
+              {coachMoveCoaching?.explanation || coachMoveExplanation}
             </p>
+
+            {coachMoveCoaching?.hint_for_user && (
+              <p className="text-xs text-amber-700 font-medium">
+                {coachMoveCoaching.hint_for_user}
+              </p>
+            )}
+
+            {coachMoveCoaching?.opponent_opportunity && (
+              <div className="rounded bg-emerald-50 border border-emerald-200 px-2 py-1.5">
+                <p className="text-xs text-emerald-800 font-medium">
+                  {coachMoveCoaching.opponent_opportunity.message}
+                </p>
+              </div>
+            )}
+
+            {coachMoveCoaching?.plan && (
+              <p className="text-[11px] text-muted-foreground italic">
+                {coachMoveCoaching.plan}
+              </p>
+            )}
           </div>
         )}
 

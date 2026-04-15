@@ -1304,6 +1304,11 @@ const CoachPlay = ({ user }) => {
         } else {
           console.log("[V2-FLOW] No user_move_coaching in response");
         }
+
+        // Update CommentaryPanel with v2 coach explanation (replaces generic text)
+        if (data.coach_move_coaching?.explanation) {
+          setCoachMoveExplanation(data.coach_move_coaching.explanation);
+        }
       } else {
         console.log("[V2-FLOW] interactive-feedback response NOT OK:", response.status);
       }
@@ -2676,6 +2681,7 @@ const CoachPlay = ({ user }) => {
               openingComplete={openingComplete}
               coachMoveExplanation={coachMoveExplanation}
               lastCoachMoveSan={lastCoachMoveSan}
+              coachMoveCoaching={interactiveCoaching?.coachMoveCoaching}
             />
           </div>
         ) : gameStarted && session && !gameOver ? (
