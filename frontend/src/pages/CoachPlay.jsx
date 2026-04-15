@@ -47,6 +47,8 @@ const CoachPlay = ({ user }) => {
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [lastMove, setLastMove] = useState(null);
+  const [userLastMoveSquare, setUserLastMoveSquare] = useState(null); // persists after coach moves
+  const [coachLastMoveSquare, setCoachLastMoveSquare] = useState(null);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
 
   // Game settings
@@ -1837,6 +1839,7 @@ const CoachPlay = ({ user }) => {
             const lastMove = data.session.last_coach_move;
             if (lastMove?.uci) {
               highlightMove(lastMove.uci);
+              setCoachLastMoveSquare(lastMove.uci.slice(2, 4));
             }
             // Track coach move SAN + explanation for display
             if (lastMove?.move || lastMove?.san) {
@@ -2372,6 +2375,8 @@ const CoachPlay = ({ user }) => {
     if (openingIdeas.length) setGamePly(prev => prev + 1);
     setCurrentFen(chess.fen());
     highlightMove(moveObj.from + moveObj.to);
+    setUserLastMoveSquare(moveObj.to);
+    setCoachLastMoveSquare(null);
 
     // ─── COACH FLOW: 400ms eval window ─────
     const moveData = {
@@ -2655,23 +2660,11 @@ const CoachPlay = ({ user }) => {
           triggerCoachMove={triggerCoachMove}
           handleStartLesson={handleStartLesson}
           moveClassification={(() => {
-            // Show classification on the USER's last move
-            if (v5Coaching?.severity && v5Coaching?.fen_before && v5Coaching?.move_san) {
-              try {
-                const c = new Chess(v5Coaching.fen_before);
-                const m = c.move(v5Coaching.move_san);
-                if (m) {
-                  let type = v5Coaching.severity;
-                  if (v5Coaching.theory_applied) type = "book";
-                  return { square: m.to, type };
-                }
-              } catch {}
-            }
-            // Fallback: if we have v5 severity and lastMove, show on lastMove
-            if (v5Coaching?.severity && lastMove) {
+            // Show classification on the USER's move square (persists after coach moves)
+            if (v5Coaching?.severity && userLastMoveSquare) {
               let type = v5Coaching.severity;
               if (v5Coaching.theory_applied) type = "book";
-              return { square: lastMove[1], type };
+              return { square: userLastMoveSquare, type };
             }
             return null;
           })()}
