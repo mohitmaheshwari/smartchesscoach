@@ -2604,14 +2604,19 @@ async def get_interactive_coaching(
                 )
 
             # Add intent badge data for frontend
+            # Don't show intent badge during opening (misleading — "Creating Threats" for Nf6)
             intent_labels = {
                 "fork_opportunity": "Double Attack",
                 "hanging_piece_punishment": "Piece Safety",
                 "threat_awareness": "Creating Threats",
             }
+            move_count = len(move_history)
+            in_opening = move_count <= 20  # ~10 moves per side
             if last_coach_move.get("v2"):
                 v2_intent = last_coach_move.get("teaching_intent", "")
-                coach_explanation["v2_intent"] = v2_intent
+                # Only show intent badge after the opening
+                if not in_opening or v2_intent in ("fork_opportunity", "hanging_piece_punishment"):
+                    coach_explanation["v2_intent"] = v2_intent
                 coach_explanation["v2_label"] = intent_labels.get(v2_intent, "")
 
             result["coach_move_coaching"] = coach_explanation

@@ -100,6 +100,43 @@ async def generate_smart_coach_explanation(
     board_after.push(move)
     phase = _get_phase(board_after)
 
+    # ─── OPENING DETECTION (move < 10) ───
+    # In the opening, coaching should be about the OPENING, not v2 intents
+    move_number = board_after.fullmove_number
+    opening_info_detected = None
+    if move_number <= 10:
+        try:
+            from services.opening_mastery import detect_opening_from_moves
+            from services.opening_theory_tree_service import load_theory_tree
+
+            # Reconstruct moves from the board
+            temp = board_after.copy()
+            all_moves_san = []
+            moves_stack = list(temp.move_stack)
+            temp.reset()
+            for m in moves_stack:
+                all_moves_san.append(temp.san(m))
+                temp.push(m)
+
+            detected = detect_opening_from_moves(all_moves_san)
+            if detected:
+                opening_info_detected = detected
+                opening_name = detected.get("opening_name", opening_name)
+
+                # Get theory data for richer context
+                tree = load_theory_tree()
+                key = detected.get("opening_key", "")
+                if key in tree:
+                    theory = tree[key]
+                    white_plan = theory.get("white_plan", "")
+                    black_plan = theory.get("black_plan", "")
+                    if white_plan or black_plan:
+                        opening_info_detected["plans"] = {
+                            "white": white_plan, "black": black_plan
+                        }
+        except Exception:
+            pass
+
     # ─── GATHER ALL FACTS (from our systems, NOT the LLM) ───
 
     # Fact 1: What the move does mechanically
@@ -293,26 +330,44 @@ async def generate_smart_coach_explanation(
         except Exception:
             pass
 
-    # ─── BUILD FACTS BLOCK (only from our systems) ───
+    # ─── BUILD FACTS BLOCK ───
 
     facts_lines = [f"Move played: {move_san}"]
     facts_lines.append("; ".join(move_facts))
 
-    if intent_fact:
-        facts_lines.append(f"Why coach played this: {intent_fact}")
-
-    if threat_facts:
-        facts_lines.append(f"Threats created: {'; '.join(threat_facts)}")
-
-    if opportunities:
-        facts_lines.append(f"Student can exploit: {opportunities}")
+    # OPENING PHASE: facts about the opening, not v2 intents
+    if opening_info_detected and move_number <= 10:
+        o_name = opening_info_detected.get("opening_name", "")
+        o_desc = opening_info_detected.get("description", "")
+        o_char = opening_info_detected.get("character", "")
+        facts_lines.append(f"Opening detected: {o_name}")
+        if o_desc:
+            facts_lines.append(f"Opening description: {o_desc}")
+        if o_char:
+            facts_lines.append(f"Opening character: {o_char}")
+        plans = opening_info_detected.get("plans", {})
+        if plans.get("white"):
+            facts_lines.append(f"White's plan: {plans['white']}")
+        if plans.get("black"):
+            facts_lines.append(f"Black's plan: {plans['black']}")
+        facts_lines.append(f"Move number: {move_number}")
+        # In the opening, don't show v2 intent — it's misleading
+        # ("Creating Threats" for a developing knight is wrong)
+    else:
+        # MIDDLEGAME/ENDGAME: facts about intent and threats
+        if intent_fact:
+            facts_lines.append(f"Why coach played this: {intent_fact}")
+        if threat_facts:
+            facts_lines.append(f"Threats created: {'; '.join(threat_facts)}")
+        if opportunities:
+            facts_lines.append(f"Student can exploit: {opportunities}")
 
     if feature_facts:
         facts_lines.append(f"Board features: {'; '.join(feature_facts)}")
 
     facts_lines.append(f"Game phase: {phase}")
 
-    if opening_name:
+    if opening_name and not opening_info_detected:
         facts_lines.append(f"Opening: {opening_name}")
 
     if player_weaknesses:
@@ -320,7 +375,20 @@ async def generate_smart_coach_explanation(
 
     facts_block = "FACTS:\n" + "\n".join(f"- {line}" for line in facts_lines)
 
-    system_prompt = f"""You are a chess coach converting analysis into coaching language for a {user_rating}-rated student.
+    # Different prompts for opening vs middlegame
+    if opening_info_detected and move_number <= 10:
+        system_prompt = f"""You are a chess coach explaining an opening move to a {user_rating}-rated student.
+
+RULES:
+- ONLY use the FACTS below. Do NOT analyze chess yourself.
+- Explain what this opening is and why this move fits the plan.
+- Tell them the KEY IDEA of this opening in simple terms.
+- End with ONE question about their plan in this opening.
+- 2-3 sentences max. No generic principles.
+
+Respond in JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
+    else:
+        system_prompt = f"""You are a chess coach converting analysis into coaching language for a {user_rating}-rated student.
 
 RULES:
 - ONLY use the FACTS below. Do NOT analyze chess yourself — you don't know how.
