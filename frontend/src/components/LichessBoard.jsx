@@ -20,7 +20,7 @@ const CLASSIFICATION_ICONS = {
   best:         { symbol: "Best",     bg: "bg-emerald-500", text: "text-white" },
   excellent:    { symbol: "Excellent", bg: "bg-emerald-400", text: "text-white" },
   good:         { symbol: "Good",     bg: "bg-emerald-400", text: "text-white" },
-  book:         { symbol: "Book",     bg: "bg-blue-400",    text: "text-white" },
+  book:         { symbol: "Theory",   bg: "bg-blue-500",    text: "text-white" },
   inaccuracy:   { symbol: "Inaccuracy", bg: "bg-amber-400", text: "text-black" },
   mistake:      { symbol: "Mistake",  bg: "bg-orange-500",  text: "text-white" },
   blunder:      { symbol: "Blunder",  bg: "bg-red-500",     text: "text-white" },

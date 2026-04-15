@@ -2655,15 +2655,23 @@ const CoachPlay = ({ user }) => {
           triggerCoachMove={triggerCoachMove}
           handleStartLesson={handleStartLesson}
           moveClassification={(() => {
-            if (!lastMove) return null;
-            // User move — from v5 coaching
-            if (v5Coaching?.severity) {
-              return { square: lastMove[1], type: v5Coaching.severity };
+            // Show classification on the USER's last move
+            if (v5Coaching?.severity && v5Coaching?.fen_before && v5Coaching?.move_san) {
+              try {
+                const c = new Chess(v5Coaching.fen_before);
+                const m = c.move(v5Coaching.move_san);
+                if (m) {
+                  let type = v5Coaching.severity;
+                  if (v5Coaching.theory_applied) type = "book";
+                  return { square: m.to, type };
+                }
+              } catch {}
             }
-            // Coach/opponent move — from interactive coaching
-            const coachCoaching = interactiveCoaching?.coachMoveCoaching;
-            if (coachCoaching?.severity) {
-              return { square: lastMove[1], type: coachCoaching.severity };
+            // Fallback: if we have v5 severity and lastMove, show on lastMove
+            if (v5Coaching?.severity && lastMove) {
+              let type = v5Coaching.severity;
+              if (v5Coaching.theory_applied) type = "book";
+              return { square: lastMove[1], type };
             }
             return null;
           })()}
