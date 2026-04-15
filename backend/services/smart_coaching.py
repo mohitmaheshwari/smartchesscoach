@@ -232,7 +232,7 @@ async def generate_smart_coach_explanation(
     )
 
     # ─── CHECK CACHE ───
-    if db:
+    if db is not None:
         try:
             cached = await db.coaching_phrases.find_one(
                 {"scenario_key": scenario_key, "type": "coach_move"},
@@ -316,7 +316,7 @@ Respond in JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}
             }
 
         # ─── STORE IN CACHE ───
-        if db:
+        if db is not None:
             try:
                 await db.coaching_phrases.update_one(
                     {"scenario_key": scenario_key, "type": "coach_move"},
@@ -427,7 +427,7 @@ async def generate_smart_user_feedback(
         phase=phase,
     )
 
-    if db:
+    if db is not None:
         try:
             cached = await db.coaching_phrases.find_one(
                 {"scenario_key": user_scenario_key, "type": "user_feedback"},
@@ -469,7 +469,7 @@ Respond in JSON only: {{"question": "...", "hint": "..."}}"""
         result = json.loads(clean)
 
         # ─── STORE IN CACHE ───
-        if db:
+        if db is not None:
             try:
                 await db.coaching_phrases.update_one(
                     {"scenario_key": user_scenario_key, "type": "user_feedback"},
