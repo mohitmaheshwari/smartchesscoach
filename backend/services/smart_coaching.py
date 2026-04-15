@@ -79,6 +79,7 @@ async def generate_smart_coach_explanation(
     user_rating: int = 1200,
     opening_name: Optional[str] = None,
     db=None,
+    move_history: Optional[List] = None,
 ) -> Dict:
     """
     Generate coaching text using LLM as a language layer only.
@@ -109,14 +110,13 @@ async def generate_smart_coach_explanation(
             from services.opening_mastery import detect_opening_from_moves
             from services.opening_theory_tree_service import load_theory_tree
 
-            # Reconstruct moves from the board
-            temp = board_after.copy()
+            # Get moves from move_history (board created from FEN has no move_stack)
             all_moves_san = []
-            moves_stack = list(temp.move_stack)
-            temp.reset()
-            for m in moves_stack:
-                all_moves_san.append(temp.san(m))
-                temp.push(m)
+            if move_history:
+                for entry in move_history:
+                    m = entry.get("move") if isinstance(entry, dict) else str(entry)
+                    if m:
+                        all_moves_san.append(m)
 
             detected = detect_opening_from_moves(all_moves_san)
             if detected:

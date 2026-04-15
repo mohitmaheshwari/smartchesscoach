@@ -2593,6 +2593,7 @@ async def get_interactive_coaching(
                     user_rating=session_doc.get("user_rating", 1200),
                     opening_name=_opening,
                     db=db,
+                    move_history=move_history,
                 )
             except Exception as llm_err:
                 logger.error(f"[COACH-EXPLAIN] Smart coaching FAILED: {llm_err}", exc_info=True)
