@@ -141,8 +141,7 @@ async def generate_smart_coach_explanation(
                 intent_fact = "Coach has a check available next move"
             elif sub.get("safe_captures", 0) > 0:
                 intent_fact = "Coach has a safe capture available"
-            else:
-                intent_fact = "Coach created a threat the student must notice"
+            # Don't set generic fallback yet — let threat_facts fill it below
 
     # Fact 3: What the student can exploit (from our detectors)
     opportunities = _scan_opportunities(board_after, user_chess_color)
@@ -173,6 +172,53 @@ async def generate_smart_coach_explanation(
                 t_sq = chess.square_name(sq)
                 defenders = len(list(board_after.attackers(user_chess_color, sq)))
                 threat_facts.append(f"Student's {t_name} on {t_sq} is now attacked (defenders: {defenders})")
+
+    # Fact 6: What the MOVED piece now attacks (even if not new)
+    if piece and not intent_fact:
+        attacks_on_students = []
+        for sq in board_after.attacks(move.to_square):
+            target = board_after.piece_at(sq)
+            if target and target.color == user_chess_color and target.piece_type != chess.KING:
+                t_name = chess.piece_name(target.piece_type)
+                t_sq = chess.square_name(sq)
+                defenders = len(list(board_after.attackers(user_chess_color, sq)))
+                attacks_on_students.append(f"{t_name} on {t_sq} ({defenders} defenders)")
+        if attacks_on_students:
+            intent_fact = f"Coach's {chess.piece_name(piece.piece_type)} on {chess.square_name(move.to_square)} now attacks: {', '.join(attacks_on_students)}"
+
+    # Fact 7: What the move CONTROLS (central squares, key files)
+    if not intent_fact and piece:
+        controlled = len(list(board_after.attacks(move.to_square)))
+        piece_n = chess.piece_name(piece.piece_type)
+        to_sq = chess.square_name(move.to_square)
+        # Check if it's on a central or active square
+        central = move.to_square in [chess.D4, chess.D5, chess.E4, chess.E5,
+                                      chess.C3, chess.C6, chess.F3, chess.F6]
+        if board_before.is_castling(move):
+            intent_fact = f"Coach castled — king is safe and rook is connected"
+        elif central:
+            intent_fact = f"Coach's {piece_n} on {to_sq} controls {controlled} squares from the center"
+        elif piece.piece_type == chess.ROOK:
+            # Check if on open file
+            file = chess.square_file(move.to_square)
+            has_own_pawn = any(
+                board_after.piece_at(chess.square(file, r)) == chess.Piece(chess.PAWN, coach_color)
+                for r in range(8)
+            )
+            if not has_own_pawn:
+                intent_fact = f"Coach's rook on {to_sq} controls the open file"
+            else:
+                intent_fact = f"Coach's rook moved to {to_sq}, controlling {controlled} squares"
+        elif piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+            intent_fact = f"Coach developed {piece_n} to {to_sq}, controlling {controlled} squares"
+        else:
+            intent_fact = f"Coach's {piece_n} moved to {to_sq}"
+
+    # Build intent_fact from threat_facts if still empty
+    if not intent_fact and threat_facts:
+        intent_fact = f"This move creates threats: {'; '.join(threat_facts[:2])}"
+    elif not intent_fact:
+        intent_fact = f"Coach played {move_san} — developing the position"
 
     # ─── BUILD SCENARIO KEY ───
 
