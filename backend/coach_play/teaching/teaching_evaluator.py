@@ -34,6 +34,7 @@ def score_candidate(
     coach_color: chess.Color,
     best_eval_cp: int,
     max_eval_drop: int = 150,
+    user_rating: int = 1200,
 ) -> IntentScore:
     """
     Score a single candidate move against a specific teaching intent.
@@ -79,13 +80,21 @@ def score_candidate(
     # 5. Small variety factor
     variety = random.uniform(0.0, 1.0)
 
-    # 6. Final score
-    final = raw_score * 0.72 + engine_quality * 0.23 + variety * 0.05
+    # 6. Final score — weight balance scales with rating.
+    # Lower-rated students need the coach to play GOOD chess (high engine weight).
+    # Higher-rated students can handle more teaching flexibility.
+    if user_rating < 1000:
+        w_intent, w_engine, w_variety = 0.45, 0.50, 0.05  # Engine dominates
+    elif user_rating < 1400:
+        w_intent, w_engine, w_variety = 0.55, 0.40, 0.05  # Balanced
+    elif user_rating < 1800:
+        w_intent, w_engine, w_variety = 0.65, 0.30, 0.05  # Teaching leans in
+    else:
+        w_intent, w_engine, w_variety = 0.72, 0.23, 0.05  # Teaching dominates
+
+    final = raw_score * w_intent + engine_quality * w_engine + variety * w_variety
 
     # 7. Soft penalty for low engine rank on non-capture "creation" moves.
-    # A rank 7-8 move that "creates a hanging piece" looks suspicious to
-    # the student. Captures are exempt — taking an undefended piece at any
-    # rank is natural. This preserves trust without hard-filtering.
     if candidate.eval_rank >= 5 and not board.is_capture(candidate.move):
         rank_penalty = 0.80 if candidate.eval_rank <= 6 else 0.65
         final *= rank_penalty
@@ -106,6 +115,7 @@ def score_all_candidates(
     intent: TeachingIntent,
     coach_color: chess.Color,
     max_eval_drop: int = 150,
+    user_rating: int = 1200,
 ) -> List[IntentScore]:
     """
     Score all candidates against an intent. Returns scores in same order as candidates.
@@ -116,7 +126,7 @@ def score_all_candidates(
     best_eval = candidates[0].eval_cp  # candidates are sorted best-first
 
     return [
-        score_candidate(board, c, intent, coach_color, best_eval, max_eval_drop)
+        score_candidate(board, c, intent, coach_color, best_eval, max_eval_drop, user_rating)
         for c in candidates
     ]
 

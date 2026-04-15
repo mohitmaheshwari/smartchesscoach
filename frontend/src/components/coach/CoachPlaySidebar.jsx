@@ -897,6 +897,21 @@ const CoachPlaySidebar = ({
             )}
 
             {/* Coach's Move Explanation — only in old mode */}
+            {(() => {
+              if (interactiveCoaching?.coachMoveCoaching) {
+                console.log("[V2-RENDER] Coach explanation:", JSON.stringify({
+                  move: interactiveCoaching.coachMoveCoaching.move_san,
+                  explanation: interactiveCoaching.coachMoveCoaching.explanation?.substring(0, 60),
+                  v2_intent: interactiveCoaching.coachMoveCoaching.v2_intent,
+                  v2_label: interactiveCoaching.coachMoveCoaching.v2_label,
+                  plan: interactiveCoaching.coachMoveCoaching.plan?.substring(0, 60),
+                  hint: interactiveCoaching.coachMoveCoaching.hint_for_user?.substring(0, 60),
+                  suppressOldCoaching,
+                  willRender: !suppressOldCoaching,
+                }));
+              }
+              return null;
+            })()}
             {!suppressOldCoaching && interactiveCoaching.coachMoveCoaching && (
               <div
                 data-testid="coach-move-explanation"
@@ -1046,6 +1061,19 @@ const CoachPlaySidebar = ({
               )}
 
             {/* User's Move Feedback — only in old mode */}
+            {(() => {
+              if (v5Coaching) {
+                console.log("[V2-RENDER] v5Coaching present:", JSON.stringify({
+                  severity: v5Coaching.severity,
+                  fundamental: v5Coaching.fundamental_violated,
+                  socratic: v5Coaching.socratic_question?.substring(0, 40),
+                  suppressOldCoaching,
+                  curriculum: session?.curriculum_active,
+                  willRender: !suppressOldCoaching && !session?.curriculum_active,
+                }));
+              }
+              return null;
+            })()}
             {!suppressOldCoaching && v5Coaching && !session?.curriculum_active && (
               <V5CoachingCard
                 coaching={v5Coaching}

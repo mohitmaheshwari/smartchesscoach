@@ -160,6 +160,7 @@ def select_intent(
     teaching_focus: Optional[str] = None,
     student_weaknesses: Optional[List[str]] = None,
     last_game_violations: Optional[List[str]] = None,
+    user_rating: int = 1200,
 ) -> tuple:
     """
     Select the best feasible teaching intent for this position.
@@ -186,7 +187,8 @@ def select_intent(
     fallbacks = 0
     for intent in ranked:
         # Score all candidates for this intent
-        scores = score_all_candidates(board, candidates, intent, coach_color)
+        scores = score_all_candidates(board, candidates, intent, coach_color,
+                                       user_rating=user_rating)
 
         if is_intent_feasible(scores):
             reason = _build_reason(intent, teaching_focus, student_weaknesses,
@@ -204,7 +206,8 @@ def select_intent(
     # (every position has SOME threats, even if weak)
     logger.warning("[INTENT] No intent feasible, defaulting to THREAT_AWARENESS")
     scores = score_all_candidates(
-        board, candidates, TeachingIntent.THREAT_AWARENESS, coach_color
+        board, candidates, TeachingIntent.THREAT_AWARENESS, coach_color,
+        user_rating=user_rating,
     )
     return (
         TeachingIntent.THREAT_AWARENESS,

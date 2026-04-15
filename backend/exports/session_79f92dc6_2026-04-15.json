@@ -1,0 +1,2397 @@
+{
+  "exported_at": "2026-04-15T05:25:24.531283+00:00",
+  "session_id": "79f92dc6-b17e-485f-9cdd-bf6a17744d0d",
+  "summary": {
+    "user_id": "user_8b599930d7ef",
+    "user_color": "white",
+    "result": "loss",
+    "termination": "resigned",
+    "total_moves": 128,
+    "user_rating": 1172,
+    "detected_opening": "italian_game",
+    "opening_teaching_active": false,
+    "focus_concept": null,
+    "created_at": "2026-04-15T03:21:19.544294+00:00",
+    "ended_at": "2026-04-15T05:25:20.977429+00:00"
+  },
+  "moves": [
+    {
+      "index": 0,
+      "move": "e4",
+      "by": "player",
+      "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "eval": {
+        "move_number": 1,
+        "move": "e4",
+        "by": "player",
+        "score": 0.46,
+        "eval_before": 0.29,
+        "eval_after": 0.46,
+        "best_move": "e4"
+      }
+    },
+    {
+      "index": 1,
+      "move": "e5",
+      "by": "coach",
+      "eval": {
+        "move_number": 2,
+        "move": "Nf3",
+        "by": "player",
+        "score": 0.44,
+        "eval_before": 0.38,
+        "eval_after": 0.44,
+        "best_move": "Nf3"
+      }
+    },
+    {
+      "index": 2,
+      "move": "Nf3",
+      "by": "player",
+      "eval": {
+        "move_number": 3,
+        "move": "Bc4",
+        "by": "player",
+        "score": 0.17,
+        "eval_before": 0.35,
+        "eval_after": 0.17,
+        "best_move": "Bb5"
+      }
+    },
+    {
+      "index": 3,
+      "move": "Nc6",
+      "by": "coach",
+      "eval": {
+        "move_number": 4,
+        "move": "O-O",
+        "by": "player",
+        "score": 0.39,
+        "eval_before": 0.34,
+        "eval_after": 0.39,
+        "best_move": "c3"
+      }
+    },
+    {
+      "index": 4,
+      "move": "Bc4",
+      "by": "player",
+      "eval": {
+        "move_number": 5,
+        "move": "Ng5",
+        "by": "player",
+        "score": -0.37,
+        "eval_before": 0.21,
+        "eval_after": -0.37,
+        "best_move": "d3"
+      }
+    },
+    {
+      "index": 5,
+      "move": "Bc5",
+      "by": "coach",
+      "eval": {
+        "move_number": 6,
+        "move": "exd5",
+        "by": "player",
+        "score": 0.04,
+        "eval_before": 0,
+        "eval_after": 0.04,
+        "best_move": "exd5"
+      }
+    },
+    {
+      "index": 6,
+      "move": "O-O",
+      "by": "player",
+      "eval": {
+        "move_number": 7,
+        "move": "Bb3",
+        "by": "player",
+        "score": -0.43,
+        "eval_before": 0.63,
+        "eval_after": -0.43,
+        "best_move": "Bb5+"
+      }
+    },
+    {
+      "index": 7,
+      "move": "Nf6",
+      "by": "coach",
+      "eval": {
+        "move_number": 8,
+        "move": "Nf3",
+        "by": "player",
+        "score": -0.24,
+        "eval_before": -0.13,
+        "eval_after": -0.24,
+        "best_move": "Nf3"
+      }
+    },
+    {
+      "index": 8,
+      "move": "Ng5",
+      "by": "player",
+      "eval": {
+        "move_number": 9,
+        "move": "Re1",
+        "by": "player",
+        "score": -0.46,
+        "eval_before": 0.11,
+        "eval_after": -0.46,
+        "best_move": "d4"
+      }
+    },
+    {
+      "index": 9,
+      "move": "d5",
+      "by": "coach",
+      "eval": {
+        "move_number": 10,
+        "move": "Ne5",
+        "by": "player",
+        "score": -2.5,
+        "eval_before": -0.26,
+        "eval_after": -2.5,
+        "best_move": "d4"
+      }
+    },
+    {
+      "index": 10,
+      "move": "exd5",
+      "by": "player",
+      "eval": {
+        "move_number": 11,
+        "move": "Nc4",
+        "by": "player",
+        "score": -4.46,
+        "eval_before": -3.56,
+        "eval_after": -4.46,
+        "best_move": "d3"
+      }
+    },
+    {
+      "index": 11,
+      "move": "Na5",
+      "by": "coach",
+      "eval": {
+        "move_number": 12,
+        "move": "Nb6",
+        "by": "player",
+        "score": -4.87,
+        "eval_before": -1.58,
+        "eval_after": -4.87,
+        "best_move": "Nc3"
+      }
+    },
+    {
+      "index": 12,
+      "move": "Bb3",
+      "by": "player",
+      "eval": {
+        "move_number": 13,
+        "move": "Nxd5",
+        "by": "player",
+        "score": 4.88,
+        "eval_before": 4.63,
+        "eval_after": 4.88,
+        "best_move": "Nxd5"
+      }
+    },
+    {
+      "index": 13,
+      "move": "h6",
+      "by": "coach",
+      "eval": {
+        "move_number": 14,
+        "move": "Re2",
+        "by": "player",
+        "score": 3.72,
+        "eval_before": 5.14,
+        "eval_after": 3.72,
+        "best_move": "Ne3"
+      }
+    },
+    {
+      "index": 14,
+      "move": "Nf3",
+      "by": "player",
+      "eval": {
+        "move_number": 15,
+        "move": "Nxf6",
+        "by": "player",
+        "score": 4.19,
+        "eval_before": 4.52,
+        "eval_after": 4.19,
+        "best_move": "Ne3"
+      }
+    },
+    {
+      "index": 15,
+      "move": "e4",
+      "by": "coach",
+      "eval": {
+        "move_number": 16,
+        "move": "d3",
+        "by": "player",
+        "score": 3.96,
+        "eval_before": 4.5,
+        "eval_after": 3.96,
+        "best_move": "Nc3"
+      }
+    },
+    {
+      "index": 16,
+      "move": "Re1",
+      "by": "player",
+      "eval": {
+        "move_number": 17,
+        "move": "cxd3",
+        "by": "player",
+        "score": 2.66,
+        "eval_before": 4.79,
+        "eval_after": 2.66,
+        "best_move": "Rxe8"
+      }
+    },
+    {
+      "index": 17,
+      "move": "O-O",
+      "by": "coach",
+      "eval": {
+        "move_number": 18,
+        "move": "Qxe2",
+        "by": "player",
+        "score": -5.47,
+        "eval_before": 3.67,
+        "eval_after": -5.47,
+        "best_move": "Qd2"
+      }
+    },
+    {
+      "index": 18,
+      "move": "Ne5",
+      "by": "player",
+      "eval": {
+        "move_number": 19,
+        "move": "Kf1",
+        "by": "player",
+        "score": -6.26,
+        "eval_before": -5.46,
+        "eval_after": -6.26,
+        "best_move": "Nd2"
+      }
+    },
+    {
+      "index": 19,
+      "move": "Bd4",
+      "by": "coach",
+      "eval": {
+        "move_number": 20,
+        "move": "Bxh6",
+        "by": "player",
+        "score": -7.23,
+        "eval_before": -5.45,
+        "eval_after": -7.23,
+        "best_move": "Be3"
+      }
+    },
+    {
+      "index": 20,
+      "move": "Nc4",
+      "by": "player",
+      "eval": {
+        "move_number": 21,
+        "move": "Na3",
+        "by": "player",
+        "score": -7.7,
+        "eval_before": -5.88,
+        "eval_after": -7.7,
+        "best_move": "Be3"
+      }
+    },
+    {
+      "index": 21,
+      "move": "Qxd5",
+      "by": "coach",
+      "eval": {
+        "move_number": 22,
+        "move": "Rc1",
+        "by": "player",
+        "score": -5.6,
+        "eval_before": -5.59,
+        "eval_after": -5.6,
+        "best_move": "axb3"
+      }
+    },
+    {
+      "index": 22,
+      "move": "Nb6",
+      "by": "player",
+      "eval": {
+        "move_number": 23,
+        "move": "Rxc7",
+        "by": "player",
+        "score": -6.01,
+        "eval_before": -5.92,
+        "eval_after": -6.01,
+        "best_move": "Rxc7"
+      }
+    },
+    {
+      "index": 23,
+      "move": "Kh8",
+      "by": "coach",
+      "eval": {
+        "move_number": 24,
+        "move": "Rxf7+",
+        "by": "player",
+        "score": -7.15,
+        "eval_before": -6.33,
+        "eval_after": -7.15,
+        "best_move": "Be3"
+      }
+    },
+    {
+      "index": 24,
+      "move": "Nxd5",
+      "by": "player",
+      "eval": {
+        "move_number": 25,
+        "move": "Bf4",
+        "by": "player",
+        "score": -7.79,
+        "eval_before": -6.83,
+        "eval_after": -7.79,
+        "best_move": "Bc1"
+      }
+    },
+    {
+      "index": 25,
+      "move": "Bg4",
+      "by": "coach",
+      "eval": {
+        "move_number": 26,
+        "move": "Bxe5",
+        "by": "player",
+        "score": -7.31,
+        "eval_before": -6.8,
+        "eval_after": -7.31,
+        "best_move": "Re7"
+      }
+    },
+    {
+      "index": 26,
+      "move": "Re2",
+      "by": "player",
+      "eval": {
+        "move_number": 27,
+        "move": "d4",
+        "by": "player",
+        "score": -7.27,
+        "eval_before": -7.13,
+        "eval_after": -7.27,
+        "best_move": "Bc7"
+      }
+    },
+    {
+      "index": 27,
+      "move": "Rae8",
+      "by": "coach",
+      "eval": {
+        "move_number": 28,
+        "move": "Bc7",
+        "by": "player",
+        "score": -7.65,
+        "eval_before": -7.42,
+        "eval_after": -7.65,
+        "best_move": "Bf4"
+      }
+    },
+    {
+      "index": 28,
+      "move": "Nxf6",
+      "by": "player",
+      "eval": {
+        "move_number": 29,
+        "move": "Bg3",
+        "by": "player",
+        "score": -7.77,
+        "eval_before": -7.27,
+        "eval_after": -7.77,
+        "best_move": "Be5"
+      }
+    },
+    {
+      "index": 29,
+      "move": "gxf6",
+      "by": "coach",
+      "eval": {
+        "move_number": 30,
+        "move": "Bd6",
+        "by": "player",
+        "score": -8.34,
+        "eval_before": -7.71,
+        "eval_after": -8.34,
+        "best_move": "Bb8"
+      }
+    },
+    {
+      "index": 30,
+      "move": "d3",
+      "by": "player",
+      "eval": {
+        "move_number": 31,
+        "move": "Ke1",
+        "by": "player",
+        "score": -8.63,
+        "eval_before": -100,
+        "eval_after": -8.63,
+        "best_move": "Bb4"
+      }
+    },
+    {
+      "index": 31,
+      "move": "exd3",
+      "by": "coach",
+      "eval": {
+        "move_number": 32,
+        "move": "h4",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "g4"
+      }
+    },
+    {
+      "index": 32,
+      "move": "cxd3",
+      "by": "player",
+      "eval": {
+        "move_number": 33,
+        "move": "h5",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "g3"
+      }
+    },
+    {
+      "index": 33,
+      "move": "Bxe2",
+      "by": "coach",
+      "eval": {
+        "move_number": 34,
+        "move": "g4",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 34,
+      "move": "Qxe2",
+      "by": "player",
+      "eval": {
+        "move_number": 35,
+        "move": "h6",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 35,
+      "move": "Rxe2",
+      "by": "coach",
+      "eval": {
+        "move_number": 36,
+        "move": "Kf1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 36,
+      "move": "Kf1",
+      "by": "player",
+      "eval": {
+        "move_number": 37,
+        "move": "Ke1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kg1"
+      }
+    },
+    {
+      "index": 37,
+      "move": "Rxb2",
+      "by": "coach",
+      "eval": {
+        "move_number": 38,
+        "move": "Kf1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 38,
+      "move": "Bxh6",
+      "by": "player",
+      "eval": {
+        "move_number": 39,
+        "move": "Ke1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "f4"
+      }
+    },
+    {
+      "index": 39,
+      "move": "Rd8",
+      "by": "coach",
+      "eval": {
+        "move_number": 40,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 40,
+      "move": "Na3",
+      "by": "player",
+      "eval": {
+        "move_number": 41,
+        "move": "Ke1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ke1"
+      }
+    },
+    {
+      "index": 41,
+      "move": "Rxb3",
+      "by": "coach",
+      "eval": {
+        "move_number": 42,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 42,
+      "move": "Rc1",
+      "by": "player",
+      "eval": {
+        "move_number": 43,
+        "move": "Ke1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kc1"
+      }
+    },
+    {
+      "index": 43,
+      "move": "Rxa3",
+      "by": "coach",
+      "eval": {
+        "move_number": 44,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 44,
+      "move": "Rxc7",
+      "by": "player",
+      "eval": {
+        "move_number": 45,
+        "move": "Kc1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ke1"
+      }
+    },
+    {
+      "index": 45,
+      "move": "Kh7",
+      "by": "coach",
+      "eval": {
+        "move_number": 46,
+        "move": "Kb1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kb1"
+      }
+    },
+    {
+      "index": 46,
+      "move": "Rxf7+",
+      "by": "player",
+      "eval": {
+        "move_number": 47,
+        "move": "Kc1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ka1"
+      }
+    },
+    {
+      "index": 47,
+      "move": "Kg6",
+      "by": "coach",
+      "eval": {
+        "move_number": 48,
+        "move": "Kb1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kb1"
+      }
+    },
+    {
+      "index": 48,
+      "move": "Bf4",
+      "by": "player",
+      "eval": {
+        "move_number": 49,
+        "move": "Kc1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ka1"
+      }
+    },
+    {
+      "index": 49,
+      "move": "Be5",
+      "by": "coach",
+      "eval": {
+        "move_number": 50,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kd1"
+      }
+    },
+    {
+      "index": 50,
+      "move": "Bxe5",
+      "by": "player",
+      "eval": {
+        "move_number": 51,
+        "move": "Kc1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ke1"
+      }
+    },
+    {
+      "index": 51,
+      "move": "Kxf7",
+      "by": "coach",
+      "eval": {
+        "move_number": 52,
+        "move": "Kb1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kd1"
+      }
+    },
+    {
+      "index": 52,
+      "move": "d4",
+      "by": "player",
+      "eval": {
+        "move_number": 53,
+        "move": "Kc1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ka1"
+      }
+    },
+    {
+      "index": 53,
+      "move": "Nc4",
+      "by": "coach",
+      "eval": {
+        "move_number": 54,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kd1"
+      }
+    },
+    {
+      "index": 54,
+      "move": "Bc7",
+      "by": "player",
+      "eval": {
+        "move_number": 55,
+        "move": "Kc1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ke1"
+      }
+    },
+    {
+      "index": 55,
+      "move": "Rd7",
+      "by": "coach",
+      "eval": {
+        "move_number": 56,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kd1"
+      }
+    },
+    {
+      "index": 56,
+      "move": "Bg3",
+      "by": "player",
+      "eval": {
+        "move_number": 57,
+        "move": "Ke1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ke1"
+      }
+    },
+    {
+      "index": 57,
+      "move": "Rxd4",
+      "by": "coach",
+      "eval": {
+        "move_number": 58,
+        "move": "Kf1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 58,
+      "move": "Bd6",
+      "by": "player",
+      "eval": {
+        "move_number": 59,
+        "move": "Ke1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Ke1"
+      }
+    },
+    {
+      "index": 59,
+      "move": "Rxa2",
+      "by": "coach",
+      "eval": {
+        "move_number": 60,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kf1"
+      }
+    },
+    {
+      "index": 60,
+      "move": "Ke1",
+      "by": "player",
+      "eval": {
+        "move_number": 61,
+        "move": "Ke1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kc1"
+      }
+    },
+    {
+      "index": 61,
+      "move": "Rxd6",
+      "by": "coach",
+      "eval": {
+        "move_number": 62,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kd1"
+      }
+    },
+    {
+      "index": 62,
+      "move": "h4",
+      "by": "player",
+      "eval": {
+        "move_number": 63,
+        "move": "Ke1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kc1"
+      }
+    },
+    {
+      "index": 63,
+      "move": "Rd4",
+      "by": "coach",
+      "eval": {
+        "move_number": 64,
+        "move": "Kd1",
+        "by": "player",
+        "score": -100,
+        "eval_before": -100,
+        "eval_after": -100,
+        "best_move": "Kd1"
+      }
+    },
+    {
+      "index": 64,
+      "move": "h5",
+      "by": "player"
+    },
+    {
+      "index": 65,
+      "move": "Rh4",
+      "by": "coach"
+    },
+    {
+      "index": 66,
+      "move": "g4",
+      "by": "player"
+    },
+    {
+      "index": 67,
+      "move": "Rxg4",
+      "by": "coach"
+    },
+    {
+      "index": 68,
+      "move": "h6",
+      "by": "player"
+    },
+    {
+      "index": 69,
+      "move": "Rh4",
+      "by": "coach"
+    },
+    {
+      "index": 70,
+      "move": "Kf1",
+      "by": "player"
+    },
+    {
+      "index": 71,
+      "move": "Rxh6",
+      "by": "coach"
+    },
+    {
+      "index": 72,
+      "move": "Ke1",
+      "by": "player"
+    },
+    {
+      "index": 73,
+      "move": "Rh7",
+      "by": "coach"
+    },
+    {
+      "index": 74,
+      "move": "Kf1",
+      "by": "player"
+    },
+    {
+      "index": 75,
+      "move": "Rg7",
+      "by": "coach"
+    },
+    {
+      "index": 76,
+      "move": "Ke1",
+      "by": "player"
+    },
+    {
+      "index": 77,
+      "move": "Ke8",
+      "by": "coach"
+    },
+    {
+      "index": 78,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 79,
+      "move": "Rg2",
+      "by": "coach"
+    },
+    {
+      "index": 80,
+      "move": "Ke1",
+      "by": "player"
+    },
+    {
+      "index": 81,
+      "move": "a5",
+      "by": "coach"
+    },
+    {
+      "index": 82,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 83,
+      "move": "Nd6",
+      "by": "coach"
+    },
+    {
+      "index": 84,
+      "move": "Ke1",
+      "by": "player"
+    },
+    {
+      "index": 85,
+      "move": "Ne4",
+      "by": "coach"
+    },
+    {
+      "index": 86,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 87,
+      "move": "Raxf2",
+      "by": "coach"
+    },
+    {
+      "index": 88,
+      "move": "Kc1",
+      "by": "player"
+    },
+    {
+      "index": 89,
+      "move": "Nc5",
+      "by": "coach"
+    },
+    {
+      "index": 90,
+      "move": "Kb1",
+      "by": "player"
+    },
+    {
+      "index": 91,
+      "move": "Na6",
+      "by": "coach"
+    },
+    {
+      "index": 92,
+      "move": "Kc1",
+      "by": "player"
+    },
+    {
+      "index": 93,
+      "move": "Nc5",
+      "by": "coach"
+    },
+    {
+      "index": 94,
+      "move": "Kb1",
+      "by": "player"
+    },
+    {
+      "index": 95,
+      "move": "Ke7",
+      "by": "coach"
+    },
+    {
+      "index": 96,
+      "move": "Kc1",
+      "by": "player"
+    },
+    {
+      "index": 97,
+      "move": "b6",
+      "by": "coach"
+    },
+    {
+      "index": 98,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 99,
+      "move": "Ne4",
+      "by": "coach"
+    },
+    {
+      "index": 100,
+      "move": "Kc1",
+      "by": "player"
+    },
+    {
+      "index": 101,
+      "move": "Nc5",
+      "by": "coach"
+    },
+    {
+      "index": 102,
+      "move": "Kb1",
+      "by": "player"
+    },
+    {
+      "index": 103,
+      "move": "f5",
+      "by": "coach"
+    },
+    {
+      "index": 104,
+      "move": "Kc1",
+      "by": "player"
+    },
+    {
+      "index": 105,
+      "move": "Rg6",
+      "by": "coach"
+    },
+    {
+      "index": 106,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 107,
+      "move": "Ne4",
+      "by": "coach"
+    },
+    {
+      "index": 108,
+      "move": "Kc1",
+      "by": "player"
+    },
+    {
+      "index": 109,
+      "move": "Nc5",
+      "by": "coach"
+    },
+    {
+      "index": 110,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 111,
+      "move": "Ne4",
+      "by": "coach"
+    },
+    {
+      "index": 112,
+      "move": "Ke1",
+      "by": "player"
+    },
+    {
+      "index": 113,
+      "move": "Ra2",
+      "by": "coach"
+    },
+    {
+      "index": 114,
+      "move": "Kf1",
+      "by": "player"
+    },
+    {
+      "index": 115,
+      "move": "a4",
+      "by": "coach"
+    },
+    {
+      "index": 116,
+      "move": "Ke1",
+      "by": "player"
+    },
+    {
+      "index": 117,
+      "move": "Rh6",
+      "by": "coach"
+    },
+    {
+      "index": 118,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 119,
+      "move": "Rh5",
+      "by": "coach"
+    },
+    {
+      "index": 120,
+      "move": "Ke1",
+      "by": "player"
+    },
+    {
+      "index": 121,
+      "move": "Nc5",
+      "by": "coach"
+    },
+    {
+      "index": 122,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 123,
+      "move": "Ne4",
+      "by": "coach"
+    },
+    {
+      "index": 124,
+      "move": "Ke1",
+      "by": "player"
+    },
+    {
+      "index": 125,
+      "move": "Nc5",
+      "by": "coach"
+    },
+    {
+      "index": 126,
+      "move": "Kd1",
+      "by": "player"
+    },
+    {
+      "index": 127,
+      "move": "Ne4",
+      "by": "coach"
+    }
+  ],
+  "messages": [
+    {
+      "session_id": "79f92dc6-b17e-485f-9cdd-bf6a17744d0d",
+      "type": "opening_teaching_offer",
+      "message": "Let's learn the Italian Game! Control the center, target f7 weakness, rapid development / Solid defense with d6 and Be7, or aggressive with Bc5",
+      "trigger": "opening_detected",
+      "opening_name": "Italian Game",
+      "opening_key": "italian_game",
+      "options": [
+        {
+          "id": "learn_trap",
+          "label": "Learn the Legal's Mate",
+          "description": "Interactive trap lesson - I'll show you the moves"
+        },
+        {
+          "id": "learn_main_line",
+          "label": "Learn the Giuoco Piano (15 moves deep)",
+          "description": "Step-by-step opening theory"
+        },
+        {
+          "id": "just_play",
+          "label": "Just play - I'll figure it out",
+          "description": "Continue the game without lesson"
+        }
+      ],
+      "trap_name": "Legal's Mate",
+      "created_at": "2026-04-15T03:22:07.921000",
+      "read": true
+    },
+    {
+      "session_id": "79f92dc6-b17e-485f-9cdd-bf6a17744d0d",
+      "type": "position_coaching",
+      "message": "This position has a complex structure character. Look for tactical opportunities and strategic imbalances.",
+      "trigger": "position_analysis",
+      "structure_name": "Complex Structure",
+      "structure_type": "unknown",
+      "game_phase": "middlegame",
+      "key_characteristics": [],
+      "strategic_plans": [],
+      "tactical_features": {
+        "threats": 4,
+        "undefended_pieces": 1,
+        "has_tactical_motifs": false
+      },
+      "tactical_insights": [],
+      "teaching_points": [],
+      "critical_squares": [],
+      "options": [
+        {
+          "id": "see_tactical_themes",
+          "label": "⚡ See Tactical Themes",
+          "description": "You have 4 tactical opportunities"
+        },
+        {
+          "id": "check_piece_safety",
+          "label": "⚠️ Check Piece Safety",
+          "description": "You have 1 undefended pieces"
+        },
+        {
+          "id": "just_play",
+          "label": "⚔️ Just play",
+          "description": "Continue without lesson"
+        }
+      ],
+      "created_at": "2026-04-15T03:22:46.753000",
+      "read": true
+    }
+  ],
+  "evaluations": [
+    {
+      "move_number": 1,
+      "move": "e4",
+      "by": "player",
+      "score": 0.46,
+      "eval_before": 0.29,
+      "eval_after": 0.46,
+      "best_move": "e4"
+    },
+    {
+      "move_number": 2,
+      "move": "Nf3",
+      "by": "player",
+      "score": 0.44,
+      "eval_before": 0.38,
+      "eval_after": 0.44,
+      "best_move": "Nf3"
+    },
+    {
+      "move_number": 3,
+      "move": "Bc4",
+      "by": "player",
+      "score": 0.17,
+      "eval_before": 0.35,
+      "eval_after": 0.17,
+      "best_move": "Bb5"
+    },
+    {
+      "move_number": 4,
+      "move": "O-O",
+      "by": "player",
+      "score": 0.39,
+      "eval_before": 0.34,
+      "eval_after": 0.39,
+      "best_move": "c3"
+    },
+    {
+      "move_number": 5,
+      "move": "Ng5",
+      "by": "player",
+      "score": -0.37,
+      "eval_before": 0.21,
+      "eval_after": -0.37,
+      "best_move": "d3"
+    },
+    {
+      "move_number": 6,
+      "move": "exd5",
+      "by": "player",
+      "score": 0.04,
+      "eval_before": 0,
+      "eval_after": 0.04,
+      "best_move": "exd5"
+    },
+    {
+      "move_number": 7,
+      "move": "Bb3",
+      "by": "player",
+      "score": -0.43,
+      "eval_before": 0.63,
+      "eval_after": -0.43,
+      "best_move": "Bb5+"
+    },
+    {
+      "move_number": 8,
+      "move": "Nf3",
+      "by": "player",
+      "score": -0.24,
+      "eval_before": -0.13,
+      "eval_after": -0.24,
+      "best_move": "Nf3"
+    },
+    {
+      "move_number": 9,
+      "move": "Re1",
+      "by": "player",
+      "score": -0.46,
+      "eval_before": 0.11,
+      "eval_after": -0.46,
+      "best_move": "d4"
+    },
+    {
+      "move_number": 10,
+      "move": "Ne5",
+      "by": "player",
+      "score": -2.5,
+      "eval_before": -0.26,
+      "eval_after": -2.5,
+      "best_move": "d4"
+    },
+    {
+      "move_number": 11,
+      "move": "Nc4",
+      "by": "player",
+      "score": -4.46,
+      "eval_before": -3.56,
+      "eval_after": -4.46,
+      "best_move": "d3"
+    },
+    {
+      "move_number": 12,
+      "move": "Nb6",
+      "by": "player",
+      "score": -4.87,
+      "eval_before": -1.58,
+      "eval_after": -4.87,
+      "best_move": "Nc3"
+    },
+    {
+      "move_number": 13,
+      "move": "Nxd5",
+      "by": "player",
+      "score": 4.88,
+      "eval_before": 4.63,
+      "eval_after": 4.88,
+      "best_move": "Nxd5"
+    },
+    {
+      "move_number": 14,
+      "move": "Re2",
+      "by": "player",
+      "score": 3.72,
+      "eval_before": 5.14,
+      "eval_after": 3.72,
+      "best_move": "Ne3"
+    },
+    {
+      "move_number": 15,
+      "move": "Nxf6",
+      "by": "player",
+      "score": 4.19,
+      "eval_before": 4.52,
+      "eval_after": 4.19,
+      "best_move": "Ne3"
+    },
+    {
+      "move_number": 16,
+      "move": "d3",
+      "by": "player",
+      "score": 3.96,
+      "eval_before": 4.5,
+      "eval_after": 3.96,
+      "best_move": "Nc3"
+    },
+    {
+      "move_number": 17,
+      "move": "cxd3",
+      "by": "player",
+      "score": 2.66,
+      "eval_before": 4.79,
+      "eval_after": 2.66,
+      "best_move": "Rxe8"
+    },
+    {
+      "move_number": 18,
+      "move": "Qxe2",
+      "by": "player",
+      "score": -5.47,
+      "eval_before": 3.67,
+      "eval_after": -5.47,
+      "best_move": "Qd2"
+    },
+    {
+      "move_number": 19,
+      "move": "Kf1",
+      "by": "player",
+      "score": -6.26,
+      "eval_before": -5.46,
+      "eval_after": -6.26,
+      "best_move": "Nd2"
+    },
+    {
+      "move_number": 20,
+      "move": "Bxh6",
+      "by": "player",
+      "score": -7.23,
+      "eval_before": -5.45,
+      "eval_after": -7.23,
+      "best_move": "Be3"
+    },
+    {
+      "move_number": 21,
+      "move": "Na3",
+      "by": "player",
+      "score": -7.7,
+      "eval_before": -5.88,
+      "eval_after": -7.7,
+      "best_move": "Be3"
+    },
+    {
+      "move_number": 22,
+      "move": "Rc1",
+      "by": "player",
+      "score": -5.6,
+      "eval_before": -5.59,
+      "eval_after": -5.6,
+      "best_move": "axb3"
+    },
+    {
+      "move_number": 23,
+      "move": "Rxc7",
+      "by": "player",
+      "score": -6.01,
+      "eval_before": -5.92,
+      "eval_after": -6.01,
+      "best_move": "Rxc7"
+    },
+    {
+      "move_number": 24,
+      "move": "Rxf7+",
+      "by": "player",
+      "score": -7.15,
+      "eval_before": -6.33,
+      "eval_after": -7.15,
+      "best_move": "Be3"
+    },
+    {
+      "move_number": 25,
+      "move": "Bf4",
+      "by": "player",
+      "score": -7.79,
+      "eval_before": -6.83,
+      "eval_after": -7.79,
+      "best_move": "Bc1"
+    },
+    {
+      "move_number": 26,
+      "move": "Bxe5",
+      "by": "player",
+      "score": -7.31,
+      "eval_before": -6.8,
+      "eval_after": -7.31,
+      "best_move": "Re7"
+    },
+    {
+      "move_number": 27,
+      "move": "d4",
+      "by": "player",
+      "score": -7.27,
+      "eval_before": -7.13,
+      "eval_after": -7.27,
+      "best_move": "Bc7"
+    },
+    {
+      "move_number": 28,
+      "move": "Bc7",
+      "by": "player",
+      "score": -7.65,
+      "eval_before": -7.42,
+      "eval_after": -7.65,
+      "best_move": "Bf4"
+    },
+    {
+      "move_number": 29,
+      "move": "Bg3",
+      "by": "player",
+      "score": -7.77,
+      "eval_before": -7.27,
+      "eval_after": -7.77,
+      "best_move": "Be5"
+    },
+    {
+      "move_number": 30,
+      "move": "Bd6",
+      "by": "player",
+      "score": -8.34,
+      "eval_before": -7.71,
+      "eval_after": -8.34,
+      "best_move": "Bb8"
+    },
+    {
+      "move_number": 31,
+      "move": "Ke1",
+      "by": "player",
+      "score": -8.63,
+      "eval_before": -100,
+      "eval_after": -8.63,
+      "best_move": "Bb4"
+    },
+    {
+      "move_number": 32,
+      "move": "h4",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "g4"
+    },
+    {
+      "move_number": 33,
+      "move": "h5",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "g3"
+    },
+    {
+      "move_number": 34,
+      "move": "g4",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 35,
+      "move": "h6",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 36,
+      "move": "Kf1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 37,
+      "move": "Ke1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kg1"
+    },
+    {
+      "move_number": 38,
+      "move": "Kf1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 39,
+      "move": "Ke1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "f4"
+    },
+    {
+      "move_number": 40,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 41,
+      "move": "Ke1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ke1"
+    },
+    {
+      "move_number": 42,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 43,
+      "move": "Ke1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kc1"
+    },
+    {
+      "move_number": 44,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 45,
+      "move": "Kc1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ke1"
+    },
+    {
+      "move_number": 46,
+      "move": "Kb1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kb1"
+    },
+    {
+      "move_number": 47,
+      "move": "Kc1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ka1"
+    },
+    {
+      "move_number": 48,
+      "move": "Kb1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kb1"
+    },
+    {
+      "move_number": 49,
+      "move": "Kc1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ka1"
+    },
+    {
+      "move_number": 50,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kd1"
+    },
+    {
+      "move_number": 51,
+      "move": "Kc1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ke1"
+    },
+    {
+      "move_number": 52,
+      "move": "Kb1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kd1"
+    },
+    {
+      "move_number": 53,
+      "move": "Kc1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ka1"
+    },
+    {
+      "move_number": 54,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kd1"
+    },
+    {
+      "move_number": 55,
+      "move": "Kc1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ke1"
+    },
+    {
+      "move_number": 56,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kd1"
+    },
+    {
+      "move_number": 57,
+      "move": "Ke1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ke1"
+    },
+    {
+      "move_number": 58,
+      "move": "Kf1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 59,
+      "move": "Ke1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Ke1"
+    },
+    {
+      "move_number": 60,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kf1"
+    },
+    {
+      "move_number": 61,
+      "move": "Ke1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kc1"
+    },
+    {
+      "move_number": 62,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kd1"
+    },
+    {
+      "move_number": 63,
+      "move": "Ke1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kc1"
+    },
+    {
+      "move_number": 64,
+      "move": "Kd1",
+      "by": "player",
+      "score": -100,
+      "eval_before": -100,
+      "eval_after": -100,
+      "best_move": "Kd1"
+    }
+  ],
+  "move_snapshots": [],
+  "coaching_decisions": [],
+  "mde_debug_logs": [],
+  "behavior_summary": null,
+  "fundamental_violations": [],
+  "last_coaching_move_index": null,
+  "player_data": {
+    "strength_profile": {
+      "strongest": "positional_sense",
+      "weakest": "calculation_depth",
+      "overall_score": 65.9,
+      "overall_label": "solid",
+      "domains": {
+        "tactical_vision": {
+          "score": 65.2,
+          "rating": 1300,
+          "evidence": {
+            "brilliant_moves": 6,
+            "sacrifices": 53,
+            "tactical_best_moves": 8,
+            "mates_found": 18
+          },
+          "label": "solid"
+        },
+        "calculation_depth": {
+          "score": 31.1,
+          "rating": 900,
+          "evidence": {
+            "complex_best_moves": 7,
+            "best_when_losing": 177,
+            "mates_found": 18
+          },
+          "label": "developing"
+        },
+        "positional_sense": {
+          "score": 100,
+          "rating": 1800,
+          "evidence": {
+            "quiet_best_moves": 504,
+            "middlegame_accuracy": 57.5
+          },
+          "label": "exceptional"
+        },
+        "endgame_technique": {
+          "score": 77,
+          "rating": 1500,
+          "evidence": {
+            "endgame_accuracy": 77,
+            "endgame_moves_analyzed": 100
+          },
+          "label": "strong"
+        },
+        "opening_knowledge": {
+          "score": 65.9,
+          "rating": 1300,
+          "evidence": {
+            "opening_accuracy": 65.9,
+            "opening_moves_analyzed": 437
+          },
+          "label": "solid"
+        },
+        "pressure_handling": {
+          "score": 52.8,
+          "rating": 1100,
+          "evidence": {
+            "accuracy_when_losing": 50.6,
+            "accuracy_when_winning": 50.7,
+            "accuracy_when_equal": 57.8
+          },
+          "label": "solid"
+        }
+      }
+    },
+    "profile": {
+      "average_accuracy": 58.9,
+      "top_weaknesses": [
+        {
+          "category": "tactical",
+          "subcategory": "one_move_blunder",
+          "occurrence_count": 63,
+          "first_occurrence": "2026-04-06T10:00:48.922749+00:00",
+          "last_occurrence": "2026-04-15T02:46:18.838230+00:00",
+          "decayed_score": 63
+        },
+        {
+          "category": "tactical",
+          "subcategory": "complex_tactical_miss",
+          "occurrence_count": 30,
+          "first_occurrence": "2026-04-06T10:00:48.922749+00:00",
+          "last_occurrence": "2026-04-14T03:14:11.092797+00:00",
+          "decayed_score": 30
+        }
+      ],
+      "phase_accuracy": {
+        "opening": [
+          70,
+          90,
+          100,
+          80,
+          80,
+          90,
+          90,
+          70
+        ],
+        "middlegame": [
+          60,
+          69.2,
+          40,
+          80,
+          73.3,
+          62.5,
+          66.7,
+          41.7
+        ],
+        "endgame": [
+          42.9,
+          75,
+          62.5,
+          81.8,
+          58.8
+        ]
+      }
+    },
+    "recent_habit_scores": [
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 70,
+            "mistakes": 3,
+            "opportunities": 30,
+            "examples": [
+              {
+                "move_number": 14,
+                "move": "Bb7",
+                "cp_loss": 163,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 16,
+                "move": "d5",
+                "cp_loss": 200,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 18,
+                "move": "Nd7",
+                "cp_loss": 167,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 90,
+            "mistakes": 1,
+            "opportunities": 30,
+            "examples": [
+              {
+                "move_number": 23,
+                "move": "Rd5",
+                "cp_loss": 392,
+                "explanation": "Move wasn't verified - it left a weakness"
+              }
+            ]
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 30,
+            "examples": []
+          }
+        },
+        "overall_score": 90.5
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          }
+        },
+        "overall_score": 100
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 5,
+            "examples": []
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 5,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 5,
+            "examples": []
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 5,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 5,
+            "examples": []
+          }
+        },
+        "overall_score": 100
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 41.7,
+            "mistakes": 7,
+            "opportunities": 36,
+            "examples": [
+              {
+                "move_number": 5,
+                "move": "Nxe5",
+                "cp_loss": 179,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 6,
+                "move": "Nxc6",
+                "cp_loss": 119,
+                "explanation": "Opponent's threat was missed before moving"
+              },
+              {
+                "move_number": 8,
+                "move": "axb3",
+                "cp_loss": 145,
+                "explanation": "Opponent's threat was missed before moving"
+              }
+            ]
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 36,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 91.7,
+            "mistakes": 1,
+            "opportunities": 36,
+            "examples": [
+              {
+                "move_number": 27,
+                "move": "Re7+",
+                "cp_loss": 528,
+                "explanation": "Move wasn't verified - it left a weakness"
+              }
+            ]
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 36,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 36,
+            "examples": []
+          }
+        },
+        "overall_score": 83.8
+      },
+      {
+        "habit_scores": {
+          "threat_awareness": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          },
+          "tactical_vision": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          },
+          "move_verification": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          },
+          "king_safety": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          },
+          "patience": {
+            "score": 100,
+            "mistakes": 0,
+            "opportunities": 2,
+            "examples": []
+          }
+        },
+        "overall_score": 100
+      }
+    ],
+    "active_problems": [
+      {
+        "user_id": "user_8b599930d7ef",
+        "category": "threw_winning",
+        "anger": "recurring",
+        "count": 9,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-15T03:21:19.347902+00:00"
+      },
+      {
+        "user_id": "user_8b599930d7ef",
+        "category": "tactical_miss",
+        "anger": "recurring",
+        "count": 5,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-09T03:11:36.724426+00:00"
+      },
+      {
+        "category": "time_collapse",
+        "user_id": "user_8b599930d7ef",
+        "anger": "recurring",
+        "count": 6,
+        "state": "active",
+        "times_resolved": 0,
+        "times_returned": 0,
+        "updated_at": "2026-04-11T16:55:03.646905+00:00"
+      }
+    ]
+  },
+  "postgame": {
+    "session_id": "79f92dc6-b17e-485f-9cdd-bf6a17744d0d",
+    "accuracy": 63.5,
+    "blunders": 4,
+    "created_at": "2026-04-15T05:25:21.167000",
+    "game_result": "loss",
+    "games_together": 85,
+    "habits_improved": [
+      "early_queen"
+    ],
+    "habits_weak": [
+      "overconfidence"
+    ],
+    "inaccuracies": 10,
+    "memory_insights": [
+      {
+        "insight_type": "recurring_pattern",
+        "message": "I've seen 'Overconfidence in Winning Positions' in 15 of your games now. This is your main habit to fix.",
+        "pattern_name": "Overconfidence in Winning Positions",
+        "occurrence_count": 16,
+        "is_improving": false
+      },
+      {
+        "insight_type": "performance_comparison",
+        "message": "More blunders than usual (4 vs your avg 1.5). What happened?",
+        "pattern_name": null,
+        "occurrence_count": 0,
+        "is_improving": false
+      },
+      {
+        "insight_type": "first_time",
+        "message": "New pattern spotted: 'overconfidence'. I'll watch for this in future games.",
+        "pattern_name": "overconfidence",
+        "occurrence_count": 1,
+        "is_improving": false
+      }
+    ],
+    "mistakes": 4,
+    "performance_rating": {
+      "estimated_rating": 754,
+      "confidence": "high",
+      "comparison_to_actual": "below",
+      "rating_change_suggested": -368,
+      "key_factors": [
+        "4 blunders significantly impacted your score",
+        "Consider slowing down - many inaccuracies"
+      ]
+    },
+    "user_id": "user_8b599930d7ef"
+  },
+  "raw_session": {
+    "session_id": "79f92dc6-b17e-485f-9cdd-bf6a17744d0d",
+    "user_id": "user_8b599930d7ef",
+    "status": "resigned",
+    "user_color": "white",
+    "current_fen": "8/4k3/1p6/5p1r/p3n3/8/r7/3K4 w - - 12 65",
+    "time_control": "15+10",
+    "user_time_remaining": 900,
+    "coach_time_remaining": 900,
+    "increment": 10,
+    "result": "loss",
+    "termination_reason": "resigned",
+    "created_at": "2026-04-15T03:21:19.544294+00:00",
+    "last_move_at": null,
+    "ended_at": "2026-04-15T05:25:20.977429+00:00",
+    "coach_interventions": [],
+    "behavior_events": [],
+    "cpr_before": null,
+    "cpr_after": 65.5,
+    "remaining_interventions": 3,
+    "guardian_overrides": [],
+    "user_rating": 1172,
+    "coach_skill_level": 5,
+    "coach_move_pending": false,
+    "last_coach_move": {
+      "move": "Ne4",
+      "uci": "c5e4",
+      "timestamp": "2026-04-15T05:25:16.503973+00:00",
+      "explanation": "Ne4 — knight to an active central square."
+    },
+    "evaluation": {
+      "score": -10,
+      "mate_in": -1
+    },
+    "action_revision": 64,
+    "teaching_mode": null,
+    "teaching_opening": null,
+    "teaching_data": {},
+    "detected_opening": "italian_game",
+    "opening_offer_shown": true,
+    "openings_taught_this_game": [],
+    "habits_checked": [],
+    "habit_violations": [],
+    "opening_to_teach": "ruy_lopez",
+    "opening_teaching_moves": [
+      "e4",
+      "e5",
+      "Nf3",
+      "Nc6",
+      "Bb5",
+      "a6",
+      "Ba4",
+      "Nf6",
+      "O-O",
+      "Be7",
+      "Re1",
+      "b5",
+      "Bb3",
+      "d6",
+      "c3",
+      "O-O",
+      "h3",
+      "Nb8",
+      "d4",
+      "Nbd7"
+    ],
+    "opening_teaching_index": 4,
+    "opening_teaching_active": false,
+    "opening_teaching_complete": false,
+    "suggested_trap": null,
+    "available_traps": [],
+    "pedagogical_mode_active": true,
+    "last_pedagogical_move_index": -10,
+    "pending_opportunity": {},
+    "opportunity_history": [],
+    "opportunities_found": 0,
+    "opportunities_missed": 0,
+    "curriculum_active": false,
+    "opening_assessment": {}
+  }
+}

@@ -1240,10 +1240,14 @@ const CoachPlay = ({ user }) => {
   
   // Combined fetch for resume/trigger (gets both at once)
   const fetchInteractiveCoaching = async (sessionId) => {
-    if (!sessionId) return;
-    
+    if (!sessionId) {
+      console.log("[V2-FLOW] fetchInteractiveCoaching called with no sessionId — skipping");
+      return;
+    }
+
+    console.log("[V2-FLOW] fetchInteractiveCoaching START for session:", sessionId);
     setLoadingFeedback(true);
-    
+
     try {
       const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
         method: "POST",
@@ -1251,27 +1255,57 @@ const CoachPlay = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({ session_id: sessionId })
       });
-      
+
+      console.log("[V2-FLOW] interactive-feedback response status:", response.status);
+
       if (response.ok) {
         const data = await response.json();
-        
-        console.log("[V2-DEBUG] Interactive coaching received:", JSON.stringify({
-          has_user: !!data.user_move_coaching,
-          has_coach: !!data.coach_move_coaching,
-          user_severity: data.user_move_coaching?.severity,
-          user_fundamental: data.user_move_coaching?.fundamental_violated,
-          user_socratic: data.user_move_coaching?.socratic_question?.substring(0, 50),
-          coach_v2_intent: data.coach_move_coaching?.v2_intent,
-          coach_v2_label: data.coach_move_coaching?.v2_label,
-        }));
+
+        // Log EVERYTHING we received
+        console.log("[V2-COACHING] === FULL RESPONSE ===");
+        console.log("[V2-COACHING] user_move_coaching:", data.user_move_coaching ? JSON.stringify({
+          severity: data.user_move_coaching.severity,
+          narrative: data.user_move_coaching.narrative?.substring(0, 80),
+          fundamental_violated: data.user_move_coaching.fundamental_violated,
+          fundamental_label: data.user_move_coaching.fundamental_label,
+          socratic_question: data.user_move_coaching.socratic_question?.substring(0, 80),
+          socratic_hint: data.user_move_coaching.socratic_hint?.substring(0, 80),
+          hide_best_move: data.user_move_coaching.hide_best_move,
+          checklist_snapshot: data.user_move_coaching.checklist_snapshot,
+          best_move: data.user_move_coaching.best_move,
+          cp_loss: data.user_move_coaching.cp_loss,
+          eval_label: data.user_move_coaching.eval_label,
+          position_read: data.user_move_coaching.position_read ? "YES" : "NO",
+          trap_opportunity: data.user_move_coaching.trap_opportunity ? "YES" : "NO",
+        }) : "NONE");
+
+        console.log("[V2-COACHING] coach_move_coaching:", data.coach_move_coaching ? JSON.stringify({
+          move_san: data.coach_move_coaching.move_san,
+          explanation: data.coach_move_coaching.explanation?.substring(0, 80),
+          plan: data.coach_move_coaching.plan?.substring(0, 80),
+          hint_for_user: data.coach_move_coaching.hint_for_user?.substring(0, 80),
+          teaching_point: data.coach_move_coaching.teaching_point?.substring(0, 80),
+          v2_intent: data.coach_move_coaching.v2_intent,
+          v2_label: data.coach_move_coaching.v2_label,
+          threats: data.coach_move_coaching.threats,
+        }) : "NONE");
+
+        console.log("[V2-COACHING] behavioral:", data.behavioral_coaching ? "YES" : "NO");
+        console.log("[V2-COACHING] pre_move_trap:", data.pre_move_trap ? "YES" : "NO");
+
         setInteractiveCoaching({
           userMoveCoaching: data.user_move_coaching || null,
           coachMoveCoaching: data.coach_move_coaching || null
         });
 
         if (data.user_move_coaching) {
+          console.log("[V2-FLOW] Setting v5Coaching with severity:", data.user_move_coaching.severity);
           setV5Coaching(data.user_move_coaching);
+        } else {
+          console.log("[V2-FLOW] No user_move_coaching in response");
         }
+      } else {
+        console.log("[V2-FLOW] interactive-feedback response NOT OK:", response.status);
       }
     } catch (error) {
       console.error("Error fetching interactive coaching:", error);
@@ -1832,6 +1866,7 @@ const CoachPlay = ({ user }) => {
 
             // Fetch V5 interactive feedback — this runs fundamentals checklist,
             // Socratic coaching, stores move snapshots, and gets coach move explanation
+            console.log("[V2-FLOW] Coach move received, calling fetchInteractiveCoaching now...");
             fetchInteractiveCoaching(session?.session_id || sessionId);
 
             return;
@@ -2345,11 +2380,13 @@ const CoachPlay = ({ user }) => {
       moveIndexPreview: (session?.move_history?.length || 0),
     };
 
+    console.log("[V2-FLOW] User move:", moveData.san, "— calling handleUserMove (evaluate-pending)");
     const { autoCommitted } = await coachFlow.handleUserMove(
       moveData,
       (san, ts) => executeMove(san, ts),
       timeSpent
     );
+    console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted);
 
     if (autoCommitted) {
       // Normal flow — move committed, wait for coach

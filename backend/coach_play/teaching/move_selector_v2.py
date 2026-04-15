@@ -157,6 +157,7 @@ class TeachingMoveSelectorV2:
                 teaching_focus=teaching_focus,
                 student_weaknesses=student_weaknesses,
                 last_game_violations=last_game_violations,
+                user_rating=self.user_rating,
             )
 
             # Step 3: Pick the best candidate for this intent
