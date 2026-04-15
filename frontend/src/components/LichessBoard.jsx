@@ -537,7 +537,7 @@ const LichessBoard = forwardRef(({
             height: "12.5%",
           }}
         >
-          <div className={`absolute -top-2 -right-1 px-1.5 py-0.5 rounded ${classIcon.bg} ${classIcon.text} flex items-center justify-center text-[8px] font-bold shadow-md z-10 border border-white/30 whitespace-nowrap`}>
+          <div className={`absolute -top-3 -right-2 px-2 py-1 rounded-md ${classIcon.bg} ${classIcon.text} flex items-center justify-center text-xs font-bold shadow-lg z-10 border border-white/40 whitespace-nowrap`}>
             {classIcon.symbol}
           </div>
         </div>
