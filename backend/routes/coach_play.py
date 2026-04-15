@@ -2269,6 +2269,29 @@ async def get_interactive_coaching(
                 except Exception:
                     pass
 
+            # Enhance Socratic question with LLM for mistakes/blunders
+            if coaching.severity in ("mistake", "blunder"):
+                try:
+                    from services.smart_coaching import generate_smart_user_feedback
+                    smart_fb = await generate_smart_user_feedback(
+                        board_before=board,
+                        user_move=move,
+                        best_move_san=best_move,
+                        cp_loss=cp_loss,
+                        severity=coaching.severity,
+                        fundamental_violated=coaching_dict.get("fundamental_violated"),
+                        coach_intent=_coach_intent,
+                        user_rating=session_doc.get("user_rating", 1200),
+                        phase=phase_str,
+                    )
+                    if smart_fb:
+                        if smart_fb.get("question"):
+                            coaching_dict["socratic_question"] = smart_fb["question"]
+                        if smart_fb.get("hint"):
+                            coaching_dict["socratic_hint"] = smart_fb["hint"]
+                except Exception as smart_err:
+                    logger.debug(f"Smart user feedback failed (using template): {smart_err}")
+
             # Compute best_move_uci for board arrow drawing
             if best_move and best_move != move_san:
                 try:
@@ -2533,7 +2556,7 @@ async def get_interactive_coaching(
             board = chess.Board(last_coach_move["fen_before"])
             move = board.parse_san(last_coach_move["move"])
 
-            # Pass v2 teaching context so explanation is intent-driven
+            # Try LLM-powered smart coaching first
             v2_ctx = None
             if last_coach_move.get("v2"):
                 v2_ctx = {
@@ -2543,17 +2566,47 @@ async def get_interactive_coaching(
                     "v2_breakdown": last_coach_move.get("v2_breakdown", {}),
                 }
 
-            coach_explanation = generate_coach_move_explanation(
-                board, move, user_color, v2_context=v2_ctx
-            )
+            coach_explanation = None
+            try:
+                from services.smart_coaching import generate_smart_coach_explanation
+                # Get player weaknesses for context
+                _player_weaknesses = []
+                try:
+                    _pp = await db.player_profiles.find_one(
+                        {"user_id": user_id}, {"top_weaknesses": 1, "_id": 0})
+                    if _pp:
+                        _player_weaknesses = [w.get("subcategory", w.get("category", ""))
+                                              for w in _pp.get("top_weaknesses", [])[:3]]
+                except Exception:
+                    pass
+
+                _opening = session_doc.get("detected_opening") or session_doc.get("opening_to_teach")
+
+                coach_explanation = await generate_smart_coach_explanation(
+                    board_before=board,
+                    move=move,
+                    user_color=user_color,
+                    v2_context=v2_ctx,
+                    player_weaknesses=_player_weaknesses,
+                    user_rating=session_doc.get("user_rating", 1200),
+                    opening_name=_opening,
+                )
+            except Exception as llm_err:
+                logger.warning(f"Smart coaching failed, using template: {llm_err}")
+
+            # Fallback to template-based explanation
+            if not coach_explanation:
+                coach_explanation = generate_coach_move_explanation(
+                    board, move, user_color, v2_context=v2_ctx
+                )
 
             # Add intent badge data for frontend
+            intent_labels = {
+                "fork_opportunity": "Double Attack",
+                "hanging_piece_punishment": "Piece Safety",
+                "threat_awareness": "Creating Threats",
+            }
             if last_coach_move.get("v2"):
-                intent_labels = {
-                    "fork_opportunity": "Double Attack",
-                    "hanging_piece_punishment": "Piece Safety",
-                    "threat_awareness": "Creating Threats",
-                }
                 v2_intent = last_coach_move.get("teaching_intent", "")
                 coach_explanation["v2_intent"] = v2_intent
                 coach_explanation["v2_label"] = intent_labels.get(v2_intent, "")
