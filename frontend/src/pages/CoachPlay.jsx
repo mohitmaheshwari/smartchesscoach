@@ -2661,12 +2661,11 @@ const CoachPlay = ({ user }) => {
           handleStartLesson={handleStartLesson}
           moveClassification={(() => {
             // Show classification on the USER's move square (persists after coach moves)
-            if (v5Coaching?.severity && userLastMoveSquare) {
-              let type = v5Coaching.severity;
-              if (v5Coaching.theory_applied) type = "book";
-              return { square: userLastMoveSquare, type };
-            }
-            return null;
+            const cls = v5Coaching?.severity && userLastMoveSquare
+              ? { square: userLastMoveSquare, type: v5Coaching.theory_applied ? "book" : v5Coaching.severity }
+              : null;
+            if (cls) console.log("[V2-BOARD] Move label:", cls.square, cls.type);
+            return cls;
           })()}
         />
 

@@ -907,7 +907,7 @@ const CoachPlaySidebar = ({
                   plan: interactiveCoaching.coachMoveCoaching.plan?.substring(0, 60),
                   hint: interactiveCoaching.coachMoveCoaching.hint_for_user?.substring(0, 60),
                   suppressOldCoaching,
-                  willRender: !suppressOldCoaching,
+                  willRender: true,
                 }));
               }
               return null;
@@ -1083,7 +1083,7 @@ const CoachPlaySidebar = ({
                   socratic: v5Coaching.socratic_question?.substring(0, 40),
                   suppressOldCoaching,
                   curriculum: session?.curriculum_active,
-                  willRender: !suppressOldCoaching && !session?.curriculum_active,
+                  willRender: !session?.curriculum_active,
                 }));
               }
               return null;
