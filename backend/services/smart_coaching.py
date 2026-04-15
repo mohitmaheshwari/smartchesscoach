@@ -1,18 +1,18 @@
 """
-Smart Coaching — LLM-powered, position-aware coaching text.
+Smart Coaching — LLM converts structured chess data into natural coaching language.
 
-Uses the LLM with full context to generate genuinely insightful coaching,
-not templates. Every coaching message is specific to THIS position, THIS
-player, THIS moment.
+IMPORTANT: The LLM does NOT analyze chess positions. All chess analysis comes
+from Stockfish and our detector classes. The LLM's only job is to take those
+FACTS and write them as a human coach would say them.
 
-Context fed to LLM:
-- FEN + what the move does (capture, check, develop, etc.)
-- V2 teaching intent (what the coach is trying to teach)
-- Position reader features (pins, forks, hanging pieces, development)
-- Stockfish best moves and evaluation
-- Player profile (rating, weaknesses, patterns)
-- Game phase (opening/middlegame/endgame)
-- Opening theory (if in a known opening)
+Data flow:
+  Stockfish → evals, best moves, cp_loss
+  V2 selector → teaching intent, why this move was chosen
+  Pattern detectors → hanging pieces, forks, threats
+  Position reader → pins, development, center control
+  Player profile → weaknesses, rating
+  ──────────────────────────────────────────────────
+  ALL OF THE ABOVE → LLM → natural coaching sentence
 """
 
 import chess
@@ -33,9 +33,8 @@ async def generate_smart_coach_explanation(
     opening_name: Optional[str] = None,
 ) -> Dict:
     """
-    Generate position-specific coaching using LLM.
-
-    Returns dict with: explanation, plan, hint_for_user, teaching_point, opponent_opportunity
+    Generate coaching text using LLM as a language layer only.
+    All chess facts are computed by our systems and passed to the LLM.
     """
     from llm_service import call_llm
     from services.position_reader import read_position
@@ -48,68 +47,111 @@ async def generate_smart_coach_explanation(
 
     board_after = board_before.copy()
     board_after.push(move)
-
-    # Gather position context
-    fen_after = board_after.fen()
     phase = _get_phase(board_after)
 
-    # Get position features from the reader
+    # ─── GATHER ALL FACTS (from our systems, NOT the LLM) ───
+
+    # Fact 1: What the move does mechanically
+    move_facts = []
+    if board_before.is_castling(move):
+        side = "kingside" if chess.square_file(move.to_square) > 4 else "queenside"
+        move_facts.append(f"Castled {side}")
+    elif captured:
+        move_facts.append(f"Captured {chess.piece_name(captured.piece_type)} on {chess.square_name(move.to_square)}")
+    if board_after.is_check():
+        move_facts.append("Gives check")
+    if piece:
+        piece_name = chess.piece_name(piece.piece_type)
+        from_sq = chess.square_name(move.from_square)
+        to_sq = chess.square_name(move.to_square)
+        move_facts.append(f"{piece_name} moved from {from_sq} to {to_sq}")
+
+    # Fact 2: V2 teaching intent
+    intent_fact = ""
+    if v2_context and v2_context.get("v2"):
+        intent = v2_context.get("teaching_goal", "")
+        why = v2_context.get("why_instructive", "")
+        breakdown = v2_context.get("v2_breakdown", {})
+        sub = breakdown.get("sub_scores", {})
+
+        if intent == "hanging_piece_punishment":
+            if sub.get("capture_punishment", 0) > 0:
+                intent_fact = f"Coach captured an undefended piece (punishing a hanging piece)"
+            elif sub.get("undefended", 0) > 0:
+                intent_fact = f"Coach's move leaves one of the student's pieces undefended"
+            elif sub.get("underdefended", 0) > 0:
+                intent_fact = f"Coach's move puts pressure on an underdefended student piece"
+        elif intent == "fork_opportunity":
+            intent_fact = f"Coach's piece now attacks two student pieces at once ({why})"
+        elif intent == "threat_awareness":
+            if sub.get("attacks_undefended", 0) > 0:
+                intent_fact = "Coach now threatens an undefended student piece"
+            elif sub.get("checks", 0) > 0:
+                intent_fact = "Coach has a check available next move"
+            elif sub.get("safe_captures", 0) > 0:
+                intent_fact = "Coach has a safe capture available"
+            else:
+                intent_fact = "Coach created a threat the student must notice"
+
+    # Fact 3: What the student can exploit (from our detectors)
+    opportunities = _scan_opportunities(board_after, user_chess_color)
+
+    # Fact 4: Position features from our reader
+    feature_facts = []
     if not position_features:
         try:
-            pos_data = read_position(fen_after, user_color, user_rating)
+            pos_data = read_position(board_after.fen(), user_color, user_rating)
             position_features = pos_data.get("features", [])
         except Exception:
             position_features = []
+    for f in (position_features or [])[:3]:
+        feature_facts.append(f"{f.title}: {f.description}")
 
-    # Scan for opponent opportunities (what can the student exploit?)
-    opportunities = _scan_opportunities(board_after, user_chess_color)
+    # Fact 5: New threats created by this move
+    threat_facts = []
+    for sq in chess.SQUARES:
+        target = board_after.piece_at(sq)
+        if target and target.color == user_chess_color and target.piece_type != chess.KING:
+            now_attacked = board_after.is_attacked_by(coach_color, sq)
+            was_attacked = board_before.is_attacked_by(coach_color, sq)
+            if now_attacked and not was_attacked:
+                t_name = chess.piece_name(target.piece_type)
+                t_sq = chess.square_name(sq)
+                defenders = len(list(board_after.attackers(user_chess_color, sq)))
+                threat_facts.append(f"Student's {t_name} on {t_sq} is now attacked (defenders: {defenders})")
 
-    # Build the move description
-    move_desc = _describe_move(board_before, move, piece, captured)
+    # ─── BUILD PROMPT WITH ONLY VERIFIED FACTS ───
 
-    # V2 intent info
-    intent = ""
-    intent_reason = ""
-    if v2_context and v2_context.get("v2"):
-        intent = v2_context.get("teaching_goal", "")
-        intent_reason = v2_context.get("why_instructive", "")
-
-    # Position features as text
-    feature_text = ""
-    if position_features:
-        feature_lines = [f"- {f.title}: {f.description}" for f in position_features[:4]]
-        feature_text = "\n".join(feature_lines)
-
-    # Build prompt
-    system_prompt = f"""You are a chess coach sitting next to a {user_rating}-rated player during a game.
-You just played a move as their opponent. Explain YOUR move to teach them.
-
-Rules:
-- Talk directly to the student ("I played...", "Notice how...", "Can you see...")
-- Be specific to THIS position — no generic principles
-- Ask ONE question that makes them look at the board
-- If you see something they can exploit, hint at it without giving the answer
-- Keep it under 3 sentences for explanation, 1 sentence for the question
-- Never say the best move — make them find it
-- Phase: {phase}
+    facts_block = f"""VERIFIED FACTS (from Stockfish and our analysis — these are true):
+- Move played: {move_san}
+- {'; '.join(move_facts)}
+{f'- Teaching intent: {intent_fact}' if intent_fact else ''}
+{f'- New threats: {"; ".join(threat_facts)}' if threat_facts else '- No new threats created'}
+{f'- Student opportunities: {opportunities}' if opportunities else '- No obvious student opportunities'}
+{f'- Position features: {"; ".join(feature_facts)}' if feature_facts else ''}
+- Game phase: {phase}
 {f'- Opening: {opening_name}' if opening_name else ''}
-{f'- Student weaknesses: {", ".join(player_weaknesses)}' if player_weaknesses else ''}
-{f'- Teaching intent: {intent} ({intent_reason})' if intent else ''}"""
+- Student rating: {user_rating}
+{f'- Student weaknesses: {", ".join(player_weaknesses)}' if player_weaknesses else ''}"""
 
-    user_prompt = f"""Position after my move: {fen_after}
-I played: {move_san} ({move_desc})
-{f'Position features the student should notice:' + chr(10) + feature_text if feature_text else ''}
-{f'Opportunities for the student: {opportunities}' if opportunities else ''}
+    system_prompt = """You are a chess coach converting analysis data into coaching language.
 
-Respond in this exact JSON format (no markdown, just raw JSON):
-{{"explanation": "what my move does and why", "question": "one question to make them think", "hint": "subtle hint about what they should look for"}}"""
+CRITICAL RULES:
+- ONLY use the VERIFIED FACTS provided. Do NOT infer, calculate, or analyze the position yourself.
+- You do NOT know chess well enough to analyze positions. The facts are already computed for you.
+- Write as if speaking to the student sitting next to you during the game.
+- 2-3 sentences max for explanation.
+- End with ONE question that makes them look at the board.
+- Do NOT reveal the best move or tell them what to play.
+- If there's a student opportunity, hint at it without naming the move.
+
+Respond in JSON only (no markdown):
+{"explanation": "...", "question": "...", "hint": "..."}"""
 
     try:
-        response = await call_llm(system_prompt, user_prompt)
+        response = await call_llm(system_prompt, facts_block)
 
-        # Parse JSON response
         import json
-        # Clean up response — sometimes LLM wraps in markdown
         clean = response.strip()
         if clean.startswith("```"):
             clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
@@ -119,22 +161,23 @@ Respond in this exact JSON format (no markdown, just raw JSON):
 
         data = json.loads(clean)
 
-        return {
+        result = {
             "move_san": move_san,
             "explanation": data.get("explanation", f"I played {move_san}."),
-            "plan": "",  # LLM doesn't need a separate plan — it's in the explanation
+            "plan": "",
             "threats": [],
             "teaching_point": "",
             "hint_for_user": data.get("question", ""),
-            "opponent_opportunity": {
-                "type": "llm",
-                "message": data.get("hint", ""),
-            } if data.get("hint") else None,
         }
+        if data.get("hint"):
+            result["opponent_opportunity"] = {
+                "type": "smart",
+                "message": data["hint"],
+            }
+        return result
 
     except Exception as e:
-        logger.warning(f"[SMART-COACHING] LLM call failed, falling back to template: {e}")
-        # Fallback to template-based explanation
+        logger.warning(f"[SMART-COACHING] LLM failed, falling back: {e}")
         return None
 
 
@@ -150,56 +193,83 @@ async def generate_smart_user_feedback(
     phase: str = "middlegame",
 ) -> Optional[Dict]:
     """
-    Generate position-specific feedback on the user's move using LLM.
-
-    Only called for mistakes/blunders — good moves get brief praise without LLM.
+    Generate Socratic question for mistakes using LLM as language layer.
+    All chess facts come from Stockfish and fundamentals checker.
     """
     if severity in ("good", "brilliant"):
-        return None  # No LLM needed for good moves
+        return None
 
     from llm_service import call_llm
 
     move_san = board_before.san(user_move)
     piece = board_before.piece_at(user_move.from_square)
+    captured = board_before.piece_at(user_move.to_square)
     board_after = board_before.copy()
     board_after.push(user_move)
 
-    move_desc = _describe_move(board_before, user_move, piece,
-                               board_before.piece_at(user_move.to_square))
+    # ─── GATHER FACTS ───
 
-    # Map fundamental to what they should have checked
-    fundamental_labels = {
-        "check_opponents_move": "checking what the opponent's last move threatened",
-        "hanging_pieces": "checking if all their pieces are defended",
-        "king_safety": "their king's safety",
-        "calculate": "calculating the opponent's response",
-        "development": "developing new pieces instead of moving the same one",
-        "center_control": "fighting for the center",
-        "have_a_plan": "having a clear plan",
-    }
-    fundamental_text = fundamental_labels.get(fundamental_violated, "")
+    # What the move did
+    move_desc = _describe_move(board_before, user_move, piece, captured)
 
-    system_prompt = f"""You are a chess coach. Your {user_rating}-rated student just made a {severity} (lost {cp_loss} centipawns).
-Your job: ask ONE Socratic question that makes them find the problem themselves.
+    # What went wrong (from our fundamentals checker)
+    problem_facts = []
+    if fundamental_violated == "check_opponents_move":
+        problem_facts.append("Student did not respond to the opponent's threat from the previous move")
+    elif fundamental_violated == "hanging_pieces":
+        # Find which piece is now hanging
+        user_color_bool = chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK
+        for sq in chess.SQUARES:
+            p = board_after.piece_at(sq)
+            if p and p.color == user_color_bool and p.piece_type != chess.KING and p.piece_type != chess.PAWN:
+                attackers = list(board_after.attackers(not user_color_bool, sq))
+                defenders = list(board_after.attackers(user_color_bool, sq))
+                if attackers and not defenders:
+                    problem_facts.append(f"Student's {chess.piece_name(p.piece_type)} on {chess.square_name(sq)} is now undefended and attacked")
+                    break
+        if not problem_facts:
+            problem_facts.append("Student left a piece undefended")
+    elif fundamental_violated == "calculate":
+        problem_facts.append(f"Student didn't calculate the response — lost {cp_loss} centipawns")
+    elif fundamental_violated == "king_safety":
+        problem_facts.append("Student's king is in danger")
+    elif fundamental_violated == "development":
+        problem_facts.append("Student moved an already-developed piece instead of developing a new one")
+    elif fundamental_violated == "center_control":
+        problem_facts.append("Student lost control of the center")
+    elif fundamental_violated == "have_a_plan":
+        problem_facts.append("Student's move doesn't serve a clear purpose")
 
-Rules:
-- Do NOT tell them the answer or the best move
-- Ask about what they MISSED, not what they should do
-- Reference specific pieces and squares on the board
-- One question only, under 20 words
-- Phase: {phase}
-{f'- They failed at: {fundamental_text}' if fundamental_text else ''}
-{f'- You were trying to teach: {coach_intent}' if coach_intent else ''}"""
+    if coach_intent:
+        intent_map = {
+            "hanging_piece_punishment": "The coach deliberately created a position to test piece safety awareness",
+            "fork_opportunity": "The coach set up a double attack that the student needed to handle",
+            "threat_awareness": "The coach created a threat the student needed to notice",
+        }
+        if coach_intent in intent_map:
+            problem_facts.append(intent_map[coach_intent])
 
-    user_prompt = f"""Position before their move: {board_before.fen()}
-They played: {move_san} ({move_desc})
-Best move was: {best_move_san or 'unknown'}
-Position after: {board_after.fen()}
+    facts_block = f"""VERIFIED FACTS:
+- Student played: {move_san} ({move_desc})
+- This was a {severity} (lost {cp_loss} centipawns)
+- Best move was: {best_move_san or 'unknown'}
+- What went wrong: {'; '.join(problem_facts) if problem_facts else 'unclear'}
+- Game phase: {phase}
+- Student rating: {user_rating}"""
 
-Respond in JSON: {{"question": "the Socratic question", "hint": "what they should look at if they can't answer"}}"""
+    system_prompt = """You convert chess analysis into ONE Socratic question for a student.
+
+RULES:
+- ONLY use the VERIFIED FACTS. Do NOT analyze the position yourself.
+- Ask about what they MISSED — do NOT tell them the answer.
+- Reference specific pieces and squares from the facts.
+- ONE question, under 20 words.
+- ONE hint sentence if they can't answer.
+
+Respond in JSON only: {"question": "...", "hint": "..."}"""
 
     try:
-        response = await call_llm(system_prompt, user_prompt)
+        response = await call_llm(system_prompt, facts_block)
         import json
         clean = response.strip()
         if clean.startswith("```"):
