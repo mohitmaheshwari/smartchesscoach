@@ -735,24 +735,52 @@ async def generate_move_coaching(
 
     if is_brilliant or (is_sacrifice and cp_loss <= 0):
         sac_piece = piece_name
-        narratives = [
-            f"Wow! {move_san} — a brilliant sacrifice! You gave up your {sac_piece} and it works perfectly.",
-            f"Incredible! {move_san} is a brilliant move. Sacrificing the {sac_piece} here takes real vision.",
-            f"This is the kind of move that wins games. {move_san} — a calculated sacrifice that your opponent can't handle.",
-            f"Beautiful! {move_san} — you saw deeper than the obvious. The {sac_piece} sacrifice is the only way to win here.",
-        ]
-        import random
+
+        # Build specific narrative — explain WHAT happens after the sacrifice
+        narrative = f"Brilliant! You gave up your {sac_piece} with {move_san}"
+
+        # Use PV to explain the follow-up
+        if pv_after_played and len(pv_after_played) >= 2:
+            followup = pv_after_played[:3]
+            # Detect what the follow-up achieves
+            sim = board_after.copy()
+            followup_desc = []
+            for pv_move in followup:
+                try:
+                    m = sim.parse_san(pv_move)
+                    cap = sim.piece_at(m.to_square)
+                    sim.push(m)
+                    if sim.is_checkmate():
+                        followup_desc.append("checkmate")
+                        break
+                    elif sim.is_check():
+                        followup_desc.append(f"{pv_move} (check)")
+                    elif cap:
+                        followup_desc.append(f"takes {chess.piece_name(cap.piece_type)}")
+                except Exception:
+                    break
+
+            if "checkmate" in followup_desc:
+                narrative += " — and it leads to checkmate! Incredible vision."
+            elif followup_desc:
+                narrative += f" — but after {', '.join(followup[:2])}, you win it all back and more!"
+            else:
+                narrative += " — and it works perfectly. Your opponent can't handle it."
+        else:
+            narrative += " — a move that shows real vision."
+
         return V5Coaching(
-            narrative=random.choice(narratives),
+            narrative=narrative,
             severity="brilliant",
             is_user_move=True,
             best_move=best_move_san,
-            transferable_learning=f"You found a sacrifice that was the only winning move. This shows strong tactical vision and calculation depth.",
+            future_moves=pv_after_played[:3] if pv_after_played else None,
+            transferable_learning=f"You saw deeper than the obvious. That takes real calculation.",
         )
 
     if is_sacrifice and cp_loss <= 30:
         return V5Coaching(
-            narrative=f"Bold! {move_san} — sacrificing the {piece_name}. A creative decision that keeps you in the fight.",
+            narrative=f"Bold move! You gave up your {piece_name} with {move_san}. A brave decision that keeps you in the fight.",
             severity="good",
             is_user_move=True,
             best_move=best_move_san,
@@ -760,6 +788,17 @@ async def generate_move_coaching(
 
     # ─── GOOD USER MOVE ───
     if severity == "good":
+        # Best move — extra appreciation
+        is_best = (move_san == best_move_san) if best_move_san else False
+        if is_best and cp_loss <= 5:
+            narrative = f"Yes! {move_san} — that's the best move! Well played."
+            return V5Coaching(
+                narrative=narrative,
+                severity="good",
+                is_user_move=True,
+                best_move=best_move_san,
+            )
+
         narrative = generate_good_move_narrative(board_before, move, best_move_san, piece_name)
         return V5Coaching(
             narrative=narrative,
