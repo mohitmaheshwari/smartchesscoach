@@ -176,11 +176,34 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
                   )}
                 </div>
                 {context.fen && (
-                  <div className="font-mono text-[10px] text-zinc-600 truncate">
-                    {context.fen}
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="font-mono text-[10px] text-zinc-500 flex-1 break-all select-all bg-black/20 rounded px-2 py-1">
+                      {context.fen}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(context.fen);
+                      }}
+                      className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 shrink-0"
+                      title="Copy FEN"
+                    >
+                      <Copy className="w-3 h-3" /> Copy
+                    </button>
                   </div>
                 )}
               </div>
+
+              {/* Copy all debug info */}
+              <button
+                onClick={() => {
+                  const debug = contextItems.map(i => `${i.label}: ${i.value}`).join("\n");
+                  const full = `Flagged: ${section}\nText: ${flaggedText}\n${debug}`;
+                  navigator.clipboard.writeText(full);
+                }}
+                className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+              >
+                <Copy className="w-3 h-3" /> Copy all debug info
+              </button>
 
               {/* Full context accordion */}
               {contextItems.length > 0 && (
