@@ -37,9 +37,9 @@ COACH_MOVE = {
     ],
 
     "opening_pawn_center": [
-        {"explanation": "I pushed my pawn to {square} to fight for the center.", "question": "Who has more control of the center right now?", "hint": "Look at d4, d5, e4, e5 — who has more pieces and pawns there?"},
-        {"explanation": "{move} — fighting for the center. That's the most important area of the board.", "question": "What are you doing to control the center?", "hint": "Pawns on e4/d4 or e5/d5 are your best tools for this."},
-        {"explanation": "I played {move}. The center is where the fight is.", "question": "Do you have a pawn in the center?", "hint": "If not, think about how to get one there."},
+        {"explanation": "I pushed my pawn to {square} to fight for the center. We're playing the {opening}.", "question": "Who has more control of the center right now?", "hint": "Look at d4, d5, e4, e5 — who has more pieces and pawns there?"},
+        {"explanation": "{move} — fighting for the center in the {opening}.", "question": "What are you doing to control the center?", "hint": "Pawns on e4/d4 or e5/d5 are your best tools for this."},
+        {"explanation": "I played {move}. In the {opening}, the center is where the fight starts.", "question": "Do you have a pawn in the center?", "hint": "If not, think about how to get one there."},
     ],
 
     "opening_castle": [
