@@ -49,10 +49,11 @@ class TeachingMoveSelectorV2:
         self.user_rating = user_rating
         self.engine = None
 
-        # Coach ALWAYS plays at full strength.
-        # A real coach doesn't play weak chess — they play strong chess
-        # and the TEACHING adapts to the student's level.
-        self.skill_level = 20
+        # Coach plays like a strong club player (~2000 Elo).
+        # Not full engine strength (too inhuman for beginners to learn from)
+        # but strong enough to always play good, principled chess.
+        # Teaching comes from WHICH good move we pick, not from playing weak.
+        self.skill_level = 15
             if user_rating < threshold:
                 break
             self.skill_level = skill
