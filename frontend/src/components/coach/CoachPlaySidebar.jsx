@@ -815,48 +815,16 @@ const CoachPlaySidebar = ({
 
           {/* Main Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* ═══ NEW COACHING SYSTEM (in sidebar) ═══ */}
 
-            {/* Critical Hold Card — mistake/blunder with clock commit */}
-            {suppressOldCoaching && isInHold && activeCoachingMoment && (
-              <ActiveCoachingCard
-                moment={activeCoachingMoment}
-                clockState={clockState}
-                onClockTap={onClockTap}
-              />
-            )}
+            {/* ═══ V2 COACHING ONLY — one voice ═══ */}
 
-            {/* Ambient/Advisory Strip — live coaching in sidebar */}
-            {suppressOldCoaching && !isInHold && activeStripCoaching && (
-              <ActiveCoachStrip coaching={activeStripCoaching} />
-            )}
-
-            {/* Live Checklist — fundamentals + weaknesses */}
-            {suppressOldCoaching && !gameOver && (
-              <LiveChecklist
-                checklist={liveChecklist}
-                weaknesses={playerWeaknessList}
-                playerProfile={playerProfile}
-                rootProblem={rootProblem}
-                gamePhase={activeStripCoaching?.gamePhase || (activeCoachingMoment ? "critical" : null)}
-                coachNote={activeStripCoaching?.text || (isInHold ? activeCoachingMoment?.text : null)}
-              />
-            )}
-
-            {/* Coach Timeline — historical moments */}
-            {suppressOldCoaching && coachTimeline && coachTimeline.length > 0 && !gameOver && (
-              <CoachTimelinePanel timeline={coachTimeline} />
-            )}
-
-            {/* ═══ LEGACY COACHING (old mode) ═══ */}
-
-            {/* Pre-Move Fundamentals Reminder — only in old mode */}
-            {!suppressOldCoaching && !gameOver && isPlayerTurn && !v5Coaching && !isCoachThinking && !guardianIntervention && !isInTeachingMode && (
+            {/* Pre-Move Fundamentals Reminder — disabled, v2 handles this */}
+            {false && (
               <PreMoveFundamentals />
             )}
 
-            {/* Coach Panel — only in old mode */}
-            {!suppressOldCoaching && !gameOver && !v5Coaching && !isCoachThinking && (
+            {/* Coach Panel — disabled, CommentaryPanel handles coach explanation */}
+            {false && (
               <CoachPanel
                 sessionId={session?.session_id}
                 fen={currentFen}
@@ -878,216 +846,11 @@ const CoachPlaySidebar = ({
               confirmRiskyMove={confirmRiskyMove}
             />
 
-            {/* Trap Alert — only in old mode */}
-            {!suppressOldCoaching && activeTrapAlert && (
-              <TrapAlert
-                trap={activeTrapAlert}
-                onShowLine={() => {}}
-                onDismiss={() => setActiveTrapAlert(null)}
-              />
-            )}
+            {/* ═══ V2: User Move Feedback ONLY ═══ */}
+            {/* Coach explanation is in CommentaryPanel (middle section) */}
+            {/* Sidebar shows ONLY user move feedback */}
 
-            {/* Escape Squares Quiz — only in old mode */}
-            {!suppressOldCoaching && escapeSquaresQuiz && !isInTeachingMode && !gameOver && !v5Coaching && (
-              <EscapeSquaresQuiz
-                quiz={escapeSquaresQuiz}
-                sessionId={session?.session_id}
-                onComplete={onEscapeQuizComplete}
-              />
-            )}
-
-            {/* Coach's Move Explanation — only in old mode */}
-            {(() => {
-              if (interactiveCoaching?.coachMoveCoaching) {
-                console.log("[V2-RENDER] Coach explanation:", JSON.stringify({
-                  move: interactiveCoaching.coachMoveCoaching.move_san,
-                  explanation: interactiveCoaching.coachMoveCoaching.explanation?.substring(0, 60),
-                  v2_intent: interactiveCoaching.coachMoveCoaching.v2_intent,
-                  v2_label: interactiveCoaching.coachMoveCoaching.v2_label,
-                  plan: interactiveCoaching.coachMoveCoaching.plan?.substring(0, 60),
-                  hint: interactiveCoaching.coachMoveCoaching.hint_for_user?.substring(0, 60),
-                  suppressOldCoaching,
-                  willRender: true,
-                }));
-              }
-              return null;
-            })()}
-            {/* Coach move explanation now renders in CommentaryPanel (next to board).
-                Only show here if CommentaryPanel is not available (fallback). */}
-            {interactiveCoaching.coachMoveCoaching && !interactiveCoaching.coachMoveCoaching.v2_intent && (
-              <div
-                data-testid="coach-move-explanation"
-                className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-blue-700 font-bold text-sm tracking-wide uppercase">
-                    Coach played
-                  </span>
-                  <span className="font-mono text-blue-700 bg-blue-100 px-2 py-0.5 rounded text-sm">
-                    {interactiveCoaching.coachMoveCoaching.move_san}
-                  </span>
-                  <FlagMoveButton
-                    source="coach"
-                    sessionId={session?.session_id}
-                    fen={currentFen || ""}
-                    moveSan={
-                      interactiveCoaching.coachMoveCoaching.move_san
-                    }
-                    coachingText={
-                      interactiveCoaching.coachMoveCoaching.explanation
-                    }
-                    className="ml-auto"
-                  />
-                </div>
-                {interactiveCoaching.coachMoveCoaching.v2_label && (
-                  <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full ${
-                    interactiveCoaching.coachMoveCoaching.v2_intent === 'fork_opportunity'
-                      ? 'bg-red-100 text-red-700'
-                      : interactiveCoaching.coachMoveCoaching.v2_intent === 'hanging_piece_punishment'
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-purple-100 text-purple-700'
-                  }`}>
-                    {interactiveCoaching.coachMoveCoaching.v2_label}
-                  </span>
-                )}
-                {interactiveCoaching.coachMoveCoaching.v2_explanation ? (
-                  <p className="text-blue-800 text-sm font-medium">
-                    {interactiveCoaching.coachMoveCoaching.v2_explanation}
-                  </p>
-                ) : interactiveCoaching.coachMoveCoaching.explanation && (
-                  <p className="text-blue-800 text-sm">
-                    {interactiveCoaching.coachMoveCoaching.explanation}
-                  </p>
-                )}
-                {interactiveCoaching.coachMoveCoaching.plan && (
-                  <div className="flex items-start gap-2 mt-1">
-                    <span className="text-blue-700 text-xs font-semibold shrink-0">
-                      PLAN:
-                    </span>
-                    <p className="text-blue-800 text-sm">
-                      {interactiveCoaching.coachMoveCoaching.plan}
-                    </p>
-                  </div>
-                )}
-                {interactiveCoaching.coachMoveCoaching.threats?.length >
-                  0 && (
-                  <div className="flex items-start gap-2 mt-1">
-                    <span className="text-red-600 text-xs font-semibold shrink-0">
-                      THREATS:
-                    </span>
-                    <p className="text-red-600 text-sm">
-                      {interactiveCoaching.coachMoveCoaching.threats.join(
-                        ", "
-                      )}
-                    </p>
-                  </div>
-                )}
-                {interactiveCoaching.coachMoveCoaching.hint_for_user && (
-                  <div className="mt-2 pt-2 border-t border-blue-500/20">
-                    <p className="text-amber-700 text-sm font-medium">
-                      🤔 {interactiveCoaching.coachMoveCoaching.hint_for_user}
-                    </p>
-                  </div>
-                )}
-                {interactiveCoaching.coachMoveCoaching.teaching_point && (
-                  <div className={`${interactiveCoaching.coachMoveCoaching.hint_for_user ? 'mt-1' : 'mt-2 pt-2 border-t border-blue-500/20'}`}>
-                    <p className="text-blue-600 text-xs italic">
-                      {interactiveCoaching.coachMoveCoaching.teaching_point}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Opponent Opportunity — teach student to read the board */}
-            {interactiveCoaching?.coachMoveCoaching?.opponent_opportunity && (
-              <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50 space-y-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                  Can you see it?
-                </span>
-                <p className="text-sm text-emerald-800 font-medium">
-                  {interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
-                </p>
-              </div>
-            )}
-
-            {/* Consequence Feedback (Pedagogical Opponent) */}
-            {consequenceFeedback && (
-              <ConsequenceFeedback
-                consequence={consequenceFeedback}
-                onDismiss={() => setConsequenceFeedback(null)}
-              />
-            )}
-
-            {/* Pre-Move Trap Prompt — shown BEFORE user moves */}
-            {preMoveTrap && !v5Coaching && !isCoachThinking && (
-              <div className="p-3 rounded-lg border-2 border-amber-500/30 bg-amber-500/5 animate-in slide-in-from-top-2" data-testid="pre-move-trap">
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="w-4 h-4 text-amber-500" strokeWidth={2} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                    Before You Move
-                  </span>
-                </div>
-                <p className="text-sm text-foreground leading-relaxed">
-                  {preMoveTrap.message}
-                </p>
-                {preMoveTrap.escape_squares?.length > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] text-muted-foreground uppercase">Escapes:</span>
-                    {preMoveTrap.escape_squares.map((sq) => (
-                      <span key={sq} className="text-xs font-mono bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">
-                        {sq}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {preMoveTrap.is_trappable_in_2 && preMoveTrap.trap_sequence?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-amber-500/10 text-xs">
-                    <span className="text-amber-500 font-semibold">
-                      You can trap it in {preMoveTrap.trap_sequence.length} moves!
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Coach Thinking Indicator — only in old mode */}
-            {!suppressOldCoaching && isCoachThinking &&
-              !v5Coaching &&
-              !guardianIntervention &&
-              !session?.curriculum_active && (
-                <div
-                  data-testid="coach-thinking-indicator"
-                  className="p-4 rounded-lg bg-primary/5 border border-primary/10 animate-pulse"
-                >
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                    <div>
-                      <p className="text-sm font-medium text-primary">
-                        Analyzing your move...
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Coach is evaluating the position
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            {/* User's Move Feedback — only in old mode */}
-            {(() => {
-              if (v5Coaching) {
-                console.log("[V2-RENDER] v5Coaching present:", JSON.stringify({
-                  severity: v5Coaching.severity,
-                  fundamental: v5Coaching.fundamental_violated,
-                  socratic: v5Coaching.socratic_question?.substring(0, 40),
-                  suppressOldCoaching,
-                  curriculum: session?.curriculum_active,
-                  willRender: !session?.curriculum_active,
-                }));
-              }
-              return null;
-            })()}
+            {/* User's Move Feedback — V5CoachingCard */}
             {v5Coaching && !session?.curriculum_active && (
               <V5CoachingCard
                 coaching={v5Coaching}
@@ -1103,91 +866,15 @@ const CoachPlaySidebar = ({
               />
             )}
 
-            {/* Fundamentals Checklist — only in old mode */}
+            {/* Fundamentals Checklist — shows pass/fail for 7 fundamentals */}
             {v5Coaching?.checklist_snapshot && (
               <FundamentalsChecklist snapshot={v5Coaching.checklist_snapshot} />
             )}
 
-            {/* Trap Opportunity — only in old mode */}
-            {v5Coaching?.trap_opportunity && (
-              <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5" data-testid="trap-opportunity">
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="w-4 h-4 text-amber-500" strokeWidth={2} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                    Escape Square Control
-                  </span>
-                </div>
-                <p className="text-sm text-foreground leading-relaxed">
-                  {v5Coaching.trap_opportunity.message}
-                </p>
-                {v5Coaching.trap_opportunity.escape_squares?.length > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Escapes:</span>
-                    {v5Coaching.trap_opportunity.escape_squares.map((sq) => (
-                      <span key={sq} className="text-xs font-mono bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">
-                        {sq}
-                      </span>
-                    ))}
-                    <span className="text-[10px] font-mono text-muted-foreground ml-auto">
-                      {v5Coaching.trap_opportunity.escape_count}/6
-                    </span>
-                  </div>
-                )}
-                {v5Coaching.trap_opportunity.reduction_moves?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-amber-500/10">
-                    <span className="text-[10px] text-muted-foreground">Try: </span>
-                    <span className="text-xs font-mono font-semibold text-amber-500">
-                      {v5Coaching.trap_opportunity.reduction_moves[0].move_san}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {" "}blocks {v5Coaching.trap_opportunity.reduction_moves[0].blocks?.join(", ")}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* All old sections removed: trap opportunity, eval label,
+                position read, behavioral coaching — v2 handles everything */}
 
-            {/* Position Evaluation — hide when v2 coach explanation is showing */}
-            {v5Coaching?.eval_label && !interactiveCoaching?.coachMoveCoaching?.v2_intent && (
-              <EvalBadge evalLabel={v5Coaching.eval_label} size="md" showDescription />
-            )}
-
-            {/* Position Intelligence — hide when v2 coach explanation is showing */}
-            {v5Coaching?.position_read && !interactiveCoaching?.coachMoveCoaching?.v2_intent && (
-              <div className="p-3 rounded-lg border border-blue-500/15 bg-blue-500/5" data-testid="position-read">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-blue-500">
-                    Board Reading
-                  </span>
-                  {v5Coaching.position_read.phase && (
-                    <span className="text-[10px] font-mono text-muted-foreground/50 uppercase">
-                      {v5Coaching.position_read.phase}
-                    </span>
-                  )}
-                </div>
-                {v5Coaching.position_read.material && (
-                  <p className="text-[11px] text-muted-foreground font-medium mb-1">
-                    {v5Coaching.position_read.material}
-                  </p>
-                )}
-                <p className="text-sm text-foreground leading-relaxed mb-2">
-                  {v5Coaching.position_read.plan}
-                </p>
-                {v5Coaching.position_read.observations?.length > 0 && (
-                  <div className="space-y-1 pt-2 border-t border-blue-500/10">
-                    {v5Coaching.position_read.observations.map((obs, i) => (
-                      <p key={i} className="text-xs text-muted-foreground">
-                        <span className="text-blue-500 mr-1">•</span>
-                        {obs.description || obs.title}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Behavioral Coaching — only in old mode */}
-            {!suppressOldCoaching && behavioralCoaching && !session?.curriculum_active && (
+            {false && behavioralCoaching && (
               <div
                 data-testid="behavioral-coaching"
                 className={`p-3 rounded-lg border ${

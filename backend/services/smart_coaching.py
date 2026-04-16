@@ -27,16 +27,15 @@ def build_scenario_key(
     target_piece: Optional[str] = None,  # piece being threatened/captured
     threat_type: Optional[str] = None,  # "undefended", "underdefended", "fork", "check_threat"
     phase: str = "middlegame",
-    has_opportunity: bool = False,  # student can exploit something
+    has_opportunity: bool = False,
+    opening_key: Optional[str] = None,  # opening name for opening-phase coaching
 ) -> str:
     """
     Build a scenario key for coaching phrase lookup.
 
     Same key = same coaching situation = same phrase works.
-    Examples:
-      "hanging_piece_punishment:capture:pawn:knight:undefended:middlegame"
-      "fork_opportunity:quiet:knight:queen+rook:fork:middlegame"
-      "threat_awareness:quiet:bishop:none:check_threat:opening"
+    Opening-phase coaching includes the opening name so different
+    openings don't share cached phrases.
     """
     parts = [
         intent or "unknown",
@@ -47,6 +46,8 @@ def build_scenario_key(
         phase,
         "opp" if has_opportunity else "no_opp",
     ]
+    if opening_key:
+        parts.append(opening_key)
     return ":".join(parts)
 
 
@@ -304,6 +305,7 @@ async def generate_smart_coach_explanation(
             if target_piece_name:
                 break
 
+    detected_opening_key = opening_info_detected.get("opening_key", "") if opening_info_detected else ""
     scenario_key = build_scenario_key(
         intent=intent_key,
         move_type=move_type,
@@ -312,6 +314,7 @@ async def generate_smart_coach_explanation(
         threat_type=threat_type_key,
         phase=phase,
         has_opportunity=bool(opportunities),
+        opening_key=detected_opening_key if phase == "opening" else None,
     )
 
     # ─── CHECK CACHE ───
