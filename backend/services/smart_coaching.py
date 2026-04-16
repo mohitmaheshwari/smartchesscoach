@@ -476,6 +476,7 @@ async def generate_smart_user_feedback(
     user_rating: int = 1200,
     phase: str = "middlegame",
     db=None,
+    pv_after_played: Optional[List[str]] = None,
 ) -> Optional[Dict]:
     """
     Generate Socratic question for mistakes using LLM as language layer.
@@ -537,42 +538,61 @@ async def generate_smart_user_feedback(
         if coach_intent in intent_map:
             problem_facts.append(intent_map[coach_intent])
 
-    # Recovery plan facts — what should the student focus on now?
+    # Recovery plan from Stockfish PV — what the best continuation looks like
     recovery_facts = []
-    try:
-        from services.position_reader import read_position
-        user_color_str = "white" if board_before.turn == chess.WHITE else "black"
-        pos_data = read_position(board_after.fen(), user_color_str, user_rating)
-        for f in (pos_data.get("features", []))[:3]:
-            title = f.title if hasattr(f, 'title') else f.get("title", "") if isinstance(f, dict) else ""
-            desc = f.description if hasattr(f, 'description') else f.get("description", "") if isinstance(f, dict) else ""
-            actionable = f.actionable if hasattr(f, 'actionable') else f.get("actionable", "") if isinstance(f, dict) else ""
-            if actionable:
-                recovery_facts.append(actionable)
-            elif desc:
-                recovery_facts.append(desc)
-    except Exception:
-        pass
+    if pv_after_played and len(pv_after_played) >= 2:
+        # Stockfish says the best moves from here are...
+        # Describe what each move does in simple terms
+        sim = board_after.copy()
+        for i, pv_move_san in enumerate(pv_after_played[:4]):
+            try:
+                pv_move = sim.parse_san(pv_move_san)
+                piece = sim.piece_at(pv_move.from_square)
+                is_user_move = (sim.turn == (chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK))
 
-    # Check if student needs to castle, develop, or defend
-    user_color_bool = chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK
-    king_sq = board_after.king(user_color_bool)
-    if king_sq is not None:
-        # Has the student castled?
-        king_file = chess.square_file(king_sq)
-        king_rank = chess.square_rank(king_sq)
-        back_rank = 0 if user_color_bool == chess.WHITE else 7
-        if king_rank == back_rank and king_file == 4:
-            recovery_facts.append("King is still in the center — castling should be top priority")
-        # Count undeveloped pieces
-        undeveloped = 0
-        for sq in chess.SQUARES:
-            p = board_after.piece_at(sq)
-            if p and p.color == user_color_bool and p.piece_type in (chess.KNIGHT, chess.BISHOP):
-                if chess.square_rank(sq) == back_rank:
-                    undeveloped += 1
-        if undeveloped >= 2:
-            recovery_facts.append(f"{undeveloped} pieces still on the back row — develop them")
+                if is_user_move and piece:
+                    piece_n = chess.piece_name(piece.piece_type)
+                    to_sq = chess.square_name(pv_move.to_square)
+
+                    if sim.is_castling(pv_move):
+                        recovery_facts.append("Get your king safe — castle")
+                    elif sim.is_capture(pv_move):
+                        captured = sim.piece_at(pv_move.to_square)
+                        if captured:
+                            recovery_facts.append(f"Take the {chess.piece_name(captured.piece_type)} on {to_sq}")
+                    elif piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+                        back_rank = 0 if piece.color == chess.WHITE else 7
+                        if chess.square_rank(pv_move.from_square) == back_rank:
+                            recovery_facts.append(f"Develop your {piece_n}")
+                        else:
+                            recovery_facts.append(f"Move your {piece_n} to {to_sq}")
+                    elif piece.piece_type == chess.ROOK:
+                        recovery_facts.append(f"Put your rook on {to_sq}")
+                    else:
+                        recovery_facts.append(f"Play {pv_move_san}")
+
+                sim.push(pv_move)
+            except Exception:
+                break
+
+    # Fallback: basic position checks if PV is empty
+    if not recovery_facts:
+        user_color_bool = chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK
+        king_sq = board_after.king(user_color_bool)
+        if king_sq is not None:
+            king_file = chess.square_file(king_sq)
+            king_rank = chess.square_rank(king_sq)
+            back_rank = 0 if user_color_bool == chess.WHITE else 7
+            if king_rank == back_rank and king_file == 4:
+                recovery_facts.append("Get your king safe — castle")
+            undeveloped = 0
+            for sq in chess.SQUARES:
+                p = board_after.piece_at(sq)
+                if p and p.color == user_color_bool and p.piece_type in (chess.KNIGHT, chess.BISHOP):
+                    if chess.square_rank(sq) == back_rank:
+                        undeveloped += 1
+            if undeveloped >= 2:
+                recovery_facts.append(f"Develop your {undeveloped} pieces still on the back row")
 
     # ─── CHECK CACHE ───
     user_scenario_key = build_user_scenario_key(

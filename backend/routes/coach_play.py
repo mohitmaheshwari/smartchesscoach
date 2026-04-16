@@ -2298,6 +2298,7 @@ async def get_interactive_coaching(
                         user_rating=session_doc.get("user_rating", 1200),
                         phase=phase_str,
                         db=db,
+                        pv_after_played=pv_after_played,
                     )
                     if smart_fb:
                         if smart_fb.get("question"):
