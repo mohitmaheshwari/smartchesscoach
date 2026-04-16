@@ -9,6 +9,7 @@
  * game-over summary, move history, and enforcement modals.
  */
 
+import ClickableMoves from "@/components/shared/ClickableMove";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -681,6 +682,7 @@ const CoachPlaySidebar = ({
   coachingLocked,
   onCoachingAcknowledge,
   improvementProof,
+  onShowArrow,
   preMoveTrap,
   interactiveCoaching,
   behavioralCoaching,
@@ -872,9 +874,12 @@ const CoachPlaySidebar = ({
                   )}
                 </div>
 
-                <p className="text-sm text-blue-800 leading-snug">
-                  {interactiveCoaching.coachMoveCoaching.explanation}
-                </p>
+                <ClickableMoves
+                  text={interactiveCoaching.coachMoveCoaching.explanation}
+                  fen={currentFen}
+                  onShowArrow={onShowArrow}
+                  className="text-sm text-blue-800 leading-snug block"
+                />
 
                 {interactiveCoaching.coachMoveCoaching.hint_for_user && (
                   <p className="text-sm text-blue-900 font-medium mt-1">
@@ -917,6 +922,8 @@ const CoachPlaySidebar = ({
                   showAcknowledgeButton={true}
                   sessionId={session?.session_id}
                   source="coach"
+                  fen={currentFen}
+                  onShowArrow={onShowArrow}
                 />
                 {/* Acknowledge button for mistakes — unlocks the board */}
                 {coachingLocked && v5Coaching.severity && ["mistake", "blunder", "inaccuracy"].includes(v5Coaching.severity) && onCoachingAcknowledge && (

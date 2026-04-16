@@ -37,6 +37,7 @@ import {
   ClipboardCheck
 } from "lucide-react";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
+import ClickableMoves from "@/components/shared/ClickableMove";
 
 // Severity colors and labels — text only, no cryptic icons
 const SEVERITY_CONFIG = {
@@ -77,6 +78,8 @@ const V5CoachingCard = ({
   gameId = null,               // Game ID for feedback
   sessionId = null,            // Session ID for feedback (coach mode)
   source = "lab",              // "lab" or "coach" for feedback source
+  fen = null,                  // Current FEN for clickable moves
+  onShowArrow = null,          // Callback to show arrow on board
 }) => {
   const [acknowledging, setAcknowledging] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -174,7 +177,11 @@ const V5CoachingCard = ({
           isMistake ? 'text-gray-900' :
           'text-gray-700'
         }`}>
-          <span className="inline">{coaching.narrative}</span>
+          {fen && onShowArrow ? (
+            <ClickableMoves text={coaching.narrative} fen={fen} onShowArrow={onShowArrow} className="inline" />
+          ) : (
+            <span className="inline">{coaching.narrative}</span>
+          )}
           <InlineFlag section="narrative" flaggedText={coaching.narrative} context={flagCtx} />
         </div>
         

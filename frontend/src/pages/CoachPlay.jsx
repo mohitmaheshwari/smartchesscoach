@@ -2725,6 +2725,7 @@ const CoachPlay = ({ user }) => {
           coachingLocked={coachingLocked}
           onCoachingAcknowledge={() => setCoachingLocked(false)}
           improvementProof={improvementProof}
+          onShowArrow={setCoachArrows}
           preMoveTrap={preMoveTrap}
           interactiveCoaching={interactiveCoaching}
           behavioralCoaching={behavioralCoaching}
