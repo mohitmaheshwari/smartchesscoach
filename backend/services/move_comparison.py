@@ -173,9 +173,20 @@ def compare_moves(
             chess.square_rank(played_move.from_square) == back_rank
         )
         if best_is_develop and not played_is_develop:
-            result["reasons"].append(
-                f"{best_move_san} brings a new piece into the game"
-            )
+            # Add context about what the played move was
+            if played_piece_before and played_piece_before.piece_type == chess.QUEEN:
+                result["reasons"].append(
+                    f"Moving your queen this early can be risky. "
+                    f"{best_move_san} brings a new piece into the game instead"
+                )
+            elif played_piece_before and played_piece_before.piece_type == chess.KING:
+                result["reasons"].append(
+                    f"{best_move_san} develops a piece — your king move can wait"
+                )
+            else:
+                result["reasons"].append(
+                    f"{best_move_san} brings a new piece into the game"
+                )
 
     # ─── 11. PV-based plan — what does the best line ACHIEVE? ───
     if pv_after_best and len(pv_after_best) >= 2:
