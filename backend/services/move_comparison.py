@@ -124,10 +124,11 @@ def compare_moves(
 
     # ─── 4d. What can the OPPONENT do after the played move? ───
     # This catches forks, discovered attacks, and tactical punishments
+    # When there's a devastating reply (fork/mate/queen capture),
+    # ONLY show that — everything else is noise
     opp_threats_after_played = _find_opponent_threats(board_after_played, opp_color)
     if opp_threats_after_played:
-        for threat in opp_threats_after_played[:2]:
-            result["reasons"].insert(0, threat)  # Insert at top — this is the main reason
+        result["reasons"] = opp_threats_after_played[:2]  # Replace all — this IS the reason
 
     # ─── 5. Does the played move leave something hanging? ───
     user_hanging_after_played = _find_user_hanging(board_after_played, user_color_bool)
