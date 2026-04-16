@@ -133,9 +133,22 @@ USER_FEEDBACK = {
         {"narrative": "Your {piece} is just sitting on {square} with nobody guarding it. That's free for me to take.", "question": "What was protecting your {piece} before you moved?", "hint": "Whatever was guarding it — you moved it away.", "plan": "Before your next move, count the guards on every piece."},
     ],
 
+    "blunder_allows_fork": [
+        {"narrative": "Wait — did you see that? {threat} That's the game right there. Before moving, always check what your opponent's pieces can jump to.", "question": "Can you see how {threat_piece} gets to {threat_square}?", "hint": "Look at where their {threat_piece} can go next move.", "plan": "Before every move, ask: can my opponent fork anything?"},
+        {"narrative": "Oh no — {threat} You just lost your most valuable piece. Always look at your opponent's knight moves — they're the trickiest.", "question": "What squares can their {threat_piece} reach?", "hint": "Knights can jump over pieces — check all their landing squares.", "plan": "Build the habit: before moving, check opponent's knight moves."},
+    ],
+
+    "blunder_allows_capture": [
+        {"narrative": "Wait — {threat} You just gave away a piece for free!", "question": "Did you check if that square was safe before moving?", "hint": "Look at what's now without protection.", "plan": "Before every move, scan: is anything of mine without protection?"},
+    ],
+
+    "blunder_allows_mate": [
+        {"narrative": "That's checkmate! {threat} Always check if your king is safe before anything else.", "question": "Can you see the checkmate?", "hint": "Look at all the pieces pointing at your king.", "plan": "King safety first — always."},
+    ],
+
     "blunder_calculation": [
-        {"narrative": "You didn't see what happens next. After your move, I can do something that hurts.", "question": "Did you think about what I would do after your move?", "hint": "Try the 2-move rule: your move, then my reply. What happens?", "plan": "Slow down. Think: what will my opponent do?"},
-        {"narrative": "This move looks okay at first, but it falls apart when you look one step ahead.", "question": "What can I do now that I couldn't do before?", "hint": "Something changed after your move. Find it.", "plan": "Before moving, always check your opponent's best reply."},
+        {"narrative": "You didn't see what happens next. After your move, something bad happens.", "question": "Did you think about what I would do after your move?", "hint": "Try the 2-move rule: your move, then my reply. What happens?", "plan": "Slow down. Think: what will my opponent do?"},
+        {"narrative": "This move looks okay at first, but look one step ahead — it falls apart.", "question": "What can I do now that I couldn't do before?", "hint": "Something changed after your move. Find it.", "plan": "Before moving, always check your opponent's best reply."},
     ],
 
     "blunder_king_safety": [
@@ -293,10 +306,20 @@ def match_user_scenario(
     is_best: bool = False,
     is_sacrifice: bool = False,
     is_theory: bool = False,
+    opponent_threat: Optional[str] = None,  # "fork", "capture", "mate"
 ) -> Optional[str]:
     """
     Map user move severity + fundamental to a library scenario key.
     """
+    # Blunders with specific opponent threats — most urgent
+    if severity == "blunder" and opponent_threat:
+        if opponent_threat == "fork":
+            return "blunder_allows_fork"
+        if opponent_threat == "mate":
+            return "blunder_allows_mate"
+        if opponent_threat == "capture":
+            return "blunder_allows_capture"
+
     if severity == "brilliant" or is_sacrifice:
         return "brilliant_sacrifice"
 

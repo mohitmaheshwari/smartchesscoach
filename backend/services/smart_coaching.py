@@ -667,6 +667,31 @@ async def generate_smart_user_feedback(
             if undeveloped >= 2:
                 recovery_facts.append(f"Develop your {undeveloped} pieces still on the back row")
 
+    # ─── DETECT OPPONENT THREATS (for blunders) ───
+    opponent_threat_type = None
+    opponent_threat_text = ""
+    threat_piece = ""
+    threat_square = ""
+    if severity == "blunder":
+        try:
+            from services.move_comparison import _find_opponent_threats
+            threats = _find_opponent_threats(board_after, not (chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK))
+            if threats:
+                opponent_threat_text = threats[0]
+                if "fork" in threats[0].lower():
+                    opponent_threat_type = "fork"
+                    # Extract piece and square from threat text
+                    import re
+                    fork_match = re.search(r'(\w+)\s+forks', threats[0], re.IGNORECASE)
+                    if not fork_match:
+                        fork_match = re.search(r'(\w+[+#]?)\s+forks', threats[0])
+                elif "checkmate" in threats[0].lower() or "mate" in threats[0].lower():
+                    opponent_threat_type = "mate"
+                elif "taken for free" in threats[0].lower() or "can be taken" in threats[0].lower():
+                    opponent_threat_type = "capture"
+        except Exception:
+            pass
+
     # ─── TRY COACHING LIBRARY FIRST ───
     try:
         from services.coaching_library import match_user_scenario, get_user_feedback_text
@@ -674,6 +699,7 @@ async def generate_smart_user_feedback(
         lib_key = match_user_scenario(
             severity=severity,
             fundamental=fundamental_violated,
+            opponent_threat=opponent_threat_type,
         )
         if lib_key:
             lib_text = get_user_feedback_text(
@@ -681,12 +707,14 @@ async def generate_smart_user_feedback(
                 piece=hanging_piece_name or "piece",
                 square=hanging_square_name or "?",
                 move=move_san,
+                threat=opponent_threat_text,
+                threat_piece=threat_piece or "piece",
+                threat_square=threat_square or "?",
             )
             if lib_text:
-                # Add recovery plan from Stockfish
                 if recovery_facts:
                     lib_text["plan"] = lib_text.get("plan", "") or "; ".join(recovery_facts[:2])
-                logger.info(f"[SMART-COACHING] User library hit: {lib_key}")
+                logger.info(f"[SMART-COACHING] User library hit: {lib_key} (threat={opponent_threat_type})")
                 return lib_text
     except Exception as lib_err:
         logger.debug(f"[SMART-COACHING] User library miss: {lib_err}")
