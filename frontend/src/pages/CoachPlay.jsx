@@ -2391,12 +2391,18 @@ const CoachPlay = ({ user }) => {
     };
 
     console.log("[V2-FLOW] User move:", moveData.san, "— calling handleUserMove (evaluate-pending)");
-    const { autoCommitted } = await coachFlow.handleUserMove(
+    const { autoCommitted, moveQuality } = await coachFlow.handleUserMove(
       moveData,
       (san, ts) => executeMove(san, ts),
       timeSpent
     );
-    console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted);
+    console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted, "moveQuality=", moveQuality);
+
+    // Show board label IMMEDIATELY from evaluate-pending (don't wait for interactive-feedback)
+    if (moveQuality) {
+      setV5Coaching({ severity: moveQuality, move_san: moveData.san });
+      console.log("[V2-BOARD] Instant label from evaluate-pending:", moveData.to, moveQuality);
+    }
 
     if (autoCommitted) {
       // Normal flow — move committed, wait for coach

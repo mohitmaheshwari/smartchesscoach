@@ -208,7 +208,8 @@ export default function useCoachFlow({ session, userRating = 1200 }) {
         setInteractionState(INTERACTION_STATES.COACH_TURN);
         setPendingMove(null);
         setClockState(CLOCK_STATES.DISABLED);
-        return { autoCommitted: true };
+        const mq = result.moveEvaluation?.moveQuality || null;
+        return { autoCommitted: true, moveQuality: mq };
       }
 
       // ─── CRITICAL: Enter hold ─────
