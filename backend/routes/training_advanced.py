@@ -1140,10 +1140,20 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                 return cache_doc["data"]
 
     # Get all analyzed games with analysis data
-    games = await db.games.find(
-        {"user_id": user.user_id, "is_analyzed": True},
+    # Fetch imported games and coach games separately to ensure both show
+    imported_games = await db.games.find(
+        {"user_id": user.user_id, "is_analyzed": True, "platform": {"$ne": "coach"}},
         {"_id": 0}
     ).sort("imported_at", -1).to_list(40)
+
+    coach_games = await db.games.find(
+        {"user_id": user.user_id, "is_analyzed": True, "platform": "coach"},
+        {"_id": 0}
+    ).sort("imported_at", -1).to_list(10)
+
+    # Merge and sort by date (imported games first, coach games at the end)
+    games = imported_games + coach_games
+    games.sort(key=lambda g: g.get("imported_at", ""), reverse=True)
 
     # Only load move_evaluations fields we actually use (not the full array)
     analyses_cursor = db.game_analyses.find(
