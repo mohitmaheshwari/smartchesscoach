@@ -678,6 +678,9 @@ const CoachPlaySidebar = ({
   curriculumFeedback,
   lastCoachMoveSan,
   v5Coaching,
+  coachingLocked,
+  onCoachingAcknowledge,
+  improvementProof,
   preMoveTrap,
   interactiveCoaching,
   behavioralCoaching,
@@ -852,18 +855,29 @@ const CoachPlaySidebar = ({
 
             {/* User's Move Feedback — V5CoachingCard */}
             {v5Coaching && !session?.curriculum_active && (
-              <V5CoachingCard
-                coaching={v5Coaching}
-                moveSan={v5Coaching.move_san}
-                onShowAlternativeMove={showAlternativeMove}
-                onAcknowledge={handleAcknowledgeConcept}
-                isAcknowledged={acknowledgedConcepts.has(
-                  v5Coaching.concept_id
+              <>
+                <V5CoachingCard
+                  coaching={v5Coaching}
+                  moveSan={v5Coaching.move_san}
+                  onShowAlternativeMove={showAlternativeMove}
+                  onAcknowledge={handleAcknowledgeConcept}
+                  isAcknowledged={acknowledgedConcepts.has(
+                    v5Coaching.concept_id
+                  )}
+                  showAcknowledgeButton={true}
+                  sessionId={session?.session_id}
+                  source="coach"
+                />
+                {/* Acknowledge button for mistakes — unlocks the board */}
+                {coachingLocked && v5Coaching.severity && ["mistake", "blunder", "inaccuracy"].includes(v5Coaching.severity) && onCoachingAcknowledge && (
+                  <button
+                    onClick={onCoachingAcknowledge}
+                    className="w-full mt-2 py-2.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-all"
+                  >
+                    I understand — let me play
+                  </button>
                 )}
-                showAcknowledgeButton={true}
-                sessionId={session?.session_id}
-                source="coach"
-              />
+              </>
             )}
 
             {/* Fundamentals Checklist — shows pass/fail for 7 fundamentals */}
@@ -1033,6 +1047,56 @@ const CoachPlaySidebar = ({
               </div>
             )}
         </>
+      )}
+
+      {/* Improvement Proof — every 5 games */}
+      {improvementProof && improvementProof.show_proof && (
+        <div className="p-4 border-b border-border">
+          <div className="rounded-xl border-2 border-emerald-400/30 bg-emerald-500/[0.04] p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">📈</span>
+              <div>
+                <p className="text-sm font-bold text-foreground">
+                  {improvementProof.total_games} games with your coach
+                </p>
+                <p className="text-xs text-muted-foreground">Your progress report</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-emerald-700 font-medium mb-3">
+              {improvementProof.message}
+            </p>
+
+            {improvementProof.improvements?.length > 0 && (
+              <div className="space-y-1 mb-3">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Getting better at</p>
+                {improvementProof.improvements.map((imp, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="text-foreground">{imp.fundamental.replace(/_/g, " ")}</span>
+                    <span className="text-emerald-600 font-mono">{imp.before} → {imp.after}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {improvementProof.regressions?.length > 0 && (
+              <div className="space-y-1 mb-3">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-amber-500/60">Needs work</p>
+                {improvementProof.regressions.map((reg, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="text-foreground">{reg.fundamental.replace(/_/g, " ")}</span>
+                    <span className="text-amber-600 font-mono">{reg.before} → {reg.after}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-emerald-500/10">
+              <span>Last 5 games: {improvementProof.recent?.wins || 0} wins</span>
+              <span>{improvementProof.recent?.total_violations || 0} mistakes</span>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Export Session Button — for debugging */}

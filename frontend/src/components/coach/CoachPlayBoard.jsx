@@ -35,6 +35,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
     boardOrientation,
     lastMove,
     isPlayerTurn,
+    coachingLocked,
     gameOver,
     evaluation,
     selectedColor,
@@ -124,7 +125,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 (isInTeachingMode &&
                   activeLesson &&
                   lessonInstruction?.is_user_move) ||
-                (isPlayerTurn && !gameOver)
+                (isPlayerTurn && !gameOver && !coachingLocked)
               }
               viewOnly={
                 !(

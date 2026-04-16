@@ -19,7 +19,7 @@ const CATEGORY_CONFIG = {
   pawn_structure: { icon: Eye, color: "text-orange-500", bg: "bg-orange-500/5", border: "border-orange-500/10" },
 };
 
-const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch, openingComplete, coachMoveExplanation, lastCoachMoveSan, coachMoveCoaching }) => {
+const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDeviation, activeBranch, openingComplete, coachMoveExplanation, lastCoachMoveSan, coachMoveCoaching, coachingLocked, onAcknowledge }) => {
   const hasContent = commentary || openingGuidance || trapWarning || openingDeviation || openingComplete || coachMoveExplanation;
   const prevObsTitles = useRef(new Set());
 
@@ -97,6 +97,16 @@ const CommentaryPanel = ({ commentary, openingGuidance, trapWarning, openingDevi
               <p className="text-[11px] text-muted-foreground italic">
                 {coachMoveCoaching.plan}
               </p>
+            )}
+
+            {/* Acknowledge button — unlocks the board */}
+            {coachingLocked && onAcknowledge && (
+              <button
+                onClick={onAcknowledge}
+                className="w-full mt-3 py-2.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-all"
+              >
+                I see it — let me play
+              </button>
             )}
           </div>
         )}

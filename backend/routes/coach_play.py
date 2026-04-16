@@ -7058,6 +7058,120 @@ async def get_fundamentals_summary(session_id: str, user=Depends(get_current_use
     return {"violations": violations, "summary": counts}
 
 
+# ─── IMPROVEMENT PROOF ──────────────────────────────────────────
+
+@router.get("/improvement-proof")
+async def get_improvement_proof(user: User = Depends(get_current_user)):
+    """
+    Compare the student's recent games vs earlier games to show improvement.
+    Returns data for a progress modal shown every 5 games.
+    """
+    user_id = user.user_id
+
+    # Get all completed coach sessions sorted by date
+    sessions = await db.coach_sessions.find(
+        {"user_id": user_id, "status": {"$in": ["completed", "resigned"]}},
+        {"_id": 0, "session_id": 1, "result": 1, "created_at": 1,
+         "fundamental_violations": 1, "user_rating": 1}
+    ).sort("created_at", -1).to_list(20)
+
+    total_games = len(sessions)
+    if total_games < 2:
+        return {"show_proof": False, "total_games": total_games}
+
+    # Show proof every 5 games
+    show_proof = total_games % 5 == 0
+
+    # Split into recent (last 5) and earlier (5 before that)
+    recent = sessions[:5]
+    earlier = sessions[5:10] if len(sessions) >= 10 else sessions[5:]
+
+    def count_violations(session_list):
+        counts = {}
+        total = 0
+        for s in session_list:
+            for v in s.get("fundamental_violations", []):
+                f = v.get("fundamental", "unknown")
+                counts[f] = counts.get(f, 0) + 1
+                total += 1
+        return counts, total
+
+    recent_counts, recent_total = count_violations(recent)
+    earlier_counts, earlier_total = count_violations(earlier)
+
+    # Win rate
+    recent_wins = sum(1 for s in recent if s.get("result") == "win")
+    earlier_wins = sum(1 for s in earlier if s.get("result") == "win")
+
+    # Find improvements and regressions
+    improvements = []
+    regressions = []
+    all_fundamentals = set(list(recent_counts.keys()) + list(earlier_counts.keys()))
+
+    for f in all_fundamentals:
+        r = recent_counts.get(f, 0)
+        e = earlier_counts.get(f, 0)
+        if e > 0 and r < e:
+            improvements.append({
+                "fundamental": f,
+                "before": e,
+                "after": r,
+                "change": e - r,
+            })
+        elif r > e:
+            regressions.append({
+                "fundamental": f,
+                "before": e,
+                "after": r,
+                "change": r - e,
+            })
+
+    improvements.sort(key=lambda x: x["change"], reverse=True)
+    regressions.sort(key=lambda x: x["change"], reverse=True)
+
+    # Build simple message
+    message = ""
+    if improvements:
+        best = improvements[0]
+        labels = {
+            "check_opponents_move": "checking opponent threats",
+            "hanging_pieces": "keeping your pieces safe",
+            "king_safety": "king safety",
+            "calculate": "calculating before moving",
+            "development": "developing pieces",
+            "center_control": "center control",
+            "have_a_plan": "playing with a plan",
+        }
+        label = labels.get(best["fundamental"], best["fundamental"])
+        message = f"You're getting better at {label}! ({best['before']} mistakes → {best['after']})"
+    elif recent_total < earlier_total:
+        message = f"Fewer mistakes overall! ({earlier_total} → {recent_total})"
+    elif recent_wins > earlier_wins:
+        message = f"More wins! ({earlier_wins} → {recent_wins} in last 5 games)"
+    else:
+        message = "Keep playing — improvement takes time."
+
+    return {
+        "show_proof": show_proof,
+        "total_games": total_games,
+        "message": message,
+        "recent": {
+            "games": len(recent),
+            "wins": recent_wins,
+            "total_violations": recent_total,
+            "violations": recent_counts,
+        },
+        "earlier": {
+            "games": len(earlier),
+            "wins": earlier_wins,
+            "total_violations": earlier_total,
+            "violations": earlier_counts,
+        },
+        "improvements": improvements[:3],
+        "regressions": regressions[:2],
+    }
+
+
 # ─── SESSION EXPORT (Debug) ──────────────────────────────────────
 
 @router.get("/export-session/{session_id}")

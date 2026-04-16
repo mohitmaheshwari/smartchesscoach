@@ -50,6 +50,7 @@ const CoachPlay = ({ user }) => {
   const [userLastMoveSquare, setUserLastMoveSquare] = useState(null); // persists after coach moves
   const [coachLastMoveSquare, setCoachLastMoveSquare] = useState(null);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+  const [coachingLocked, setCoachingLocked] = useState(false); // board locked until student responds to coaching
 
   // Game settings
   const [selectedColor, setSelectedColor] = useState("white");
@@ -341,6 +342,7 @@ const CoachPlay = ({ user }) => {
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
   const [preMoveTrap, setPreMoveTrap] = useState(null);
   const [fundamentalViolations, setFundamentalViolations] = useState([]);
+  const [improvementProof, setImprovementProof] = useState(null);
   
   // Interactive Coaching State - Two-part dialogue (user move + coach move)
   const [interactiveCoaching, setInteractiveCoaching] = useState({
@@ -1875,6 +1877,7 @@ const CoachPlay = ({ user }) => {
             // Fetch V5 interactive feedback — this runs fundamentals checklist,
             // Socratic coaching, stores move snapshots, and gets coach move explanation
             console.log("[V2-FLOW] Coach move received, calling fetchInteractiveCoaching now...");
+            setCoachingLocked(true); // Lock board until student responds to coaching
             fetchInteractiveCoaching(session?.session_id || sessionId);
 
             return;
@@ -2435,7 +2438,19 @@ const CoachPlay = ({ user }) => {
         setSummary(data.summary);
         setCprResult(data.cpr);
         setPlayerIdentity(data.identity);
+        setCoachingLocked(false);
         toast.info("You resigned. Better luck next time!");
+
+        // Fetch improvement proof
+        try {
+          const proofRes = await fetch(`${API}/coach/play/improvement-proof`, {
+            credentials: "include"
+          });
+          if (proofRes.ok) {
+            const proof = await proofRes.json();
+            if (proof.show_proof) setImprovementProof(proof);
+          }
+        } catch {}
       }
     } catch (error) {
       toast.error("Failed to resign");
@@ -2644,6 +2659,7 @@ const CoachPlay = ({ user }) => {
           openingGuidance={openingGuidance}
           openingCorrectionCount={openingCorrectionCount}
           setOpeningCorrectionCount={setOpeningCorrectionCount}
+          coachingLocked={coachingLocked}
           hideEvalBar={hideEvalBar}
           coachArrows={coachArrows}
           coachThinking={coachThinking}
@@ -2688,6 +2704,8 @@ const CoachPlay = ({ user }) => {
               coachMoveExplanation={coachMoveExplanation}
               lastCoachMoveSan={lastCoachMoveSan}
               coachMoveCoaching={interactiveCoaching?.coachMoveCoaching}
+              coachingLocked={coachingLocked}
+              onAcknowledge={() => setCoachingLocked(false)}
             />
           </div>
         ) : gameStarted && session && !gameOver ? (
@@ -2711,6 +2729,9 @@ const CoachPlay = ({ user }) => {
           curriculumFeedback={curriculumFeedback}
           lastCoachMoveSan={lastCoachMoveSan}
           v5Coaching={v5Coaching}
+          coachingLocked={coachingLocked}
+          onCoachingAcknowledge={() => setCoachingLocked(false)}
+          improvementProof={improvementProof}
           preMoveTrap={preMoveTrap}
           interactiveCoaching={interactiveCoaching}
           behavioralCoaching={behavioralCoaching}
