@@ -538,42 +538,70 @@ async def generate_smart_user_feedback(
         if coach_intent in intent_map:
             problem_facts.append(intent_map[coach_intent])
 
-    # Recovery plan from Stockfish PV — what the best continuation looks like
+    # Recovery plan from Stockfish PV — adapted to student's rating
+    # Lower rated: general direction ("keep your pieces safe")
+    # Higher rated: more specific ("think about the move order to recover")
     recovery_facts = []
     if pv_after_played and len(pv_after_played) >= 2:
-        # Stockfish says the best moves from here are...
-        # Describe what each move does in simple terms
         sim = board_after.copy()
-        for i, pv_move_san in enumerate(pv_after_played[:4]):
+        user_color_bool = chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK
+
+        # Analyze what the PV involves (without telling exact moves)
+        pv_themes = {"castle": False, "capture": False, "develop": False, "defend": False}
+        capture_target = None
+
+        for pv_move_san in pv_after_played[:4]:
             try:
                 pv_move = sim.parse_san(pv_move_san)
                 piece = sim.piece_at(pv_move.from_square)
-                is_user_move = (sim.turn == (chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK))
+                is_user_move = (sim.turn == user_color_bool)
 
                 if is_user_move and piece:
-                    piece_n = chess.piece_name(piece.piece_type)
-                    to_sq = chess.square_name(pv_move.to_square)
-
                     if sim.is_castling(pv_move):
-                        recovery_facts.append("Get your king safe — castle")
+                        pv_themes["castle"] = True
                     elif sim.is_capture(pv_move):
+                        pv_themes["capture"] = True
                         captured = sim.piece_at(pv_move.to_square)
                         if captured:
-                            recovery_facts.append(f"Take the {chess.piece_name(captured.piece_type)} on {to_sq}")
+                            capture_target = chess.piece_name(captured.piece_type)
                     elif piece.piece_type in (chess.KNIGHT, chess.BISHOP):
                         back_rank = 0 if piece.color == chess.WHITE else 7
                         if chess.square_rank(pv_move.from_square) == back_rank:
-                            recovery_facts.append(f"Develop your {piece_n}")
-                        else:
-                            recovery_facts.append(f"Move your {piece_n} to {to_sq}")
-                    elif piece.piece_type == chess.ROOK:
-                        recovery_facts.append(f"Put your rook on {to_sq}")
-                    else:
-                        recovery_facts.append(f"Play {pv_move_san}")
+                            pv_themes["develop"] = True
 
                 sim.push(pv_move)
             except Exception:
                 break
+
+        # Build plan based on rating level
+        if user_rating < 1000:
+            # Beginners: just the habit, one thing at a time
+            if pv_themes["capture"]:
+                recovery_facts.append("Look for pieces you can take safely")
+            elif pv_themes["castle"]:
+                recovery_facts.append("Your king needs to be safe first")
+            elif pv_themes["develop"]:
+                recovery_facts.append("Bring your pieces into the game")
+            else:
+                recovery_facts.append("Take a breath and look at the whole board")
+        elif user_rating < 1400:
+            # Improving: two priorities, no specific squares
+            if pv_themes["capture"] and capture_target:
+                recovery_facts.append(f"There's a {capture_target} you can win back")
+            if pv_themes["castle"]:
+                recovery_facts.append("Get your king safe")
+            if pv_themes["develop"]:
+                recovery_facts.append("Finish developing your pieces")
+            if not recovery_facts:
+                recovery_facts.append("Think about what your pieces need right now")
+        else:
+            # Club+: push them to calculate
+            if pv_themes["capture"]:
+                recovery_facts.append("Can you find a way to win material back?")
+            if pv_themes["castle"]:
+                recovery_facts.append("Think about king safety")
+            if not recovery_facts:
+                recovery_facts.append("Calculate the next 2-3 moves carefully")
 
     # Fallback: basic position checks if PV is empty
     if not recovery_facts:
