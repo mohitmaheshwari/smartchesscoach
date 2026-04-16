@@ -98,6 +98,37 @@ def compare_moves(
                 f"{best_move_san} attacks the {piece_name} on {sq_name} which has no protection"
             )
 
+    # ─── 4b. Does the played move lose castling rights? ───
+    played_piece_type = board.piece_at(played_move.from_square)
+    if played_piece_type and played_piece_type.piece_type == chess.KING:
+        # King moved — lost castling rights
+        had_castling = board.has_castling_rights(user_color_bool)
+        if had_castling:
+            result["reasons"].append(
+                f"Moving your king means you can never castle — your king stays in the center"
+            )
+
+    # ─── 4c. Does the played move block a piece from developing? ───
+    if played_piece_type:
+        to_sq = played_move.to_square
+        # Check if king on e2/e7 blocks bishop on f1/f8
+        back_rank = 0 if user_color_bool == chess.WHITE else 7
+        if played_piece_type.piece_type == chess.KING:
+            bishop_sq = chess.square(5, back_rank)  # f1 or f8
+            bishop = board.piece_at(bishop_sq)
+            if bishop and bishop.piece_type == chess.BISHOP and bishop.color == user_color_bool:
+                if to_sq == chess.square(4, back_rank + (1 if user_color_bool == chess.WHITE else -1)):
+                    result["reasons"].append(
+                        f"Your king on {chess.square_name(to_sq)} blocks your bishop from getting out"
+                    )
+
+    # ─── 4d. What can the OPPONENT do after the played move? ───
+    # This catches forks, discovered attacks, and tactical punishments
+    opp_threats_after_played = _find_opponent_threats(board_after_played, opp_color)
+    if opp_threats_after_played:
+        for threat in opp_threats_after_played[:2]:
+            result["reasons"].insert(0, threat)  # Insert at top — this is the main reason
+
     # ─── 5. Does the played move leave something hanging? ───
     user_hanging_after_played = _find_user_hanging(board_after_played, user_color_bool)
     user_hanging_after_best = _find_user_hanging(board_after_best, user_color_bool)
@@ -303,3 +334,74 @@ def _find_user_hanging(board: chess.Board, user_color: chess.Color) -> List:
                 if not defenders:
                     results.append((chess.piece_name(piece.piece_type), chess.square_name(sq)))
     return results
+
+
+def _find_opponent_threats(board: chess.Board, opp_color: chess.Color) -> List[str]:
+    """
+    Find what the opponent can do in the resulting position.
+    Checks for: forks, checks that win material, free captures, checkmate.
+    """
+    user_color = not opp_color
+    threats = []
+
+    for move in board.legal_moves:
+        piece = board.piece_at(move.from_square)
+        if not piece or piece.color != opp_color:
+            continue
+
+        move_san = board.san(move)
+
+        # Simulate the opponent's move
+        board.push(move)
+
+        # Check for checkmate
+        if board.is_checkmate():
+            board.pop()
+            threats.append(f"After your move, {move_san} is checkmate!")
+            return threats
+
+        board.pop()
+
+        # Check for forks — opponent piece attacks 2+ of our valuable pieces
+        board.push(move)
+        attacked_targets = []
+        for sq in board.attacks(move.to_square):
+            target = board.piece_at(sq)
+            if target and target.color == user_color and target.piece_type != chess.PAWN:
+                attacked_targets.append(target.piece_type)
+        board.pop()
+
+        if len(attacked_targets) >= 2:
+            piece_name = chess.piece_name(piece.piece_type)
+            target_names = [chess.piece_name(t) for t in
+                          sorted(attacked_targets,
+                                key=lambda t: PIECE_VALUES.get(t, 0), reverse=True)[:2]]
+            threats.append(
+                f"After your move, {move_san} forks your {' and '.join(target_names)}"
+            )
+            return threats
+
+        # Check for free captures of high-value pieces
+        if board.is_capture(move):
+            captured = board.piece_at(move.to_square)
+            if captured and captured.color == user_color:
+                cap_val = PIECE_VALUES.get(captured.piece_type, 0)
+                attacker_val = PIECE_VALUES.get(piece.piece_type, 0)
+
+                board.push(move)
+                is_defended = board.is_attacked_by(user_color, move.to_square)
+                board.pop()
+
+                if not is_defended and cap_val >= 3:
+                    threats.append(
+                        f"After your move, your {chess.piece_name(captured.piece_type)} on "
+                        f"{chess.square_name(move.to_square)} can be taken for free"
+                    )
+                elif cap_val > attacker_val + 1:
+                    threats.append(
+                        f"After your move, the opponent can take your "
+                        f"{chess.piece_name(captured.piece_type)} with a "
+                        f"{chess.piece_name(piece.piece_type)}"
+                    )
+
+    return threats[:2]
