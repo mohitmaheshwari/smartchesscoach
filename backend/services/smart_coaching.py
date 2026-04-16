@@ -317,7 +317,47 @@ async def generate_smart_coach_explanation(
         opening_key=detected_opening_key if phase == "opening" else None,
     )
 
-    # ─── CHECK CACHE ───
+    # ─── TRY COACHING LIBRARY FIRST (no LLM needed) ───
+    try:
+        from services.coaching_library import match_coach_scenario, get_coach_move_text
+
+        lib_key = match_coach_scenario(
+            intent=intent_key,
+            move_type=move_type,
+            piece=piece_name,
+            phase=phase,
+            opening_detected=bool(opening_info_detected),
+            has_target=bool(target_piece_name),
+            target_piece=target_piece_name,
+        )
+        if lib_key:
+            opening_name_str = ""
+            if opening_info_detected:
+                opening_name_str = opening_info_detected.get("opening_name", opening_name or "")
+            elif opening_name:
+                opening_name_str = opening_name
+
+            lib_text = get_coach_move_text(
+                lib_key,
+                move=move_san,
+                piece=piece_name,
+                square=chess.square_name(move.to_square),
+                opening=opening_name_str or "this opening",
+                target=target_piece_name or "piece",
+                target_square=chess.square_name(move.to_square),
+                defenders="0",
+            )
+            if lib_text:
+                lib_text["move_san"] = move_san
+                lib_text.setdefault("plan", "")
+                lib_text.setdefault("threats", [])
+                lib_text.setdefault("teaching_point", "")
+                logger.info(f"[SMART-COACHING] Library hit: {lib_key}")
+                return lib_text
+    except Exception as lib_err:
+        logger.debug(f"[SMART-COACHING] Library miss: {lib_err}")
+
+    # ─── CHECK DB CACHE ───
     if db is not None:
         try:
             cached = await db.coaching_phrases.find_one(
@@ -325,7 +365,7 @@ async def generate_smart_coach_explanation(
                 {"_id": 0, "response": 1}
             )
             if cached and cached.get("response"):
-                logger.info(f"[SMART-COACHING] Cache hit: {scenario_key}")
+                logger.info(f"[SMART-COACHING] DB cache hit: {scenario_key}")
                 result = cached["response"]
                 result["move_san"] = move_san  # Update move-specific field
                 result["from_cache"] = True
@@ -627,7 +667,31 @@ async def generate_smart_user_feedback(
             if undeveloped >= 2:
                 recovery_facts.append(f"Develop your {undeveloped} pieces still on the back row")
 
-    # ─── CHECK CACHE ───
+    # ─── TRY COACHING LIBRARY FIRST ───
+    try:
+        from services.coaching_library import match_user_scenario, get_user_feedback_text
+
+        lib_key = match_user_scenario(
+            severity=severity,
+            fundamental=fundamental_violated,
+        )
+        if lib_key:
+            lib_text = get_user_feedback_text(
+                lib_key,
+                piece=hanging_piece_name or "piece",
+                square=hanging_square_name or "?",
+                move=move_san,
+            )
+            if lib_text:
+                # Add recovery plan from Stockfish
+                if recovery_facts:
+                    lib_text["plan"] = lib_text.get("plan", "") or "; ".join(recovery_facts[:2])
+                logger.info(f"[SMART-COACHING] User library hit: {lib_key}")
+                return lib_text
+    except Exception as lib_err:
+        logger.debug(f"[SMART-COACHING] User library miss: {lib_err}")
+
+    # ─── CHECK DB CACHE ───
     user_scenario_key = build_user_scenario_key(
         severity=severity,
         fundamental=fundamental_violated,
