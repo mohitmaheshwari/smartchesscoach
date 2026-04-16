@@ -564,15 +564,16 @@ async def generate_smart_user_feedback(
 - What went wrong: {'; '.join(problem_facts) if problem_facts else 'unclear'}
 - Game phase: {phase}"""
 
-    system_prompt = f"""You convert chess analysis into ONE Socratic question for a {user_rating}-rated student.
+    system_prompt = f"""You convert chess analysis into coaching for a {user_rating}-rated student who made a {severity}.
 
 RULES:
 - ONLY use the FACTS below. Do NOT analyze chess yourself.
-- Ask about what they MISSED — never tell them the answer or the best move.
-- Reference specific pieces and squares from the facts.
-- ONE question, under 20 words. ONE hint sentence.
+- Write a SHORT narrative (1 sentence) saying what went wrong — be specific, name pieces and squares.
+- Ask ONE Socratic question (under 20 words) about what they missed.
+- Give ONE hint sentence if they can't answer.
+- Never say the best move.
 
-Respond in JSON only: {{"question": "...", "hint": "..."}}"""
+Respond in JSON only: {{"narrative": "what went wrong in one sentence", "question": "...", "hint": "..."}}"""
 
     try:
         response = await call_llm(system_prompt, facts_block)

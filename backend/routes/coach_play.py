@@ -2290,6 +2290,9 @@ async def get_interactive_coaching(
                             coaching_dict["socratic_question"] = smart_fb["question"]
                         if smart_fb.get("hint"):
                             coaching_dict["socratic_hint"] = smart_fb["hint"]
+                        # Replace the generic "Something's not right" narrative
+                        if smart_fb.get("narrative"):
+                            coaching_dict["narrative"] = smart_fb["narrative"]
                 except Exception as smart_err:
                     logger.debug(f"Smart user feedback failed (using template): {smart_err}")
 
