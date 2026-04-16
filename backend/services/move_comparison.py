@@ -26,6 +26,7 @@ def compare_moves(
     played_move_san: str,
     best_move_san: str,
     user_color: str,
+    pv_after_best: Optional[List[str]] = None,
 ) -> Optional[Dict]:
     """
     Compare what the played move achieves vs what the best move achieves.
@@ -176,6 +177,14 @@ def compare_moves(
                 f"{best_move_san} brings a new piece into the game"
             )
 
+    # ─── 11. PV-based plan — what does the best line ACHIEVE? ───
+    if pv_after_best and len(pv_after_best) >= 2:
+        pv_plan = _describe_pv_plan(board, best_move, pv_after_best, user_color_bool)
+        if pv_plan:
+            result["plan"] = pv_plan
+            if not result["reasons"]:
+                result["reasons"].append(pv_plan)
+
     # Build a simple summary
     if result["reasons"]:
         result["summary"] = ". ".join(result["reasons"][:2]) + "."
@@ -183,6 +192,62 @@ def compare_moves(
         result["summary"] = f"{best_move_san} gives you a better position."
 
     return result
+
+
+def _describe_pv_plan(
+    board: chess.Board,
+    best_move: chess.Move,
+    pv: List[str],
+    user_color: chess.Color,
+) -> Optional[str]:
+    """
+    Describe what the Stockfish PV achieves in simple terms.
+    Walks through the PV and notes key events: captures, checks, mate.
+    """
+    sim = board.copy()
+    sim.push(best_move)
+
+    events = []
+    best_san = board.san(best_move)
+    moves_described = [best_san]
+
+    for pv_move_san in pv[:4]:
+        try:
+            pv_move = sim.parse_san(pv_move_san)
+            is_user = sim.turn == user_color
+            piece = sim.piece_at(pv_move.from_square)
+            captured = sim.piece_at(pv_move.to_square)
+
+            sim.push(pv_move)
+
+            if sim.is_checkmate():
+                events.append("checkmate")
+                moves_described.append(pv_move_san)
+                break
+            elif sim.is_check() and is_user:
+                events.append(f"{pv_move_san} with check")
+                moves_described.append(pv_move_san)
+            elif captured and is_user:
+                events.append(f"take the {chess.piece_name(captured.piece_type)}")
+                moves_described.append(pv_move_san)
+            elif captured and not is_user:
+                # Opponent takes something
+                events.append(f"they take your {chess.piece_name(captured.piece_type)}")
+        except Exception:
+            break
+
+    if not events:
+        return None
+
+    if "checkmate" in events:
+        return f"After {', '.join(moves_described[:3])}, it's checkmate"
+
+    # Build plan description
+    user_events = [e for e in events if not e.startswith("they")]
+    if user_events:
+        return f"The plan: {best_san}, then {', '.join(user_events[:2])}"
+
+    return None
 
 
 def _find_fork(board: chess.Board, attacker_color: chess.Color, from_square: int) -> Optional[List]:

@@ -2310,7 +2310,10 @@ async def get_interactive_coaching(
                     if best_move and best_move != move_san:
                         try:
                             from services.move_comparison import compare_moves
-                            comparison = compare_moves(board, move_san, best_move, user_color)
+                            comparison = compare_moves(
+                                board, move_san, best_move, user_color,
+                                pv_after_best=pv_after_best,
+                            )
                             if comparison and comparison.get("reasons"):
                                 coaching_dict["why_best_is_better"] = comparison["summary"]
                                 coaching_dict["comparison_reasons"] = comparison["reasons"][:3]
