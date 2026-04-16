@@ -255,6 +255,76 @@ const Dashboard = ({ user }) => {
             </div>
           )}
 
+          {/* ═══ COACH GAMES ═══ */}
+          {(() => {
+            const allGames = Object.values(groupedGames).flatMap(g => g.games || []);
+            const coachGames = allGames.filter(g => g.platform === "coach" || g.opponent === "Coach");
+            if (coachGames.length === 0) return null;
+            return (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-blue-400/60 mb-2">
+                  Games with Coach
+                </p>
+                <div className="space-y-1">
+                  {coachGames.slice(0, 5).map(g => (
+                    <div
+                      key={g.game_id}
+                      onClick={() => navigate(`/game/${g.game_id}`)}
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Swords className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" strokeWidth={2} />
+                        <span className="text-sm text-foreground">
+                          {g.result === "win" ? "Won" : g.result === "loss" ? "Lost" : "Drew"} vs Coach
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground/40">{g.opening || ""}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-colors" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            );
+          })()}
+
+          {/* ═══ OTHER PATTERNS ═══ */}
+          {topProblems.length > 1 && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/30 mb-2">
+                Other areas to work on
+              </p>
+              <div className="space-y-1">
+                {topProblems.slice(1, 4).map((problem, i) => {
+                  const games = groupedGames[problem.category]?.games || [];
+                  const unreviewedCount = games.filter(g => !g.reviewed).length;
+                  return (
+                    <div
+                      key={problem.category}
+                      onClick={() => {
+                        const firstGame = games.find(g => !g.reviewed) || games[0];
+                        if (firstGame) navigate(`/game/${firstGame.game_id}`);
+                      }}
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-amber-400/60 flex-shrink-0" />
+                        <div>
+                          <span className="text-sm text-foreground">{BEHAVIOR_DESCRIPTIONS[problem.category] || problem.label}</span>
+                          <span className="text-[10px] text-muted-foreground/40 ml-2">
+                            {unreviewedCount > 0 ? `${unreviewedCount} to review` : "reviewed"}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-colors" />
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
           {/* ═══ ACTIONS ═══ */}
           <div className="space-y-2 pt-2">
             {/* Train this weakness — links to puzzle training */}

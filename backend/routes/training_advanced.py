@@ -1353,6 +1353,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         enriched.append({
             "game_id": gid,
             "opponent": opp,
+            "platform": g.get("platform", ""),
             "result": "W" if user_won else ("D" if is_draw else "L"),
             "user_color": uc,
             "blunders": blunders,
