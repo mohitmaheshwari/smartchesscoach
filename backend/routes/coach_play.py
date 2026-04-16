@@ -2269,6 +2269,20 @@ async def get_interactive_coaching(
                 except Exception:
                     pass
 
+            # Check if student followed the previous coaching plan
+            active_plan = session_doc.get("active_coach_plan")
+            if active_plan and coaching.severity == "good":
+                # Student played a good move after getting a plan — acknowledge it
+                coaching_dict["narrative"] = f"{coaching_dict.get('narrative', '')} You're following the plan."
+                # Clear the plan after acknowledgment
+                try:
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$unset": {"active_coach_plan": ""}}
+                    )
+                except Exception:
+                    pass
+
             # Enhance Socratic question with LLM for mistakes/blunders
             if coaching.severity in ("mistake", "blunder"):
                 try:
@@ -2290,9 +2304,18 @@ async def get_interactive_coaching(
                             coaching_dict["socratic_question"] = smart_fb["question"]
                         if smart_fb.get("hint"):
                             coaching_dict["socratic_hint"] = smart_fb["hint"]
-                        # Replace the generic "Something's not right" narrative
                         if smart_fb.get("narrative"):
                             coaching_dict["narrative"] = smart_fb["narrative"]
+                        if smart_fb.get("plan"):
+                            coaching_dict["focus_plan"] = smart_fb["plan"]
+                            # Store the plan on the session so we can check if student follows it
+                            try:
+                                await db.coach_sessions.update_one(
+                                    {"session_id": session_id},
+                                    {"$set": {"active_coach_plan": smart_fb["plan"]}}
+                                )
+                            except Exception:
+                                pass
                 except Exception as smart_err:
                     logger.debug(f"Smart user feedback failed (using template): {smart_err}")
 

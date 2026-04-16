@@ -537,6 +537,43 @@ async def generate_smart_user_feedback(
         if coach_intent in intent_map:
             problem_facts.append(intent_map[coach_intent])
 
+    # Recovery plan facts — what should the student focus on now?
+    recovery_facts = []
+    try:
+        from services.position_reader import read_position
+        user_color_str = "white" if board_before.turn == chess.WHITE else "black"
+        pos_data = read_position(board_after.fen(), user_color_str, user_rating)
+        for f in (pos_data.get("features", []))[:3]:
+            title = f.title if hasattr(f, 'title') else f.get("title", "") if isinstance(f, dict) else ""
+            desc = f.description if hasattr(f, 'description') else f.get("description", "") if isinstance(f, dict) else ""
+            actionable = f.actionable if hasattr(f, 'actionable') else f.get("actionable", "") if isinstance(f, dict) else ""
+            if actionable:
+                recovery_facts.append(actionable)
+            elif desc:
+                recovery_facts.append(desc)
+    except Exception:
+        pass
+
+    # Check if student needs to castle, develop, or defend
+    user_color_bool = chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK
+    king_sq = board_after.king(user_color_bool)
+    if king_sq is not None:
+        # Has the student castled?
+        king_file = chess.square_file(king_sq)
+        king_rank = chess.square_rank(king_sq)
+        back_rank = 0 if user_color_bool == chess.WHITE else 7
+        if king_rank == back_rank and king_file == 4:
+            recovery_facts.append("King is still in the center — castling should be top priority")
+        # Count undeveloped pieces
+        undeveloped = 0
+        for sq in chess.SQUARES:
+            p = board_after.piece_at(sq)
+            if p and p.color == user_color_bool and p.piece_type in (chess.KNIGHT, chess.BISHOP):
+                if chess.square_rank(sq) == back_rank:
+                    undeveloped += 1
+        if undeveloped >= 2:
+            recovery_facts.append(f"{undeveloped} pieces still on the back row — develop them")
+
     # ─── CHECK CACHE ───
     user_scenario_key = build_user_scenario_key(
         severity=severity,
@@ -560,22 +597,27 @@ async def generate_smart_user_feedback(
 
     # ─── LLM CALL ───
 
+    recovery_block = ""
+    if recovery_facts:
+        recovery_block = "\n- What to focus on now: " + "; ".join(recovery_facts[:3])
+
     facts_block = f"""FACTS:
 - Student played: {move_san} ({move_desc})
 - This was a {severity}
 - What went wrong: {'; '.join(problem_facts) if problem_facts else 'unclear'}
-- Game phase: {phase}"""
+- Game phase: {phase}{recovery_block}"""
 
     system_prompt = f"""You rewrite chess facts into coaching for a student who made a {severity}.
 
 STRICT RULES:
 - ONLY say what is in the FACTS. Nothing else. Zero chess analysis from you.
 - Do NOT mention any moves, squares, or pieces that are NOT in the FACTS.
-- Do NOT suggest what move to play. Never say the best move.
+- Do NOT suggest specific moves. Never say the best move.
 - Simple English. Short sentences. Say "take" not "capture". Say "no protection" not "undefended".
 - For blunders: show urgency. "Wait — your queen has no protection on c4!"
 - For mistakes: be kind. "Good idea, but look at what happened to your knight..."
 - Connect to a habit: "Before moving, always check..."
+- Give a recovery plan: what should they focus on for the next 2-3 moves (from the facts)
 - You are just a translator — facts in, simple coaching out.
 
 RESPOND with:
@@ -585,7 +627,7 @@ RESPOND with:
 
 ONLY use the FACTS below. Do NOT analyze chess yourself.
 
-Respond in JSON only: {{"narrative": "...", "question": "...", "hint": "..."}}"""
+Respond in JSON only: {{"narrative": "what went wrong (1-2 sentences)", "plan": "what to focus on for next 2-3 moves (from facts only)", "question": "one question about what they missed", "hint": "one hint if they can't answer"}}"""
 
     try:
         response = await call_llm(system_prompt, facts_block)
