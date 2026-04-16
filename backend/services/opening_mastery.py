@@ -204,6 +204,9 @@ def _build_opening_database():
         "dutch_defense": ("Dutch Defense", ["d4", "f5"], "Aggressive kingside setup.", "semi-open"),
         "scandinavian_defense": ("Scandinavian Defense", ["e4", "d5"], "Immediate central challenge.", "open"),
         "nimzowitsch_defense": ("Nimzowitsch Defense", ["e4", "Nc6"], "Unusual and flexible.", "semi-open"),
+        "four_knights": ("Four Knights Game", ["e4", "e5", "Nf3", "Nc6", "Nc3", "Nf6"], "Symmetric development, solid play.", "open"),
+        "englund_gambit": ("Englund Gambit", ["d4", "e5"], "Surprise gambit with tricks.", "open"),
+        "albin_counter_gambit": ("Albin Counter-Gambit", ["d4", "d5", "c4", "e5"], "Aggressive counter-gambit with d4 push.", "open"),
     }
     
     for key, (name, first_moves, desc, character) in _stubs.items():
@@ -283,6 +286,11 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
         if moves_lower[:4] == ["e4", "e5", "nf3", "d6"]:
             return _build_opening_result("philidor_defense", moves)
     
+    # Albin Counter-Gambit: d4 d5 c4 e5 (4 moves) — before Queen's Gambit
+    if len(moves_lower) >= 4:
+        if moves_lower[:4] == ["d4", "d5", "c4", "e5"]:
+            return _build_opening_result("albin_counter_gambit", moves)
+
     # King's Indian Defense: d4 Nf6 c4 g6 (4 moves)
     if len(moves_lower) >= 4:
         if moves_lower[:4] == ["d4", "nf6", "c4", "g6"]:
@@ -364,6 +372,16 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
     if len(moves_lower) >= 2:
         if moves_lower[:2] == ["e4", "nc6"]:
             return _build_opening_result("nimzowitsch_defense", moves)
+
+    # Four Knights Game: e4 e5 Nf3 Nc6 Nc3 Nf6 (6 moves)
+    if len(moves_lower) >= 6:
+        if moves_lower[:6] == ["e4", "e5", "nf3", "nc6", "nc3", "nf6"]:
+            return _build_opening_result("four_knights", moves)
+
+    # Englund Gambit: d4 e5 (2 moves)
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["d4", "e5"]:
+            return _build_opening_result("englund_gambit", moves)
 
     # === EARLY FAMILY DETECTION (2 moves — broad categories) ===
     # These detect the opening FAMILY before the specific line is known
