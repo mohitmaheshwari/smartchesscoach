@@ -6643,15 +6643,15 @@ async def _process_move_and_respond(
                     # === NEW: INTELLIGENT POSITION COACHING ===
                     # Offer position-based coaching when not in opening/endgame teaching
                     # This connects all our analysis systems to provide contextual suggestions
-                    if not coach_game_over:
+                    # Position coaching disabled — v2 system handles all coaching
+                    if False and not coach_game_over:
                         try:
-                            # Only offer if no opening/endgame teaching was triggered this session
                             should_offer_position_coaching = (
                                 not session_doc.get("opening_teaching_active") and
                                 not session_doc.get("position_coaching_offered") and
-                                len(move_history) >= 12  # After ~6 moves per side
+                                len(move_history) >= 12
                             )
-                            
+
                             if should_offer_position_coaching:
                                 from services.intelligent_position_coach import analyze_position_and_suggest
                                 
