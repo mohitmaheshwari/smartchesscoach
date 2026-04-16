@@ -2305,6 +2305,17 @@ async def get_interactive_coaching(
                             coaching_dict["socratic_question"] = smart_fb["question"]
                         if smart_fb.get("hint"):
                             coaching_dict["socratic_hint"] = smart_fb["hint"]
+
+                    # Explain WHY the best move is better
+                    if best_move and best_move != move_san:
+                        try:
+                            from services.move_comparison import compare_moves
+                            comparison = compare_moves(board, move_san, best_move, user_color)
+                            if comparison and comparison.get("reasons"):
+                                coaching_dict["why_best_is_better"] = comparison["summary"]
+                                coaching_dict["comparison_reasons"] = comparison["reasons"][:3]
+                        except Exception:
+                            pass
                         if smart_fb.get("narrative"):
                             coaching_dict["narrative"] = smart_fb["narrative"]
                         if smart_fb.get("plan"):

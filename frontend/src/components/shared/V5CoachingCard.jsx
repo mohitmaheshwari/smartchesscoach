@@ -211,6 +211,27 @@ const V5CoachingCard = ({
           />
         )}
 
+        {/* Why the best move is better — clickable moves */}
+        {isMistake && coaching.why_best_is_better && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-amber-600 mb-1">
+              Why {coaching.best_move} is better
+            </p>
+            {fen && onShowArrow ? (
+              <ClickableMoves
+                text={coaching.why_best_is_better}
+                fen={coaching.fen_before || fen}
+                onShowArrow={onShowArrow}
+                className="text-sm text-amber-800 leading-snug block"
+              />
+            ) : (
+              <p className="text-sm text-amber-800 leading-snug">
+                {coaching.why_best_is_better}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Mistake Details — hidden when Socratic mode is active unless user clicks reveal */}
         {isMistake && (!coaching.socratic_question || showFullExplanation) && (
           <>
