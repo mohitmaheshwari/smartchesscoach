@@ -849,12 +849,15 @@ const CoachPlaySidebar = ({
               confirmRiskyMove={confirmRiskyMove}
             />
 
-            {/* ═══ Coach's Move Explanation ═══ */}
+            {/* ═══ Coach's Move Explanation — Blue section ═══ */}
             {interactiveCoaching?.coachMoveCoaching?.explanation && (
-              <div className="p-3 rounded-lg bg-muted/40 border border-border/50 space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">
-                    Opponent{lastCoachMoveSan ? ` played ${lastCoachMoveSan}` : ""}
+              <div className="p-4 rounded-xl bg-blue-50 border-2 border-blue-200 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-blue-700 bg-blue-100 px-2 py-0.5 rounded text-sm font-bold">
+                    {lastCoachMoveSan || "?"}
+                  </span>
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">
+                    Coach played
                   </span>
                   {interactiveCoaching.coachMoveCoaching.v2_label && (
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
@@ -869,19 +872,20 @@ const CoachPlaySidebar = ({
                   )}
                 </div>
 
-                <p className="text-xs text-foreground/80 leading-snug">
+                <p className="text-sm text-blue-800 leading-snug">
                   {interactiveCoaching.coachMoveCoaching.explanation}
                 </p>
 
                 {interactiveCoaching.coachMoveCoaching.hint_for_user && (
-                  <p className="text-xs text-amber-700 font-medium">
-                    {interactiveCoaching.coachMoveCoaching.hint_for_user}
+                  <p className="text-sm text-blue-900 font-medium mt-1">
+                    🤔 {interactiveCoaching.coachMoveCoaching.hint_for_user}
                   </p>
                 )}
 
                 {interactiveCoaching.coachMoveCoaching.opponent_opportunity && (
-                  <div className="rounded bg-emerald-50 border border-emerald-200 px-2 py-1.5">
-                    <p className="text-xs text-emerald-800 font-medium">
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-300 px-3 py-2 mt-1">
+                    <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide mb-0.5">Can you see it?</p>
+                    <p className="text-sm text-emerald-800">
                       {interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
                     </p>
                   </div>
@@ -891,7 +895,7 @@ const CoachPlaySidebar = ({
                 {coachingLocked && onCoachingAcknowledge && (
                   <button
                     onClick={onCoachingAcknowledge}
-                    className="w-full mt-1 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-all"
+                    className="w-full mt-2 py-2.5 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all"
                   >
                     I see it — let me play
                   </button>

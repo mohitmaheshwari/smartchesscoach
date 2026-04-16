@@ -131,10 +131,10 @@ const V5CoachingCard = ({
   };
   
   return (
-    <div 
-      className={`rounded-xl border ${
-        isGoodMove ? 'bg-emerald-50 border-emerald-200' :
-        isMistake ? 'bg-red-50 border-red-200' :
+    <div
+      className={`rounded-xl border-2 ${
+        isGoodMove ? 'bg-emerald-50 border-emerald-300' :
+        isMistake ? 'bg-red-50 border-red-300' :
         'bg-card border-border'
       }`}
       data-testid="v5-coaching-card"
