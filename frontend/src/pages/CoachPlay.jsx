@@ -2705,28 +2705,7 @@ const CoachPlay = ({ user }) => {
           })()}
         />
 
-        {/* Middle: Commentary panel (board reading) */}
-        {(coachFlow.commentary || openingComplete || openingDeviation || coachMoveExplanation) ? (
-          <div className="w-64 flex-shrink-0 border-l border-border overflow-y-auto">
-            <CommentaryPanel
-              commentary={coachFlow.commentary}
-              openingGuidance={coachFlow.openingGuidance}
-              trapWarning={coachFlow.trapWarning}
-              openingDeviation={openingDeviation}
-              activeBranch={activeBranch}
-              openingComplete={openingComplete}
-              coachMoveExplanation={coachMoveExplanation}
-              lastCoachMoveSan={lastCoachMoveSan}
-              coachMoveCoaching={interactiveCoaching?.coachMoveCoaching}
-              coachingLocked={coachingLocked}
-              onAcknowledge={() => setCoachingLocked(false)}
-            />
-          </div>
-        ) : gameStarted && session && !gameOver ? (
-          <div className="w-64 flex-shrink-0 border-l border-border p-3">
-            <p className="text-xs text-muted-foreground/30">Board reading loading...</p>
-          </div>
-        ) : null}
+        {/* Middle panel removed — coach explanation now in sidebar */}
 
         {/* Right: Coach panel */}
         <CoachPlaySidebar

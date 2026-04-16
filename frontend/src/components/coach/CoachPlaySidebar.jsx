@@ -849,11 +849,57 @@ const CoachPlaySidebar = ({
               confirmRiskyMove={confirmRiskyMove}
             />
 
-            {/* ═══ V2: User Move Feedback ONLY ═══ */}
-            {/* Coach explanation is in CommentaryPanel (middle section) */}
-            {/* Sidebar shows ONLY user move feedback */}
+            {/* ═══ Coach's Move Explanation ═══ */}
+            {interactiveCoaching?.coachMoveCoaching?.explanation && (
+              <div className="p-3 rounded-lg bg-muted/40 border border-border/50 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">
+                    Opponent{lastCoachMoveSan ? ` played ${lastCoachMoveSan}` : ""}
+                  </span>
+                  {interactiveCoaching.coachMoveCoaching.v2_label && (
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                      interactiveCoaching.coachMoveCoaching.v2_intent === 'fork_opportunity'
+                        ? 'bg-red-100 text-red-700'
+                        : interactiveCoaching.coachMoveCoaching.v2_intent === 'hanging_piece_punishment'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-purple-100 text-purple-700'
+                    }`}>
+                      {interactiveCoaching.coachMoveCoaching.v2_label}
+                    </span>
+                  )}
+                </div>
 
-            {/* User's Move Feedback — V5CoachingCard */}
+                <p className="text-xs text-foreground/80 leading-snug">
+                  {interactiveCoaching.coachMoveCoaching.explanation}
+                </p>
+
+                {interactiveCoaching.coachMoveCoaching.hint_for_user && (
+                  <p className="text-xs text-amber-700 font-medium">
+                    {interactiveCoaching.coachMoveCoaching.hint_for_user}
+                  </p>
+                )}
+
+                {interactiveCoaching.coachMoveCoaching.opponent_opportunity && (
+                  <div className="rounded bg-emerald-50 border border-emerald-200 px-2 py-1.5">
+                    <p className="text-xs text-emerald-800 font-medium">
+                      {interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
+                    </p>
+                  </div>
+                )}
+
+                {/* Lock button — only for teaching moves */}
+                {coachingLocked && onCoachingAcknowledge && (
+                  <button
+                    onClick={onCoachingAcknowledge}
+                    className="w-full mt-1 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-all"
+                  >
+                    I see it — let me play
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ═══ User's Move Feedback ═══ */}
             {v5Coaching && !session?.curriculum_active && (
               <>
                 <V5CoachingCard
