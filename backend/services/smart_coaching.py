@@ -380,30 +380,35 @@ async def generate_smart_coach_explanation(
 
     # Different prompts for opening vs middlegame
     if opening_info_detected and move_number <= 10:
-        system_prompt = f"""You rewrite chess facts into simple coaching sentences.
+        system_prompt = f"""Rewrite these chess facts as a coach talking to a friend. Simple English.
 
-STRICT RULES:
-- ONLY say what is in the FACTS. Nothing else. Zero chess analysis from you.
-- Do NOT mention any moves, squares, or pieces that are NOT in the FACTS.
-- Do NOT predict future moves or suggest strategies.
-- Simple English. Short sentences. Say "take" not "capture". Say "move back" not "retreat".
-- 2 sentences max for explanation. 1 short question. 1 short hint.
-- You are just a translator — facts in, simple sentences out.
+BANNED — you will be rejected if you do any of these:
+- Mention "gambit", "strategy", "central presence", "potential attacks"
+- Predict future moves like "if White plays f4"
+- Add ANY chess knowledge not in the FACTS
+- Use words like "preparing", "maintaining", "establishing"
 
-Respond in JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
+GOOD example: "I played Nf6 to bring my knight into the game. This is the Vienna Game."
+BAD example: "Nf6 prepares to respond to White's f4 gambit while maintaining central presence."
+
+Keep it to 1-2 simple sentences. One short question. One short hint.
+
+JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
     else:
-        system_prompt = f"""You rewrite chess facts into simple coaching sentences.
+        system_prompt = f"""Rewrite these chess facts as a coach talking to a friend. Simple English.
 
-STRICT RULES:
-- ONLY say what is in the FACTS. Nothing else. Zero chess analysis from you.
-- Do NOT mention any moves, squares, or pieces that are NOT in the FACTS.
-- Do NOT predict future moves or suggest what the student should play.
-- If a piece has no protection, say it simply: "My knight on e5 has no protection right now."
-- Simple English. Short sentences. Say "take" not "capture". Say "no protection" not "undefended".
-- 2 sentences max for explanation. 1 short question. 1 short hint.
-- You are just a translator — facts in, simple sentences out.
+BANNED — you will be rejected if you do any of these:
+- Predict future moves or suggest what to play
+- Add ANY chess knowledge not in the FACTS
+- Use fancy words like "preparing", "establishing", "consolidate", "gambit"
+- Mention pieces or squares NOT in the FACTS
 
-Respond in JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
+GOOD example: "I played Bb5. Your knight on c6 has no protection now."
+BAD example: "Bb5 establishes pressure on the queenside while preparing for central expansion."
+
+Keep it to 1-2 simple sentences. One short question. One short hint.
+
+JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
 
     try:
         logger.info(f"[SMART-COACHING] Calling LLM for coach move: {move_san}, key={scenario_key}")
@@ -655,18 +660,20 @@ async def generate_smart_user_feedback(
 - What went wrong: {'; '.join(problem_facts) if problem_facts else 'unclear'}
 - Game phase: {phase}{recovery_block}"""
 
-    system_prompt = f"""You rewrite chess facts into coaching for a student who made a {severity}.
+    system_prompt = f"""Rewrite these facts as a coach talking to a {user_rating}-rated student who made a {severity}.
 
-STRICT RULES:
-- ONLY say what is in the FACTS. Nothing else. Zero chess analysis from you.
-- Do NOT mention any moves, squares, or pieces that are NOT in the FACTS.
-- Do NOT suggest specific moves. Never say the best move.
-- Simple English. Short sentences. Say "take" not "capture". Say "no protection" not "undefended".
-- For blunders: show urgency. "Wait — your queen has no protection on c4!"
-- For mistakes: be kind. "Good idea, but look at what happened to your knight..."
-- Connect to a habit: "Before moving, always check..."
-- Give a recovery plan: what should they focus on for the next 2-3 moves (from the facts)
-- You are just a translator — facts in, simple coaching out.
+BANNED:
+- ANY chess knowledge not in the FACTS
+- Suggesting specific moves
+- Fancy words like "consolidate", "establish", "vulnerable"
+
+VOICE:
+- Blunder: "Wait — your queen is sitting on c4 with no protection!"
+- Mistake: "Good idea, but you missed something..."
+- Always connect to a habit: "Before moving, always check..."
+- If recovery plan in facts, mention it simply
+
+1-2 sentences for what went wrong. 1 sentence plan. 1 question. 1 hint.
 
 RESPOND with:
 - narrative: 2 sentences max. What happened + what habit to build. Sound human.
