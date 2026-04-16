@@ -2661,9 +2661,128 @@ async def get_interactive_coaching(
                     coach_explanation["v2_intent"] = v2_intent
                 coach_explanation["v2_label"] = intent_labels.get(v2_intent, "")
 
+            # Trap detection — check if we're near a known opening trap
+            try:
+                from services.verified_opening_traps import get_applicable_traps_for_moves
+                from services.coaching_library import get_coach_move_text
+
+                detected_opening = session_doc.get("detected_opening") or session_doc.get("opening_to_teach") or ""
+                all_moves_san = [m.get("move", "") for m in move_history if m.get("move")]
+
+                if detected_opening and len(all_moves_san) >= 3:
+                    applicable = get_applicable_traps_for_moves(detected_opening, all_moves_san)
+                    if applicable:
+                        trap = applicable[0]
+                        # Check if student is about to play the trap move
+                        trap_setup_len = len(trap.setup_moves)
+                        moves_played = len(all_moves_san)
+
+                        if moves_played < trap_setup_len:
+                            # We're approaching the trap — hint
+                            trap_text = get_coach_move_text(
+                                "trap_hint",
+                                trap_name=trap.name,
+                                opening=trap.opening_name,
+                                trap_move=trap.trap_move,
+                                trap_explanation=trap.explanation,
+                                move=last_coach_move.get("move", ""),
+                                piece="", square="", target="", target_square="", defenders="",
+                            )
+                            if trap_text:
+                                coach_explanation["trap_warning"] = {
+                                    "name": trap.name,
+                                    "hint": trap_text.get("explanation", ""),
+                                    "question": trap_text.get("question", ""),
+                                }
+                                logger.info(f"[TRAP] Approaching: {trap.name}")
+                        elif moves_played == trap_setup_len:
+                            # Student's next move is the trap decision point
+                            coach_explanation["trap_warning"] = {
+                                "name": trap.name,
+                                "is_decision_point": True,
+                                "hint": f"This is the critical moment. The {trap.name} happens right here.",
+                                "trap_move": trap.trap_move,
+                            }
+                            # Store trap state so we can check if they fell for it
+                            await db.coach_sessions.update_one(
+                                {"session_id": session_id},
+                                {"$set": {
+                                    "active_trap": {
+                                        "trap_id": trap.trap_id,
+                                        "name": trap.name,
+                                        "trap_move": trap.trap_move,
+                                        "explanation": trap.explanation,
+                                        "refutation": trap.refutation,
+                                        "opening": trap.opening_name,
+                                    }
+                                }}
+                            )
+                            logger.info(f"[TRAP] Decision point: {trap.name}, trap move={trap.trap_move}")
+            except Exception as trap_err:
+                logger.debug(f"Trap detection failed: {trap_err}")
+
             result["coach_move_coaching"] = coach_explanation
         except Exception as e:
             logger.warning(f"Error generating coach move explanation: {e}")
+
+    # Check if student fell for or avoided an active trap
+    if phase in (None, "user_move") and last_user_move:
+        try:
+            active_trap = session_doc.get("active_trap")
+            if active_trap:
+                played = last_user_move.get("move", "")
+                trap_move = active_trap.get("trap_move", "")
+                trap_name = active_trap.get("name", "")
+
+                # Normalize for comparison
+                played_clean = played.replace("+", "").replace("#", "").lower()
+                trap_clean = trap_move.replace("+", "").replace("#", "").lower()
+
+                from services.coaching_library import get_coach_move_text
+
+                if played_clean == trap_clean:
+                    # Student FELL for the trap
+                    trap_text = get_coach_move_text(
+                        "trap_fell_for",
+                        trap_name=trap_name,
+                        opening=active_trap.get("opening", ""),
+                        trap_move=trap_move,
+                        trap_explanation=active_trap.get("explanation", ""),
+                        move=played, piece="", square="", target="", target_square="", defenders="",
+                    )
+                    if trap_text:
+                        result["trap_result"] = {
+                            "fell_for": True,
+                            "name": trap_name,
+                            "explanation": trap_text.get("explanation", ""),
+                            "question": trap_text.get("question", ""),
+                        }
+                    logger.info(f"[TRAP] Student FELL for {trap_name}")
+                else:
+                    # Student AVOIDED the trap
+                    trap_text = get_coach_move_text(
+                        "trap_avoided",
+                        trap_name=trap_name,
+                        opening=active_trap.get("opening", ""),
+                        trap_move=trap_move,
+                        trap_explanation="",
+                        move=played, piece="", square="", target="", target_square="", defenders="",
+                    )
+                    if trap_text:
+                        result["trap_result"] = {
+                            "fell_for": False,
+                            "name": trap_name,
+                            "explanation": trap_text.get("explanation", ""),
+                        }
+                    logger.info(f"[TRAP] Student AVOIDED {trap_name}")
+
+                # Clear the active trap
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$unset": {"active_trap": ""}}
+                )
+        except Exception as trap_check_err:
+            logger.debug(f"Trap result check failed: {trap_check_err}")
 
     # === PRE-MOVE TRAP PROMPT ===
     # After coach plays, check if the CURRENT position has a trap opportunity

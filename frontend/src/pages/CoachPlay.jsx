@@ -1299,7 +1299,8 @@ const CoachPlay = ({ user }) => {
 
         setInteractiveCoaching({
           userMoveCoaching: data.user_move_coaching || null,
-          coachMoveCoaching: data.coach_move_coaching || null
+          coachMoveCoaching: data.coach_move_coaching || null,
+          trapResult: data.trap_result || null,
         });
 
         if (data.user_move_coaching) {

@@ -896,6 +896,23 @@ const CoachPlaySidebar = ({
                   </div>
                 )}
 
+                {/* Trap Warning */}
+                {interactiveCoaching.coachMoveCoaching.trap_warning && (
+                  <div className="rounded-lg bg-red-50 border-2 border-red-300 px-3 py-2 mt-1">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-red-600 mb-1">
+                      ⚠️ {interactiveCoaching.coachMoveCoaching.trap_warning.name}
+                    </p>
+                    <p className="text-sm text-red-800">
+                      {interactiveCoaching.coachMoveCoaching.trap_warning.hint}
+                    </p>
+                    {interactiveCoaching.coachMoveCoaching.trap_warning.question && (
+                      <p className="text-xs text-red-700 font-medium mt-1">
+                        {interactiveCoaching.coachMoveCoaching.trap_warning.question}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Lock button — only for teaching moves */}
                 {coachingLocked && onCoachingAcknowledge && (
                   <button
@@ -935,6 +952,32 @@ const CoachPlaySidebar = ({
                   </button>
                 )}
               </>
+            )}
+
+            {/* Trap Result — fell for or avoided a known trap */}
+            {interactiveCoaching?.trapResult && (
+              <div className={`p-3 rounded-xl border-2 ${
+                interactiveCoaching.trapResult.fell_for
+                  ? 'bg-red-50 border-red-300'
+                  : 'bg-emerald-50 border-emerald-300'
+              }`}>
+                <p className={`text-[10px] uppercase tracking-widest font-bold mb-1 ${
+                  interactiveCoaching.trapResult.fell_for ? 'text-red-600' : 'text-emerald-600'
+                }`}>
+                  {interactiveCoaching.trapResult.fell_for ? '❌ ' : '✅ '}
+                  {interactiveCoaching.trapResult.name}
+                </p>
+                <p className={`text-sm ${
+                  interactiveCoaching.trapResult.fell_for ? 'text-red-800' : 'text-emerald-800'
+                }`}>
+                  {interactiveCoaching.trapResult.explanation}
+                </p>
+                {interactiveCoaching.trapResult.question && (
+                  <p className="text-xs text-red-700 font-medium mt-1">
+                    {interactiveCoaching.trapResult.question}
+                  </p>
+                )}
+              </div>
             )}
 
             {/* Fundamentals Checklist — shows pass/fail for 7 fundamentals */}
