@@ -1305,8 +1305,22 @@ const CoachPlay = ({ user }) => {
         if (data.user_move_coaching) {
           console.log("[V2-FLOW] Setting v5Coaching with severity:", data.user_move_coaching.severity);
           setV5Coaching(data.user_move_coaching);
+
+          // Lock board ONLY for mistakes/blunders — these deserve attention
+          const sev = data.user_move_coaching.severity;
+          if (sev === "mistake" || sev === "blunder") {
+            setCoachingLocked(true);
+            console.log("[V2-FLOW] Board locked — student made a", sev);
+          }
         } else {
           console.log("[V2-FLOW] No user_move_coaching in response");
+        }
+
+        // Lock board if coach played a teaching move (fork/hanging piece)
+        const coachIntent = data.coach_move_coaching?.v2_intent;
+        if (coachIntent === "fork_opportunity" || coachIntent === "hanging_piece_punishment") {
+          setCoachingLocked(true);
+          console.log("[V2-FLOW] Board locked — coach played teaching move:", coachIntent);
         }
 
         // Update CommentaryPanel with v2 coach explanation (replaces generic text)
@@ -1877,7 +1891,7 @@ const CoachPlay = ({ user }) => {
             // Fetch V5 interactive feedback — this runs fundamentals checklist,
             // Socratic coaching, stores move snapshots, and gets coach move explanation
             console.log("[V2-FLOW] Coach move received, calling fetchInteractiveCoaching now...");
-            setCoachingLocked(true); // Lock board until student responds to coaching
+            // Don't lock here — lock decision happens AFTER we see the coaching response
             fetchInteractiveCoaching(session?.session_id || sessionId);
 
             return;
