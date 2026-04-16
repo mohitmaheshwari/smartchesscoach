@@ -44,27 +44,15 @@ class TeachingMoveSelectorV2:
         )
     """
 
-    # Map user rating to engine skill level — coach should be slightly
-    # stronger than the student but not crushing.
-    RATING_TO_SKILL = [
-        (800, 3),    # vs beginners: play very weak
-        (1000, 6),   # vs novice: play weak
-        (1200, 9),   # vs casual: moderate
-        (1400, 12),  # vs club: decent
-        (1600, 14),  # vs intermediate: strong
-        (1800, 16),  # vs advanced: very strong
-        (2000, 18),  # vs expert: near full
-        (2200, 20),  # vs master+: full strength
-    ]
-
     def __init__(self, stockfish_path: str = "/usr/games/stockfish", user_rating: int = 1200):
         self.stockfish_path = stockfish_path
         self.user_rating = user_rating
         self.engine = None
 
-        # Set skill level based on user rating — coach plays ~200 points above
-        self.skill_level = 9  # default
-        for threshold, skill in self.RATING_TO_SKILL:
+        # Coach ALWAYS plays at full strength.
+        # A real coach doesn't play weak chess — they play strong chess
+        # and the TEACHING adapts to the student's level.
+        self.skill_level = 20
             if user_rating < threshold:
                 break
             self.skill_level = skill
@@ -114,18 +102,10 @@ class TeachingMoveSelectorV2:
         try:
             engine = self._get_engine()
 
-            # Auto-scale eval drop tolerance by rating:
-            # Lower-rated → more teaching flexibility (wider candidate pool)
-            # Higher-rated → tighter play (narrower pool)
+            # Coach plays strong chess — only pick from top moves.
+            # Teaching comes from WHICH top move we pick, not from playing weak moves.
             if max_eval_drop is None:
-                if self.user_rating < 1000:
-                    max_eval_drop = 200   # beginners: wide pool, lots of teaching room
-                elif self.user_rating < 1400:
-                    max_eval_drop = 150   # improving: moderate flexibility
-                elif self.user_rating < 1800:
-                    max_eval_drop = 100   # club: tighter play
-                else:
-                    max_eval_drop = 75    # advanced: near-optimal moves only
+                max_eval_drop = 75  # Only consider moves within 0.75 pawns of best
 
             # Step 1: Generate candidates (6 moves, depth 10 — fast enough for live play)
             candidates = generate_candidates(
