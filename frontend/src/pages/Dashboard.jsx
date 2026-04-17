@@ -255,37 +255,136 @@ const Dashboard = ({ user }) => {
             </div>
           )}
 
-          {/* ═══ COACH GAMES ═══ */}
+          {/* ═══ GAMES SECTIONS (Coach / Chess.com / Lichess) ═══ */}
           {(() => {
             const allGames = Object.values(groupedGames).flatMap(g => g.games || []);
-            const coachGames = allGames.filter(g => g.platform === "coach" || g.opponent === "Coach");
-            if (coachGames.length === 0) return null;
-            return (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                <p className="text-[10px] uppercase tracking-widest font-bold text-blue-400/60 mb-2">
-                  Games with Coach
-                </p>
-                <div className="space-y-1">
-                  {coachGames.slice(0, 5).map(g => (
-                    <div
-                      key={g.game_id}
-                      onClick={() => navigate(`/game/${g.game_id}`)}
-                      className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Swords className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" strokeWidth={2} />
-                        <span className="text-sm text-foreground">
-                          {g.result === "win" ? "Won" : g.result === "loss" ? "Lost" : "Drew"} vs Coach
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground/40">{g.opening || ""}</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-colors" />
-                      </div>
-                    </div>
-                  ))}
+
+            // Dedupe by game_id (same game can appear under multiple categories)
+            const seen = new Set();
+            const uniqueGames = allGames.filter(g => {
+              if (seen.has(g.game_id)) return false;
+              seen.add(g.game_id);
+              return true;
+            });
+
+            const coachGames = uniqueGames.filter(
+              g => g.platform === "coach" || g.opponent === "Coach"
+            );
+            const chesscomGames = uniqueGames.filter(g => g.platform === "chess.com");
+            const lichessGames = uniqueGames.filter(g => g.platform === "lichess");
+
+            // Sort by date (latest first) — use analyzed_at or created_at
+            const sortByDate = (a, b) => {
+              const da = new Date(a.analyzed_at || a.created_at || a.date || 0).getTime();
+              const db = new Date(b.analyzed_at || b.created_at || b.date || 0).getTime();
+              return db - da;
+            };
+            coachGames.sort(sortByDate);
+            chesscomGames.sort(sortByDate);
+            lichessGames.sort(sortByDate);
+
+            // Latest synced strip: last 5 games across any source
+            const latestGames = [...uniqueGames].sort(sortByDate).slice(0, 5);
+
+            const fmtDate = (g) => {
+              const d = g.analyzed_at || g.created_at || g.date;
+              if (!d) return "";
+              const ts = new Date(d);
+              const diffH = (Date.now() - ts.getTime()) / 3600000;
+              if (diffH < 1) return `${Math.floor(diffH * 60)}m ago`;
+              if (diffH < 24) return `${Math.floor(diffH)}h ago`;
+              const days = Math.floor(diffH / 24);
+              if (days < 7) return `${days}d ago`;
+              return ts.toLocaleDateString();
+            };
+
+            const platformLabel = (p) =>
+              p === "chess.com" ? "Chess.com" : p === "lichess" ? "Lichess" : p === "coach" ? "Coach" : (p || "?");
+
+            const GameRow = ({ g, showSource }) => (
+              <div
+                key={g.game_id}
+                onClick={() => navigate(`/game/${g.game_id}`)}
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Swords
+                    className={`w-3.5 h-3.5 flex-shrink-0 ${
+                      g.platform === "coach"
+                        ? "text-blue-400"
+                        : g.platform === "chess.com"
+                        ? "text-emerald-400"
+                        : "text-violet-400"
+                    }`}
+                    strokeWidth={2}
+                  />
+                  <div className="min-w-0">
+                    <span className="text-sm text-foreground">
+                      {g.result === "win" ? "Won" : g.result === "loss" ? "Lost" : "Drew"}
+                      {showSource ? ` • ${platformLabel(g.platform)}` : g.platform === "coach" ? " vs Coach" : ""}
+                    </span>
+                    {g.opening ? (
+                      <span className="text-[10px] text-muted-foreground/40 ml-2">{g.opening}</span>
+                    ) : null}
+                  </div>
                 </div>
-              </motion.div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[10px] text-muted-foreground/50">{fmtDate(g)}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-colors" />
+                </div>
+              </div>
+            );
+
+            return (
+              <>
+                {/* Latest synced — so user knows what got imported */}
+                {latestGames.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
+                      Recently synced
+                    </p>
+                    <div className="space-y-1">
+                      {latestGames.map(g => <GameRow key={g.game_id} g={g} showSource={true} />)}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Games with Coach */}
+                {coachGames.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-blue-400/60 mb-2">
+                      Games with Coach ({coachGames.length})
+                    </p>
+                    <div className="space-y-1">
+                      {coachGames.slice(0, 5).map(g => <GameRow key={g.game_id} g={g} showSource={false} />)}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Chess.com games */}
+                {chesscomGames.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-400/60 mb-2">
+                      Chess.com ({chesscomGames.length})
+                    </p>
+                    <div className="space-y-1">
+                      {chesscomGames.slice(0, 5).map(g => <GameRow key={g.game_id} g={g} showSource={false} />)}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Lichess games */}
+                {lichessGames.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-violet-400/60 mb-2">
+                      Lichess ({lichessGames.length})
+                    </p>
+                    <div className="space-y-1">
+                      {lichessGames.slice(0, 5).map(g => <GameRow key={g.game_id} g={g} showSource={false} />)}
+                    </div>
+                  </motion.div>
+                )}
+              </>
             );
           })()}
 
