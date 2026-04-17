@@ -318,15 +318,54 @@ def _analyze_move_on_board(fen: str, move_san: str) -> Dict:
     return result
 
 
+def _find_hanging_after_move(fen_before: str, user_move_san: str) -> Optional[str]:
+    """After the user's move, does any of their pieces end up hanging?
+    Returns the piece+square that's now undefended, or None."""
+    try:
+        board = chess.Board(fen_before)
+        move = board.parse_san(user_move_san)
+        board.push(move)
+        our_color = not board.turn  # We just moved
+        # Find pieces that are attacked and undefended (or underdefended)
+        for sq in chess.SQUARES:
+            piece = board.piece_at(sq)
+            if not piece or piece.color != our_color or piece.piece_type in (chess.PAWN, chess.KING):
+                continue
+            attackers = list(board.attackers(board.turn, sq))
+            if not attackers:
+                continue
+            defenders = list(board.attackers(our_color, sq))
+            if len(defenders) == 0:
+                # Hanging!
+                return f"{chess.piece_name(piece.piece_type)} on {chess.square_name(sq)}"
+            # Underdefended (cheaper attacker than piece value)
+            if len(attackers) > len(defenders):
+                piece_val = {chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}.get(piece.piece_type, 0)
+                cheapest = min(
+                    ({chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}.get(
+                        board.piece_at(a).piece_type, 0) for a in attackers if board.piece_at(a)),
+                    default=99,
+                )
+                if cheapest < piece_val:
+                    return f"{chess.piece_name(piece.piece_type)} on {chess.square_name(sq)}"
+    except Exception:
+        pass
+    return None
+
+
 def _contrastive_explanation(fen_before: str, user_move: str, best_move: str, user_rating: int = 1200) -> Optional[str]:
     """
-    Generate a contrastive explanation: what your move does vs what the best move does.
+    Generate a short, memorable coaching message with a sticky rule.
 
-    Returns a 1-2 sentence explanation like:
-    "a3 is a pawn move that doesn't create any threats. Ng5 attacks f7 alongside
-     your bishop — active pieces first, pawns later."
+    Target audience: 600-1200 rated players. Short sentences, direct language,
+    rules they can repeat during games.
 
-    Returns None if we can't generate anything meaningful (both moves are similar).
+    Format: "[What went wrong]. [Better move + what it does]. **Rule: [sticky principle]**"
+
+    Examples:
+    - "c4 hangs your bishop on b3. Rd3 saves it and attacks my queen. Rule: check your pieces before pushing pawns."
+    - "Arre! Nc7? My knight takes for free. Better was Bd6. Rule: always check — is my piece safe?"
+    - "Good idea with Nc3, but I play Bxf2+ winning material. Rule: before your move, check my checks and captures."
     """
     if not fen_before or not user_move or not best_move or user_move == best_move:
         return None
@@ -337,64 +376,76 @@ def _contrastive_explanation(fen_before: str, user_move: str, best_move: str, us
     if not yours.get("piece_moved") or not best.get("piece_moved"):
         return None
 
-    parts = []
+    # Check if the user's move HANGS one of their own pieces
+    hanging = _find_hanging_after_move(fen_before, user_move)
 
-    # === What's WRONG with your move ===
-    your_doing = []
-    if yours["is_pawn_move"] and not yours["is_capture"] and not yours["attacks"]:
-        your_doing.append(f"{user_move} is a quiet pawn move that doesn't create threats")
-    elif yours["is_pawn_move"] and not yours["is_capture"]:
-        your_doing.append(f"{user_move} is a pawn push")
+    # === Part 1: What went wrong (short, specific) ===
+    wrong_msg = None
+    rule = None
+
+    if hanging:
+        # This is the #1 mistake for beginners — highlight it
+        wrong_msg = f"{user_move} hangs your {hanging}"
+        rule = "Before every move, ask: is my piece safe?"
+    elif yours["is_pawn_move"] and not yours["is_capture"] and not yours["attacks"]:
+        wrong_msg = f"{user_move} is a slow pawn move"
+        rule = "Move pieces, not pawns."
     elif not yours["attacks"] and not yours["is_capture"] and not yours["gives_check"]:
-        your_doing.append(f"{user_move} doesn't create immediate pressure")
+        wrong_msg = f"{user_move} does nothing active"
+        rule = "Every move should attack, defend, or develop."
 
-    # === What's GOOD about the best move ===
-    best_doing = []
-    if best["gives_check"]:
-        best_doing.append(f"{best_move} gives check")
-    if best["is_capture"] and best["captured"]:
-        best_doing.append(f"{best_move} wins the {best['captured']}")
-    if best["creates_fork"]:
+    # === Part 2: What the best move does (short, concrete) ===
+    best_msg = None
+    if best["gives_check"] and best["is_capture"]:
+        best_msg = f"{best_move} — check and wins the {best['captured']}"
+    elif best["gives_check"]:
+        best_msg = f"{best_move} gives check"
+    elif best["is_capture"] and best["captured"]:
+        best_msg = f"{best_move} wins the {best['captured']}"
+    elif best["creates_fork"]:
         targets = [n for n, s in best["fork_targets"][:2]]
-        best_doing.append(f"{best_move} attacks the {' and '.join(targets)} at the same time")
+        best_msg = f"{best_move} attacks my {' and '.join(targets)} together"
+        if not rule:
+            rule = "Look for forks — one piece hitting two!"
     elif best["attacks_high_value"]:
-        targets = [f"{n} on {s}" for n, s in best["attacks_high_value"][:2]]
-        best_doing.append(f"{best_move} puts pressure on the {', '.join(targets)}")
-    elif best["attacks"] and not best["is_capture"]:
-        targets = [f"{n}" for n, s in best["attacks"][:2]]
-        best_doing.append(f"{best_move} attacks the {', '.join(targets)}")
-    elif best["is_developing"]:
-        best_doing.append(f"{best_move} develops the {best['piece_moved']} to an active square")
+        targets = [n for n, s in best["attacks_high_value"][:1]]
+        best_msg = f"{best_move} attacks my {targets[0]}"
+        if not rule:
+            rule = "Hit the big pieces."
+    elif best["attacks"]:
+        target = best["attacks"][0][0]
+        best_msg = f"{best_move} attacks my {target}"
 
-    if not your_doing and not best_doing:
+    # === Pick the right rule if not already set ===
+    if not rule:
+        if best["gives_check"] and not yours["gives_check"]:
+            rule = "Always check for checks first."
+        elif best["is_capture"] and not yours["is_capture"]:
+            rule = "Scan captures before quiet moves."
+        elif yours["is_pawn_move"] and not best["is_pawn_move"]:
+            rule = "Move pieces, not pawns."
+
+    # === Assemble the message ===
+    if not wrong_msg and not best_msg:
         return None
 
-    # Build the contrastive message
-    if your_doing and best_doing:
-        parts.append(f"{your_doing[0]}.")
-        parts.append(f"{best_doing[0]}.")
-    elif best_doing:
-        parts.append(f"{best_doing[0]}.")
-    elif your_doing:
-        parts.append(f"{your_doing[0]}. {best_move} was stronger here.")
+    parts = []
+    if wrong_msg:
+        parts.append(f"{wrong_msg}.")
+    if best_msg:
+        parts.append(f"Better: {best_msg}.")
+    elif not wrong_msg:
+        return None
 
-    # === Add a transferable principle ===
-    principle = None
-    if yours["is_pawn_move"] and not best["is_pawn_move"]:
-        principle = "Active pieces first, pawns later."
-    elif best["gives_check"] and not yours["gives_check"]:
-        principle = "Always look for checks first."
-    elif best["creates_fork"]:
-        principle = "Look for moves that attack two things at once."
-    elif best["is_capture"] and not yours["is_capture"]:
-        principle = "Check for captures before making quiet moves."
-    elif best["attacks_high_value"]:
-        principle = "Put pressure on your opponent's big pieces."
+    # Indian coach flavor for beginners
+    if user_rating < 1000 and hanging:
+        parts[0] = f"Arre! {parts[0]}"
 
-    if principle:
-        parts.append(principle)
+    # Append the rule as a sticky takeaway
+    if rule:
+        parts.append(f"**Rule: {rule}**")
 
-    return " ".join(parts) if parts else None
+    return " ".join(parts)
 
 
 def _move_context(move: str, tactical: Dict) -> str:
