@@ -353,19 +353,54 @@ def _find_hanging_after_move(fen_before: str, user_move_san: str) -> Optional[st
     return None
 
 
+def _attacks_center(fen_before: str, move_san: str) -> bool:
+    """Does the move attack or occupy a central square (d4/e4/d5/e5)?"""
+    try:
+        board = chess.Board(fen_before)
+        move = board.parse_san(move_san)
+        center = {chess.D4, chess.E4, chess.D5, chess.E5}
+        if move.to_square in center:
+            return True
+        board.push(move)
+        attacks = board.attacks(move.to_square)
+        return bool(attacks & chess.SquareSet(center))
+    except Exception:
+        return False
+
+
+def _is_opening_phase(fen_before: str) -> bool:
+    """
+    Opening = early in game (first 10 moves per side) AND pieces still on back rank.
+    Requires BOTH — a move 15 position isn't opening even with lots of pieces.
+    """
+    try:
+        board = chess.Board(fen_before)
+        if board.fullmove_number > 10:
+            return False
+        # Count minor pieces still on their starting back rank
+        undeveloped = 0
+        for color in (chess.WHITE, chess.BLACK):
+            back_rank = 0 if color == chess.WHITE else 7
+            for sq in chess.SQUARES:
+                p = board.piece_at(sq)
+                if p and p.color == color and p.piece_type in (chess.KNIGHT, chess.BISHOP):
+                    if chess.square_rank(sq) == back_rank:
+                        undeveloped += 1
+        # Opening if at least 3 minor pieces still undeveloped (across both sides)
+        return undeveloped >= 3
+    except Exception:
+        return False
+
+
 def _contrastive_explanation(fen_before: str, user_move: str, best_move: str, user_rating: int = 1200) -> Optional[str]:
     """
-    Generate a short, memorable coaching message with a sticky rule.
+    Generate a short, evidence-based coaching message with a memorable rule.
 
-    Target audience: 600-1200 rated players. Short sentences, direct language,
-    rules they can repeat during games.
+    Phase-aware: in the opening, focuses on development/center principles.
+    In middlegame/endgame, focuses on tactics/activity.
 
-    Format: "[What went wrong]. [Better move + what it does]. **Rule: [sticky principle]**"
-
-    Examples:
-    - "c4 hangs your bishop on b3. Rd3 saves it and attacks my queen. Rule: check your pieces before pushing pawns."
-    - "Arre! Nc7? My knight takes for free. Better was Bd6. Rule: always check — is my piece safe?"
-    - "Good idea with Nc3, but I play Bxf2+ winning material. Rule: before your move, check my checks and captures."
+    Only returns a message when there's REAL substance — otherwise returns None
+    so the caller can suppress empty feedback (no "playable but more accurate" filler).
     """
     if not fen_before or not user_move or not best_move or user_move == best_move:
         return None
@@ -376,72 +411,79 @@ def _contrastive_explanation(fen_before: str, user_move: str, best_move: str, us
     if not yours.get("piece_moved") or not best.get("piece_moved"):
         return None
 
-    # Check if the user's move HANGS one of their own pieces
+    # Context
     hanging = _find_hanging_after_move(fen_before, user_move)
+    is_opening = _is_opening_phase(fen_before)
+    best_attacks_center = _attacks_center(fen_before, best_move)
+    yours_attacks_center = _attacks_center(fen_before, user_move)
 
-    # === Part 1: What went wrong (short, specific) ===
     wrong_msg = None
+    best_msg = None
     rule = None
 
+    # === PRIORITY 1: hanging piece (always critical) ===
     if hanging:
-        # This is the #1 mistake for beginners — highlight it
         wrong_msg = f"{user_move} hangs your {hanging}"
         rule = "Before every move, ask: is my piece safe?"
-    elif yours["is_pawn_move"] and not yours["is_capture"] and not yours["attacks"]:
-        wrong_msg = f"{user_move} is a slow pawn move"
-        rule = "Move pieces, not pawns."
-    elif not yours["attacks"] and not yours["is_capture"] and not yours["gives_check"]:
-        wrong_msg = f"{user_move} does nothing active"
-        rule = "Every move should attack, defend, or develop."
 
-    # === Part 2: What the best move does (short, concrete) ===
-    best_msg = None
-    if best["gives_check"] and best["is_capture"]:
-        best_msg = f"{best_move} — check and wins the {best['captured']}"
-    elif best["gives_check"]:
-        best_msg = f"{best_move} gives check"
-    elif best["is_capture"] and best["captured"]:
-        best_msg = f"{best_move} wins the {best['captured']}"
-    elif best["creates_fork"]:
-        targets = [n for n, s in best["fork_targets"][:2]]
-        best_msg = f"{best_move} attacks my {' and '.join(targets)} together"
-        if not rule:
-            rule = "Look for forks — one piece hitting two!"
-    elif best["attacks_high_value"]:
-        targets = [n for n, s in best["attacks_high_value"][:1]]
-        best_msg = f"{best_move} attacks my {targets[0]}"
-        if not rule:
-            rule = "Hit the big pieces."
-    elif best["attacks"]:
-        target = best["attacks"][0][0]
-        best_msg = f"{best_move} attacks my {target}"
+    # === PRIORITY 2: OPENING PRINCIPLES ===
+    elif is_opening:
+        # Developing vs non-developing
+        if best["is_developing"] and not yours["is_developing"] and yours["is_pawn_move"]:
+            wrong_msg = f"{user_move} doesn't develop a piece"
+            best_msg = f"{best_move} develops your {best['piece_moved']} to an active square"
+            rule = "In the opening, pieces before pawns."
+        # Center control
+        elif best_attacks_center and not yours_attacks_center:
+            wrong_msg = f"{user_move} ignores the center"
+            best_msg = f"{best_move} fights for the center"
+            rule = "In the opening, control d4/e4/d5/e5."
+        # Moving developed pieces twice (slow)
+        elif not yours["is_developing"] and best["is_developing"]:
+            wrong_msg = f"{user_move} delays development"
+            best_msg = f"{best_move} brings out your {best['piece_moved']}"
+            rule = "Develop all pieces before attacking."
 
-    # === Pick the right rule if not already set ===
-    if not rule:
-        if best["gives_check"] and not yours["gives_check"]:
-            rule = "Always check for checks first."
-        elif best["is_capture"] and not yours["is_capture"]:
+    # === PRIORITY 3: TACTICAL (middlegame/endgame) ===
+    if not wrong_msg and not best_msg:
+        # Best move creates a concrete tactic
+        if best["gives_check"] and best["is_capture"]:
+            best_msg = f"{best_move} is check and wins the {best['captured']}"
+            rule = "Always check for checks and captures first."
+        elif best["is_capture"] and best["captured"] and not yours["is_capture"]:
+            best_msg = f"{best_move} wins the {best['captured']}"
             rule = "Scan captures before quiet moves."
+        elif best["creates_fork"]:
+            targets = [n for n, s in best["fork_targets"][:2]]
+            best_msg = f"{best_move} attacks my {' and '.join(targets)} together"
+            rule = "Find forks — one piece hitting two."
+        elif best["gives_check"] and not yours["gives_check"]:
+            best_msg = f"{best_move} gives check"
+            rule = "Always look for checks first."
+        elif best["attacks_high_value"]:
+            target = best["attacks_high_value"][0][0]
+            best_msg = f"{best_move} attacks my {target}"
+            rule = "Hit the big pieces."
         elif yours["is_pawn_move"] and not best["is_pawn_move"]:
+            wrong_msg = f"{user_move} is a slow pawn move"
+            best_msg = f"{best_move} puts a piece in play"
             rule = "Move pieces, not pawns."
 
-    # === Assemble the message ===
+    # If we couldn't find any substance, don't say anything
     if not wrong_msg and not best_msg:
         return None
 
+    # === Assemble ===
     parts = []
     if wrong_msg:
         parts.append(f"{wrong_msg}.")
     if best_msg:
-        parts.append(f"Better: {best_msg}.")
-    elif not wrong_msg:
-        return None
+        parts.append(f"{best_msg}." if not wrong_msg else f"Better: {best_msg}.")
 
-    # Indian coach flavor for beginners
-    if user_rating < 1000 and hanging:
+    # Indian coach flavor for beginners on critical errors
+    if user_rating < 1000 and hanging and parts:
         parts[0] = f"Arre! {parts[0]}"
 
-    # Append the rule as a sticky takeaway
     if rule:
         parts.append(f"**Rule: {rule}**")
 
@@ -578,30 +620,26 @@ def _generate_coaching_message(
     
     # ========== INACCURACIES ==========
     elif quality == "inaccuracy":
-        # Beginners: don't overwhelm with inaccuracy feedback, just nudge
-        if is_beginner:
-            result["coaching_message"] = f"{user_move} is fine for now. Let's keep going!"
+        # Try contrastive explanation (position + phase aware)
+        contrast = _contrastive_explanation(fen_before, user_move, best_move, user_rating) if fen_before else None
+
+        # Under 1200: only show inaccuracy if we have substance.
+        # No "playable but more accurate" filler — it teaches nothing.
+        # Empty message = frontend shows no feedback for this move.
+        if user_rating < 1200:
+            if contrast:
+                result["coaching_message"] = contrast
+            else:
+                result["coaching_message"] = ""  # Suppress — nothing useful to say
+                result["user_move_quality"] = "good"  # Downgrade label so it doesn't show as inaccuracy
             return result
 
-        # Try contrastive explanation first (position-specific)
-        contrast = _contrastive_explanation(fen_before, user_move, best_move, user_rating) if fen_before else None
+        # 1200+: show contrastive if available, else a short hint
         if contrast:
             result["coaching_message"] = contrast
         else:
-            inaccuracy_phrases = [
-                f"Hmm {name}, {user_move} is okay, but {best_move} was better here.",
-                f"{user_move} is playable, but {best_move} was more accurate.",
-                f"Not bad {name}, but {best_move} was the stronger choice.",
-            ]
-            result["coaching_message"] = random.choice(inaccuracy_phrases)
-
-            if tactical_analysis.get("best_move_captures") and user_move != best_move:
-                result["coaching_message"] += f" With {best_move} you could have won the {tactical_analysis['best_move_captures']}."
-            elif tactical_analysis.get("best_move_attacks") and user_move != best_move:
-                attacks = tactical_analysis["best_move_attacks"][:2]
-                if attacks:
-                    result["coaching_message"] += f" {best_move} would {', '.join(attacks)}."
-
+            # Minimal fallback — only if we genuinely have nothing better
+            result["coaching_message"] = f"{best_move} was more accurate than {user_move}."
         return result
     
     # ========== MISTAKES - CONTRASTIVE + SOCRATIC ==========
