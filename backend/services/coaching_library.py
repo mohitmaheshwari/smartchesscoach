@@ -94,17 +94,17 @@ COACH_MOVE = {
     # ─── TRAPS ───
 
     "trap_hint": [
-        {"explanation": "Be careful here... this position has a well-known trick called the {trap_name}.", "question": "Can you see the danger?", "hint": "Look at what happens if you play the obvious move."},
-        {"explanation": "Watch out — we're close to the {trap_name}. A lot of players fall for this.", "question": "Do you know what to avoid here?", "hint": "The obvious move here is actually a mistake."},
+        {"explanation": "Be careful — there's a trick here: the {trap_name}.", "question": "Can you see the danger?", "hint": "Look at what happens if you play the obvious move."},
+        {"explanation": "Watch out — the {trap_name} catches many players in this position.", "question": "Do you know what to avoid here?", "hint": "The obvious move here is actually a mistake."},
     ],
 
     "trap_fell_for": [
-        {"explanation": "That's the {trap_name}! This is a well-known trick in the {opening}. {trap_explanation}", "question": "Can you see why that move was a mistake now?", "hint": "Look at what I can do next."},
-        {"explanation": "You fell for the {trap_name}. Don't worry — now you'll remember it forever. {trap_explanation}", "question": "What should you have played instead?", "hint": "The safe move was to avoid {trap_move}."},
+        {"explanation": "That's the {trap_name}. {trap_explanation}", "question": "Can you see why that move was a mistake now?", "hint": "Look at what I can do next."},
+        {"explanation": "You fell for the {trap_name}. Don't worry — now you'll remember it. {trap_explanation}", "question": "What should you have played instead?", "hint": "The safe move was to avoid {trap_move}."},
     ],
 
     "trap_avoided": [
-        {"explanation": "Nice — you avoided the {trap_name}! A lot of players fall for that here.", "question": "Did you see the trap, or did you just play a solid move?", "hint": "Either way, good job staying safe."},
+        {"explanation": "Nice — you avoided the {trap_name}.", "question": "Did you see the trap, or did you just play a solid move?", "hint": "Either way, good job staying safe."},
         {"explanation": "Good awareness! The {trap_name} catches many players, but not you.", "question": "What would have happened if you played the trap move?", "hint": "Think about what the trick was."},
     ],
 

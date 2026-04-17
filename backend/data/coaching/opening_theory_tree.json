@@ -1019,7 +1019,7 @@
     "traps": [
       {
         "trap_id": "french_milner_barry",
-        "name": "Milner-Barry Gambit Warning",
+        "name": "Milner-Barry Gambit",
         "variation": "french_advance",
         "setup_moves": [
           "e4",
@@ -1776,7 +1776,7 @@
     "traps": [
       {
         "trap_id": "london_move_order",
-        "name": "London Move Order Warning",
+        "name": "London Move Order",
         "variation": "london_main",
         "setup_moves": [
           "d4",
@@ -3281,7 +3281,7 @@
     "traps": [
       {
         "trap_id": "ruy_lopez_noah_ark",
-        "name": "Noah's Ark Trap Warning",
+        "name": "Noah's Ark Trap",
         "variation": "morphy_defense",
         "setup_moves": [
           "e4",
