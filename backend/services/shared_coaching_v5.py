@@ -810,11 +810,21 @@ async def generate_move_coaching(
     # ─── INACCURACY: gentle, educational tone ───
     # Don't treat small deviations like major problems
     if severity == "inaccuracy":
+        user_san = board_before.san(move)
+        # If user played the best move, it's NOT an inaccuracy — engine eval fluke
+        if best_move_san and best_move_san == user_san:
+            return V5Coaching(
+                narrative=f"{user_san} is fine.",
+                severity="good",
+                candidate_moves=None,
+                is_user_move=True,
+                best_move=best_move_san
+            )
         common_move = best_move_san or "another move"
         return V5Coaching(
-            narrative=f"{board_before.san(move)} is fine, but most players here go {common_move}. Worth remembering!",
+            narrative=f"{user_san} is playable, but {common_move} was more accurate.",
             severity="inaccuracy",
-            better_approach=f"{common_move} is the more common choice here.",
+            better_approach=f"{common_move} is the cleaner choice here.",
             candidate_moves=None,
             is_user_move=True,
             best_move=best_move_san
@@ -1048,14 +1058,28 @@ def generate_piece_specific_coaching(
     # ── INACCURACY: gentle, educational tone ──
     # Just mention what's commonly played — no dramatic language
     if severity == "inaccuracy":
+        # If user played the best move, it's NOT an inaccuracy
+        if best_move_san and best_move_san == move_san:
+            return V5Coaching(
+                narrative=f"{move_san} is fine.",
+                severity="good",
+                goal=None,
+                current_problem=None,
+                consequence=None,
+                better_approach=None,
+                transferable_learning=None,
+                concept_id="best_move",
+                concept_type="general",
+                candidate_moves=None,
+            )
         common_move = best_move_san or "another move"
         return V5Coaching(
-            narrative=f"{move_san} is okay, but most players here go {common_move}. Worth remembering!",
+            narrative=f"{move_san} is playable, but {common_move} was more accurate.",
             severity=severity,
             goal=None,
             current_problem=None,
             consequence=None,
-            better_approach=f"{common_move} is the more common choice here.",
+            better_approach=f"{common_move} is the cleaner choice here.",
             transferable_learning=transferable_learning,
             concept_id="common_alternative",
             concept_type="general",
