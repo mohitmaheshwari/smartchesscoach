@@ -250,6 +250,153 @@ def _classify_move_quality(eval_before: float, eval_after: float, user_color: st
         return "blunder"
 
 
+def _analyze_move_on_board(fen: str, move_san: str) -> Dict:
+    """
+    Analyze what a specific move DOES on a board. Returns concrete facts:
+    - Is it a capture? What does it capture?
+    - Does it give check?
+    - What pieces does it attack from its new square?
+    - Does it create a fork/pin/hanging piece?
+    - Is it a pawn move (tempo-wasting) or piece move (active)?
+    - What was the piece and where did it go?
+    """
+    result = {
+        "is_capture": False, "captured": None,
+        "gives_check": False,
+        "attacks": [],  # [(piece_name, square_name), ...]
+        "attacks_high_value": [],  # Queen, rook only
+        "creates_fork": False, "fork_targets": [],
+        "piece_moved": None, "from_sq": None, "to_sq": None,
+        "is_pawn_move": False,
+        "is_developing": False,  # Piece leaving back rank
+    }
+    try:
+        board = chess.Board(fen)
+        move = board.parse_san(move_san)
+        piece = board.piece_at(move.from_square)
+        if not piece:
+            return result
+
+        result["piece_moved"] = chess.piece_name(piece.piece_type)
+        result["from_sq"] = chess.square_name(move.from_square)
+        result["to_sq"] = chess.square_name(move.to_square)
+        result["is_pawn_move"] = piece.piece_type == chess.PAWN
+        result["is_capture"] = board.is_capture(move)
+        if result["is_capture"]:
+            captured = board.piece_at(move.to_square)
+            if captured:
+                result["captured"] = chess.piece_name(captured.piece_type)
+
+        # Check if piece is leaving back rank (developing)
+        back_rank = 0 if piece.color == chess.WHITE else 7
+        if chess.square_rank(move.from_square) == back_rank and piece.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK):
+            result["is_developing"] = True
+
+        # Play the move and check what it does
+        board.push(move)
+        result["gives_check"] = board.is_check()
+
+        # What does the piece attack from its new square?
+        mover_color = not board.turn  # We just moved
+        attacks = board.attacks(move.to_square)
+        for sq in attacks:
+            target = board.piece_at(sq)
+            if target and target.color != mover_color and target.piece_type != chess.PAWN:
+                name = chess.piece_name(target.piece_type)
+                sq_name = chess.square_name(sq)
+                result["attacks"].append((name, sq_name))
+                if target.piece_type in (chess.QUEEN, chess.ROOK):
+                    result["attacks_high_value"].append((name, sq_name))
+
+        # Fork check
+        if len(result["attacks"]) >= 2:
+            result["creates_fork"] = True
+            result["fork_targets"] = [(n, s) for n, s in result["attacks"]]
+
+    except Exception:
+        pass
+    return result
+
+
+def _contrastive_explanation(fen_before: str, user_move: str, best_move: str, user_rating: int = 1200) -> Optional[str]:
+    """
+    Generate a contrastive explanation: what your move does vs what the best move does.
+
+    Returns a 1-2 sentence explanation like:
+    "a3 is a pawn move that doesn't create any threats. Ng5 attacks f7 alongside
+     your bishop — active pieces first, pawns later."
+
+    Returns None if we can't generate anything meaningful (both moves are similar).
+    """
+    if not fen_before or not user_move or not best_move or user_move == best_move:
+        return None
+
+    yours = _analyze_move_on_board(fen_before, user_move)
+    best = _analyze_move_on_board(fen_before, best_move)
+
+    if not yours.get("piece_moved") or not best.get("piece_moved"):
+        return None
+
+    parts = []
+
+    # === What's WRONG with your move ===
+    your_doing = []
+    if yours["is_pawn_move"] and not yours["is_capture"] and not yours["attacks"]:
+        your_doing.append(f"{user_move} is a quiet pawn move that doesn't create threats")
+    elif yours["is_pawn_move"] and not yours["is_capture"]:
+        your_doing.append(f"{user_move} is a pawn push")
+    elif not yours["attacks"] and not yours["is_capture"] and not yours["gives_check"]:
+        your_doing.append(f"{user_move} doesn't create immediate pressure")
+
+    # === What's GOOD about the best move ===
+    best_doing = []
+    if best["gives_check"]:
+        best_doing.append(f"{best_move} gives check")
+    if best["is_capture"] and best["captured"]:
+        best_doing.append(f"{best_move} wins the {best['captured']}")
+    if best["creates_fork"]:
+        targets = [n for n, s in best["fork_targets"][:2]]
+        best_doing.append(f"{best_move} attacks the {' and '.join(targets)} at the same time")
+    elif best["attacks_high_value"]:
+        targets = [f"{n} on {s}" for n, s in best["attacks_high_value"][:2]]
+        best_doing.append(f"{best_move} puts pressure on the {', '.join(targets)}")
+    elif best["attacks"] and not best["is_capture"]:
+        targets = [f"{n}" for n, s in best["attacks"][:2]]
+        best_doing.append(f"{best_move} attacks the {', '.join(targets)}")
+    elif best["is_developing"]:
+        best_doing.append(f"{best_move} develops the {best['piece_moved']} to an active square")
+
+    if not your_doing and not best_doing:
+        return None
+
+    # Build the contrastive message
+    if your_doing and best_doing:
+        parts.append(f"{your_doing[0]}.")
+        parts.append(f"{best_doing[0]}.")
+    elif best_doing:
+        parts.append(f"{best_doing[0]}.")
+    elif your_doing:
+        parts.append(f"{your_doing[0]}. {best_move} was stronger here.")
+
+    # === Add a transferable principle ===
+    principle = None
+    if yours["is_pawn_move"] and not best["is_pawn_move"]:
+        principle = "Active pieces first, pawns later."
+    elif best["gives_check"] and not yours["gives_check"]:
+        principle = "Always look for checks first."
+    elif best["creates_fork"]:
+        principle = "Look for moves that attack two things at once."
+    elif best["is_capture"] and not yours["is_capture"]:
+        principle = "Check for captures before making quiet moves."
+    elif best["attacks_high_value"]:
+        principle = "Put pressure on your opponent's big pieces."
+
+    if principle:
+        parts.append(principle)
+
+    return " ".join(parts) if parts else None
+
+
 def _move_context(move: str, tactical: Dict) -> str:
     """
     Generate position-aware context for a move.
@@ -294,7 +441,8 @@ def _generate_coaching_message(
     coach_move: str,
     understanding_context: Optional[Dict] = None,
     user_name: str = "",
-    user_rating: int = 1200
+    user_rating: int = 1200,
+    fen_before: str = "",
 ) -> Dict[str, Any]:
     """
     Generate a human-like coaching message in Indian-English style.
@@ -383,104 +531,117 @@ def _generate_coaching_message(
         if is_beginner:
             result["coaching_message"] = f"{user_move} is fine for now. Let's keep going!"
             return result
-        
-        inaccuracy_phrases = [
-            f"Hmm {name}, {user_move} is okay, but dekho - {best_move} was better here.",
-            f"{user_move} is playable, but see - {best_move} was more accurate.",
-            f"Not bad {name}, but {best_move} was the stronger choice.",
-        ]
-        result["coaching_message"] = random.choice(inaccuracy_phrases)
-        
-        # Add specific reason
-        if tactical_analysis.get("best_move_captures") and user_move != best_move:
-            result["coaching_message"] += f" With {best_move} you could have won the {tactical_analysis['best_move_captures']}."
-        elif tactical_analysis.get("best_move_attacks") and user_move != best_move:
-            attacks = tactical_analysis["best_move_attacks"][:2]
-            if attacks:
-                result["coaching_message"] += f" {best_move} would {', '.join(attacks)}."
-        
+
+        # Try contrastive explanation first (position-specific)
+        contrast = _contrastive_explanation(fen_before, user_move, best_move, user_rating) if fen_before else None
+        if contrast:
+            result["coaching_message"] = contrast
+        else:
+            inaccuracy_phrases = [
+                f"Hmm {name}, {user_move} is okay, but {best_move} was better here.",
+                f"{user_move} is playable, but {best_move} was more accurate.",
+                f"Not bad {name}, but {best_move} was the stronger choice.",
+            ]
+            result["coaching_message"] = random.choice(inaccuracy_phrases)
+
+            if tactical_analysis.get("best_move_captures") and user_move != best_move:
+                result["coaching_message"] += f" With {best_move} you could have won the {tactical_analysis['best_move_captures']}."
+            elif tactical_analysis.get("best_move_attacks") and user_move != best_move:
+                attacks = tactical_analysis["best_move_attacks"][:2]
+                if attacks:
+                    result["coaching_message"] += f" {best_move} would {', '.join(attacks)}."
+
         return result
     
-    # ========== MISTAKES - SOCRATIC MODE ==========
+    # ========== MISTAKES - CONTRASTIVE + SOCRATIC ==========
     elif quality == "mistake":
+        # Try contrastive explanation (position-specific)
+        contrast = _contrastive_explanation(fen_before, user_move, best_move, user_rating) if fen_before else None
+
         if is_beginner:
-            # Beginners: direct, simple explanation. No Socratic questioning.
-            reveal_parts = [f"Careful {name}! {user_move} loses some advantage."]
-            if user_move != best_move:
-                reveal_parts.append(f"Try {best_move} instead — it keeps you safe.")
-            result["coaching_message"] = " ".join(reveal_parts)
+            # Beginners: direct, simple. Use contrast if available.
+            if contrast:
+                result["coaching_message"] = contrast
+            else:
+                reveal_parts = [f"Careful {name}! {user_move} loses some advantage."]
+                if user_move != best_move:
+                    reveal_parts.append(f"Try {best_move} instead.")
+                result["coaching_message"] = " ".join(reveal_parts)
             result["encouragement"] = "Good effort though. Let's keep going!"
             return result
-        
-        # First, ask what they were thinking (Socratic)
+
+        # Socratic question
         socratic_questions = [
-            f"{name}, interesting choice with {user_move}. Tell me - what was your thinking?",
-            f"Hmm {user_move}. Walk me through it {name} - why this move?",
-            f"I see {user_move}. {name}, what were you hoping to achieve?",
-            f"Okay {name}. Before I say anything - what was the idea behind {user_move}?",
+            f"{name}, interesting choice with {user_move}. What was your thinking?",
+            f"Hmm {user_move}. Walk me through it {name} — why this move?",
+            f"Okay {name}. Before I say anything — what was the idea behind {user_move}?",
         ]
         result["socratic_question"] = random.choice(socratic_questions)
         result["expects_response"] = True
-        
-        # The reveal message (shown after they respond or click 'show answer')
-        reveal_parts = [f"Dekho {name}, that {user_move} lets some advantage slip."]
-        
-        if tactical_analysis.get("threats_created"):
-            threat = tactical_analysis["threats_created"][0]
-            reveal_parts.append(f"Now I can play {threat}.")
-        
-        if user_move != best_move:
-            reveal_parts.append(f"The move to find was {best_move}.")
-        
-        result["coaching_message"] = " ".join(reveal_parts)
+
+        # Reveal: use contrast if available, fall back to generic
+        if contrast:
+            result["coaching_message"] = contrast
+        else:
+            reveal_parts = [f"Dekho {name}, that {user_move} lets some advantage slip."]
+            if tactical_analysis.get("threats_created"):
+                reveal_parts.append(f"Now I can play {tactical_analysis['threats_created'][0]}.")
+            if user_move != best_move:
+                reveal_parts.append(f"The move to find was {best_move}.")
+            result["coaching_message"] = " ".join(reveal_parts)
+
         result["encouragement"] = random.choice([
             "Koi baat nahi. Let's learn from this.",
-            "It's okay. This is how we improve na?",
+            "It's okay. This is how we improve.",
             "Don't worry. Even strong players miss things.",
         ])
         return result
     
-    # ========== BLUNDERS - SOCRATIC MODE ==========
+    # ========== BLUNDERS - CONTRASTIVE + SOCRATIC ==========
     elif quality == "blunder":
+        contrast = _contrastive_explanation(fen_before, user_move, best_move, user_rating) if fen_before else None
+
         if is_beginner:
-            # Beginners: direct, clear. This is what they need to hear.
-            reveal_parts = [f"Oops {name}! {user_move} loses material."]
-            if tactical_analysis.get("best_move_captures"):
-                reveal_parts.append(f"You could have played {best_move} and won the {tactical_analysis['best_move_captures']}!")
-            elif user_move != best_move:
-                reveal_parts.append(f"The safe move was {best_move}.")
-            result["coaching_message"] = " ".join(reveal_parts)
-            result["socratic_question"] = "Before your next move, check: is any of your pieces hanging? Can your opponent take something for free?"
+            if contrast:
+                result["coaching_message"] = contrast
+            else:
+                reveal_parts = [f"Oops {name}! {user_move} loses material."]
+                if tactical_analysis.get("best_move_captures"):
+                    reveal_parts.append(f"You could have played {best_move} and won the {tactical_analysis['best_move_captures']}!")
+                elif user_move != best_move:
+                    reveal_parts.append(f"The safe move was {best_move}.")
+                result["coaching_message"] = " ".join(reveal_parts)
+            result["socratic_question"] = "Before your next move, check: is any of your pieces hanging?"
             result["encouragement"] = "It's okay! Just check for hanging pieces before every move."
             return result
-        
-        # Strong Socratic questioning for blunders
+
+        # Socratic question
         socratic_questions = [
-            f"Arre {name}! {user_move}... tell me, what were you thinking? Walk me through it.",
-            f"{name}, hold on. That {user_move} - explain your reasoning.",
-            f"Wait wait {name}. {user_move}? What did you see here?",
-            f"Hmm {name}... {user_move} is concerning. What was the plan?",
+            f"Arre {name}! {user_move}... what were you thinking?",
+            f"{name}, hold on. That {user_move} — explain your reasoning.",
+            f"Wait {name}. {user_move}? What did you see here?",
         ]
         result["socratic_question"] = random.choice(socratic_questions)
         result["expects_response"] = True
-        
-        # The reveal message
-        reveal_parts = [f"See {name}, that {user_move} was a serious mistake."]
-        
-        if tactical_analysis.get("best_move_captures"):
-            reveal_parts.append(f"You could have won material with {best_move} - takes the {tactical_analysis['best_move_captures']}!")
-        elif tactical_analysis.get("threats_created"):
-            threat = tactical_analysis["threats_created"][0]
-            reveal_parts.append(f"That allows {threat}.")
+
+        # Reveal: use contrast if available
+        if contrast:
+            result["coaching_message"] = contrast
         else:
-            reveal_parts.append(f"The position needed {best_move}.")
-        
-        result["coaching_message"] = " ".join(reveal_parts)
+            reveal_parts = [f"See {name}, that {user_move} was a serious mistake."]
+            if tactical_analysis.get("best_move_captures"):
+                reveal_parts.append(f"You could have won material with {best_move} — takes the {tactical_analysis['best_move_captures']}!")
+            elif tactical_analysis.get("threats_created"):
+                reveal_parts.append(f"That allows {tactical_analysis['threats_created'][0]}.")
+            else:
+                reveal_parts.append(f"The position needed {best_move}.")
+            result["coaching_message"] = " ".join(reveal_parts)
+
         result["encouragement"] = random.choice([
-            "But it's okay {name}. Everyone blunders sometimes. Even Magnus!",
+            "But it's okay. Everyone blunders sometimes. Even Magnus!",
             "Koi baat nahi. Let's understand why and move on.",
             "This is tough, but we learn from these moments.",
-        ]).format(name=name)
+        ])
         return result
     
     # Fallback
@@ -706,7 +867,8 @@ async def generate_move_feedback(
             coach_move=coach_move,
             understanding_context=understanding_context,
             user_name="",
-            user_rating=user_rating
+            user_rating=user_rating,
+            fen_before=fen_before,
         )
         
         coaching_message = coaching_result.get("coaching_message", "")
