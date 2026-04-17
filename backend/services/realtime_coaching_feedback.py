@@ -318,6 +318,71 @@ def _analyze_move_on_board(fen: str, move_san: str) -> Dict:
     return result
 
 
+def _find_opponent_threat_after_move(fen_before: str, user_move_san: str) -> Optional[Dict]:
+    """
+    After the user's move, what's the opponent's best threat?
+
+    Scans opponent's legal moves for the best "winning" capture or tactic.
+    Returns dict with threat details, or None.
+
+    This is what answers "why is Qb3 a mistake?" — because opponent can now
+    play Nxb4 winning a pawn, or similar.
+    """
+    try:
+        board = chess.Board(fen_before)
+        move = board.parse_san(user_move_san)
+        board.push(move)
+
+        piece_vals = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+                     chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100}
+
+        best_threat = None
+        best_gain = 0
+
+        for opp_move in board.legal_moves:
+            if not board.is_capture(opp_move):
+                continue
+
+            captured = board.piece_at(opp_move.to_square)
+            if not captured:
+                continue
+
+            attacker = board.piece_at(opp_move.from_square)
+            if not attacker:
+                continue
+
+            cap_val = piece_vals.get(captured.piece_type, 0)
+            att_val = piece_vals.get(attacker.piece_type, 0)
+
+            # Check if square is defended
+            board.push(opp_move)
+            our_color = not board.turn  # The side that just moved (opponent)
+            defended = board.is_attacked_by(board.turn, opp_move.to_square)
+            board.pop()
+
+            # Calculate material gain
+            if not defended:
+                gain = cap_val  # Free capture
+            elif cap_val >= att_val:
+                gain = cap_val - att_val  # Winning or equal trade
+            else:
+                continue  # Bad trade, not a threat
+
+            if gain > best_gain:
+                best_gain = gain
+                best_threat = {
+                    "move_san": board.san(opp_move),
+                    "captured": chess.piece_name(captured.piece_type),
+                    "captured_square": chess.square_name(opp_move.to_square),
+                    "gain": gain,
+                    "is_free": not defended,
+                }
+
+        return best_threat if best_gain >= 1 else None
+    except Exception:
+        return None
+
+
 def _find_hanging_after_move(fen_before: str, user_move_san: str) -> Optional[str]:
     """After the user's move, does any of their pieces end up hanging?
     Returns the piece+square that's now undefended, or None."""
@@ -413,6 +478,7 @@ def _contrastive_explanation(fen_before: str, user_move: str, best_move: str, us
 
     # Context
     hanging = _find_hanging_after_move(fen_before, user_move)
+    opp_threat = _find_opponent_threat_after_move(fen_before, user_move)
     is_opening = _is_opening_phase(fen_before)
     best_attacks_center = _attacks_center(fen_before, best_move)
     yours_attacks_center = _attacks_center(fen_before, user_move)
@@ -425,6 +491,14 @@ def _contrastive_explanation(fen_before: str, user_move: str, best_move: str, us
     if hanging:
         wrong_msg = f"{user_move} hangs your {hanging}"
         rule = "Before every move, ask: is my piece safe?"
+
+    # === PRIORITY 1.5: opponent threat (the real reason most mistakes hurt) ===
+    elif opp_threat:
+        if opp_threat["is_free"]:
+            wrong_msg = f"After {user_move}, I can play {opp_threat['move_san']} winning your {opp_threat['captured']}"
+        else:
+            wrong_msg = f"After {user_move}, I can play {opp_threat['move_san']} winning material"
+        rule = "Before your move, check every capture I can make."
 
     # === PRIORITY 2: OPENING PRINCIPLES ===
     elif is_opening:

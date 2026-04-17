@@ -162,7 +162,7 @@ USER_FEEDBACK = {
     ],
 
     "mistake_calculation": [
-        {"narrative": "Not bad, but there was something better. You stopped thinking one move too early.", "question": "What did you miss about my reply?", "hint": "Think one move deeper — what can I do now?", "plan": "Try to see your opponent's best answer before you commit."},
+        {"narrative": "{best_move} was stronger here.", "question": "What did I have in reply to your move?", "hint": "Before committing, ask: what's my opponent's best answer?", "plan": "Check your opponent's replies before deciding."},
     ],
 
     "mistake_check_opponent": [

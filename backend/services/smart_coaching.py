@@ -707,6 +707,7 @@ async def generate_smart_user_feedback(
                 piece=hanging_piece_name or "piece",
                 square=hanging_square_name or "?",
                 move=move_san,
+                best_move=best_move_san or "the engine's choice",
                 threat=opponent_threat_text,
                 threat_piece=threat_piece or "piece",
                 threat_square=threat_square or "?",
