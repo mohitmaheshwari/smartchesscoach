@@ -2418,8 +2418,9 @@ async def get_interactive_coaching(
                     callback = thread.get_callback(move_num, behavior_key)
 
                     if callback:
-                        # Prepend the callback to the narrative
-                        coaching_dict["narrative"] = f"{callback} {coaching_dict.get('narrative', '')}"
+                        # Store callback as SEPARATE field — do not mix with narrative.
+                        # The main coaching narrative stays focused on the actual move.
+                        # The frontend can show the callback as a preamble or badge.
                         coaching_dict["conversation_callback"] = callback
 
                     # Record this coaching moment
@@ -5662,22 +5663,14 @@ async def make_coach_play_move(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _classify_move(eval_before: float, eval_after: float, user_color: str) -> str:
-    """Classify a move as blunder, mistake, inaccuracy, or good based on centipawn loss."""
-    # Calculate centipawn loss from user's perspective
-    if user_color == "white":
-        cp_loss = (eval_before - eval_after) * 100  # Positive means user lost eval
-    else:
-        cp_loss = (eval_after - eval_before) * 100  # For black, eval going down is good
-    
-    if cp_loss >= 300:
-        return "blunder"
-    elif cp_loss >= 100:
-        return "mistake"
-    elif cp_loss >= 50:
-        return "inaccuracy"
-    else:
-        return "good"
+def _classify_move(eval_before: float, eval_after: float, user_color: str, user_rating: int = 1200) -> str:
+    """
+    Classify a move as blunder, mistake, inaccuracy, or good.
+    Uses the SAME rating-aware thresholds as realtime_coaching_feedback._classify_move_quality
+    so the quality doesn't change between the initial evaluation and the coaching message.
+    """
+    from services.realtime_coaching_feedback import _classify_move_quality
+    return _classify_move_quality(eval_before, eval_after, user_color, user_rating)
 
 
 async def _promote_session_to_game(db, session_id: str, user_id: str):
@@ -5987,7 +5980,8 @@ async def _process_move_and_respond(
                 move_history[i]["evaluation"] = _classify_move(
                     analysis.get("eval_before", 0),
                     analysis.get("eval_after", 0),
-                    user_color
+                    user_color,
+                    user_rating=session_doc.get("user_rating", 1200),
                 )
                 break
 
