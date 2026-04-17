@@ -896,7 +896,7 @@ const CoachPlaySidebar = ({
                   </div>
                 )}
 
-                {/* Trap Warning */}
+                {/* Trap Warning with Teach me / I understand buttons */}
                 {interactiveCoaching.coachMoveCoaching.trap_warning && (
                   <div className="rounded-lg bg-red-50 border-2 border-red-300 px-3 py-2 mt-1">
                     <p className="text-[10px] uppercase tracking-widest font-bold text-red-600 mb-1">
@@ -909,6 +909,61 @@ const CoachPlaySidebar = ({
                       <p className="text-xs text-red-700 font-medium mt-1">
                         {interactiveCoaching.coachMoveCoaching.trap_warning.question}
                       </p>
+                    )}
+                    {interactiveCoaching.coachMoveCoaching.trap_warning.offers_teaching && (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={async () => {
+                            const trapId = interactiveCoaching.coachMoveCoaching.trap_warning.trap_id;
+                            try {
+                              await fetch(`${API}/coach/play/teaching/start`, {
+                                method: "POST",
+                                credentials: "include",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  session_id: session?.session_id,
+                                  lesson_type: "learn_trap",
+                                  trap_key: trapId,
+                                }),
+                              });
+                              // Frontend trap state will refresh on next poll
+                            } catch (e) {
+                              console.error("Failed to start trap lesson:", e);
+                            }
+                          }}
+                          className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-red-600 text-white hover:bg-red-700 transition"
+                        >
+                          Teach me
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const trapId = interactiveCoaching.coachMoveCoaching.trap_warning.trap_id;
+                            try {
+                              await fetch(`${API}/coach/play/trap/dismiss`, {
+                                method: "POST",
+                                credentials: "include",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  session_id: session?.session_id,
+                                  trap_id: trapId,
+                                }),
+                              });
+                              // Hide the warning locally
+                              if (interactiveCoaching?.setCoachMoveCoaching) {
+                                interactiveCoaching.setCoachMoveCoaching({
+                                  ...interactiveCoaching.coachMoveCoaching,
+                                  trap_warning: null,
+                                });
+                              }
+                            } catch (e) {
+                              console.error("Failed to dismiss trap:", e);
+                            }
+                          }}
+                          className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-zinc-200 text-zinc-800 hover:bg-zinc-300 transition"
+                        >
+                          I understand
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
