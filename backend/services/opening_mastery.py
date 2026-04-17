@@ -1082,7 +1082,29 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
         if times_applied > 0 and correct_applications == 0:
             priority_score += 35
             suggestion_reason = "You've tried this but it hasn't worked out - let's fix that"
-        
+
+        # === NEW: Weakness signals from real games (the big adaptive signal) ===
+        # Low accuracy = student can't handle the opening well
+        if real_games >= 3 and real_accuracy > 0 and real_accuracy < 65:
+            weakness_boost = int((65 - real_accuracy) * 0.8)  # up to +32 for 25% accuracy
+            priority_score += weakness_boost
+            if not suggestion_reason or "struggling" not in suggestion_reason.lower():
+                suggestion_reason = f"Your accuracy is {int(real_accuracy)}% — let's work on it"
+
+        # Low win rate AND multiple games = needs focused training
+        if real_games >= 5 and real_win_rate < 40:
+            priority_score += 40  # Strong signal — they keep losing with this
+            if "low" not in suggestion_reason.lower():
+                suggestion_reason = f"You lose {100 - int(real_win_rate)}% of games here. Let's fix it."
+
+        # === NEW: Exposure penalty (don't over-repeat the same opening) ===
+        # If they've played this opening > 10 times AND doing fine, lower priority
+        if real_games > 10 and real_win_rate >= 50:
+            priority_score -= 20  # You've seen it enough, doing OK
+        # === NEW: Exploration bonus (truly unseen = highest novelty) ===
+        if real_games == 0 and mastery == "unknown":
+            priority_score += 15  # Extra nudge to try something new
+
         suitable_openings.append({
             "key": key,
             "opening": opening,
@@ -1098,20 +1120,56 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
         })
     
     # ============================================
-    # STEP 5: Select the best opening
+    # STEP 5: Select the best opening — 70/20/10 rule
     # ============================================
-    
+
     if not suitable_openings:
         logger.warning(f"No suitable openings for {user_color} at rating {user_rating}")
         return None
-    
+
     # Sort by priority score (highest first)
     suitable_openings.sort(key=lambda x: x["priority_score"], reverse=True)
-    
-    # Select the top priority opening
-    selected = suitable_openings[0]
-    
-    # If top choice was recently taught and there are alternatives, pick the next best
+
+    # === FORCED REPETITION MODE ===
+    # If top opening has real_games >= 3 AND win_rate < 35% AND was played recently,
+    # keep playing it until student improves. No escape from weakness.
+    top = suitable_openings[0]
+    if (top.get("real_games", 0) >= 3
+            and top.get("real_win_rate", 100) < 35
+            and top["key"] in recently_taught[:2]):
+        logger.info(f"[OPENING-70-20-10] FORCED REPETITION: {top['opening'].name} "
+                    f"(win_rate={top['real_win_rate']}%, recently_taught)")
+        selected = top
+    else:
+        # === 70/20/10 DECISION ===
+        # 70%: pick from weakness-driven (top scores by priority)
+        # 20%: pick from unseen (mastery=unknown)
+        # 10%: random variety (any suitable)
+        import random as _random
+
+        weakness_bucket = [o for o in suitable_openings if o["priority_score"] > 0][:5]
+        unseen_bucket = [o for o in suitable_openings if o.get("mastery") == "unknown"][:5]
+        variety_bucket = suitable_openings[:10]  # Top 10 by score
+
+        roll = _random.random()
+        if roll < 0.7 and weakness_bucket:
+            selected = weakness_bucket[0]
+            bucket_picked = "weakness"
+        elif roll < 0.9 and unseen_bucket:
+            # Pick a random unseen opening (exploration)
+            selected = _random.choice(unseen_bucket)
+            bucket_picked = "unseen"
+        elif variety_bucket:
+            selected = _random.choice(variety_bucket)
+            bucket_picked = "variety"
+        else:
+            selected = suitable_openings[0]
+            bucket_picked = "fallback"
+
+        logger.info(f"[OPENING-70-20-10] Picked {selected['opening'].name} "
+                    f"from {bucket_picked} bucket (score={selected['priority_score']})")
+
+    # If selected was recently taught AND has real alternatives, try next
     if selected["priority_score"] < 0 and len(suitable_openings) > 1:
         for candidate in suitable_openings[1:]:
             if candidate["priority_score"] >= 0:
