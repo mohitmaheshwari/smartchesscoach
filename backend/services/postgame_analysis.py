@@ -270,6 +270,17 @@ async def analyze_postgame(
     except Exception:
         pass
 
+    # Detect what opening was played (for trap/opening prescription)
+    opening_played_key = None
+    try:
+        from services.opening_mastery import detect_opening_from_moves
+        moves_list = [m.get("move", "") for m in move_history if m.get("move")]
+        opening_info = detect_opening_from_moves(moves_list[:10])
+        if opening_info:
+            opening_played_key = opening_info.get("opening_key")
+    except Exception:
+        pass
+
     coach_prescription, prescription_type, prescription_reason = _pick_prescription(
         mistakes=mistakes,
         habit_violations=habit_violations,
@@ -278,6 +289,9 @@ async def analyze_postgame(
         endgame_lesson_needed=endgame_lesson_needed,
         user_rating=user_rating,
         current_focus=current_focus,
+        phase_analysis=phase_analysis,
+        opening_to_learn=opening_to_learn,
+        opening_played=opening_played_key,
     )
 
     analysis = PostGameAnalysis(
@@ -1064,6 +1078,9 @@ def _pick_prescription(
     endgame_lesson_needed: Optional[str],
     user_rating: int,
     current_focus: Optional[str] = None,
+    phase_analysis: Optional[Dict] = None,
+    opening_to_learn: Optional[str] = None,
+    opening_played: Optional[str] = None,
 ) -> tuple:
     """
     The curriculum brain. Looks at everything that happened in one game
@@ -1071,10 +1088,11 @@ def _pick_prescription(
 
     Priority order (what a human coach would do):
     1. Failed endgame conversion → prescribe the endgame lesson
-    2. Hanging pieces (most common, most costly for beginners)
-    3. Missed fork/pin/skewer (tactical pattern)
-    4. King safety error
-    5. Positional drift (least urgent)
+    2. Opening disaster (lost in the opening) → prescribe opening lesson or trap
+    3. Hanging pieces (most common, most costly for beginners)
+    4. Missed fork/pin/skewer (tactical pattern)
+    5. King safety error
+    6. Positional drift (least urgent)
 
     Graduation: if the student had a current_focus and this game was clean
     for that focus (no violations of that pattern), keep the focus so the
@@ -1095,6 +1113,48 @@ def _pick_prescription(
             "endgame_lesson",
             f"You reached a {endgame_type} endgame but couldn't convert. Let's practice this technique."
         )
+
+    # === 1.5. Opening disaster → prescribe opening lesson or trap ===
+    # If the student lost and the opening phase was bad, teach the opening.
+    # Check if there's a relevant trap they should know.
+    if game_result == "loss" and phase_analysis:
+        opening_phase = phase_analysis.get("opening", {})
+        opening_blunders = opening_phase.get("blunders", 0)
+        opening_mistakes = opening_phase.get("mistakes", 0)
+        opening_verdict = (opening_phase.get("verdict") or "").lower()
+
+        # If 2+ blunders in opening or verdict says it was bad
+        if opening_blunders >= 2 or "poor" in opening_verdict or "bad" in opening_verdict:
+            # Check if there's a trap for this opening they should learn
+            if opening_played:
+                try:
+                    from services.trap_library import TRAP_LIBRARY
+                    # Normalize opening key (e.g., "italian_game" -> "italian-game")
+                    trap_key = opening_played.lower().replace("_", "-").replace(" ", "-")
+                    traps = TRAP_LIBRARY.get(trap_key, [])
+                    if traps:
+                        trap_name = traps[0]["name"]
+                        return (
+                            f"trap:{trap_key}:{trap_name.lower().replace(' ', '_')}",
+                            "trap_lesson",
+                            f"You lost in the opening. Learn the {trap_name} — it's a common pattern in the {opening_played.replace('_', ' ').replace('-', ' ').title()}."
+                        )
+                except Exception:
+                    pass
+
+            # No trap available — prescribe the opening itself
+            if opening_to_learn:
+                return (
+                    f"opening:{opening_played or 'general'}",
+                    "opening_lesson",
+                    opening_to_learn,
+                )
+            elif opening_played:
+                return (
+                    f"opening:{opening_played}",
+                    "opening_lesson",
+                    f"You struggled in the {opening_played.replace('_', ' ').replace('-', ' ').title()} opening. Let's study the key ideas."
+                )
 
     # === 2. Count mistake types and find the costliest ===
     # Map MistakeType enum values to prescription keys

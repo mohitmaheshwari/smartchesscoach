@@ -262,6 +262,8 @@ def generate_active_advice(
             "endgame_lesson": "calculation",
             "pattern_drill": "pattern_recognition",
             "habit": "threat_detection",
+            "trap_lesson": "pattern_recognition",
+            "opening_lesson": "positional",
         }
         drill_type = drill_map.get(ptype, "pattern_recognition")
 
@@ -269,6 +271,19 @@ def generate_active_advice(
         if ptype == "endgame_lesson":
             primary = f"Coach's focus: Learn the {focus_label} technique."
             action = {"type": "endgame_lesson", "lesson_key": focus, "label": f"Practice {focus_label}"}
+        elif ptype == "trap_lesson":
+            # focus format: "trap:italian-game:fried_liver_attack"
+            parts = focus.split(":", 2)
+            opening_key = parts[1] if len(parts) > 1 else ""
+            trap_name = (parts[2] if len(parts) > 2 else focus).replace("_", " ").title()
+            primary = reason if reason else f"Coach's focus: Learn the {trap_name} trap."
+            action = {"type": "trap_lesson", "opening_key": opening_key, "trap_name": trap_name, "label": f"Learn {trap_name}"}
+        elif ptype == "opening_lesson":
+            # focus format: "opening:italian_game"
+            opening_key = focus.replace("opening:", "")
+            opening_name = opening_key.replace("_", " ").replace("-", " ").title()
+            primary = reason if reason else f"Coach's focus: Study the {opening_name}."
+            action = {"type": "opening_lesson", "opening_key": opening_key, "label": f"Study {opening_name}"}
         elif focus in ("hanging_piece", "missed_fork", "missed_pin", "missed_skewer"):
             pattern_key = focus.replace("missed_", "")
             primary = f"Coach's focus: {focus_label}. {reason}" if reason else f"Coach's focus: Stop {focus_label.lower()} mistakes."
@@ -371,10 +386,40 @@ async def _get_training_recommendation(db, user_id: str, recurring_patterns: lis
     return None
 
 
+async def _get_learning_progress(db, user_id: str) -> Dict:
+    """
+    Get what the student has learned — openings, traps, endgames, concepts.
+    Shown on home page as "Things you've learned with your coach."
+    """
+    try:
+        from services.coach_memory import get_or_create_memory
+        memory = await get_or_create_memory(db, user_id)
+        learning = memory.learning
+
+        items = []
+        for opening in learning.openings_learned:
+            items.append({"type": "opening", "name": opening.replace("_", " ").replace("-", " ").title(), "key": opening})
+        for trap in learning.traps_learned:
+            items.append({"type": "trap", "name": trap.replace("_", " ").title(), "key": trap})
+        for endgame in learning.endgames_learned:
+            items.append({"type": "endgame", "name": endgame.replace("_", " ").title(), "key": endgame})
+        for concept in learning.concepts_mastered:
+            items.append({"type": "concept", "name": concept.replace("_", " ").title(), "key": concept})
+
+        return {
+            "items": items,
+            "total": len(items),
+            "current_focus": learning.current_focus,
+            "suggested_next": learning.suggested_next,
+        }
+    except Exception:
+        return {"items": [], "total": 0, "current_focus": None, "suggested_next": []}
+
+
 async def get_home_intelligence(db, user_id: str) -> Dict:
     """
     Generate the complete home intelligence data for a user.
-    
+
     Returns:
     {
         "has_data": bool,
@@ -668,6 +713,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         "win_streak": win_streak_data,
         "mood_override": mood_override,
         "coach_prescription": coach_prescription_data,
+        "learning_progress": await _get_learning_progress(db, user_id),
         "training_recommendation": await _get_training_recommendation(db, user_id, recurring_patterns),
         "stats": {
             "blunders_per_game": round(blunders_per_game, 2),
