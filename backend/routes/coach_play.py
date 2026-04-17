@@ -1531,6 +1531,58 @@ async def confirm_risky_move(
 # OPENING TEACHING ENDPOINTS
 # ========================================
 
+@router.post("/trap/dismiss")
+async def dismiss_trap_warning(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    User clicked 'I understand' on a trap warning — mark it as known.
+    Stores the trap in coach_memory so we don't warn about this trap again
+    for this user, and returns to the game.
+
+    Body:
+    - session_id: Current game session
+    - trap_id: ID of the trap being dismissed
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    session_id = request.get("session_id")
+    trap_id = request.get("trap_id")
+    if not session_id or not trap_id:
+        raise HTTPException(status_code=400, detail="session_id and trap_id required")
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    # Mark trap as known in coach memory
+    try:
+        from services.coach_memory import get_or_create_memory
+        memory = await get_or_create_memory(db, user.user_id)
+        if trap_id not in memory.learning.traps_learned:
+            memory.learning.traps_learned.append(trap_id)
+            await db.coach_memory.update_one(
+                {"user_id": user.user_id},
+                {"$set": {"learning.traps_learned": memory.learning.traps_learned}},
+            )
+        logger.info(f"[TRAP] User {user.user_id} dismissed trap {trap_id} (marked as known)")
+    except Exception as e:
+        logger.warning(f"Failed to record trap dismissal: {e}")
+
+    # Clear the trap warning from session
+    await db.coach_sessions.update_one(
+        {"session_id": session_id},
+        {"$set": {"trap_warning_dismissed": trap_id}},
+    )
+
+    return {"success": True, "message": "Noted. You know this one."}
+
+
 @router.post("/teaching/start")
 async def start_teaching(
     request: Dict = Body(...),
@@ -1538,7 +1590,7 @@ async def start_teaching(
 ):
     """
     Start an interactive lesson during the game.
-    
+
     Body:
     - session_id: Current game session
     - lesson_type: "learn_trap" | "learn_main_line" | "trap" | "endgame"
@@ -2674,11 +2726,27 @@ async def get_interactive_coaching(
                     applicable = get_applicable_traps_for_moves(detected_opening, all_moves_san)
                     if applicable:
                         trap = applicable[0]
+                        trap_id = getattr(trap, 'trap_id', trap.name.lower().replace(' ', '_'))
+
+                        # Skip if user already dismissed this trap or already learned it
+                        user_knows_trap = False
+                        try:
+                            from services.coach_memory import get_or_create_memory
+                            memory = await get_or_create_memory(db, session_doc.get("user_id"))
+                            if trap_id in memory.learning.traps_learned:
+                                user_knows_trap = True
+                        except Exception:
+                            pass
+
+                        if user_knows_trap:
+                            logger.info(f"[TRAP] Skipping {trap.name} — user already knows it")
+                            applicable = []
+
                         # Check if student is about to play the trap move
-                        trap_setup_len = len(trap.setup_moves)
+                        trap_setup_len = len(trap.setup_moves) if applicable else 0
                         moves_played = len(all_moves_san)
 
-                        if moves_played < trap_setup_len:
+                        if applicable and moves_played < trap_setup_len:
                             # We're approaching the trap — hint
                             trap_text = get_coach_move_text(
                                 "trap_hint",
@@ -2693,7 +2761,13 @@ async def get_interactive_coaching(
                                 coach_explanation["trap_warning"] = {
                                     "name": trap.name,
                                     "hint": trap_text.get("explanation", ""),
-                                    "question": trap_text.get("question", ""),
+                                    "question": "Do you want to learn it?",
+                                    "offers_teaching": True,
+                                    "trap_id": getattr(trap, 'trap_id', trap.name.lower().replace(' ', '_')),
+                                    "actions": [
+                                        {"label": "Teach me", "action": "learn_trap", "trap_id": getattr(trap, 'trap_id', trap.name.lower().replace(' ', '_'))},
+                                        {"label": "I understand", "action": "dismiss_trap", "trap_id": getattr(trap, 'trap_id', trap.name.lower().replace(' ', '_'))},
+                                    ],
                                 }
                                 logger.info(f"[TRAP] Approaching: {trap.name}")
                         elif moves_played == trap_setup_len:
