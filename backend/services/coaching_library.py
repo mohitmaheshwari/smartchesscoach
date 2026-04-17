@@ -263,8 +263,9 @@ def match_coach_scenario(
     Map v2 intent + context to a library scenario key.
     Returns the key or None if no match.
     """
-    # Opening phase
-    if phase == "opening" or opening_detected:
+    # Opening phase — only use opening templates when actually IN the opening,
+    # not just because an opening was detected at the start of the game.
+    if phase == "opening":
         if move_type == "castle":
             return "opening_castle"
         if piece == "knight":
