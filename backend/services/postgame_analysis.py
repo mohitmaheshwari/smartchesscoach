@@ -65,6 +65,7 @@ class MistakeAnalysis:
     better_move: Optional[str] = None
     evaluation_change: float = 0.0
     fen_before: str = ""
+    tactical_pattern: Optional[str] = None  # From mistake_classifier: "hanging_piece", "missed_fork", etc.
 
 
 @dataclass
@@ -790,7 +791,35 @@ async def _analyze_mistakes(
             explanation = f"Small inaccuracy - lost {abs(eval_change):.1f} pawns."
         else:
             continue
-        
+
+        # === TACTICAL PATTERN DETECTION ===
+        # Use mistake_classifier for precise pattern identification.
+        # This turns "Lost 3.0 pawns" into "Hung the knight on e5"
+        # or "Missed a fork with Nxf7".
+        tactical_pattern = None
+        try:
+            from mistake_classifier import classify_mistake as mc_classify
+            fen_before = move.get("fen_before", "")
+            fen_after = move.get("fen_after", "")
+            if fen_before and fen_after:
+                classified = mc_classify(
+                    fen_before=fen_before,
+                    fen_after=fen_after,
+                    move_played=move_san,
+                    best_move=best_move or "",
+                    eval_before=eval_before * 100,  # classify_mistake expects centipawns
+                    eval_after=eval_after * 100,
+                    user_color=user_color,
+                    move_number=player_move_count,
+                )
+                tactical_pattern = classified.mistake_type.value
+                # Enrich the explanation with the pattern details
+                pattern_reason = classified.pattern_details.get("reason")
+                if pattern_reason and tactical_pattern not in ("positional_drift", "good_move", "excellent_move"):
+                    explanation = pattern_reason
+        except Exception:
+            pass  # Fall back to eval-only classification
+
         mistakes.append(MistakeAnalysis(
             move_number=player_move_count,
             move_played=move_san,
@@ -799,7 +828,8 @@ async def _analyze_mistakes(
             explanation=explanation,
             better_move=best_move,
             evaluation_change=eval_change,
-            fen_before=move.get("fen_before", "")
+            fen_before=move.get("fen_before", ""),
+            tactical_pattern=tactical_pattern,
         ))
     
     return mistakes
@@ -1183,13 +1213,12 @@ def _pick_prescription(
         cp_loss = abs(getattr(m, 'evaluation_change', 0) or 0)
         mtype = None
 
-        # 1. Try the structured mistake_type field first (most reliable)
-        mt = getattr(m, 'mistake_type', None)
-        if mt:
-            mt_value = mt.value if hasattr(mt, 'value') else str(mt)
-            mtype = MISTAKE_TYPE_MAP.get(mt_value)
+        # 1. Use tactical_pattern from mistake_classifier (most reliable — deterministic)
+        tp = getattr(m, 'tactical_pattern', None)
+        if tp:
+            mtype = MISTAKE_TYPE_MAP.get(tp)
 
-        # 2. Fall back to explanation text if no structured type
+        # 2. Fall back to explanation text keywords
         if not mtype:
             explanation = (getattr(m, 'explanation', '') or '').lower()
             if 'hang' in explanation or 'undefended' in explanation:
