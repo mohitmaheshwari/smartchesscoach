@@ -336,6 +336,17 @@ def _generate_coaching_message(
         ])
         return result
 
+    # ========== BOOK MOVES (opening theory — don't praise) ==========
+    if quality == "book":
+        book_phrases = [
+            f"{user_move}. Theory.",
+            f"{user_move} — standard opening move.",
+            f"{user_move}. Following the opening principles.",
+        ]
+        result["coaching_message"] = random.choice(book_phrases)
+        result["user_move_quality"] = "book"
+        return result
+
     # ========== EXCELLENT MOVES ==========
     if quality == "excellent":
         base = random.choice([
@@ -537,6 +548,16 @@ async def generate_move_feedback(
     # Classify quality using rating-aware thresholds
     user_rating = session.get("user_rating", 1200)
     quality = _classify_move_quality(eval_before, eval_after, user_color, user_rating)
+
+    # === OPENING BOOK CHECK ===
+    # In the first ~10 moves, if eval barely changed, this is likely a book move.
+    # Don't praise book moves — the coach should save energy for real moments.
+    # "book" quality suppresses coaching message (handled in _generate_coaching_message).
+    total_moves = len(move_history)
+    if total_moves <= 20 and quality in ("good", "excellent"):  # 20 half-moves = ~10 moves per side
+        cp_change = abs(eval_after - eval_before) * 100
+        if cp_change < 30:  # Less than 0.3 pawn swing = standard theory
+            quality = "book"
     
     # ===== CHESS BRAIN INTEGRATION =====
     # Try to get deterministic coaching from Chess Brain
