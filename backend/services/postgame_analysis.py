@@ -1097,30 +1097,54 @@ def _pick_prescription(
         )
 
     # === 2. Count mistake types and find the costliest ===
+    # Map MistakeType enum values to prescription keys
+    MISTAKE_TYPE_MAP = {
+        "hanging_piece": "hanging_piece",
+        "material_blunder": "hanging_piece",
+        "missed_fork": "missed_fork",
+        "missed_pin": "missed_pin",
+        "missed_skewer": "missed_skewer",
+        "missed_discovered_attack": "missed_discovery",
+        "missed_overloaded_defender": "missed_overload",
+        "walked_into_fork": "missed_fork",  # Walked into = needs to learn this pattern
+        "walked_into_pin": "missed_pin",
+        "walked_into_skewer": "missed_skewer",
+        "king_safety_error": "king_safety",
+        "ignored_threat": "hanging_piece",
+        "missed_winning_tactic": "tactical_error",
+        "blunder_when_ahead": "tactical_error",
+        "failed_conversion": "tactical_error",
+    }
+
     mistake_counts = {}
     total_cp_by_type = {}
     for m in mistakes:
-        if not hasattr(m, 'mistake_type') or not hasattr(m, 'severity'):
-            continue
-        # Map MistakeAnalysis to classifier type names
-        # The mistake_type field varies — normalize
-        mtype = None
         severity = getattr(m, 'severity', '') or ''
         cp_loss = abs(getattr(m, 'evaluation_change', 0) or 0)
+        mtype = None
 
-        # Check explanation/type for pattern keywords
-        explanation = (getattr(m, 'explanation', '') or '').lower()
-        if 'hang' in explanation or 'undefended' in explanation:
-            mtype = 'hanging_piece'
-        elif 'fork' in explanation:
-            mtype = 'missed_fork'
-        elif 'pin' in explanation:
-            mtype = 'missed_pin'
-        elif 'skewer' in explanation:
-            mtype = 'missed_skewer'
-        elif 'king' in explanation and 'safe' in explanation:
-            mtype = 'king_safety'
-        elif severity in ('blunder', 'mistake'):
+        # 1. Try the structured mistake_type field first (most reliable)
+        mt = getattr(m, 'mistake_type', None)
+        if mt:
+            mt_value = mt.value if hasattr(mt, 'value') else str(mt)
+            mtype = MISTAKE_TYPE_MAP.get(mt_value)
+
+        # 2. Fall back to explanation text if no structured type
+        if not mtype:
+            explanation = (getattr(m, 'explanation', '') or '').lower()
+            if 'hang' in explanation or 'undefended' in explanation:
+                mtype = 'hanging_piece'
+            elif 'fork' in explanation:
+                mtype = 'missed_fork'
+            elif 'pin' in explanation:
+                mtype = 'missed_pin'
+            elif 'skewer' in explanation:
+                mtype = 'missed_skewer'
+            elif 'king' in explanation and 'safe' in explanation:
+                mtype = 'king_safety'
+
+        # 3. Last resort: severity-based
+        if not mtype and severity in ('blunder', 'mistake'):
             mtype = 'tactical_error'
 
         if mtype:
