@@ -49,11 +49,12 @@ class TeachingMoveSelectorV2:
         self.user_rating = user_rating
         self.engine = None
 
-        # Coach plays like a strong club player (~2000 Elo).
-        # Not full engine strength (too inhuman for beginners to learn from)
-        # but strong enough to always play good, principled chess.
-        # Teaching comes from WHICH good move we pick, not from playing weak.
-        self.skill_level = 15
+        # Coach plays ~300 Elo above the student. Strong enough to
+        # win if student doesn't exploit opportunities, weak enough that
+        # exploiting works. A 900 student gets a ~1200 coach, not a 2000.
+        from coach_play.coach_opponent import rating_to_skill_level
+        coach_rating = min(user_rating + 300, 2200)
+        self.skill_level = rating_to_skill_level(coach_rating)
 
     def _get_engine(self) -> chess.engine.SimpleEngine:
         if self.engine is None:

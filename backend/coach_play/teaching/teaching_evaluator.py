@@ -115,6 +115,17 @@ def score_candidate(
         rank_penalty = 0.80 if candidate.eval_rank <= 6 else 0.65
         final *= rank_penalty
 
+    # 8. Hanging piece handling:
+    # - If intent IS hanging_piece_punishment and move hangs a piece: BOOST
+    #   (the whole point — coach deliberately leaves a piece for student to take)
+    # - If intent is NOT hanging_piece_punishment and move hangs a piece: KILL
+    #   (coach shouldn't randomly blunder while trying to teach pins)
+    if candidate.hangs_piece:
+        if intent == TeachingIntent.HANGING_PIECE_PUNISHMENT:
+            final *= 1.5  # Boost — this is exactly what we want
+        else:
+            final *= 0.0  # Kill — never play a blunder for the wrong reason
+
     return IntentScore(
         intent=intent,
         raw_score=raw_score,

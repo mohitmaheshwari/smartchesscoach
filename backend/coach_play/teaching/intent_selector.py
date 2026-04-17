@@ -134,39 +134,95 @@ DEFAULT_INTENT_ORDER = [
 ]
 
 
+# Intents available at each rating tier. A 900 shouldn't see skewers.
+# Order within each tier = rough teaching progression.
+INTENTS_BY_RATING = {
+    # Under 1000: basics only — hanging pieces, simple forks, basic threats
+    1000: {
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.THREAT_AWARENESS,
+    },
+    # 1000-1200: add absolute pins
+    1200: {
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.PIN_EXPLOITATION,
+    },
+    # 1200-1500: add skewers and overloaded pieces
+    1500: {
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.OVERLOADED_PIECE,
+    },
+    # 1500+: full range including discovered attacks
+    9999: {
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.DISCOVERED_ATTACK,
+        TeachingIntent.OVERLOADED_PIECE,
+    },
+}
+
+
+def _get_allowed_intents(user_rating: int) -> set:
+    """Get the set of intents appropriate for this rating."""
+    for threshold in sorted(INTENTS_BY_RATING.keys()):
+        if user_rating < threshold:
+            return INTENTS_BY_RATING[threshold]
+    return INTENTS_BY_RATING[9999]
+
+
 def rank_intents(
     teaching_focus: Optional[str] = None,
     student_weaknesses: Optional[List[str]] = None,
     last_game_violations: Optional[List[str]] = None,
+    user_rating: int = 1200,
 ) -> List[TeachingIntent]:
     """
     Rank intents by student need. Returns ordered list, best first.
+
+    Filters by rating — a 900 player only sees hanging pieces, forks,
+    and basic threats. Pins, skewers, discoveries are added as they
+    progress.
 
     Args:
         teaching_focus: Session-level focus string (e.g. "tactics", "prophylaxis")
         student_weaknesses: Weakness clusters from focus_engine
         last_game_violations: Fundamental violations from previous game session
             (for learning loop — bias toward repeating these patterns)
+        user_rating: Student's rating — filters out complex patterns for beginners
 
     Returns:
         Ordered list of TeachingIntent, most relevant first
     """
-    # Start with an intent→score dict
+    allowed = _get_allowed_intents(user_rating)
+
+    # Start with an intent→score dict (only allowed intents)
     scores: Dict[TeachingIntent, float] = {
-        intent: 0.0 for intent in TeachingIntent
+        intent: 0.0 for intent in TeachingIntent if intent in allowed
     }
 
     # 1. Teaching focus (strongest signal — explicit user/system choice)
     if teaching_focus and teaching_focus in FOCUS_TO_INTENTS:
         for i, intent in enumerate(FOCUS_TO_INTENTS[teaching_focus]):
-            scores[intent] += 3.0 - i * 0.5  # 3.0, 2.5, 2.0
+            if intent in scores:
+                scores[intent] += 3.0 - i * 0.5  # 3.0, 2.5, 2.0
 
     # 2. Student weaknesses from focus_engine
     if student_weaknesses:
         for weakness in student_weaknesses:
             if weakness in WEAKNESS_TO_INTENTS:
                 for i, intent in enumerate(WEAKNESS_TO_INTENTS[weakness]):
-                    scores[intent] += 2.0 - i * 0.5
+                    if intent in scores:
+                        scores[intent] += 2.0 - i * 0.5
 
     # 3. Learning loop: bias toward last game's violations
     if last_game_violations:
@@ -182,13 +238,14 @@ def rank_intents(
         }
         for violation in last_game_violations:
             intent = violation_to_intent.get(violation)
-            if intent:
+            if intent and intent in scores:
                 scores[intent] += 1.5  # Meaningful but doesn't override explicit focus
 
-    # 4. If nothing scored, use defaults
+    # 4. If nothing scored, use defaults (filtered by rating)
     if all(v == 0.0 for v in scores.values()):
         for i, intent in enumerate(DEFAULT_INTENT_ORDER):
-            scores[intent] = 1.0 - i * 0.1
+            if intent in scores:
+                scores[intent] = 1.0 - i * 0.1
 
     # Sort by score descending
     ranked = sorted(scores.keys(), key=lambda k: scores[k], reverse=True)
@@ -224,7 +281,8 @@ def select_intent(
         - all_scores: IntentScore list for the selected intent
         - fallback_count: How many intents were tried before finding a feasible one
     """
-    ranked = rank_intents(teaching_focus, student_weaknesses, last_game_violations)
+    ranked = rank_intents(teaching_focus, student_weaknesses, last_game_violations,
+                          user_rating=user_rating)
 
     fallbacks = 0
     for intent in ranked:

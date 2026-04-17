@@ -30,6 +30,7 @@ class CandidateMove:
     eval_cp: int
     eval_rank: int  # 1 = best engine move
     pv: Optional[List[chess.Move]] = None
+    hangs_piece: bool = False  # True if this move leaves a coach piece hanging (teaching only)
 
 
 @dataclass

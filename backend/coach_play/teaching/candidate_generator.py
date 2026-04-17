@@ -86,8 +86,12 @@ def generate_candidates(
         if best_eval is None:
             best_eval = eval_cp
 
-        # Hard filter: never play a move that hangs a piece
-        if _hangs_piece(board, move):
+        # Hard filter: skip moves that hang pieces.
+        # In teaching_mode, we KEEP these moves (tagged) so the scorer can
+        # use them when the intent is HANGING_PIECE_PUNISHMENT — the coach
+        # deliberately leaves a piece hanging for the student to find.
+        hangs = _hangs_piece(board, move)
+        if hangs and not teaching_mode:
             continue
 
         # Soft filter: keep moves within max_eval_drop_cp of best
@@ -102,6 +106,7 @@ def generate_candidates(
             eval_cp=eval_cp,
             eval_rank=i + 1,
             pv=pv,
+            hangs_piece=hangs,
         ))
 
     return candidates
