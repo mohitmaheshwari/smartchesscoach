@@ -176,8 +176,8 @@ async def show_coach_plan(user_id: str):
     except Exception as e:
         print(f"  Could not compute decay: {e}")
 
-    # ========== 5. WHAT THE STUDENT HAS LEARNED ==========
-    _banner("THINGS LEARNED")
+    # ========== 5. WHAT THE STUDENT HAS LEARNED (by rule: 5/3/no-recent-fail) ==========
+    _banner("THINGS LEARNED (seen ≥ 5, correct ≥ 3, no recent failure)")
     if memory:
         learning = memory.get("learning", {})
         openings = learning.get("openings_learned", [])
@@ -194,7 +194,32 @@ async def show_coach_plan(user_id: str):
         if concepts:
             print(f"  Concepts:  {', '.join(concepts)}")
         if not (openings or traps or endgames or concepts):
-            print("  Nothing learned yet. Play some games and complete lessons.")
+            print("  Nothing learned yet (rule: 5 seen, 3 correct, no recent failure).")
+
+    # ========== 5b. SKILL PROGRESS — in-flight, not yet learned ==========
+    _banner("SKILLS IN PROGRESS (not yet learned)")
+    if memory:
+        skills = memory.get("learning", {}).get("skills", [])
+        if not skills:
+            print("  No skill tracking yet. New games will start populating this.")
+        else:
+            # Show skills that have been seen but not yet learned
+            in_progress = [s for s in skills if not s.get("learned_at")]
+            in_progress.sort(key=lambda s: s.get("seen", 0), reverse=True)
+            if not in_progress:
+                print("  All tracked skills are fully learned!")
+            else:
+                print(f"  {'Skill':<35} {'Type':<8} {'Seen':>5} {'Correct':>8} {'Wrong':>6}  {'Recent':<20}")
+                print(f"  {'-'*35} {'-'*8} {'-'*5} {'-'*8} {'-'*6}  {'-'*20}")
+                for s in in_progress[:15]:
+                    sid = (s.get("skill_id") or "?")[:35]
+                    st = (s.get("skill_type") or "?")[:8]
+                    seen = s.get("seen", 0)
+                    correct = s.get("correct", 0)
+                    wrong = s.get("wrong", 0)
+                    outcomes = s.get("outcomes", [])[-5:]
+                    recent = " ".join("✓" if o == "correct" else "✗" if o == "wrong" else "·" for o in outcomes)
+                    print(f"  {sid:<35} {st:<8} {seen:>5} {correct:>8} {wrong:>6}  {recent:<20}")
 
     # ========== 6. PRESCRIPTION HISTORY — last 10 games ==========
     _banner("RECENT GAME PRESCRIPTIONS (last 10)")

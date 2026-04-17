@@ -1560,17 +1560,23 @@ async def dismiss_trap_warning(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
-    # Mark trap as known in coach memory
+    # Record trap attempt in skill progress
+    # "I understand" = 1 correct; still requires full 5 seen / 3 correct before
+    # it's actually marked as learned. Student claims to know it — we trust
+    # but verify: if they fall for it later, the outcomes show "wrong" and
+    # it won't be in the learned list.
     try:
-        from services.coach_memory import get_or_create_memory
+        from services.coach_memory import (
+            get_or_create_memory, record_skill_attempt, _memory_to_doc
+        )
         memory = await get_or_create_memory(db, user.user_id)
-        if trap_id not in memory.learning.traps_learned:
-            memory.learning.traps_learned.append(trap_id)
-            await db.coach_memory.update_one(
-                {"user_id": user.user_id},
-                {"$set": {"learning.traps_learned": memory.learning.traps_learned}},
-            )
-        logger.info(f"[TRAP] User {user.user_id} dismissed trap {trap_id} (marked as known)")
+        record_skill_attempt(memory, trap_id, "trap", "correct")
+        await db.coach_memory.update_one(
+            {"user_id": user.user_id},
+            {"$set": _memory_to_doc(memory)},
+            upsert=True,
+        )
+        logger.info(f"[TRAP] User {user.user_id} dismissed {trap_id} — recorded as correct attempt")
     except Exception as e:
         logger.warning(f"Failed to record trap dismissal: {e}")
 

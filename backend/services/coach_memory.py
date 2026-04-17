@@ -49,6 +49,41 @@ class UserHabit:
 
 
 @dataclass
+class SkillProgress:
+    """
+    Track progress for a single skill (opening, trap, pattern, endgame, concept).
+
+    The "learned" rule: a skill is learned when
+      - seen >= 5 times
+      - correct >= 3 times
+      - no failure in the last 2 occurrences
+
+    Outcomes is a rolling list of the last 10 attempts: "correct", "wrong", "seen".
+    "seen" = encountered but no pass/fail signal (e.g., opening played casually).
+    """
+    skill_id: str                      # e.g., "italian_game", "fried_liver_attack"
+    skill_type: str                    # "opening", "trap", "pattern", "endgame", "concept"
+    seen: int = 0
+    correct: int = 0
+    wrong: int = 0
+    outcomes: List[str] = field(default_factory=list)  # Last 10: "correct"|"wrong"|"seen"
+    first_seen: Optional[str] = None
+    last_seen: Optional[str] = None
+    learned_at: Optional[str] = None   # When promoted to learned (if ever)
+
+    def is_learned(self) -> bool:
+        """Apply the 5/3/no-recent-fail rule."""
+        if self.seen < 5:
+            return False
+        if self.correct < 3:
+            return False
+        last_two = self.outcomes[-2:] if len(self.outcomes) >= 2 else self.outcomes
+        if "wrong" in last_two:
+            return False
+        return True
+
+
+@dataclass
 class LearningProgress:
     """Track what the user has learned"""
     openings_learned: List[str] = field(default_factory=list)
@@ -58,6 +93,8 @@ class LearningProgress:
     concepts_mastered: List[str] = field(default_factory=list)
     current_focus: Optional[str] = None
     suggested_next: List[str] = field(default_factory=list)
+    # Structured skill tracking — the real seen/correct counts per skill
+    skills: List[SkillProgress] = field(default_factory=list)
 
 
 @dataclass 
@@ -172,7 +209,15 @@ def _doc_to_memory(doc: Dict) -> CoachMemory:
     strengths = [
         UserHabit(**s) for s in doc.get("strengths", [])
     ]
-    learning = LearningProgress(**doc.get("learning", {}))
+    # Deserialize skills list separately (it's a list of dicts in MongoDB)
+    learning_doc = dict(doc.get("learning", {}) or {})
+    skills_raw = learning_doc.pop("skills", [])
+    # Filter to only fields LearningProgress knows about (forward-compat safety)
+    import dataclasses as _dc
+    valid_fields = {f.name for f in _dc.fields(LearningProgress)}
+    learning_doc = {k: v for k, v in learning_doc.items() if k in valid_fields}
+    learning = LearningProgress(**learning_doc)
+    learning.skills = [SkillProgress(**s) for s in skills_raw if isinstance(s, dict)]
     performance = PerformanceTrend(**doc.get("performance", {}))
     
     return CoachMemory(
@@ -264,9 +309,18 @@ async def update_memory_after_game(
     for habit_id in habits_improved:
         _update_weakness(memory, habit_id, now, violated=False)
     
-    # Track opening if played
-    if opening_played and opening_played not in memory.learning.openings_learned:
-        memory.learning.openings_learned.append(opening_played)
+    # Track opening skill progress
+    # "Correct" if game won or drew with decent accuracy; "wrong" if blundered hard;
+    # "seen" otherwise (just played it). Promotion to openings_learned happens
+    # automatically when 5 seen / 3 correct / no recent failure is met.
+    if opening_played:
+        if game_result == "win" and accuracy >= 70 and blunders == 0:
+            skill_outcome = "correct"
+        elif game_result == "loss" and blunders >= 2:
+            skill_outcome = "wrong"
+        else:
+            skill_outcome = "seen"
+        record_skill_attempt(memory, opening_played, "opening", skill_outcome, now)
     
     # Track loss phase for this opening (helps identify WHERE user struggles)
     if opening_played and game_result == "loss" and loss_phase:
@@ -315,6 +369,69 @@ async def update_memory_after_game(
     )
 
     return memory
+
+
+def record_skill_attempt(
+    memory: CoachMemory,
+    skill_id: str,
+    skill_type: str,
+    outcome: str,  # "correct", "wrong", or "seen"
+    timestamp: Optional[str] = None,
+) -> SkillProgress:
+    """
+    Record one attempt at a skill. Applies the learned rule:
+      seen >= 5, correct >= 3, no failure in last 2 outcomes.
+
+    When a skill crosses the threshold, it gets promoted to the appropriate
+    learned list (openings_learned / traps_learned / endgames_learned /
+    concepts_mastered) based on skill_type.
+    """
+    if outcome not in ("correct", "wrong", "seen"):
+        outcome = "seen"
+
+    if timestamp is None:
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+    # Find or create the skill
+    skill = next((s for s in memory.learning.skills
+                  if s.skill_id == skill_id and s.skill_type == skill_type), None)
+    if skill is None:
+        skill = SkillProgress(
+            skill_id=skill_id,
+            skill_type=skill_type,
+            first_seen=timestamp,
+        )
+        memory.learning.skills.append(skill)
+
+    # Record the attempt
+    skill.seen += 1
+    skill.last_seen = timestamp
+    if outcome == "correct":
+        skill.correct += 1
+    elif outcome == "wrong":
+        skill.wrong += 1
+    skill.outcomes.append(outcome)
+    # Keep only last 10 outcomes for the rule check
+    skill.outcomes = skill.outcomes[-10:]
+
+    # Promotion check — apply the 5/3/no-recent-fail rule
+    was_learned = skill.learned_at is not None
+    if skill.is_learned() and not was_learned:
+        skill.learned_at = timestamp
+        # Promote to the right learned list
+        target_list = {
+            "opening": memory.learning.openings_learned,
+            "trap": memory.learning.traps_learned,
+            "endgame": memory.learning.endgames_learned,
+            "concept": memory.learning.concepts_mastered,
+            "pattern": memory.learning.concepts_mastered,
+        }.get(skill_type)
+        if target_list is not None and skill_id not in target_list:
+            target_list.append(skill_id)
+            logger.info(f"[SKILL] {skill_id} ({skill_type}) LEARNED — "
+                       f"seen={skill.seen} correct={skill.correct}")
+
+    return skill
 
 
 def _update_weakness(memory: CoachMemory, habit_id: str, timestamp: str, violated: bool):
