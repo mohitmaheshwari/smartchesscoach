@@ -136,6 +136,15 @@ class PostGameAnalysis:
     coach_knows_you: bool = False
     opening_to_learn: Optional[str] = None
 
+    # Endgame detection
+    endgame_type: Optional[str] = None  # e.g., "king_rook", "king_pawn"
+    endgame_lesson_needed: Optional[str] = None  # e.g., "Rook Checkmate"
+
+    # Curriculum brain prescription — THE one thing to work on next
+    coach_prescription: Optional[str] = None  # e.g., "hanging_piece", "rook_checkmate"
+    prescription_type: Optional[str] = None  # "habit", "endgame_lesson", "pattern_drill"
+    prescription_reason: Optional[str] = None  # Why this was prescribed
+
 
 async def analyze_postgame(
     db,
@@ -225,6 +234,52 @@ async def analyze_postgame(
     )
     phase_analysis = _analyze_phases(move_history, evaluations, mistakes, user_color, session_doc)
 
+    # ========== STEP 8.6: ENDGAME TYPE DETECTION ==========
+    # If the game reached an endgame, detect the type so the curriculum brain
+    # can prescribe the right endgame lesson (e.g., "learn K+R mate")
+    endgame_type_detected = None
+    endgame_lesson_needed = None
+    try:
+        from services.endgame_teaching import detect_endgame_type, get_relevant_lesson
+        import chess as _chess
+
+        # Check the final position and positions in the last 20 moves
+        for m in reversed(move_history[-20:]):
+            fen = m.get("fen_after") or m.get("fen_before")
+            if fen:
+                board = _chess.Board(fen)
+                etype = detect_endgame_type(board)
+                if etype:
+                    endgame_type_detected = etype.value
+                    # Did the student fail to convert? (had winning endgame but didn't win)
+                    if game_result != "win":
+                        lesson = get_relevant_lesson(etype, board)
+                        if lesson:
+                            endgame_lesson_needed = lesson.name
+                    break
+    except Exception:
+        pass
+
+    # ========== STEP 8.7: CURRICULUM BRAIN — PICK ONE PRESCRIPTION ==========
+    # Get current focus from coach memory to check for graduation
+    current_focus = None
+    try:
+        from services.coach_memory import get_or_create_memory
+        memory = await get_or_create_memory(db, user_id)
+        current_focus = memory.learning.current_focus
+    except Exception:
+        pass
+
+    coach_prescription, prescription_type, prescription_reason = _pick_prescription(
+        mistakes=mistakes,
+        habit_violations=habit_violations,
+        game_result=game_result,
+        endgame_type=endgame_type_detected,
+        endgame_lesson_needed=endgame_lesson_needed,
+        user_rating=user_rating,
+        current_focus=current_focus,
+    )
+
     analysis = PostGameAnalysis(
         session_id=session_id,
         user_id=user_id,
@@ -247,6 +302,11 @@ async def analyze_postgame(
         coach_summary=summary,
         encouragement=encouragement,
         phase_analysis=phase_analysis,
+        endgame_type=endgame_type_detected,
+        endgame_lesson_needed=endgame_lesson_needed,
+        coach_prescription=coach_prescription,
+        prescription_type=prescription_type,
+        prescription_reason=prescription_reason,
     )
     
     # ========== STEP 9: SAVE ANALYSIS ==========
@@ -256,7 +316,9 @@ async def analyze_postgame(
     # This is critical - saves patterns for NEXT game's personalization
     await _update_coach_memory_after_game(
         db, user_id, game_result, accuracy, blunders, mistake_count,
-        habit_violations, habits_improved, move_history, perf_rating.estimated_rating
+        habit_violations, habits_improved, move_history, perf_rating.estimated_rating,
+        coach_prescription=coach_prescription,
+        prescription_type=prescription_type,
     )
     
     return analysis
@@ -994,6 +1056,151 @@ def _calculate_accuracy(mistakes: List[MistakeAnalysis], total_moves: int) -> fl
     return round(max(0, min(100, accuracy)), 1)
 
 
+def _pick_prescription(
+    mistakes: List[MistakeAnalysis],
+    habit_violations: List,
+    game_result: str,
+    endgame_type: Optional[str],
+    endgame_lesson_needed: Optional[str],
+    user_rating: int,
+    current_focus: Optional[str] = None,
+) -> tuple:
+    """
+    The curriculum brain. Looks at everything that happened in one game
+    and picks THE ONE THING the student should work on next.
+
+    Priority order (what a human coach would do):
+    1. Failed endgame conversion → prescribe the endgame lesson
+    2. Hanging pieces (most common, most costly for beginners)
+    3. Missed fork/pin/skewer (tactical pattern)
+    4. King safety error
+    5. Positional drift (least urgent)
+
+    Graduation: if the student had a current_focus and this game was clean
+    for that focus (no violations of that pattern), keep the focus so the
+    clean streak counter increments. After 3 clean games, the focus will
+    naturally shift when the pattern becomes FADING in the decay model.
+
+    Returns (prescription, type, reason) or (None, None, None) for clean games.
+    """
+    try:
+        from mistake_classifier import MistakeType
+    except ImportError:
+        return None, None, None
+
+    # === 1. Failed endgame conversion → prescribe endgame lesson ===
+    if endgame_lesson_needed and game_result != "win":
+        return (
+            endgame_lesson_needed.lower().replace(" ", "_"),
+            "endgame_lesson",
+            f"You reached a {endgame_type} endgame but couldn't convert. Let's practice this technique."
+        )
+
+    # === 2. Count mistake types and find the costliest ===
+    mistake_counts = {}
+    total_cp_by_type = {}
+    for m in mistakes:
+        if not hasattr(m, 'mistake_type') or not hasattr(m, 'severity'):
+            continue
+        # Map MistakeAnalysis to classifier type names
+        # The mistake_type field varies — normalize
+        mtype = None
+        severity = getattr(m, 'severity', '') or ''
+        cp_loss = abs(getattr(m, 'evaluation_change', 0) or 0)
+
+        # Check explanation/type for pattern keywords
+        explanation = (getattr(m, 'explanation', '') or '').lower()
+        if 'hang' in explanation or 'undefended' in explanation:
+            mtype = 'hanging_piece'
+        elif 'fork' in explanation:
+            mtype = 'missed_fork'
+        elif 'pin' in explanation:
+            mtype = 'missed_pin'
+        elif 'skewer' in explanation:
+            mtype = 'missed_skewer'
+        elif 'king' in explanation and 'safe' in explanation:
+            mtype = 'king_safety'
+        elif severity in ('blunder', 'mistake'):
+            mtype = 'tactical_error'
+
+        if mtype:
+            mistake_counts[mtype] = mistake_counts.get(mtype, 0) + 1
+            total_cp_by_type[mtype] = total_cp_by_type.get(mtype, 0) + cp_loss
+
+    # Also count from habit violations
+    for hv in habit_violations:
+        htype = getattr(hv, 'habit_type', None)
+        if htype:
+            htype_str = htype.value if hasattr(htype, 'value') else str(htype)
+            if 'hanging' in htype_str.lower() or 'piece_safety' in htype_str.lower():
+                mistake_counts['hanging_piece'] = mistake_counts.get('hanging_piece', 0) + 1
+            elif 'one_move' in htype_str.lower():
+                mistake_counts['tactical_error'] = mistake_counts.get('tactical_error', 0) + 1
+
+    if not mistake_counts:
+        # Clean game — no prescription needed
+        # But if student had a focus, keep it so clean streak grows
+        if current_focus:
+            return (
+                current_focus,
+                "pattern_drill",
+                "Clean game for this pattern! Keep it up."
+            )
+        return None, None, None
+
+    # === 3. Graduation check ===
+    # If the student has a current focus and this game was CLEAN for that focus,
+    # keep the same focus (the pattern_decay_service will graduate them when
+    # the pattern becomes FADING after enough clean games).
+    # But if the focus WAS violated this game, it stays ACTIVE — no graduation.
+    if current_focus and current_focus not in mistake_counts:
+        # Clean for current focus — keep it, don't switch topics
+        return (
+            current_focus,
+            "pattern_drill",
+            "You avoided this pattern! Keep practicing."
+        )
+
+    # === 4. Pick the most impactful mistake type ===
+    # Priority order for beginners (under 1200): hanging > forks > pins > king safety > general
+    # For higher ratings: whatever cost the most centipawns
+    priority_order = [
+        'hanging_piece', 'missed_fork', 'missed_pin', 'missed_skewer',
+        'king_safety', 'tactical_error',
+    ]
+
+    if user_rating < 1200:
+        # For beginners: follow priority order strictly
+        for mtype in priority_order:
+            if mistake_counts.get(mtype, 0) >= 1:
+                count = mistake_counts[mtype]
+                return (
+                    mtype,
+                    "pattern_drill",
+                    f"This happened {count} time{'s' if count > 1 else ''} this game. Let's work on it."
+                )
+    else:
+        # For higher-rated: pick by total centipawn loss
+        if total_cp_by_type:
+            worst = max(total_cp_by_type.keys(), key=lambda k: total_cp_by_type[k])
+            count = mistake_counts[worst]
+            cp = total_cp_by_type[worst]
+            return (
+                worst,
+                "pattern_drill",
+                f"Cost you {cp:.0f} centipawns across {count} occurrence{'s' if count > 1 else ''}."
+            )
+
+    # Fallback: most frequent mistake
+    worst = max(mistake_counts.keys(), key=lambda k: mistake_counts[k])
+    count = mistake_counts[worst]
+    return (
+        worst,
+        "pattern_drill",
+        f"Happened {count} time{'s' if count > 1 else ''} this game."
+    )
+
+
 async def _save_analysis(db, analysis: PostGameAnalysis):
     """Save analysis to database."""
     doc = {
@@ -1009,7 +1216,13 @@ async def _save_analysis(db, analysis: PostGameAnalysis):
         "habits_weak": analysis.habits_still_weak,
         "memory_insights": [asdict(i) for i in analysis.memory_insights],
         "games_together": analysis.games_together,
-        "created_at": datetime.now(timezone.utc)
+        "created_at": datetime.now(timezone.utc),
+        # Curriculum brain
+        "endgame_type": analysis.endgame_type,
+        "endgame_lesson_needed": analysis.endgame_lesson_needed,
+        "coach_prescription": analysis.coach_prescription,
+        "prescription_type": analysis.prescription_type,
+        "prescription_reason": analysis.prescription_reason,
     }
     
     await db.postgame_analyses.update_one(
@@ -1029,7 +1242,9 @@ async def _update_coach_memory_after_game(
     habit_violations: List[HabitViolation],
     habits_improved: List[str],
     move_history: List[Dict],
-    performance_rating: int
+    performance_rating: int,
+    coach_prescription: Optional[str] = None,
+    prescription_type: Optional[str] = None,
 ):
     """
     Update coach memory after game analysis.
@@ -1066,7 +1281,9 @@ async def _update_coach_memory_after_game(
         habits_improved=habits_improved,
         opening_played=opening_played,
         endgame_reached=endgame_reached,
-        performance_rating=performance_rating
+        performance_rating=performance_rating,
+        coach_prescription=coach_prescription,
+        prescription_type=prescription_type,
     )
     
     # === NEW: Update PlayerIdentity system for deep memory ===

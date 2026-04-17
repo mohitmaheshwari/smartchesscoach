@@ -217,7 +217,9 @@ async def update_memory_after_game(
     opening_played: Optional[str],
     endgame_reached: bool,
     performance_rating: int,
-    loss_phase: Optional[str] = None  # "opening", "middlegame", "endgame" - where the game was lost
+    loss_phase: Optional[str] = None,  # "opening", "middlegame", "endgame" - where the game was lost
+    coach_prescription: Optional[str] = None,  # The ONE thing to work on next
+    prescription_type: Optional[str] = None,  # "habit", "endgame_lesson", "pattern_drill"
 ) -> CoachMemory:
     """
     Update coach memory after a game.
@@ -290,16 +292,28 @@ async def update_memory_after_game(
     
     # Check for recurring patterns
     _detect_recurring_patterns(memory)
-    
+
+    # === CURRICULUM BRAIN: Store the coach's prescription ===
+    if coach_prescription:
+        old_focus = memory.learning.current_focus
+        memory.learning.current_focus = coach_prescription
+        # If focus changed, track the old one as "suggested_next" for later
+        if old_focus and old_focus != coach_prescription:
+            if old_focus not in memory.learning.suggested_next:
+                memory.learning.suggested_next.append(old_focus)
+            # Keep only last 5 suggestions
+            memory.learning.suggested_next = memory.learning.suggested_next[-5:]
+        logger.info(f"[CURRICULUM] User {user_id}: focus set to '{coach_prescription}' (was '{old_focus}')")
+
     memory.updated_at = now
-    
+
     # Save to database
     await db.coach_memory.update_one(
         {"user_id": user_id},
         {"$set": _memory_to_doc(memory)},
         upsert=True
     )
-    
+
     return memory
 
 
