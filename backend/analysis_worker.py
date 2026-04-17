@@ -1107,6 +1107,115 @@ def process_job(db, job):
             logger.warning(f"[MODULE TRIGGER] Failed to detect module: {module_err}")
         
         # =========================================================================
+        # PHASE 5.5: CURRICULUM BRAIN — pick prescription from this game
+        # This runs Engine 1 (fix your mess) on imported games too, not just
+        # Play-with-Coach games. The prescription gets stored in coach_memory
+        # so the home page and next session know what to focus on.
+        # =========================================================================
+        try:
+            import asyncio
+            from motor.motor_asyncio import AsyncIOMotorClient
+
+            mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+            db_name = os.environ.get("DB_NAME", "chess_coach")
+
+            async def _run_curriculum_for_imported_game():
+                from services.coach_memory import (
+                    get_or_create_memory, update_memory_after_game
+                )
+                from services.postgame_analysis import _pick_prescription
+
+                async_client = AsyncIOMotorClient(mongo_url)
+                async_db = async_client[db_name]
+                try:
+                    # Get coach memory + persistent weaknesses
+                    memory = await get_or_create_memory(async_db, user_id)
+                    current_focus = memory.learning.current_focus
+                    persistent = []
+                    for habit in memory.weaknesses:
+                        if not habit.is_good and habit.detection_count >= 3:
+                            persistent.append({
+                                "habit_id": habit.habit_id,
+                                "name": habit.name,
+                                "detection_count": habit.detection_count,
+                                "improving": habit.improving,
+                            })
+                    persistent.sort(key=lambda h: h["detection_count"], reverse=True)
+
+                    # Build lightweight mistake objects from move_evaluations
+                    # (enough for _pick_prescription keyword matching)
+                    class _M:
+                        def __init__(self, sev, cp, expl):
+                            self.severity = sev
+                            self.evaluation_change = -cp / 100.0 if cp else 0
+                            self.explanation = expl or ""
+                            self.mistake_type = None
+                            self.tactical_pattern = None
+
+                    mistakes_for_prescription = []
+                    for mv in move_evaluations:
+                        evaluation = (mv.get("evaluation") or "").lower()
+                        if evaluation in ("blunder", "mistake", "inaccuracy"):
+                            mistakes_for_prescription.append(_M(
+                                evaluation,
+                                mv.get("cp_loss", 0),
+                                mv.get("explanation", "") or mv.get("reason", "")
+                            ))
+
+                    game_result_str = (game.get("result") or "").lower()
+                    if game_result_str in ("1-0",):
+                        result_for_brain = "win" if user_color == "white" else "loss"
+                    elif game_result_str in ("0-1",):
+                        result_for_brain = "win" if user_color == "black" else "loss"
+                    else:
+                        result_for_brain = "draw"
+
+                    # Run the curriculum brain
+                    prescription, ptype, preason = _pick_prescription(
+                        mistakes=mistakes_for_prescription,
+                        habit_violations=[],  # Imported games don't have HabitViolation objects
+                        game_result=result_for_brain,
+                        endgame_type=None,
+                        endgame_lesson_needed=None,
+                        user_rating=user_rating,
+                        current_focus=current_focus,
+                        phase_analysis=None,
+                        opening_to_learn=None,
+                        opening_played=None,
+                        persistent_weaknesses=persistent,
+                    )
+
+                    if prescription:
+                        logger.info(
+                            f"[CURRICULUM] Imported game prescription: {prescription} "
+                            f"({ptype}) — {preason}"
+                        )
+                        # Persist via update_memory_after_game
+                        await update_memory_after_game(
+                            db=async_db,
+                            user_id=user_id,
+                            game_result=result_for_brain,
+                            accuracy=accuracy or 0,
+                            blunders=blunders,
+                            mistakes=mistakes,
+                            habits_violated=[],
+                            habits_improved=[],
+                            opening_played=game.get("opening_name") or game.get("opening"),
+                            endgame_reached=len(move_evaluations) > 80,
+                            performance_rating=user_rating,
+                            coach_prescription=prescription,
+                            prescription_type=ptype,
+                        )
+                finally:
+                    async_client.close()
+
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(_run_curriculum_for_imported_game())
+            loop.close()
+        except Exception as curr_err:
+            logger.warning(f"[CURRICULUM] Failed on imported game (non-fatal): {curr_err}")
+
+        # =========================================================================
         # PHASE 6: THINKING SCORE CALCULATION
         # Calculate and store thinking scores for this game
         # =========================================================================
