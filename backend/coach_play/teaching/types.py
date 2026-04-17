@@ -16,9 +16,10 @@ class TeachingIntent(str, Enum):
     HANGING_PIECE_PUNISHMENT = "hanging_piece_punishment"
     FORK_OPPORTUNITY = "fork_opportunity"
     THREAT_AWARENESS = "threat_awareness"
-    # Phase 2 (not yet):
-    # KING_EXPOSURE_PRESSURE = "king_exposure_pressure"
-    # SIMPLIFY_TO_ENDGAME = "simplify_to_endgame"
+    PIN_EXPLOITATION = "pin_exploitation"
+    SKEWER_OPPORTUNITY = "skewer_opportunity"
+    DISCOVERED_ATTACK = "discovered_attack"
+    OVERLOADED_PIECE = "overloaded_piece"
 
 
 @dataclass
@@ -72,13 +73,27 @@ class PositionFeatures:
     attacks_on_undefended: int = 0  # pieces under attack with no defender
     material_gain_possible: int = 0  # total cp gain from safe captures
 
-    # King exposure (phase 2)
-    # opponent_king_zone_attacks: int = 0
-    # open_file_to_king: bool = False
-    # opponent_king_exposed: bool = False
+    # Pins student can exploit (from mistake_classifier.find_pins)
+    pin_count: int = 0
+    best_pin_value: int = 0      # Value of best pinned piece
+    has_absolute_pin: bool = False
+    pin_details: List[Dict] = field(default_factory=list)
 
-    # Simplification (phase 2)
-    # material_delta_after: int = 0
+    # Skewers student can exploit (from mistake_classifier.find_skewers)
+    skewer_count: int = 0
+    best_skewer_gain: int = 0    # Value of piece won when front moves
+    skewer_details: List[Dict] = field(default_factory=list)
+
+    # Discovered attacks student can make (from mistake_classifier.find_discovered_attacks)
+    discovery_count: int = 0
+    has_discovered_check: bool = False
+    best_discovery_value: int = 0
+    discovery_details: List[Dict] = field(default_factory=list)
+
+    # Overloaded coach pieces student can exploit (from mistake_classifier.find_overloaded_defenders)
+    overloaded_count: int = 0
+    best_overload_value: int = 0
+    overload_details: List[Dict] = field(default_factory=list)
 
 
 @dataclass
@@ -104,6 +119,11 @@ class MoveSelection:
     eval_cp: int = 0
     eval_rank: int = 0
     feasibility_fallbacks: int = 0  # how many intents were tried before finding a feasible one
+
+    # Opportunity tracking — what pattern did this move create for the student?
+    # Populated by analyze_position on the resulting board after this move.
+    created_opportunity: Optional[str] = None  # e.g. "pin", "fork", "skewer", None
+    opportunity_details: Dict = field(default_factory=dict)  # target squares, exploit moves, skill explanation
 
 
 # Piece values used throughout

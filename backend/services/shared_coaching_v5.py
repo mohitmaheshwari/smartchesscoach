@@ -1478,6 +1478,7 @@ def generate_coach_move_explanation(
     opponent_opportunity = None
     try:
         from coach_play.teaching.pattern_detectors import find_hanging_pieces, find_fork_opportunities
+        from mistake_classifier import find_pins, find_skewers, find_discovered_attacks, find_overloaded_defenders
 
         # Find COACH pieces that are hanging (student can capture them)
         coach_hanging, coach_underdefended = find_hanging_pieces(
@@ -1487,18 +1488,25 @@ def generate_coach_move_explanation(
         # Find forks the STUDENT can make
         student_forks = find_fork_opportunities(board_after, forker_color=user_chess_color)
 
-        if coach_hanging:
-            best = max(coach_hanging, key=lambda h: h.piece_value)
-            piece_name = chess.piece_name(best.piece_type)
-            sq_name = chess.square_name(best.square)
+        # Find pins, skewers, discovered attacks, overloaded pieces
+        pins = find_pins(board_after, coach_color)
+        skewers = find_skewers(board_after, user_chess_color)
+        discoveries = find_discovered_attacks(board_after, user_chess_color)
+        overloaded = find_overloaded_defenders(board_after, coach_color)
+
+        # Priority: pins > forks > skewers > discoveries > overloaded > hanging > underdefended
+        if pins:
+            best = max(pins, key=lambda p: p.get("pinned_value", 0) * (2 if p.get("pin_type") == "absolute" else 1))
+            pinned = best.get("pinned_piece", "piece")
+            pinned_to = best.get("pinned_to", "king")
             opponent_opportunity = {
-                "type": "hanging_piece",
-                "message": f"Look at my {piece_name} on {sq_name}. Is it defended?",
-                "piece": piece_name,
-                "square": sq_name,
+                "type": "pin_available",
+                "message": f"Look at the line between your piece and my {pinned_to}. What's in between?",
+                "pinned_piece": pinned,
+                "pinned_to": pinned_to,
             }
             if not hint_for_user:
-                hint_for_user = f"Before you plan your move — look at my {piece_name} on {sq_name}. What do you notice?"
+                hint_for_user = f"My {pinned} is on the same line as my {pinned_to}. Can you use that?"
 
         elif student_forks:
             best_fork = max(student_forks, key=lambda f: f.total_target_value)
@@ -1510,6 +1518,62 @@ def generate_coach_move_explanation(
             }
             if not hint_for_user:
                 hint_for_user = "Look for a move that attacks two of my pieces at the same time."
+
+        elif skewers:
+            best = skewers[0]
+            front = best.get("front_piece", {}).get("piece", "piece")
+            behind = best.get("behind_piece", {}).get("piece", "piece")
+            opponent_opportunity = {
+                "type": "skewer_available",
+                "message": f"Two of my pieces are on the same line. Can you attack the more valuable one?",
+                "front": front,
+                "behind": behind,
+            }
+            if not hint_for_user:
+                hint_for_user = f"My {front} and {behind} are lined up. What happens if you attack the {front}?"
+
+        elif discoveries:
+            best = discoveries[0]
+            mover = best.get("moving_piece", {}).get("piece", "piece")
+            target = best.get("discovered_target", {}).get("piece", "piece")
+            is_check = best.get("is_discovered_check", False)
+            opponent_opportunity = {
+                "type": "discovered_attack_available",
+                "message": f"One of your pieces is blocking an attack. What if you move it?",
+                "mover": mover,
+                "target": target,
+            }
+            if not hint_for_user:
+                if is_check:
+                    hint_for_user = f"Your {mover} is hiding a surprise. Move it and see what happens to my king!"
+                else:
+                    hint_for_user = f"Your {mover} is blocking something. What would happen if it moved?"
+
+        elif overloaded:
+            best = overloaded[0]
+            defender = best.get("defender_piece", "piece")
+            defended = [d.get("piece", "piece") for d in best.get("defending", [])[:2]]
+            opponent_opportunity = {
+                "type": "overloaded_defender",
+                "message": f"My {defender} is protecting a lot of things. Can it handle everything?",
+                "defender": defender,
+                "defending": defended,
+            }
+            if not hint_for_user:
+                hint_for_user = f"My {defender} is working overtime — defending {' and '.join(defended)}. Can you overload it?"
+
+        elif coach_hanging:
+            best = max(coach_hanging, key=lambda h: h.piece_value)
+            piece_name = chess.piece_name(best.piece_type)
+            sq_name = chess.square_name(best.square)
+            opponent_opportunity = {
+                "type": "hanging_piece",
+                "message": f"Look at my {piece_name} on {sq_name}. Is it defended?",
+                "piece": piece_name,
+                "square": sq_name,
+            }
+            if not hint_for_user:
+                hint_for_user = f"Before you plan your move — look at my {piece_name} on {sq_name}. What do you notice?"
 
         elif coach_underdefended:
             best = max(coach_underdefended, key=lambda h: h.piece_value)

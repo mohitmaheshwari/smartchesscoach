@@ -223,6 +223,10 @@ def analyze_position(
     - Opponent's hanging/underdefended pieces (things the student must deal with)
     - Coach's fork opportunities (threats the student must see)
     - Forcing moves available to coach (threats the student must handle)
+    - Pins the student can exploit on coach's pieces
+    - Skewers the student can create
+    - Discovered attacks the student can reveal
+    - Overloaded coach pieces the student can target
 
     The student is the OPPONENT of coach_color.
     """
@@ -239,6 +243,63 @@ def analyze_position(
     # What forcing moves does the coach have?
     threats = count_forcing_moves(board, side=coach_color)
 
+    # === Patterns the STUDENT can exploit (from mistake_classifier) ===
+    pin_count = 0
+    best_pin_value = 0
+    has_absolute_pin = False
+    pin_details = []
+    skewer_count = 0
+    best_skewer_gain = 0
+    skewer_details = []
+    discovery_count = 0
+    has_discovered_check = False
+    best_discovery_value = 0
+    discovery_details = []
+    overloaded_count = 0
+    best_overload_value = 0
+    overload_details = []
+
+    try:
+        from mistake_classifier import (
+            find_pins, find_skewers,
+            find_discovered_attacks, find_overloaded_defenders,
+        )
+
+        # Pins: student's pieces pinning coach's pieces
+        pins = find_pins(board, coach_color)
+        pin_count = len(pins)
+        pin_details = pins
+        if pins:
+            best_pin_value = max(p.get("pinned_value", 0) for p in pins)
+            has_absolute_pin = any(p.get("pin_type") == "absolute" for p in pins)
+
+        # Skewers: student's sliding pieces skewering coach's pieces
+        sks = find_skewers(board, student_color)
+        skewer_count = len(sks)
+        skewer_details = sks
+        if sks:
+            best_skewer_gain = max(s.get("gain", 0) for s in sks)
+
+        # Discovered attacks: student can reveal hidden attacks
+        discs = find_discovered_attacks(board, student_color)
+        discovery_count = len(discs)
+        discovery_details = discs
+        if discs:
+            has_discovered_check = any(d.get("is_discovered_check") for d in discs)
+            best_discovery_value = max(
+                d.get("discovered_target", {}).get("value", 0) for d in discs
+            )
+
+        # Overloaded pieces: coach's pieces defending too many things
+        ols = find_overloaded_defenders(board, coach_color)
+        overloaded_count = len(ols)
+        overload_details = ols
+        if ols:
+            best_overload_value = max(o.get("total_defended_value", 0) for o in ols)
+
+    except Exception:
+        pass  # Graceful fallback — original 3 patterns still work
+
     return PositionFeatures(
         opponent_hanging=student_hanging,
         opponent_underdefended=student_underdefended,
@@ -249,4 +310,18 @@ def analyze_position(
         safe_captures=threats["safe_captures"],
         attacks_on_undefended=threats["attacks_on_undefended"],
         material_gain_possible=threats["material_gain"],
+        pin_count=pin_count,
+        best_pin_value=best_pin_value,
+        has_absolute_pin=has_absolute_pin,
+        pin_details=pin_details,
+        skewer_count=skewer_count,
+        best_skewer_gain=best_skewer_gain,
+        skewer_details=skewer_details,
+        discovery_count=discovery_count,
+        has_discovered_check=has_discovered_check,
+        best_discovery_value=best_discovery_value,
+        discovery_details=discovery_details,
+        overloaded_count=overloaded_count,
+        best_overload_value=best_overload_value,
+        overload_details=overload_details,
     )

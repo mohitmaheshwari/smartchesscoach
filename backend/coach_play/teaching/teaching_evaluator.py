@@ -70,6 +70,22 @@ def score_candidate(
         raw_score, sub_scores, explanation = _score_threat_awareness(
             board, board_after, features, candidate, coach_color
         )
+    elif intent == TeachingIntent.PIN_EXPLOITATION:
+        raw_score, sub_scores, explanation = _score_pin(
+            board, board_after, features, candidate, coach_color
+        )
+    elif intent == TeachingIntent.SKEWER_OPPORTUNITY:
+        raw_score, sub_scores, explanation = _score_skewer(
+            board, board_after, features, candidate, coach_color
+        )
+    elif intent == TeachingIntent.DISCOVERED_ATTACK:
+        raw_score, sub_scores, explanation = _score_discovery(
+            board, board_after, features, candidate, coach_color
+        )
+    elif intent == TeachingIntent.OVERLOADED_PIECE:
+        raw_score, sub_scores, explanation = _score_overload(
+            board, board_after, features, candidate, coach_color
+        )
     else:
         raw_score, sub_scores, explanation = 0.0, {}, "Unknown intent"
 
@@ -396,3 +412,180 @@ def _count_forcing(board: chess.Board, side: chess.Color) -> tuple:
     Uses the same filtered logic as pattern_detectors.count_forcing_moves."""
     from .pattern_detectors import count_forcing_moves
     return count_forcing_moves(board, side)
+
+
+# ─── NEW INTENT SCORERS (using mistake_classifier data) ───────
+
+
+def _score_pin(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    features: PositionFeatures,
+    candidate: CandidateMove,
+    coach_color: chess.Color,
+) -> tuple:
+    """
+    Score: does this coach move create a position where the student
+    can pin one of the coach's pieces?
+
+    Absolute pins (to king) are most instructive — piece literally can't move.
+    Higher-value pinned pieces score better.
+    """
+    sub_scores = {}
+
+    # 1. Pin value in resulting position
+    pin_val = 0.0
+    for pin in features.pin_details:
+        v = pin.get("pinned_value", 0) * 0.3
+        if pin.get("pin_type") == "absolute":
+            v *= 2.0
+        if pin.get("pinned_value", 0) >= 5:
+            v *= 1.3  # Rook/queen pinned
+        pin_val = max(pin_val, v)
+    sub_scores["pin_value"] = min(pin_val, 2.5)
+
+    # 2. New pins created by THIS move (delta)
+    try:
+        from mistake_classifier import find_pins
+        pins_before = len(find_pins(board_before, coach_color))
+    except Exception:
+        pins_before = 0
+    new_pins = max(0, features.pin_count - pins_before)
+    sub_scores["new_pins"] = min(new_pins * 0.6, 1.5)
+
+    raw_score = min(sub_scores["pin_value"] + sub_scores["new_pins"], 3.5)
+
+    if features.pin_details:
+        best = max(features.pin_details, key=lambda p: p.get("pinned_value", 0) * (2 if p.get("pin_type") == "absolute" else 1))
+        explanation = f"student can pin {best.get('pinned_piece', 'piece')} to {best.get('pinned_to', 'king')}"
+    else:
+        explanation = "no pin opportunity"
+
+    return raw_score, sub_scores, explanation
+
+
+def _score_skewer(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    features: PositionFeatures,
+    candidate: CandidateMove,
+    coach_color: chess.Color,
+) -> tuple:
+    """Score: does this coach move create a skewer opportunity for the student?"""
+    sub_scores = {}
+    student_color = not coach_color
+
+    skewer_val = 0.0
+    for s in features.skewer_details:
+        v = s.get("gain", 0) * 0.25
+        if s.get("is_royal_skewer"):
+            v *= 1.5
+        skewer_val = max(skewer_val, v)
+    sub_scores["skewer_value"] = min(skewer_val, 2.5)
+
+    try:
+        from mistake_classifier import find_skewers
+        skewers_before = len(find_skewers(board_before, student_color))
+    except Exception:
+        skewers_before = 0
+    new_skewers = max(0, features.skewer_count - skewers_before)
+    sub_scores["new_skewers"] = min(new_skewers * 0.6, 1.5)
+
+    raw_score = min(sub_scores["skewer_value"] + sub_scores["new_skewers"], 3.0)
+
+    if features.skewer_details:
+        best = max(features.skewer_details, key=lambda s: s.get("gain", 0))
+        front = best.get("front_piece", {}).get("piece", "piece")
+        behind = best.get("behind_piece", {}).get("piece", "piece")
+        explanation = f"student can skewer {front} and {behind}"
+    else:
+        explanation = "no skewer opportunity"
+
+    return raw_score, sub_scores, explanation
+
+
+def _score_discovery(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    features: PositionFeatures,
+    candidate: CandidateMove,
+    coach_color: chess.Color,
+) -> tuple:
+    """Score: does this coach move create a discovered attack/check for the student?"""
+    sub_scores = {}
+    student_color = not coach_color
+
+    disc_val = 0.0
+    for d in features.discovery_details:
+        target = d.get("discovered_target", {})
+        v = target.get("value", 0) * 0.2
+        if d.get("is_discovered_check"):
+            v = 2.0  # Discovered check is the ultimate teaching moment
+        if d.get("is_double_attack"):
+            v *= 1.3  # Blocker also threatens something
+        disc_val = max(disc_val, v)
+    sub_scores["discovery_value"] = min(disc_val, 2.5)
+
+    try:
+        from mistake_classifier import find_discovered_attacks
+        disc_before = len(find_discovered_attacks(board_before, student_color))
+    except Exception:
+        disc_before = 0
+    new_disc = max(0, features.discovery_count - disc_before)
+    sub_scores["new_discoveries"] = min(new_disc * 0.7, 1.5)
+
+    raw_score = min(sub_scores["discovery_value"] + sub_scores["new_discoveries"], 3.5)
+
+    if features.discovery_details:
+        best = max(features.discovery_details, key=lambda d: (d.get("is_discovered_check", False), d.get("total_threat_value", 0)))
+        mover = best.get("moving_piece", {}).get("piece", "piece")
+        target = best.get("discovered_target", {}).get("piece", "piece")
+        if best.get("is_discovered_check"):
+            explanation = f"student can make a discovered check by moving {mover}"
+        else:
+            explanation = f"student can reveal attack on {target} by moving {mover}"
+    else:
+        explanation = "no discovered attack opportunity"
+
+    return raw_score, sub_scores, explanation
+
+
+def _score_overload(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    features: PositionFeatures,
+    candidate: CandidateMove,
+    coach_color: chess.Color,
+) -> tuple:
+    """Score: does this coach move create an overloaded piece the student can exploit?"""
+    sub_scores = {}
+
+    ol_val = 0.0
+    for o in features.overload_details:
+        v = o.get("total_defended_value", 0) * 0.15
+        if o.get("is_critical"):
+            v *= 1.5  # Has pieces with no other defender
+        if o.get("num_defended", 0) >= 3:
+            v *= 1.3
+        ol_val = max(ol_val, v)
+    sub_scores["overload_value"] = min(ol_val, 2.5)
+
+    try:
+        from mistake_classifier import find_overloaded_defenders
+        ol_before = len(find_overloaded_defenders(board_before, coach_color))
+    except Exception:
+        ol_before = 0
+    new_ol = max(0, features.overloaded_count - ol_before)
+    sub_scores["new_overloads"] = min(new_ol * 0.5, 1.0)
+
+    raw_score = min(sub_scores["overload_value"] + sub_scores["new_overloads"], 3.0)
+
+    if features.overload_details:
+        best = max(features.overload_details, key=lambda o: o.get("total_defended_value", 0))
+        defender = best.get("defender_piece", "piece")
+        defended = [d.get("piece", "piece") for d in best.get("defending", [])[:2]]
+        explanation = f"{defender} overloaded — defending {', '.join(defended)}"
+    else:
+        explanation = "no overloaded piece"
+
+    return raw_score, sub_scores, explanation

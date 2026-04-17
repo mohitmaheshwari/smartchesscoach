@@ -54,9 +54,6 @@ class TeachingMoveSelectorV2:
         # but strong enough to always play good, principled chess.
         # Teaching comes from WHICH good move we pick, not from playing weak.
         self.skill_level = 15
-            if user_rating < threshold:
-                break
-            self.skill_level = skill
 
     def _get_engine(self) -> chess.engine.SimpleEngine:
         if self.engine is None:
@@ -103,16 +100,21 @@ class TeachingMoveSelectorV2:
         try:
             engine = self._get_engine()
 
-            # Coach plays strong chess — only pick from top moves.
-            # Teaching comes from WHICH top move we pick, not from playing weak moves.
+            # Teaching mode: widen the search so the coach can play "good but
+            # not perfect" moves that create tactical patterns for the student.
+            # Perfect games don't have weaknesses — we need imperfect positions.
             if max_eval_drop is None:
-                max_eval_drop = 75  # Only consider moves within 0.75 pawns of best
+                max_eval_drop = 75
 
-            # Step 1: Generate candidates (6 moves, depth 10 — fast enough for live play)
+            # Step 1: Generate candidates with teaching_mode=True
+            # This searches 15 moves within 250cp instead of 6 within 75cp,
+            # so moves that create pins/forks/skewers can be found even if
+            # they're the 10th best engine move.
             candidates = generate_candidates(
                 board, engine,
                 max_candidates=6,
                 max_eval_drop_cp=max_eval_drop,
+                teaching_mode=True,
             )
 
             if not candidates:
@@ -153,6 +155,21 @@ class TeachingMoveSelectorV2:
             selected = candidates[best_idx]
             selected_score = scores[best_idx]
 
+            # Step 4: Detect what opportunity this move created for the student
+            created_opportunity = None
+            opportunity_details = {}
+            if selected_score.raw_score >= MIN_FEASIBILITY:
+                # The move scored well for the intent — it created a pattern
+                board_after = board.copy()
+                board_after.push(selected.move)
+                created_opportunity = intent.value
+                opportunity_details = {
+                    "type": intent.value,
+                    "explanation": selected_score.explanation,
+                    "skill_explanation": _get_skill_hint(intent, selected_score),
+                    "eval_rank": selected.eval_rank,
+                }
+
             result = MoveSelection(
                 selected_move=selected.move,
                 selected_san=selected.san,
@@ -173,6 +190,8 @@ class TeachingMoveSelectorV2:
                 eval_cp=selected.eval_cp,
                 eval_rank=selected.eval_rank,
                 feasibility_fallbacks=fallback_count,
+                created_opportunity=created_opportunity,
+                opportunity_details=opportunity_details,
             )
 
             # Structured log for behavior validation
@@ -250,3 +269,17 @@ class TeachingMoveSelectorV2:
 
     def __del__(self):
         self._close_engine()
+
+
+def _get_skill_hint(intent: 'TeachingIntent', score: 'IntentScore') -> str:
+    """Generate a student-facing hint based on the teaching intent."""
+    hints = {
+        TeachingIntent.HANGING_PIECE_PUNISHMENT: "Check every piece — is anything undefended?",
+        TeachingIntent.FORK_OPPORTUNITY: "Can any of your pieces attack two things at once?",
+        TeachingIntent.THREAT_AWARENESS: "What is the coach threatening with this move?",
+        TeachingIntent.PIN_EXPLOITATION: "Look along ranks, files, and diagonals — are any pieces lined up?",
+        TeachingIntent.SKEWER_OPPORTUNITY: "Two pieces are on the same line. Can you attack the more valuable one?",
+        TeachingIntent.DISCOVERED_ATTACK: "One of your pieces might be hiding a surprise. What if it moved?",
+        TeachingIntent.OVERLOADED_PIECE: "Is any of the coach's pieces defending too many things?",
+    }
+    return hints.get(intent, "Look carefully at the position — there's an opportunity here.")

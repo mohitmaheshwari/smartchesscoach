@@ -6569,6 +6569,23 @@ async def _process_move_and_respond(
                     coach_move = await opponent.get_move(fen_after_user)
                 teaching_context = opponent.get_teaching_context()
 
+                # If V2 selector created a teaching opportunity, set up consequence tracking
+                # so we can tell the student "You found the pin!" or "You missed the skewer!"
+                v2_pending_opportunity = None
+                if teaching_context.get("created_opportunity"):
+                    opp_details = teaching_context.get("opportunity_details", {})
+                    v2_pending_opportunity = {
+                        "type": teaching_context["created_opportunity"],
+                        "expected_moves": [],  # V2 doesn't prescribe exact moves — any exploit counts
+                        "target_squares": [],
+                        "reason": opp_details.get("explanation", ""),
+                        "skill_explanation": opp_details.get("skill_explanation", ""),
+                        "eval_sacrifice": 0,
+                        "created_at_move_index": len(session_doc.get("move_history", [])),
+                        "hide_eval": False,  # V2 moves don't hide eval — they're teaching by position
+                        "source": "v2_selector",
+                    }
+
                 if coach_move:
                     chess_move = board.parse_san(coach_move)
                     board.push(chess_move)
@@ -6829,22 +6846,28 @@ async def _process_move_and_respond(
                             logger.warning(f"Intelligent position coaching failed: {e}")
                     
                     # Update session
+                    update_fields = {
+                        "current_fen": fen_after_coach,
+                        "move_history": move_history,
+                        "coach_move_pending": False,
+                        "last_coach_move": {
+                            "move": coach_move,
+                            "uci": chess_move.uci(),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "explanation": get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, len(move_history) // 2),
+                        },
+                        "status": status,
+                        "result": coach_result,
+                        "evaluation": {"score": eval_score, "mate_in": mate_in}
+                    }
+
+                    # If V2 created a teaching opportunity, store it for consequence tracking
+                    if v2_pending_opportunity:
+                        update_fields["pending_opportunity"] = v2_pending_opportunity
+
                     await db.coach_sessions.update_one(
                         {"session_id": session_id},
-                        {"$set": {
-                            "current_fen": fen_after_coach,
-                            "move_history": move_history,
-                            "coach_move_pending": False,
-                            "last_coach_move": {
-                                "move": coach_move,
-                                "uci": chess_move.uci(),
-                                "timestamp": datetime.now(timezone.utc).isoformat(),
-                                "explanation": get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, len(move_history) // 2),
-                            },
-                            "status": status,
-                            "result": coach_result,
-                            "evaluation": {"score": eval_score, "mate_in": mate_in}
-                        }}
+                        {"$set": update_fields}
                     )
                 else:
                     # No valid move (shouldn't happen)

@@ -28,10 +28,14 @@ WEAKNESS_TO_INTENTS = {
     "threat_awareness": [
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
         TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.PIN_EXPLOITATION,
     ],
-    # Misses tactics
+    # Misses tactics — broadest weakness, cycle through all patterns
     "calculation": [
         TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.DISCOVERED_ATTACK,
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
         TeachingIntent.THREAT_AWARENESS,
     ],
@@ -39,17 +43,33 @@ WEAKNESS_TO_INTENTS = {
     "coordination": [
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
         TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.OVERLOADED_PIECE,
     ],
     # Rushed, doesn't check threats
     "patience": [
         TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.PIN_EXPLOITATION,
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
     ],
     # No clear plan
     "planning": [
+        TeachingIntent.OVERLOADED_PIECE,
+        TeachingIntent.PIN_EXPLOITATION,
         TeachingIntent.FORK_OPPORTUNITY,
-        TeachingIntent.HANGING_PIECE_PUNISHMENT,
         TeachingIntent.THREAT_AWARENESS,
+    ],
+    # Misses pins specifically
+    "pin_blindness": [
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.THREAT_AWARENESS,
+    ],
+    # Misses multi-move tactical ideas
+    "tactical_depth": [
+        TeachingIntent.DISCOVERED_ATTACK,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.OVERLOADED_PIECE,
     ],
 }
 
@@ -57,32 +77,45 @@ WEAKNESS_TO_INTENTS = {
 FOCUS_TO_INTENTS = {
     "tactics": [
         TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.DISCOVERED_ATTACK,
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
         TeachingIntent.THREAT_AWARENESS,
     ],
     "prophylaxis": [
         TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.OVERLOADED_PIECE,
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
     ],
     "king_safety": [
+        TeachingIntent.DISCOVERED_ATTACK,
+        TeachingIntent.PIN_EXPLOITATION,
         TeachingIntent.THREAT_AWARENESS,
-        TeachingIntent.HANGING_PIECE_PUNISHMENT,
     ],
     "endgame_technique": [
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.PIN_EXPLOITATION,
         TeachingIntent.THREAT_AWARENESS,
-        TeachingIntent.HANGING_PIECE_PUNISHMENT,
     ],
     "development": [
         TeachingIntent.THREAT_AWARENESS,
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.FORK_OPPORTUNITY,
     ],
     "piece_activity": [
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.OVERLOADED_PIECE,
         TeachingIntent.FORK_OPPORTUNITY,
         TeachingIntent.THREAT_AWARENESS,
     ],
     "natural_play": [
         TeachingIntent.HANGING_PIECE_PUNISHMENT,
         TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.DISCOVERED_ATTACK,
+        TeachingIntent.OVERLOADED_PIECE,
         TeachingIntent.THREAT_AWARENESS,
     ],
 }
@@ -91,8 +124,12 @@ FOCUS_TO_INTENTS = {
 # Hanging piece and fork are harder to satisfy but produce stronger teaching
 # signals when they DO trigger. Threat awareness is the catch-all fallback.
 DEFAULT_INTENT_ORDER = [
-    TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    TeachingIntent.PIN_EXPLOITATION,
     TeachingIntent.FORK_OPPORTUNITY,
+    TeachingIntent.DISCOVERED_ATTACK,
+    TeachingIntent.SKEWER_OPPORTUNITY,
+    TeachingIntent.OVERLOADED_PIECE,
+    TeachingIntent.HANGING_PIECE_PUNISHMENT,
     TeachingIntent.THREAT_AWARENESS,
 ]
 
@@ -137,6 +174,11 @@ def rank_intents(
             "check_opponents_move": TeachingIntent.THREAT_AWARENESS,
             "hanging_pieces": TeachingIntent.HANGING_PIECE_PUNISHMENT,
             "calculate": TeachingIntent.FORK_OPPORTUNITY,
+            "missed_pin": TeachingIntent.PIN_EXPLOITATION,
+            "missed_skewer": TeachingIntent.SKEWER_OPPORTUNITY,
+            "missed_discovery": TeachingIntent.DISCOVERED_ATTACK,
+            "missed_tactic": TeachingIntent.FORK_OPPORTUNITY,
+            "piece_coordination": TeachingIntent.OVERLOADED_PIECE,
         }
         for violation in last_game_violations:
             intent = violation_to_intent.get(violation)

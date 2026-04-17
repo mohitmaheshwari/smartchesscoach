@@ -21,6 +21,7 @@ def generate_candidates(
     max_candidates: int = 8,
     max_eval_drop_cp: int = 150,
     depth: int = 10,
+    teaching_mode: bool = False,
 ) -> List[CandidateMove]:
     """
     Generate candidate moves using Stockfish multipv analysis.
@@ -33,11 +34,18 @@ def generate_candidates(
                           but will be penalized by the scoring system.
                           Set high (150) so scoring decides, not filtering.
         depth: Engine analysis depth
+        teaching_mode: If True, widen the search to find moves that create
+                       tactical patterns for the student (15 moves, 250cp range).
+                       Perfect moves don't create opportunities — the coach
+                       needs to play "good but not perfect" moves sometimes.
 
     Returns:
         List of CandidateMove sorted by engine evaluation (best first).
         Moves that hang material are excluded entirely.
     """
+    if teaching_mode:
+        max_candidates = max(max_candidates, 15)
+        max_eval_drop_cp = max(max_eval_drop_cp, 250)
     candidates = []
 
     try:

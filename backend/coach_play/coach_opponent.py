@@ -498,6 +498,9 @@ class PedagogicalOpponent(CoachOpponent):
                     },
                     "feasibility_fallbacks": result.feasibility_fallbacks,
                 },
+                # Opportunity tracking — what pattern did this move create?
+                "created_opportunity": result.created_opportunity,
+                "opportunity_details": result.opportunity_details,
             }
 
             print(

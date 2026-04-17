@@ -433,124 +433,160 @@ class PedagogicalOpportunityService:
     ) -> Optional[Dict]:
         """
         Analyze what learning opportunity a move creates.
-        
+
+        Uses mistake_classifier's battle-tested pattern scanners to detect
+        pins, forks, skewers, discovered attacks, overloaded pieces, and
+        hanging pieces the student can exploit.
+
         Returns opportunity info or None if no good opportunity found.
         """
+        from mistake_classifier import (
+            find_hanging_pieces, find_forks, find_pins,
+            find_skewers, find_discovered_attacks, find_overloaded_defenders,
+        )
+
         board.push(move)
-        
+
         try:
             opportunity = None
-            our_color = not board.turn  # We just moved
-            their_color = board.turn
-            
-            # Check for hanging piece (undefended attacked piece)
-            hanging_squares = []
-            for square in chess.SQUARES:
-                piece = board.piece_at(square)
-                if piece and piece.color == our_color:
-                    if piece.piece_type != chess.PAWN:  # Ignore pawns
-                        attackers = list(board.attackers(their_color, square))
-                        defenders = list(board.attackers(our_color, square))
-                        if attackers and len(attackers) > len(defenders):
-                            hanging_squares.append(chess.square_name(square))
-            
-            if hanging_squares:
-                # Find the attacking moves
-                exploit_moves = []
-                for target_sq in hanging_squares[:2]:  # Max 2 targets
-                    target = chess.parse_square(target_sq)
-                    for m in board.legal_moves:
-                        if m.to_square == target:
-                            exploit_moves.append(board.san(m))
-                            break
-                
+            coach_color = not board.turn  # We (coach) just moved
+            student_color = board.turn
+
+            # Helper: find student moves targeting a square
+            def _exploit_moves_for_square(sq_name, limit=3):
+                target = chess.parse_square(sq_name)
+                return [board.san(m) for m in board.legal_moves if m.to_square == target][:limit]
+
+            # === 1. PINS (student can pin coach's pieces) ===
+            pins = find_pins(board, coach_color)
+            if pins:
+                best = max(pins, key=lambda p: p.get("pinned_value", 0) * (2 if p.get("pin_type") == "absolute" else 1))
+                pinned = best.get("pinned_piece", "piece")
+                pinned_to = best.get("pinned_to", "king")
+                exploit = _exploit_moves_for_square(best.get("pinned_square", "a1"))
+                is_absolute = best.get("pin_type") == "absolute"
                 opportunity = {
-                    "opportunity_type": OpportunityType.HANGING_PIECE,
-                    "target_squares": hanging_squares,
-                    "exploit_moves": exploit_moves,
-                    "reason": f"Created opportunity to win material on {', '.join(hanging_squares)}",
-                    "skill_explanation": "Piece is undefended or insufficiently defended - a tactical opportunity!"
+                    "opportunity_type": OpportunityType.PIN,
+                    "target_squares": [best.get("pinned_square", "")],
+                    "exploit_moves": exploit,
+                    "reason": f"Pin: {pinned} pinned to {pinned_to}",
+                    "skill_explanation": f"The {pinned} is on the same line as the {pinned_to}. "
+                                         + ("It cannot legally move!" if is_absolute
+                                            else "Moving it loses the more valuable piece behind!")
                 }
-            
-            # Check for fork opportunities
+
+            # === 2. FORKS (student can fork coach's pieces) ===
             if not opportunity:
-                for m in board.legal_moves:
-                    if board.piece_at(m.from_square) and board.piece_at(m.from_square).piece_type == chess.KNIGHT:
-                        board.push(m)
-                        attacks = list(board.attacks(m.to_square))
-                        valuable_attacks = []
-                        for sq in attacks:
-                            p = board.piece_at(sq)
-                            if p and p.color == our_color and p.piece_type in [chess.QUEEN, chess.ROOK, chess.KING]:
-                                valuable_attacks.append(chess.square_name(sq))
-                        board.pop()
-                        
-                        if len(valuable_attacks) >= 2:
-                            opportunity = {
-                                "opportunity_type": OpportunityType.FORK,
-                                "target_squares": valuable_attacks,
-                                "exploit_moves": [board.san(m)],
-                                "reason": f"Knight fork opportunity on {', '.join(valuable_attacks)}",
-                                "skill_explanation": "A knight can attack two pieces at once - find the fork!"
-                            }
-                            break
-            
-            # Check for pin opportunities
+                forks = find_forks(board, student_color)
+                if forks:
+                    best = forks[0]  # Already sorted by value
+                    targets = [t.get("piece", "piece") for t in best.get("targets", [])[:2]]
+                    attacker = best.get("attacker_piece", "piece")
+                    opportunity = {
+                        "opportunity_type": OpportunityType.FORK,
+                        "target_squares": [t.get("square", "") for t in best.get("targets", [])[:2]],
+                        "exploit_moves": [],  # Fork is already on board
+                        "reason": f"{attacker.title()} fork on {' and '.join(targets)}",
+                        "skill_explanation": f"The {attacker} attacks two pieces at once — find the double attack!"
+                    }
+
+            # === 3. SKEWERS (student can skewer coach's pieces) ===
             if not opportunity:
-                # Simplified pin detection
-                for m in board.legal_moves:
-                    piece = board.piece_at(m.from_square)
-                    if piece and piece.piece_type in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
-                        move_san = board.san(m)  # Save SAN before pushing
-                        # Check if move creates a pin along a line
-                        board.push(m)
-                        found_pin = False
-                        # Check if any enemy piece is now pinned to king
-                        enemy_king_sq = board.king(our_color)
-                        if enemy_king_sq:
-                            for sq in chess.SQUARES:
-                                p = board.piece_at(sq)
-                                if p and p.color == our_color and p.piece_type != chess.KING:
-                                    # Check if piece is on line between attacker and king
-                                    if self._is_pinned_by_piece(board, sq, m.to_square, enemy_king_sq):
-                                        opportunity = {
-                                            "opportunity_type": OpportunityType.PIN,
-                                            "target_squares": [chess.square_name(sq)],
-                                            "exploit_moves": [move_san],
-                                            "reason": f"Pin opportunity on {chess.square_name(sq)}",
-                                            "skill_explanation": "A piece is pinned to the king - it cannot move!"
-                                        }
-                                        found_pin = True
-                                        break
-                        board.pop()  # Always pop after push
-                        if found_pin:
-                            break
-            
-            # General tactical opportunity (fallback)
+                skewers = find_skewers(board, student_color)
+                if skewers:
+                    best = skewers[0]  # Already sorted by gain
+                    front = best.get("front_piece", {}).get("piece", "piece")
+                    behind = best.get("behind_piece", {}).get("piece", "piece")
+                    front_sq = best.get("front_piece", {}).get("square", "")
+                    exploit = _exploit_moves_for_square(front_sq)
+                    opportunity = {
+                        "opportunity_type": OpportunityType.SKEWER,
+                        "target_squares": [front_sq, best.get("behind_piece", {}).get("square", "")],
+                        "exploit_moves": exploit,
+                        "reason": f"Skewer: {front} and {behind} aligned",
+                        "skill_explanation": f"Attack the {front} — when it moves, you win the {behind}!"
+                    }
+
+            # === 4. DISCOVERED ATTACKS (student can reveal hidden attacks) ===
             if not opportunity:
-                # Check if there are any forcing moves (checks, captures)
-                forcing_moves = []
+                discoveries = find_discovered_attacks(board, student_color)
+                if discoveries:
+                    best = discoveries[0]  # Already sorted by value
+                    mover = best.get("moving_piece", {}).get("piece", "piece")
+                    target = best.get("discovered_target", {}).get("piece", "piece")
+                    is_check = best.get("is_discovered_check", False)
+                    # Exploit = move the blocking piece
+                    exploit = [best.get("move_san", "")] if best.get("move_san") else []
+                    opportunity = {
+                        "opportunity_type": OpportunityType.GENERAL,
+                        "target_squares": [
+                            best.get("moving_piece", {}).get("square_from", ""),
+                            best.get("discovered_target", {}).get("square", ""),
+                        ],
+                        "exploit_moves": exploit,
+                        "reason": f"Discovered {'check' if is_check else 'attack'} opportunity",
+                        "skill_explanation": f"Move the {mover} to reveal an attack on the {target}!"
+                                             + (" Discovered check is devastating!" if is_check else "")
+                    }
+
+            # === 5. OVERLOADED PIECES (coach's pieces stretched thin) ===
+            if not opportunity:
+                overloaded = find_overloaded_defenders(board, coach_color)
+                if overloaded:
+                    best = overloaded[0]  # Already sorted by criticality
+                    defender = best.get("defender_piece", "piece")
+                    defended = [d.get("piece", "piece") for d in best.get("defending", [])[:2]]
+                    # Exploit: attack one of the defended pieces
+                    exploit = []
+                    for d in best.get("defending", [])[:2]:
+                        exploit += _exploit_moves_for_square(d.get("square", "a1"), limit=1)
+                    opportunity = {
+                        "opportunity_type": OpportunityType.GENERAL,
+                        "target_squares": [d.get("square", "") for d in best.get("defending", [])],
+                        "exploit_moves": exploit[:3],
+                        "reason": f"Overloaded {defender} — defending {', '.join(defended)}",
+                        "skill_explanation": f"The {defender} can't protect everything. Attack one of the pieces it defends!"
+                    }
+
+            # === 6. HANGING PIECES (simplest — fallback) ===
+            if not opportunity:
+                hanging = find_hanging_pieces(board, coach_color)
+                if hanging:
+                    best = hanging[0]  # Already sorted by value
+                    sq = best.get("square", "")
+                    piece_name = best.get("piece", "piece")
+                    exploit = _exploit_moves_for_square(sq)
+                    opportunity = {
+                        "opportunity_type": OpportunityType.HANGING_PIECE,
+                        "target_squares": [sq],
+                        "exploit_moves": exploit,
+                        "reason": f"Free material: {piece_name} on {sq}",
+                        "skill_explanation": f"The {piece_name} is undefended — take it!"
+                    }
+
+            # === 7. GENERAL FORCING MOVES (last resort) ===
+            if not opportunity:
+                forcing = []
                 for m in board.legal_moves:
                     if board.is_capture(m):
-                        forcing_moves.append(board.san(m))
+                        forcing.append(board.san(m))
                     else:
-                        move_san = board.san(m)  # Save SAN before pushing
+                        san = board.san(m)
                         board.push(m)
                         if board.is_check():
-                            forcing_moves.append(move_san)
+                            forcing.append(san)
                         board.pop()
-                
-                if forcing_moves:
+                if forcing:
                     opportunity = {
                         "opportunity_type": OpportunityType.GENERAL,
                         "target_squares": [],
-                        "exploit_moves": forcing_moves[:3],
+                        "exploit_moves": forcing[:3],
                         "reason": "Created tactical opportunities",
                         "skill_explanation": "Look for checks, captures, and threats!"
                     }
-            
+
             return opportunity
-            
+
         finally:
             board.pop()
     
@@ -648,30 +684,43 @@ class PedagogicalOpportunityService:
         # Generate consequence feedback
         if found_opportunity:
             consequence_type = "found"
-            if opportunity_type == OpportunityType.FORK:
-                message = f"Excellent! You found the fork with {user_san}! This is exactly the tactical pattern to look for."
-            elif opportunity_type == OpportunityType.HANGING_PIECE:
-                message = f"Great eye! {user_san} wins material. You spotted the undefended piece!"
-            elif opportunity_type == OpportunityType.PIN:
-                message = f"Well done! {user_san} exploits the pin. The piece couldn't move!"
-            else:
-                message = f"Nice! {user_san} takes advantage of the opportunity. Your tactical vision is sharp!"
+            found_messages = {
+                OpportunityType.FORK: f"Excellent! You found the fork with {user_san}! This is exactly the tactical pattern to look for.",
+                OpportunityType.HANGING_PIECE: f"Great eye! {user_san} wins material. You spotted the undefended piece!",
+                OpportunityType.PIN: f"Well done! {user_san} exploits the pin. The piece couldn't move!",
+                OpportunityType.SKEWER: f"Sharp! {user_san} creates a skewer — the front piece must move and you win what's behind it!",
+            }
+            message = found_messages.get(
+                opportunity_type,
+                f"Nice! {user_san} takes advantage of the opportunity. Your tactical vision is sharp!"
+            )
         else:
             consequence_type = "missed"
             if expected_exploit_moves:
                 best_exploit = expected_exploit_moves[0]
-                if opportunity_type == OpportunityType.FORK:
-                    message = f"You missed a fork! {best_exploit} would have attacked two pieces at once. " \
-                              f"The eval dropped {abs(eval_change):.1f} pawns."
-                elif opportunity_type == OpportunityType.HANGING_PIECE:
-                    message = f"There was free material! {best_exploit} wins a piece. " \
-                              f"Always check what's undefended before making your move."
-                elif opportunity_type == OpportunityType.PIN:
-                    message = f"You missed the pin! {best_exploit} would exploit the pinned piece. " \
-                              f"Pins are powerful because the piece can't move."
-                else:
-                    message = f"There was a stronger move: {best_exploit}. " \
-                              f"The position changed by {abs(eval_change):.1f} pawns."
+                missed_messages = {
+                    OpportunityType.FORK: (
+                        f"You missed a fork! {best_exploit} attacks two pieces at once. "
+                        f"Tip: After every move, scan for knight jumps that hit two targets."
+                    ),
+                    OpportunityType.HANGING_PIECE: (
+                        f"There was free material! {best_exploit} wins a piece. "
+                        f"Always check what's undefended before making your move."
+                    ),
+                    OpportunityType.PIN: (
+                        f"You missed a pin! {best_exploit} pins a piece to a more valuable one behind. "
+                        f"Tip: Look along ranks, files, and diagonals for pieces lined up."
+                    ),
+                    OpportunityType.SKEWER: (
+                        f"There was a skewer! {best_exploit} attacks a high-value piece with a target behind. "
+                        f"Tip: When two pieces are on the same line, check if you can force the front one to move."
+                    ),
+                }
+                message = missed_messages.get(
+                    opportunity_type,
+                    f"There was a stronger move: {best_exploit}. "
+                    f"The position changed by {abs(eval_change):.1f} pawns."
+                )
             else:
                 message = f"Your move was okay, but there might have been a better option. " \
                           f"Eval change: {eval_change:+.1f}"
