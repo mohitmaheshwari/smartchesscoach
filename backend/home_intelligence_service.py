@@ -267,6 +267,20 @@ def generate_active_advice(
         }
         drill_type = drill_map.get(ptype, "pattern_recognition")
 
+        # Human-readable labels for habit IDs (from HabitType enum)
+        habit_labels = {
+            "overconfidence": "Overconfidence in winning positions",
+            "early_queen": "Early queen development",
+            "one_move_blunder": "One-move blunders",
+            "weak_endgame": "Endgame technique",
+            "poor_piece_activity": "Piece activity",
+            "king_safety": "King safety",
+            "pawn_structure": "Pawn structure",
+            "calculation_errors": "Calculation",
+            "time_management": "Time management",
+            "impatience": "Rushing moves",
+        }
+
         # Map prescription to actionable content
         if ptype == "endgame_lesson":
             primary = f"Coach's focus: Learn the {focus_label} technique."
@@ -284,6 +298,11 @@ def generate_active_advice(
             opening_name = opening_key.replace("_", " ").replace("-", " ").title()
             primary = reason if reason else f"Coach's focus: Study the {opening_name}."
             action = {"type": "opening_lesson", "opening_key": opening_key, "label": f"Study {opening_name}"}
+        elif ptype == "habit":
+            # focus is a habit_id like "overconfidence" or "early_queen"
+            habit_label = habit_labels.get(focus, focus.replace("_", " ").title())
+            primary = reason if reason else f"Coach's focus: {habit_label}."
+            action = {"type": "habit_drill", "habit": focus, "label": f"Work on {habit_label}"}
         elif focus in ("hanging_piece", "missed_fork", "missed_pin", "missed_skewer"):
             pattern_key = focus.replace("missed_", "")
             primary = f"Coach's focus: {focus_label}. {reason}" if reason else f"Coach's focus: Stop {focus_label.lower()} mistakes."

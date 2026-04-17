@@ -262,12 +262,24 @@ async def analyze_postgame(
         pass
 
     # ========== STEP 8.7: CURRICULUM BRAIN — PICK ONE PRESCRIPTION ==========
-    # Get current focus from coach memory to check for graduation
+    # Get current focus + persistent weaknesses from coach memory
     current_focus = None
+    persistent_weaknesses = []  # [{habit_id, name, detection_count, improving}]
     try:
         from services.coach_memory import get_or_create_memory
         memory = await get_or_create_memory(db, user_id)
         current_focus = memory.learning.current_focus
+        # Extract habit weaknesses with at least 3 detections (persistent ones)
+        for habit in memory.weaknesses:
+            if not habit.is_good and habit.detection_count >= 3:
+                persistent_weaknesses.append({
+                    "habit_id": habit.habit_id,
+                    "name": habit.name,
+                    "detection_count": habit.detection_count,
+                    "improving": habit.improving,
+                })
+        # Sort by detection count (highest first)
+        persistent_weaknesses.sort(key=lambda h: h["detection_count"], reverse=True)
     except Exception:
         pass
 
@@ -293,6 +305,7 @@ async def analyze_postgame(
         phase_analysis=phase_analysis,
         opening_to_learn=opening_to_learn,
         opening_played=opening_played_key,
+        persistent_weaknesses=persistent_weaknesses,
     )
 
     analysis = PostGameAnalysis(
@@ -1111,17 +1124,19 @@ def _pick_prescription(
     phase_analysis: Optional[Dict] = None,
     opening_to_learn: Optional[str] = None,
     opening_played: Optional[str] = None,
+    persistent_weaknesses: Optional[List[Dict]] = None,
 ) -> tuple:
     """
     The curriculum brain. Looks at everything that happened in one game
-    and picks THE ONE THING the student should work on next.
+    AND the user's persistent history, then picks THE ONE THING to work on.
 
     Priority order (what a human coach would do):
     1. Failed endgame conversion → prescribe the endgame lesson
-    2. Opening disaster (lost in the opening) → prescribe opening lesson or trap
-    3. Hanging pieces (most common, most costly for beginners)
-    4. Missed fork/pin/skewer (tactical pattern)
-    5. King safety error
+    2. Persistent habit violation (recurring 5+ times) → prescribe the habit
+       (e.g., "you throw winning positions 22 times — let's fix that")
+    3. Opening disaster (lost in the opening) → prescribe opening lesson or trap
+    4. Hanging pieces (most common, most costly for beginners)
+    5. Missed fork/pin/skewer (tactical pattern)
     6. Positional drift (least urgent)
 
     Graduation: if the student had a current_focus and this game was clean
@@ -1143,6 +1158,40 @@ def _pick_prescription(
             "endgame_lesson",
             f"You reached a {endgame_type} endgame but couldn't convert. Let's practice this technique."
         )
+
+    # === 1.2. Persistent habit violation → prescribe the habit ===
+    # If the user has a habit that's been violated many times AND
+    # was violated in THIS game too, that's the highest-priority thing.
+    # Or if there's a MASSIVELY persistent habit (20+ times, not improving),
+    # keep focusing on it even in clean games.
+    if persistent_weaknesses:
+        # Which habits were violated in THIS game?
+        this_game_habits = set()
+        for hv in (habit_violations or []):
+            htype = getattr(hv, 'habit_type', None)
+            if htype:
+                htype_str = htype.value if hasattr(htype, 'value') else str(htype)
+                this_game_habits.add(htype_str)
+
+        # Priority A: worst persistent habit violated THIS game
+        for pw in persistent_weaknesses:
+            if pw["habit_id"] in this_game_habits and pw["detection_count"] >= 5:
+                trend = "but you're improving" if pw["improving"] else "and it keeps happening"
+                return (
+                    pw["habit_id"],
+                    "habit",
+                    f"You did this again: {pw['name'].lower()} ({pw['detection_count']} times total) — {trend}."
+                )
+
+        # Priority B: massively persistent habit (20+ times, not improving)
+        # even without a this-game violation — too important to ignore
+        for pw in persistent_weaknesses:
+            if pw["detection_count"] >= 20 and not pw["improving"]:
+                return (
+                    pw["habit_id"],
+                    "habit",
+                    f"Your biggest pattern: {pw['name'].lower()} ({pw['detection_count']} times). This costs the most Elo."
+                )
 
     # === 1.5. Opening disaster → prescribe opening lesson or trap ===
     # If the student lost and the opening phase was bad, teach the opening.
