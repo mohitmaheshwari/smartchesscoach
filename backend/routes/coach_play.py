@@ -5276,6 +5276,32 @@ async def start_play_with_coach(
         except Exception:
             pass
 
+        # === CURRICULUM BRAIN: Use coach's prescription as teaching focus ===
+        # If the coach analyzed previous games and prescribed a focus,
+        # that takes priority over generic focus engine detection.
+        if not teaching_focus:
+            try:
+                from services.coach_memory import get_or_create_memory
+                memory = await get_or_create_memory(db, user.user_id)
+                if memory.learning.current_focus:
+                    # Map prescription to teaching focus
+                    prescription_to_focus = {
+                        "hanging_piece": "tactics",
+                        "missed_fork": "tactics",
+                        "missed_pin": "tactics",
+                        "missed_skewer": "tactics",
+                        "king_safety": "king_safety",
+                        "tactical_error": "tactics",
+                    }
+                    mapped = prescription_to_focus.get(
+                        memory.learning.current_focus, "tactics"
+                    )
+                    focus_update["teaching_focus"] = mapped
+                    focus_update["curriculum_focus"] = memory.learning.current_focus
+                    logger.info(f"[COACH-START] Curriculum focus: {memory.learning.current_focus} -> teaching_focus={mapped}")
+            except Exception:
+                pass
+
         if focus_update:
             await db.coach_sessions.update_one(
                 {"session_id": session.session_id},

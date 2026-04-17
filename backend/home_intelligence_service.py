@@ -238,30 +238,77 @@ def generate_active_advice(
     recurring_patterns: List[Dict],
     last_game_issues: List[Dict],
     focus_capacity: str,
+    coach_prescription: Optional[Dict] = None,
 ) -> Dict:
     """
     Generate actionable advice based on the user's current phase and data.
+
+    If the curriculum brain has a prescription (from post-game analysis),
+    that takes priority — the coach knows what the student needs.
     """
-    
+
+    # === CURRICULUM BRAIN PRESCRIPTION OVERRIDES EVERYTHING ===
+    # The coach analyzed your games and picked ONE thing. That's the advice.
+    if coach_prescription and coach_prescription.get("focus"):
+        focus = coach_prescription["focus"]
+        reason = coach_prescription.get("reason", "")
+        ptype = coach_prescription.get("type", "pattern_drill")
+
+        # Map prescription to human-readable advice
+        focus_label = focus.replace("_", " ").title()
+
+        # Map prescription type to drill type
+        drill_map = {
+            "endgame_lesson": "calculation",
+            "pattern_drill": "pattern_recognition",
+            "habit": "threat_detection",
+        }
+        drill_type = drill_map.get(ptype, "pattern_recognition")
+
+        # Map prescription to actionable content
+        if ptype == "endgame_lesson":
+            primary = f"Coach's focus: Learn the {focus_label} technique."
+            action = {"type": "endgame_lesson", "lesson_key": focus, "label": f"Practice {focus_label}"}
+        elif focus in ("hanging_piece", "missed_fork", "missed_pin", "missed_skewer"):
+            pattern_key = focus.replace("missed_", "")
+            primary = f"Coach's focus: {focus_label}. {reason}" if reason else f"Coach's focus: Stop {focus_label.lower()} mistakes."
+            action = {"type": "pattern_puzzle", "pattern": pattern_key, "label": f"Train {focus_label}"}
+        else:
+            primary = f"Coach's focus: {focus_label}." + (f" {reason}" if reason else "")
+            action = {"type": "habit_drill", "habit": focus, "label": f"Work on {focus_label}"}
+
+        return {
+            "primary": primary,
+            "secondary": None,
+            "drill_type": drill_type,
+            "last_game_context": reason if reason else None,
+            "coach_prescription": {
+                "focus": focus,
+                "type": ptype,
+                "action": action,
+            },
+        }
+
+    # === FALLBACK: Generic phase-based advice (no prescription) ===
     advice_template = ADVICE_TEMPLATES.get(phase, ADVICE_TEMPLATES["advanced_refinement"])[0]
-    
+
     primary_advice = advice_template["primary"]
     secondary_advice = advice_template["secondary"]
     drill_type = advice_template["drill_type"]
-    
+
     # Personalize for pattern_control phase
     if phase == "pattern_control" and recurring_patterns:
         top_pattern = recurring_patterns[0]
         pattern_name = top_pattern.get("pattern", "this pattern").replace("_", " ").title()
         count = top_pattern.get("count", 3)
         primary_advice = primary_advice.format(pattern=pattern_name, count=count)
-    
+
     # Add last game context if available
     last_game_context = None
     if last_game_issues:
         top_issue = last_game_issues[0]
         last_game_context = f"In your last game, you {top_issue.get('description', 'made a key error')}."
-    
+
     return {
         "primary": primary_advice,
         "secondary": secondary_advice if focus_capacity != "single" else None,
@@ -451,12 +498,39 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
                 })
         last_game_issues.sort(key=lambda x: x.get("cp_loss", 0), reverse=True)
     
-    # Generate active advice
+    # === CURRICULUM BRAIN: Get coach's prescription from memory ===
+    coach_prescription_data = None
+    try:
+        from services.coach_memory import get_or_create_memory
+        memory = await get_or_create_memory(db, user_id)
+        current_focus = memory.learning.current_focus
+        if current_focus:
+            # Get the latest postgame analysis for prescription reason
+            latest_analysis = await db.postgame_analyses.find_one(
+                {"user_id": user_id, "coach_prescription": {"$exists": True}},
+                sort=[("created_at", -1)]
+            )
+            prescription_reason = ""
+            prescription_type = ""
+            if latest_analysis:
+                prescription_reason = latest_analysis.get("prescription_reason", "")
+                prescription_type = latest_analysis.get("prescription_type", "")
+
+            coach_prescription_data = {
+                "focus": current_focus,
+                "reason": prescription_reason,
+                "type": prescription_type,
+            }
+    except Exception:
+        pass
+
+    # Generate active advice — use coach prescription if available
     active_advice = generate_active_advice(
         phase=development_phase["phase_key"],
         recurring_patterns=recurring_patterns,
         last_game_issues=last_game_issues[:3],
         focus_capacity=focus_capacity["level"],
+        coach_prescription=coach_prescription_data,
     )
     
     # Last game summary
@@ -593,6 +667,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         "last_session": last_session_info,
         "win_streak": win_streak_data,
         "mood_override": mood_override,
+        "coach_prescription": coach_prescription_data,
         "training_recommendation": await _get_training_recommendation(db, user_id, recurring_patterns),
         "stats": {
             "blunders_per_game": round(blunders_per_game, 2),
