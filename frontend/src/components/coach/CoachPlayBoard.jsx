@@ -394,22 +394,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
             <RotateCcw className="w-4 h-4 mr-1" />
             Flip
           </Button>
-          {!gameOver && canUndoLastMove() && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleUndoMove}
-              disabled={undoLoading}
-              data-testid="undo-move-btn"
-            >
-              {undoLoading ? (
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              ) : (
-                <RotateCcw className="w-4 h-4 mr-1" />
-              )}
-              Undo Move
-            </Button>
-          )}
+          {/* Undo removed — a real coach doesn't let you take back moves */}
           {!gameOver && (
             <Button
               variant="destructive"
