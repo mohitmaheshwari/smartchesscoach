@@ -243,6 +243,29 @@ async def show_coach_plan(user_id: str):
             reason = str(g.get("prescription_reason", ""))[:40]
             print(f"  {when:<12} {result:<7} {acc:<6} {bl:<4} {presc:<25} {reason:<40}")
 
+    # ========== 6b. ENGINE 2 — LEARN THIS NEXT ==========
+    _banner("LEARN THIS NEXT (Engine 2 — forward-looking)")
+    try:
+        from services.engine2_skill_builder import pick_next_skill, find_ready_skills
+        from services.coach_memory import get_or_create_memory
+        _mem = await get_or_create_memory(db, user_id)
+        _rating = _mem.performance.best_performance_rating or 1000
+        next_skill = pick_next_skill(_mem, _rating)
+        ready = find_ready_skills(_mem, _rating)
+        if next_skill:
+            print(f"  Next skill:    {next_skill['label']}")
+            print(f"  Skill ID:      {next_skill['skill_id']}")
+            print(f"  Fixes:         {next_skill['fixes']}")
+            print(f"  Reason:        {next_skill['reason']}")
+            print(f"  Score:         {next_skill['stats']['score']}")
+            print(f"  Stats:         seen={next_skill['stats']['seen']}, correct={next_skill['stats']['correct']}, failed={next_skill['stats']['failed']}")
+            print()
+            print(f"  Other ready skills ({len(ready)-1}): {', '.join(s for s in ready if s != next_skill['skill_id'])[:80]}")
+        else:
+            print("  Nothing ready to teach. Either all skills learned, or no prereqs met yet.")
+    except Exception as e:
+        print(f"  Engine 2 error: {e}")
+
     # ========== 7. SUGGESTED ACTIONS — what should the coach do next session ==========
     _banner("COACH'S PLAN FOR NEXT SESSION")
     if memory:

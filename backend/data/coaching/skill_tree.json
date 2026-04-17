@@ -1,0 +1,104 @@
+{
+  "_meta": {
+    "description": "Fixed skill tree for Engine 2 (Build New Skills). Ordered by student pain, not chess theory. Do not expand beyond 12 skills without explicit product decision.",
+    "total_skills": 12
+  },
+  "skills": {
+    "pre_move_check": {
+      "label": "Check before every move",
+      "fixes": "playing without thinking",
+      "prerequisites": [],
+      "rating_min": 400,
+      "rating_max": 1400,
+      "tier": 1
+    },
+    "hanging_piece": {
+      "label": "Don't hang pieces",
+      "fixes": "losing pieces for free",
+      "prerequisites": ["pre_move_check"],
+      "rating_min": 500,
+      "rating_max": 1500,
+      "tier": 1
+    },
+    "opponent_threat": {
+      "label": "See opponent's threat",
+      "fixes": "missing what opponent threatens",
+      "prerequisites": ["pre_move_check"],
+      "rating_min": 600,
+      "rating_max": 1500,
+      "tier": 1
+    },
+    "king_safety": {
+      "label": "Keep your king safe",
+      "fixes": "getting mated or attacked",
+      "prerequisites": [],
+      "rating_min": 500,
+      "rating_max": 1500,
+      "tier": 1
+    },
+    "simple_mates": {
+      "label": "Mate with K+Q or K+R",
+      "fixes": "missing easy wins",
+      "prerequisites": ["king_safety"],
+      "rating_min": 600,
+      "rating_max": 1200,
+      "tier": 1
+    },
+    "free_piece_capture": {
+      "label": "Take free pieces",
+      "fixes": "missing captures",
+      "prerequisites": ["pre_move_check"],
+      "rating_min": 500,
+      "rating_max": 1300,
+      "tier": 2
+    },
+    "basic_trade": {
+      "label": "Trade smart",
+      "fixes": "bad exchanges",
+      "prerequisites": ["hanging_piece"],
+      "rating_min": 700,
+      "rating_max": 1400,
+      "tier": 2
+    },
+    "fork": {
+      "label": "Find forks",
+      "fixes": "missing double attacks",
+      "prerequisites": ["hanging_piece"],
+      "rating_min": 800,
+      "rating_max": 1600,
+      "tier": 2
+    },
+    "pin": {
+      "label": "Create and exploit pins",
+      "fixes": "missing pin opportunities",
+      "prerequisites": ["fork"],
+      "rating_min": 900,
+      "rating_max": 1700,
+      "tier": 2
+    },
+    "conversion": {
+      "label": "Convert winning positions",
+      "fixes": "losing winning games",
+      "prerequisites": ["fork", "pin"],
+      "rating_min": 1000,
+      "rating_max": 1800,
+      "tier": 3
+    },
+    "opening_principles": {
+      "label": "Play sound openings",
+      "fixes": "bad opening play",
+      "prerequisites": ["pre_move_check"],
+      "rating_min": 700,
+      "rating_max": 1500,
+      "tier": 3
+    },
+    "king_pawn_endgame": {
+      "label": "K+P endgames",
+      "fixes": "drawing won endgames",
+      "prerequisites": ["simple_mates"],
+      "rating_min": 900,
+      "rating_max": 1600,
+      "tier": 3
+    }
+  }
+}

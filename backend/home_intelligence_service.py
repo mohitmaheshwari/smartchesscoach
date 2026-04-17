@@ -716,6 +716,22 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
                 "icon": "trending-up",
             }
     
+    # === ENGINE 2: Learn This Next ===
+    # Pick the next skill the student is READY to learn based on prerequisites,
+    # rating, and failure/exposure signals. Runs regardless of Engine 1 so the
+    # home page always has a "next step" visible.
+    learn_next = None
+    try:
+        from services.engine2_skill_builder import pick_next_skill
+        from services.coach_memory import get_or_create_memory
+        # Get user's estimated rating from memory (performance.best_performance_rating)
+        # or fall back to a reasonable default
+        _mem = await get_or_create_memory(db, user_id)
+        _rating = _mem.performance.best_performance_rating or 1000
+        learn_next = pick_next_skill(_mem, _rating)
+    except Exception as e:
+        logger.debug(f"Engine 2 failed (non-critical): {e}")
+
     return {
         "has_data": True,
         "games_analyzed": total_games,
@@ -732,6 +748,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         "win_streak": win_streak_data,
         "mood_override": mood_override,
         "coach_prescription": coach_prescription_data,
+        "learn_next": learn_next,
         "learning_progress": await _get_learning_progress(db, user_id),
         "training_recommendation": await _get_training_recommendation(db, user_id, recurring_patterns),
         "stats": {
