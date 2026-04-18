@@ -945,69 +945,78 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             "games": [],
         }
 
+    # Helper: build the game dict the frontend expects (used by both
+    # problem-category groups AND the flat all_games list).
+    def _build_game_dict(g: Dict) -> Dict:
+        gid = g.get("game_id", "")
+        a = analyses.get(gid, {})
+        evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        critical_move_num = None
+        critical_fen = None
+        critical_best = None
+        critical_cp = 0
+        for ev in evals:
+            cp = ev.get("cp_loss", 0) or 0
+            if cp > critical_cp:
+                critical_cp = cp
+                critical_move_num = ev.get("move_number")
+                critical_fen = ev.get("fen_before", "")
+                critical_best = ev.get("best_move", "")
+
+        # Platform detection with fallback cascade
+        raw_platform = g.get("platform") or g.get("source") or ""
+        opponent_name = g.get("opponent", "") or ""
+        if raw_platform in ("chess.com", "lichess", "coach"):
+            platform = raw_platform
+        elif opponent_name.lower() == "coach" or g.get("is_coach_session"):
+            platform = "coach"
+        elif g.get("chess_com_url") or "chess.com" in (g.get("url", "") or ""):
+            platform = "chess.com"
+        elif g.get("lichess_url") or "lichess" in (g.get("url", "") or ""):
+            platform = "lichess"
+        else:
+            gid_lower = str(gid).lower()
+            if "lichess" in gid_lower:
+                platform = "lichess"
+            elif gid_lower.startswith("session_") or "coach" in gid_lower:
+                platform = "coach"
+            else:
+                platform = "chess.com"
+
+        return {
+            "game_id": gid,
+            "opponent": opponent_name or "Opponent",
+            "opening": g.get("opening", ""),
+            "result": g.get("result", ""),
+            "user_color": g.get("user_color", ""),
+            "behavior": g.get("behavior", ""),
+            "is_new": g.get("is_new", False),
+            "was_winning": g.get("was_winning", False),
+            "reviewed": g.get("reviewed", False),
+            "critical_move": critical_move_num,
+            "critical_fen": critical_fen,
+            "critical_best": critical_best,
+            "platform": platform,
+            "analyzed_at": g.get("analyzed_at") or a.get("created_at"),
+            "created_at": g.get("created_at") or g.get("imported_at"),
+        }
+
+    # Build TWO lists:
+    # 1. grouped_games (by problem category) — for the "Other areas to work on"
+    #    sections. Still filtered to loss categories (that's the point).
+    # 2. all_games — flat list of EVERY analyzed game (wins + losses + draws).
+    #    This is what the "Recently synced" / "Chess.com" / "Lichess" /
+    #    "Games with Coach" sections read from.
+    all_games = []
     for g in enriched_games:
-        gr = g.get("game_reason", {})
-        if not gr:
-            continue
+        game_dict = _build_game_dict(g)
+        all_games.append(game_dict)
+
+        # Also add to category group if its reason matches a top_problem
+        gr = g.get("game_reason", {}) or {}
         cat = gr.get("category", "")
         if cat in grouped_games:
-            # Find critical move for this game
-            gid = g.get("game_id", "")
-            a = analyses.get(gid, {})
-            evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
-            critical_move_num = None
-            critical_fen = None
-            critical_best = None
-            critical_cp = 0
-            for ev in evals:
-                cp = ev.get("cp_loss", 0) or 0
-                if cp > critical_cp:
-                    critical_cp = cp
-                    critical_move_num = ev.get("move_number")
-                    critical_fen = ev.get("fen_before", "")
-                    critical_best = ev.get("best_move", "")
-
-            # Determine the source platform for the frontend to bucket by.
-            # Game documents may store platform as 'platform' or 'source'.
-            # Coach sessions have opponent='Coach' but may not have platform set.
-            raw_platform = g.get("platform") or g.get("source") or ""
-            opponent_name = g.get("opponent", "") or ""
-            if raw_platform in ("chess.com", "lichess", "coach"):
-                platform = raw_platform
-            elif opponent_name.lower() == "coach" or g.get("is_coach_session"):
-                platform = "coach"
-            elif g.get("chess_com_url") or "chess.com" in (g.get("url", "") or ""):
-                platform = "chess.com"
-            elif g.get("lichess_url") or "lichess" in (g.get("url", "") or ""):
-                platform = "lichess"
-            else:
-                # Fallback: heuristic on game_id format
-                gid_lower = str(gid).lower()
-                if "lichess" in gid_lower:
-                    platform = "lichess"
-                elif gid_lower.startswith("session_") or "coach" in gid_lower:
-                    platform = "coach"
-                else:
-                    platform = "chess.com"  # Most common — assume Chess.com if unknown
-
-            grouped_games[cat]["games"].append({
-                "game_id": gid,
-                "opponent": opponent_name or "Opponent",
-                "opening": g.get("opening", ""),
-                "result": g.get("result", ""),
-                "user_color": g.get("user_color", ""),  # Needed by frontend to interpret "1-0"/"0-1"
-                "behavior": g.get("behavior", ""),
-                "is_new": g.get("is_new", False),
-                "was_winning": g.get("was_winning", False),
-                "reviewed": g.get("reviewed", False),
-                "critical_move": critical_move_num,
-                "critical_fen": critical_fen,
-                "critical_best": critical_best,
-                # Platform + timestamps so Lab page can bucket and sort
-                "platform": platform,
-                "analyzed_at": g.get("analyzed_at") or a.get("created_at"),
-                "created_at": g.get("created_at") or g.get("imported_at"),
-            })
+            grouped_games[cat]["games"].append(game_dict)
 
     # ── PLAYER STRENGTHS ──
     # Built from ACTUAL game data — not just win categories
@@ -1106,6 +1115,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "insight_label": insight_label,
         "top_problems": top_problems,
         "grouped_games": grouped_games,
+        "all_games": all_games,  # Flat list of every analyzed game (wins too) for source sections
         "strengths": strengths,
         "rule": rule_data,
         "training_lock": training_lock,

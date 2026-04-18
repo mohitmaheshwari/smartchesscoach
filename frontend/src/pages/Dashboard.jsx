@@ -257,11 +257,16 @@ const Dashboard = ({ user }) => {
 
           {/* ═══ GAMES SECTIONS (Coach / Chess.com / Lichess) ═══ */}
           {(() => {
-            const allGames = Object.values(groupedGames).flatMap(g => g.games || []);
+            // Use all_games (flat list of every analyzed game) for source sections.
+            // Fall back to grouped_games if all_games isn't available yet (older
+            // backend deployments).
+            const allGamesRaw = coaching?.all_games?.length
+              ? coaching.all_games
+              : Object.values(groupedGames).flatMap(g => g.games || []);
 
-            // Dedupe by game_id (same game can appear under multiple categories)
+            // Dedupe by game_id (some games may still appear twice)
             const seen = new Set();
-            const uniqueGames = allGames.filter(g => {
+            const uniqueGames = allGamesRaw.filter(g => {
               if (seen.has(g.game_id)) return false;
               seen.add(g.game_id);
               return true;
