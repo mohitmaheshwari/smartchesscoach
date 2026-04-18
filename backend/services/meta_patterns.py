@@ -1101,3 +1101,36 @@ def _count_material(board: chess.Board, color: chess.Color) -> int:
         if p and p.color == color and p.piece_type != chess.KING:
             total += _PIECE_VALUES.get(p.piece_type, 0)
     return total
+
+
+# ─── DEFAULT LLM ADAPTER (optional) ──────────────────────────────────
+
+
+async def default_llm_call(prompt: str) -> str:
+    """
+    Default LLM adapter using emergentintegrations. Used when caller
+    doesn't supply their own llm_call_fn. Returns empty string on failure
+    so the fallback path kicks in cleanly.
+    """
+    import os
+    try:
+        from llm_helper import LlmChat, UserMessage
+    except Exception:
+        return ""
+
+    api_key = os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return ""
+
+    try:
+        chat = LlmChat(
+            api_key=api_key,
+            session_id="meta_pattern_commentary",
+            system_message="You are a warm Indian chess coach. Output strict JSON only, no prose.",
+        ).with_model("openai", "gpt-4o-mini")
+        msg = UserMessage(text=prompt)
+        response = await chat.send_message(msg)
+        return (response or "").strip()
+    except Exception as e:
+        logger.warning(f"[META] default_llm_call failed: {e}")
+        return ""

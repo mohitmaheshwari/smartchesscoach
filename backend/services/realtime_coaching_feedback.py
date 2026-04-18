@@ -600,6 +600,77 @@ def _move_context(move: str, tactical: Dict) -> str:
     return ""
 
 
+def _try_meta_pattern(
+    fen_before: str,
+    user_move: str,
+    best_move: str,
+    eval_before: float,
+    eval_after: float,
+    user_color: str,
+    user_rating: int,
+    quality: str,
+    tactical_analysis: Dict,
+    extra_ctx: Optional[Dict] = None,
+) -> Optional[Dict[str, str]]:
+    """
+    Try to match a meta-pattern (the 25 composition rules). If one matches,
+    return its message + rule. Otherwise None (caller falls back to contrastive).
+
+    Uses existing signal detection from tactical_analysis where available;
+    the rest is derived from the parameters.
+    """
+    if not fen_before or not user_move:
+        return None
+    try:
+        from services.meta_patterns import MetaContext, detect_meta_patterns
+
+        extra_ctx = extra_ctx or {}
+
+        # Build the context from what's available
+        ctx = MetaContext(
+            fen_before=fen_before,
+            user_move=user_move,
+            best_move=best_move,
+            eval_before=eval_before,
+            eval_after=eval_after,
+            user_color=user_color,
+            user_rating=user_rating,
+            move_history=extra_ctx.get("move_history", []),
+            move_number=extra_ctx.get("move_number", 1),
+            time_spent=extra_ctx.get("time_spent", 0) or 0,
+            time_remaining=extra_ctx.get("time_remaining", 999) or 999,
+            game_phase=extra_ctx.get("game_phase", "middlegame"),
+            # Derived flags
+            is_impulse_move=(extra_ctx.get("time_spent", 99) or 99) < 2,
+            is_time_pressure=(extra_ctx.get("time_remaining", 999) or 999) < 60,
+            threat_ignored=bool(tactical_analysis.get("threats_created")),
+            threat_descriptions=tactical_analysis.get("threats_created", [])[:2],
+            # Cross-game
+            consecutive_blunders=extra_ctx.get("consecutive_blunders", 0),
+            blunders_this_game=extra_ctx.get("blunders_this_game", 0),
+            user_move_evaluations=extra_ctx.get("user_move_evaluations", []),
+            opening_name=extra_ctx.get("opening_name"),
+            endgame_type=extra_ctx.get("endgame_type"),
+            mistake_type=extra_ctx.get("mistake_type"),
+            recent_same_mistake_count=extra_ctx.get("recent_same_mistake_count", 0),
+        )
+
+        matches = detect_meta_patterns(ctx)
+        if not matches:
+            return None
+
+        top = matches[0]
+        # Use fallback message + rule for now (LLM hook comes later in the flow)
+        return {
+            "coaching_message": top.fallback_message or top.fallback_rule,
+            "rule": top.fallback_rule,
+            "pattern_id": top.pattern_id,
+        }
+    except Exception as e:
+        logger.debug(f"[META] meta-pattern detection failed: {e}")
+        return None
+
+
 def _generate_coaching_message(
     user_move: str,
     quality: str,
@@ -610,6 +681,10 @@ def _generate_coaching_message(
     user_name: str = "",
     user_rating: int = 1200,
     fen_before: str = "",
+    eval_before: float = 0.0,
+    eval_after: float = 0.0,
+    user_color: str = "white",
+    extra_meta_ctx: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """
     Generate a human-like coaching message in Indian-English style.
@@ -718,7 +793,19 @@ def _generate_coaching_message(
     
     # ========== MISTAKES - CONTRASTIVE + SOCRATIC ==========
     elif quality == "mistake":
-        # Try contrastive explanation (position-specific)
+        # === 1. Try meta-pattern first (highest quality, composition-based) ===
+        meta = _try_meta_pattern(
+            fen_before, user_move, best_move, eval_before, eval_after,
+            user_color, user_rating, quality, tactical_analysis, extra_meta_ctx
+        )
+        if meta:
+            result["coaching_message"] = meta["coaching_message"]
+            result["meta_pattern_id"] = meta["pattern_id"]
+            result["rule"] = meta["rule"]
+            result["encouragement"] = "Koi baat nahi. Let's learn from this."
+            return result
+
+        # === 2. Fall back to contrastive explanation (position-specific) ===
         contrast = _contrastive_explanation(fen_before, user_move, best_move, user_rating) if fen_before else None
 
         if is_beginner:
@@ -760,8 +847,21 @@ def _generate_coaching_message(
         ])
         return result
     
-    # ========== BLUNDERS - CONTRASTIVE + SOCRATIC ==========
+    # ========== BLUNDERS - META-PATTERN > CONTRASTIVE > SOCRATIC ==========
     elif quality == "blunder":
+        # === 1. Try meta-pattern first ===
+        meta = _try_meta_pattern(
+            fen_before, user_move, best_move, eval_before, eval_after,
+            user_color, user_rating, quality, tactical_analysis, extra_meta_ctx
+        )
+        if meta:
+            result["coaching_message"] = meta["coaching_message"]
+            result["meta_pattern_id"] = meta["pattern_id"]
+            result["rule"] = meta["rule"]
+            result["encouragement"] = "Everyone blunders. What matters is the next move."
+            return result
+
+        # === 2. Fall back to contrastive ===
         contrast = _contrastive_explanation(fen_before, user_move, best_move, user_rating) if fen_before else None
 
         if is_beginner:
@@ -1022,6 +1122,37 @@ async def generate_move_feedback(
         logger.info(f"Using Chess Brain coaching: {chess_brain_feedback.get('teaching_mode')}")
     else:
         # Fall back to legacy coaching message generation
+        # Build extra context for meta-pattern detection
+        extra_meta_ctx = {
+            "move_history": [m.get("move", "") for m in move_history],
+            "move_number": move_number,
+            "time_spent": user_move_data.get("time_spent", 0),
+            "time_remaining": session.get("user_time_remaining", 999),
+            "game_phase": (
+                "opening" if move_number <= 10
+                else "endgame" if move_number >= 35
+                else "middlegame"
+            ),
+            "consecutive_blunders": sum(
+                1 for m in (move_history or [])[-4:]
+                if m.get("by") == "player" and (m.get("evaluation") or "").lower() == "blunder"
+            ),
+            "blunders_this_game": sum(
+                1 for m in (move_history or [])
+                if m.get("by") == "player" and (m.get("evaluation") or "").lower() == "blunder"
+            ),
+            "user_move_evaluations": [
+                {
+                    "move": m.get("move", ""),
+                    "move_number": m.get("move_number", i),
+                    "time_spent": m.get("time_spent", 0),
+                    "cp_loss": m.get("cp_loss", 0),
+                }
+                for i, m in enumerate(move_history or [])
+                if m.get("by") == "player"
+            ],
+        }
+
         coaching_result = _generate_coaching_message(
             user_move=user_move,
             quality=quality,
@@ -1032,6 +1163,10 @@ async def generate_move_feedback(
             user_name="",
             user_rating=user_rating,
             fen_before=fen_before,
+            eval_before=eval_before,
+            eval_after=eval_after,
+            user_color=user_color,
+            extra_meta_ctx=extra_meta_ctx,
         )
         
         coaching_message = coaching_result.get("coaching_message", "")
