@@ -304,6 +304,20 @@ const Dashboard = ({ user }) => {
               : p === "coach" ? "Coach"
               : "Game";  // Friendly fallback instead of "?"
 
+            // Normalize result field — backend uses "W"/"L"/"D" or PGN-style "1-0"
+            // while the old frontend checked "win"/"loss"/"draw". Handle all.
+            const resultWord = (g) => {
+              const r = String(g.result || "").toLowerCase().trim();
+              if (r === "win" || r === "w") return "Won";
+              if (r === "loss" || r === "l") return "Lost";
+              if (r === "draw" || r === "d" || r === "1/2-1/2" || r === "½-½") return "Drew";
+              // PGN-style — depends on user_color
+              const color = String(g.user_color || "").toLowerCase();
+              if (r === "1-0") return color === "white" ? "Won" : "Lost";
+              if (r === "0-1") return color === "black" ? "Won" : "Lost";
+              return r ? r.charAt(0).toUpperCase() + r.slice(1) : "—";
+            };
+
             const GameRow = ({ g, showSource }) => (
               <div
                 key={g.game_id}
@@ -323,7 +337,7 @@ const Dashboard = ({ user }) => {
                   />
                   <div className="min-w-0">
                     <span className="text-sm text-foreground">
-                      {g.result === "win" ? "Won" : g.result === "loss" ? "Lost" : "Drew"}
+                      {resultWord(g)}
                       {showSource ? ` • ${platformLabel(g.platform)}` : g.platform === "coach" ? " vs Coach" : ""}
                     </span>
                     {g.opening ? (

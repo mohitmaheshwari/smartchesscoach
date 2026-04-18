@@ -995,6 +995,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                 "opponent": opponent_name or "Opponent",
                 "opening": g.get("opening", ""),
                 "result": g.get("result", ""),
+                "user_color": g.get("user_color", ""),  # Needed by frontend to interpret "1-0"/"0-1"
                 "behavior": g.get("behavior", ""),
                 "is_new": g.get("is_new", False),
                 "was_winning": g.get("was_winning", False),
