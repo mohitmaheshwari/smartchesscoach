@@ -338,7 +338,14 @@ const Dashboard = ({ user }) => {
                   <div className="min-w-0">
                     <span className="text-sm text-foreground">
                       {resultWord(g)}
-                      {showSource ? ` • ${platformLabel(g.platform)}` : g.platform === "coach" ? " vs Coach" : ""}
+                      {/* Opponent: 'vs Coach' for coach games, 'vs <name>' for others */}
+                      {g.platform === "coach"
+                        ? " vs Coach"
+                        : g.opponent && g.opponent !== "Opponent"
+                        ? ` vs ${g.opponent}`
+                        : ""}
+                      {/* Source badge only in the 'Recently synced' strip */}
+                      {showSource ? ` • ${platformLabel(g.platform)}` : ""}
                     </span>
                     {g.opening ? (
                       <span className="text-[10px] text-muted-foreground/40 ml-2">{g.opening}</span>
