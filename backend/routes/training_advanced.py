@@ -967,9 +967,32 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                     critical_fen = ev.get("fen_before", "")
                     critical_best = ev.get("best_move", "")
 
+            # Determine the source platform for the frontend to bucket by.
+            # Game documents may store platform as 'platform' or 'source'.
+            # Coach sessions have opponent='Coach' but may not have platform set.
+            raw_platform = g.get("platform") or g.get("source") or ""
+            opponent_name = g.get("opponent", "") or ""
+            if raw_platform in ("chess.com", "lichess", "coach"):
+                platform = raw_platform
+            elif opponent_name.lower() == "coach" or g.get("is_coach_session"):
+                platform = "coach"
+            elif g.get("chess_com_url") or "chess.com" in (g.get("url", "") or ""):
+                platform = "chess.com"
+            elif g.get("lichess_url") or "lichess" in (g.get("url", "") or ""):
+                platform = "lichess"
+            else:
+                # Fallback: heuristic on game_id format
+                gid_lower = str(gid).lower()
+                if "lichess" in gid_lower:
+                    platform = "lichess"
+                elif gid_lower.startswith("session_") or "coach" in gid_lower:
+                    platform = "coach"
+                else:
+                    platform = "chess.com"  # Most common — assume Chess.com if unknown
+
             grouped_games[cat]["games"].append({
                 "game_id": gid,
-                "opponent": g.get("opponent", "Opponent"),
+                "opponent": opponent_name or "Opponent",
                 "opening": g.get("opening", ""),
                 "result": g.get("result", ""),
                 "behavior": g.get("behavior", ""),
@@ -979,6 +1002,10 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                 "critical_move": critical_move_num,
                 "critical_fen": critical_fen,
                 "critical_best": critical_best,
+                # Platform + timestamps so Lab page can bucket and sort
+                "platform": platform,
+                "analyzed_at": g.get("analyzed_at") or a.get("created_at"),
+                "created_at": g.get("created_at") or g.get("imported_at"),
             })
 
     # ── PLAYER STRENGTHS ──

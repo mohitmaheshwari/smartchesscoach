@@ -299,7 +299,10 @@ const Dashboard = ({ user }) => {
             };
 
             const platformLabel = (p) =>
-              p === "chess.com" ? "Chess.com" : p === "lichess" ? "Lichess" : p === "coach" ? "Coach" : (p || "?");
+              p === "chess.com" ? "Chess.com"
+              : p === "lichess" ? "Lichess"
+              : p === "coach" ? "Coach"
+              : "Game";  // Friendly fallback instead of "?"
 
             const GameRow = ({ g, showSource }) => (
               <div
