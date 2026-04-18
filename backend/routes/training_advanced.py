@@ -945,6 +945,49 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             "games": [],
         }
 
+    # Helper: one-line coach commentary built from existing game signals.
+    # Deterministic — no LLM, no DB queries. 4-10 words, past tense.
+    def _coach_take(g: Dict, critical_move_num: Optional[int]) -> str:
+        result = g.get("result", "")
+        was_winning = g.get("was_winning", False)
+        blunders = g.get("blunders", 0) or 0
+        mistakes = g.get("mistakes", 0) or 0
+        gr = g.get("game_reason") or {}
+        gr_label = gr.get("label", "") or ""
+        gr_cat = gr.get("category", "") or ""
+
+        mv = f" on move {critical_move_num}" if critical_move_num else ""
+
+        # === WINS ===
+        if result == "W":
+            if blunders == 0 and mistakes <= 1:
+                return "Clean win."
+            if gr_cat == "opponent_blundered":
+                return "Won — opponent cracked first."
+            if blunders >= 1:
+                return f"Won despite a wobble{mv}."
+            return "Solid win."
+
+        # === DRAWS ===
+        if result == "D":
+            if was_winning:
+                return f"Drew from a winning position — slip{mv}."
+            if blunders == 0:
+                return "Even game throughout."
+            return f"Drew after a mistake{mv}."
+
+        # === LOSSES ===
+        # Most specific categories first
+        if gr_cat == "one_move_blunder" or (blunders >= 1 and mistakes == 0):
+            return f"One-move blunder{mv}."
+        if was_winning:
+            return f"Winning, then let it slip{mv}."
+        if blunders >= 2:
+            return "Two big mistakes cost this one."
+        if gr_label:
+            return f"{gr_label}{mv}." if mv else f"{gr_label}."
+        return f"Critical mistake{mv}." if mv else "Tough loss."
+
     # Helper: build the game dict the frontend expects (used by both
     # problem-category groups AND the flat all_games list).
     def _build_game_dict(g: Dict) -> Dict:
@@ -990,6 +1033,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             "result": g.get("result", ""),
             "user_color": g.get("user_color", ""),
             "behavior": g.get("behavior", ""),
+            "coach_take": _coach_take(g, critical_move_num),  # Short deterministic line
             "is_new": g.get("is_new", False),
             "was_winning": g.get("was_winning", False),
             "reviewed": g.get("reviewed", False),

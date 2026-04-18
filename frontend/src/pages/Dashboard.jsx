@@ -30,6 +30,7 @@ const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [expandedGameId, setExpandedGameId] = useState(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -323,57 +324,97 @@ const Dashboard = ({ user }) => {
               return r ? r.charAt(0).toUpperCase() + r.slice(1) : "—";
             };
 
-            const GameRow = ({ g, showSource }) => (
-              <div
-                key={g.game_id}
-                onClick={() => navigate(`/game/${g.game_id}`)}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Swords
-                    className={`w-3.5 h-3.5 flex-shrink-0 ${
-                      g.platform === "coach"
-                        ? "text-blue-400"
-                        : g.platform === "chess.com"
-                        ? "text-emerald-400"
-                        : "text-violet-400"
-                    }`}
-                    strokeWidth={2}
-                  />
-                  <div className="min-w-0">
-                    <span className="text-sm text-foreground">
-                      {resultWord(g)}
-                      {/* Opponent: 'vs Coach' for coach games, 'vs <name>' for others */}
-                      {g.platform === "coach"
-                        ? " vs Coach"
-                        : g.opponent && g.opponent !== "Opponent"
-                        ? ` vs ${g.opponent}`
-                        : ""}
-                      {/* Source badge only in the 'Recently synced' strip */}
-                      {showSource ? ` • ${platformLabel(g.platform)}` : ""}
-                    </span>
-                    {g.opening ? (
-                      <span className="text-[10px] text-muted-foreground/40 ml-2">{g.opening}</span>
-                    ) : null}
+            // mode:
+            //  'recent'     -> Recently synced strip: inline coach_take below row
+            //  'expandable' -> source sections: click toggles expanded panel
+            const GameRow = ({ g, showSource, mode = "expandable" }) => {
+              const isExpanded = expandedGameId === g.game_id;
+              const iconColor =
+                g.platform === "coach" ? "text-blue-400"
+                : g.platform === "chess.com" ? "text-emerald-400"
+                : "text-violet-400";
+
+              const handleClick = () => {
+                if (mode === "expandable") {
+                  setExpandedGameId(isExpanded ? null : g.game_id);
+                } else {
+                  navigate(`/game/${g.game_id}`);
+                }
+              };
+
+              return (
+                <div className="rounded-xl overflow-hidden">
+                  <div
+                    onClick={handleClick}
+                    className="flex items-center justify-between p-3 hover:bg-muted/50 cursor-pointer transition-all group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Swords className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} strokeWidth={2} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-foreground">
+                          {resultWord(g)}
+                          {g.platform === "coach"
+                            ? " vs Coach"
+                            : g.opponent && g.opponent !== "Opponent"
+                            ? ` vs ${g.opponent}`
+                            : ""}
+                          {showSource ? ` • ${platformLabel(g.platform)}` : ""}
+                          {g.opening ? (
+                            <span className="text-[10px] text-muted-foreground/40 ml-2">{g.opening}</span>
+                          ) : null}
+                        </div>
+                        {/* Inline coach take — only in 'recent' mode */}
+                        {mode === "recent" && g.coach_take && (
+                          <div className="text-[11px] text-muted-foreground/70 mt-0.5 italic">
+                            {g.coach_take}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-[10px] text-muted-foreground/50">{fmtDate(g)}</span>
+                      <ChevronRight
+                        className={`w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-all ${
+                          isExpanded ? "rotate-90" : ""
+                        }`}
+                      />
+                    </div>
                   </div>
+
+                  {/* Expanded panel — only shows when row is clicked in 'expandable' mode */}
+                  {mode === "expandable" && isExpanded && (
+                    <div className="px-3 pb-3 pt-1 bg-muted/20 border-t border-muted/30">
+                      {g.coach_take && (
+                        <p className="text-xs text-foreground/80 italic mb-2">{g.coach_take}</p>
+                      )}
+                      {g.critical_move && (
+                        <p className="text-[11px] text-muted-foreground/60 mb-2">
+                          Critical moment: move {g.critical_move}
+                          {g.critical_best ? ` — best was ${g.critical_best}` : ""}
+                        </p>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/game/${g.game_id}`); }}
+                        className="text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition"
+                      >
+                        Review game
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[10px] text-muted-foreground/50">{fmtDate(g)}</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-primary transition-colors" />
-                </div>
-              </div>
-            );
+              );
+            };
 
             return (
               <>
-                {/* Latest synced — so user knows what got imported */}
+                {/* Latest synced — coach's briefing, inline takes */}
                 {latestGames.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
                     <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
                       Recently synced
                     </p>
                     <div className="space-y-1">
-                      {latestGames.map(g => <GameRow key={g.game_id} g={g} showSource={true} />)}
+                      {latestGames.map(g => <GameRow key={g.game_id} g={g} showSource={true} mode="recent" />)}
                     </div>
                   </motion.div>
                 )}
