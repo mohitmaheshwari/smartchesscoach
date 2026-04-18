@@ -950,7 +950,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         if not gr:
             continue
         cat = gr.get("category", "")
-        if cat in grouped_games and g.get("result") != "W":
+        if cat in grouped_games:
             # Find critical move for this game
             gid = g.get("game_id", "")
             a = analyses.get(gid, {})
