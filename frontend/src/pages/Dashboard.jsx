@@ -63,7 +63,6 @@ const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("imported");  // "imported" | "coach"
   const [expandedGameId, setExpandedGameId] = useState(null);
 
   useEffect(() => { fetchData(); }, []);
@@ -132,31 +131,15 @@ const Dashboard = ({ user }) => {
     featuredGame = null;
   }
 
-  // Build the two game lists for tabs
-  const allGamesRaw = coaching?.all_games?.length
-    ? coaching.all_games
-    : Object.values(groupedGames).flatMap(g => g.games || []);
-  const seen = new Set();
-  const uniqueGames = allGamesRaw.filter(g => {
-    if (seen.has(g.game_id)) return false;
-    seen.add(g.game_id);
-    return true;
-  });
-
+  // Games tagged with the primary issue (excluding the featured one at top)
   const sortByDate = (a, b) => {
     const da = new Date(a.analyzed_at || a.created_at || a.date || 0).getTime();
     const db = new Date(b.analyzed_at || b.created_at || b.date || 0).getTime();
     return db - da;
   };
-
-  const coachGames = uniqueGames
-    .filter(g => g.platform === "coach" || g.opponent === "Coach")
+  const issueGames = [...primaryGames]
+    .filter(g => g.game_id !== featuredGame?.game_id)
     .sort(sortByDate);
-  const importedGames = uniqueGames
-    .filter(g => g.platform !== "coach" && g.opponent !== "Coach")
-    .sort(sortByDate);
-
-  const activeGames = tab === "coach" ? coachGames : importedGames;
 
   const GameRow = ({ g }) => {
     const isExpanded = expandedGameId === g.game_id;
@@ -279,41 +262,26 @@ const Dashboard = ({ user }) => {
             </motion.div>
           )}
 
-          {/* GAMES — tabbed */}
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-            <div className="flex items-center gap-1 mb-3 p-1 rounded-xl bg-muted/30 border border-border/40">
-              <button
-                onClick={() => { setTab("imported"); setExpandedGameId(null); }}
-                className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                  tab === "imported"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Your games {importedGames.length > 0 && <span className="text-muted-foreground/60">· {importedGames.length}</span>}
-              </button>
-              <button
-                onClick={() => { setTab("coach"); setExpandedGameId(null); }}
-                className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                  tab === "coach"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                With Coach {coachGames.length > 0 && <span className="text-muted-foreground/60">· {coachGames.length}</span>}
-              </button>
-            </div>
-
-            {activeGames.length === 0 ? (
-              <p className="text-xs text-muted-foreground/60 text-center py-6">
-                {tab === "coach" ? "No games with Coach yet." : "No imported games yet."}
+          {/* OTHER GAMES WITH THIS SAME ISSUE */}
+          {issueGames.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
+                Other games with this pattern
               </p>
-            ) : (
               <div className="space-y-1.5">
-                {activeGames.slice(0, 10).map(g => <GameRow key={g.game_id} g={g} />)}
+                {issueGames.slice(0, 5).map(g => <GameRow key={g.game_id} g={g} />)}
               </div>
-            )}
-          </motion.div>
+            </motion.div>
+          )}
+
+          {/* See all games link */}
+          <button
+            onClick={() => navigate("/games")}
+            className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition py-2"
+          >
+            See all games
+            <ChevronRight className="w-3 h-3" strokeWidth={2} />
+          </button>
 
           {/* ACTIONS */}
           <div className="space-y-2 pt-2">

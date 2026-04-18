@@ -10,6 +10,7 @@ import CoachHome from "@/pages/CoachHome";
 import HomePage from "@/pages/HomePage";  // NEW focused homepage
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
+import AllGames from "@/pages/AllGames";
 import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
 import Training from "@/pages/TrainingNew";  // Legacy training
@@ -221,6 +222,11 @@ function AppRouter() {
       <Route path="/lab" element={
         <ProtectedRoute>
           {({ user }) => <Dashboard user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/games" element={
+        <ProtectedRoute>
+          {({ user }) => <AllGames user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/import" element={
