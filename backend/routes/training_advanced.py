@@ -567,6 +567,21 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
     except Exception:
         pass
 
+    # ── CURRICULUM BRAIN OVERRIDE ──
+    # Let the coach's persistent plan (coach_memory.learning.current_focus)
+    # decide the #1 problem, sanity-checked against the fresh aggregate.
+    # This keeps Lab / Home / training all pointing at the same ONE thing.
+    active_focus = None
+    try:
+        from services.focus_resolver import get_active_focus, reorder_top_problems_by_focus
+        active_focus = await get_active_focus(db, user_id, top_problems)
+        if active_focus and active_focus.get("category"):
+            top_problems = reorder_top_problems_by_focus(
+                top_problems, active_focus["category"]
+            )
+    except Exception as e:
+        logger.debug(f"Focus resolver failed (non-fatal): {e}")
+
     # The primary category to match games against
     primary_category = top_problems[0]["category"] if top_problems else None
 
@@ -1164,6 +1179,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         "rule": rule_data,
         "training_lock": training_lock,
         "lifecycle": lifecycle,
+        "active_focus": active_focus,
     }
 
 
@@ -1759,8 +1775,20 @@ async def get_pattern_puzzles(
     Returns user's own game positions first, then community puzzles.
     Excludes already-solved puzzles.
     Auto-triggers backfill if no puzzles exist yet.
+
+    Pass `current` to use whatever the curriculum brain has set as
+    coach_memory.learning.current_focus.
     """
     from services.puzzle_extraction_service import get_pattern_training_puzzles, backfill_puzzles_for_user
+    from services.focus_resolver import get_active_focus
+
+    resolved_focus = None
+    if pattern in ("current", "auto", "focus"):
+        resolved_focus = await get_active_focus(db, user.user_id, top_problems=None)
+        if resolved_focus and resolved_focus.get("gap"):
+            pattern = resolved_focus["gap"]
+        else:
+            pattern = "piece_safety"  # safe default for beginners
 
     # Check if user has ANY puzzles — if not, auto-backfill
     existing = await db.community_puzzles.count_documents({"shared_by": user.user_id})
@@ -1772,7 +1800,11 @@ async def get_pattern_puzzles(
         except Exception as e:
             logger.warning(f"Auto-backfill failed: {e}")
 
-    return await get_pattern_training_puzzles(db, user.user_id, pattern, limit)
+    result = await get_pattern_training_puzzles(db, user.user_id, pattern, limit)
+    if resolved_focus:
+        if isinstance(result, dict):
+            result["active_focus"] = resolved_focus
+    return result
 
 
 @router.post("/training/extract-puzzles")

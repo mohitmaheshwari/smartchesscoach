@@ -108,6 +108,7 @@ const Dashboard = ({ user }) => {
   const topProblems = coaching?.top_problems || [];
   const groupedGames = coaching?.grouped_games || {};
   const priorityGame = coaching?.priority_game;
+  const activeFocus = coaching?.active_focus || null;
   const primaryProblem = topProblems[0] || null;
   const primaryGames = primaryProblem ? (groupedGames[primaryProblem.category]?.games || []) : [];
   const unreviewed = primaryGames.filter(g => !g.reviewed);
@@ -201,20 +202,23 @@ const Dashboard = ({ user }) => {
       <div className="max-w-lg mx-auto px-4 py-8" data-testid="lab-page">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
-          {/* THE PROBLEM */}
-          {primaryProblem && (
+          {/* THE PROBLEM — prefer the curriculum brain's active focus */}
+          {(activeFocus?.focus || primaryProblem) && (
             <div>
               <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
-                Your biggest issue right now
+                {activeFocus?.source === "brain" ? "Coach's focus for you" : "Your biggest issue right now"}
               </p>
               <h1 className="text-xl font-heading font-semibold text-foreground leading-snug mb-2">
-                {BEHAVIOR_DESCRIPTIONS[primaryProblem.category] || primaryProblem.label}
+                {activeFocus?.label
+                  || BEHAVIOR_DESCRIPTIONS[primaryProblem?.category]
+                  || primaryProblem?.label
+                  || "Let's find something to work on"}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {primaryProblem.count >= 8
-                  ? "This is happening in almost every game."
-                  : `This happened in ${primaryProblem.count} of your recent games.`
-                }
+                {activeFocus?.reason
+                  || (primaryProblem && (primaryProblem.count >= 8
+                    ? "This is happening in almost every game."
+                    : `This happened in ${primaryProblem.count} of your recent games.`))}
               </p>
             </div>
           )}
@@ -285,10 +289,14 @@ const Dashboard = ({ user }) => {
 
           {/* ACTIONS */}
           <div className="space-y-2 pt-2">
-            {primaryProblem && (
+            {(activeFocus?.focus || primaryProblem) && (
               <button
                 onClick={() => {
-                  const pattern = PATTERN_MAP[primaryProblem.category] || primaryProblem.category;
+                  // Prefer the coach's active focus; fall back to aggregated category.
+                  const pattern = activeFocus?.gap
+                    || PATTERN_MAP[primaryProblem?.category]
+                    || primaryProblem?.category
+                    || "current";
                   navigate(`/training/prescribed?weakness=${pattern}`);
                 }}
                 className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-primary/20 bg-primary/[0.03] hover:bg-primary/[0.06] transition-all"

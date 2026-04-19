@@ -823,6 +823,28 @@ async def get_coach_home(user: User = Depends(get_current_user)):
     except Exception as e:
         logger.warning(f"[COACH-HOME] Today's plan failed: {e}")
 
+    # ─── ACTIVE FOCUS — single source of truth for "what to work on" ───
+    # Same resolver the Lab page uses. Keeps Home / Lab / Training aligned.
+    try:
+        from services.focus_resolver import get_active_focus
+        problem_for_agg = result.get("problem")
+        top_problems_hint = [problem_for_agg] if problem_for_agg else None
+        result["active_focus"] = await get_active_focus(db, user_id, top_problems_hint)
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Active focus failed: {e}")
+        result["active_focus"] = None
+
+    # ─── ENGINE 2: next skill to learn (forward-looking) ───
+    try:
+        from services.engine2_skill_builder import pick_next_skill
+        from services.coach_memory import get_or_create_memory
+        _mem = await get_or_create_memory(db, user_id)
+        _rating = _mem.performance.best_performance_rating or 1000
+        result["learn_next"] = pick_next_skill(_mem, _rating)
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Engine 2 failed: {e}")
+        result["learn_next"] = None
+
     return result
 
 

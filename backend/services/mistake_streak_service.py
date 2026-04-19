@@ -94,6 +94,76 @@ FOCUS_MISTAKE_TYPES = {
 
 
 # =============================================================================
+# BRAIN FOCUS BRIDGE
+# =============================================================================
+
+# Map curriculum brain's current_focus keys → streak service's focus_mistake types.
+_BRAIN_TO_STREAK_FOCUS = {
+    "hanging_piece":    "HANGING_PIECE",
+    "missed_fork":      "TACTICAL_MISS",
+    "missed_pin":       "TACTICAL_MISS",
+    "missed_skewer":    "TACTICAL_MISS",
+    "missed_discovery": "TACTICAL_MISS",
+    "missed_overload":  "TACTICAL_MISS",
+    "king_safety":      "THREAT_VERIFICATION",
+    "tactical_error":   "STOPPED_CALCULATION_EARLY",
+}
+
+
+def streak_focus_from_brain(brain_focus: Optional[str]) -> Optional[str]:
+    """Map a coach_memory.learning.current_focus value → streak focus type."""
+    if not brain_focus:
+        return None
+    if brain_focus in _BRAIN_TO_STREAK_FOCUS:
+        return _BRAIN_TO_STREAK_FOCUS[brain_focus]
+    # Prefix forms (trap:/opening:/endgame:) don't map to streak taxonomy —
+    # leave whatever was there unchanged.
+    return None
+
+
+async def sync_streak_focus_with_brain(db, user_id: str, brain_focus: str) -> Optional[str]:
+    """
+    Make user_streaks.streak_data.current_focus_mistake agree with
+    coach_memory.learning.current_focus.
+
+    If the focus type changes, resets the current streak counter (since
+    it's now tracking a different behavior) but preserves `best`.
+    """
+    streak_focus = streak_focus_from_brain(brain_focus)
+    if not streak_focus:
+        return None
+
+    existing = await db.user_streaks.find_one({"user_id": user_id})
+    if existing:
+        current_type = existing.get("streak_data", {}).get("current_focus_mistake")
+        if current_type == streak_focus:
+            return streak_focus  # Already aligned
+        # Type changed — reset current counter, keep best
+        await db.user_streaks.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "streak_data.current_focus_mistake": streak_focus,
+                "streak_data.mistake_streak.current": 0,
+                "streak_data.mistake_streak.last_game_had_mistake": False,
+                "streak_data.mistake_streak.streak_started_at": None,
+            }},
+        )
+    else:
+        await db.user_streaks.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "user_id": user_id,
+                "streak_data.current_focus_mistake": streak_focus,
+                "streak_data.mistake_streak": {"current": 0, "best": 0, "last_game_had_mistake": False},
+                "streak_data.last_5_games": [],
+            }},
+            upsert=True,
+        )
+    logger.info(f"[STREAK-SYNC] {user_id}: brain={brain_focus} → streak={streak_focus}")
+    return streak_focus
+
+
+# =============================================================================
 # DATA MODELS
 # =============================================================================
 

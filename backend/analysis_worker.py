@@ -1190,6 +1190,13 @@ def process_job(db, job):
                             f"[CURRICULUM] Imported game prescription: {prescription} "
                             f"({ptype}) — {preason}"
                         )
+                        # Engine 2: distill mistake_types + was_winning from the evals
+                        mt_list = [m.tactical_pattern for m in mistakes_for_prescription
+                                   if getattr(m, "tactical_pattern", None)]
+                        was_winning_flag = any(
+                            (mv.get("evaluation_score", 0) or 0) > 150
+                            for mv in move_evaluations
+                        )
                         # Persist via update_memory_after_game
                         await update_memory_after_game(
                             db=async_db,
@@ -1205,7 +1212,14 @@ def process_job(db, job):
                             performance_rating=user_rating,
                             coach_prescription=prescription,
                             prescription_type=ptype,
+                            mistake_types=mt_list,
+                            was_winning=was_winning_flag,
                         )
+                        # Bust the Lab cache so the new focus shows immediately
+                        try:
+                            await async_db.coaching_cache.delete_one({"user_id": user_id})
+                        except Exception:
+                            pass
                 finally:
                     async_client.close()
 

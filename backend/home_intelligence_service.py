@@ -732,6 +732,15 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     except Exception as e:
         logger.debug(f"Engine 2 failed (non-critical): {e}")
 
+    # === ACTIVE FOCUS — single source of truth for what to work on ===
+    # Same resolver the Lab endpoint uses, so every screen agrees.
+    active_focus = None
+    try:
+        from services.focus_resolver import get_active_focus
+        active_focus = await get_active_focus(db, user_id, top_problems=None)
+    except Exception as e:
+        logger.debug(f"Focus resolver failed (non-fatal): {e}")
+
     return {
         "has_data": True,
         "games_analyzed": total_games,
@@ -748,6 +757,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         "win_streak": win_streak_data,
         "mood_override": mood_override,
         "coach_prescription": coach_prescription_data,
+        "active_focus": active_focus,
         "learn_next": learn_next,
         "learning_progress": await _get_learning_progress(db, user_id),
         "training_recommendation": await _get_training_recommendation(db, user_id, recurring_patterns),

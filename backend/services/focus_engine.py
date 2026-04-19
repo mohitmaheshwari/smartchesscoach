@@ -85,6 +85,34 @@ FOCUS_RULES = {
 
 # ─── GET / SET FOCUS ──────────────────────────────────────────────
 
+# Map curriculum brain's current_focus keys → focus_engine cluster keys.
+# Keeps users.focus aligned with coach_memory.learning.current_focus so
+# HomePage's focusPlan card can't disagree with Lab's active_focus.
+_BRAIN_TO_CLUSTER = {
+    "hanging_piece":    "threat_awareness",
+    "missed_fork":      "threat_awareness",
+    "missed_pin":       "threat_awareness",
+    "missed_skewer":    "threat_awareness",
+    "missed_discovery": "threat_awareness",
+    "missed_overload":  "threat_awareness",
+    "king_safety":      "threat_awareness",
+    "tactical_error":   "calculation",
+}
+
+
+def cluster_from_brain_focus(brain_focus: Optional[str]) -> Optional[str]:
+    """Map a coach_memory.learning.current_focus value → focus_engine cluster."""
+    if not brain_focus:
+        return None
+    if brain_focus in _BRAIN_TO_CLUSTER:
+        return _BRAIN_TO_CLUSTER[brain_focus]
+    if brain_focus.startswith("trap:") or brain_focus.startswith("opening:"):
+        return "planning"
+    if brain_focus.startswith("endgame:"):
+        return "calculation"
+    return None
+
+
 async def get_user_focus(db, user_id: str) -> Optional[Dict]:
     """Get the current focus for a user. Returns None if no focus set."""
     doc = await db.users.find_one(
@@ -92,6 +120,63 @@ async def get_user_focus(db, user_id: str) -> Optional[Dict]:
         {"_id": 0, "focus": 1}
     )
     return doc.get("focus") if doc else None
+
+
+async def sync_focus_with_brain(db, user_id: str, brain_focus: str) -> Optional[Dict]:
+    """
+    Make users.focus agree with coach_memory.learning.current_focus.
+
+    Called after every game whenever the brain sets a prescription. Keeps
+    the cluster name on users.focus aligned so HomePage's focusPlan card
+    points at the same thing Lab's active_focus does.
+
+    If no focus doc exists yet, creates one (game_results empty).
+    If cluster changes, resets the game_results streak tracker.
+    Preserves progress when the cluster is unchanged.
+    """
+    cluster = cluster_from_brain_focus(brain_focus)
+    if not cluster:
+        return None
+
+    rule_config = FOCUS_RULES.get(cluster, {})
+    existing = await get_user_focus(db, user_id)
+
+    if existing and existing.get("cluster") == cluster:
+        # Same cluster — keep the progress tracker, only refresh rule text
+        # (cheap no-op write, keeps things consistent).
+        existing["name"] = rule_config.get("name", existing.get("name"))
+        existing["rule"] = rule_config.get("rule", existing.get("rule"))
+        existing["short_rule"] = rule_config.get("short_rule", existing.get("short_rule"))
+        await db.users.update_one(
+            {"user_id": user_id}, {"$set": {"focus": existing}}
+        )
+        return existing
+
+    # New or changed cluster — fresh focus doc
+    focus = {
+        "cluster": cluster,
+        "name": rule_config.get("name", cluster.replace("_", " ").title()),
+        "rule": rule_config.get("rule", ""),
+        "short_rule": rule_config.get("short_rule", ""),
+        "enforcement_level": "LIGHT",
+        "puzzles_required": ENFORCEMENT_LEVELS["LIGHT"]["puzzles_required"],
+        "puzzles_completed": 0,
+        "training_locked": False,
+        "score": 1,
+        "set_at": datetime.now(timezone.utc).isoformat(),
+        "games_with_focus": 0,
+        "violations_history": [],
+        "games_target": 5,
+        "clean_threshold": 3,
+        "game_results": [],
+        "synced_from_brain": True,
+        "brain_focus": brain_focus,
+    }
+    await db.users.update_one(
+        {"user_id": user_id}, {"$set": {"focus": focus}}, upsert=True
+    )
+    logger.info(f"[FOCUS-SYNC] {user_id}: {brain_focus} → cluster={cluster}")
+    return focus
 
 
 async def set_user_focus(db, user_id: str, root_problem: Dict) -> Dict:

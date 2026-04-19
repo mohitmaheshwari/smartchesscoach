@@ -389,9 +389,19 @@ async def generate_daily_mission(
         "user_id": user_id,
     }).sort("created_at", -1).limit(10).to_list(10)
     
-    # Get current focus from training profile
-    training_profile = await db.training_profiles.find_one({"user_id": user_id})
-    current_focus = training_profile.get("current_focus_pattern") if training_profile else None
+    # Get current focus — prefer the curriculum brain (single source of truth),
+    # fall back to training_profile.current_focus_pattern if brain has nothing.
+    current_focus = None
+    try:
+        from services.focus_resolver import get_active_focus
+        af = await get_active_focus(db, user_id, top_problems=None)
+        if af and af.get("gap"):
+            current_focus = af["gap"]  # cognitive-gap key — matches PATTERN_FOCUS_MAP
+    except Exception:
+        pass
+    if not current_focus:
+        training_profile = await db.training_profiles.find_one({"user_id": user_id})
+        current_focus = training_profile.get("current_focus_pattern") if training_profile else None
     
     # Select pattern (or use forced pattern)
     if force_pattern and force_pattern in PATTERN_FOCUS_MAP:

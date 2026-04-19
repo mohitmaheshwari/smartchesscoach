@@ -181,6 +181,8 @@ const HomePage = ({ user }) => {
   const plan = data?.todays_plan || {};
   const warmup = data?.warmup;
   const focusPlan = data?.focus_plan;
+  const activeFocus = data?.active_focus || null;
+  const learnNext = data?.learn_next || null;
 
   // Determine the page mood — ONE message, not contradictory signals
   // 1. Last game clean + improving → celebrate
@@ -287,46 +289,19 @@ const HomePage = ({ user }) => {
             </motion.div>
           )}
 
-          {/* ═══ MOOD: CONFRONTING — last game bad, show the problem ═══ */}
-          {mood === "confronting" && (
-            <>
-              {/* Last session — brief, not the focus */}
-              {lastSession && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-                  className="rounded-2xl border border-border bg-card p-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <XCircle className="w-3.5 h-3.5 text-red-400" strokeWidth={2} />
-                    <p className="text-xs text-muted-foreground">{lastSession.story}</p>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* The problem — the main event */}
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-                <p className="text-[15px] text-foreground font-medium leading-snug mb-3">
-                  {PROBLEM_HEADLINES[problem.category] || `Your ${problem.category.replace(/_/g, " ")} needs work.`}
-                </p>
-                {problem.count >= 2 && (
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {problem.trending_better
-                      ? `This happened in ${problem.count} games. But it's getting less frequent.`
-                      : problem.count >= 7
-                        ? "This is happening in almost every game."
-                        : `This happened in ${problem.count} of your recent games.`
-                    }
-                  </p>
-                )}
-                <div className="py-3 px-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/10">
-                  <p className="text-sm text-foreground font-medium">
-                    {PROBLEM_RULES[problem.category] || focusPlan?.rule || "Think before you move."}
-                  </p>
-                </div>
-              </motion.div>
-            </>
+          {/* ═══ MOOD: CONFRONTING — brief last-session line only ═══ */}
+          {mood === "confronting" && lastSession && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+              className="rounded-2xl border border-border bg-card p-3"
+            >
+              <div className="flex items-center gap-2">
+                <XCircle className="w-3.5 h-3.5 text-red-400" strokeWidth={2} />
+                <p className="text-xs text-muted-foreground">{lastSession.story}</p>
+              </div>
+            </motion.div>
           )}
 
-          {/* ═══ MOOD: NEUTRAL — no strong signal ═══ */}
+          {/* ═══ MOOD: NEUTRAL — plain last-session ═══ */}
           {mood === "neutral" && lastSession && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
               className="rounded-2xl border border-border bg-card p-4"
@@ -335,31 +310,83 @@ const HomePage = ({ user }) => {
             </motion.div>
           )}
 
-          {/* ─── FOCUS PLAN (show only if games tracked, otherwise looks empty) ─── */}
-          {focusPlan && focusPlan.games_played > 0 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+          {/* ─── FIX THIS ─── unified card: activeFocus headline + reason + rule + streak dots */}
+          {(activeFocus?.focus || problem?.category) && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-primary" strokeWidth={2} />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Fix this</span>
+              </div>
+
+              {/* Headline — prefer the brain's label, fall back to aggregate */}
+              <p className="text-[15px] text-foreground font-medium leading-snug mb-2">
+                {activeFocus?.label
+                  || PROBLEM_HEADLINES[problem?.category]
+                  || `Your ${problem?.category?.replace(/_/g, " ")} needs work.`}
+              </p>
+
+              {/* Reason line */}
+              {(activeFocus?.reason || (problem?.count >= 2)) && (
+                <p className="text-sm text-muted-foreground mb-3">
+                  {activeFocus?.reason
+                    || (problem?.trending_better
+                      ? `This happened in ${problem.count} games. But it's getting less frequent.`
+                      : problem?.count >= 7
+                        ? "This is happening in almost every game."
+                        : `This happened in ${problem?.count} of your recent games.`)
+                  }
+                </p>
+              )}
+
+              {/* Rule — the actionable one-liner */}
+              <div className="py-3 px-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/10 mb-3">
+                <p className="text-sm text-foreground font-medium">
+                  {focusPlan?.short_rule
+                    || focusPlan?.rule
+                    || PROBLEM_RULES[activeFocus?.category || problem?.category]
+                    || "Think before you move."}
+                </p>
+              </div>
+
+              {/* Streak dots — progress toward graduating this focus */}
+              {focusPlan && focusPlan.games_played > 0 && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    {Array.from({ length: focusPlan.games_target }).map((_, i) => {
+                      const r = focusPlan.game_results?.[i];
+                      return (
+                        <div key={i} className={`w-3 h-3 rounded-full border ${
+                          !r ? "border-border" : r.clean ? "border-emerald-500 bg-emerald-500" : "border-red-400 bg-red-400"
+                        }`} />
+                      );
+                    })}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {focusPlan.clean_count}/{focusPlan.clean_threshold} clean games
+                  </span>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ─── ENGINE 2: LEARN NEXT (forward-looking skill) ─── */}
+          {learnNext && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}
               className="rounded-2xl border border-border bg-card p-4"
             >
               <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-primary" strokeWidth={2} />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Your focus</span>
-              </div>
-              <p className="text-sm font-medium text-foreground mb-1">{focusPlan.name}</p>
-              <div className="flex items-center gap-3 mt-2">
-                <div className="flex items-center gap-1.5">
-                  {Array.from({ length: focusPlan.games_target }).map((_, i) => {
-                    const r = focusPlan.game_results?.[i];
-                    return (
-                      <div key={i} className={`w-3 h-3 rounded-full border ${
-                        !r ? "border-border" : r.clean ? "border-emerald-500 bg-emerald-500" : "border-red-400 bg-red-400"
-                      }`} />
-                    );
-                  })}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {focusPlan.clean_count}/{focusPlan.clean_threshold} clean
+                <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Learn next</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
+                  Tier {learnNext.tier}
                 </span>
               </div>
+              <p className="text-sm font-medium text-foreground mb-1">{learnNext.label}</p>
+              <p className="text-xs text-muted-foreground">{learnNext.reason}</p>
+              {learnNext.stats?.seen > 0 && (
+                <p className="text-[10px] text-muted-foreground/60 mt-2">
+                  {learnNext.stats.correct}/{learnNext.stats.seen} correct · {learnNext.stats.failed} failed
+                </p>
+              )}
             </motion.div>
           )}
 
@@ -396,7 +423,7 @@ const HomePage = ({ user }) => {
             className="space-y-3"
           >
             {/* After a loss: training is the PRIMARY action */}
-            {mood === "confronting" && problem?.category && (
+            {mood === "confronting" && (activeFocus?.focus || problem?.category) && (
               <button
                 onClick={() => {
                   const patternMap = {
@@ -405,13 +432,18 @@ const HomePage = ({ user }) => {
                     time_collapse: "calculation_depth", opening_disaster: "piece_safety",
                     endgame_collapse: "endgame_technique", positional: "calculation_depth",
                   };
-                  navigate(`/training/prescribed?weakness=${patternMap[problem.category] || problem.category}`);
+                  // Prefer the coach's active focus; fall back to aggregated category.
+                  const pattern = activeFocus?.gap
+                    || patternMap[problem?.category]
+                    || problem?.category
+                    || "current";
+                  navigate(`/training/prescribed?weakness=${pattern}`);
                 }}
                 className="w-full py-4 text-[15px] font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
                 data-testid="train-cta"
               >
                 <Target className="w-4 h-4" strokeWidth={2} />
-                Fix this first — 3 min
+                {activeFocus?.label || "Fix this first"} — 3 min
                 <ChevronRight className="w-4 h-4 opacity-60" />
               </button>
             )}
@@ -420,7 +452,7 @@ const HomePage = ({ user }) => {
             <button
               onClick={() => {
                 const opening = plan.opening || "";
-                const focus = problem?.category || "";
+                const focus = activeFocus?.focus || problem?.category || "";
                 const params = new URLSearchParams();
                 if (opening) params.set("opening", opening);
                 if (focus) params.set("focus", focus);

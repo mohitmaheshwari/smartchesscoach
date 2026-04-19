@@ -167,7 +167,10 @@ async def get_prescribed_training_endpoint(
 ):
     """
     Get puzzles prescribed for a specific weakness.
-    
+
+    Pass `current` to use whatever the curriculum brain has set as
+    coach_memory.learning.current_focus (keeps every screen aligned).
+
     This is the IMPROVEMENT engine:
     - Takes diagnosed weakness (e.g., "missed_threat")
     - Returns puzzles with COACHING context
@@ -175,9 +178,20 @@ async def get_prescribed_training_endpoint(
     """
     global db
     from services.coaching_puzzle_service import CoachingPuzzleService
-    
+    from services.focus_resolver import get_active_focus
+
+    # If client asks for `current`, resolve to the coach's active focus
+    resolved_focus = None
+    if weakness in ("current", "auto", "focus"):
+        resolved_focus = await get_active_focus(db, user.user_id, top_problems=None)
+        if resolved_focus and resolved_focus.get("gap"):
+            weakness = resolved_focus["gap"]
+        else:
+            # No focus known yet — safe default for beginners
+            weakness = "piece_safety"
+
     puzzle_service = CoachingPuzzleService(db)
-    
+
     # Get user's rating for difficulty calibration
     player_profile = await db.player_profiles.find_one({"user_id": user.user_id})
     user_rating = 1200
@@ -185,17 +199,20 @@ async def get_prescribed_training_endpoint(
         lichess_rating = player_profile.get("lichess_stats", {}).get("rating", 0)
         chesscom_rating = player_profile.get("chesscom_stats", {}).get("rating", 0)
         user_rating = max(lichess_rating, chesscom_rating, 1200)
-    
+
     # Set rating range for puzzles (user rating +/- 200)
     rating_range = (max(600, user_rating - 200), user_rating + 200)
-    
+
     result = await puzzle_service.get_prescribed_training(
         user_id=user.user_id,
         weakness_pattern=weakness,
         num_puzzles=num_puzzles,
         rating_range=rating_range
     )
-    
+
+    if resolved_focus:
+        result["active_focus"] = resolved_focus
+
     return result
 
 

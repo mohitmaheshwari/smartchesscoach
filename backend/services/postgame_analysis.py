@@ -342,11 +342,22 @@ async def analyze_postgame(
     
     # ========== STEP 10: UPDATE COACH MEMORY ==========
     # This is critical - saves patterns for NEXT game's personalization
+    # Engine 2 inputs: tactical_pattern strings + was_winning flag
+    mistake_types_list = [
+        m.tactical_pattern for m in mistakes
+        if getattr(m, "tactical_pattern", None)
+    ]
+    was_winning_flag = any(
+        (ev.get("evaluation", 0) or 0) > 150
+        for ev in evaluations
+    )
     await _update_coach_memory_after_game(
         db, user_id, game_result, accuracy, blunders, mistake_count,
         habit_violations, habits_improved, move_history, perf_rating.estimated_rating,
         coach_prescription=coach_prescription,
         prescription_type=prescription_type,
+        mistake_types=mistake_types_list,
+        was_winning=was_winning_flag,
     )
     
     return analysis
@@ -1407,6 +1418,8 @@ async def _update_coach_memory_after_game(
     performance_rating: int,
     coach_prescription: Optional[str] = None,
     prescription_type: Optional[str] = None,
+    mistake_types: Optional[List[str]] = None,
+    was_winning: bool = False,
 ):
     """
     Update coach memory after game analysis.
@@ -1446,6 +1459,8 @@ async def _update_coach_memory_after_game(
         performance_rating=performance_rating,
         coach_prescription=coach_prescription,
         prescription_type=prescription_type,
+        mistake_types=mistake_types,
+        was_winning=was_winning,
     )
     
     # === NEW: Update PlayerIdentity system for deep memory ===
