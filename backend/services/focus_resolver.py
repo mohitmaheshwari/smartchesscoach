@@ -65,6 +65,24 @@ FOCUS_LABELS = {
     "tactical_error":   "Calculate one move deeper",
 }
 
+# Friendly labels for aggregate game_reason categories (used when the brain
+# has no focus and we fall back to the raw aggregate).
+CATEGORY_LABELS = {
+    "tactical_miss":     "Spot tactics",
+    "one_move_blunder":  "Stop hanging pieces",
+    "calculation_error": "Calculate deeper",
+    "threw_winning":     "Finish winning games",
+    "opening_disaster":  "Survive the opening",
+    "endgame_collapse":  "Convert endgames",
+    "time_collapse":     "Manage your clock",
+    "positional":        "Play with a plan",
+    "missed_tactic":     "Spot tactics",
+    "piece_safety":      "Stop hanging pieces",
+    "king_safety":       "Keep your king safe",
+    "ignore_threat":     "See opponent's threats",
+    "conversion":        "Convert your advantage",
+}
+
 
 def _parse_prefix_focus(focus: str) -> Optional[Dict[str, str]]:
     """trap:xxx / opening:xxx / endgame:xxx  →  normalized dict."""
@@ -233,11 +251,19 @@ def _fill_from_aggregate(result: Dict[str, Any], top_problem: Dict):
     """Populate result dict from the aggregated top problem."""
     cat = top_problem.get("category")
     count = top_problem.get("count", 0)
+    # Label preference: explicit label on the problem dict > friendly category map
+    # > humanised category slug. Never show raw snake_case to users.
+    label = (
+        top_problem.get("label")
+        or CATEGORY_LABELS.get(cat)
+        or (cat and cat.replace("_", " ").capitalize())
+        or "Keep improving"
+    )
     result.update({
         "focus": cat,
         "category": cat,
         "gap": CATEGORY_TO_GAP.get(cat, cat),
-        "label": top_problem.get("label") or cat,
+        "label": label,
         "reason": (
             "This is happening in almost every game." if count >= 8
             else f"This happened in {count} of your recent games."

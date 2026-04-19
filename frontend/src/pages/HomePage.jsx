@@ -409,7 +409,10 @@ const HomePage = ({ user }) => {
                 {plan.branch && <> — <span className="font-semibold">{plan.branch}</span></>}
                 .
               </p>
-              {plan.reason && (
+              {plan.reason
+                && !(plan.branch && plan.reason.includes(plan.branch))
+                && !(plan.opening && plan.reason.includes(plan.opening)
+                     && plan.reason.split(" ").length < 12) && (
                 <p className="text-xs text-muted-foreground">{plan.reason}</p>
               )}
             </motion.div>
