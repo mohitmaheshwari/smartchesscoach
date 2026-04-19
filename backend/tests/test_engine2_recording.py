@@ -324,6 +324,29 @@ def test_simple_mates_only_when_endgame_reached():
 # ─── GRADUATION THROUGH ENGINE 2 ──────────────────────────────────────
 
 
+def test_learned_skill_demotes_on_backslide():
+    """If a skill was learned but the user now fails repeatedly, demote it.
+    This matters because 'learned' is a current-state signal, not a badge."""
+    from services.coach_memory import record_skill_attempt
+    mem = _fresh_memory()
+
+    # Build to a "learned" state: 5 seen, all correct
+    for _ in range(5):
+        record_skill_attempt(mem, "fork", "concept", "correct")
+    fork = _find_skill(mem, "fork")
+    assert fork.is_learned()
+    assert "fork" in mem.learning.concepts_mastered
+
+    # Now backslide — two wrongs in a row
+    record_skill_attempt(mem, "fork", "concept", "wrong")
+    record_skill_attempt(mem, "fork", "concept", "wrong")
+
+    # Should be demoted
+    fork = _find_skill(mem, "fork")
+    assert fork.learned_at is None
+    assert "fork" not in mem.learning.concepts_mastered
+
+
 def test_five_clean_games_learn_pre_move_check():
     """pre_move_check is the meta-skill that records every game.
     5 seen, 3 correct, no recent fail → learned."""

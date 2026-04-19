@@ -455,22 +455,35 @@ def record_skill_attempt(
     # Keep only last 10 outcomes for the rule check
     skill.outcomes = skill.outcomes[-10:]
 
-    # Promotion check — apply the 5/3/no-recent-fail rule
+    # Promotion / demotion check — apply the 5/3/no-recent-fail rule.
+    # "Learned" is not a badge — it's the current state of demonstrated
+    # competence. If the user backslides (2+ wrongs in the last 2 outcomes)
+    # we demote them back to learning so Engine 2 teaches it again.
     was_learned = skill.learned_at is not None
-    if skill.is_learned() and not was_learned:
+    currently_learned = skill.is_learned()
+
+    target_list = {
+        "opening": memory.learning.openings_learned,
+        "trap": memory.learning.traps_learned,
+        "endgame": memory.learning.endgames_learned,
+        "concept": memory.learning.concepts_mastered,
+        "pattern": memory.learning.concepts_mastered,
+    }.get(skill_type)
+
+    if currently_learned and not was_learned:
+        # Promote
         skill.learned_at = timestamp
-        # Promote to the right learned list
-        target_list = {
-            "opening": memory.learning.openings_learned,
-            "trap": memory.learning.traps_learned,
-            "endgame": memory.learning.endgames_learned,
-            "concept": memory.learning.concepts_mastered,
-            "pattern": memory.learning.concepts_mastered,
-        }.get(skill_type)
         if target_list is not None and skill_id not in target_list:
             target_list.append(skill_id)
             logger.info(f"[SKILL] {skill_id} ({skill_type}) LEARNED — "
                        f"seen={skill.seen} correct={skill.correct}")
+    elif was_learned and not currently_learned:
+        # Demote — user was performing it, now they're not
+        skill.learned_at = None
+        if target_list is not None and skill_id in target_list:
+            target_list.remove(skill_id)
+            logger.info(f"[SKILL] {skill_id} ({skill_type}) DEMOTED — "
+                       f"user backslid, re-teaching required")
 
     return skill
 
