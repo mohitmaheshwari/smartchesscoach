@@ -184,44 +184,212 @@ async def admin_list_users(
 
 @router.get("/admin/users/{target_user_id}")
 async def admin_user_detail(target_user_id: str, user: User = Depends(require_admin)):
-    """Detailed view of a specific user."""
+    """Detailed view of a specific user — rich debugging view."""
     target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
 
     target["role"] = target.get("role", "user")
 
-    # Game stats
+    # ── Game stats ──
     game_count = await db.games.count_documents({"user_id": target_user_id})
     analysis_count = await db.game_analyses.count_documents({"user_id": target_user_id})
 
-    # Opening progress
+    games_by_platform = {}
+    for plat in ("chess.com", "lichess", "coach"):
+        n = await db.games.count_documents({"user_id": target_user_id, "platform": plat})
+        if n:
+            games_by_platform[plat] = n
+
+    # Termination mix (quality read — how many abandoned vs real)
+    termination_mix = {}
+    async for row in db.games.aggregate([
+        {"$match": {"user_id": target_user_id, "is_analyzed": True}},
+        {"$group": {"_id": "$termination", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]):
+        key = row["_id"] or "unknown"
+        termination_mix[key] = row["count"]
+
+    # ── Three rating signals ──
+    rating_signals = {
+        "platform_reported": {"chesscom": None, "lichess": None},
+        "pgn_inferred": None,
+        "performance_rated": None,
+    }
+    profile = await db.player_profiles.find_one({"user_id": target_user_id}, {"_id": 0})
+    if profile:
+        rating_signals["platform_reported"]["chesscom"] = (
+            (profile.get("chesscom_stats") or {}).get("rating") or profile.get("chesscom_rating")
+        )
+        rating_signals["platform_reported"]["lichess"] = (
+            (profile.get("lichess_stats") or {}).get("rating") or profile.get("lichess_rating")
+        )
+
+    try:
+        from services.coach_memory import get_user_rating_from_games
+        pgn_rating = await get_user_rating_from_games(db, target_user_id)
+        rating_signals["pgn_inferred"] = pgn_rating
+    except Exception:
+        pass
+
+    memory = await db.coach_memory.find_one({"user_id": target_user_id}, {"_id": 0})
+    if memory:
+        perf = memory.get("performance") or {}
+        rating_signals["performance_rated"] = {
+            "best": perf.get("best_performance_rating", 0),
+            "worst": perf.get("worst_performance_rating", 0),
+            "games_played": perf.get("games_played", 0),
+            "avg_accuracy": round(perf.get("avg_accuracy", 0), 1),
+            "improvement_rate": round(perf.get("improvement_rate", 0), 2),
+        }
+
+    # ── Engine 1: curriculum brain ──
+    engine1 = None
+    if memory:
+        learning = memory.get("learning") or {}
+        weaknesses = memory.get("weaknesses") or []
+        weaknesses.sort(key=lambda w: w.get("detection_count", 0), reverse=True)
+        recent_presc = []
+        async for p in db.postgame_analyses.find(
+            {"user_id": target_user_id, "coach_prescription": {"$exists": True, "$ne": None}},
+            {"coach_prescription": 1, "prescription_type": 1, "prescription_reason": 1,
+             "game_result": 1, "created_at": 1, "accuracy": 1, "blunders": 1, "_id": 0}
+        ).sort("created_at", -1).limit(5):
+            recent_presc.append(p)
+        engine1 = {
+            "current_focus": learning.get("current_focus"),
+            "suggested_next": learning.get("suggested_next", []),
+            "top_weaknesses": [
+                {
+                    "habit_id": w.get("habit_id"),
+                    "name": w.get("name"),
+                    "detection_count": w.get("detection_count", 0),
+                    "improving": w.get("improving", False),
+                    "last_detected": w.get("last_detected"),
+                }
+                for w in weaknesses[:5]
+            ],
+            "recent_prescriptions": recent_presc,
+        }
+
+    # ── Engine 2: skill tree ──
+    engine2 = None
+    if memory:
+        learning = memory.get("learning") or {}
+        skills_raw = learning.get("skills") or []
+        skills = sorted(skills_raw, key=lambda s: -s.get("seen", 0))[:12]
+        # Normalize outcomes for display
+        skill_rows = []
+        for s in skills:
+            outcomes = (s.get("outcomes") or [])[-5:]
+            skill_rows.append({
+                "skill_id": s.get("skill_id"),
+                "seen": s.get("seen", 0),
+                "correct": s.get("correct", 0),
+                "wrong": s.get("wrong", 0),
+                "outcomes": outcomes,
+                "learned": bool(s.get("learned_at")),
+            })
+        next_skill = None
+        try:
+            from services.engine2_skill_builder import pick_next_skill
+            from services.coach_memory import get_or_create_memory
+            mem_obj = await get_or_create_memory(db, target_user_id)
+            rating = mem_obj.performance.best_performance_rating or 1000
+            next_skill = pick_next_skill(mem_obj, rating)
+        except Exception:
+            pass
+        engine2 = {
+            "skills": skill_rows,
+            "concepts_mastered": learning.get("concepts_mastered", []),
+            "openings_learned": learning.get("openings_learned", []),
+            "traps_learned": learning.get("traps_learned", []),
+            "endgames_learned": learning.get("endgames_learned", []),
+            "next_pick": next_skill,
+        }
+
+    # ── Engagement ──
+    engagement = {
+        "coach_sessions": await db.coach_sessions.count_documents({"user_id": target_user_id}),
+        "coach_sessions_completed": await db.coach_sessions.count_documents(
+            {"user_id": target_user_id, "status": "completed"}
+        ),
+        "coach_messages": await db.coach_messages.count_documents({"user_id": target_user_id}),
+        "puzzle_attempts": await db.puzzle_attempts.count_documents({"user_id": target_user_id}),
+        "puzzle_solved": await db.puzzle_attempts.count_documents(
+            {"user_id": target_user_id, "correct": True}
+        ),
+        "notifications_sent": await db.notifications.count_documents({"user_id": target_user_id}),
+    }
+    last_session = await db.coach_sessions.find_one(
+        {"user_id": target_user_id}, sort=[("created_at", -1)],
+        projection={"created_at": 1, "_id": 0}
+    )
+    engagement["last_active"] = (last_session or {}).get("created_at")
+
+    # ── Opening progress ──
     opening_progress = []
     async for op in db.user_opening_progress.find({"user_id": target_user_id}, {"_id": 0}).limit(10):
         opening_progress.append(op)
 
-    # Player habits
+    # ── Player habits ──
     habits = await db.player_habits.find_one({"user_id": target_user_id}, {"_id": 0})
 
-    # Recent games
+    # ── Recent games ──
     recent_games = []
-    async for g in db.games.find({"user_id": target_user_id}, {"_id": 0, "game_id": 1, "opening": 1, "result": 1, "user_color": 1, "date_played": 1, "platform": 1}).sort("imported_at", -1).limit(10):
+    async for g in db.games.find(
+        {"user_id": target_user_id},
+        {"_id": 0, "game_id": 1, "opening": 1, "result": 1, "user_color": 1,
+         "date_played": 1, "platform": 1, "termination": 1, "is_analyzed": 1,
+         "imported_at": 1}
+    ).sort("imported_at", -1).limit(15):
         recent_games.append(g)
 
-    # Feedback from this user
+    # ── User feedback ──
     user_feedback = []
     async for fb in db.move_feedback.find({"user_id": target_user_id}, {"_id": 0}).sort("created_at", -1).limit(10):
         fb["id"] = str(fb.get("feedback_id", ""))
         user_feedback.append(fb)
 
+    # ── Gap diagnostics ──
+    gaps = []
+    if not memory:
+        gaps.append("No coach_memory — no game has been analyzed for this user yet.")
+    else:
+        perf = memory.get("performance") or {}
+        if not perf.get("best_performance_rating"):
+            gaps.append("performance.best_performance_rating is 0 — run --backfill to set it from PGN Elo.")
+        learning = memory.get("learning") or {}
+        if not learning.get("current_focus") and analysis_count > 0:
+            gaps.append("No current_focus despite analyzed games — curriculum brain may not have run. "
+                        "Check analysis_worker PHASE 5.5.")
+        if not (learning.get("skills") or []) and analysis_count >= 5:
+            gaps.append(f"No Engine 2 skill attempts recorded. "
+                        f"Run: python scripts/backfill_engine2_skills.py {target_user_id} --limit 25 --reset")
+    if game_count > 0 and analysis_count == 0:
+        gaps.append("Games imported but none analyzed — check the analysis queue.")
+    if termination_mix:
+        bad = sum(v for k, v in termination_mix.items() if k in ("abandonment", "abandoned", "aborted", "unknown"))
+        if bad and bad / max(analysis_count, 1) > 0.4:
+            gaps.append(f"{bad}/{analysis_count} analyzed games have no real termination — "
+                        "many may be abandoned, skewing signals.")
+
     return {
         "user": target,
         "game_count": game_count,
         "analysis_count": analysis_count,
+        "games_by_platform": games_by_platform,
+        "termination_mix": termination_mix,
+        "rating_signals": rating_signals,
+        "engine1": engine1,
+        "engine2": engine2,
+        "engagement": engagement,
         "opening_progress": opening_progress,
         "habits": habits,
         "recent_games": recent_games,
         "feedback": user_feedback,
+        "gaps": gaps,
     }
 
 

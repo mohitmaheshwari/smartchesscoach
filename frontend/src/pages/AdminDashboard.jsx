@@ -330,26 +330,49 @@ const UsersTab = ({ currentUser }) => {
 };
 
 /* ============================================================
- * USER DETAIL VIEW
+ * USER DETAIL VIEW — rich drill-down
  * ============================================================ */
 const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
   const u = data.user;
   const isSuperAdmin = currentUser?.role === "super_admin";
 
+  // Every section is collapsible. Default-open sections: rating, engine1, engine2.
+  const [open, setOpen] = useState({
+    rating: true,
+    games: false,
+    engine1: true,
+    engine2: true,
+    engagement: false,
+    openings: false,
+    habits: false,
+    feedback: false,
+    gaps: true,
+  });
+  const toggle = (k) => setOpen((s) => ({ ...s, [k]: !s[k] }));
+
+  const rating = data.rating_signals || {};
+  const pgn = rating.pgn_inferred || {};
+  const perf = rating.performance_rated || {};
+  const platform = rating.platform_reported || {};
+  const engine1 = data.engine1;
+  const engine2 = data.engine2;
+  const eng = data.engagement || {};
+  const gaps = data.gaps || [];
+
   return (
-    <div className="space-y-5" data-testid="user-detail">
+    <div className="space-y-4" data-testid="user-detail">
       <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors" data-testid="back-to-users-btn">
         <ArrowLeft className="w-3 h-3" /> Back to users
       </button>
 
-      {/* User Header */}
+      {/* Header strip */}
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg text-white font-light" style={{ background: WINE }}>
           {(u.name || "?")[0]}
         </div>
-        <div className="flex-1">
-          <h2 className="text-lg text-foreground font-heading">{u.name}</h2>
-          <p className="text-[10px] text-muted-foreground font-mono">{u.email} · {u.user_id}</p>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg text-foreground font-heading truncate">{u.name}</h2>
+          <p className="text-[10px] text-muted-foreground font-mono truncate">{u.email} · {u.user_id}</p>
         </div>
         <div className="flex items-center gap-2">
           <RoleBadge role={u.role} />
@@ -369,33 +392,264 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Games", value: data.game_count },
-          { label: "Analyses", value: data.analysis_count },
-          { label: "Rating", value: u.rating || "—" },
-          { label: "Joined", value: formatDate(u.created_at) },
-        ].map((s) => (
-          <Card key={s.label}>
-            <div className="p-3">
-              <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{s.label}</p>
-              <p className="text-lg text-foreground font-light font-heading" data-testid={`detail-${s.label.toLowerCase()}`}>{s.value}</p>
-            </div>
-          </Card>
-        ))}
+      {/* Quick-glance chips */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Chip label="Games" value={data.game_count} />
+        <Chip label="Analyzed" value={data.analysis_count} />
+        <Chip label="PGN rating" value={pgn.rating || "—"} />
+        <Chip label="Band" value={bandOf(perf.best || pgn.rating || 0)} />
+        <Chip label="Focus" value={engine1?.current_focus || "—"} highlight />
+        <Chip label="Sessions" value={eng.coach_sessions || 0} />
+        <Chip label="Joined" value={formatDate(u.created_at)} />
       </div>
 
-      {/* Habits */}
+      {/* Gaps detected */}
+      {gaps.length > 0 && (
+        <Section title={`Gaps detected (${gaps.length})`} open={open.gaps} onToggle={() => toggle("gaps")} color="#92400e">
+          <ul className="text-xs space-y-1.5">
+            {gaps.map((g, i) => (
+              <li key={i} className="text-foreground font-light flex gap-2">
+                <span style={{ color: "#92400e" }}>!</span>
+                <span>{g}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {/* Rating — three sources */}
+      <Section title="Rating — what ChessGuru sees" open={open.rating} onToggle={() => toggle("rating")}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <RatingCard title="Platform-reported" subtitle="self-declared">
+            <KV label="Chess.com" value={platform.chesscom || "—"} />
+            <KV label="Lichess" value={platform.lichess || "—"} />
+          </RatingCard>
+          <RatingCard title="PGN-inferred" subtitle="from game headers" strong>
+            <KV label="Current" value={pgn.rating || "—"} />
+            <KV label="Avg" value={pgn.avg_rating || "—"} />
+            <KV label="High / Low" value={`${pgn.highest_rating || "—"} / ${pgn.lowest_rating || "—"}`} />
+            <KV label="Trend" value={pgn.rating_trend || "—"} />
+            <KV label="Games used" value={pgn.games_analyzed || 0} />
+          </RatingCard>
+          <RatingCard title="Performance-rated" subtitle="from Stockfish">
+            <KV label="Best" value={perf.best || "—"} />
+            <KV label="Worst" value={perf.worst || "—"} />
+            <KV label="Games" value={perf.games_played || 0} />
+            <KV label="Avg accuracy" value={perf.avg_accuracy ? `${perf.avg_accuracy}%` : "—"} />
+            <KV label="Improvement" value={perf.improvement_rate ?? "—"} />
+          </RatingCard>
+        </div>
+      </Section>
+
+      {/* Engine 1 */}
+      {engine1 && (
+        <Section title="Engine 1 — Fix Your Mess" open={open.engine1} onToggle={() => toggle("engine1")}>
+          <Card className="mb-3">
+            <div className="p-3 text-xs space-y-1">
+              <KV label="Current focus" value={engine1.current_focus || "(none set)"} strong />
+              {engine1.suggested_next?.length > 0 && (
+                <KV label="Suggested next" value={engine1.suggested_next.join(", ")} />
+              )}
+            </div>
+          </Card>
+
+          {engine1.top_weaknesses?.length > 0 && (
+            <>
+              <p className="text-[10px] text-muted-foreground font-mono mb-1">Top weaknesses (by detection count)</p>
+              <div className="space-y-1 mb-3">
+                {engine1.top_weaknesses.map((w, i) => (
+                  <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded-sm bg-white border text-xs" style={{ borderColor: BORDER }}>
+                    <span className="text-foreground font-light truncate">{w.name || w.habit_id}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-muted-foreground">{w.detection_count}×</span>
+                      <span className="text-[10px] font-mono" style={{ color: w.improving ? "#16a34a" : "#888" }}>
+                        {w.improving ? "↗ improving" : "· active"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {engine1.recent_prescriptions?.length > 0 && (
+            <>
+              <p className="text-[10px] text-muted-foreground font-mono mb-1">Last 5 prescriptions</p>
+              <div className="space-y-1">
+                {engine1.recent_prescriptions.map((p, i) => (
+                  <div key={i} className="py-1.5 px-3 rounded-sm bg-white border text-xs" style={{ borderColor: BORDER }}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-foreground">{p.coach_prescription}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">{formatDate(p.created_at)}</span>
+                    </div>
+                    {p.prescription_reason && (
+                      <p className="text-[11px] text-muted-foreground font-light mt-0.5 truncate">{p.prescription_reason}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Section>
+      )}
+
+      {/* Engine 2 */}
+      {engine2 && (
+        <Section title="Engine 2 — Build New Skills" open={open.engine2} onToggle={() => toggle("engine2")}>
+          {engine2.next_pick && (
+            <Card className="mb-3">
+              <div className="p-3 text-xs">
+                <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Next skill</p>
+                <p className="text-sm text-foreground font-heading">{engine2.next_pick.label}</p>
+                <p className="text-[11px] text-muted-foreground font-light mt-0.5">{engine2.next_pick.reason}</p>
+              </div>
+            </Card>
+          )}
+
+          {engine2.skills?.length > 0 ? (
+            <div className="space-y-1 mb-3">
+              {engine2.skills.map((s, i) => (
+                <div key={i} className="flex items-center justify-between py-2 px-3 rounded-sm bg-white border text-xs" style={{ borderColor: BORDER }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-foreground font-light truncate">{s.skill_id}</span>
+                    {s.learned && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm font-mono" style={{ color: "#16a34a", background: "rgba(22,163,74,0.08)" }}>
+                        Learned
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="font-mono text-muted-foreground">
+                      {s.correct}/{s.seen}
+                    </span>
+                    <div className="flex gap-0.5">
+                      {s.outcomes.map((o, j) => (
+                        <span key={j} className="text-[10px] font-mono" style={{
+                          color: o === "correct" ? "#16a34a" : o === "wrong" ? "#dc2626" : "#999"
+                        }}>
+                          {o === "correct" ? "●" : o === "wrong" ? "●" : "○"}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground font-light mb-3">
+              No skill attempts recorded. Run the backfill script.
+            </p>
+          )}
+
+          <LearnedInventory data={engine2} />
+        </Section>
+      )}
+
+      {/* Games */}
+      <Section
+        title={`Games (${data.analysis_count} analyzed / ${data.game_count} imported)`}
+        open={open.games}
+        onToggle={() => toggle("games")}
+      >
+        {Object.keys(data.games_by_platform || {}).length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {Object.entries(data.games_by_platform).map(([plat, n]) => (
+              <span key={plat} className="text-[10px] px-2 py-1 rounded-sm font-mono" style={{ color: WINE, background: "rgba(114,47,55,0.06)" }}>
+                {plat}: {n}
+              </span>
+            ))}
+          </div>
+        )}
+        {Object.keys(data.termination_mix || {}).length > 0 && (
+          <>
+            <p className="text-[10px] text-muted-foreground font-mono mb-1">Termination mix</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {Object.entries(data.termination_mix).map(([term, n]) => (
+                <span key={term} className="text-[10px] px-2 py-1 rounded-sm font-mono bg-white border" style={{ borderColor: BORDER }}>
+                  {term}: {n}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+
+        {data.recent_games?.length > 0 && (
+          <>
+            <p className="text-[10px] text-muted-foreground font-mono mb-1">Recent games — click to review</p>
+            <div className="space-y-1">
+              {data.recent_games.map((g) => {
+                const won = (g.result?.includes("1-0") && g.user_color === "white")
+                         || (g.result?.includes("0-1") && g.user_color === "black");
+                return (
+                  <a
+                    key={g.game_id}
+                    href={`/game/${g.game_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between py-2 px-3 rounded-sm bg-white border text-xs hover:shadow-sm transition-shadow cursor-pointer"
+                    style={{ borderColor: BORDER }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-foreground font-light truncate">{g.opening || "Unknown"}</span>
+                      {g.termination && (
+                        <span className="text-[9px] text-muted-foreground font-mono">· {g.termination}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm border font-mono" style={{ borderColor: BORDER }}>
+                        {g.user_color}
+                      </span>
+                      <span className="font-mono" style={{ color: won ? "#16a34a" : WINE }}>
+                        {g.result || "—"}
+                      </span>
+                      <ChevronRight className="w-3 h-3 text-muted-foreground/40" />
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Section>
+
+      {/* Engagement */}
+      <Section title="Engagement" open={open.engagement} onToggle={() => toggle("engagement")}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <MiniStat label="Sessions" value={eng.coach_sessions || 0} sub={`${eng.coach_sessions_completed || 0} completed`} />
+          <MiniStat label="Messages" value={eng.coach_messages || 0} />
+          <MiniStat label="Puzzles" value={eng.puzzle_attempts || 0} sub={`${eng.puzzle_solved || 0} solved`} />
+          <MiniStat label="Notifications" value={eng.notifications_sent || 0} />
+        </div>
+        {eng.last_active && (
+          <p className="text-[10px] text-muted-foreground font-mono mt-3">
+            Last active: {formatDate(eng.last_active)}
+          </p>
+        )}
+      </Section>
+
+      {/* Openings */}
+      {data.opening_progress?.length > 0 && (
+        <Section title="Opening progress" open={open.openings} onToggle={() => toggle("openings")}>
+          <div className="space-y-1">
+            {data.opening_progress.map((op, i) => (
+              <div key={i} className="flex items-center justify-between py-2 px-3 rounded-sm bg-white border text-xs" style={{ borderColor: BORDER }}>
+                <span className="text-foreground font-light">{op.opening_key?.replace(/_/g, " ") || "Unknown"}</span>
+                <span className="text-muted-foreground font-mono">Mastery: {op.mastery_level || 0}%</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Habits (raw) */}
       {data.habits && (
-        <div>
-          <SectionLabel>Player Habits</SectionLabel>
+        <Section title="Player habits (raw)" open={open.habits} onToggle={() => toggle("habits")}>
           <Card>
             <div className="p-3">
               <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
                 {Object.entries(data.habits)
                   .filter(([k]) => !["user_id", "_id", "updated_at"].includes(k))
-                  .slice(0, 8)
+                  .slice(0, 12)
                   .map(([k, v]) => (
                     <div key={k} className="flex justify-between">
                       <span className="text-muted-foreground font-light">{k.replace(/_/g, " ")}</span>
@@ -405,47 +659,130 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
               </div>
             </div>
           </Card>
-        </div>
+        </Section>
       )}
 
-      {/* Recent Games */}
-      {data.recent_games?.length > 0 && (
-        <div>
-          <SectionLabel>Recent Games ({data.game_count} total)</SectionLabel>
+      {/* User feedback */}
+      {data.feedback?.length > 0 && (
+        <Section title={`User-submitted feedback (${data.feedback.length})`} open={open.feedback} onToggle={() => toggle("feedback")}>
           <div className="space-y-1">
-            {data.recent_games.map((g) => {
-              const won = (g.result?.includes("1-0") && g.user_color === "white") || (g.result?.includes("0-1") && g.user_color === "black");
-              return (
-                <div key={g.game_id} className="flex items-center justify-between py-2 px-3 rounded-sm bg-white border text-xs" style={{ borderColor: BORDER }}>
-                  <span className="text-foreground font-light">{g.opening || "Unknown"}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-sm border font-mono" style={{ borderColor: BORDER }}>{g.user_color}</span>
-                    <span className="font-mono" style={{ color: won ? "#16a34a" : WINE }}>{g.result}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Opening Progress */}
-      {data.opening_progress?.length > 0 && (
-        <div>
-          <SectionLabel>Opening Progress</SectionLabel>
-          <div className="space-y-1">
-            {data.opening_progress.map((op, i) => (
-              <div key={i} className="flex items-center justify-between py-2 px-3 rounded-sm bg-white border text-xs" style={{ borderColor: BORDER }}>
-                <span className="text-foreground font-light">{op.opening_key?.replace(/_/g, " ") || "Unknown"}</span>
-                <span className="text-muted-foreground font-mono">Mastery: {op.mastery_level || 0}%</span>
+            {data.feedback.map((fb, i) => (
+              <div key={i} className="py-2 px-3 rounded-sm bg-white border text-xs" style={{ borderColor: BORDER }}>
+                <p className="text-foreground font-light">{fb.comment || fb.message || "(no comment)"}</p>
+                <p className="text-[10px] text-muted-foreground font-mono mt-1">{formatDate(fb.created_at)}</p>
               </div>
             ))}
           </div>
-        </div>
+        </Section>
       )}
     </div>
   );
 };
+
+
+/* ─── sub-components for UserDetail ─── */
+
+const Section = ({ title, open, onToggle, color, children }) => (
+  <div className="space-y-2">
+    <button
+      onClick={onToggle}
+      className="flex items-center justify-between w-full text-left py-2 border-b transition-colors hover:opacity-80"
+      style={{ borderColor: BORDER }}
+    >
+      <span className="text-[10px] tracking-[0.2em] uppercase font-mono" style={{ color: color || GOLD_TEXT }}>
+        {title}
+      </span>
+      <ChevronRight
+        className="w-4 h-4 text-muted-foreground/50 transition-transform"
+        style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+      />
+    </button>
+    {open && <div className="pt-1">{children}</div>}
+  </div>
+);
+
+const Chip = ({ label, value, highlight }) => (
+  <div
+    className="flex items-center gap-1.5 px-2 py-1 rounded-sm border text-[10px] font-mono"
+    style={{
+      borderColor: highlight ? WINE : BORDER,
+      background: highlight ? "rgba(114,47,55,0.04)" : "white",
+    }}
+  >
+    <span className="text-muted-foreground">{label}:</span>
+    <span className="text-foreground font-medium">{value}</span>
+  </div>
+);
+
+const RatingCard = ({ title, subtitle, strong, children }) => (
+  <div
+    className="bg-white border rounded-sm p-3"
+    style={{
+      borderColor: strong ? WINE : BORDER,
+      boxShadow: strong ? "0 0 0 1px rgba(114,47,55,0.1)" : undefined,
+    }}
+  >
+    <p className="text-[10px] tracking-[0.15em] uppercase font-mono mb-0.5" style={{ color: strong ? WINE : GOLD_TEXT }}>
+      {title}
+    </p>
+    <p className="text-[9px] text-muted-foreground font-light mb-2">{subtitle}</p>
+    <div className="space-y-0.5">{children}</div>
+  </div>
+);
+
+const KV = ({ label, value, strong }) => (
+  <div className="flex justify-between gap-2">
+    <span className="text-muted-foreground font-light">{label}</span>
+    <span className={`font-mono text-foreground ${strong ? "font-medium" : ""}`}>{value}</span>
+  </div>
+);
+
+const MiniStat = ({ label, value, sub }) => (
+  <div className="bg-white border rounded-sm p-2.5" style={{ borderColor: BORDER }}>
+    <p className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">{label}</p>
+    <p className="text-base text-foreground font-light font-heading">{value}</p>
+    {sub && <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{sub}</p>}
+  </div>
+);
+
+const LearnedInventory = ({ data }) => {
+  const buckets = [
+    ["Concepts", data.concepts_mastered || []],
+    ["Openings", data.openings_learned || []],
+    ["Traps", data.traps_learned || []],
+    ["Endgames", data.endgames_learned || []],
+  ];
+  const hasAny = buckets.some(([, arr]) => arr.length > 0);
+  if (!hasAny) return <p className="text-[11px] text-muted-foreground font-light">Nothing learned yet.</p>;
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {buckets.map(([label, items]) => (
+        <div key={label} className="text-xs">
+          <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">{label}</p>
+          {items.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground font-light">—</p>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {items.map((x, i) => (
+                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-sm font-mono" style={{ color: "#16a34a", background: "rgba(22,163,74,0.06)" }}>
+                  {x}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+function bandOf(rating) {
+  if (!rating) return "—";
+  if (rating < 1000) return "beginner low";
+  if (rating < 1400) return "beginner high";
+  if (rating < 1800) return "intermediate";
+  return "advanced";
+}
 
 /* ============================================================
  * FEEDBACK TAB
