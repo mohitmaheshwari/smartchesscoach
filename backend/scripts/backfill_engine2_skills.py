@@ -37,6 +37,11 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
 
 
+def _is_user_move(move_number: int, user_color: str) -> bool:
+    """White plays odd move_numbers (1,3,5...), black plays even."""
+    return (move_number % 2 == 1) if user_color == "white" else (move_number % 2 == 0)
+
+
 def _extract_tactical_patterns(move_evaluations, user_color: str):
     """Run classify_mistake over user moves with meaningful cp_loss.
     Returns list of tactical_pattern strings for this game."""
@@ -44,22 +49,28 @@ def _extract_tactical_patterns(move_evaluations, user_color: str):
 
     patterns = []
     for mv in move_evaluations:
-        if not mv.get("is_user_move"):
+        move_num = mv.get("move_number", 0)
+        if not _is_user_move(move_num, user_color):
             continue
-        cp_loss = mv.get("cp_loss", 0) or 0
-        # Only classify meaningful moves — includes positive events too
+        cp_loss = abs(mv.get("cp_loss", 0) or 0)
+        # Classify any move with meaningful cp_loss — captures both mistakes
+        # and positive events (avoided_threat/executed_fork appear near
+        # sharp positions even when user played well).
         if cp_loss < 30:
             continue
         try:
+            # Note: classify_mistake expects centipawns, not pawns, for evals.
+            # stockfish_service stores eval_before/eval_after in centipawns.
             classified = classify_mistake(
                 fen_before=mv.get("fen_before", ""),
                 fen_after=mv.get("fen_after", ""),
-                move_played=mv.get("move_san") or mv.get("move_uci", ""),
-                best_move=mv.get("best_move_san") or mv.get("engine_best_move", ""),
-                eval_before=mv.get("score_before", 0),
-                eval_after=mv.get("score_after", 0),
+                move_played=mv.get("move", "") or mv.get("move_uci", ""),
+                best_move=mv.get("best_move", "") or mv.get("best_move_uci", ""),
+                eval_before=mv.get("eval_before", 0) or 0,
+                eval_after=mv.get("eval_after", 0) or 0,
                 user_color=user_color,
-                move_number=mv.get("move_number", 1),
+                move_number=move_num,
+                pv_after_played=mv.get("pv_after_played"),
             )
             if classified and classified.mistake_type:
                 patterns.append(classified.mistake_type.value)
@@ -162,11 +173,11 @@ async def backfill(user_id: str, limit: int, reset: bool):
         else:
             game_result = "draw"
 
-        # was_winning: any point the user had +150cp advantage
+        # was_winning: any point the user had +150cp advantage.
+        # eval_before is centipawns from white's perspective.
         was_winning = False
         for mv in move_evaluations:
-            score = mv.get("score_before", 0) or 0
-            # score_before is centipawns from white's perspective
+            score = mv.get("eval_before", 0) or 0
             if user_color == "white" and score > 150:
                 was_winning = True
                 break
