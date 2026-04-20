@@ -157,69 +157,97 @@ BEGINNER_LOW_HEADLINES = {
 
 
 async def compose_today(db, user_id: str) -> Dict[str, Any]:
-    """Build the single-screen prescription for /today, voiced by rating band."""
+    """
+    Build the home-screen prescription. Returns BOTH engines when both
+    have picks — Engine 1 as the primary hero (fix your recent mistake),
+    Engine 2 as a smaller secondary card (what to learn next).
 
+    Shape:
+      {
+        greeting, band, alternates,
+        primary:   { source, headline, evidence, board, rule, action, streak, ... },
+        secondary: { source, label, reason, tier, kind, fixes, action } | None,
+      }
+
+    Rules:
+      - Both engines pick → primary = Engine 1, secondary = Engine 2
+      - Only Engine 1 picks → primary = Engine 1, secondary = None
+      - Only Engine 2 picks → primary = Engine 2 (promoted), secondary = None
+      - Neither picks → primary = empty-state welcome, secondary = None
+    """
     out: Dict[str, Any] = {
         "greeting": None,
-        "headline": None,
-        "evidence": [],
-        "rule": None,
-        "board": None,
-        "action": None,
-        "streak": None,
-        "alternates": [],
-        "source": "none",
         "band": None,
+        "alternates": [],
+        "primary": None,
+        "secondary": None,
     }
 
-    # ── Greeting ──
+    # ── Greeting + band ──
     user = await db.users.find_one({"user_id": user_id}, {"email": 1, "display_name": 1, "name": 1, "_id": 0})
     name = _extract_first_name(user)
-
-    # ── Rating band (the canonical one) ──
     band_name = await _detect_band(db, user_id)
     out["band"] = band_name
+    out["greeting"] = (f"Hey {name}." if name else
+                       ("Hey there." if band_name == "beginner_low" else "Welcome back."))
 
-    # Warm greetings for beginner_low, neutral for everyone else
-    if band_name == "beginner_low":
-        out["greeting"] = f"Hey {name}." if name else "Hey there."
+    # ── Pick both engines independently ──
+    engine1 = await _pick_engine1_focus(db, user_id)
+    engine2 = await _pick_engine2_focus(db, user_id)
+
+    # ── Assign primary / secondary ──
+    if engine1:
+        out["primary"] = await _build_primary(db, user_id, band_name, engine1)
+        if engine2:
+            out["secondary"] = _build_secondary(band_name, engine2)
+        out["alternates"] = _compose_alternates(engine1)
+    elif engine2:
+        # Engine 1 silent — promote Engine 2 to hero
+        out["primary"] = await _build_primary(db, user_id, band_name, engine2)
+        out["alternates"] = _compose_alternates(engine2)
     else:
-        out["greeting"] = f"Hey {name}." if name else "Welcome back."
-
-    # ── Pick focus (Engine 1 → Engine 2 → nothing) ──
-    focus_source, focus = await _pick_todays_focus(db, user_id)
-    out["source"] = focus_source
-
-    if not focus:
-        out["headline"] = _empty_state_headline(band_name, name)
-        out["action"] = {"cta": "Play with me", "href": "/play-with-coach", "medium": "live_game"}
-        return out
-
-    gap = focus.get("gap") or SKILL_TO_GAP.get(focus.get("skill_id")) or focus.get("category")
-
-    # ── Headline (band-specific) ──
-    out["headline"] = _headline_for_band(band_name, gap, focus)
-
-    # ── Evidence (band gates what's shown) ──
-    out["evidence"] = await _evidence_for_band(db, user_id, band_name, gap, focus)
-
-    # ── Rule (all bands use COACHING_RULES, shortened for beginner_low) ──
-    out["rule"] = _rule_for_band(band_name, gap)
-
-    # ── Action ──
-    out["action"] = _action_for_band(band_name, focus)
-
-    # ── Streak (hidden for beginner_low — don't show failure dots to a fragile learner) ──
-    if band_name != "beginner_low":
-        out["streak"] = await _gather_streak(db, user_id)
-
-    # ── Board (all bands get it — visual, not verbal) ──
-    out["board"] = await _find_critical_position(db, user_id, focus)
-
-    # ── Alternates (same conversational dialogue for all bands) ──
-    out["alternates"] = _compose_alternates(focus)
+        # No data yet — welcoming empty state
+        out["primary"] = {
+            "source": "new_user",
+            "headline": _empty_state_headline(band_name, name),
+            "evidence": [],
+            "rule": None,
+            "board": None,
+            "action": {"cta": "Play with me", "href": "/play-with-coach", "medium": "live_game"},
+            "streak": None,
+        }
 
     return out
+
+
+async def _build_primary(db, user_id: str, band_name: str, focus: Dict) -> Dict[str, Any]:
+    """Build the full primary-hero block — all vision elements populated."""
+    gap = focus.get("gap") or SKILL_TO_GAP.get(focus.get("skill_id")) or focus.get("category")
+    streak = await _gather_streak(db, user_id) if band_name != "beginner_low" else None
+    return {
+        "source": focus.get("kind") if focus.get("kind") in ("engine1", "engine2") else focus.get("_src", "engine1"),
+        "headline": _headline_for_band(band_name, gap, focus),
+        "evidence": await _evidence_for_band(db, user_id, band_name, gap, focus),
+        "rule": _rule_for_band(band_name, gap, focus),
+        "board": await _find_critical_position(db, user_id, focus),
+        "action": _action_for_band(band_name, focus),
+        "streak": streak,
+    }
+
+
+def _build_secondary(band_name: str, engine2: Dict) -> Dict[str, Any]:
+    """Build the smaller 'Learn next' card that complements the primary fix.
+    Intentionally simpler — no evidence / no board / no rule. Just label +
+    reason + action."""
+    return {
+        "source": "engine2",
+        "label": engine2.get("label"),
+        "reason": engine2.get("reason"),
+        "tier": engine2.get("tier"),
+        "kind": engine2.get("e2_kind"),
+        "fixes": engine2.get("fixes"),
+        "action": _action_for_band(band_name, engine2),
+    }
 
 
 # ── HELPERS ──────────────────────────────────────────────────────────
@@ -275,14 +303,14 @@ async def _detect_band(db, user_id: str) -> str:
     return band.get("name", "beginner_low")
 
 
-async def _pick_todays_focus(db, user_id: str):
-    # Engine 1 first
+async def _pick_engine1_focus(db, user_id: str) -> Optional[Dict]:
+    """Engine 1 (fix-your-mess) pick, or None if no focus."""
     try:
         from services.focus_resolver import get_active_focus
         active = await get_active_focus(db, user_id, top_problems=None)
         if active and active.get("focus"):
-            return "engine1", {
-                "kind": "engine1",
+            return {
+                "_src": "engine1",
                 "focus": active.get("focus"),
                 "category": active.get("category"),
                 "gap": active.get("gap"),
@@ -292,8 +320,13 @@ async def _pick_todays_focus(db, user_id: str):
             }
     except Exception as e:
         logger.debug(f"Engine 1 focus failed: {e}")
+    return None
 
-    # Engine 2 fallback
+
+async def _pick_engine2_focus(db, user_id: str) -> Optional[Dict]:
+    """Engine 2 (build-new-skill) pick, or None if nothing ready.
+    Note: Engine 2's 'kind' (opening/trap_set/...) is kept on the focus
+    dict under 'e2_kind' to avoid colliding with legacy 'kind' usage."""
     try:
         from services.engine2_skill_builder import pick_next_skill
         from services.coach_memory import get_or_create_memory
@@ -301,19 +334,22 @@ async def _pick_todays_focus(db, user_id: str):
         rating = mem.performance.best_performance_rating or 1000
         nxt = pick_next_skill(mem, rating)
         if nxt:
-            return "engine2", {
-                "kind": "engine2",
+            return {
+                "_src": "engine2",
                 "skill_id": nxt["skill_id"],
                 "label": nxt["label"],
                 "reason": nxt["reason"],
+                "fixes": nxt.get("fixes"),
                 "stats": nxt.get("stats", {}),
                 "tier": nxt.get("tier"),
+                "e2_kind": nxt.get("kind"),    # opening / trap_set / endgame / ...
+                "kind": nxt.get("kind"),       # for _action_for_band routing
+                "content_ref": nxt.get("content_ref"),
                 "gap": SKILL_TO_GAP.get(nxt["skill_id"]),
             }
     except Exception as e:
         logger.debug(f"Engine 2 pick failed: {e}")
-
-    return "none", None
+    return None
 
 
 def _empty_state_headline(band_name: str, name: Optional[str]) -> str:
@@ -357,30 +393,54 @@ def _headline_for_band(band_name: str, gap: Optional[str], focus: Dict) -> str:
 
 
 async def _evidence_for_band(db, user_id: str, band_name: str, gap: Optional[str], focus: Dict) -> List[str]:
-    """Band gates how evidence is shown. Beginner_low sees nothing — no
-    failure counts, no move numbers, no opponent names. That level of
-    specificity demoralises, not motivates."""
+    """Band gates how evidence is shown. Beginner_low gets soft grounded
+    phrasing (no counts, no notation, no shame) but never empty — a bare
+    screen feels like a fortune cookie. Every band must have *something*
+    anchoring the claim."""
     if band_name == "beginner_low":
-        # Don't rub failure in their face. The board + headline do the work.
-        return []
+        # Soft grounded phrases — no numbers, no move notation, no opponent
+        # names — but still anchored in the user's games.
+        fkey = focus.get("focus") or focus.get("skill_id")
+        if fkey:
+            n = await db.postgame_analyses.count_documents(
+                {"user_id": user_id, "coach_prescription": fkey}
+            )
+            if n >= 3:
+                return ["This has been a pattern in your recent games.",
+                        "Don't worry — we'll work on it together."]
+            if n >= 1:
+                return ["It came up again in your last game.",
+                        "Let's fix it together."]
+        # Engine 2 fallback (no prescription yet) — still ground it
+        critical = await _find_critical_position(db, user_id, focus)
+        if critical:
+            return ["Here's a moment from your last game where it happened.",
+                    "We'll practice so you start spotting it."]
+        # No games / no data — still not empty
+        return ["Let's play a game together so I can watch how you play."]
 
     stats = focus.get("stats") or {}
     seen = stats.get("seen", 0)
     wrong = stats.get("failed", stats.get("wrong", 0))
 
     if band_name == "beginner_high":
-        # Soft counts only — no move notation, no opponent names
+        # Soft counts only — no move notation, no opponent names.
+        # Never empty — always anchor to something.
         if wrong >= 3 and seen:
-            return [f"This has come up a few times in your recent games."]
-        # Engine 1 fallback — count prescriptions softly
+            return ["This has come up a few times in your recent games."]
         fkey = focus.get("focus") or focus.get("skill_id")
         if fkey:
             n = await db.postgame_analyses.count_documents(
                 {"user_id": user_id, "coach_prescription": fkey}
             )
             if n >= 2:
-                return [f"This has shown up in a few of your recent games."]
-        return []
+                return ["This has shown up in a few of your recent games."]
+            if n >= 1:
+                return ["Came up in your last game too."]
+        critical = await _find_critical_position(db, user_id, focus)
+        if critical:
+            return ["Here's the moment from your last game."]
+        return ["Let's play a game so I can show you the patterns."]
 
     if band_name == "intermediate":
         lines = []
@@ -411,27 +471,146 @@ async def _evidence_for_band(db, user_id: str, band_name: str, gap: Optional[str
     return lines[:2]
 
 
-def _rule_for_band(band_name: str, gap: Optional[str]) -> Optional[str]:
-    """Pull the actionable rule from the existing COACHING_RULES dict.
-    For beginner_low we prepend 'Together:' to reinforce 'we' framing."""
-    if not gap:
-        return None
-    try:
-        from routes.training_advanced import COACHING_RULES
-    except Exception:
-        return None
-    entry = COACHING_RULES.get(gap)
-    if not entry:
-        return None
-    rule = entry.get("rule")
-    if not rule:
-        return None
+def _rule_for_band(band_name: str, gap: Optional[str], focus: Optional[Dict] = None) -> Optional[str]:
+    """Actionable rule for this focus. Primary source: COACHING_RULES keyed
+    on gap. Secondary: kind-specific fallbacks for coached_play / opening /
+    trap_set / endgame where no tactical gap exists.
 
-    if band_name == "beginner_low":
-        # Soften phrasing: "Before every move, ask:" → "Each move, we ask:"
-        rule = rule.replace("Before every move, ask:", "Each move, we ask:")
-        rule = rule.replace("Before every move,", "Each move,")
-    return rule
+    Never returns None for a user with a focus — the rule anchors the
+    screen and should always be present.
+    """
+    # Primary — gap-matched rule from the existing dictionary
+    if gap:
+        try:
+            from routes.training_advanced import COACHING_RULES
+            entry = COACHING_RULES.get(gap)
+            if entry and entry.get("rule"):
+                rule = entry["rule"]
+                if band_name == "beginner_low":
+                    rule = rule.replace("Before every move, ask:", "Each move, we ask:")
+                    rule = rule.replace("Before every move,", "Each move,")
+                return rule
+        except Exception:
+            pass
+
+    # Secondary — kind-based fallback for knowledge skills without a gap
+    kind = (focus or {}).get("kind")
+    KIND_RULES = {
+        "coached_play": {
+            "beginner_low":  "We'll pause before each move and look together.",
+            "beginner_high": "Before every move, pause and look around.",
+            "intermediate":  "Before every move: captures, checks, threats.",
+            "advanced":      "Before every move: captures, checks, threats.",
+        },
+        "opening": {
+            "beginner_low":  "We'll learn the setup order, move by move.",
+            "beginner_high": "Learn the setup — piece order matters.",
+            "intermediate":  "Every opening move has a purpose. Know why.",
+            "advanced":      "Every opening move has a purpose. Know why.",
+        },
+        "trap_set": {
+            "beginner_low":  "We'll learn to spot these traps — and defend.",
+            "beginner_high": "Learn to spot these traps — and defend.",
+            "intermediate":  "Learn to spot these traps — and defend.",
+            "advanced":      "Learn to spot these traps — and defend.",
+        },
+        "endgame": {
+            "beginner_low":  "Endgames are technique. We'll practice together.",
+            "beginner_high": "Endgames reward precise technique. Learn the pattern.",
+            "intermediate":  "Endgames reward precise technique. Learn the pattern.",
+            "advanced":      "Endgames reward precise technique. Learn the pattern.",
+        },
+        "mate_pattern": {
+            "beginner_low":  "We'll practice the mate together, step by step.",
+            "beginner_high": "The mate follows a pattern. Learn the rhythm.",
+            "intermediate":  "The mate follows a pattern. Learn the rhythm.",
+            "advanced":      "The mate follows a pattern. Learn the rhythm.",
+        },
+        "concept": {
+            "beginner_low":  "We'll play a game and I'll point it out.",
+            "beginner_high": "Recognize this pattern, then apply it.",
+            "intermediate":  "Recognize this pattern, then apply it.",
+            "advanced":      "Recognize this pattern, then apply it.",
+        },
+    }
+    if kind and kind in KIND_RULES:
+        return KIND_RULES[kind].get(band_name) or KIND_RULES[kind].get("intermediate")
+
+    # Final — generic encouragement
+    return {
+        "beginner_low":  "Let's work on this together.",
+        "beginner_high": "Let's work on this.",
+        "intermediate":  "Let's work on this.",
+        "advanced":      "Focus on this pattern.",
+    }.get(band_name, "Let's work on this.")
+
+
+def _gap_cta(band_name: str, gap: str) -> str:
+    """Gap-specific CTA copy. Coaching language, not labels — 'Let's
+    practice spotting threats' beats 'Practice this weakness'."""
+    # beginner_low → 'we/us' collaborative framing
+    # beginner_high → direct but kind
+    # intermediate+ → puzzle framing with count
+    GAP_COPY = {
+        "tactical_oversight": {
+            "beginner_low":  "Let's practice spotting their threats",
+            "beginner_high": "Practice spotting threats",
+            "intermediate":  "Solve 5 threat-detection puzzles",
+            "advanced":      "Solve 5 threat-detection puzzles",
+        },
+        "ignore_threat": {
+            "beginner_low":  "Let's practice spotting their threats",
+            "beginner_high": "Practice spotting threats",
+            "intermediate":  "Solve 5 threat-detection puzzles",
+            "advanced":      "Solve 5 threat-detection puzzles",
+        },
+        "piece_safety": {
+            "beginner_low":  "Let's practice keeping pieces safe",
+            "beginner_high": "Practice piece safety",
+            "intermediate":  "Solve 5 piece-safety puzzles",
+            "advanced":      "Solve 5 piece-safety puzzles",
+        },
+        "calculation_depth": {
+            "beginner_low":  "Let's play a slow game together",
+            "beginner_high": "Play a slow game",
+            "intermediate":  "Play a slow game with me",
+            "advanced":      "Play a slow game with me",
+        },
+        "missed_tactic": {
+            "beginner_low":  "Let's practice finding tactics",
+            "beginner_high": "Practice finding tactics",
+            "intermediate":  "Solve 5 tactics puzzles",
+            "advanced":      "Solve 5 tactics puzzles",
+        },
+        "king_safety": {
+            "beginner_low":  "Let's practice keeping your king safe",
+            "beginner_high": "Practice king safety",
+            "intermediate":  "Solve 5 king-safety puzzles",
+            "advanced":      "Solve 5 king-safety puzzles",
+        },
+        "endgame_technique": {
+            "beginner_low":  "Let's work through an endgame",
+            "beginner_high": "Practice endgames",
+            "intermediate":  "Do an endgame lesson",
+            "advanced":      "Do an endgame lesson",
+        },
+        "conversion": {
+            "beginner_low":  "Let's practice finishing a winning game",
+            "beginner_high": "Practice converting wins",
+            "intermediate":  "Play a game — convert the advantage",
+            "advanced":      "Play a game — convert the advantage",
+        },
+    }
+    mapping = GAP_COPY.get(gap, {})
+    if mapping:
+        return mapping.get(band_name) or mapping.get("intermediate") or "Practice this"
+    # Unknown gap — warm-but-honest fallback
+    return {
+        "beginner_low":  "Let's practice this together",
+        "beginner_high": "Let's work on this",
+        "intermediate":  "Practice this weakness",
+        "advanced":      "Practice this weakness",
+    }.get(band_name, "Practice this")
 
 
 def _action_for_band(band_name: str, focus: Dict) -> Dict[str, str]:
@@ -449,15 +628,11 @@ def _action_for_band(band_name: str, focus: Dict) -> Dict[str, str]:
         )
         return {"cta": cta, "href": href, "medium": cfg.get("medium", "lesson")}
 
-    # Engine 1 focus → route to /training/prescribed by gap
+    # Engine 1 focus → route to /training/prescribed by gap with band+gap
+    # aware CTA copy. No generic "Practice this weakness."
     gap = focus.get("gap") or focus.get("category")
     if gap:
-        cta = {
-            "beginner_low":  "Let's practice this together",
-            "beginner_high": "Practice this weakness",
-            "intermediate":  "Practice this weakness",
-            "advanced":      "Practice this weakness",
-        }.get(band_name, "Practice this weakness")
+        cta = _gap_cta(band_name, gap)
         return {
             "cta": cta,
             "href": f"/training/prescribed?weakness={gap}",
@@ -505,24 +680,94 @@ async def _gather_streak(db, user_id: str) -> Optional[Dict]:
 
 
 async def _find_critical_position(db, user_id: str, focus: Dict) -> Optional[Dict]:
-    """Most recent game where this problem fired. Returns FEN + move number +
-    opponent so the coach can display a concrete board."""
+    """
+    Return the most memorable 'this is the moment' position for the coach
+    to display. Cascade fallbacks — we always want a board if any game has
+    been analysed:
+
+      1. Focus-specific:     postgame_analyses matching current coach_prescription
+      2. Any recent loss:    postgame_analyses from last loss/draw
+      3. Any recent postgame: most recent postgame_analyses doc
+      4. Raw game analysis:  biggest cp_loss user move across last analysed game
+
+    Returns {fen, move_number, opponent, game_id} or None (only when user
+    has zero analysed games).
+    """
+    # ── 1. Focus-specific session ──
+    fkey = focus.get("focus") or focus.get("skill_id")
+    if fkey:
+        pos = await _position_from_postgame(db, user_id, {"coach_prescription": fkey})
+        if pos:
+            return pos
+
+    # ── 2. Any recent loss/draw session ──
+    pos = await _position_from_postgame(
+        db, user_id, {"game_result": {"$in": ["loss", "draw"]}}
+    )
+    if pos:
+        return pos
+
+    # ── 3. Any recent postgame at all ──
+    pos = await _position_from_postgame(db, user_id, {})
+    if pos:
+        return pos
+
+    # ── 4. Imported-game fallback — pull from game_analyses directly ──
     try:
-        fkey = focus.get("focus") or focus.get("skill_id")
-        query = {"user_id": user_id}
-        if fkey:
-            query["coach_prescription"] = fkey
+        game = await db.games.find_one(
+            {"user_id": user_id, "is_analyzed": True},
+            sort=[("imported_at", -1)],
+            projection={"game_id": 1, "user_color": 1, "result": 1, "_id": 0},
+        )
+        if not game:
+            return None
+        analysis = await db.game_analyses.find_one(
+            {"game_id": game.get("game_id")},
+            {"stockfish_analysis": 1, "_id": 0},
+        )
+        if not analysis:
+            return None
+        sf = analysis.get("stockfish_analysis") or {}
+        moves = sf.get("move_evaluations") or []
+        # Pick the user's worst move (biggest cp_loss, user-side parity)
+        user_color = (game.get("user_color") or "white").lower()
+        worst = None
+        worst_cp = 0
+        for mv in moves:
+            mvn = mv.get("move_number", 0)
+            is_user = (mvn % 2 == 1) if user_color == "white" else (mvn % 2 == 0)
+            if not is_user:
+                continue
+            cp = abs(mv.get("cp_loss", 0) or 0)
+            if cp > worst_cp:
+                worst_cp = cp
+                worst = mv
+        if not worst:
+            return None
+        return {
+            "fen": worst.get("fen_before") or worst.get("fen"),
+            "move_number": worst.get("move_number"),
+            "opponent": "your opponent",
+            "game_id": game.get("game_id"),
+        }
+    except Exception as e:
+        logger.debug(f"Imported-game critical-position fallback failed: {e}")
+        return None
+
+
+async def _position_from_postgame(db, user_id: str, extra_query: Dict) -> Optional[Dict]:
+    """Helper: extract the worst user move from a postgame_analyses doc matching
+    the given query. Returns None if no match or no move_history."""
+    try:
+        query = {"user_id": user_id, **extra_query}
         doc = await db.postgame_analyses.find_one(
             query, sort=[("created_at", -1)],
             projection={"session_id": 1, "_id": 0}
         )
-        if not doc:
-            return None
-        session_id = doc.get("session_id")
-        if not session_id:
+        if not doc or not doc.get("session_id"):
             return None
         session = await db.coach_sessions.find_one(
-            {"session_id": session_id},
+            {"session_id": doc["session_id"]},
             {"move_history": 1, "opponent": 1, "_id": 0}
         )
         if not session:
@@ -541,8 +786,8 @@ async def _find_critical_position(db, user_id: str, focus: Dict) -> Optional[Dic
             "fen": worst.get("fen_before") or worst.get("fen"),
             "move_number": worst.get("move_number"),
             "opponent": session.get("opponent") or "Coach",
-            "game_id": session_id,
+            "game_id": doc["session_id"],
         }
     except Exception as e:
-        logger.debug(f"Critical position lookup failed: {e}")
+        logger.debug(f"Postgame position lookup failed: {e}")
         return None

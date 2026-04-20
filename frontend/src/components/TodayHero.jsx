@@ -1,16 +1,15 @@
 /**
- * TodayHero — the coach's single-voice prescription.
+ * TodayHero — the coach's two-part prescription:
+ *   1. PRIMARY hero (what to fix OR, if nothing's broken, what to learn)
+ *   2. Optional SECONDARY "Learn next" card (Engine 2, when Engine 1 is primary)
  *
- * Self-contained: does its own fetch from /api/today and renders:
- *   greeting → headline → evidence → board → rule → streak dots → action → "not feeling this today"
- *
- * Used as the hero section of HomePage and as the whole body of /today
- * (the URL route aliases HomePage for backwards compatibility).
+ * Self-contained: fetches /api/today, renders both sections, handles the
+ * "not feeling this today" dialogue.
  *
  * Design principles:
  *   - The coach speaks in sentences, not labels.
  *   - Evidence is always visible when we have it.
- *   - One primary action button. Everything else is subtext.
+ *   - Primary action button dominates. Secondary card is smaller.
  *   - "not feeling this today" is a conversation, not a library.
  */
 
@@ -19,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
-import { ChevronRight, ArrowRight } from "lucide-react";
+import { ChevronRight, ArrowRight, Sparkles } from "lucide-react";
 
 
 export default function TodayHero() {
@@ -54,10 +53,15 @@ export default function TodayHero() {
     );
   }
 
-  const handlePrimary = () => {
-    if (data.action?.href) navigate(data.action.href);
-  };
+  const primary = data.primary || {};
+  const secondary = data.secondary;
 
+  const handlePrimary = () => {
+    if (primary.action?.href) navigate(primary.action.href);
+  };
+  const handleSecondary = () => {
+    if (secondary?.action?.href) navigate(secondary.action.href);
+  };
   const handleAlternate = (alt) => {
     setShowInterrupt(false);
     if (alt.action === "dismiss") return;
@@ -66,6 +70,7 @@ export default function TodayHero() {
 
   return (
     <>
+      {/* ─────────── PRIMARY HERO (Engine 1, or promoted Engine 2) ─────────── */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -73,25 +78,21 @@ export default function TodayHero() {
         className="space-y-8"
         data-testid="today-hero"
       >
-        {/* Tiny section label — premium tailored feel */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary/60">
             Today's focus
           </span>
         </div>
 
-        {/* Greeting — conversational, not a title */}
         <p className="text-sm text-muted-foreground font-light -mt-6">{data.greeting}</p>
 
-        {/* The ONE headline — the coach's voice */}
         <h1 className="text-[26px] leading-[1.25] font-heading font-medium text-foreground tracking-tight">
-          {data.headline}
+          {primary.headline}
         </h1>
 
-        {/* Evidence — specific, countable */}
-        {data.evidence?.length > 0 && (
+        {primary.evidence?.length > 0 && (
           <div className="space-y-1.5">
-            {data.evidence.map((line, i) => (
+            {primary.evidence.map((line, i) => (
               <p key={i} className="text-[13px] text-muted-foreground leading-relaxed">
                 {line}
               </p>
@@ -99,31 +100,28 @@ export default function TodayHero() {
           </div>
         )}
 
-        {/* The board — concrete */}
-        {data.board?.fen && (
+        {primary.board?.fen && (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.15 }}
             className="rounded-xl overflow-hidden border border-border"
           >
-            <LichessBoard fen={data.board.fen} viewOnly={true} width={360} />
+            <LichessBoard fen={primary.board.fen} viewOnly={true} width={360} />
           </motion.div>
         )}
 
-        {/* Rule — the memorable one-liner */}
-        {data.rule && (
+        {primary.rule && (
           <div className="py-3.5 px-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/10">
-            <p className="text-[13px] text-foreground font-medium leading-snug">{data.rule}</p>
+            <p className="text-[13px] text-foreground font-medium leading-snug">{primary.rule}</p>
           </div>
         )}
 
-        {/* Streak — only if meaningful progress */}
-        {data.streak && data.streak.results?.length > 0 && (
+        {primary.streak && primary.streak.results?.length > 0 && (
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              {Array.from({ length: data.streak.total || 5 }).map((_, i) => {
-                const r = data.streak.results[i];
+              {Array.from({ length: primary.streak.total || 5 }).map((_, i) => {
+                const r = primary.streak.results[i];
                 return (
                   <div
                     key={i}
@@ -138,13 +136,12 @@ export default function TodayHero() {
               })}
             </div>
             <span className="text-[11px] text-muted-foreground font-light">
-              {data.streak.clean}/{data.streak.target} clean games so far
+              {primary.streak.clean}/{primary.streak.target} clean games so far
             </span>
           </div>
         )}
 
-        {/* THE action — one verb, one button */}
-        {data.action && (
+        {primary.action && (
           <motion.button
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -153,23 +150,67 @@ export default function TodayHero() {
             className="w-full py-4 px-6 text-[15px] font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2.5 shadow-sm"
             data-testid="today-primary-action"
           >
-            {data.action.cta}
+            {primary.action.cta}
             <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
           </motion.button>
         )}
-
-        {/* "Not feeling this" — subtle, conversational */}
-        {data.alternates?.length > 0 && (
-          <div className="text-center pt-1">
-            <button
-              onClick={() => setShowInterrupt(true)}
-              className="text-[12px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-            >
-              not feeling this today
-            </button>
-          </div>
-        )}
       </motion.section>
+
+      {/* ─────────── SECONDARY: LEARN NEXT (Engine 2, when both engines have picks) ─────────── */}
+      {secondary && (
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="mt-8 pt-6 border-t border-border/50"
+          data-testid="today-secondary"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500/70" strokeWidth={2} />
+            <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-emerald-500/70">
+              Learn next
+            </span>
+            {secondary.tier !== undefined && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                Tier {secondary.tier}
+              </span>
+            )}
+          </div>
+
+          <p className="text-[15px] font-medium text-foreground mb-1 leading-snug">
+            {secondary.label}
+          </p>
+
+          {secondary.reason && (
+            <p className="text-[12px] text-muted-foreground leading-relaxed mb-3">
+              {secondary.reason}
+            </p>
+          )}
+
+          {secondary.action && (
+            <button
+              onClick={handleSecondary}
+              className="w-full py-3 px-5 text-[13px] font-medium rounded-xl border border-emerald-500/30 bg-emerald-500/[0.03] hover:bg-emerald-500/[0.06] hover:border-emerald-500/50 text-emerald-700 dark:text-emerald-400 transition-all flex items-center justify-center gap-2"
+              data-testid="today-secondary-action"
+            >
+              {secondary.action.cta}
+              <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
+            </button>
+          )}
+        </motion.section>
+      )}
+
+      {/* "Not feeling this" — applies to the primary, always last */}
+      {data.alternates?.length > 0 && (
+        <div className="text-center pt-6">
+          <button
+            onClick={() => setShowInterrupt(true)}
+            className="text-[12px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            not feeling this today
+          </button>
+        </div>
+      )}
 
       {/* Interrupt dialogue */}
       <AnimatePresence>
