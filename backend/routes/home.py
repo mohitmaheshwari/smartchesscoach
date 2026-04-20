@@ -848,6 +848,30 @@ async def get_coach_home(user: User = Depends(get_current_user)):
     return result
 
 
+@router.get("/today")
+async def get_today(user: User = Depends(get_current_user)):
+    """
+    The single prescription for /today — one headline, one action.
+    Everything the user needs to know in one shape. No menus.
+    """
+    from services.today_composer import compose_today
+    try:
+        return await compose_today(db, user.user_id)
+    except Exception as e:
+        logger.warning(f"[TODAY] compose failed: {e}")
+        return {
+            "greeting": "Welcome back.",
+            "headline": "Let's play a game.",
+            "evidence": [],
+            "rule": None,
+            "board": None,
+            "action": {"verb": "Play", "cta": "Play with me", "href": "/play-with-coach", "medium": "live_game"},
+            "streak": None,
+            "alternates": [],
+            "source": "none",
+        }
+
+
 @router.get("/home/pattern-prescription")
 async def get_pattern_prescription(
     user: User = Depends(get_current_user)

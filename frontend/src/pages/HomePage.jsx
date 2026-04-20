@@ -370,25 +370,60 @@ const HomePage = ({ user }) => {
           )}
 
           {/* ─── ENGINE 2: LEARN NEXT (forward-looking skill) ─── */}
-          {learnNext && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Learn next</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
-                  Tier {learnNext.tier}
-                </span>
-              </div>
-              <p className="text-sm font-medium text-foreground mb-1">{learnNext.label}</p>
-              <p className="text-xs text-muted-foreground">{learnNext.reason}</p>
-              {learnNext.stats?.seen > 0 && (
-                <p className="text-[10px] text-muted-foreground/60 mt-2">
-                  {learnNext.stats.correct}/{learnNext.stats.seen} correct · {learnNext.stats.failed} failed
-                </p>
-              )}
-            </motion.div>
-          )}
+          {learnNext && (() => {
+            // Every skill in the tree needs a concrete destination — otherwise
+            // the card is just info with no next step. Map skill_id → action.
+            // Skills that need live game context go to Play with Coach;
+            // pattern-based skills go to prescribed puzzles with a real gap.
+            const SKILL_DEST = {
+              pre_move_check:    { label: "Play a slow game with Coach",        to: `/play-with-coach?focus=${learnNext.skill_id}` },
+              hanging_piece:     { label: "Solve piece-safety puzzles",          to: `/training/prescribed?weakness=piece_safety` },
+              opponent_threat:   { label: "Solve threat-detection puzzles",      to: `/training/prescribed?weakness=tactical_oversight` },
+              king_safety:       { label: "Solve king-safety puzzles",           to: `/training/prescribed?weakness=king_safety` },
+              simple_mates:      { label: "Practice basic mates",                to: `/training/prescribed?weakness=endgame_technique` },
+              free_piece_capture: { label: "Solve winning-capture puzzles",      to: `/training/prescribed?weakness=missed_tactic` },
+              basic_trade:       { label: "Play with Coach — practice trades",   to: `/play-with-coach?focus=${learnNext.skill_id}` },
+              fork:              { label: "Solve fork puzzles",                  to: `/training/prescribed?weakness=missed_tactic` },
+              pin:               { label: "Solve pin puzzles",                   to: `/training/prescribed?weakness=missed_tactic` },
+              conversion:        { label: "Play with Coach — finish a win",     to: `/play-with-coach?focus=${learnNext.skill_id}` },
+              opening_principles: { label: "Open the opening lessons",           to: `/openings` },
+              king_pawn_endgame: { label: "Solve endgame puzzles",               to: `/training/prescribed?weakness=endgame_technique` },
+            };
+            const dest = SKILL_DEST[learnNext.skill_id] || {
+              label: "Start working on this",
+              to: `/training/prescribed?weakness=current`,
+            };
+            return (
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.19 }}
+                onClick={() => navigate(dest.to)}
+                className="w-full text-left rounded-2xl border border-border bg-card p-4 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02] transition-all group"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Learn next</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
+                    Tier {learnNext.tier}
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">{learnNext.label}</p>
+                <p className="text-xs text-muted-foreground">{learnNext.reason}</p>
+                {learnNext.stats?.seen > 0 && (
+                  <p className="text-[10px] text-muted-foreground/60 mt-2">
+                    {learnNext.stats.correct}/{learnNext.stats.seen} correct · {learnNext.stats.failed} failed
+                  </p>
+                )}
+                {/* Action row — makes the card obviously clickable */}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
+                  <span className="text-xs font-medium text-emerald-500/80 group-hover:text-emerald-500 transition-colors">
+                    {dest.label}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-emerald-500/60 group-hover:translate-x-0.5 transition-transform" strokeWidth={2} />
+                </div>
+              </motion.button>
+            );
+          })()}
 
           {/* ─── TODAY'S PLAN ─── */}
           {plan.opening && (
