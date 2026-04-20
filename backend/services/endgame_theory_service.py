@@ -63,12 +63,18 @@ def get_lesson(category_key: str, lesson_key: str):
 
     positions = []
     for i, pos in enumerate(lesson.get("positions", [])):
-        positions.append({
+        entry = {
             "index": i,
             "fen": pos["fen"],
             "side_to_move": pos["side_to_move"],
             "prompt": pos["prompt"],
-        })
+        }
+        # Optional teaching aids (won't leak the correct move)
+        if pos.get("square_corners"):
+            entry["square_corners"] = pos["square_corners"]
+        if pos.get("concept"):
+            entry["concept"] = pos["concept"]
+        positions.append(entry)
 
     return {
         "category_key": category_key,
@@ -77,8 +83,10 @@ def get_lesson(category_key: str, lesson_key: str):
         "name": lesson["name"],
         "rule": lesson["rule"],
         "description": lesson["description"],
+        # Optional lesson-level intro block for the pre-first-position screen
+        "intro": lesson.get("intro"),
         "positions": positions,
-        "total_positions": len(positions)
+        "total_positions": len(positions),
     }
 
 

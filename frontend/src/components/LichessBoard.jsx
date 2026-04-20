@@ -34,6 +34,7 @@ const LichessBoard = forwardRef(({
   interactive = true,
   showDests = true,
   arrows = [],
+  circles = [],  // [[square, color], ...] — chessground circle-shape on given squares
   highlights = [],
   lastMove = null,
   viewOnly = false,
@@ -454,54 +455,53 @@ const LichessBoard = forwardRef(({
     }
   }, [orientation]);
 
-  // Track previous arrows to avoid unnecessary updates
+  // Track previous arrows/circles to avoid unnecessary updates
   const prevArrowsRef = useRef([]);
-  
-  // Update arrows - only when they actually change
+  const prevCirclesRef = useRef([]);
+
+  // Helper: normalize color string → chessground brush name
+  const brushFor = (color) => {
+    if (!color) return "blue";
+    const c = color.toLowerCase();
+    if (c.includes("red") || c.includes("239")) return "red";
+    if (c.includes("green") || c.includes("34,") || c.includes("200, 83")) return "green";
+    if (c.includes("yellow") || c.includes("255, 200")) return "yellow";
+    return "blue";
+  };
+
+  // Update arrows + circles — only when either changes
   useEffect(() => {
-    // Convert arrows to comparable string
     const arrowsKey = JSON.stringify(arrows);
+    const circlesKey = JSON.stringify(circles);
     const prevArrowsKey = JSON.stringify(prevArrowsRef.current);
-    
-    if (arrowsKey === prevArrowsKey) return; // No change
-    
+    const prevCirclesKey = JSON.stringify(prevCirclesRef.current);
+
+    if (arrowsKey === prevArrowsKey && circlesKey === prevCirclesKey) return;
+
     prevArrowsRef.current = arrows;
-    
-    const applyArrows = () => {
+    prevCirclesRef.current = circles;
+
+    const applyShapes = () => {
       if (!groundRef.current) {
-        // Board not ready yet, retry after a short delay
-        setTimeout(applyArrows, 50);
+        setTimeout(applyShapes, 50);
         return;
       }
-      
-      if (arrows.length > 0) {
-        const shapes = arrows.map(([from, to, color]) => {
-          // Determine brush based on color - chessground uses named brushes
-          let brush = "blue";  // default
-          if (color) {
-            const colorLower = color.toLowerCase();
-            if (colorLower.includes("red") || colorLower.includes("239")) {
-              brush = "red";
-            } else if (colorLower.includes("green") || colorLower.includes("34,") || colorLower.includes("200, 83")) {
-              brush = "green";
-            } else if (colorLower.includes("yellow") || colorLower.includes("255, 200")) {
-              brush = "yellow";
-            }
-          }
-          return {
-            orig: from,
-            dest: to,
-            brush: brush,
-          };
-        });
-        groundRef.current.setAutoShapes(shapes);
-      } else {
-        groundRef.current.setAutoShapes([]);
-      }
+      const arrowShapes = (arrows || []).map(([from, to, color]) => ({
+        orig: from,
+        dest: to,
+        brush: brushFor(color),
+      }));
+      // Circles are chessground shapes with no `dest` — they draw as a ring on the square.
+      const circleShapes = (circles || []).map(([square, color]) => ({
+        orig: square,
+        brush: brushFor(color),
+      }));
+      const combined = [...arrowShapes, ...circleShapes];
+      groundRef.current.setAutoShapes(combined);
     };
-    
-    applyArrows();
-  }, [arrows]);
+
+    applyShapes();
+  }, [arrows, circles]);
 
   // Compute icon position for move classification
   const classIcon = moveClassification && CLASSIFICATION_ICONS[moveClassification.type];

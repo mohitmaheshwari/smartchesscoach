@@ -1,8 +1,17 @@
 /**
- * EndgameLesson.jsx — Interactive endgame lesson
+ * EndgameLesson.jsx — interactive endgame lesson.
  *
- * Flow: Position → "What would you play?" → User tries → Correct/Wrong feedback → Rule → Next Position
- * Each lesson = one idea, repeated across 3-4 positions.
+ * Flow:
+ *   INTRO (optional)     → rule headline + body + example board with the concept
+ *                          highlighted on the board (e.g. the 4 corners of the
+ *                          "square" for Rule of the Square). Only shown if the
+ *                          lesson has an `intro` block.
+ *   TRY                  → position board with `square_corners` (or other
+ *                          visual aids) shown so the user SEES the concept,
+ *                          plus a concept sentence above the prompt. Idea is
+ *                          visible upfront, not just post-mistake.
+ *   CORRECT / WRONG      → feedback with king-path arrow + rule reminder.
+ *   COMPLETE             → summary.
  *
  * Route: /endgames/:categoryKey/:lessonKey
  */
@@ -16,25 +25,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2,
-  ChevronRight,
-  ChevronLeft,
-  RotateCcw,
-  Check,
-  X,
-  Lightbulb,
-  ArrowLeft,
-  Trophy,
+  Loader2, ChevronRight, RotateCcw, Check, X, Lightbulb,
+  ArrowLeft, Trophy, Box,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Phase enum
 const PHASE = {
-  TRY: "try", // User is looking at position, about to make a move
-  CORRECT: "correct", // User got it right
-  WRONG: "wrong", // User got it wrong, show correct answer
-  COMPLETE: "complete", // All positions done
+  INTRO:    "intro",
+  TRY:      "try",
+  CORRECT:  "correct",
+  WRONG:    "wrong",
+  COMPLETE: "complete",
 };
+
+// Green circle on each corner of the "square" visual aid
+const cornersAsCircles = (corners) =>
+  (corners || []).map((sq) => [sq, "green"]);
 
 export default function EndgameLesson({ user }) {
   const { categoryKey, lessonKey } = useParams();
@@ -51,78 +57,64 @@ export default function EndgameLesson({ user }) {
   const [boardFen, setBoardFen] = useState(null);
 
   useEffect(() => {
-    fetchLesson();
-  }, [categoryKey, lessonKey]);
-
-  const fetchLesson = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API}/endgames/lesson/${categoryKey}/${lessonKey}`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLesson(data);
-        if (data.positions?.length > 0) {
-          setBoardFen(data.positions[0].fen);
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `${API}/endgames/lesson/${categoryKey}/${lessonKey}`,
+          { credentials: "include" }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setLesson(data);
+          // If the lesson has an intro block, start there — otherwise dive in
+          setPhase(data.intro ? PHASE.INTRO : PHASE.TRY);
+          if (data.positions?.length > 0) setBoardFen(data.positions[0].fen);
         }
-      }
-    } catch (e) {
-      console.error("Failed to load endgame lesson:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+      } catch (e) { console.error("Failed to load endgame lesson:", e); }
+      finally { setLoading(false); }
+    })();
+  }, [categoryKey, lessonKey]);
 
   const currentPos = lesson?.positions?.[posIndex];
   const sideToMove = currentPos?.side_to_move || "white";
 
-  const handleMove = useCallback(
-    async (moveData) => {
-      if (phase !== PHASE.TRY || !currentPos) return;
+  const handleMove = useCallback(async (moveData) => {
+    if (phase !== PHASE.TRY || !currentPos) return;
+    const uci = moveData.from + moveData.to;
+    try {
+      const res = await fetch(`${API}/endgames/check-move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          category_key: categoryKey,
+          lesson_key: lessonKey,
+          position_index: posIndex,
+          user_move_uci: uci,
+        }),
+      });
+      const result = await res.json();
+      setFeedback(result);
 
-      const uci = moveData.from + moveData.to;
-      try {
-        const res = await fetch(`${API}/endgames/check-move`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            category_key: categoryKey,
-            lesson_key: lessonKey,
-            position_index: posIndex,
-            user_move_uci: uci,
-          }),
-        });
-        const result = await res.json();
-        setFeedback(result);
-
-        if (result.correct) {
-          setPhase(PHASE.CORRECT);
-          setScore((s) => s + 1);
-          setLastMove([moveData.from, moveData.to]);
-        } else {
-          setPhase(PHASE.WRONG);
-          // Reset board to original position and show the correct move
-          setBoardFen(currentPos.fen);
-          if (boardRef.current) {
-            boardRef.current.setPosition(currentPos.fen);
+      if (result.correct) {
+        setPhase(PHASE.CORRECT);
+        setScore((s) => s + 1);
+        setLastMove([moveData.from, moveData.to]);
+      } else {
+        setPhase(PHASE.WRONG);
+        setBoardFen(currentPos.fen);
+        boardRef.current?.setPosition?.(currentPos.fen);
+        setLastMove(null);
+        setTimeout(() => {
+          const correctUci = result.correct_move_uci;
+          if (correctUci && correctUci.length >= 4) {
+            setLastMove([correctUci.slice(0, 2), correctUci.slice(2, 4)]);
           }
-          // Show correct move as arrow after a tiny delay
-          setLastMove(null);
-          setTimeout(() => {
-            const correctUci = result.correct_move_uci;
-            if (correctUci && correctUci.length >= 4) {
-              setLastMove([correctUci.slice(0, 2), correctUci.slice(2, 4)]);
-            }
-          }, 200);
-        }
-      } catch (e) {
-        console.error("Check move failed:", e);
+        }, 200);
       }
-    },
-    [phase, currentPos, categoryKey, lessonKey, posIndex]
-  );
+    } catch (e) { console.error("Check move failed:", e); }
+  }, [phase, currentPos, categoryKey, lessonKey, posIndex]);
 
   const goNext = useCallback(() => {
     if (posIndex + 1 >= (lesson?.total_positions || 0)) {
@@ -148,14 +140,18 @@ export default function EndgameLesson({ user }) {
 
   const restartLesson = useCallback(() => {
     setPosIndex(0);
-    setPhase(PHASE.TRY);
+    setPhase(lesson?.intro ? PHASE.INTRO : PHASE.TRY);
     setFeedback(null);
     setScore(0);
     setLastMove(null);
-    if (lesson?.positions?.length > 0) {
-      setBoardFen(lesson.positions[0].fen);
-    }
+    if (lesson?.positions?.length > 0) setBoardFen(lesson.positions[0].fen);
   }, [lesson]);
+
+  const startFromIntro = useCallback(() => {
+    setPhase(PHASE.TRY);
+  }, []);
+
+  // ─── LOADING / NOT FOUND ──────────────────────────────────────────
 
   if (loading) {
     return (
@@ -181,7 +177,88 @@ export default function EndgameLesson({ user }) {
     );
   }
 
-  // COMPLETE screen
+  // ─── INTRO PHASE ──────────────────────────────────────────────────
+
+  if (phase === PHASE.INTRO && lesson.intro) {
+    const intro = lesson.intro;
+    return (
+      <Layout user={user}>
+        <div className="max-w-3xl mx-auto py-6 px-4 space-y-5" data-testid="endgame-intro">
+          <div>
+            <button
+              className="text-xs text-muted-foreground hover:text-white transition-colors flex items-center gap-1 mb-1"
+              onClick={() => navigate("/openings-overview?tab=endgames")}
+              data-testid="intro-back-link"
+            >
+              <ArrowLeft className="w-3 h-3" /> {lesson.category_name}
+            </button>
+            <h1 className="text-xl font-bold tracking-tight" data-testid="intro-lesson-title">{lesson.name}</h1>
+          </div>
+
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="border-amber-500/25 bg-amber-500/[0.04]">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-amber-400" />
+                  <p className="text-sm font-semibold text-amber-400" data-testid="intro-headline">
+                    {intro.headline || lesson.rule}
+                  </p>
+                </div>
+                {intro.body && (
+                  <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line" data-testid="intro-body">
+                    {intro.body}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {intro.example_fen && (
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-4 items-start">
+              <div className="aspect-square w-full max-w-[420px] mx-auto" data-testid="intro-example-board">
+                <LichessBoard
+                  fen={intro.example_fen}
+                  orientation="white"
+                  interactive={false}
+                  viewOnly={true}
+                  circles={cornersAsCircles(intro.example_corners)}
+                />
+              </div>
+              <div className="space-y-3">
+                <Card className="border-zinc-700 bg-zinc-900">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Box className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                        The box
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-300 leading-relaxed" data-testid="intro-example-caption">
+                      {intro.example_caption}
+                    </p>
+                    {intro.example_corners?.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground font-mono">
+                        Corners: {intro.example_corners.join(" · ")}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-center pt-2">
+            <Button size="lg" onClick={startFromIntro} data-testid="intro-start-btn">
+              {intro.cta || "Got it — let me try"} <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // ─── COMPLETE PHASE ───────────────────────────────────────────────
+
   if (phase === PHASE.COMPLETE) {
     return (
       <Layout user={user}>
@@ -196,13 +273,11 @@ export default function EndgameLesson({ user }) {
                   {score}/{lesson.total_positions}
                 </div>
                 <p className="text-sm text-zinc-400">positions solved on first try</p>
-
                 <div className="bg-zinc-900 rounded-lg p-4 mt-4 border border-zinc-800">
                   <Lightbulb className="w-5 h-5 text-amber-400 mx-auto mb-2" />
                   <p className="text-sm font-medium text-amber-400 mb-1">The Rule</p>
                   <p className="text-sm text-zinc-300" data-testid="lesson-rule">{lesson.rule}</p>
                 </div>
-
                 <div className="flex gap-3 justify-center pt-2">
                   <Button variant="outline" onClick={restartLesson} data-testid="restart-lesson-btn">
                     <RotateCcw className="w-4 h-4 mr-2" /> Try Again
@@ -218,6 +293,10 @@ export default function EndgameLesson({ user }) {
       </Layout>
     );
   }
+
+  // ─── TRY / CORRECT / WRONG ─────────────────────────────────────────
+
+  const circlesForBoard = cornersAsCircles(currentPos?.square_corners);
 
   return (
     <Layout user={user}>
@@ -235,6 +314,11 @@ export default function EndgameLesson({ user }) {
             <h1 className="text-lg font-bold tracking-tight" data-testid="lesson-title">{lesson.name}</h1>
           </div>
           <div className="flex items-center gap-2">
+            {lesson.intro && (
+              <Button variant="ghost" size="sm" onClick={() => setPhase(PHASE.INTRO)} data-testid="review-intro-btn">
+                <Lightbulb className="w-3.5 h-3.5 mr-1" /> Rule
+              </Button>
+            )}
             <Badge variant="outline" className="text-xs" data-testid="position-counter">
               {posIndex + 1} / {lesson.total_positions}
             </Badge>
@@ -244,7 +328,7 @@ export default function EndgameLesson({ user }) {
           </div>
         </div>
 
-        {/* Board + Side Panel */}
+        {/* Board + Side panel */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4">
           {/* Board */}
           <div className="aspect-square w-full max-w-[480px] mx-auto" data-testid="endgame-board">
@@ -258,13 +342,13 @@ export default function EndgameLesson({ user }) {
                 viewOnly={phase !== PHASE.TRY}
                 lastMove={lastMove}
                 movableColor={sideToMove}
+                circles={phase === PHASE.TRY ? circlesForBoard : []}
               />
             )}
           </div>
 
-          {/* Prompt / Feedback Panel */}
+          {/* Side panel */}
           <div className="space-y-3">
-            {/* Prompt */}
             <AnimatePresence mode="wait">
               {phase === PHASE.TRY && (
                 <motion.div
@@ -272,10 +356,26 @@ export default function EndgameLesson({ user }) {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
+                  className="space-y-3"
                 >
+                  {/* The concept — shown UPFRONT, before the prompt */}
+                  {currentPos?.concept && (
+                    <Card className="border-emerald-500/25 bg-emerald-500/[0.04]" data-testid="position-concept">
+                      <CardContent className="p-3 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Box className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
+                            The box
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-300 leading-relaxed">{currentPos.concept}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   <Card className="border-zinc-700 bg-zinc-900">
-                    <CardContent className="p-4">
-                      <p className="text-sm font-medium text-white mb-2" data-testid="position-prompt">
+                    <CardContent className="p-4 space-y-2">
+                      <p className="text-sm font-medium text-white" data-testid="position-prompt">
                         {currentPos?.prompt}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -354,7 +454,7 @@ export default function EndgameLesson({ user }) {
               )}
             </AnimatePresence>
 
-            {/* Lesson description - always visible */}
+            {/* Lesson description — always visible */}
             <Card className="border-zinc-800 bg-zinc-900/50">
               <CardContent className="p-3">
                 <p className="text-xs text-muted-foreground" data-testid="lesson-description">{lesson.description}</p>

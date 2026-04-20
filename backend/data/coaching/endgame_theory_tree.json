@@ -99,6 +99,14 @@
         "name": "Rule of the Square",
         "rule": "Draw a mental square from the pawn to its promotion square. If the defending King can step inside that square, it catches the pawn.",
         "description": "A quick visual trick to calculate if a King can catch a passed pawn without counting every move.",
+        "intro": {
+          "headline": "Draw the box. Step inside.",
+          "body": "When a pawn is racing to promote and no piece defends it, imagine a square from the pawn to its promotion square. If your King can step INSIDE that box on its turn, the pawn is caught. If it can't, the pawn promotes.\n\nA King's diagonal move counts the same as a straight move — that's why this works. Moving diagonally gets you closer to both the pawn's file AND the promotion rank at the same time.",
+          "example_fen": "4k3/8/8/8/1p6/8/8/4K3 w - - 0 1",
+          "example_corners": ["b4", "b1", "e1", "e4"],
+          "example_caption": "Black's pawn is on b4 running to b1. The box is b4–b1–e1–e4. White's King on e1 is already inside the box — the pawn is caught.",
+          "cta": "Got it — let me try"
+        },
         "positions": [
           {
             "fen": "7k/8/8/1p6/8/8/7K/8 w - - 0 1",
@@ -106,6 +114,8 @@
             "correct_move_san": "Kg3",
             "correct_move_uci": "h2g3",
             "wrong_example_san": "Kh3",
+            "square_corners": ["b5", "b1", "f1", "f5"],
+            "concept": "The box stretches from b5 to f1 (the green circles). Your King is on h2 — outside the box. Move inside.",
             "prompt": "Black's pawn is running! Can White's King catch it?",
             "idea": "The square from b5 goes b5-b1-f1-f5. White's King on h2 must enter this square immediately. Kg3 steps inside.",
             "on_correct": "Kg3 enters the square. From here, the King reaches the pawn in time. The diagonal is just as fast as a straight line.",
@@ -118,6 +128,8 @@
             "correct_move_san": "Kb3",
             "correct_move_uci": "a2b3",
             "wrong_example_san": "Ka3",
+            "square_corners": ["g4", "g1", "c1", "c4"],
+            "concept": "The box is g4–g1–c1–c4. Your King is on a2 — outside the box, to the left. Race toward the box diagonally.",
             "prompt": "Black's g-pawn is advancing. Can you stop it?",
             "idea": "Square from g4: g4-g1-c1-c4. King on a2 must enter by reaching c-file. Kb3 heads diagonally toward the square.",
             "on_correct": "Kb3 races diagonally toward the square. The King will arrive at c4-d4 in time to intercept.",
@@ -130,6 +142,8 @@
             "correct_move_san": "Kd2",
             "correct_move_uci": "e1d2",
             "wrong_example_san": "Ke2",
+            "square_corners": ["a4", "a1", "d1", "d4"],
+            "concept": "The box is a4–a1–d1–d4. Your King is on e1 — just outside. Which square of yours is inside the box?",
             "prompt": "The a-pawn is running. One chance to enter the square.",
             "idea": "Square from a4: a4-a1-d1-d4. King on e1 must reach d2 to enter the square and catch the pawn.",
             "on_correct": "Kd2 enters the square just in time. The King will reach a4 area before the pawn promotes.",
