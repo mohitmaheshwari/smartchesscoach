@@ -2171,6 +2171,13 @@ async def trigger_coach_move_endpoint(
             }
         )
 
+        # SSE: notify any connected EventSource subscriber
+        publish_session_event(session_id, {
+            "type": "coach_turn_ready",
+            "move": coach_move_san,
+            "fen": new_fen,
+        })
+
         # Add a coach message
         await db.coach_messages.insert_one({
             "session_id": session_id,
@@ -7127,19 +7134,33 @@ async def _process_move_and_respond(
                         {"session_id": session_id},
                         {"$set": update_fields}
                     )
+
+                    # SSE: push to the frontend EventSource subscriber
+                    publish_session_event(session_id, {
+                        "type": "coach_turn_ready",
+                        "move": coach_move,
+                        "fen": fen_after_coach,
+                    })
+                    if status == "completed":
+                        publish_session_event(session_id, {
+                            "type": "game_over",
+                            "result": coach_result,
+                        })
                 else:
                     # No valid move (shouldn't happen)
                     await db.coach_sessions.update_one(
                         {"session_id": session_id},
                         {"$set": {"coach_move_pending": False}}
                     )
+                    publish_session_event(session_id, {"type": "coach_turn_failed"})
         else:
             # Game was over after user's move
             await db.coach_sessions.update_one(
                 {"session_id": session_id},
                 {"$set": {"coach_move_pending": False}}
             )
-            
+            publish_session_event(session_id, {"type": "game_over"})
+
             # === UPDATE COACH MEMORY AFTER GAME ===
             try:
                 from services.coach_memory import update_memory_after_game
@@ -7223,6 +7244,8 @@ async def _process_move_and_respond(
             {"session_id": session_id},
             {"$set": {"coach_move_pending": False}}
         )
+        # SSE: unblock the frontend so it doesn't wait for safety-poll timeout.
+        publish_session_event(session_id, {"type": "coach_turn_failed"})
 
 
 # =============================================================================
