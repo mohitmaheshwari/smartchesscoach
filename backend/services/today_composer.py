@@ -83,6 +83,21 @@ SKILL_TO_GAP = {
 #   concept     → play with coach who reinforces the concept
 #   coached_play → play with coach, focus enforced
 
+# Maps a skill_tree content_ref (used in skill_tree.json) to the two-segment
+# route the EndgameLesson page actually needs: /endgames/<category>/<lesson>.
+# Keys here are what skill_tree.json holds; values are the actual lesson
+# keys from data/coaching/endgame_theory_tree.json.
+ENDGAME_ROUTES = {
+    # content_ref           →  "<category>/<lesson>"
+    "opposition":        "king_and_pawn/opposition",
+    "rule_of_square":    "king_and_pawn/square_rule",
+    "lucena_position":   "rook_endgames/lucena",
+    "philidor_position": "rook_endgames/philidor",
+    # Mate patterns (queen_checkmate / rook_checkmate) aren't in the theory
+    # tree — absent here means fall back to Play with Coach teaching flow.
+}
+
+
 KIND_ACTIONS = {
     "opening": {
         "beginner_low": "Let's learn this opening together",
@@ -105,7 +120,8 @@ KIND_ACTIONS = {
         "beginner_high": "Do the endgame lesson",
         "intermediate": "Do the endgame lesson",
         "advanced": "Do the endgame lesson",
-        "href": "/endgames/{content_ref}",
+        # href resolved via ENDGAME_ROUTES below, falls through to OpeningsOverview
+        "href": "/openings-overview#endgames",
         "medium": "lesson",
     },
     "mate_pattern": {
@@ -113,7 +129,8 @@ KIND_ACTIONS = {
         "beginner_high": "Practice this mate",
         "intermediate": "Practice this mate",
         "advanced": "Practice this mate",
-        "href": "/endgames/{content_ref}",
+        # mate patterns aren't in endgame_theory_tree — route to OpeningsOverview
+        "href": "/openings-overview#endgames",
         "medium": "lesson",
     },
     "concept": {
@@ -623,9 +640,25 @@ def _action_for_band(band_name: str, focus: Dict) -> Dict[str, str]:
     if kind and kind in KIND_ACTIONS:
         cfg = KIND_ACTIONS[kind]
         cta = cfg.get(band_name) or cfg.get("intermediate") or "Start"
-        href = (cfg.get("href") or "/play-with-coach").format(
-            content_ref=content_ref, skill_id=skill_id
-        )
+
+        # Endgame needs a two-segment URL (/endgames/<category>/<lesson>).
+        # Mate patterns aren't in endgame_theory_tree → route to coach.
+        if kind == "endgame" and content_ref in ENDGAME_ROUTES:
+            href = f"/endgames/{ENDGAME_ROUTES[content_ref]}"
+        elif kind in ("endgame", "mate_pattern") and content_ref not in ENDGAME_ROUTES:
+            # No theory-tree entry — teach via coached play with the skill
+            href = f"/play-with-coach?focus={skill_id}"
+        elif kind == "trap_set":
+            # opening_curriculum.json uses underscores; TRAP_LIBRARY uses hyphens.
+            # Normalize so /openings/:openingKey resolves.
+            href = f"/openings/{content_ref.replace('-', '_')}"
+        elif kind == "opening":
+            # opening content_ref already uses underscores (italian_game, etc.)
+            href = f"/openings/{content_ref}"
+        else:
+            href = (cfg.get("href") or "/play-with-coach").format(
+                content_ref=content_ref, skill_id=skill_id
+            )
         return {"cta": cta, "href": href, "medium": cfg.get("medium", "lesson")}
 
     # Engine 1 focus → route to /training/prescribed by gap with band+gap
