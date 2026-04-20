@@ -1,0 +1,273 @@
+{
+  "queen_checkmate": {
+    "name": "Queen Checkmate",
+    "endgame_type": "king_queen",
+    "description": "Learn to checkmate with King and Queen against a lone King.",
+    "key_concepts": [
+      "Use the Queen to restrict the enemy King",
+      "Push the enemy King to the edge of the board",
+      "Bring your King closer to help",
+      "Avoid stalemate!"
+    ],
+    "setup_fen": "8/8/8/4k3/8/8/4Q3/4K3 w - - 0 1",
+    "solution_moves": [
+      "Qe3+",
+      "Kd5",
+      "Kd2",
+      "Kc4",
+      "Qd3+",
+      "Kb4",
+      "Qc3+",
+      "Ka4",
+      "Kc2",
+      "Kb5",
+      "Kb3",
+      "Ka6",
+      "Qb4",
+      "Ka7",
+      "Kc4",
+      "Ka6",
+      "Kc5",
+      "Ka7",
+      "Kc6",
+      "Ka8",
+      "Qb7#"
+    ],
+    "explanations": {
+      "0": "Start by checking the King to push it back.",
+      "2": "Bring your King into the action - it needs to help!",
+      "4": "Keep restricting the enemy King's squares.",
+      "12": "The enemy King is running out of space.",
+      "20": "Checkmate! The King is trapped on the edge."
+    },
+    "common_mistakes": [
+      "Don't stalemate! Always leave the enemy King a square (until checkmate)",
+      "Don't rush - bring your King to help",
+      "Use checks strategically, not randomly"
+    ],
+    "practice_positions": []
+  },
+  "rook_checkmate": {
+    "name": "Rook Checkmate",
+    "endgame_type": "king_rook",
+    "description": "Learn to checkmate with King and Rook against a lone King.",
+    "key_concepts": [
+      "Cut off the enemy King with the Rook",
+      "Use your King to push the enemy King back",
+      "The 'box' technique - shrink the enemy King's space",
+      "Opposition is key!"
+    ],
+    "setup_fen": "8/8/8/4k3/8/8/4R3/4K3 w - - 0 1",
+    "solution_moves": [
+      "Re4+",
+      "Kd5",
+      "Kd2",
+      "Kc5",
+      "Kd3",
+      "Kb5",
+      "Kc3",
+      "Kc5",
+      "Re5+",
+      "Kd6",
+      "Kd4",
+      "Kc6",
+      "Re6+",
+      "Kb5",
+      "Kc3",
+      "Ka5",
+      "Kb3",
+      "Kb5",
+      "Re5+",
+      "Ka6",
+      "Kc4",
+      "Kb6",
+      "Kd5",
+      "Ka6",
+      "Kc6",
+      "Ka7",
+      "Re7+",
+      "Ka8",
+      "Kc7",
+      "Rb7#"
+    ],
+    "explanations": {
+      "0": "Check to push the King back and cut it off.",
+      "2": "Now bring your King into the fight!",
+      "8": "The 'box' is getting smaller - enemy King has less space.",
+      "20": "Opposition! Your King faces the enemy King.",
+      "29": "Checkmate! Rook delivers the final blow."
+    },
+    "common_mistakes": [
+      "The Rook alone can't checkmate - your King must help",
+      "Don't give pointless checks - improve your King's position",
+      "Watch out for stalemate in the corner"
+    ],
+    "practice_positions": []
+  },
+  "opposition": {
+    "name": "The Opposition",
+    "endgame_type": "king_pawn",
+    "description": "Master the key concept of Opposition in King and Pawn endgames.",
+    "key_concepts": [
+      "Opposition: Kings face each other with one square between",
+      "The side NOT to move has the opposition (advantage)",
+      "Use opposition to force the enemy King aside",
+      "Critical for promoting pawns"
+    ],
+    "setup_fen": "8/8/8/3k4/8/3K4/3P4/8 w - - 0 1",
+    "solution_moves": [
+      "Ke3",
+      "Ke5",
+      "d4+",
+      "Kd5",
+      "Kd3",
+      "Kd6",
+      "Kd4",
+      "Ke6",
+      "Kc5",
+      "Kd7",
+      "Kd5",
+      "Ke7",
+      "Ke5",
+      "Kd7",
+      "d5",
+      "Ke7",
+      "d6+",
+      "Kd7",
+      "Kd5",
+      "Kd8",
+      "Kc6",
+      "Kc8",
+      "d7+",
+      "Kd8",
+      "Kd6"
+    ],
+    "explanations": {
+      "0": "First, we need to get our King in front of the pawn.",
+      "2": "Push the pawn to gain space.",
+      "6": "We have the opposition! Enemy King must move aside.",
+      "14": "Key position - our King is in front of the pawn.",
+      "24": "With opposition, the pawn will promote!"
+    },
+    "common_mistakes": [
+      "Don't push the pawn too early - King goes first!",
+      "Losing the opposition often means a draw",
+      "Always try to get your King IN FRONT of the pawn"
+    ],
+    "practice_positions": []
+  },
+  "rule_of_square": {
+    "name": "Rule of the Square",
+    "endgame_type": "king_pawn",
+    "description": "Learn when your King can catch a passed pawn.",
+    "key_concepts": [
+      "Draw a square from the pawn to the promotion square",
+      "If your King can step INTO the square, it catches the pawn",
+      "Count carefully - one wrong square loses!",
+      "Diagonal moves are just as fast as straight moves"
+    ],
+    "setup_fen": "8/8/1p6/8/8/8/6K1/8 w - - 0 1",
+    "solution_moves": [
+      "Kf3",
+      "b5",
+      "Ke4",
+      "b4",
+      "Kd5",
+      "b3",
+      "Kc4",
+      "b2",
+      "Kc3",
+      "b1=Q"
+    ],
+    "explanations": {
+      "0": "The pawn is on b6. Draw a square b6-b1-g1-g6. Can our King enter?",
+      "2": "We're inside the square! We can catch the pawn.",
+      "6": "Racing to catch the pawn...",
+      "9": "We caught it! The King reaches the pawn in time."
+    },
+    "common_mistakes": [
+      "Don't forget: the square is drawn from the PAWN, not the King",
+      "Count the squares carefully before deciding to chase",
+      "Remember: King moves diagonally just as fast!"
+    ],
+    "practice_positions": []
+  },
+  "lucena_position": {
+    "name": "Lucena Position (Building a Bridge)",
+    "endgame_type": "rook_endgame",
+    "description": "The most important rook endgame technique - the Bridge.",
+    "key_concepts": [
+      "Rook + Pawn vs Rook is often won with the Lucena technique",
+      "The King hides behind the pawn from checks",
+      "Build a 'bridge' with your Rook to block enemy checks",
+      "This wins 95% of Rook + Pawn vs Rook positions"
+    ],
+    "setup_fen": "1K1k4/1P6/8/8/8/8/r7/4R3 w - - 0 1",
+    "solution_moves": [
+      "Re4",
+      "Ra1",
+      "Kc7",
+      "Rc1+",
+      "Kb6",
+      "Rb1+",
+      "Kc6",
+      "Rc1+",
+      "Kb5",
+      "Rb1+",
+      "Rb4",
+      "Rxb4+",
+      "Kxb4"
+    ],
+    "explanations": {
+      "0": "First, move the Rook to the 4th rank to prepare the bridge.",
+      "2": "Now step out with the King.",
+      "4": "Black checks, but we keep moving the King down.",
+      "10": "The Bridge! Rook blocks the check, pawn will promote."
+    },
+    "common_mistakes": [
+      "Don't try to promote immediately - build the bridge first",
+      "The Rook on the 4th rank is key to blocking checks",
+      "Be patient - this technique always works"
+    ],
+    "practice_positions": []
+  },
+  "philidor_position": {
+    "name": "Philidor Position (The Drawing Technique)",
+    "endgame_type": "rook_endgame",
+    "description": "Learn how to draw Rook + Pawn vs Rook from the defending side.",
+    "key_concepts": [
+      "Keep your Rook on the 6th rank (3rd rank for Black)",
+      "This prevents the enemy King from advancing",
+      "When the pawn advances to the 6th, go to the back rank",
+      "Check from behind - infinite checks draw!"
+    ],
+    "setup_fen": "8/8/8/4k3/4P3/8/8/R3K3 b - - 0 1",
+    "solution_moves": [
+      "Kd6",
+      "Ke2",
+      "Ke5",
+      "Ke3",
+      "Ra6",
+      "Kd3",
+      "Kd6",
+      "e5",
+      "Ra1",
+      "Kd4",
+      "Rd1+",
+      "Ke4",
+      "Re1+"
+    ],
+    "explanations": {
+      "0": "Black's King stays in front of the pawn.",
+      "4": "Rook to the 6th rank - the key defensive position!",
+      "7": "When the pawn advances, Rook goes to the back rank.",
+      "10": "Now we check from behind - White can't escape!"
+    },
+    "common_mistakes": [
+      "Don't let your King get pushed to the side",
+      "Keep the Rook on the 6th until the pawn moves there",
+      "From behind, you have infinite checking distance"
+    ],
+    "practice_positions": []
+  }
+}

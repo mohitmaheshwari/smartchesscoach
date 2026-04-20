@@ -349,8 +349,9 @@ async def update_memory_after_game(
     # Check for recurring patterns
     _detect_recurring_patterns(memory)
 
-    # === ENGINE 2: record skill attempts across the 12-skill tree ===
-    # Without this, tier-1 skills never accrue stats, Engine 2 cycles forever.
+    # === ENGINE 2: record knowledge-acquisition signals from this game ===
+    # Mostly opening exposure — endgames/traps/concepts are recorded in
+    # the teaching-engine flow, not here.
     try:
         record_engine2_skills_from_game(
             memory=memory,
@@ -361,6 +362,7 @@ async def update_memory_after_game(
             game_result=game_result,
             was_winning=was_winning,
             endgame_reached=endgame_reached,
+            opening_played=opening_played,
             timestamp=now,
         )
     except Exception as e:
@@ -497,158 +499,96 @@ def record_engine2_skills_from_game(
     game_result: str,
     was_winning: bool,
     endgame_reached: bool,
+    opening_played: Optional[str] = None,
     timestamp: Optional[str] = None,
 ) -> List[str]:
     """
-    Turn one completed game into skill-attempt outcomes — but ONLY for
-    skills whose opportunity actually occurred in this game. If there's
-    no evidence the skill was tested, we skip it entirely (no seen++).
+    Record knowledge-acquisition attempts after a game.
 
-    This matters: a quiet positional game where no forks were available
-    does NOT count as "demonstrated fork knowledge." Otherwise 5 such
-    games would graduate the user out of a skill they never proved.
+    Engine 2 is about CHESS KNOWLEDGE (openings, traps, endgames, concepts),
+    not tactical mistakes (Engine 1 owns those). So this function no longer
+    scans mistake_types for forks/pins/etc.
 
-    Opportunity signals come from the classifier's positive + negative
-    events (MistakeType enum): WALKED_INTO_FORK / AVOIDED_FORK / etc.
+    Per game we record:
+      - Opening exposure: if the played opening matches an Engine 2 opening
+        node, that node gets +1 seen, +correct if played well, +wrong if
+        played badly.
+      - Failing-hard in an opening: big blunders in a tracked opening count
+        as wrong (we're exposing weakness in that repertoire).
 
-    mistake_types: list of MistakeType.value strings found this game.
+    Endgame lessons, traps, mate patterns, and concepts are recorded
+    elsewhere (teaching-engine flows in Play with Coach). This function
+    only handles the signals available from a regular finished game.
+
+    Signature kept backward-compatible — `mistake_types`, `was_winning`,
+    `endgame_reached` are still accepted but no longer drive recording.
     Returns list of skill_ids that received an attempt.
     """
     if timestamp is None:
         timestamp = datetime.now(timezone.utc).isoformat()
 
-    mset = set(mistake_types or [])
-    recorded = []
+    recorded: List[str] = []
 
-    SKILL_RANGES = {
-        "pre_move_check":    (400, 1400),
-        "hanging_piece":     (500, 1500),
-        "opponent_threat":   (600, 1500),
-        "king_safety":       (500, 1500),
-        "simple_mates":      (600, 1200),
-        "free_piece_capture": (500, 1300),
-        "basic_trade":       (700, 1400),
-        "fork":              (800, 1600),
-        "pin":               (900, 1700),
-        "conversion":        (1000, 1800),
-        "king_pawn_endgame": (900, 1600),
-        "opening_principles": (700, 1500),
-    }
+    try:
+        from services.engine2_skill_builder import _load_tree, get_skill_node  # noqa
+    except Exception as e:
+        logger.debug(f"[ENGINE2] tree load failed: {e}")
+        return recorded
 
-    def _rec(skill_id: str, outcome: str):
-        rmin, rmax = SKILL_RANGES.get(skill_id, (0, 9999))
-        if not (rmin <= user_rating <= rmax):
-            return
-        record_skill_attempt(memory, skill_id, "concept", outcome, timestamp)
-        recorded.append(skill_id)
-
-    # ── pre_move_check ── meta-skill: every game is a test. Blunder = failed
-    # the habit, clean = passed it. This is the one skill where absence of
-    # an explicit opportunity still counts (the habit applies every move).
-    _rec("pre_move_check", "wrong" if blunders > 0 else "correct")
-
-    # ── hanging_piece ── opportunity = user actually had material at risk.
-    # Evidence: either they hung one (wrong) or avoided a threat (correct).
-    # No event → can't prove they know how to keep pieces safe → skip.
-    hanging_wrong = {"hanging_piece", "material_blunder", "ignored_threat"}
-    hanging_right = {"avoided_threat"}
-    if mset & hanging_wrong:
-        _rec("hanging_piece", "wrong")
-    elif mset & hanging_right:
-        _rec("hanging_piece", "correct")
-    # else: skip
-
-    # ── opponent_threat ── opportunity = opponent actually made a threat.
-    threat_wrong = {"ignored_threat", "missed_winning_tactic"}
-    threat_right = {"avoided_threat"}
-    if mset & threat_wrong:
-        _rec("opponent_threat", "wrong")
-    elif mset & threat_right:
-        _rec("opponent_threat", "correct")
-    # else: skip (no threat occurred)
-
-    # ── king_safety ── opportunity = king came under fire OR user
-    # demonstrated threat handling (a superset skill).
-    #   - king_safety_error → wrong (direct failure)
-    #   - avoided_threat    → correct (threat handling generalises to king safety)
-    # No events → skip.
-    if "king_safety_error" in mset:
-        _rec("king_safety", "wrong")
-    elif "avoided_threat" in mset:
-        _rec("king_safety", "correct")
-
-    # ── simple_mates ── only in K+Q/K+R endgames. Endgame reached + result.
-    # (Without ability to detect specific material, endgame_reached is
-    # the best proxy we have.)
-    if endgame_reached:
-        if game_result == "win":
-            _rec("simple_mates", "correct")
-        elif was_winning and game_result != "win":
-            _rec("simple_mates", "wrong")
-        # else: can't tell — skip
-
-    # ── free_piece_capture ── opportunity = free material on the board.
-    # Positive proxy: executed_fork/pin/skewer all win material by force,
-    # so they count as demonstrating "I take what's free."
-    fpc_wrong = {"missed_winning_tactic"}
-    fpc_right = {"executed_fork", "executed_pin", "executed_skewer",
-                 "executed_discovered_attack"}
-    if mset & fpc_wrong:
-        _rec("free_piece_capture", "wrong")
-    elif mset & fpc_right:
-        _rec("free_piece_capture", "correct")
-    # else: skip (no free-material event this game)
-
-    # ── basic_trade ── no reliable deterministic detector. Skip entirely
-    # rather than giving false "seen" credit. Can be added when we have
-    # trade-quality analysis.
-
-    # ── fork ── classifier emits both positive AND negative signals.
-    fork_wrong = {"walked_into_fork", "missed_fork"}
-    fork_right = {"executed_fork", "avoided_fork"}
-    if mset & fork_wrong:
-        _rec("fork", "wrong")
-    elif mset & fork_right:
-        _rec("fork", "correct")
-    # else: no fork opportunity this game → skip
-
-    # ── pin (includes skewer, which shares the same recognition pattern) ──
-    pin_wrong = {"walked_into_pin", "missed_pin", "walked_into_skewer", "missed_skewer"}
-    pin_right = {"executed_pin", "executed_skewer", "avoided_pin", "avoided_skewer"}
-    if mset & pin_wrong:
-        _rec("pin", "wrong")
-    elif mset & pin_right:
-        _rec("pin", "correct")
-    # else: skip
-
-    # ── conversion ── opportunity = user actually held a winning position.
-    if was_winning:
-        _rec("conversion", "correct" if game_result == "win" else "wrong")
-    elif {"failed_conversion", "blunder_when_ahead"} & mset:
-        _rec("conversion", "wrong")
-    # else: no winning position held → can't test conversion → skip
-
-    # ── king_pawn_endgame ── endgame reached with a clear result.
-    if endgame_reached:
-        if game_result == "win":
-            _rec("king_pawn_endgame", "correct")
-        elif was_winning and game_result != "win":
-            _rec("king_pawn_endgame", "wrong")
-        elif game_result == "loss":
-            _rec("king_pawn_endgame", "wrong")
-        # draws from equal positions: can't tell → skip
-
-    # ── opening_principles ── every game has an opening. Use accuracy
-    # as the signal. (Overall accuracy is a rough proxy for opening
-    # play; when we get phase-split accuracy, swap to opening-phase only.)
-    if accuracy:
-        if accuracy >= 70 and blunders == 0:
-            _rec("opening_principles", "correct")
-        elif accuracy < 55:
-            _rec("opening_principles", "wrong")
-        # mid-range: not clear evidence either way → skip
+    # ── Opening exposure ──
+    if opening_played:
+        opening_slug = _normalize_opening_key(opening_played)
+        from services.engine2_skill_builder import list_skills_by_kind, get_skill_node
+        for sid in list_skills_by_kind("opening"):
+            node = get_skill_node(sid) or {}
+            if node.get("content_ref") != opening_slug:
+                continue
+            # Rating gate
+            if not (node.get("rating_min", 0) <= user_rating <= node.get("rating_max", 9999)):
+                continue
+            outcome = _opening_outcome(accuracy, blunders, game_result, node.get("tier", 1))
+            record_skill_attempt(memory, sid, "opening", outcome, timestamp)
+            recorded.append(sid)
 
     return recorded
+
+
+def _normalize_opening_key(opening: str) -> str:
+    """opening_curriculum.json uses underscore keys (italian_game, caro_kann).
+    Game.opening fields vary — normalize to underscore-lowercase."""
+    if not opening:
+        return ""
+    return (
+        opening.strip().lower()
+        .replace(" ", "_")
+        .replace("-", "_")
+    )
+
+
+def _opening_outcome(accuracy: float, blunders: int, game_result: str, tier: int) -> str:
+    """
+    Did the user play this opening well this game?
+      - correct: won or drew with accuracy above the tier's threshold and no blunders
+      - wrong:   lost badly OR accuracy far below threshold OR 2+ blunders in the opening
+      - seen:    middle ground (played it, no strong signal either way)
+
+    Tier sets the accuracy bar: tier 1 = 60, tier 2 = 65, tier 3 = 72.
+    """
+    thresholds = {0: 55, 1: 60, 2: 65, 3: 72}
+    bar = thresholds.get(tier, 60)
+    acc = accuracy or 0.0
+
+    # Strong wrong signals
+    if blunders >= 2 and acc < bar:
+        return "wrong"
+    if game_result == "loss" and acc < bar - 10:
+        return "wrong"
+
+    # Strong correct signals
+    if game_result in ("win", "draw") and acc >= bar and blunders == 0:
+        return "correct"
+
+    return "seen"
 
 
 def _update_weakness(memory: CoachMemory, habit_id: str, timestamp: str, violated: bool):

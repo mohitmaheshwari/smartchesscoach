@@ -1,10 +1,10 @@
 """
-Tests for Engine 2's game → skill-attempt pipeline.
+Tests for Engine 2 v2.0 — knowledge-tracking (openings/traps/endgames),
+not tactical mistake remediation (that's Engine 1).
 
-Without these attempts being recorded every game, tier-1 skills like
-pre_move_check / hanging_piece / opponent_threat never accrue stats,
-so pick_next_skill cycles on the same one forever. These tests verify
-the recorder produces the right outcomes for realistic game shapes.
+The recorder now only handles opening exposure from postgame signals.
+Endgames, traps, concepts, mate patterns are recorded through the
+teaching-engine flow and are tested separately.
 """
 
 import sys
@@ -17,8 +17,17 @@ from services.coach_memory import (
     LearningProgress,
     PerformanceTrend,
     record_engine2_skills_from_game,
+    record_skill_attempt,
+    _normalize_opening_key,
+    _opening_outcome,
 )
-from services.engine2_skill_builder import pick_next_skill, find_ready_skills
+from services.engine2_skill_builder import (
+    pick_next_skill,
+    find_ready_skills,
+    get_skill_node,
+    list_skills_by_kind,
+    reload_tree,
+)
 
 
 def _fresh_memory() -> CoachMemory:
@@ -34,408 +43,238 @@ def _find_skill(memory, skill_id):
     return next((s for s in memory.learning.skills if s.skill_id == skill_id), None)
 
 
-# ─── TIER-1 RECORDING ─────────────────────────────────────────────────
+# ── OPENING KEY NORMALISATION ────────────────────────────────────────
 
 
-def test_clean_quiet_game_only_records_pre_move_check():
-    """
-    A clean game with no tactical events = no opportunity for fork/pin/hanging.
-    We should NOT credit those skills. Only pre_move_check (meta-habit) and
-    opening_principles (always applicable with accuracy signal) should record.
-    """
+def test_opening_key_normalization():
+    assert _normalize_opening_key("Italian Game") == "italian_game"
+    assert _normalize_opening_key("caro-kann") == "caro_kann"
+    assert _normalize_opening_key("  London System  ") == "london_system"
+    assert _normalize_opening_key("") == ""
+    assert _normalize_opening_key(None) == ""
+
+
+# ── OPENING OUTCOME LOGIC ────────────────────────────────────────────
+
+
+def test_good_game_marks_opening_correct():
+    # Tier 1 needs accuracy >= 60
+    assert _opening_outcome(accuracy=75.0, blunders=0, game_result="win", tier=1) == "correct"
+    assert _opening_outcome(accuracy=62.0, blunders=0, game_result="draw", tier=1) == "correct"
+
+
+def test_bad_game_marks_opening_wrong():
+    assert _opening_outcome(accuracy=45.0, blunders=3, game_result="loss", tier=1) == "wrong"
+    assert _opening_outcome(accuracy=40.0, blunders=0, game_result="loss", tier=1) == "wrong"
+
+
+def test_middling_game_marks_opening_seen():
+    # Lost but not catastrophically
+    assert _opening_outcome(accuracy=65.0, blunders=1, game_result="loss", tier=1) == "seen"
+    # Draw with meh accuracy
+    assert _opening_outcome(accuracy=58.0, blunders=1, game_result="draw", tier=1) == "seen"
+
+
+def test_tier_affects_accuracy_bar():
+    # Tier 3 needs 72 — a 68% game that would be correct at tier 1 is only "seen" at tier 3
+    assert _opening_outcome(accuracy=68.0, blunders=0, game_result="win", tier=1) == "correct"
+    assert _opening_outcome(accuracy=68.0, blunders=0, game_result="win", tier=3) == "seen"
+
+
+# ── OPENING RECORDING ────────────────────────────────────────────────
+
+
+def test_playing_tracked_opening_records_attempt():
+    """User plays the London System — their london_white skill gets an attempt."""
     mem = _fresh_memory()
     recorded = record_engine2_skills_from_game(
         memory=mem,
-        user_rating=800,
+        user_rating=1100,
         mistake_types=[],
         blunders=0,
-        accuracy=85.0,
+        accuracy=72.0,
         game_result="win",
         was_winning=False,
         endgame_reached=False,
+        opening_played="london_system",
     )
-    # pre_move_check always records (meta-skill)
-    assert _find_skill(mem, "pre_move_check").correct == 1
-    # No evidence for these → not recorded
-    assert _find_skill(mem, "hanging_piece") is None
-    assert _find_skill(mem, "opponent_threat") is None
-    assert _find_skill(mem, "king_safety") is None
-    assert _find_skill(mem, "fork") is None
-    assert _find_skill(mem, "pin") is None
+    assert "opening_london_white" in recorded
+    skill = _find_skill(mem, "opening_london_white")
+    assert skill.seen == 1
+    assert skill.correct == 1
 
 
-def test_avoided_threat_credits_hanging_and_opponent_threat():
-    """Positive evidence from classifier → both hanging_piece and opponent_threat credit."""
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=800,
-        mistake_types=["avoided_threat"],
-        blunders=0,
-        accuracy=80.0,
-        game_result="win",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "hanging_piece").correct == 1
-    assert _find_skill(mem, "opponent_threat").correct == 1
-
-
-def test_avoided_threat_also_credits_king_safety():
-    """avoided_threat is threat-handling in general — also demonstrates king safety."""
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=900,
-        mistake_types=["avoided_threat"],
-        blunders=0,
-        accuracy=80.0,
-        game_result="win",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "king_safety").correct == 1
-
-
-def test_king_safety_skips_when_no_king_event():
-    """No king_safety_error and no avoided_threat → skill not recorded."""
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=900,
-        mistake_types=["executed_fork"],  # Tactical event, unrelated to king
-        blunders=0,
-        accuracy=80.0,
-        game_result="win",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "king_safety") is None
-
-
-def test_executed_fork_credits_free_piece_capture():
-    """Forks/pins/skewers all win material — they demonstrate the 'take free material' skill."""
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=900,
-        mistake_types=["executed_fork"],
-        blunders=0,
-        accuracy=80.0,
-        game_result="win",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "free_piece_capture").correct == 1
-
-
-def test_missed_tactic_marks_free_piece_capture_wrong():
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=900,
-        mistake_types=["missed_winning_tactic"],
-        blunders=1,
-        accuracy=65.0,
-        game_result="loss",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "free_piece_capture").wrong == 1
-
-
-def test_hanging_piece_mistake_marks_wrong():
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=800,
-        mistake_types=["hanging_piece"],
-        blunders=1,
-        accuracy=65.0,
-        game_result="loss",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "hanging_piece").wrong == 1
-    assert _find_skill(mem, "pre_move_check").wrong == 1  # Any blunder = wrong on pmc
-
-
-def test_ignored_threat_marks_opponent_threat_wrong():
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=1000,
-        mistake_types=["ignored_threat"],
-        blunders=1,
-        accuracy=60.0,
-        game_result="loss",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "opponent_threat").wrong == 1
-
-
-def test_rating_out_of_range_skips_skill():
-    """User at 1700 shouldn't get pre_move_check attempts (range 400-1400)."""
+def test_playing_opening_out_of_rating_range_skipped():
+    """A 1700 player who plays London System — that's a tier-1 node (1000-1499). Skip."""
     mem = _fresh_memory()
     recorded = record_engine2_skills_from_game(
         memory=mem,
         user_rating=1700,
         mistake_types=[],
         blunders=0,
-        accuracy=85.0,
+        accuracy=80.0,
         game_result="win",
         was_winning=False,
         endgame_reached=False,
+        opening_played="london_system",
     )
-    assert "pre_move_check" not in recorded
-    assert _find_skill(mem, "pre_move_check") is None
+    assert "opening_london_white" not in recorded
+    assert _find_skill(mem, "opening_london_white") is None
 
 
-# ─── TIER-2 RECORDING ─────────────────────────────────────────────────
-
-
-def test_walked_into_fork_marks_fork_wrong():
+def test_no_opening_no_recording():
+    """If opening_played is None, nothing records."""
     mem = _fresh_memory()
-    record_engine2_skills_from_game(
+    recorded = record_engine2_skills_from_game(
         memory=mem,
-        user_rating=1000,
-        mistake_types=["walked_into_fork"],
-        blunders=1,
-        accuracy=62.0,
+        user_rating=1100,
+        mistake_types=[],
+        blunders=2,
+        accuracy=55.0,
         game_result="loss",
         was_winning=False,
         endgame_reached=False,
+        opening_played=None,
     )
-    assert _find_skill(mem, "fork").wrong == 1
+    assert recorded == []
 
 
-def test_no_fork_event_means_no_fork_record():
-    """Critical contrast: if the game has no fork event, fork is NOT recorded."""
+def test_unknown_opening_no_recording():
+    """An opening name that isn't in any skill's content_ref doesn't record."""
     mem = _fresh_memory()
-    record_engine2_skills_from_game(
+    recorded = record_engine2_skills_from_game(
         memory=mem,
-        user_rating=1000,
-        mistake_types=["hanging_piece"],  # Different event type
-        blunders=1,
-        accuracy=65.0,
-        game_result="loss",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "fork") is None
-
-
-def test_missed_pin_marks_pin_wrong():
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=1200,
-        mistake_types=["missed_pin"],
-        blunders=0,
-        accuracy=70.0,
-        game_result="draw",
-        was_winning=False,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "pin").wrong == 1
-
-
-def test_executed_fork_marks_fork_correct():
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=1000,
-        mistake_types=["executed_fork"],
+        user_rating=1100,
+        mistake_types=[],
         blunders=0,
         accuracy=80.0,
         game_result="win",
-        was_winning=True,
+        was_winning=False,
         endgame_reached=False,
+        opening_played="random_obscure_opening_xyz",
     )
-    assert _find_skill(mem, "fork").correct == 1
+    assert recorded == []
 
 
-# ─── CONVERSION RECORDING ─────────────────────────────────────────────
-
-
-def test_was_winning_and_lost_marks_conversion_wrong():
+def test_italian_in_intermediate_range():
+    """Italian Game (tier 2) appears for 1400+ players. Clearly bad game → wrong."""
     mem = _fresh_memory()
-    record_engine2_skills_from_game(
+    recorded = record_engine2_skills_from_game(
         memory=mem,
-        user_rating=1200,
-        mistake_types=["failed_conversion"],
-        blunders=1,
-        accuracy=65.0,
+        user_rating=1600,
+        mistake_types=[],
+        blunders=3,
+        accuracy=42.0,
         game_result="loss",
-        was_winning=True,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "conversion").wrong == 1
-
-
-def test_was_winning_and_won_marks_conversion_correct():
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=1200,
-        mistake_types=[],
-        blunders=0,
-        accuracy=82.0,
-        game_result="win",
-        was_winning=True,
-        endgame_reached=False,
-    )
-    assert _find_skill(mem, "conversion").correct == 1
-
-
-# ─── ENDGAME SKILLS ───────────────────────────────────────────────────
-
-
-def test_simple_mates_only_when_endgame_reached():
-    mem = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem,
-        user_rating=800,
-        mistake_types=[],
-        blunders=0,
-        accuracy=85.0,
-        game_result="win",
         was_winning=False,
-        endgame_reached=False,  # Short game, no endgame
+        endgame_reached=False,
+        opening_played="italian_game",
     )
-    assert _find_skill(mem, "simple_mates") is None
-
-    # Now with endgame
-    mem2 = _fresh_memory()
-    record_engine2_skills_from_game(
-        memory=mem2,
-        user_rating=800,
-        mistake_types=[],
-        blunders=0,
-        accuracy=85.0,
-        game_result="win",
-        was_winning=False,
-        endgame_reached=True,
-    )
-    assert _find_skill(mem2, "simple_mates").correct == 1
+    # Bad game in tier 2 → wrong
+    assert "opening_italian_white" in recorded
+    assert _find_skill(mem, "opening_italian_white").wrong == 1
 
 
-# ─── GRADUATION THROUGH ENGINE 2 ──────────────────────────────────────
+# ── SKILL TREE STRUCTURE ─────────────────────────────────────────────
+
+
+def test_skill_tree_loads():
+    reload_tree()
+    openings = list_skills_by_kind("opening")
+    traps = list_skills_by_kind("trap_set")
+    endgames = list_skills_by_kind("endgame")
+    mates = list_skills_by_kind("mate_pattern")
+    assert len(openings) >= 5
+    assert len(traps) >= 1
+    assert len(endgames) >= 2
+    assert len(mates) >= 1
+
+
+def test_skill_nodes_have_required_fields():
+    reload_tree()
+    for sid in list_skills_by_kind("opening"):
+        node = get_skill_node(sid)
+        assert node is not None
+        assert "content_ref" in node
+        assert "rating_min" in node
+        assert "rating_max" in node
+        assert "tier" in node
+        assert "kind" in node
+        assert node["kind"] == "opening"
+
+
+def test_no_tactical_tier_1_leftovers():
+    """Ensure old tactical skills (hanging_piece, fork, pin, etc.) are gone.
+    Those belong to Engine 1 now — tree should be knowledge-only."""
+    reload_tree()
+    concepts = list_skills_by_kind("concept")
+    all_kinds = {"opening", "trap_set", "endgame", "mate_pattern", "concept", "coached_play"}
+    # hanging_piece, fork, pin are not valid top-level skill_ids anymore
+    for removed in ("hanging_piece", "fork", "pin", "free_piece_capture", "pre_move_check"):
+        assert get_skill_node(removed) is None, \
+            f"{removed} should have been removed — it's Engine 1 territory now"
+
+
+# ── PICK NEXT SKILL ──────────────────────────────────────────────────
+
+
+def test_pick_next_returns_kind_and_content_ref():
+    """New API shape includes kind + content_ref."""
+    mem = _fresh_memory()
+    result = pick_next_skill(mem, 800)
+    assert result is not None
+    assert "kind" in result
+    assert "content_ref" in result
+    assert "skill_id" in result
+    assert "label" in result
+    assert "tier" in result
+
+
+def test_pick_next_respects_rating_band():
+    """A 700 player gets tier-0 skills only; a 1600 player gets tier-2+."""
+    mem = _fresh_memory()
+    pick_700 = pick_next_skill(mem, 700)
+    pick_1600 = pick_next_skill(mem, 1600)
+    if pick_700:
+        assert pick_700["tier"] == 0
+    if pick_1600:
+        assert pick_1600["tier"] >= 1
+
+
+def test_prerequisites_enforced():
+    """Tier-1 openings require coached_development; tier-2 require tier-1 etc."""
+    mem = _fresh_memory()
+    # At 1100 without coached_development, london_white is blocked by prereq
+    # (it requires coached_development)
+    ready = find_ready_skills(mem, 1100)
+    assert "opening_london_white" not in ready, \
+        "london_white needs coached_development first"
+
+
+# ── LEARNED DEMOTION (carried over from v1) ──────────────────────────
 
 
 def test_learned_skill_demotes_on_backslide():
-    """If a skill was learned but the user now fails repeatedly, demote it.
-    This matters because 'learned' is a current-state signal, not a badge."""
-    from services.coach_memory import record_skill_attempt
+    """If an opening was learned but the user starts failing, demote it."""
     mem = _fresh_memory()
 
-    # Build to a "learned" state: 5 seen, all correct
+    # Build to 'learned'
     for _ in range(5):
-        record_skill_attempt(mem, "fork", "concept", "correct")
-    fork = _find_skill(mem, "fork")
-    assert fork.is_learned()
-    assert "fork" in mem.learning.concepts_mastered
+        record_skill_attempt(mem, "opening_london_white", "opening", "correct")
+    sk = _find_skill(mem, "opening_london_white")
+    assert sk.is_learned()
+    assert "opening_london_white" in mem.learning.openings_learned
 
-    # Now backslide — two wrongs in a row
-    record_skill_attempt(mem, "fork", "concept", "wrong")
-    record_skill_attempt(mem, "fork", "concept", "wrong")
+    # Two wrongs in a row → demote
+    record_skill_attempt(mem, "opening_london_white", "opening", "wrong")
+    record_skill_attempt(mem, "opening_london_white", "opening", "wrong")
 
-    # Should be demoted
-    fork = _find_skill(mem, "fork")
-    assert fork.learned_at is None
-    assert "fork" not in mem.learning.concepts_mastered
-
-
-def test_five_clean_games_learn_pre_move_check():
-    """pre_move_check is the meta-skill that records every game.
-    5 seen, 3 correct, no recent fail → learned."""
-    mem = _fresh_memory()
-    for _ in range(5):
-        record_engine2_skills_from_game(
-            memory=mem,
-            user_rating=800,
-            mistake_types=[],
-            blunders=0,
-            accuracy=85.0,
-            game_result="win",
-            was_winning=False,
-            endgame_reached=False,
-        )
-    pmc = _find_skill(mem, "pre_move_check")
-    assert pmc.seen == 5
-    assert pmc.correct == 5
-    assert pmc.is_learned()
-    assert "pre_move_check" in mem.learning.concepts_mastered
+    sk = _find_skill(mem, "opening_london_white")
+    assert sk.learned_at is None
+    assert "opening_london_white" not in mem.learning.openings_learned
 
 
-def test_quiet_games_do_not_graduate_hanging_piece():
-    """CRITICAL: if fork never came up, 5 quiet games should NOT graduate fork.
-    This is the whole point of opportunity-gating — no false learning credit."""
-    mem = _fresh_memory()
-    for _ in range(5):
-        record_engine2_skills_from_game(
-            memory=mem,
-            user_rating=1000,
-            mistake_types=[],  # No fork events, no threat events
-            blunders=0,
-            accuracy=75.0,
-            game_result="win",
-            was_winning=False,
-            endgame_reached=False,
-        )
-    # fork should have NO recorded attempts
-    assert _find_skill(mem, "fork") is None
-    assert "fork" not in mem.learning.concepts_mastered
-    # hanging_piece: also no recorded attempts (no hang event, no avoid event)
-    assert _find_skill(mem, "hanging_piece") is None
-
-
-def test_demonstrated_skill_over_5_games_learns_it():
-    """When user actually demonstrates the skill (avoided threats) 5 times
-    with 3 correct and no recent fail → learned."""
-    mem = _fresh_memory()
-    for _ in range(5):
-        record_engine2_skills_from_game(
-            memory=mem,
-            user_rating=1000,
-            mistake_types=["avoided_threat"],  # demonstrates opponent_threat
-            blunders=0,
-            accuracy=80.0,
-            game_result="win",
-            was_winning=False,
-            endgame_reached=False,
-        )
-    ot = _find_skill(mem, "opponent_threat")
-    assert ot.seen == 5
-    assert ot.correct == 5
-    assert ot.is_learned()
-
-
-def test_engine2_progression_after_demonstrated_skills():
-    """Once tier-1 skills are demonstrated enough, tier-2 unlocks."""
-    mem = _fresh_memory()
-    # 5 games with evidence of pre_move_check + avoided_threat +
-    # plus hanging-related positive signal
-    for _ in range(5):
-        record_engine2_skills_from_game(
-            memory=mem,
-            user_rating=900,
-            mistake_types=["avoided_threat"],
-            blunders=0,
-            accuracy=82.0,
-            game_result="win",
-            was_winning=False,
-            endgame_reached=False,
-        )
-    # pre_move_check and hanging_piece should be learned
-    assert "pre_move_check" in mem.learning.concepts_mastered
-    assert "hanging_piece" in mem.learning.concepts_mastered
-    # fork was untested → should NOT be learned
-    assert "fork" not in mem.learning.concepts_mastered
-
-
-# ─── SMOKE RUNNER ─────────────────────────────────────────────────────
+# ── SMOKE RUNNER ─────────────────────────────────────────────────────
 
 
 def _smoke():

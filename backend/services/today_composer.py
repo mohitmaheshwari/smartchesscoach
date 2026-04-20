@@ -27,124 +27,110 @@ logger = logging.getLogger(__name__)
 
 
 # ── ENGINE 2 SKILL → COGNITIVE-GAP KEY ───────────────────────────────
-# So we can reuse COACHING_DIAGNOSIS / COACHING_RULES for Engine 2 picks.
+# When Engine 2 is the focus source, we still need to pull a matching
+# COACHING_RULES entry for the one-line rule. This maps Engine 2 skill_ids
+# (now knowledge-based — openings/traps/endgames/concepts/mate_patterns)
+# to the closest cognitive-gap key used by the rules dict.
+#
+# Knowledge nodes don't map 1:1 onto tactical gaps, so many map to
+# cognitive_gap None — in which case today_composer picks a generic
+# encouragement line instead of a rule.
 
 SKILL_TO_GAP = {
-    "pre_move_check":    "piece_safety",
-    "hanging_piece":     "piece_safety",
-    "opponent_threat":   "ignore_threat",
-    "king_safety":       "king_safety",
-    "simple_mates":      "endgame_technique",
-    "free_piece_capture": "missed_tactic",
-    "basic_trade":       "piece_safety",
-    "fork":              "missed_tactic",
-    "pin":               "missed_tactic",
-    "conversion":        "conversion",
-    "opening_principles": "piece_safety",  # fallback — no opening-specific gap
-    "king_pawn_endgame": "endgame_technique",
+    # Tier 0 — foundations
+    "coached_development":    None,                # no rule — play-with-coach handles it
+    "mate_kq_vs_k":           "endgame_technique",
+    "mate_kr_vs_k":           "endgame_technique",
+    "defend_scholars_mate":   "ignore_threat",
+
+    # Tier 1 — first real repertoire + basic endgames
+    "opening_london_white":      None,
+    "opening_caro_kann_black":   None,
+    "opening_scandinavian_black": None,
+    "endgame_opposition":        "endgame_technique",
+    "endgame_rule_of_square":    "endgame_technique",
+    "defend_fried_liver":        "ignore_threat",
+
+    # Tier 2 — deeper repertoire + traps + real endgames + IQP
+    "opening_italian_white":     None,
+    "opening_italian_black":     None,
+    "opening_queens_gambit":     None,
+    "opening_french_black":      None,
+    "trap_set_italian":          "ignore_threat",
+    "trap_set_caro_kann":        "ignore_threat",
+    "trap_set_london":           "ignore_threat",
+    "endgame_lucena":            "endgame_technique",
+    "endgame_philidor":          "endgame_technique",
+    "concept_iqp":               None,
+
+    # Tier 3 — advanced
+    "opening_ruy_lopez":         None,
+    "opening_sicilian_black":    None,
+    "concept_prophylaxis":       "calculation_depth",
+    "concept_minority_attack":   None,
 }
 
 
-# ── SKILL → ACTION (verb + destination) ──────────────────────────────
-# Which activity the coach is prescribing for each focus. Pattern-drill
-# tactics go to puzzles; meta-habits + conversion need live games.
+# ── ACTION ROUTING BY KIND ───────────────────────────────────────────
+# Engine 2 nodes now have a `kind` that decides the destination. This is
+# a simple kind→route map, much cleaner than a per-skill dict.
+#
+# Each kind has band-aware CTA copy. Default verb matches the medium:
+#   opening     → study the lesson then play it with coach
+#   trap_set    → study the traps then play with coach who tests them
+#   endgame     → do the lesson
+#   mate_pattern → do the lesson
+#   concept     → play with coach who reinforces the concept
+#   coached_play → play with coach, focus enforced
 
-SKILL_ACTIONS = {
-    "pre_move_check": {
-        "cta": {"beginner_low": "Let's play one slow game together",
-                "beginner_high": "Let's play a slow game",
-                "intermediate": "Play a slow game with me",
-                "advanced": "Play a slow game — focus mode"},
-        "href": "/play-with-coach?focus=pre_move_check&slow=true",
-        "medium": "live_game",
-    },
-    "hanging_piece": {
-        "cta": {"beginner_low": "Let's practice keeping pieces safe",
-                "beginner_high": "Solve 5 piece-safety puzzles",
-                "intermediate": "Solve 5 piece-safety puzzles",
-                "advanced": "Solve 5 piece-safety puzzles"},
-        "href": "/training/prescribed?weakness=piece_safety",
-        "medium": "puzzles",
-    },
-    "opponent_threat": {
-        "cta": {"beginner_low": "Let's practice spotting threats",
-                "beginner_high": "Solve 5 threat-detection puzzles",
-                "intermediate": "Solve 5 threat-detection puzzles",
-                "advanced": "Solve 5 threat-detection puzzles"},
-        "href": "/training/prescribed?weakness=tactical_oversight",
-        "medium": "puzzles",
-    },
-    "king_safety": {
-        "cta": {"beginner_low": "Let's practice keeping your king safe",
-                "beginner_high": "Solve 5 king-safety puzzles",
-                "intermediate": "Solve 5 king-safety puzzles",
-                "advanced": "Solve 5 king-safety puzzles"},
-        "href": "/training/prescribed?weakness=king_safety",
-        "medium": "puzzles",
-    },
-    "fork": {
-        "cta": {"beginner_low": "Let's practice spotting forks",
-                "beginner_high": "Solve 5 fork puzzles",
-                "intermediate": "Solve 5 fork puzzles",
-                "advanced": "Solve 5 fork puzzles"},
-        "href": "/training/prescribed?weakness=missed_tactic",
-        "medium": "puzzles",
-    },
-    "pin": {
-        "cta": {"beginner_low": "Let's practice spotting pins",
-                "beginner_high": "Solve 5 pin puzzles",
-                "intermediate": "Solve 5 pin puzzles",
-                "advanced": "Solve 5 pin puzzles"},
-        "href": "/training/prescribed?weakness=missed_tactic",
-        "medium": "puzzles",
-    },
-    "free_piece_capture": {
-        "cta": {"beginner_low": "Let's practice spotting free pieces",
-                "beginner_high": "Solve 5 winning-capture puzzles",
-                "intermediate": "Solve 5 winning-capture puzzles",
-                "advanced": "Solve 5 winning-capture puzzles"},
-        "href": "/training/prescribed?weakness=missed_tactic",
-        "medium": "puzzles",
-    },
-    "conversion": {
-        "cta": {"beginner_low": "Let's practice finishing a game",
-                "beginner_high": "Play a game — finish your advantage",
-                "intermediate": "Play a game — convert the advantage",
-                "advanced": "Play a game — convert the advantage"},
-        "href": "/play-with-coach?focus=conversion",
-        "medium": "live_game",
-    },
-    "basic_trade": {
-        "cta": {"beginner_low": "Let's play a game together",
-                "beginner_high": "Play a game — practice trades",
-                "intermediate": "Play a game — practice trades",
-                "advanced": "Play a game — practice trades"},
-        "href": "/play-with-coach?focus=basic_trade",
-        "medium": "live_game",
-    },
-    "simple_mates": {
-        "cta": {"beginner_low": "Let's practice basic mates",
-                "beginner_high": "Practice basic mates",
-                "intermediate": "Practice basic mates",
-                "advanced": "Practice basic mates"},
-        "href": "/training/prescribed?weakness=endgame_technique",
-        "medium": "puzzles",
-    },
-    "king_pawn_endgame": {
-        "cta": {"beginner_low": "Let's practice endgames together",
-                "beginner_high": "Work through 5 endgame positions",
-                "intermediate": "Work through 5 endgame positions",
-                "advanced": "Work through 5 endgame positions"},
-        "href": "/training/prescribed?weakness=endgame_technique",
-        "medium": "puzzles",
-    },
-    "opening_principles": {
-        "cta": {"beginner_low": "Let's learn the basics together",
-                "beginner_high": "Study opening fundamentals",
-                "intermediate": "Study opening fundamentals",
-                "advanced": "Study opening fundamentals"},
-        "href": "/openings",
+KIND_ACTIONS = {
+    "opening": {
+        "beginner_low": "Let's learn this opening together",
+        "beginner_high": "Study this opening",
+        "intermediate": "Study this opening",
+        "advanced": "Study this opening",
+        "href": "/openings/{content_ref}",
         "medium": "lesson",
+    },
+    "trap_set": {
+        "beginner_low": "Let's learn these traps together",
+        "beginner_high": "Study these traps",
+        "intermediate": "Study these traps",
+        "advanced": "Study these traps",
+        "href": "/openings/{content_ref}#traps",
+        "medium": "lesson",
+    },
+    "endgame": {
+        "beginner_low": "Let's work through this endgame",
+        "beginner_high": "Do the endgame lesson",
+        "intermediate": "Do the endgame lesson",
+        "advanced": "Do the endgame lesson",
+        "href": "/endgames/{content_ref}",
+        "medium": "lesson",
+    },
+    "mate_pattern": {
+        "beginner_low": "Let's practice the mate together",
+        "beginner_high": "Practice this mate",
+        "intermediate": "Practice this mate",
+        "advanced": "Practice this mate",
+        "href": "/endgames/{content_ref}",
+        "medium": "lesson",
+    },
+    "concept": {
+        "beginner_low": "Let's play a game together — I'll explain",
+        "beginner_high": "Play a game — I'll teach",
+        "intermediate": "Play a game — I'll teach",
+        "advanced": "Play a game — I'll teach",
+        "href": "/play-with-coach?focus={skill_id}",
+        "medium": "live_game",
+    },
+    "coached_play": {
+        "beginner_low": "Let's play a game together",
+        "beginner_high": "Play a focused game",
+        "intermediate": "Play a focused game with me",
+        "advanced": "Play a focused game",
+        "href": "/play-with-coach?focus={skill_id}",
+        "medium": "live_game",
     },
 }
 
@@ -449,33 +435,36 @@ def _rule_for_band(band_name: str, gap: Optional[str]) -> Optional[str]:
 
 
 def _action_for_band(band_name: str, focus: Dict) -> Dict[str, str]:
-    """CTA text changes by band — warm for beginner_low, direct otherwise."""
-    skill_id = focus.get("skill_id") or focus.get("focus")
-    cfg = SKILL_ACTIONS.get(skill_id)
-    if cfg:
-        cta = cfg["cta"].get(band_name) or cfg["cta"].get("intermediate") or "Start"
-        return {"cta": cta, "href": cfg["href"], "medium": cfg["medium"]}
+    """CTA text + destination. New flow: kind-based routing (not per-skill)."""
+    # Engine 2 focus has `kind` and `content_ref` from pick_next_skill
+    kind = focus.get("kind")
+    content_ref = focus.get("content_ref") or ""
+    skill_id = focus.get("skill_id") or focus.get("focus") or ""
 
-    # Category fallback
+    if kind and kind in KIND_ACTIONS:
+        cfg = KIND_ACTIONS[kind]
+        cta = cfg.get(band_name) or cfg.get("intermediate") or "Start"
+        href = (cfg.get("href") or "/play-with-coach").format(
+            content_ref=content_ref, skill_id=skill_id
+        )
+        return {"cta": cta, "href": href, "medium": cfg.get("medium", "lesson")}
+
+    # Engine 1 focus → route to /training/prescribed by gap
     gap = focus.get("gap") or focus.get("category")
-    # A few direct mappings when skill_id isn't one of the named 12
-    gap_to_skill = {
-        "piece_safety": "hanging_piece",
-        "missed_tactic": "fork",
-        "tactical_oversight": "opponent_threat",
-        "king_safety": "king_safety",
-        "endgame_technique": "king_pawn_endgame",
-        "conversion": "conversion",
-        "calculation_depth": "pre_move_check",
-        "ignore_threat": "opponent_threat",
-    }
-    mapped = gap_to_skill.get(gap)
-    if mapped and mapped in SKILL_ACTIONS:
-        cfg = SKILL_ACTIONS[mapped]
-        cta = cfg["cta"].get(band_name) or cfg["cta"].get("intermediate")
-        return {"cta": cta, "href": cfg["href"], "medium": cfg["medium"]}
+    if gap:
+        cta = {
+            "beginner_low":  "Let's practice this together",
+            "beginner_high": "Practice this weakness",
+            "intermediate":  "Practice this weakness",
+            "advanced":      "Practice this weakness",
+        }.get(band_name, "Practice this weakness")
+        return {
+            "cta": cta,
+            "href": f"/training/prescribed?weakness={gap}",
+            "medium": "puzzles",
+        }
 
-    # Final fallback
+    # Final fallback — play a game
     return {
         "cta": "Let's play a game" if band_name == "beginner_low" else "Play with me",
         "href": "/play-with-coach",
@@ -486,8 +475,8 @@ def _action_for_band(band_name: str, focus: Dict) -> Dict[str, str]:
 def _compose_alternates(focus: Dict) -> List[Dict[str, str]]:
     """Conversational interrupts for 'not feeling this today' — never a library."""
     alternates = []
-    skill_id = focus.get("skill_id") or focus.get("focus")
-    current_medium = (SKILL_ACTIONS.get(skill_id) or {}).get("medium")
+    kind = focus.get("kind")
+    current_medium = (KIND_ACTIONS.get(kind) or {}).get("medium") if kind else None
 
     if current_medium != "live_game":
         alternates.append({"label": "I'd rather just play a game", "href": "/play-with-coach"})

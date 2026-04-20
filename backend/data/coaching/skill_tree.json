@@ -1,103 +1,254 @@
 {
   "_meta": {
-    "description": "Fixed skill tree for Engine 2 (Build New Skills). Ordered by student pain, not chess theory. Do not expand beyond 12 skills without explicit product decision.",
-    "total_skills": 12
+    "description": "Engine 2 curriculum tree — chess knowledge (openings, traps, endgames, concepts, mate patterns). Not tactical-mistake remediation (that's Engine 1). Rating-banded. Each node has a `kind` + `content_ref` pointing at existing content libraries.",
+    "version": "2.0.0",
+    "content_sources": {
+      "opening":       "data/opening_curriculum.json",
+      "trap_set":      "services/trap_library.py (TRAP_LIBRARY)",
+      "endgame":       "services/endgame_teaching.py (ENDGAME_LESSONS)",
+      "mate_pattern":  "services/endgame_teaching.py (ENDGAME_LESSONS — queen_checkmate / rook_checkmate)",
+      "concept":       "TODO — create data/concepts.json for these",
+      "coached_play":  "self-referential — played in Play with Coach with focus= skill_id"
+    },
+    "mastery_rules": {
+      "opening":      "5 games in this opening with avg accuracy >= threshold (60/65/70/75 by tier)",
+      "trap_set":     "each trap in the set viewed + dismissed (no falls) OR no falls in 3 games",
+      "endgame":      "lesson solved correctly once, then retained across 2+ reviews",
+      "mate_pattern": "lesson solved correctly",
+      "concept":      "recognized + applied in 3 games",
+      "coached_play": "3 coached games with focus met"
+    }
   },
   "skills": {
-    "pre_move_check": {
-      "label": "Check before every move",
-      "fixes": "playing without thinking",
+
+    "_tier_0_note": "Tier 0 (beginner_low, 0-999) — 'Don't lose'. Live coached games are the medium; there's no content library for beginners below this level because they don't learn well from reading.",
+
+    "coached_development": {
+      "kind": "coached_play",
+      "label": "Develop your pieces",
+      "fixes": "not knowing where to start",
+      "content_ref": "development_basics",
       "prerequisites": [],
-      "rating_min": 400,
-      "rating_max": 1400,
-      "tier": 1
+      "rating_min": 0, "rating_max": 999,
+      "tier": 0
     },
-    "hanging_piece": {
-      "label": "Don't hang pieces",
-      "fixes": "losing pieces for free",
-      "prerequisites": ["pre_move_check"],
-      "rating_min": 500,
-      "rating_max": 1500,
-      "tier": 1
-    },
-    "opponent_threat": {
-      "label": "See opponent's threat",
-      "fixes": "missing what opponent threatens",
-      "prerequisites": ["pre_move_check"],
-      "rating_min": 600,
-      "rating_max": 1500,
-      "tier": 1
-    },
-    "king_safety": {
-      "label": "Keep your king safe",
-      "fixes": "getting mated or attacked",
+    "mate_kq_vs_k": {
+      "kind": "mate_pattern",
+      "label": "Mate with King + Queen",
+      "fixes": "missing an easy win",
+      "content_ref": "queen_checkmate",
       "prerequisites": [],
-      "rating_min": 500,
-      "rating_max": 1500,
+      "rating_min": 0, "rating_max": 1199,
+      "tier": 0
+    },
+    "mate_kr_vs_k": {
+      "kind": "mate_pattern",
+      "label": "Mate with King + Rook",
+      "fixes": "missing an easy win",
+      "content_ref": "rook_checkmate",
+      "prerequisites": ["mate_kq_vs_k"],
+      "rating_min": 0, "rating_max": 1199,
+      "tier": 0
+    },
+    "defend_scholars_mate": {
+      "kind": "concept",
+      "label": "Defend against Scholar's Mate",
+      "fixes": "the 4-move mate surprise",
+      "content_ref": "scholars_mate_defense",
+      "prerequisites": [],
+      "rating_min": 0, "rating_max": 1199,
+      "tier": 0
+    },
+
+
+    "_tier_1_note": "Tier 1 (beginner_high, 1000-1399) — 'Start playing real chess'. One solid opening as White + one as Black, foundational endgame concepts, basic trap awareness.",
+
+    "opening_london_white": {
+      "kind": "opening",
+      "label": "London System (White)",
+      "fixes": "not knowing what to play as White",
+      "content_ref": "london_system",
+      "prerequisites": ["coached_development"],
+      "rating_min": 1000, "rating_max": 1499,
       "tier": 1
     },
-    "simple_mates": {
-      "label": "Mate with K+Q or K+R",
-      "fixes": "missing easy wins",
-      "prerequisites": ["king_safety"],
-      "rating_min": 600,
-      "rating_max": 1200,
+    "opening_caro_kann_black": {
+      "kind": "opening",
+      "label": "Caro-Kann (Black vs 1.e4)",
+      "fixes": "not knowing what to play vs 1.e4",
+      "content_ref": "caro_kann",
+      "prerequisites": ["coached_development"],
+      "rating_min": 1000, "rating_max": 1499,
       "tier": 1
     },
-    "free_piece_capture": {
-      "label": "Take free pieces",
-      "fixes": "missing captures",
-      "prerequisites": ["pre_move_check"],
-      "rating_min": 500,
-      "rating_max": 1300,
+    "opening_scandinavian_black": {
+      "kind": "opening",
+      "label": "Scandinavian (Black vs 1.e4)",
+      "fixes": "wanting a simple vs-1.e4 defense",
+      "content_ref": "scandinavian_defense",
+      "prerequisites": ["coached_development"],
+      "rating_min": 1000, "rating_max": 1499,
+      "tier": 1
+    },
+    "endgame_opposition": {
+      "kind": "endgame",
+      "label": "The Opposition",
+      "fixes": "not knowing how to promote with K+P",
+      "content_ref": "opposition",
+      "prerequisites": ["mate_kq_vs_k"],
+      "rating_min": 1000, "rating_max": 1499,
+      "tier": 1
+    },
+    "endgame_rule_of_square": {
+      "kind": "endgame",
+      "label": "Rule of the Square",
+      "fixes": "not knowing when the king catches the pawn",
+      "content_ref": "rule_of_square",
+      "prerequisites": [],
+      "rating_min": 1000, "rating_max": 1499,
+      "tier": 1
+    },
+    "defend_fried_liver": {
+      "kind": "concept",
+      "label": "Defend against Fried Liver",
+      "fixes": "losing to the Nxf7 sacrifice",
+      "content_ref": "fried_liver_defense",
+      "prerequisites": [],
+      "rating_min": 1000, "rating_max": 1499,
+      "tier": 1
+    },
+
+
+    "_tier_2_note": "Tier 2 (intermediate, 1400-1799) — 'Learn real theory'. Sharper opening repertoire, opening-specific trap sets, real endgame technique (Lucena, Philidor), first strategic concepts.",
+
+    "opening_italian_white": {
+      "kind": "opening",
+      "label": "Italian Game (White)",
+      "fixes": "wanting sharper play as White",
+      "content_ref": "italian_game",
+      "prerequisites": ["opening_london_white"],
+      "rating_min": 1400, "rating_max": 1799,
       "tier": 2
     },
-    "basic_trade": {
-      "label": "Trade smart",
-      "fixes": "bad exchanges",
-      "prerequisites": ["hanging_piece"],
-      "rating_min": 700,
-      "rating_max": 1400,
+    "opening_italian_black": {
+      "kind": "opening",
+      "label": "Italian Game (Black)",
+      "fixes": "facing 1.e4 e5 2.Nf3 Nc6 3.Bc4",
+      "content_ref": "italian_game_black",
+      "prerequisites": ["opening_caro_kann_black"],
+      "rating_min": 1400, "rating_max": 1799,
       "tier": 2
     },
-    "fork": {
-      "label": "Find forks",
-      "fixes": "missing double attacks",
-      "prerequisites": ["hanging_piece"],
-      "rating_min": 800,
-      "rating_max": 1600,
+    "opening_queens_gambit": {
+      "kind": "opening",
+      "label": "Queen's Gambit",
+      "fixes": "not knowing what to play vs 1.d4",
+      "content_ref": "queens_gambit",
+      "prerequisites": ["opening_caro_kann_black"],
+      "rating_min": 1400, "rating_max": 1799,
       "tier": 2
     },
-    "pin": {
-      "label": "Create and exploit pins",
-      "fixes": "missing pin opportunities",
-      "prerequisites": ["fork"],
-      "rating_min": 900,
-      "rating_max": 1700,
+    "opening_french_black": {
+      "kind": "opening",
+      "label": "French Defense (Black vs 1.e4)",
+      "fixes": "wanting a tougher defense vs 1.e4",
+      "content_ref": "french_defense",
+      "prerequisites": ["opening_caro_kann_black"],
+      "rating_min": 1400, "rating_max": 1799,
       "tier": 2
     },
-    "conversion": {
-      "label": "Convert winning positions",
-      "fixes": "losing winning games",
-      "prerequisites": ["fork", "pin"],
-      "rating_min": 1000,
-      "rating_max": 1800,
+    "trap_set_italian": {
+      "kind": "trap_set",
+      "label": "Italian Game traps",
+      "fixes": "falling for tricks in the Italian",
+      "content_ref": "italian-game",
+      "prerequisites": ["opening_italian_white"],
+      "rating_min": 1400, "rating_max": 1799,
+      "tier": 2
+    },
+    "trap_set_caro_kann": {
+      "kind": "trap_set",
+      "label": "Caro-Kann traps",
+      "fixes": "falling for tricks in the Caro-Kann",
+      "content_ref": "caro-kann",
+      "prerequisites": ["opening_caro_kann_black"],
+      "rating_min": 1400, "rating_max": 1799,
+      "tier": 2
+    },
+    "trap_set_london": {
+      "kind": "trap_set",
+      "label": "London System traps",
+      "fixes": "falling for tricks in the London",
+      "content_ref": "london-system",
+      "prerequisites": ["opening_london_white"],
+      "rating_min": 1400, "rating_max": 1799,
+      "tier": 2
+    },
+    "endgame_lucena": {
+      "kind": "endgame",
+      "label": "Lucena position (winning R+P)",
+      "fixes": "not winning winning rook endgames",
+      "content_ref": "lucena_position",
+      "prerequisites": ["endgame_opposition"],
+      "rating_min": 1400, "rating_max": 1799,
+      "tier": 2
+    },
+    "endgame_philidor": {
+      "kind": "endgame",
+      "label": "Philidor position (drawing R+P)",
+      "fixes": "not drawing defendable rook endgames",
+      "content_ref": "philidor_position",
+      "prerequisites": ["endgame_opposition"],
+      "rating_min": 1400, "rating_max": 1799,
+      "tier": 2
+    },
+    "concept_iqp": {
+      "kind": "concept",
+      "label": "Isolated Queen's Pawn play",
+      "fixes": "not knowing how to play IQP positions",
+      "content_ref": "iqp_play",
+      "prerequisites": ["opening_queens_gambit"],
+      "rating_min": 1500, "rating_max": 1799,
+      "tier": 2
+    },
+
+
+    "_tier_3_note": "Tier 3 (advanced, 1800+) — 'Deep understanding'. Mainline repertoires, strategic concepts. Kept sparse until more content lands.",
+
+    "opening_ruy_lopez": {
+      "kind": "opening",
+      "label": "Ruy Lopez (White)",
+      "fixes": "wanting the deepest classical opening",
+      "content_ref": "ruy_lopez",
+      "prerequisites": ["opening_italian_white"],
+      "rating_min": 1600, "rating_max": 9999,
       "tier": 3
     },
-    "opening_principles": {
-      "label": "Play sound openings",
-      "fixes": "bad opening play",
-      "prerequisites": ["pre_move_check"],
-      "rating_min": 700,
-      "rating_max": 1500,
+    "opening_sicilian_black": {
+      "kind": "opening",
+      "label": "Sicilian Defense (Black)",
+      "fixes": "wanting sharpest play vs 1.e4",
+      "content_ref": "sicilian_defense",
+      "prerequisites": ["opening_caro_kann_black"],
+      "rating_min": 1600, "rating_max": 9999,
       "tier": 3
     },
-    "king_pawn_endgame": {
-      "label": "K+P endgames",
-      "fixes": "drawing won endgames",
-      "prerequisites": ["simple_mates"],
-      "rating_min": 900,
-      "rating_max": 1600,
+    "concept_prophylaxis": {
+      "kind": "concept",
+      "label": "Prophylaxis",
+      "fixes": "not preventing opponent's plan",
+      "content_ref": "prophylaxis",
+      "prerequisites": ["concept_iqp"],
+      "rating_min": 1700, "rating_max": 9999,
+      "tier": 3
+    },
+    "concept_minority_attack": {
+      "kind": "concept",
+      "label": "Minority attack",
+      "fixes": "not knowing how to attack in QGD structures",
+      "content_ref": "minority_attack",
+      "prerequisites": ["opening_queens_gambit"],
+      "rating_min": 1700, "rating_max": 9999,
       "tier": 3
     }
   }
