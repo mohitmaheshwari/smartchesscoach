@@ -52,6 +52,12 @@ services:
       - LICHESS_CLIENT_ID=chessguru-app
       - LICHESS_REDIRECT_URI=https://chessguru.ai/api/oauth/lichess/callback
       - FRONTEND_URL=https://chessguru.ai
+      # SMTP (Zoho) — values come from the project-root .env (see setup_smtp.sh)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME}
     depends_on:
       mongodb:
         condition: service_healthy
