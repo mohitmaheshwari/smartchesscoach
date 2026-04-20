@@ -51,18 +51,27 @@ class UserHabit:
 @dataclass
 class SkillProgress:
     """
-    Track progress for a single skill (opening, trap, pattern, endgame, concept).
-
-    The "learned" rule: a skill is learned when
-      - seen >= 5 times
-      - correct >= 3 times
-      - no failure in the last 2 occurrences
+    Track progress for a single skill. Graduation rule is KIND-AWARE —
+    knowledge concepts (an endgame rule, a mate pattern, a defence idea)
+    graduate on first correct application, while exposure-based skills
+    (openings, habits) need repeated proof.
 
     Outcomes is a rolling list of the last 10 attempts: "correct", "wrong", "seen".
     "seen" = encountered but no pass/fail signal (e.g., opening played casually).
+
+    Rules per kind:
+
+      mate_pattern / endgame / concept     — Knowledge. 1 correct, no wrongs still
+                                             pending retry = learned.
+      trap_set                             — Studied + correctly handled once = learned.
+      opening                              — Exposure. 5 seen, 3 correct, last 2 not
+                                             wrong = learned.
+      coached_play                         — Habit. 3 correct, last 3 not wrong = learned.
+      unknown / legacy "pattern"           — Conservative default: 5/3/no-recent-fail.
     """
-    skill_id: str                      # e.g., "italian_game", "fried_liver_attack"
-    skill_type: str                    # "opening", "trap", "pattern", "endgame", "concept"
+    skill_id: str                      # e.g., "endgame_rule_of_square", "opening_london_white"
+    skill_type: str                    # "opening" | "trap_set" | "trap" | "endgame" |
+                                       # "mate_pattern" | "concept" | "coached_play" | "pattern"
     seen: int = 0
     correct: int = 0
     wrong: int = 0
@@ -72,15 +81,44 @@ class SkillProgress:
     learned_at: Optional[str] = None   # When promoted to learned (if ever)
 
     def is_learned(self) -> bool:
-        """Apply the 5/3/no-recent-fail rule."""
-        if self.seen < 5:
-            return False
-        if self.correct < 3:
-            return False
+        """Kind-aware graduation. See docstring for rules per kind."""
         last_two = self.outcomes[-2:] if len(self.outcomes) >= 2 else self.outcomes
-        if "wrong" in last_two:
+        last_three = self.outcomes[-3:] if len(self.outcomes) >= 3 else self.outcomes
+
+        # ── Knowledge concepts — one correct demonstration is enough.
+        # A "wrong" outcome ever recorded means user stumbled; require them
+        # to redo and get it right with no wrong in the last 2 attempts.
+        if self.skill_type in ("mate_pattern", "endgame", "concept"):
+            if self.correct < 1:
+                return False
+            if self.wrong > 0 and "wrong" in last_two:
+                return False
+            return True
+
+        # ── Trap sets — studied at least once and handled correctly at least once.
+        if self.skill_type in ("trap_set", "trap"):
+            if self.seen < 1 or self.correct < 1:
+                return False
+            if "wrong" in last_two:
+                return False
+            return True
+
+        # ── Openings — exposure-based. Classic 5 seen, 3 correct, no recent fail.
+        if self.skill_type == "opening":
+            if self.seen < 5 or self.correct < 3:
+                return False
+            return "wrong" not in last_two
+
+        # ── Coached play — habit formation. 3 consecutive clean games.
+        if self.skill_type == "coached_play":
+            if self.correct < 3:
+                return False
+            return "wrong" not in last_three
+
+        # ── Legacy / unknown — original 5/3/no-recent-fail as safe default.
+        if self.seen < 5 or self.correct < 3:
             return False
-        return True
+        return "wrong" not in last_two
 
 
 @dataclass
@@ -465,11 +503,14 @@ def record_skill_attempt(
     currently_learned = skill.is_learned()
 
     target_list = {
-        "opening": memory.learning.openings_learned,
-        "trap": memory.learning.traps_learned,
-        "endgame": memory.learning.endgames_learned,
-        "concept": memory.learning.concepts_mastered,
-        "pattern": memory.learning.concepts_mastered,
+        "opening":       memory.learning.openings_learned,
+        "trap":          memory.learning.traps_learned,       # legacy
+        "trap_set":      memory.learning.traps_learned,       # new (v2 kind)
+        "endgame":       memory.learning.endgames_learned,
+        "mate_pattern":  memory.learning.endgames_learned,    # mate patterns live with endgames
+        "concept":       memory.learning.concepts_mastered,
+        "coached_play":  memory.learning.concepts_mastered,   # habits land in concepts_mastered
+        "pattern":       memory.learning.concepts_mastered,   # legacy
     }.get(skill_type)
 
     if currently_learned and not was_learned:

@@ -3256,10 +3256,185 @@ class EndgameCheckMoveRequest(BaseModel):
 
 
 @router.post("/endgames/check-move")
-async def check_endgame_move(req: EndgameCheckMoveRequest):
-    """Check if the user's move is correct for the given endgame position."""
+async def check_endgame_move(
+    req: EndgameCheckMoveRequest,
+    user: User = Depends(get_current_user),
+):
+    """Check if the user's move is correct for the given endgame position.
+
+    Also records completion on Engine 2's skill tree when a lesson ends:
+      - Last position answered correctly → skill marked "correct"
+      - Any wrong answer → skill marked "wrong"
+    Because endgame/mate skills graduate on 1 correct (kind-aware is_learned),
+    a clean first-time completion graduates the skill immediately.
+    """
     from services.endgame_theory_service import check_move
     result = check_move(req.category_key, req.lesson_key, req.position_index, req.user_move_uci)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
+
+    # Record to Engine 2 skill progress when a lesson-level signal fires.
+    # Signals:
+    #   - is_last=True AND correct=True → "correct" once
+    #   - correct=False at any position → "wrong" once
+    try:
+        should_record = (
+            (result.get("correct") and result.get("is_last"))
+            or (result.get("correct") is False)
+        )
+        if should_record:
+            await _record_endgame_lesson_outcome(
+                user_id=user.user_id,
+                category_key=req.category_key,
+                lesson_key=req.lesson_key,
+                correct=bool(result.get("correct")),
+            )
+    except Exception as e:
+        logger.debug(f"[engine2] endgame lesson recording non-fatal: {e}")
+
     return result
+
+
+async def _record_endgame_lesson_outcome(
+    user_id: str,
+    category_key: str,
+    lesson_key: str,
+    correct: bool,
+):
+    """Look up which Engine 2 skill node has content_ref matching this lesson
+    (direct match on lesson_key) and record the attempt to coach_memory.
+
+    The skill kind in the tree determines graduation behavior — endgame &
+    mate_pattern skills graduate on first correct (SkillProgress.is_learned()).
+    """
+    from services.engine2_skill_builder import list_skills_by_kind, get_skill_node
+    from services.coach_memory import (
+        get_or_create_memory, record_skill_attempt, _memory_to_doc
+    )
+
+    # Find matching Engine 2 skill by content_ref == lesson_key (e.g. "square_rule")
+    matching_skill = None
+    matching_kind = None
+    for kind in ("endgame", "mate_pattern"):
+        for sid in list_skills_by_kind(kind):
+            node = get_skill_node(sid) or {}
+            if node.get("content_ref") == lesson_key:
+                matching_skill = sid
+                matching_kind = kind
+                break
+        if matching_skill:
+            break
+
+    if not matching_skill:
+        logger.debug(f"[engine2] no skill tree match for lesson '{lesson_key}' — skipping record")
+        return
+
+    memory = await get_or_create_memory(db, user_id)
+    outcome = "correct" if correct else "wrong"
+    record_skill_attempt(memory, matching_skill, matching_kind, outcome)
+
+    # Persist
+    await db.coach_memory.update_one(
+        {"user_id": user_id},
+        {"$set": _memory_to_doc(memory)},
+        upsert=True,
+    )
+    logger.info(f"[engine2] {user_id}: {matching_skill} ({matching_kind}) recorded '{outcome}'")
+
+
+# ==================== ENGINE 2 — generic skill-progress endpoints ====================
+#
+# Pages (opening lesson, trap study, etc.) call these when the user sees
+# content or completes something. The endpoint validates the skill exists
+# in the tree, looks up its kind, and records the attempt.
+#
+# Graduation is automatic — SkillProgress.is_learned() is kind-aware:
+#   - Knowledge (endgame/mate/concept): 1 correct → learned
+#   - Trap set: 1 seen + 1 correct → learned
+#   - Opening: 5/3 classic rule
+#   - Coached_play: 3 correct habit streak
+#
+# So "mark as seen" does not graduate knowledge-type skills (they need
+# a correct signal). It just builds exposure.
+
+
+class Engine2SkillRequest(BaseModel):
+    skill_id: str
+    outcome: Optional[str] = None  # "correct" | "wrong" | "seen" (defaults based on endpoint)
+
+
+async def _record_engine2_skill(user_id: str, skill_id: str, outcome: str) -> dict:
+    """Shared helper — validates skill is in the tree, records the attempt,
+    saves memory, returns a summary of the skill's new state."""
+    from services.engine2_skill_builder import get_skill_node
+    from services.coach_memory import (
+        get_or_create_memory, record_skill_attempt, _memory_to_doc
+    )
+
+    node = get_skill_node(skill_id)
+    if not node:
+        raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not in tree")
+
+    kind = node.get("kind", "concept")
+    memory = await get_or_create_memory(db, user_id)
+    before_learned = skill_id in (
+        memory.learning.openings_learned
+        + memory.learning.traps_learned
+        + memory.learning.endgames_learned
+        + memory.learning.concepts_mastered
+    )
+
+    record_skill_attempt(memory, skill_id, kind, outcome)
+
+    await db.coach_memory.update_one(
+        {"user_id": user_id},
+        {"$set": _memory_to_doc(memory)},
+        upsert=True,
+    )
+
+    # Look up the skill's updated state
+    skill = next((s for s in memory.learning.skills if s.skill_id == skill_id), None)
+    after_learned = skill and skill.learned_at is not None
+    just_graduated = bool(after_learned and not before_learned)
+
+    return {
+        "skill_id": skill_id,
+        "kind": kind,
+        "outcome_recorded": outcome,
+        "stats": {
+            "seen": (skill.seen if skill else 0),
+            "correct": (skill.correct if skill else 0),
+            "wrong": (skill.wrong if skill else 0),
+        },
+        "learned": bool(after_learned),
+        "just_graduated": just_graduated,
+    }
+
+
+@router.post("/engine2/skill-seen")
+async def engine2_skill_seen(
+    req: Engine2SkillRequest,
+    user: User = Depends(get_current_user),
+):
+    """Record that the user has SEEN a skill (viewed the lesson/page).
+    Outcome is always 'seen' — doesn't graduate knowledge kinds on its own,
+    but increments exposure for opening-style skills.
+    """
+    return await _record_engine2_skill(user.user_id, req.skill_id, "seen")
+
+
+@router.post("/engine2/skill-completed")
+async def engine2_skill_completed(
+    req: Engine2SkillRequest,
+    user: User = Depends(get_current_user),
+):
+    """Record that the user has COMPLETED a lesson/attempt. Outcome must
+    be 'correct' or 'wrong' (defaults to 'correct' if omitted).
+    For knowledge-type skills (endgame/mate/concept), a single 'correct'
+    graduates the skill. `just_graduated: true` in the response lets the
+    UI celebrate.
+    """
+    outcome = req.outcome or "correct"
+    if outcome not in ("correct", "wrong"):
+        raise HTTPException(status_code=400, detail="outcome must be 'correct' or 'wrong'")
+    return await _record_engine2_skill(user.user_id, req.skill_id, outcome)

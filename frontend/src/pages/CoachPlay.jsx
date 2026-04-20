@@ -68,6 +68,50 @@ const CoachPlay = ({ user }) => {
     }
   }, [openingFromUrl, gameStarted]);
 
+  // ─── SSE: push notifications for coach events ────────────────────────
+  // Opens a single EventSource per session. On `coach_turn_ready` or `game_over`,
+  // cancels the safety-net poll timer and triggers an immediate state fetch.
+  // If SSE fails (bad Nginx config, mobile network), the 2s safety poll still
+  // catches up — the UI degrades gracefully, it doesn't hang.
+  useEffect(() => {
+    const sessionId = session?.session_id;
+    if (!sessionId) return;
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    const es = new EventSource(`${API}/coach/play/events/${sessionId}`, { withCredentials: true });
+    eventSourceRef.current = es;
+
+    es.addEventListener("message", (e) => {
+      try {
+        const evt = JSON.parse(e.data);
+        if (evt.type === "coach_turn_ready" || evt.type === "game_over" || evt.type === "coach_turn_failed") {
+          // Wake the poll loop immediately: cancel any scheduled tick and run now.
+          if (pollTimerRef.current) {
+            clearTimeout(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+          if (pollFnRef.current) {
+            pollFnRef.current();
+          }
+        }
+      } catch (err) {
+        // malformed event — ignore
+      }
+    });
+
+    es.addEventListener("error", () => {
+      // EventSource auto-reconnects; nothing to do. Safety poll covers us meanwhile.
+    });
+
+    return () => {
+      es.close();
+      if (eventSourceRef.current === es) eventSourceRef.current = null;
+    };
+  }, [session?.session_id]);
+
   const [timeControl, setTimeControl] = useState("15+10");
   const [coachingMode, setCoachingMode] = useState("intermediate"); // "beginner" | "intermediate" | "advanced"
   
@@ -87,6 +131,13 @@ const CoachPlay = ({ user }) => {
   // Pre-game focus rule
   const [focusRule, setFocusRule] = useState(null);
   const [showFocusBanner, setShowFocusBanner] = useState(false);
+
+  // SSE (push-based coach notifications) — replaces the old 300ms poll.
+  // pollTimerRef holds the safety-net setTimeout handle so the SSE handler
+  // can cancel it and trigger the next poll tick immediately.
+  const pollTimerRef = useRef(null);
+  const pollFnRef = useRef(null);
+  const eventSourceRef = useRef(null);
   
   // Practice mode state (from Lab alternate timeline)
   const [practiceMode, setPracticeMode] = useState(false);
@@ -1899,18 +1950,23 @@ const CoachPlay = ({ user }) => {
           }
         }
         
-        // Keep polling
-        if (attempts <= 3 || attempts % 10 === 0) {
+        // Push-based: SSE wakes us when the coach is ready; this setTimeout
+        // is now purely a safety net (2s) in case SSE is broken/blocked.
+        if (attempts <= 3 || attempts % 30 === 0) {
           console.log("[CoachPlay] Poll attempt", attempts, "- coach still thinking");
         }
-        setTimeout(poll, 1000);
+        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = setTimeout(poll, 2000);
 
       } catch (error) {
         console.error("[CoachPlay] Poll error:", error);
-        setTimeout(poll, 1000);
+        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = setTimeout(poll, 2000);
       }
     };
-    
+
+    // Expose poll fn so the SSE handler can wake it on `coach_turn_ready`.
+    pollFnRef.current = poll;
     poll();
   };
   

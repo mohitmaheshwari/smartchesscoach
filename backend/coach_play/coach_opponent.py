@@ -22,7 +22,10 @@ Skill Level to Rating approximation:
 import chess
 import chess.engine
 import asyncio
+import logging
 from typing import Optional, Tuple
+
+logger = logging.getLogger(__name__)
 from concurrent.futures import ThreadPoolExecutor
 
 STOCKFISH_PATH = "/usr/games/stockfish"
@@ -122,27 +125,44 @@ class CoachOpponent:
             return (0.0, None)
     
     def _get_move_sync(self, fen: str) -> Optional[str]:
-        """Synchronous Stockfish call with skill level"""
+        """Synchronous Stockfish call with skill level.
+
+        Uses the shared warm engine pool (services.engine_pool) — avoids ~200ms
+        of popen_uci spawn cost that was previously paid on every coach turn.
+        Falls back to a fresh popen_uci if the warm engine is unavailable.
+        """
         board = chess.Board(fen)
-        
         if board.is_game_over():
             return None
-        
+
+        # ─── WARM ENGINE PATH (fast — no process spawn) ───
+        try:
+            from services.engine_pool import warm_engine_scope
+            with warm_engine_scope(skill_level=self.skill_level) as engine:
+                result = engine.play(
+                    board,
+                    chess.engine.Limit(time=self.time_limit, depth=self.depth),
+                )
+                if result.move:
+                    return board.san(result.move)
+                return None
+        except chess.engine.EngineTerminatedError:
+            # warm_engine_scope already restarted it; fall through to spawn path
+            pass
+        except Exception as e:
+            logger.debug(f"warm engine path failed for coach move, falling back: {e}")
+
+        # ─── COLD FALLBACK (only if warm engine is broken) ───
         try:
             with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
-                # Set skill level to match user's rating
                 engine.configure({"Skill Level": self.skill_level})
-                
-                # Use time limit for speed
                 result = engine.play(
                     board,
                     chess.engine.Limit(time=self.time_limit, depth=self.depth)
                 )
-                
                 if result.move:
                     return board.san(result.move)
                 return None
-                
         except Exception as e:
             print(f"Stockfish error: {e}")
             return self._get_fallback_move(fen)

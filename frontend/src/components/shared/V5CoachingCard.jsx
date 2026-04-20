@@ -92,10 +92,14 @@ const V5CoachingCard = ({
   }, [coaching?.socratic_question]);
 
   if (!coaching) return null;
-  
+
+  // Coach is deliberately silent (policy layer decided this move isn't worth
+  // interrupting the student for — see backend/services/coaching_policy.py).
+  if (coaching.suppress || coaching.severity === "silent") return null;
+
   const severity = coaching.severity || "context";
   const config = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.context;
-  
+
   const isGoodMove = ["brilliant", "great", "good", "book"].includes(severity);
   const isMistake = ["inaccuracy", "mistake", "blunder"].includes(severity);
   const isOpponentMove = severity === "context";
@@ -539,7 +543,8 @@ export const V5CoachingCardCompact = ({
   onAcknowledge
 }) => {
   if (!coaching) return null;
-  
+  if (coaching.suppress || coaching.severity === "silent") return null;
+
   const severity = coaching.severity || "context";
   const config = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.context;
   const isMistake = ["inaccuracy", "mistake", "blunder"].includes(severity);

@@ -103,6 +103,7 @@ class V5Coaching:
     opening_idea: Optional[str] = None             # Strategic idea if in opening
     checklist_snapshot: Optional[Dict] = None      # All 7 fundamentals pass/fail
     hide_best_move: bool = False                   # Frontend hides best_move when True
+    suppress: bool = False                         # Coach deliberately silent (policy layer said so)
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON response."""
@@ -668,6 +669,9 @@ async def generate_move_coaching(
     opponent_last_move: Optional[chess.Move] = None,
     opening_match: Optional[Any] = None,
     coach_intent: Optional[str] = None,
+    user_rating: int = 1200,
+    active_patterns: Optional[List[str]] = None,
+    verbosity_override: Optional[str] = None,
 ) -> V5Coaching:
     """
     Generate V5 coaching for a move.
@@ -713,7 +717,93 @@ async def generate_move_coaching(
             your_plan_now=your_plan,
             future_moves=pv_after_played[:3] if pv_after_played else None
         )
-    
+
+    # ─── CRITIQUE + POLICY GATE (Phase 3/4/5) ───
+    # Run move through the teaching pipeline BEFORE severity/template branches.
+    # If policy says silent, short-circuit with a suppressed response. Otherwise
+    # fall through to existing branches — they still handle brilliant / tactical
+    # / principle moves. Phase 6 will rewrite those to consume the critique.
+    _critique_decision = None
+    try:
+        if is_user_move and best_move_san:
+            from services.move_critique import classify_move as _classify_move
+            from services.coaching_policy import decide as _decide_policy, StudentContext
+
+            _best_move_obj = None
+            try:
+                _best_move_obj = board_before.parse_san(best_move_san)
+            except Exception:
+                _best_move_obj = None
+
+            if _best_move_obj is not None:
+                _critique = _classify_move(
+                    board_before, move, move_san,
+                    _best_move_obj, best_move_san,
+                    cp_loss=cp_loss,
+                )
+                _student = StudentContext(
+                    rating=user_rating,
+                    verbosity_override=verbosity_override,
+                    active_patterns=active_patterns or [],
+                )
+                _decision = _decide_policy(_critique, _student)
+                _critique_decision = (_critique, _decision)
+                if not _decision.should_speak:
+                    return V5Coaching(
+                        narrative="",
+                        severity="silent",
+                        is_user_move=True,
+                        best_move=best_move_san,
+                        suppress=True,
+                    )
+
+                # Policy says SPEAK. For teaching-worthy deviations, render in
+                # critique voice (principle/pattern language). For large-cp_loss
+                # blunders / mistakes / brilliant moves, fall through to legacy
+                # branches which have richer consequence/PV-aware text.
+                from services.move_critique import DeviationType as _DT
+                from services.coaching_voice import render_critique as _render_critique
+
+                _critique_driven_types = {
+                    _DT.WALKED_INTO, _DT.TACTICAL_MISS, _DT.PRINCIPLE_MISS,
+                    _DT.RIGHT_IDEA_WRONG_SQUARE, _DT.ON_PLAN_NUDGE, _DT.DIRECTIONLESS,
+                }
+                # BEST_MOVE affirmations also get critique voice when policy speaks
+                if _critique.deviation_type in _critique_driven_types or (
+                    _critique.deviation_type == _DT.BEST_MOVE and _decision.should_speak
+                ):
+                    rendered = _render_critique(_critique, _decision)
+                    if rendered and rendered.get("narrative") is not None:
+                        # Build a V5Coaching from the rendered critique. Keep
+                        # candidate moves / PV from the legacy pipeline off this
+                        # path — the teaching voice doesn't restate SAN.
+                        # Severity maps from deviation type for frontend styling.
+                        _severity_map = {
+                            _DT.BEST_MOVE: "good",
+                            _DT.ON_PLAN_NUDGE: "good",
+                            _DT.DIRECTIONLESS: "good",
+                            _DT.RIGHT_IDEA_WRONG_SQUARE: "inaccuracy",
+                            _DT.PRINCIPLE_MISS: "inaccuracy",
+                            _DT.TACTICAL_MISS: "mistake",
+                            _DT.WALKED_INTO: "mistake",
+                        }
+                        _sev = _severity_map.get(_critique.deviation_type, "inaccuracy")
+                        return V5Coaching(
+                            narrative=rendered["narrative"],
+                            severity=_sev,
+                            socratic_question=rendered.get("question"),
+                            socratic_hint=rendered.get("hint"),
+                            fundamental_violated=rendered.get("teaching_focus_key"),
+                            fundamental_label=rendered.get("teaching_focus_label"),
+                            is_user_move=True,
+                            best_move=best_move_san,
+                            hide_best_move=(_critique.deviation_type == _DT.BEST_MOVE),
+                            pattern_memory=rendered.get("pattern_memory"),
+                        )
+    except Exception:
+        # If the pipeline fails, fall through to legacy branches — never block coaching.
+        _critique_decision = None
+
     # ─── BRILLIANT USER MOVE ───
     # Check if the move data contains brilliant/sacrifice flags
     is_sacrifice = False
@@ -821,10 +911,13 @@ async def generate_move_coaching(
                 best_move=best_move_san
             )
         common_move = best_move_san or "another move"
+        # Narrative already names the better move; better_approach would just restate it.
+        # Frontend also renders `best_move` as a header line, so three restatements
+        # of the same SAN is the triple-redundancy bug. Keep the narrative only.
         return V5Coaching(
-            narrative=f"{user_san} is playable, but {common_move} was more accurate.",
+            narrative=f"{user_san} is playable, but {common_move} was sharper.",
             severity="inaccuracy",
-            better_approach=f"{common_move} is the cleaner choice here.",
+            better_approach=None,
             candidate_moves=None,
             is_user_move=True,
             best_move=best_move_san
@@ -1074,12 +1167,12 @@ def generate_piece_specific_coaching(
             )
         common_move = best_move_san or "another move"
         return V5Coaching(
-            narrative=f"{move_san} is playable, but {common_move} was more accurate.",
+            narrative=f"{move_san} is playable, but {common_move} was sharper.",
             severity=severity,
             goal=None,
             current_problem=None,
             consequence=None,
-            better_approach=f"{common_move} is the cleaner choice here.",
+            better_approach=None,  # narrative already names the better move
             transferable_learning=transferable_learning,
             concept_id="common_alternative",
             concept_type="general",

@@ -115,8 +115,9 @@ class CoachCommentary:
         """
         board = chess.Board(fen)
         
-        # Get Stockfish analysis
-        evaluation, mate_in, best_moves = await self._stockfish_analyze(fen, depth=15, multipv=3)
+        # Get Stockfish analysis — depth 12 is enough for teaching evaluation
+        # at rating bands 600-1800. Each extra depth ply roughly doubles cost.
+        evaluation, mate_in, best_moves = await self._stockfish_analyze(fen, depth=12, multipv=3)
         
         # Get opening info (with caching and rate limiting)
         opening_name, opening_eco = await self._get_opening_info(fen)
@@ -153,8 +154,9 @@ class CoachCommentary:
         """
         board_before = chess.Board(fen_before)
         
-        # Get analysis of position before the move
-        eval_before, _, best_moves_before = await self._stockfish_analyze(fen_before, depth=15, multipv=3)
+        # Get analysis of position before the move — depth 12 matches post-move
+        # depth below; going deeper here was inconsistent and slow.
+        eval_before, _, best_moves_before = await self._stockfish_analyze(fen_before, depth=12, multipv=3)
         
         # Get evaluation after the move
         eval_after, mate_after, _ = await self._stockfish_analyze(fen_after, depth=12, multipv=1)

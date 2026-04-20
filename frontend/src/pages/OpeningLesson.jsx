@@ -91,6 +91,33 @@ const OpeningLesson = () => {
     };
     fetchLesson();
   }, [openingKey, navigate, selectedVariation]);
+
+  // Ping Engine 2 once per page visit to register "seen" on the matching
+  // opening skill (if the tree has one). Fire-and-forget — don't block UI.
+  // Also ticks the trap_set skill for this opening (same content_ref slug).
+  useEffect(() => {
+    if (!openingKey) return;
+    const engine2Candidates = [
+      `opening_${openingKey}_white`,
+      `opening_${openingKey}_black`,
+      `opening_${openingKey}`,
+      `trap_set_${openingKey}`,
+    ];
+    (async () => {
+      for (const skillId of engine2Candidates) {
+        try {
+          await fetch(`${API}/engine2/skill-seen`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ skill_id: skillId }),
+          });
+        } catch {
+          // non-fatal — skill might not be in the tree, that's OK
+        }
+      }
+    })();
+  }, [openingKey]);
   
   // Initialize board
   useEffect(() => {

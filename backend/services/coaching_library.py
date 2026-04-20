@@ -42,6 +42,15 @@ COACH_MOVE = {
         {"explanation": "I played {move}. In the {opening}, the center is where the fight starts.", "question": "Do you have a pawn in the center?", "hint": "If not, think about how to get one there."},
     ],
 
+    "opening_pawn_flank": [
+        {"explanation": "I played {move} — a quiet flank pawn move. Usually to make space for a piece or stop one of yours.", "question": "What did that pawn move actually change?", "hint": "Flank pawns rarely create threats by themselves. Focus on developing your pieces."},
+        {"explanation": "{move} — a small pawn nudge on the edge. It doesn't fight for the center, so I'm using the turn for something small.", "question": "Is this a moment for you to grab more of the center?", "hint": "When your opponent plays on the wing, answer in the middle."},
+    ],
+
+    "opening_pawn_support": [
+        {"explanation": "I played {move} to support my setup. Not flashy, but it makes my position sturdier.", "question": "Is your position solid right now, or are there weak squares?", "hint": "Sometimes the best move is a quiet one that fixes a small problem."},
+    ],
+
     "opening_castle": [
         {"explanation": "I castled. My king is safe now and my rook can join the fight.", "question": "Have you castled yet?", "hint": "If your king is still in the center, it's time to fix that."},
         {"explanation": "King is tucked away, rook is connected. That's what castling does.", "question": "Is your king safe right now?", "hint": "Castling is usually the most important thing to do in the first 10 moves."},
@@ -258,10 +267,14 @@ def match_coach_scenario(
     opening_detected: bool = False,
     has_target: bool = False,
     target_piece: Optional[str] = None,
+    move_category: Optional[str] = None,
 ) -> Optional[str]:
     """
     Map v2 intent + context to a library scenario key.
     Returns the key or None if no match.
+
+    move_category (when passed) is the PositionFacts MoveCategory value and
+    refines pawn routing so a flank push like a3 doesn't get center-push text.
     """
     # Opening phase — only use opening templates when actually IN the opening,
     # not just because an opening was detected at the start of the game.
@@ -273,7 +286,15 @@ def match_coach_scenario(
         if piece == "bishop":
             return "opening_develop_bishop"
         if piece == "pawn":
-            return "opening_pawn_center"
+            # Use move_category to route precisely — old path blindly returned center.
+            if move_category in ("central_pawn_push", "extended_center_pawn"):
+                return "opening_pawn_center"
+            if move_category == "flank_pawn_push":
+                return "opening_pawn_flank"
+            if move_category == "bishop_pawn_push":
+                return "opening_pawn_support"
+            # No category info — fall back to generic, not center.
+            return "opening_pawn_support"
         return "opening_generic"
 
     # Middlegame/endgame with intent

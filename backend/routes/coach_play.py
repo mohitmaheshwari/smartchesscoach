@@ -84,6 +84,46 @@ db = None
 call_llm = None
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SSE (Server-Sent Events) — per-session event queues for push notifications.
+# Replaces the 1s polling loop on /move-feedback with real push.
+# Any background worker that wants to notify the frontend calls
+# `publish_session_event(session_id, {...})`.
+# ─────────────────────────────────────────────────────────────────────────────
+import asyncio as _asyncio
+from fastapi.responses import StreamingResponse as _StreamingResponse
+
+_session_queues: Dict[str, _asyncio.Queue] = {}
+_session_queue_refcount: Dict[str, int] = {}
+
+
+def _get_session_queue(session_id: str) -> _asyncio.Queue:
+    q = _session_queues.get(session_id)
+    if q is None:
+        q = _asyncio.Queue()
+        _session_queues[session_id] = q
+    return q
+
+
+def publish_session_event(session_id: str, event: Dict) -> None:
+    """Non-blocking push. Safe to call from background tasks.
+    If no subscriber is connected yet, the event still queues (bounded memory
+    since we cap queue size below). Subscribers drain on connect."""
+    if not session_id:
+        return
+    try:
+        q = _get_session_queue(session_id)
+        # Drop oldest if somehow runaway — keeps memory bounded without blocking.
+        if q.qsize() > 200:
+            try:
+                q.get_nowait()
+            except Exception:
+                pass
+        q.put_nowait(event)
+    except Exception as _e:
+        logger.debug(f"publish_session_event failed: {_e}")
+
+
 def set_db(database):
     """Set the database reference for coach play routes"""
     global db
@@ -733,6 +773,68 @@ async def get_coach_play_state(
     return state
 
 
+@router.get("/events/{session_id}")
+async def coach_play_events(
+    session_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Server-Sent Events stream for a Play with Coach session.
+
+    Frontend opens a single EventSource at game start; backend pushes notifications
+    like `coach_moved`, `coach_message`, `game_over`. Replaces the 1s polling loop.
+
+    Events emitted (see `publish_session_event` callers):
+      - `connected`  — sent once on subscribe
+      - `coach_turn_ready` — coach has finished thinking; client should fetch state
+      - `coach_message` — a new coaching message was stored
+      - `game_over` — game ended
+
+    Nginx must proxy this route with `proxy_buffering off` (otherwise events
+    are batched until the connection closes — defeats the purpose).
+    """
+    # Authorize: session must belong to this user
+    session_doc = await db.coach_sessions.find_one(
+        {"session_id": session_id}, {"_id": 0, "user_id": 1}
+    )
+    if not session_doc or session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    _session_queue_refcount[session_id] = _session_queue_refcount.get(session_id, 0) + 1
+
+    async def event_generator():
+        q = _get_session_queue(session_id)
+        try:
+            yield f"event: connected\ndata: {json.dumps({'session_id': session_id})}\n\n"
+            while True:
+                try:
+                    # Heartbeat every 15s — keeps intermediaries (Nginx, CDNs) alive.
+                    evt = await _asyncio.wait_for(q.get(), timeout=15.0)
+                    yield f"data: {json.dumps(evt)}\n\n"
+                    if evt.get("type") == "game_over":
+                        break
+                except _asyncio.TimeoutError:
+                    yield ": ping\n\n"
+        except _asyncio.CancelledError:
+            return
+        finally:
+            # Drop the queue when last subscriber disconnects
+            remaining = _session_queue_refcount.get(session_id, 1) - 1
+            if remaining <= 0:
+                _session_queue_refcount.pop(session_id, None)
+                _session_queues.pop(session_id, None)
+            else:
+                _session_queue_refcount[session_id] = remaining
+
+    return _StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # also tells Nginx to disable buffering
+        },
+    )
+
+
 @router.get("/move-feedback/{session_id}")
 async def get_coach_play_move_feedback(
     session_id: str,
@@ -740,7 +842,7 @@ async def get_coach_play_move_feedback(
 ):
     """
     Get comprehensive coaching feedback for the last move made.
-    
+
     This is the key endpoint for real-time teaching - returns:
     - Assessment of user's move quality
     - Best move explanation
@@ -1560,17 +1662,49 @@ async def dismiss_trap_warning(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
-    # Record trap attempt in skill progress
-    # "I understand" = 1 correct; still requires full 5 seen / 3 correct before
-    # it's actually marked as learned. Student claims to know it — we trust
-    # but verify: if they fall for it later, the outcomes show "wrong" and
-    # it won't be in the learned list.
+    # Record trap attempt in skill progress.
+    #
+    # "I understand" records:
+    #   1. The individual trap (by trap_id) — old behavior, individual tracking
+    #   2. The matching Engine 2 trap_set skill (if any) — so the set graduates
+    #
+    # trap_set graduates on 1 seen + 1 correct, so one "I understand" click
+    # on any trap in the set counts as both the seen AND correct signal.
     try:
         from services.coach_memory import (
             get_or_create_memory, record_skill_attempt, _memory_to_doc
         )
         memory = await get_or_create_memory(db, user.user_id)
+
+        # (1) individual trap
         record_skill_attempt(memory, trap_id, "trap", "correct")
+
+        # (2) trap_set at the Engine 2 level — look up which set this trap belongs to.
+        # trap_id is the opening key (e.g. "italian-game", from TRAP_LIBRARY), or it might
+        # be a trap name. We match against the tree's trap_set nodes by content_ref.
+        try:
+            from services.engine2_skill_builder import list_skills_by_kind, get_skill_node
+            session_doc = session_doc or await db.coach_sessions.find_one({"session_id": session_id})
+            opening_key = (session_doc or {}).get("detected_opening") or (session_doc or {}).get("opening_to_teach")
+            # Normalize to hyphen-style used by TRAP_LIBRARY (italian-game not italian_game)
+            candidates = {
+                (opening_key or "").replace("_", "-"),
+                (opening_key or "").replace("-", "_"),
+                trap_id.split(":")[0] if ":" in trap_id else None,
+                trap_id,
+            }
+            matched_set_skill = None
+            for sid in list_skills_by_kind("trap_set"):
+                node = get_skill_node(sid) or {}
+                if node.get("content_ref") in candidates:
+                    matched_set_skill = sid
+                    break
+            if matched_set_skill:
+                record_skill_attempt(memory, matched_set_skill, "trap_set", "correct")
+                logger.info(f"[TRAP] matched trap_set skill {matched_set_skill} — recorded correct")
+        except Exception as _e2:
+            logger.debug(f"[TRAP] trap_set lookup non-fatal: {_e2}")
+
         await db.coach_memory.update_one(
             {"user_id": user.user_id},
             {"$set": _memory_to_doc(memory)},
@@ -2148,9 +2282,10 @@ async def get_v5_coaching_feedback(
             phase=phase,
             is_user_move=is_user_move,
             context=context,
-            user_color=user_color
+            user_color=user_color,
+            user_rating=request.get("user_rating", 1200),
         )
-        
+
         return coaching.to_dict()
         
     except ValueError as e:
@@ -2307,6 +2442,7 @@ async def get_interactive_coaching(
                 opponent_last_move=opp_last_move,
                 opening_match=opening_match,
                 coach_intent=_coach_intent,
+                user_rating=session_doc.get("user_rating", 1200),
             )
 
             coaching_dict = coaching.to_dict()
@@ -3030,7 +3166,8 @@ async def get_v5_session_moves_coaching(
                         phase=phase,
                         is_user_move=is_user_move,
                         context=context,
-                        user_color=user_color
+                        user_color=user_color,
+                        user_rating=session_doc.get("user_rating", 1200),
                     )
                     
                     board.push(move)
@@ -5708,6 +5845,13 @@ async def make_coach_play_move(
             elif board.is_stalemate() or board.is_insufficient_material():
                 result = "draw"
         
+        # If the user's own move ends the game, no coach turn — push now.
+        if game_over:
+            publish_session_event(session_id, {
+                "type": "game_over",
+                "result": result,
+            })
+
         # Fire background task: analyze → message → coach move
         asyncio.create_task(
             _process_move_and_respond(
@@ -5934,6 +6078,18 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
             {"$set": update}
         )
         logger.info(f"[COACH MOVE] {coach_move_san} applied to {session_id}")
+
+        # Push: coach turn is ready. Frontend fetches /move-feedback on this signal.
+        publish_session_event(session_id, {
+            "type": "coach_turn_ready",
+            "move": coach_move_san,
+            "fen": fen_after,
+        })
+        if update.get("status") == "completed":
+            publish_session_event(session_id, {
+                "type": "game_over",
+                "result": update.get("result"),
+            })
         return True
 
     except Exception as e:
@@ -5942,6 +6098,8 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
             {"session_id": session_id},
             {"$set": {"coach_move_pending": False}}
         )
+        # Still notify the frontend so it doesn't hang — failure signal.
+        publish_session_event(session_id, {"type": "coach_turn_failed"})
         return False
 
 

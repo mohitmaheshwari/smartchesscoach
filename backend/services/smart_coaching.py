@@ -102,6 +102,22 @@ async def generate_smart_coach_explanation(
     board_after.push(move)
     phase = _get_phase(board_after)
 
+    # ─── POSITION FACTS (single source of truth for this move) ───
+    from services.position_facts import extract_facts
+    _move_history_san = []
+    if move_history:
+        for entry in move_history:
+            m = entry.get("move") if isinstance(entry, dict) else str(entry)
+            if m:
+                _move_history_san.append(m)
+    # Include the move being explained so opening detection sees it
+    _move_history_san.append(move_san)
+    facts = extract_facts(
+        board_before, move, move_san,
+        board_after=board_after,
+        move_history_san=_move_history_san,
+    )
+
     # ─── OPENING DETECTION (move < 10) ───
     # In the opening, coaching should be about the OPENING, not v2 intents
     move_number = board_after.fullmove_number
@@ -329,13 +345,17 @@ async def generate_smart_coach_explanation(
             opening_detected=bool(opening_info_detected),
             has_target=bool(target_piece_name),
             target_piece=target_piece_name,
+            move_category=facts.move_category.value,
         )
         if lib_key:
-            opening_name_str = ""
-            if opening_info_detected:
-                opening_name_str = opening_info_detected.get("opening_name", opening_name or "")
-            elif opening_name:
-                opening_name_str = opening_name
+            # Prefer the pretty name from PositionFacts (e.g. "King's Pawn Opening"),
+            # then the detected dict, then the param, never the raw slug.
+            opening_name_str = (
+                facts.opening_name
+                or (opening_info_detected.get("opening_name") if opening_info_detected else None)
+                or (opening_name if opening_name and "_" not in opening_name else None)
+                or ""
+            )
 
             lib_text = get_coach_move_text(
                 lib_key,
@@ -410,8 +430,11 @@ async def generate_smart_coach_explanation(
 
     facts_lines.append(f"Game phase: {phase}")
 
-    if opening_name and not opening_info_detected:
-        facts_lines.append(f"Opening: {opening_name}")
+    if not opening_info_detected:
+        # Prefer the pretty name from PositionFacts; never leak a snake_case slug.
+        _safe_opening = facts.opening_name or (opening_name if opening_name and "_" not in opening_name else None)
+        if _safe_opening:
+            facts_lines.append(f"Opening: {_safe_opening}")
 
     if player_weaknesses:
         facts_lines.append(f"Student struggles with: {', '.join(player_weaknesses)}")
