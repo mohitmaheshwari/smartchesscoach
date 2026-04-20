@@ -8,7 +8,6 @@ import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
 import CoachHome from "@/pages/CoachHome";
 import HomePage from "@/pages/HomePage";  // NEW focused homepage
-import Today from "@/pages/Today";  // Concierge-style single-screen coach
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import AllGames from "@/pages/AllGames";
@@ -220,11 +219,8 @@ function AppRouter() {
           {({ user }) => <HomePage user={user} />}
         </ProtectedRoute>
       } />
-      <Route path="/today" element={
-        <ProtectedRoute>
-          {({ user }) => <Today user={user} />}
-        </ProtectedRoute>
-      } />
+      {/* /today is now an alias for /home — one landing page */}
+      <Route path="/today" element={<Navigate to="/home" replace />} />
       <Route path="/lab" element={
         <ProtectedRoute>
           {({ user }) => <Dashboard user={user} />}

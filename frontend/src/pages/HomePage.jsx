@@ -1,12 +1,11 @@
 /**
  * HOME — "Opening a text from your coach."
  *
- * Personal, specific, forward-looking.
- * 1. Greeting with relationship context
- * 2. Last session recap (what happened)
- * 3. Current problem (what's holding you back)
- * 4. Today's plan (what to do next)
- * 5. One clear CTA
+ * One landing page. The hero is TodayHero (the coach's single prescription).
+ * Below it, lightweight secondary anchors: a brief last-game line, a link
+ * to all games, a link to progress. No competing cards, no menu.
+ *
+ * New users (no games yet) see a warm welcome + connect/play CTAs instead.
  */
 
 import { useState, useEffect } from "react";
@@ -14,70 +13,34 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import TodayHero from "@/components/TodayHero";
 import {
-  ChevronRight, Swords, Target, Brain, Import,
-  TrendingUp, Trophy, XCircle, Minus, BookOpen, Zap, Flame,
+  ChevronRight, Swords, Brain, Import, TrendingUp, History,
 } from "lucide-react";
-import LichessBoard from "@/components/LichessBoard";
 
-const PROBLEM_HEADLINES = {
-  tactical_miss: "You are missing tactics that are right in front of you.",
-  one_move_blunder: "You are giving away pieces for free.",
-  calculation_error: "You are losing games because you stop thinking too early.",
-  calculation_depth: "You are losing games because you stop thinking too early.",
-  positional: "You are being outplayed. Your pieces have no plan.",
-  endgame_collapse: "You reach endgames you should win. You don't finish them.",
-  opening_disaster: "Your games are lost before they start.",
-  time_collapse: "You are losing on the clock, not on the board.",
-  threw_winning: "You are throwing winning positions.",
-  piece_safety: "You are giving away pieces for free.",
-  ignore_threat: "You are not looking at what your opponent is doing.",
-  missed_tactic: "You are missing simple winning chances.",
-  king_safety: "You are leaving your king exposed.",
-  conversion: "You get the advantage. Then you give it back.",
-};
-
-const PROBLEM_RULES = {
-  tactical_miss: "Before every move — check captures, checks, and threats.",
-  one_move_blunder: "Before every move — is anything I own under attack?",
-  calculation_error: "Before every move — what will they do next?",
-  calculation_depth: "Before every move — what will they do next?",
-  positional: "Before every move — which piece is doing the least?",
-  endgame_collapse: "In the endgame — activate your king first.",
-  opening_disaster: "First 10 moves — develop, control center, castle.",
-  time_collapse: "Under 2 minutes — play the simplest move.",
-  threw_winning: "When ahead — trade pieces, not pawns.",
-  piece_safety: "Before every move — is anything I own under attack?",
-  ignore_threat: "Before every move — what is my opponent attacking?",
-  missed_tactic: "Before every move — is there a tactic here?",
-  king_safety: "Before you attack — is my king safe?",
-  conversion: "When ahead — simplify. Don't get creative.",
-};
 
 const HomePage = ({ user }) => {
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+  const [lastSession, setLastSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasGames, setHasGames] = useState(false);
-  const [proof, setProof] = useState(null);
+  const [coachGamesPlayed, setCoachGamesPlayed] = useState(0);
 
   useEffect(() => {
     (async () => {
       try {
-        const [homeRes, dashRes, proofRes] = await Promise.all([
+        const [homeRes, dashRes] = await Promise.all([
           fetch(`${API}/home/coach-home`, { credentials: "include" }),
           fetch(`${API}/home/dashboard-v2`, { credentials: "include" }),
-          fetch(`${API}/progress/improvement-proof`, { credentials: "include" }),
         ]);
-        if (homeRes.ok) setData(await homeRes.json());
+        if (homeRes.ok) {
+          const d = await homeRes.json();
+          setLastSession(d?.last_session || null);
+          setCoachGamesPlayed(d?.greeting?.games_together || 0);
+        }
         if (dashRes.ok) {
           const d = await dashRes.json();
           if (d.games_analyzed > 0 || d.games_imported > 0) setHasGames(true);
-        }
-        if (proofRes.ok) {
-          const proofData = await proofRes.json();
-          console.log("[Home] Improvement proof:", proofData?.has_data, "primary:", proofData?.primary_pattern?.label, "reduction:", proofData?.primary_pattern?.reduction_pct);
-          setProof(proofData);
         }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
@@ -94,16 +57,13 @@ const HomePage = ({ user }) => {
     );
   }
 
-  // New user onboarding — no games, no sessions
-  const coachGamesPlayed = data?.greeting?.games_together || 0;
-
-  if (!hasGames && !data?.last_session) {
+  // ─── New user — no games yet ───────────────────────────────────
+  if (!hasGames && !lastSession) {
     return (
       <Layout user={user}>
         <div className="max-w-md mx-auto px-6 py-10" data-testid="home-page">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
-            {/* Welcome */}
             <div className="text-center">
               <div className="w-14 h-14 rounded-2xl gradient-gold flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/20">
                 <Brain className="w-6 h-6 text-black" strokeWidth={2} />
@@ -116,7 +76,6 @@ const HomePage = ({ user }) => {
               </p>
             </div>
 
-            {/* Step indicator */}
             <div className="flex items-center justify-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${coachGamesPlayed >= 1 ? "bg-emerald-500" : "bg-primary"}`} />
               <div className={`w-2.5 h-2.5 rounded-full ${coachGamesPlayed >= 2 ? "bg-emerald-500" : "bg-muted"}`} />
@@ -128,23 +87,20 @@ const HomePage = ({ user }) => {
               </span>
             </div>
 
-            {/* Main CTA — Play with Coach */}
             <div className="rounded-2xl border-2 border-primary/20 bg-primary/[0.03] p-5">
               <h2 className="text-base font-semibold text-foreground mb-2">
                 {coachGamesPlayed === 0
                   ? "Play a game with me"
                   : coachGamesPlayed < 3
                     ? "Keep going — I'm learning how you think"
-                    : "I know your game now"
-                }
+                    : "I know your game now"}
               </h2>
               <p className="text-sm text-muted-foreground mb-4">
                 {coachGamesPlayed === 0
                   ? "I'll watch how you play and tell you what I see. No preparation needed — just play your natural game."
                   : coachGamesPlayed < 3
-                    ? `After ${3 - coachGamesPlayed} more game${3 - coachGamesPlayed > 1 ? "s" : ""}, I'll have your full profile — strengths, weaknesses, and a plan to improve.`
-                    : "Your profile is ready. Let's keep improving."
-                }
+                    ? `After ${3 - coachGamesPlayed} more game${3 - coachGamesPlayed > 1 ? "s" : ""}, I'll have your full profile.`
+                    : "Your profile is ready. Let's keep improving."}
               </p>
               <button onClick={() => navigate("/play-with-coach")}
                 className="w-full py-4 text-[15px] font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
@@ -155,11 +111,10 @@ const HomePage = ({ user }) => {
               </button>
             </div>
 
-            {/* Already have an account? */}
             <div className="rounded-2xl border border-border bg-card p-4">
               <p className="text-sm text-foreground mb-3">Already play on Chess.com or Lichess?</p>
               <p className="text-xs text-muted-foreground mb-3">
-                Connect your account and I'll analyze your existing games. Instant profile — no games with me needed.
+                Connect your account and I'll analyze your existing games. Instant profile.
               </p>
               <button onClick={() => navigate("/import")}
                 className="w-full py-2.5 text-sm border border-border text-foreground rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
@@ -175,365 +130,47 @@ const HomePage = ({ user }) => {
     );
   }
 
-  const greeting = data?.greeting || {};
-  const lastSession = data?.last_session;
-  const problem = data?.problem;
-  const plan = data?.todays_plan || {};
-  const warmup = data?.warmup;
-  const focusPlan = data?.focus_plan;
-  const activeFocus = data?.active_focus || null;
-  const learnNext = data?.learn_next || null;
-
-  // Determine the page mood — ONE message, not contradictory signals
-  // 1. Last game clean + improving → celebrate
-  // 2. Last game bad / focus violated → confront
-  // 3. No recent data → neutral, just plan
-  const lastGameWasGood = lastSession?.result === "win" || (lastSession?.accuracy >= 75 && lastSession?.total_moves >= 15);
-  const hasImprovement = proof?.has_data && (proof?.primary_pattern?.reduction_pct > 15 || proof?.streaks?.no_big_mistake_games >= 3);
-  const mood = lastGameWasGood && hasImprovement ? "celebrating"
-    : lastGameWasGood ? "encouraging"
-    : problem?.category ? "confronting"
-    : "neutral";
-
-  // Extract a reasonable display name from email
-  const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
-  // Split on dots, underscores, or camelCase boundaries to get first name
-  const nameParts = rawName.split(/[._-]/).filter(Boolean);
-  const firstName = nameParts[0] || "";
-  const displayName = firstName.length <= 12
-    ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
-    : "";
-
+  // ─── Returning user — TodayHero + lightweight anchors ─────────────
   return (
     <Layout user={user}>
-      <div className="max-w-md mx-auto px-6 py-8" data-testid="home-page">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="space-y-6"
-        >
+      <div className="max-w-md mx-auto px-6 py-10" data-testid="home-page">
+        {/* Hero — the one prescription */}
+        <TodayHero />
 
-          {/* ─── GREETING ─── */}
-          <div>
-            <h1 className="text-2xl font-heading text-foreground tracking-tight">
-              {displayName ? `Hey ${displayName}.` : "Welcome back."}
-            </h1>
-          </div>
+        {/* Divider */}
+        <div className="border-t border-border/50 mt-10 pt-6 space-y-4">
 
-          {/* ═══ MOOD: CELEBRATING — last game good + improving ═══ */}
-          {mood === "celebrating" && (
-            <>
-              {/* Improvement proof */}
-              {proof?.primary_pattern?.reduction_pct > 0 && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-                  className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/[0.03] p-4"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                    <span className="text-sm font-semibold text-foreground">
-                      {proof.primary_pattern.reduction_pct}% fewer {proof.primary_pattern.label.toLowerCase()} mistakes
-                    </span>
-                  </div>
-                  {proof.before_after?.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-muted-foreground mb-2">{proof.before_after[0].message}</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <p className="text-[9px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Before</p>
-                          <div className="rounded-lg overflow-hidden border border-red-500/20">
-                            <LichessBoard fen={proof.before_after[0].old_fen} viewOnly={true} width={150} />
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[9px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
-                          <div className="rounded-lg overflow-hidden border border-emerald-500/20">
-                            <LichessBoard fen={proof.before_after[0].new_fen} viewOnly={true} width={150} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-xs text-foreground/60 mt-3">This used to happen every game. Now it doesn't.</p>
-                </motion.div>
-              )}
-
-              {/* Last session — brief, positive */}
-              {lastSession && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-                  className="rounded-2xl border border-emerald-500/15 bg-card p-4"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Trophy className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Last session</span>
-                  </div>
-                  <p className="text-sm text-foreground">{lastSession.story}</p>
-                </motion.div>
-              )}
-            </>
+          {/* Last session — small, quiet */}
+          {lastSession?.story && (
+            <div className="text-[12px] text-muted-foreground leading-relaxed">
+              <span className="uppercase tracking-widest text-muted-foreground/50 text-[10px] font-bold">
+                Last session ·
+              </span>{" "}
+              {lastSession.story}
+            </div>
           )}
 
-          {/* ═══ MOOD: ENCOURAGING — last game good, no strong improvement data ═══ */}
-          {mood === "encouraging" && lastSession && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-              className="rounded-2xl border border-emerald-500/15 bg-card p-4"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Trophy className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Last session</span>
-              </div>
-              <p className="text-sm text-foreground">{lastSession.story}</p>
-              {lastSession.accuracy > 0 && lastSession.total_moves >= 15 && (
-                <p className="text-xs text-muted-foreground mt-1.5">{lastSession.total_moves} moves · {lastSession.accuracy}% accuracy</p>
-              )}
-            </motion.div>
-          )}
-
-          {/* ═══ MOOD: CONFRONTING — brief last-session line only ═══ */}
-          {mood === "confronting" && lastSession && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-              className="rounded-2xl border border-border bg-card p-3"
-            >
-              <div className="flex items-center gap-2">
-                <XCircle className="w-3.5 h-3.5 text-red-400" strokeWidth={2} />
-                <p className="text-xs text-muted-foreground">{lastSession.story}</p>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ═══ MOOD: NEUTRAL — plain last-session ═══ */}
-          {mood === "neutral" && lastSession && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              <p className="text-sm text-foreground">{lastSession.story}</p>
-            </motion.div>
-          )}
-
-          {/* ─── FIX THIS ─── unified card: activeFocus headline + reason + rule + streak dots */}
-          {(activeFocus?.focus || problem?.category) && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-primary" strokeWidth={2} />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Fix this</span>
-              </div>
-
-              {/* Headline — prefer the brain's label, fall back to aggregate */}
-              <p className="text-[15px] text-foreground font-medium leading-snug mb-2">
-                {activeFocus?.label
-                  || PROBLEM_HEADLINES[problem?.category]
-                  || `Your ${problem?.category?.replace(/_/g, " ")} needs work.`}
-              </p>
-
-              {/* Reason line */}
-              {(activeFocus?.reason || (problem?.count >= 2)) && (
-                <p className="text-sm text-muted-foreground mb-3">
-                  {activeFocus?.reason
-                    || (problem?.trending_better
-                      ? `This happened in ${problem.count} games. But it's getting less frequent.`
-                      : problem?.count >= 7
-                        ? "This is happening in almost every game."
-                        : `This happened in ${problem?.count} of your recent games.`)
-                  }
-                </p>
-              )}
-
-              {/* Rule — the actionable one-liner */}
-              <div className="py-3 px-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/10 mb-3">
-                <p className="text-sm text-foreground font-medium">
-                  {focusPlan?.short_rule
-                    || focusPlan?.rule
-                    || PROBLEM_RULES[activeFocus?.category || problem?.category]
-                    || "Think before you move."}
-                </p>
-              </div>
-
-              {/* Streak dots — progress toward graduating this focus */}
-              {focusPlan && focusPlan.games_played > 0 && (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    {Array.from({ length: focusPlan.games_target }).map((_, i) => {
-                      const r = focusPlan.game_results?.[i];
-                      return (
-                        <div key={i} className={`w-3 h-3 rounded-full border ${
-                          !r ? "border-border" : r.clean ? "border-emerald-500 bg-emerald-500" : "border-red-400 bg-red-400"
-                        }`} />
-                      );
-                    })}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {focusPlan.clean_count}/{focusPlan.clean_threshold} clean games
-                  </span>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── ENGINE 2: LEARN NEXT (forward-looking skill) ─── */}
-          {learnNext && (() => {
-            // Every skill in the tree needs a concrete destination — otherwise
-            // the card is just info with no next step. Map skill_id → action.
-            // Skills that need live game context go to Play with Coach;
-            // pattern-based skills go to prescribed puzzles with a real gap.
-            const SKILL_DEST = {
-              pre_move_check:    { label: "Play a slow game with Coach",        to: `/play-with-coach?focus=${learnNext.skill_id}` },
-              hanging_piece:     { label: "Solve piece-safety puzzles",          to: `/training/prescribed?weakness=piece_safety` },
-              opponent_threat:   { label: "Solve threat-detection puzzles",      to: `/training/prescribed?weakness=tactical_oversight` },
-              king_safety:       { label: "Solve king-safety puzzles",           to: `/training/prescribed?weakness=king_safety` },
-              simple_mates:      { label: "Practice basic mates",                to: `/training/prescribed?weakness=endgame_technique` },
-              free_piece_capture: { label: "Solve winning-capture puzzles",      to: `/training/prescribed?weakness=missed_tactic` },
-              basic_trade:       { label: "Play with Coach — practice trades",   to: `/play-with-coach?focus=${learnNext.skill_id}` },
-              fork:              { label: "Solve fork puzzles",                  to: `/training/prescribed?weakness=missed_tactic` },
-              pin:               { label: "Solve pin puzzles",                   to: `/training/prescribed?weakness=missed_tactic` },
-              conversion:        { label: "Play with Coach — finish a win",     to: `/play-with-coach?focus=${learnNext.skill_id}` },
-              opening_principles: { label: "Open the opening lessons",           to: `/openings` },
-              king_pawn_endgame: { label: "Solve endgame puzzles",               to: `/training/prescribed?weakness=endgame_technique` },
-            };
-            const dest = SKILL_DEST[learnNext.skill_id] || {
-              label: "Start working on this",
-              to: `/training/prescribed?weakness=current`,
-            };
-            return (
-              <motion.button
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.19 }}
-                onClick={() => navigate(dest.to)}
-                className="w-full text-left rounded-2xl border border-border bg-card p-4 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02] transition-all group"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Learn next</span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
-                    Tier {learnNext.tier}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-foreground mb-1">{learnNext.label}</p>
-                <p className="text-xs text-muted-foreground">{learnNext.reason}</p>
-                {learnNext.stats?.seen > 0 && (
-                  <p className="text-[10px] text-muted-foreground/60 mt-2">
-                    {learnNext.stats.correct}/{learnNext.stats.seen} correct · {learnNext.stats.failed} failed
-                  </p>
-                )}
-                {/* Action row — makes the card obviously clickable */}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
-                  <span className="text-xs font-medium text-emerald-500/80 group-hover:text-emerald-500 transition-colors">
-                    {dest.label}
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-emerald-500/60 group-hover:translate-x-0.5 transition-transform" strokeWidth={2} />
-                </div>
-              </motion.button>
-            );
-          })()}
-
-          {/* ─── TODAY'S PLAN ─── */}
-          {plan.opening && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="rounded-2xl border-2 border-primary/20 bg-primary/[0.03] p-4"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <BookOpen className="w-4 h-4 text-primary" strokeWidth={2} />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-primary">
-                  Today's session
-                </span>
-              </div>
-              <p className="text-sm text-foreground leading-relaxed mb-1">
-                Play the <span className="font-semibold">{plan.opening}</span>
-                {plan.branch && <> — <span className="font-semibold">{plan.branch}</span></>}
-                .
-              </p>
-              {plan.reason
-                && !(plan.branch && plan.reason.includes(plan.branch))
-                && !(plan.opening && plan.reason.includes(plan.opening)
-                     && plan.reason.split(" ").length < 12) && (
-                <p className="text-xs text-muted-foreground">{plan.reason}</p>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── MAIN CTA — after loss: train first. after win: play. ─── */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="space-y-3"
-          >
-            {/* After a loss: training is the PRIMARY action */}
-            {mood === "confronting" && (activeFocus?.focus || problem?.category) && (
-              <button
-                onClick={() => {
-                  const patternMap = {
-                    threw_winning: "calculation_depth", tactical_miss: "tactical_oversight",
-                    one_move_blunder: "piece_safety", calculation_error: "calculation_depth",
-                    time_collapse: "calculation_depth", opening_disaster: "piece_safety",
-                    endgame_collapse: "endgame_technique", positional: "calculation_depth",
-                  };
-                  // Prefer the coach's active focus; fall back to aggregated category.
-                  const pattern = activeFocus?.gap
-                    || patternMap[problem?.category]
-                    || problem?.category
-                    || "current";
-                  navigate(`/training/prescribed?weakness=${pattern}`);
-                }}
-                className="w-full py-4 text-[15px] font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                data-testid="train-cta"
-              >
-                <Target className="w-4 h-4" strokeWidth={2} />
-                {activeFocus?.label || "Fix this first"} — 3 min
-                <ChevronRight className="w-4 h-4 opacity-60" />
-              </button>
-            )}
-
-            {/* Play with Coach — primary after win, secondary after loss */}
+          {/* Quiet text links — no competing cards */}
+          <div className="flex flex-col gap-1 pt-2">
             <button
-              onClick={() => {
-                const opening = plan.opening || "";
-                const focus = activeFocus?.focus || problem?.category || "";
-                const params = new URLSearchParams();
-                if (opening) params.set("opening", opening);
-                if (focus) params.set("focus", focus);
-                navigate(`/play-with-coach${params.toString() ? `?${params}` : ""}`);
-              }}
-              className={`w-full py-4 text-[15px] font-semibold rounded-xl flex items-center justify-center gap-2 ${
-                mood === "confronting"
-                  ? "border border-border text-foreground hover:bg-muted/50 transition-all"
-                  : "gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20"
-              }`}
-              data-testid="coach-cta"
+              onClick={() => navigate("/games")}
+              className="text-left text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 py-1"
             >
-              <Swords className="w-4 h-4" strokeWidth={2} />
-              {plan.opening
-                ? `Play ${plan.opening}${plan.branch ? ` — ${plan.branch}` : ""}`
-                : "Play with Coach"
-              }
-              <ChevronRight className="w-4 h-4 opacity-60" />
+              <History className="w-3 h-3" />
+              See all your games
+              <ChevronRight className="w-3 h-3 ml-auto opacity-40" />
             </button>
 
-            {/* Warmup puzzles — only show when NOT in confronting mode (training CTA handles it) */}
-            {mood !== "confronting" && warmup?.available && (
-              <button
-                onClick={() => navigate(`/training/prescribed?weakness=${warmup.pattern}`)}
-                className="w-full py-3 text-sm text-muted-foreground hover:text-foreground border border-border rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
-              >
-                <Zap className="w-3.5 h-3.5" strokeWidth={2} />
-                Quick warmup — {warmup.label} puzzles
-                <span className="text-[10px] text-muted-foreground/40">3 min</span>
-              </button>
-            )}
-
-            {/* Progress link */}
             <button
               onClick={() => navigate("/progress")}
-              className="w-full py-2.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center justify-center gap-1"
+              className="text-left text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 py-1"
             >
               <TrendingUp className="w-3 h-3" />
-              See your full progress
+              See your progress over time
+              <ChevronRight className="w-3 h-3 ml-auto opacity-40" />
             </button>
-          </motion.div>
-
-        </motion.div>
+          </div>
+        </div>
       </div>
     </Layout>
   );
