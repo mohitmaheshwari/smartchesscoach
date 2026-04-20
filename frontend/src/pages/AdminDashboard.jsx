@@ -347,8 +347,36 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
     habits: false,
     feedback: false,
     gaps: true,
+    activity: false,
   });
   const toggle = (k) => setOpen((s) => ({ ...s, [k]: !s[k] }));
+
+  // Activity timeline is loaded lazily when the user opens that section —
+  // it can be heavy for active users.
+  const [activity, setActivity] = useState(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityFilter, setActivityFilter] = useState("all");
+  const [activityDays, setActivityDays] = useState(null); // null = all time
+
+  const loadActivity = useCallback(async (days) => {
+    setActivityLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "200");
+      if (days) params.set("days", String(days));
+      const res = await fetch(`${API}/admin/users/${u.user_id}/activity?${params}`, {
+        credentials: "include",
+      });
+      if (res.ok) setActivity(await res.json());
+    } finally { setActivityLoading(false); }
+  }, [u.user_id]);
+
+  // Auto-fetch when activity section is opened the first time
+  useEffect(() => {
+    if (open.activity && !activity && !activityLoading) {
+      loadActivity(activityDays);
+    }
+  }, [open.activity, activity, activityLoading, loadActivity, activityDays]);
 
   const rating = data.rating_signals || {};
   const pgn = rating.pgn_inferred || {};
@@ -662,6 +690,82 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
         </Section>
       )}
 
+      {/* Activity timeline */}
+      <Section
+        title={`Activity timeline${activity ? ` (${activity.total_returned})` : ""}`}
+        open={open.activity}
+        onToggle={() => toggle("activity")}
+      >
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          {[
+            { label: "All time", days: null },
+            { label: "7d", days: 7 },
+            { label: "30d", days: 30 },
+            { label: "90d", days: 90 },
+          ].map((r) => (
+            <button
+              key={r.label}
+              onClick={() => {
+                setActivityDays(r.days);
+                setActivity(null);
+                loadActivity(r.days);
+              }}
+              className="px-2 py-1 text-[10px] rounded-sm border font-mono transition"
+              style={{
+                borderColor: BORDER,
+                background: activityDays === r.days ? "rgba(114,47,55,0.08)" : "white",
+                color: activityDays === r.days ? WINE : "#555",
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+          {activity?.counts && (
+            <div className="flex items-center gap-1.5 ml-auto">
+              {Object.entries(activity.counts).map(([k, v]) => (
+                <span
+                  key={k}
+                  onClick={() => setActivityFilter(activityFilter === k ? "all" : k)}
+                  className="text-[10px] px-1.5 py-0.5 rounded-sm cursor-pointer font-mono transition"
+                  style={{
+                    background: activityFilter === k ? "rgba(114,47,55,0.08)" : "rgba(0,0,0,0.04)",
+                    color: activityFilter === k ? WINE : "#555",
+                  }}
+                >
+                  {k} · {v}
+                </span>
+              ))}
+              {activityFilter !== "all" && (
+                <button
+                  onClick={() => setActivityFilter("all")}
+                  className="text-[10px] text-muted-foreground hover:text-foreground"
+                >
+                  clear
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {activityLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : !activity ? (
+          <p className="text-xs text-muted-foreground font-light">Loading activity…</p>
+        ) : activity.events.length === 0 ? (
+          <p className="text-xs text-muted-foreground font-light">No activity in this window.</p>
+        ) : (
+          <div className="space-y-1">
+            {activity.events
+              .filter((e) => activityFilter === "all" || e.type === activityFilter)
+              .map((e, i) => (
+                <ActivityRow key={i} event={e} />
+              ))}
+          </div>
+        )}
+      </Section>
+
       {/* User feedback */}
       {data.feedback?.length > 0 && (
         <Section title={`User-submitted feedback (${data.feedback.length})`} open={open.feedback} onToggle={() => toggle("feedback")}>
@@ -783,6 +887,93 @@ function bandOf(rating) {
   if (rating < 1800) return "intermediate";
   return "advanced";
 }
+
+
+const EVENT_TYPE_STYLE = {
+  game:          { color: "#2563eb", label: "game" },
+  analysis:      { color: "#6b7280", label: "analysis" },
+  coach:         { color: "#b45309", label: "coach" },
+  prescription:  { color: "#722F37", label: "prescription" },
+  puzzle:        { color: "#16a34a", label: "puzzle" },
+  opening:       { color: "#7c3aed", label: "opening" },
+  notification:  { color: "#999", label: "notif" },
+};
+
+const formatRelTs = (iso) => {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const diff = Date.now() - d.getTime();
+    const s = Math.floor(diff / 1000);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    const days = Math.floor(s / 86400);
+    if (days < 7) return `${days}d ago`;
+    if (days < 30) return `${Math.floor(days / 7)}w ago`;
+    return `${Math.floor(days / 30)}mo ago`;
+  } catch { return iso; }
+};
+
+const formatAbsTs = (iso) => {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, {
+      year: "2-digit", month: "short", day: "2-digit",
+      hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return iso; }
+};
+
+const ActivityRow = ({ event }) => {
+  const style = EVENT_TYPE_STYLE[event.type] || { color: "#666", label: event.type };
+  const clickable = event.game_id || event.session_id;
+  const href = event.game_id ? `/game/${event.game_id}`
+             : event.session_id ? `/game/${event.session_id}`
+             : null;
+
+  const content = (
+    <div
+      className="flex items-start gap-3 py-2 px-3 rounded-sm bg-white border text-xs transition-colors"
+      style={{ borderColor: BORDER, cursor: clickable ? "pointer" : "default" }}
+    >
+      <div className="shrink-0 flex flex-col items-center pt-0.5 w-[72px]">
+        <span
+          className="text-[9px] px-1.5 py-0.5 rounded-sm font-mono"
+          style={{ color: style.color, background: `${style.color}15` }}
+        >
+          {style.label}
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-foreground font-light">{event.summary}</p>
+        {event.detail && (
+          <p className="text-[10px] text-muted-foreground/70 font-light mt-0.5">{event.detail}</p>
+        )}
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-[10px] text-muted-foreground font-mono whitespace-nowrap">
+          {formatRelTs(event.ts_iso)}
+        </p>
+        <p className="text-[9px] text-muted-foreground/50 font-mono whitespace-nowrap">
+          {formatAbsTs(event.ts_iso)}
+        </p>
+      </div>
+    </div>
+  );
+
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="block hover:shadow-sm">
+        {content}
+      </a>
+    );
+  }
+  return content;
+};
 
 /* ============================================================
  * FEEDBACK TAB

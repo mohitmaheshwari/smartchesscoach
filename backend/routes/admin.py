@@ -19,8 +19,8 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime, timezone
+from typing import Optional, List, Dict
+from datetime import datetime, timezone, timedelta
 import os
 import uuid
 import logging
@@ -428,6 +428,233 @@ async def admin_change_role(target_user_id: str, req: ChangeRoleRequest, user: U
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": f"Role updated to {req.role}"}
+
+
+# ==================== USER ACTIVITY TIMELINE ====================
+
+
+def _to_iso(val):
+    """Normalise timestamp-ish values to an ISO string. Returns None on failure."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        d = val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+        return d.isoformat()
+    if isinstance(val, str):
+        try:
+            d = datetime.fromisoformat(val.replace("Z", "+00:00"))
+            d = d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+            return d.isoformat()
+        except Exception:
+            return val  # return as-is, frontend can try to parse
+    return None
+
+
+def _parse_ts(val):
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+    if isinstance(val, str):
+        try:
+            d = datetime.fromisoformat(val.replace("Z", "+00:00"))
+            return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+        except Exception:
+            return None
+    return None
+
+
+@router.get("/admin/users/{target_user_id}/activity")
+async def admin_user_activity(
+    target_user_id: str,
+    limit: int = 100,
+    days: Optional[int] = None,
+    user: User = Depends(require_admin),
+):
+    """
+    Chronological activity timeline for a user — stitches events from
+    games, game_analyses, coach_sessions, postgame_analyses,
+    puzzle_attempts, user_opening_progress, notifications.
+
+    Each event: { ts, ts_iso, type, summary, detail?, game_id?, session_id? }.
+    Newest first.
+    """
+    # Ensure target exists
+    target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0, "user_id": 1})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    since = None
+    if days:
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    events: List[dict] = []
+
+    # ── Games imported ──
+    q = {"user_id": target_user_id}
+    if since:
+        q["imported_at"] = {"$gte": since.isoformat()}
+    async for g in db.games.find(
+        q, {"_id": 0, "game_id": 1, "opening": 1, "result": 1, "user_color": 1,
+            "platform": 1, "imported_at": 1, "termination": 1}
+    ).sort("imported_at", -1).limit(500):
+        ts = _parse_ts(g.get("imported_at"))
+        if not ts:
+            continue
+        r = (g.get("result") or "").lower()
+        uc = (g.get("user_color") or "").lower()
+        if r in ("1-0", "0-1"):
+            outcome = "won" if (r == "1-0" and uc == "white") or (r == "0-1" and uc == "black") else "lost"
+        elif r in ("1/2-1/2", "draw", "d"): outcome = "drew"
+        elif r in ("win", "w"): outcome = "won"
+        elif r in ("loss", "l"): outcome = "lost"
+        else: outcome = "played"
+        events.append({
+            "ts": ts,
+            "ts_iso": _to_iso(ts),
+            "type": "game",
+            "summary": f"{outcome} a game — {g.get('opening') or 'unknown opening'} [{g.get('platform') or '?'}]",
+            "detail": f"termination: {g.get('termination', '?')}",
+            "game_id": g.get("game_id"),
+        })
+
+    # ── Game analyses ──
+    q = {"user_id": target_user_id}
+    if since:
+        q["created_at"] = {"$gte": since.isoformat()}
+    async for a in db.game_analyses.find(
+        q, {"_id": 0, "game_id": 1, "created_at": 1,
+            "stockfish_analysis.accuracy": 1,
+            "stockfish_analysis.blunders": 1,
+            "stockfish_analysis.mistakes": 1}
+    ).sort("created_at", -1).limit(500):
+        ts = _parse_ts(a.get("created_at"))
+        if not ts:
+            continue
+        sf = a.get("stockfish_analysis") or {}
+        events.append({
+            "ts": ts,
+            "ts_iso": _to_iso(ts),
+            "type": "analysis",
+            "summary": (
+                f"game analyzed — accuracy {sf.get('accuracy', '?')}%, "
+                f"{sf.get('blunders', 0)} blunders, {sf.get('mistakes', 0)} mistakes"
+            ),
+            "game_id": a.get("game_id"),
+        })
+
+    # ── Coach sessions ──
+    q = {"user_id": target_user_id}
+    if since:
+        q["created_at"] = {"$gte": since.isoformat()}
+    async for s in db.coach_sessions.find(
+        q, {"_id": 0, "session_id": 1, "created_at": 1, "completed_at": 1,
+            "status": 1, "result": 1, "opponent": 1, "focus": 1}
+    ).sort("created_at", -1).limit(200):
+        start = _parse_ts(s.get("created_at"))
+        end = _parse_ts(s.get("completed_at"))
+        if start:
+            events.append({
+                "ts": start,
+                "ts_iso": _to_iso(start),
+                "type": "coach",
+                "summary": "started Play-with-Coach session" + (
+                    f" (focus: {s['focus']})" if s.get("focus") else ""),
+                "session_id": s.get("session_id"),
+            })
+        if end and s.get("status") == "completed":
+            events.append({
+                "ts": end,
+                "ts_iso": _to_iso(end),
+                "type": "coach",
+                "summary": f"completed Play-with-Coach — {s.get('result') or 'finished'}",
+                "session_id": s.get("session_id"),
+            })
+
+    # ── Prescriptions ──
+    q = {"user_id": target_user_id, "coach_prescription": {"$exists": True, "$ne": None}}
+    if since:
+        q["created_at"] = {"$gte": since.isoformat()}
+    async for p in db.postgame_analyses.find(
+        q, {"_id": 0, "coach_prescription": 1, "prescription_reason": 1,
+            "prescription_type": 1, "game_result": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(200):
+        ts = _parse_ts(p.get("created_at"))
+        if not ts:
+            continue
+        events.append({
+            "ts": ts,
+            "ts_iso": _to_iso(ts),
+            "type": "prescription",
+            "summary": (
+                f"coach prescribed: {p.get('coach_prescription')} "
+                f"({p.get('prescription_type', 'pattern')}) after {p.get('game_result', '?')}"
+            ),
+            "detail": p.get("prescription_reason", ""),
+        })
+
+    # ── Puzzle attempts ──
+    sample = await db.puzzle_attempts.find_one({"user_id": target_user_id}, {"attempted_at": 1, "created_at": 1})
+    if sample:
+        time_field = "attempted_at" if sample.get("attempted_at") else "created_at"
+        q = {"user_id": target_user_id}
+        if since:
+            q[time_field] = {"$gte": since.isoformat()}
+        async for a in db.puzzle_attempts.find(
+            q, {"_id": 0, "correct": 1, "weakness_type": 1,
+                "attempted_at": 1, "created_at": 1}
+        ).sort(time_field, -1).limit(200):
+            ts = _parse_ts(a.get(time_field))
+            if not ts:
+                continue
+            solved = "solved" if a.get("correct") else "missed"
+            w = a.get("weakness_type") or ""
+            events.append({
+                "ts": ts,
+                "ts_iso": _to_iso(ts),
+                "type": "puzzle",
+                "summary": f"{solved} a {w} puzzle" if w else f"{solved} a puzzle",
+            })
+
+    # ── Opening progress changes ──
+    q = {"user_id": target_user_id}
+    if since:
+        q["updated_at"] = {"$gte": since.isoformat()}
+    async for op in db.user_opening_progress.find(
+        q, {"_id": 0, "opening_name": 1, "games_played": 1,
+            "mastery_level": 1, "updated_at": 1}
+    ).sort("updated_at", -1).limit(50):
+        ts = _parse_ts(op.get("updated_at"))
+        if not ts:
+            continue
+        events.append({
+            "ts": ts,
+            "ts_iso": _to_iso(ts),
+            "type": "opening",
+            "summary": (
+                f"opening progress: {op.get('opening_name', '?')} — "
+                f"{op.get('games_played', 0)} games, mastery {op.get('mastery_level', 0)}%"
+            ),
+        })
+
+    # ── Sort newest first, trim, strip raw ts ──
+    events.sort(key=lambda e: e["ts"], reverse=True)
+    events = events[:max(1, min(limit, 500))]
+    for e in events:
+        del e["ts"]
+
+    # Counts by type for the summary row
+    counts: Dict[str, int] = {}
+    for e in events:
+        counts[e["type"]] = counts.get(e["type"], 0) + 1
+
+    return {
+        "user_id": target_user_id,
+        "events": events,
+        "counts": counts,
+        "total_returned": len(events),
+        "window_days": days,
+    }
 
 
 # ==================== FEEDBACK QUEUE ====================
