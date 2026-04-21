@@ -218,11 +218,24 @@ async def get_prescribed_training_endpoint(
     # Set rating range for puzzles (user rating +/- 200)
     rating_range = (max(600, user_rating - 200), user_rating + 200)
 
+    # Personalization signals — fed into puzzle framing (not filtering).
+    # Same signals the live coach uses; reused here so framing is consistent.
+    _strong = set()
+    _style = {}
+    try:
+        from services.player_performance import get_strong_openings, get_player_style
+        _strong = await get_strong_openings(db, user.user_id)
+        _style = await get_player_style(db, user.user_id)
+    except Exception:
+        pass
+
     result = await puzzle_service.get_prescribed_training(
         user_id=user.user_id,
         weakness_pattern=weakness,
         num_puzzles=num_puzzles,
-        rating_range=rating_range
+        rating_range=rating_range,
+        strong_openings=_strong,
+        player_style=_style,
     )
 
     if resolved_focus:

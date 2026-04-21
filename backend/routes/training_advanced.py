@@ -1517,10 +1517,15 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     pick_pattern = ""
 
     if unreviewed:
-        # Use recency-weighted decay model instead of raw counts
-        from services.pattern_decay_service import compute_pattern_scores, pick_best_game
+        # Use recency-weighted decay model instead of raw counts.
+        # Also pull in puzzle-solve recoveries so practiced patterns fade
+        # faster (closes the training → graduation loop).
+        from services.pattern_decay_service import (
+            compute_pattern_scores, pick_best_game, get_puzzle_recoveries,
+        )
 
-        pattern_scores = compute_pattern_scores(enriched)
+        puzzle_recoveries = await get_puzzle_recoveries(db, user.user_id)
+        pattern_scores = compute_pattern_scores(enriched, puzzle_recoveries=puzzle_recoveries)
 
         # Priority 1: Pattern-based pick using decay model
         picked, reason, pattern_key, score_data = pick_best_game(unreviewed, pattern_scores)

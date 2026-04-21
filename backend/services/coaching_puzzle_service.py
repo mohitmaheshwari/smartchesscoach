@@ -129,7 +129,10 @@ class CoachingPuzzleService:
         user_id: str,
         weakness_pattern: str,
         num_puzzles: int = 5,
-        rating_range: tuple = (800, 1400)
+        rating_range: tuple = (800, 1400),
+        *,
+        strong_openings: Optional[set] = None,
+        player_style: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         """
         Get a set of puzzles prescribed for a specific weakness.
@@ -172,6 +175,28 @@ class CoachingPuzzleService:
                 puzzle, weakness_pattern
             )
 
+        # Enrich with personalization signals and social proof
+        puzzles = self._enrich_puzzles(
+            puzzles,
+            weakness_pattern=weakness_pattern,
+            strong_openings=strong_openings or set(),
+            player_style=player_style or {},
+        )
+
+        # Difficulty ramp: obvious (big cp_loss) first, subtle last.
+        # Beginners need confidence wins; advanced still benefits from ordering
+        # since they'll solve the pattern recognition before the calculation.
+        # Primary sort: solve_rate descending (widely-solved = well-understood = easier).
+        # Secondary: cp_loss descending (obvious mistakes first within same solve rate).
+        # Own puzzles (marked from_user_game=True) stay at top regardless —
+        # they're the highest-priority training material.
+        def _sort_key(p):
+            from_own = 0 if p.get("from_user_game") else 1
+            solve_rate = p.get("solve_rate") or 0.0
+            cp_loss = p.get("cp_loss") or 0
+            return (from_own, -solve_rate, -cp_loss)
+        puzzles.sort(key=_sort_key)
+
         # Get the main theme coaching
         primary_theme = themes[0] if themes else "short"
         theme_coaching = THEME_COACHING_CONTEXT.get(primary_theme, DEFAULT_COACHING)
@@ -190,6 +215,57 @@ class CoachingPuzzleService:
                 "duration": "Do these puzzles daily for 1 week"
             }
         }
+
+    def _enrich_puzzles(
+        self,
+        puzzles: List[Dict],
+        *,
+        weakness_pattern: str,
+        strong_openings: set,
+        player_style: Dict,
+    ) -> List[Dict]:
+        """Annotate each puzzle with personalization + social signals.
+
+        Adds (in-place + returned):
+          - `miss_rate_text`: "40% of players at your level miss this"
+          - `miss_rate_pct`: 40 (integer percent)
+          - `framing_hint`: UI tag like "strong_opening" / "style_match" / None
+          - `framing_text`: human-readable intro line when a hint applies
+
+        Does NOT filter anything — these signals only tune framing/display, not
+        selection (that design choice was intentional per product discussion on
+        2026-04-21).
+        """
+        from services.player_performance import is_strong_opening
+
+        for p in puzzles:
+            # Social signal: % of players who MISS this (1 - solve_rate)
+            solve_rate = p.get("solve_rate")
+            if solve_rate is not None:
+                miss_pct = int(round((1.0 - float(solve_rate)) * 100))
+                # Cap at plausible range for display
+                miss_pct = max(5, min(95, miss_pct))
+                p["miss_rate_pct"] = miss_pct
+                p["miss_rate_text"] = f"{miss_pct}% of players at your level miss this"
+
+            # Framing hint: puzzle from a strong opening → acknowledge the weapon
+            opening_name = p.get("opening") or p.get("opening_name") or ""
+            if opening_name and is_strong_opening(opening_name, strong_openings):
+                p["framing_hint"] = "strong_opening"
+                p["framing_text"] = f"You know the {opening_name} well — but look at this position. What broke?"
+            # Style match: attacking player's tactical puzzle → validate their strength
+            elif player_style.get("is_attacking") and weakness_pattern in (
+                "missed_tactic", "tactical_oversight", "calculation_depth",
+            ):
+                p["framing_hint"] = "style_match"
+                p["framing_text"] = "Playing to your strengths — but this one's tricky. Find the best move."
+            elif player_style.get("is_positional") and weakness_pattern in (
+                "piece_safety", "pawn_structure", "piece_activity",
+            ):
+                p["framing_hint"] = "style_match"
+                p["framing_text"] = "Right in your wheelhouse. What's the strongest continuation?"
+
+        return puzzles
     
     async def _get_puzzles_from_user_games(
         self,

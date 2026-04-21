@@ -10,39 +10,60 @@ States:
   - ACTIVE:   score > 2, clean streak < 2  → "X times recently. Let's fix it."
   - DECLINING: score 1-2, clean streak >= 3 → "Was a problem (X), clean for Y games."
   - FADING:   score < 1                    → Don't prioritize this pattern.
+
+Recovery credit sources:
+  1. Consecutive clean games (historical — one clean game = 0.3 credit)
+  2. Correct training-puzzle attempts for the pattern (new — 3 solves = 1 game
+     of credit, i.e. 0.1 per solve, capped at 1.0 to prevent puzzle-farming
+     from neutralizing a real pattern).
+
+The puzzle-solve recovery closes the coaching loop: the product vision is
+"your mistakes become your training, and the system knows when you've
+stopped making them" — training success must count toward graduation.
 """
 
-import math
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 DECAY_RATE = 0.85  # Each game back multiplies by this
 RECOVERY_CREDIT_PER_GAME = 0.3  # Each consecutive clean game subtracts this
+RECOVERY_CREDIT_PER_PUZZLE = 0.1  # A solved training puzzle — smaller than a game
+MAX_PUZZLE_RECOVERY = 1.0  # Cap: puzzle-farming can't fully erase a pattern
 
 
 def compute_pattern_scores(
     enriched_games: List[Dict],
     max_games: int = 20,
+    puzzle_recoveries: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Dict]:
     """
     Given a list of enriched games (newest first), compute
     recency-weighted scores for each cognitive gap pattern.
 
+    Args:
+        enriched_games: list of games (newest first), each with `cognitive_gaps` list
+        max_games: cap on games considered
+        puzzle_recoveries: optional {pattern: correct_solve_count} — if provided,
+            each solve contributes RECOVERY_CREDIT_PER_PUZZLE to that pattern's
+            effective score reduction (capped at MAX_PUZZLE_RECOVERY).
+
     Returns: {
         "piece_safety": {
             "raw_count": 8,
-            "weighted_score": 3.2,
+            "weighted_score": 3.2,          # after ALL recovery (clean games + puzzles)
             "clean_streak": 0,
             "state": "active",
             "display_count": 3,
-            "message": "...",
+            "puzzle_recovery_applied": 0.5, # new: how much the puzzle path contributed
             "games_with_pattern": [game_id1, game_id2, ...],
         },
         ...
     }
     """
+    if puzzle_recoveries is None:
+        puzzle_recoveries = {}
     games = enriched_games[:max_games]
 
     # First pass: collect all patterns and their per-game presence
@@ -73,9 +94,17 @@ def compute_pattern_scores(
                 if not clean_streak_set:
                     clean_streak += 1
 
-        # Apply recovery credit
-        recovery = clean_streak * RECOVERY_CREDIT_PER_GAME
-        effective_score = max(0, weighted - recovery)
+        # Apply recovery credit from clean games
+        game_recovery = clean_streak * RECOVERY_CREDIT_PER_GAME
+
+        # Apply recovery credit from correct puzzle attempts (capped)
+        solves_for_pattern = puzzle_recoveries.get(pattern, 0)
+        puzzle_recovery = min(
+            solves_for_pattern * RECOVERY_CREDIT_PER_PUZZLE,
+            MAX_PUZZLE_RECOVERY,
+        )
+
+        effective_score = max(0, weighted - game_recovery - puzzle_recovery)
 
         # Determine state
         if effective_score < 1:
@@ -101,10 +130,50 @@ def compute_pattern_scores(
             "clean_streak": clean_streak,
             "state": state,
             "display_count": display_count,
+            "puzzle_solves": solves_for_pattern,
+            "puzzle_recovery_applied": round(puzzle_recovery, 2),
             "games_with_pattern": games_with,
         }
 
     return scores
+
+
+async def get_puzzle_recoveries(
+    db,
+    user_id: str,
+    lookback_days: int = 30,
+) -> Dict[str, int]:
+    """Count correct puzzle attempts per pattern in the recent window.
+
+    Used by compute_pattern_scores to give users credit for practicing their
+    weaknesses. Only CORRECT attempts count; incorrect ones don't penalize.
+
+    Returns: {pattern_name: num_correct_attempts}
+    """
+    from datetime import datetime, timezone, timedelta
+
+    if db is None or not user_id:
+        return {}
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
+
+    recoveries: Dict[str, int] = {}
+    try:
+        cursor = db.puzzle_attempts.find(
+            {
+                "user_id": user_id,
+                "correct": True,
+                "created_at": {"$gte": cutoff},
+            },
+            {"_id": 0, "weakness_type": 1},
+        )
+        async for a in cursor:
+            pat = a.get("weakness_type")
+            if pat and pat != "unknown":
+                recoveries[pat] = recoveries.get(pat, 0) + 1
+    except Exception as e:
+        logger.debug(f"get_puzzle_recoveries failed for {user_id}: {e}")
+    return recoveries
 
 
 def build_pick_message(

@@ -601,14 +601,26 @@ export default function PrescribedTraining() {
                       WHY THIS PUZZLE?
                     </p>
                     <p className="text-sm text-blue-300">
-                      {currentPuzzle.source === "your_game" 
-                        ? `This is from your actual game. You made this mistake, so practicing it will help you spot it next time.`
-                        : currentPuzzle.context 
-                          ? currentPuzzle.context 
-                          : `This puzzle trains your ${weakness.replace(/_/g, " ")} detection. Solving similar patterns builds pattern recognition.`
+                      {currentPuzzle.framing_text
+                        ? currentPuzzle.framing_text
+                        : currentPuzzle.source === "your_game"
+                          ? `This is from your actual game. You made this mistake, so practicing it will help you spot it next time.`
+                          : currentPuzzle.context
+                            ? currentPuzzle.context
+                            : `This puzzle trains your ${weakness.replace(/_/g, " ")} detection. Solving similar patterns builds pattern recognition.`
                       }
                     </p>
                   </div>
+
+                  {/* Social proof: motivating miss-rate signal from community solves */}
+                  {currentPuzzle.miss_rate_text && currentPuzzle.source !== "your_game" && (
+                    <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-xs text-amber-300 flex items-center gap-1.5">
+                        <AlertCircle className="w-3 h-3" />
+                        {currentPuzzle.miss_rate_text}
+                      </p>
+                    </div>
+                  )}
                   
                   {/* Personal note for user's own games */}
                   {currentPuzzle.source === "your_game" && (
