@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
@@ -71,7 +71,12 @@ const getEncouragement = (type, streak = 0) => {
 export default function PrescribedTraining() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const weakness = searchParams.get("weakness") || "missed_threat";
+  // Weakness can come from either:
+  //   1. ?weakness=X query param (canonical: /training?weakness=X)
+  //   2. :pattern URL segment (legacy: /training/pattern/:pattern)
+  //   3. default to "current" — backend resolves to user's active focus
+  const { pattern: patternFromUrl } = useParams();
+  const weakness = searchParams.get("weakness") || patternFromUrl || "current";
   
   // Data state
   const [trainingData, setTrainingData] = useState(null);

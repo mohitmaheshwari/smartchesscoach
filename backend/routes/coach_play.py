@@ -2278,6 +2278,31 @@ async def get_v5_coaching_feedback(
         # Determine coaching context
         context = CoachingContext.LIVE_AFTER_USER if is_user_move else CoachingContext.LIVE_AFTER_COACH
         
+        # Move history for book-theory check inside the critique pipeline
+        _move_history_san = []
+        if session_id:
+            _session_for_hist = await db.coach_sessions.find_one(
+                {"session_id": session_id}, {"_id": 0, "move_history": 1}
+            )
+            if _session_for_hist:
+                _move_history_san = [
+                    m.get("move", "") for m in _session_for_hist.get("move_history", [])
+                    if m.get("move")
+                ]
+                if is_user_move and move_san:
+                    _move_history_san = _move_history_san + [move_san]
+
+        # Strong openings + style — protects the user's proven lines and their
+        # established style choices from generic principle lectures.
+        _strong = set()
+        _style = {}
+        try:
+            from services.player_performance import get_strong_openings, get_player_style
+            _strong = await get_strong_openings(db, user.user_id)
+            _style = await get_player_style(db, user.user_id)
+        except Exception:
+            pass
+
         # Generate V5 coaching
         coaching = await generate_move_coaching(
             board_before=board,
@@ -2291,6 +2316,9 @@ async def get_v5_coaching_feedback(
             context=context,
             user_color=user_color,
             user_rating=request.get("user_rating", 1200),
+            move_history_san=_move_history_san,
+            strong_openings=_strong,
+            player_style=_style,
         )
 
         return coaching.to_dict()
@@ -2434,6 +2462,28 @@ async def get_interactive_coaching(
             if last_coach_move and last_coach_move.get("v2"):
                 _coach_intent = last_coach_move.get("teaching_intent")
 
+            # Move history (SAN) including the just-played move — enables the
+            # critique's book-theory gate. Without this the Scandinavian Qxd5
+            # would incorrectly be flagged as a "queen early" principle miss.
+            _mhist_v5 = [
+                m.get("move", "") for m in (session_doc.get("move_history") or [])
+                if m.get("move")
+            ]
+            if move_san and (not _mhist_v5 or _mhist_v5[-1] != move_san):
+                _mhist_v5 = _mhist_v5 + [move_san]
+
+            # Strong openings + style — protect proven lines and style
+            # choices from generic principle lectures.
+            _strong_v5 = set()
+            _style_v5 = {}
+            try:
+                from services.player_performance import get_strong_openings, get_player_style
+                _uid = session_doc.get("user_id")
+                _strong_v5 = await get_strong_openings(db, _uid)
+                _style_v5 = await get_player_style(db, _uid)
+            except Exception:
+                pass
+
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
                 board_before=board,
@@ -2450,6 +2500,9 @@ async def get_interactive_coaching(
                 opening_match=opening_match,
                 coach_intent=_coach_intent,
                 user_rating=session_doc.get("user_rating", 1200),
+                move_history_san=_mhist_v5,
+                strong_openings=_strong_v5,
+                player_style=_style_v5,
             )
 
             coaching_dict = coaching.to_dict()
@@ -3174,7 +3227,19 @@ async def get_v5_session_moves_coaching(
             if game:
                 board = game.board()
                 move_number = 0
-                
+                replay_history_san: list = []
+
+                # Compute strong openings + style ONCE per replay (cached in service too)
+                _strong_replay = set()
+                _style_replay = {}
+                try:
+                    from services.player_performance import get_strong_openings, get_player_style
+                    _uid_r = session_doc.get("user_id")
+                    _strong_replay = await get_strong_openings(db, _uid_r)
+                    _style_replay = await get_player_style(db, _uid_r)
+                except Exception:
+                    pass
+
                 for move in game.mainline_moves():
                     move_number += 1
                     is_user_move = (board.turn == chess.WHITE) == is_user_white
@@ -3196,6 +3261,7 @@ async def get_v5_session_moves_coaching(
                     
                     context = CoachingContext.LIVE_AFTER_USER if is_user_move else CoachingContext.LIVE_AFTER_COACH
                     
+                    replay_history_san.append(move_san)
                     coaching = await generate_move_coaching(
                         board_before=board,
                         move=move,
@@ -3208,8 +3274,11 @@ async def get_v5_session_moves_coaching(
                         context=context,
                         user_color=user_color,
                         user_rating=session_doc.get("user_rating", 1200),
+                        move_history_san=list(replay_history_san),
+                        strong_openings=_strong_replay,
+                        player_style=_style_replay,
                     )
-                    
+
                     board.push(move)
                     
                     moves_data.append({
@@ -4211,6 +4280,40 @@ async def evaluate_pending_move(
             if move_quality in ("mistake", "blunder"):
                 move_quality = "good"  # Downgrade — we can't trust this
                 logger.info(f"[FAST-EVAL] Downgraded {eval_result.get('move_quality')} to good (eval invalid)")
+
+        # ─── UNIFY WITH CRITIQUE TAXONOMY ─────
+        # fast_eval classifies purely by cp_loss. But the /v5/interactive-feedback
+        # critique pipeline uses DEVIATION TYPE — so a small-cp move that's
+        # off-plan (e.g. a3 flank push when position needs development) gets
+        # tagged "good" here but "inaccuracy" there. This produces a visible
+        # flicker in the UI. Fix: run the critique now and upgrade severity
+        # when it detects a teaching-worthy deviation.
+        if eval_is_valid and move_quality == "good" and eval_result.get("best_move"):
+            try:
+                from services.move_critique import classify_move as _cm_classify, DeviationType as _DT
+                _best_san = eval_result["best_move"]
+                _best_move_obj = None
+                try:
+                    _best_move_obj = board_before.parse_san(_best_san)
+                except Exception:
+                    _best_move_obj = None
+                if _best_move_obj is not None and _best_move_obj != move:
+                    _critique = _cm_classify(
+                        board_before, move, board_before.san(move),
+                        _best_move_obj, _best_san,
+                        cp_loss=cp_loss_val,
+                    )
+                    if _critique.deviation_type in (
+                        _DT.WALKED_INTO, _DT.TACTICAL_MISS,
+                    ):
+                        move_quality = "mistake"
+                    elif _critique.deviation_type in (
+                        _DT.PRINCIPLE_MISS, _DT.RIGHT_IDEA_WRONG_SQUARE,
+                    ):
+                        move_quality = "inaccuracy"
+                    # ON_PLAN_NUDGE, DIRECTIONLESS, BEST_MOVE stay "good"
+            except Exception as _e:
+                logger.debug(f"[FAST-EVAL] critique upgrade skipped: {_e}")
         move_history = session_doc.get("move_history", [])
         move_number = len(move_history) // 2 + 1
         move_idx = len(move_history) - 1

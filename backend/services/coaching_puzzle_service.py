@@ -3,22 +3,31 @@ Coaching Puzzle Service - Prescribe training based on diagnosed weaknesses
 
 This is the IMPROVEMENT engine:
 1. Take user's diagnosed weaknesses (from pattern detection)
-2. Map to Lichess puzzle themes
-3. Fetch relevant puzzles
-4. Present with COACHING context - not just "solve this" but "here's WHY"
-5. Track solve rate and connect back to improvement
+2. Surface puzzles from REAL games — user's own first, then community
+3. Present with COACHING context — not just "solve this" but "here's WHY"
+4. Track solve rate and connect back to improvement
 
-Puzzle sources:
-1. User's OWN games (positions where they made mistakes)
-2. Lichess puzzle database (5.7M puzzles with themes)
-3. Community patterns (other users with similar weaknesses)
+Puzzle sources (product vision: closed-loop coaching, no external curation):
+1. User's OWN games (positions where THEY made mistakes)
+2. Community patterns (OTHER users' mistakes, rating-filtered)
+
+Note: external Lichess curated puzzles were used pre-2026-04-21 as a fallback
+when the community pool was thin. That's been removed — every training
+surface now uses real games only. The `_get_lichess_puzzles` method below is
+deprecated but kept so its dependencies don't break on import.
 """
 
 import random
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-import aiohttp
+
+# aiohttp is only needed by the deprecated Lichess fetcher. Keep the import
+# optional so removing the aiohttp dependency doesn't break this module.
+try:
+    import aiohttp  # noqa: F401
+except ImportError:
+    aiohttp = None
 
 logger = logging.getLogger(__name__)
 
@@ -128,44 +137,53 @@ class CoachingPuzzleService:
         Returns puzzles with coaching context explaining WHY each puzzle
         is relevant to the user's weakness.
         """
-        # Map weakness to Lichess themes
+        # Map weakness to Lichess themes (still used for coaching-intro copy only)
         themes = WEAKNESS_TO_PUZZLE_THEMES.get(weakness_pattern, ["short"])
-        
-        # Get puzzles from multiple sources
+
+        # Product vision: training material comes from REAL games, not external
+        # curated puzzles. Sources, in priority order:
+        #   1. User's own mistakes (extracted from their analyzed games)
+        #   2. Community puzzles — OTHER users' mistakes matching this weakness,
+        #      rating-filtered to the user's band
+        # No Lichess curated fallback. If the pool is thin, we surface less —
+        # and the frontend can prompt for game import.
         puzzles = []
-        
+
         # Source 1: User's own mistakes (most relevant!)
         user_puzzles = await self._get_puzzles_from_user_games(
             user_id, weakness_pattern, limit=2
         )
         puzzles.extend(user_puzzles)
-        
-        # Source 2: Lichess themed puzzles
+
+        # Source 2: Community puzzles from other users' games, rating-filtered
         remaining = num_puzzles - len(puzzles)
         if remaining > 0:
-            lichess_puzzles = await self._get_lichess_puzzles(
-                themes=themes,
+            community_puzzles = await self._get_community_puzzles(
+                user_id=user_id,
+                weakness_pattern=weakness_pattern,
                 rating_range=rating_range,
-                limit=remaining
+                limit=remaining,
             )
-            puzzles.extend(lichess_puzzles)
-        
+            puzzles.extend(community_puzzles)
+
         # Add coaching context to each puzzle
         for puzzle in puzzles:
             puzzle["coaching"] = self._get_coaching_context(
                 puzzle, weakness_pattern
             )
-        
+
         # Get the main theme coaching
         primary_theme = themes[0] if themes else "short"
         theme_coaching = THEME_COACHING_CONTEXT.get(primary_theme, DEFAULT_COACHING)
-        
+
         return {
             "weakness": weakness_pattern,
             "theme": primary_theme,
             "coaching_intro": theme_coaching,
             "puzzles": puzzles,
             "total": len(puzzles),
+            # Empty-state hint for the frontend: if pool is thin, show import prompt
+            "pool_thin": len(puzzles) < num_puzzles,
             "prescription": {
                 "daily_goal": num_puzzles,
                 "focus": theme_coaching["what_to_look_for"],
@@ -245,6 +263,67 @@ class CoachingPuzzleService:
         
         return puzzles
     
+    async def _get_community_puzzles(
+        self,
+        user_id: str,
+        weakness_pattern: str,
+        rating_range: tuple,
+        limit: int,
+    ) -> List[Dict]:
+        """Fetch puzzles extracted from OTHER users' games matching this weakness.
+
+        Puzzles live in the `community_puzzles` collection (shared_by ≠ user_id).
+        Filtered by the user's rating band so a 900-rated player doesn't get
+        puzzles pulled from 1800-rated players' games.
+
+        Also excludes puzzles this user already attempted correctly.
+        """
+        if limit <= 0:
+            return []
+
+        # Which puzzle ids has this user already solved?
+        solved_ids: set = set()
+        try:
+            async for attempt in self.db.puzzle_attempts.find(
+                {"user_id": user_id, "correct": True},
+                {"_id": 0, "puzzle_id": 1},
+            ):
+                pid = attempt.get("puzzle_id")
+                if pid:
+                    solved_ids.add(pid)
+        except Exception:
+            pass
+
+        # Query community_puzzles — other users' mistakes for this weakness.
+        # `issue_type` is the stored cognitive-gap tag used by the extractor.
+        query = {
+            "issue_type": weakness_pattern,
+            "shared_by": {"$ne": user_id},  # not this user's own puzzles
+        }
+        # Rating filter (puzzle's rating field = rating of the user whose game
+        # it came from). Wide-ish net if rating_range is missing.
+        if rating_range and len(rating_range) == 2:
+            query["rating"] = {"$gte": rating_range[0], "$lte": rating_range[1]}
+
+        puzzles: List[Dict] = []
+        try:
+            cursor = self.db.community_puzzles.find(query, {"_id": 0}).sort(
+                "solve_rate", -1
+            ).limit(limit * 3)  # overfetch — we'll drop already-solved
+            async for p in cursor:
+                if p.get("puzzle_id") in solved_ids:
+                    continue
+                puzzles.append(p)
+                if len(puzzles) >= limit:
+                    break
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"community puzzle fetch failed: {e}"
+            )
+
+        return puzzles
+
     def _move_matches_weakness(self, move: Dict, weakness_pattern: str) -> bool:
         """Check if a move's mistake type matches the weakness pattern."""
         threat = move.get("threat", "").lower()

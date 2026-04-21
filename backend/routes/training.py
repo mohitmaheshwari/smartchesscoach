@@ -192,6 +192,21 @@ async def get_prescribed_training_endpoint(
 
     puzzle_service = CoachingPuzzleService(db)
 
+    # Auto-backfill community_puzzles from user's own games if they have none
+    # yet. This used to only fire on /pattern-puzzles but since the training
+    # surface consolidated, it needs to be here too. Safe to run on every
+    # call — cheap no-op when puzzles already exist.
+    try:
+        from services.puzzle_extraction_service import backfill_puzzles_for_user
+        own_count = await db.community_puzzles.count_documents(
+            {"shared_by": user.user_id}
+        )
+        if own_count == 0:
+            await backfill_puzzles_for_user(db, user.user_id)
+    except Exception as _backfill_err:
+        # Non-fatal: if backfill fails, still serve whatever puzzles we can.
+        logger.debug(f"Auto-backfill skipped for {user.user_id}: {_backfill_err}")
+
     # Get user's rating for difficulty calibration
     player_profile = await db.player_profiles.find_one({"user_id": user.user_id})
     user_rating = 1200

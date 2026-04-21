@@ -1238,7 +1238,10 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
                 return cache_doc["data"]
 
     # Get all analyzed games with analysis data
-    # Fetch imported games and coach games separately to ensure both show
+    # Fetch imported games and coach games separately to ensure both show.
+    # Coach games get imported_at=now when promoted from sessions, so sorting
+    # the merged list by timestamp would push them ABOVE platform games the
+    # user imported from Chess.com / Lichess (the bug this addresses).
     imported_games = await db.games.find(
         {"user_id": user.user_id, "is_analyzed": True, "platform": {"$ne": "coach"}},
         {"_id": 0}
@@ -1249,9 +1252,9 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         {"_id": 0}
     ).sort("imported_at", -1).to_list(10)
 
-    # Merge and sort by date (imported games first, coach games at the end)
+    # Imported platform games ALWAYS come first (the user's real competitive games).
+    # Coach games appear at the bottom — they're for reference, not the review focus.
     games = imported_games + coach_games
-    games.sort(key=lambda g: g.get("imported_at", ""), reverse=True)
 
     # Only load move_evaluations fields we actually use (not the full array)
     analyses_cursor = db.game_analyses.find(
@@ -1503,7 +1506,12 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         pass
 
     # ── SMART PICK: find the best unreviewed game ──
-    unreviewed = [g for g in enriched if not g["reviewed"]]
+    # Prefer platform games (Chess.com / Lichess) over coach-play games — real
+    # competitive games have more teaching value than coach-session practice.
+    # Only fall back to coach games when no platform games remain unreviewed.
+    unreviewed_all = [g for g in enriched if not g["reviewed"]]
+    unreviewed_platform = [g for g in unreviewed_all if g.get("platform") != "coach"]
+    unreviewed = unreviewed_platform if unreviewed_platform else unreviewed_all
     pick = None
     pick_reason = ""
     pick_pattern = ""
@@ -1771,6 +1779,17 @@ async def get_pattern_puzzles(
     user: User = Depends(get_current_user),
 ):
     """
+    DEPRECATED — kept for backwards compat and tests only.
+
+    As of 2026-04-21, the frontend consolidated all three training routes
+    (`/training`, `/training/prescribed`, `/training/pattern/:pattern`) to
+    render the single PrescribedTraining component, which calls the
+    canonical endpoint `/api/training/prescribed/{weakness}`. This endpoint
+    is no longer hit from the live UI.
+
+    Kept because: backend/tests/test_decay_model_puzzles.py still calls it,
+    and the auto-backfill trigger here is useful as a standalone warmup.
+
     Get training puzzles for a specific cognitive gap pattern.
     Returns user's own game positions first, then community puzzles.
     Excludes already-solved puzzles.
@@ -3186,7 +3205,16 @@ async def get_training_feed_endpoint(
     pattern: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
-    """Get mixed training feed: own positions + community positions. Optionally filter by pattern_type."""
+    """DEPRECATED — kept for backwards compat and tests.
+
+    This was the data source for ThinkingTraining.jsx (the community-feed
+    browse page). As of 2026-04-21 the frontend consolidated training to a
+    single page (PrescribedTraining) that uses /api/training/prescribed/{weakness}
+    as its canonical endpoint. No live UI calls /community-feed anymore.
+
+    Get mixed training feed: own positions + community positions.
+    Optionally filter by pattern_type.
+    """
     from services.community_training_service import get_training_feed
     return await get_training_feed(db, user.user_id, limit, pattern_filter=pattern)
 

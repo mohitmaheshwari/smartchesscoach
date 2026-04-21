@@ -672,6 +672,9 @@ async def generate_move_coaching(
     user_rating: int = 1200,
     active_patterns: Optional[List[str]] = None,
     verbosity_override: Optional[str] = None,
+    move_history_san: Optional[List[str]] = None,
+    strong_openings: Optional[set] = None,
+    player_style: Optional[dict] = None,
 ) -> V5Coaching:
     """
     Generate V5 coaching for a move.
@@ -740,6 +743,9 @@ async def generate_move_coaching(
                     board_before, move, move_san,
                     _best_move_obj, best_move_san,
                     cp_loss=cp_loss,
+                    move_history_san=move_history_san,
+                    strong_openings=strong_openings,
+                    player_style=player_style,
                 )
                 _student = StudentContext(
                     rating=user_rating,

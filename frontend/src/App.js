@@ -261,14 +261,14 @@ function AppRouter() {
           {({ user }) => <WeaknessTracker user={user} />}
         </ProtectedRoute>
       } />
+      {/* Training — consolidated to one page. All three URLs below render
+          the same PrescribedTraining component; weakness is taken from
+          ?weakness=X query param OR :pattern URL segment.
+          `/training/legacy` has been removed (zero incoming references
+          per audit; it pointed to a superseded Training component). */}
       <Route path="/training" element={
         <ProtectedRoute>
-          {({ user }) => <ThinkingTraining user={user} />}
-        </ProtectedRoute>
-      } />
-      <Route path="/training/legacy" element={
-        <ProtectedRoute>
-          {({ user }) => <Training user={user} />}
+          {({ user }) => <PrescribedTraining user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/training/prescribed" element={
@@ -278,7 +278,7 @@ function AppRouter() {
       } />
       <Route path="/training/pattern/:pattern" element={
         <ProtectedRoute>
-          {({ user }) => <PatternTraining user={user} />}
+          {({ user }) => <PrescribedTraining user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/training/quiz/:openingKey" element={
