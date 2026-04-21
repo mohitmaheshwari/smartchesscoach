@@ -304,6 +304,22 @@ class CoachingPuzzleService:
                     except Exception as e:
                         logger.warning(f"Could not convert {best_move_san} to UCI: {e}")
                     
+                    # Provenance line — shown BEFORE the user solves, so it must
+                    # NOT reveal the solution (which it previously did — "but
+                    # Bxe4 was better" was a blatant spoiler). Instead: name
+                    # the source game and hint that a better move existed,
+                    # without naming it. The solution + your-move comparison
+                    # lives in the post-solve feedback panel.
+                    move_number = move.get("move_number")
+                    prefix = (
+                        f"From your own game — move {move_number}"
+                        if move_number
+                        else "From your own game"
+                    )
+                    context_line = (
+                        f"{prefix}, you had a sharper move available than the one you played."
+                    )
+
                     puzzle = {
                         "source": "your_game",
                         "game_id": game.get("game_id"),
@@ -314,10 +330,10 @@ class CoachingPuzzleService:
                         "your_move_uci": your_move_uci,
                         "threat": threat,
                         "cp_loss": cp_loss,
-                        "move_number": move.get("move_number"),
+                        "move_number": move_number,
                         "rating": None,  # From your game, not rated
                         "themes": [weakness_pattern],
-                        "context": f"From your game - you played {move.get('move')} but {best_move_san} was better"
+                        "context": context_line,
                     }
                     puzzles.append(puzzle)
                     
