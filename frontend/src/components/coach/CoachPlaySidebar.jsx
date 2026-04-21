@@ -789,30 +789,29 @@ const CoachPlaySidebar = ({
       {/* ═══ Clean UI Mode ═══ */}
       {cleanUIMode && session && !gameOver ? (
         <>
-          {/* Header */}
-          <div className="p-4 border-b border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🎯</span>
-                <span className="text-sm font-medium">Your Coach</span>
-              </div>
-              <div className="flex items-center gap-2">
+          {/* Header — editorial eyebrow (redesign/04_CoachPlay.html spec) */}
+          <div className="px-4 py-3 border-b border-border">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+                Your coach
+              </p>
+              <div className="flex items-center gap-3">
+                {openingGuidance?.opening_key && (
+                  <span className="text-[11px] text-muted-foreground/70 font-mono tabular-nums capitalize">
+                    {openingGuidance.opening_key.replace(/_/g, " ")}
+                  </span>
+                )}
                 {!isInTeachingMode && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 text-xs"
+                    className="h-7 text-[11px]"
                     onClick={() => setShowLessonPicker(true)}
                     data-testid="open-lessons-btn"
                   >
                     <BookOpen className="w-3 h-3 mr-1" />
                     Lessons
                   </Button>
-                )}
-                {openingGuidance?.opening_key && (
-                  <span className="text-xs text-muted-foreground">
-                    {openingGuidance.opening_key.replace(/_/g, " ")}
-                  </span>
                 )}
               </div>
             </div>
@@ -851,46 +850,64 @@ const CoachPlaySidebar = ({
               confirmRiskyMove={confirmRiskyMove}
             />
 
-            {/* ═══ Coach's Move Explanation — Blue section ═══ */}
+            {/* ═══ Coach's Move Explanation — Teaching moment (violet editorial card) ═══
+                From redesign/04_CoachPlay.html: the coach's move gets an eyebrow
+                ("TEACHING MOMENT" / "COACH PLAYED"), the explanation renders in
+                Fraunces serif, Socratic questions in italic, and the opponent-
+                opportunity + trap-warning inline use quieter panels. */}
             {interactiveCoaching?.coachMoveCoaching?.explanation && (
-              <div className="p-4 rounded-xl bg-blue-50 border-2 border-blue-200 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-blue-700 bg-blue-100 px-2 py-0.5 rounded text-sm font-bold">
+              <article className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-5 space-y-3">
+                {/* Eyebrow: TEACHING MOMENT / COACH PLAYED + SAN + optional v2 label */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300 font-semibold">
+                    {interactiveCoaching.coachMoveCoaching.v2_label
+                      ? "Teaching moment"
+                      : "Coach played"}
+                  </span>
+                  <span className="font-mono text-[11.5px] text-muted-foreground tabular-nums">
                     {lastCoachMoveSan || "?"}
                   </span>
-                  <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">
-                    Coach played
-                  </span>
                   {interactiveCoaching.coachMoveCoaching.v2_label && (
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                      interactiveCoaching.coachMoveCoaching.v2_intent === 'fork_opportunity'
-                        ? 'bg-red-100 text-red-700'
-                        : interactiveCoaching.coachMoveCoaching.v2_intent === 'hanging_piece_punishment'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-purple-100 text-purple-700'
-                    }`}>
+                    <span
+                      className={`text-[10px] uppercase tracking-[0.16em] font-semibold rounded-full px-2 h-5 inline-flex items-center border ${
+                        interactiveCoaching.coachMoveCoaching.v2_intent ===
+                        "fork_opportunity"
+                          ? "border-rose-400/35 bg-rose-500/5 text-rose-500 dark:text-rose-300"
+                          : interactiveCoaching.coachMoveCoaching.v2_intent ===
+                            "hanging_piece_punishment"
+                            ? "border-amber-400/35 bg-amber-500/5 text-amber-600 dark:text-amber-300"
+                            : "border-violet-400/35 bg-violet-500/5 text-violet-500 dark:text-violet-300"
+                      }`}
+                    >
                       {interactiveCoaching.coachMoveCoaching.v2_label}
                     </span>
                   )}
                 </div>
 
-                <ClickableMoves
-                  text={interactiveCoaching.coachMoveCoaching.explanation}
-                  fen={currentFen}
-                  onShowArrow={onShowArrow}
-                  className="text-sm text-blue-800 leading-snug block"
-                />
+                {/* The explanation — Fraunces serif, the coach's voice */}
+                <p className="font-serif text-[17px] leading-[1.3] tracking-[-0.005em] text-foreground">
+                  <ClickableMoves
+                    text={interactiveCoaching.coachMoveCoaching.explanation}
+                    fen={currentFen}
+                    onShowArrow={onShowArrow}
+                    className="inline"
+                  />
+                </p>
 
+                {/* Socratic hint — italic serif */}
                 {interactiveCoaching.coachMoveCoaching.hint_for_user && (
-                  <p className="text-sm text-blue-900 font-medium mt-1">
-                    🤔 {interactiveCoaching.coachMoveCoaching.hint_for_user}
+                  <p className="font-serif italic text-[14px] text-foreground/80 leading-snug border-l-2 border-violet-400/30 pl-4">
+                    {interactiveCoaching.coachMoveCoaching.hint_for_user}
                   </p>
                 )}
 
+                {/* Opportunity — quiet amber callout */}
                 {interactiveCoaching.coachMoveCoaching.opponent_opportunity && (
-                  <div className="rounded-lg bg-emerald-50 border border-emerald-300 px-3 py-2 mt-1">
-                    <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide mb-0.5">Can you see it?</p>
-                    <p className="text-sm text-emerald-800">
+                  <div className="pt-3 border-t border-violet-400/10">
+                    <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-amber-600 dark:text-amber-300/80 mb-1.5">
+                      Can you see it?
+                    </p>
+                    <p className="font-serif italic text-[14px] text-foreground/85 leading-snug">
                       {interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
                     </p>
                   </div>
@@ -898,15 +915,15 @@ const CoachPlaySidebar = ({
 
                 {/* Trap Warning with Teach me / I understand buttons */}
                 {interactiveCoaching.coachMoveCoaching.trap_warning && (
-                  <div className="rounded-lg bg-red-50 border-2 border-red-300 px-3 py-2 mt-1">
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-red-600 mb-1">
-                      ⚠️ {interactiveCoaching.coachMoveCoaching.trap_warning.name}
+                  <div className="rounded-xl border border-rose-400/30 bg-rose-500/[0.03] px-4 py-3 mt-1">
+                    <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-rose-500 dark:text-rose-300 mb-1.5">
+                      Trap · {interactiveCoaching.coachMoveCoaching.trap_warning.name}
                     </p>
-                    <p className="text-sm text-red-800">
+                    <p className="text-[13px] text-foreground/85 leading-snug">
                       {interactiveCoaching.coachMoveCoaching.trap_warning.hint}
                     </p>
                     {interactiveCoaching.coachMoveCoaching.trap_warning.question && (
-                      <p className="text-xs text-red-700 font-medium mt-1">
+                      <p className="font-serif italic text-[13px] text-foreground/75 mt-2">
                         {interactiveCoaching.coachMoveCoaching.trap_warning.question}
                       </p>
                     )}
@@ -931,7 +948,7 @@ const CoachPlaySidebar = ({
                               console.error("Failed to start trap lesson:", e);
                             }
                           }}
-                          className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-red-600 text-white hover:bg-red-700 transition"
+                          className="flex-1 py-2 text-[12px] font-medium rounded-lg bg-rose-500 hover:bg-rose-400 text-white transition-colors"
                         >
                           Teach me
                         </button>
@@ -959,7 +976,7 @@ const CoachPlaySidebar = ({
                               console.error("Failed to dismiss trap:", e);
                             }
                           }}
-                          className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-zinc-200 text-zinc-800 hover:bg-zinc-300 transition"
+                          className="flex-1 py-2 text-[12px] font-medium rounded-lg border border-border text-foreground hover:bg-muted/50 transition-colors"
                         >
                           I understand
                         </button>
@@ -972,12 +989,12 @@ const CoachPlaySidebar = ({
                 {coachingLocked && onCoachingAcknowledge && (
                   <button
                     onClick={onCoachingAcknowledge}
-                    className="w-full mt-2 py-2.5 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                    className="w-full mt-3 py-2.5 text-[13px] font-medium rounded-lg bg-violet-500 hover:bg-violet-400 text-white transition-colors"
                   >
                     I see it — let me play
                   </button>
                 )}
-              </div>
+              </article>
             )}
 
             {/* ═══ User's Move Feedback ═══ */}
@@ -1011,24 +1028,30 @@ const CoachPlaySidebar = ({
 
             {/* Trap Result — fell for or avoided a known trap */}
             {interactiveCoaching?.trapResult && (
-              <div className={`p-3 rounded-xl border-2 ${
-                interactiveCoaching.trapResult.fell_for
-                  ? 'bg-red-50 border-red-300'
-                  : 'bg-emerald-50 border-emerald-300'
-              }`}>
-                <p className={`text-[10px] uppercase tracking-widest font-bold mb-1 ${
-                  interactiveCoaching.trapResult.fell_for ? 'text-red-600' : 'text-emerald-600'
-                }`}>
-                  {interactiveCoaching.trapResult.fell_for ? '❌ ' : '✅ '}
-                  {interactiveCoaching.trapResult.name}
+              <div
+                className={`rounded-xl border px-4 py-3 ${
+                  interactiveCoaching.trapResult.fell_for
+                    ? "border-rose-400/30 bg-rose-500/[0.04]"
+                    : "border-emerald-400/30 bg-emerald-500/[0.04]"
+                }`}
+              >
+                <p
+                  className={`text-[10.5px] uppercase tracking-[0.22em] font-semibold mb-2 ${
+                    interactiveCoaching.trapResult.fell_for
+                      ? "text-rose-500 dark:text-rose-300"
+                      : "text-emerald-600 dark:text-emerald-300"
+                  }`}
+                >
+                  {interactiveCoaching.trapResult.fell_for
+                    ? "Fell for it"
+                    : "Avoided"}{" "}
+                  · {interactiveCoaching.trapResult.name}
                 </p>
-                <p className={`text-sm ${
-                  interactiveCoaching.trapResult.fell_for ? 'text-red-800' : 'text-emerald-800'
-                }`}>
+                <p className="font-serif text-[15px] leading-snug text-foreground">
                   {interactiveCoaching.trapResult.explanation}
                 </p>
                 {interactiveCoaching.trapResult.question && (
-                  <p className="text-xs text-red-700 font-medium mt-1">
+                  <p className="font-serif italic text-[13px] text-foreground/75 mt-2">
                     {interactiveCoaching.trapResult.question}
                   </p>
                 )}
@@ -1103,34 +1126,35 @@ const CoachPlaySidebar = ({
 
             {/* (Coach Timeline moved to top of sidebar under new coaching system) */}
 
-            {/* Teaching Mode Instruction */}
+            {/* Teaching Mode Instruction — lesson in progress */}
             {isInTeachingMode &&
               activeLesson &&
               lessonInstruction &&
               !lessonComplete && (
-                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <BookOpen className="w-4 h-4 text-amber-500" />
-                    <span className="text-sm font-medium text-amber-500">
+                <div className="rounded-xl border border-amber-400/30 bg-amber-500/[0.04] px-4 py-3">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <BookOpen
+                      className="w-3.5 h-3.5 text-amber-500 dark:text-amber-300"
+                      strokeWidth={1.75}
+                    />
+                    <span className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-amber-600 dark:text-amber-300">
                       {activeLesson.lesson_name}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      ({lessonInstruction.remaining} left)
+                    <span className="text-[10.5px] text-muted-foreground tabular-nums">
+                      {lessonInstruction.remaining} left
                     </span>
                   </div>
-                  <p className="text-sm">
+                  <p className="font-serif text-[15px] text-foreground leading-snug">
                     {lessonInstruction.is_user_move
-                      ? `Your turn → play ${lessonInstruction.move}`
-                      : `Coach plays ${lessonInstruction.move}...`}
+                      ? `Your turn — play ${lessonInstruction.move}`
+                      : `Coach plays ${lessonInstruction.move}…`}
                   </p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="mt-2 h-6 text-xs"
+                  <button
                     onClick={() => handleExitLesson("continue_game", {})}
+                    className="mt-3 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Exit lesson
-                  </Button>
+                  </button>
                 </div>
               )}
           </div>
@@ -1207,24 +1231,17 @@ const CoachPlaySidebar = ({
       {/* Improvement Proof — every 5 games */}
       {improvementProof && improvementProof.show_proof && (
         <div className="p-4 border-b border-border">
-          <div className="rounded-xl border-2 border-emerald-400/30 bg-emerald-500/[0.04] p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xl">📈</span>
-              <div>
-                <p className="text-sm font-bold text-foreground">
-                  {improvementProof.total_games} games with your coach
-                </p>
-                <p className="text-xs text-muted-foreground">Your progress report</p>
-              </div>
-            </div>
-
-            <p className="text-sm text-emerald-700 font-medium mb-3">
+          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/[0.04] p-4">
+            <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-emerald-600 dark:text-emerald-300 mb-2">
+              Progress · {improvementProof.total_games} games together
+            </p>
+            <p className="font-serif text-[16px] text-foreground leading-snug mb-4">
               {improvementProof.message}
             </p>
 
             {improvementProof.improvements?.length > 0 && (
               <div className="space-y-1 mb-3">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Getting better at</p>
+                <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-emerald-500/80 dark:text-emerald-300/70">Getting better at</p>
                 {improvementProof.improvements.map((imp, i) => (
                   <div key={i} className="flex items-center justify-between text-xs">
                     <span className="text-foreground">{imp.fundamental.replace(/_/g, " ")}</span>
@@ -1236,7 +1253,7 @@ const CoachPlaySidebar = ({
 
             {improvementProof.regressions?.length > 0 && (
               <div className="space-y-1 mb-3">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-amber-500/60">Needs work</p>
+                <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-amber-500/80 dark:text-amber-300/70">Needs work</p>
                 {improvementProof.regressions.map((reg, i) => (
                   <div key={i} className="flex items-center justify-between text-xs">
                     <span className="text-foreground">{reg.fundamental.replace(/_/g, " ")}</span>
