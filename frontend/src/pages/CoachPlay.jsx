@@ -74,67 +74,41 @@ const CoachPlay = ({ user }) => {
   // If SSE fails (bad Nginx config, mobile network), the 2s safety poll still
   // catches up — the UI degrades gracefully, it doesn't hang.
   useEffect(() => {
-    // ─── DIAGNOSTIC LOGS (temp — remove once SSE is confirmed working) ───
-    console.log("[SSE] useEffect fired. session:", session, "session_id:", session?.session_id, "API:", API);
     const sessionId = session?.session_id;
-    if (!sessionId) {
-      console.log("[SSE] skipping: no session_id yet");
-      return;
-    }
+    if (!sessionId) return;
     if (eventSourceRef.current) {
-      console.log("[SSE] closing previous EventSource");
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
 
-    const url = `${API}/coach/play/events/${sessionId}`;
-    console.log("[SSE] opening EventSource at:", url);
     let es;
     try {
-      es = new EventSource(url, { withCredentials: true });
-      console.log("[SSE] EventSource created OK, readyState:", es.readyState);
-    } catch (err) {
-      console.error("[SSE] EventSource constructor threw:", err);
+      es = new EventSource(`${API}/coach/play/events/${sessionId}`, { withCredentials: true });
+    } catch {
       return;
     }
     eventSourceRef.current = es;
 
-    es.addEventListener("open", () => {
-      console.log("[SSE] connection OPEN. readyState:", es.readyState);
-    });
-
-    es.addEventListener("connected", (e) => {
-      console.log("[SSE] got 'connected' event from backend:", e.data);
-    });
-
     es.addEventListener("message", (e) => {
-      console.log("[SSE] message received:", e.data);
       try {
         const evt = JSON.parse(e.data);
         if (evt.type === "coach_turn_ready" || evt.type === "game_over" || evt.type === "coach_turn_failed") {
-          console.log("[SSE] waking poll loop for:", evt.type);
           if (pollTimerRef.current) {
             clearTimeout(pollTimerRef.current);
             pollTimerRef.current = null;
           }
           if (pollFnRef.current) {
             pollFnRef.current();
-          } else {
-            console.log("[SSE] no pollFnRef registered — event arrived before poll started");
           }
         }
-      } catch (err) {
-        console.warn("[SSE] malformed event data:", err);
-      }
+      } catch {}
     });
 
-    es.addEventListener("error", (e) => {
-      console.warn("[SSE] error event. readyState:", es.readyState, "event:", e);
-      // readyState 0 = CONNECTING (will retry), 2 = CLOSED (gave up)
+    es.addEventListener("error", () => {
+      // EventSource auto-reconnects; safety poll covers us meanwhile.
     });
 
     return () => {
-      console.log("[SSE] cleanup: closing EventSource for session", sessionId);
       es.close();
       if (eventSourceRef.current === es) eventSourceRef.current = null;
     };

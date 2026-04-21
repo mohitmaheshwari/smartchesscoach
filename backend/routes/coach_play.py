@@ -2551,11 +2551,13 @@ async def get_interactive_coaching(
                 from services.midgame_adaptation import compute_game_adaptation
                 adaptation = compute_game_adaptation(move_history, user_color, evaluations)
 
-                if adaptation.get("nudge") and coaching.severity in ("mistake", "blunder"):
-                    coaching_dict["narrative"] = f"{adaptation['nudge']} {coaching_dict.get('narrative', '')}"
-
-                if adaptation.get("nudge") and adaptation.get("tilt_risk"):
-                    coaching_dict["narrative"] = f"{adaptation['nudge']} {coaching_dict.get('narrative', '')}"
+                # Nudges like "You're speeding up" previously got prepended to
+                # the narrative, producing double-voice ("You're speeding up.
+                # Stay focused. Nc3 was stronger here."). The critique+policy
+                # pipeline already handles pedagogy; the nudge is now surfaced
+                # as a separate field the frontend can show subtly (or ignore).
+                if adaptation.get("nudge"):
+                    coaching_dict["tempo_nudge"] = adaptation["nudge"]
 
                 if adaptation.get("momentum") == "hot_streak" and coaching.severity in ("good", "brilliant"):
                     streak = adaptation.get("good_moves_streak", 0)
@@ -2847,8 +2849,10 @@ async def get_interactive_coaching(
                     board, move, user_color, v2_context=v2_ctx
                 )
 
-            # Add intent badge data for frontend
-            # Don't show intent badge during opening (misleading — "Creating Threats" for Nf6)
+            # Add intent badge data for frontend.
+            # "Creating Threats" must only show when the move ACTUALLY created
+            # a threat — otherwise it fires for every quiet move (bug observed
+            # in prod logs: d6, c5, e6 all getting "Creating Threats" label).
             intent_labels = {
                 "fork_opportunity": "Double Attack",
                 "hanging_piece_punishment": "Piece Safety",
@@ -2858,10 +2862,39 @@ async def get_interactive_coaching(
             in_opening = move_count <= 20  # ~10 moves per side
             if last_coach_move.get("v2"):
                 v2_intent = last_coach_move.get("teaching_intent", "")
-                # Only show intent badge after the opening
-                if not in_opening or v2_intent in ("fork_opportunity", "hanging_piece_punishment"):
+
+                # Verify the intent actually materialized on the board.
+                # For threat_awareness: check facts.new_threats is non-empty.
+                # For fork_opportunity: check facts.forks_by_us.
+                # For hanging_piece_punishment: check the move captured or attacks an undefended piece.
+                intent_materialized = True
+                try:
+                    from services.position_facts import extract_facts
+                    _mhist_san = [m.get("move", "") for m in move_history if m.get("move")]
+                    _facts = extract_facts(
+                        board, move, last_coach_move["move"],
+                        move_history_san=_mhist_san,
+                    )
+                    if v2_intent == "threat_awareness":
+                        intent_materialized = len(_facts.new_threats) > 0
+                    elif v2_intent == "fork_opportunity":
+                        intent_materialized = len(_facts.forks_by_us) > 0
+                    elif v2_intent == "hanging_piece_punishment":
+                        intent_materialized = (
+                            _facts.is_capture
+                            or len(_facts.hanging_theirs) > 0
+                            or _facts.forcing_moves_us.get("attacks_on_undefended", 0) > 0
+                        )
+                except Exception:
+                    # If fact extraction fails, err on the side of NOT showing a
+                    # potentially-misleading badge.
+                    intent_materialized = False
+
+                if intent_materialized and (not in_opening or v2_intent in ("fork_opportunity", "hanging_piece_punishment")):
                     coach_explanation["v2_intent"] = v2_intent
-                coach_explanation["v2_label"] = intent_labels.get(v2_intent, "")
+                    coach_explanation["v2_label"] = intent_labels.get(v2_intent, "")
+                else:
+                    coach_explanation["v2_label"] = ""
 
             # Trap detection — check if we're near a known opening trap
             try:

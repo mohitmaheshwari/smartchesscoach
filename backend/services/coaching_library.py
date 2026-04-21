@@ -51,6 +51,32 @@ COACH_MOVE = {
         {"explanation": "I played {move} to support my setup. Not flashy, but it makes my position sturdier.", "question": "Is your position solid right now, or are there weak squares?", "hint": "Sometimes the best move is a quiet one that fixes a small problem."},
     ],
 
+    # ─── Coach captures (piece-specific) — routed when move_type=="capture" ───
+
+    "capture_trade": [
+        {"explanation": "{move} — I took a {target}. When you capture, always check what you're giving up in return.", "question": "Is this trade good for me or you?", "hint": "Count: piece values on both sides, and who's left with better pieces."},
+        {"explanation": "I captured your {target} with {move}.", "question": "Was that capture forced, or did I have other options?", "hint": "When someone trades, ask: did the position get better or worse for them?"},
+    ],
+
+    "capture_free": [
+        {"explanation": "I took your {target} — it had no protection, so it was free.", "question": "What should have been guarding that {target}?", "hint": "Before every move, scan your own pieces: is each one defended?"},
+        {"explanation": "{move} wins material. Your {target} was hanging on {square}.", "question": "How do you make sure your pieces don't hang?", "hint": "After every move, re-count defenders on each of your pieces."},
+    ],
+
+    # ─── Coach retreats / piece shuffles — not development ───
+
+    "retreat_knight": [
+        {"explanation": "I pulled my knight back to {square} — sometimes you retreat to find a better square.", "question": "What's my knight doing from {square}?", "hint": "Not every move has to be forward. Repositioning is fine."},
+    ],
+
+    "retreat_bishop": [
+        {"explanation": "My bishop is stepping back to {square}. This keeps it safe and flexible.", "question": "Why might I not want my bishop forward right now?", "hint": "Bishops often need to find the right diagonal, not the furthest one."},
+    ],
+
+    "piece_reposition": [
+        {"explanation": "I'm moving my {piece} to {square} to reposition — not creating a threat, just improving its job.", "question": "Is your {piece} well-placed right now?", "hint": "Every piece has a 'best square' for the position. It's worth finding."},
+    ],
+
     "opening_castle": [
         {"explanation": "I castled. My king is safe now and my rook can join the fight.", "question": "Have you castled yet?", "hint": "If your king is still in the center, it's time to fix that."},
         {"explanation": "King is tucked away, rook is connected. That's what castling does.", "question": "Is your king safe right now?", "hint": "Castling is usually the most important thing to do in the first 10 moves."},
@@ -276,6 +302,18 @@ def match_coach_scenario(
     move_category (when passed) is the PositionFacts MoveCategory value and
     refines pawn routing so a flank push like a3 doesn't get center-push text.
     """
+    # CAPTURES — route before anything else. A capture is never "development".
+    # has_target indicates we know what got taken; route to trade vs free capture.
+    if move_type == "capture":
+        return "capture_free" if has_target else "capture_trade"
+
+    # RETREATS — based on move_category. A knight going back to its home rank
+    # isn't "opening_develop_knight" — it's a retreat.
+    if move_category == "knight_retreat":
+        return "retreat_knight"
+    if move_category == "bishop_retreat":
+        return "retreat_bishop"
+
     # Opening phase — only use opening templates when actually IN the opening,
     # not just because an opening was detected at the start of the game.
     if phase == "opening":
