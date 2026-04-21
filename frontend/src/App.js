@@ -6,17 +6,14 @@ import "@/App.css";
 import Landing from "@/pages/Landing";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
-import CoachHome from "@/pages/CoachHome";
 import HomePage from "@/pages/HomePage";  // NEW focused homepage
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import AllGames from "@/pages/AllGames";
 import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
-import Training from "@/pages/TrainingNew";  // Legacy training
-import ThinkingTraining from "@/pages/ThinkingTraining";  // NEW: Thinking-focused training
-import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles based on weaknesses
-import PatternTraining from "@/pages/PatternTraining";  // Pattern-specific puzzle training
+import TrainingNew from "@/pages/TrainingNew";  // Used by /coach and /focus routes (renamed from aliased `Training` for clarity)
+import PrescribedTraining from "@/pages/PrescribedTraining";  // Canonical training page (all /training/* routes)
 import OpeningQuizPage from "@/pages/OpeningQuizPage";  // Opening mastery quiz
 import OpeningRepertoire from "@/pages/OpeningRepertoire";  // Opening Training Lab
 import OpeningLesson from "@/pages/OpeningLesson";  // Individual opening lessons
@@ -25,9 +22,7 @@ import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
 import UnifiedProgress from "@/pages/UnifiedProgress";  // Merged progress + journey
-import JourneyV2 from "@/pages/JourneyV2";
 import JourneyIntelligence from "@/pages/JourneyIntelligence";
-import ProgressV2 from "@/pages/ProgressV2";
 import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
 import MissionRunner from "@/pages/MissionRunner";
@@ -178,12 +173,12 @@ function AppRouter() {
       } />
       <Route path="/coach" element={
         <ProtectedRoute>
-          {({ user }) => <Training user={user} />}
+          {({ user }) => <TrainingNew user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/focus" element={
         <ProtectedRoute>
-          {({ user }) => <Training user={user} />}
+          {({ user }) => <TrainingNew user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/progress" element={
@@ -194,24 +189,9 @@ function AppRouter() {
       <Route path="/journey" element={
         <Navigate to="/progress" replace />
       } />
-      <Route path="/progress-v2" element={
-        <ProtectedRoute>
-          {({ user }) => <JourneyV2 user={user} />}
-        </ProtectedRoute>
-      } />
-      <Route path="/progress-old" element={
-        <ProtectedRoute>
-          {({ user }) => <ProgressV2 user={user} />}
-        </ProtectedRoute>
-      } />
       <Route path="/dashboard" element={
         <ProtectedRoute>
           {({ user }) => <HomePage user={user} />}
-        </ProtectedRoute>
-      } />
-      <Route path="/dashboard-full" element={
-        <ProtectedRoute>
-          {({ user }) => <Dashboard user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/home" element={

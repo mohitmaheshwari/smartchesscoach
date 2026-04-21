@@ -127,6 +127,12 @@ async def extract_puzzles_from_game(
             "attempts": 0,
             "solves": 0,
             "solve_rate": 0.0,
+            # `rating` = rating of the source user (whose game produced this puzzle).
+            # Used by the serve-time rating filter so a 900-rated player doesn't
+            # get puzzles from 1800-rated games. Stored from user_rating on
+            # extraction; `ratings: []` + `avg_rating` separately track the
+            # RATINGS OF USERS WHO ATTEMPT this puzzle (a different thing).
+            "rating": int(user_rating) if user_rating else 1200,
             "ratings": [],
             "avg_rating": 0.0,
             "created_at": datetime.now(timezone.utc),

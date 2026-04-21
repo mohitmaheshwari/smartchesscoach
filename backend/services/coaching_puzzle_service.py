@@ -11,23 +11,14 @@ Puzzle sources (product vision: closed-loop coaching, no external curation):
 1. User's OWN games (positions where THEY made mistakes)
 2. Community patterns (OTHER users' mistakes, rating-filtered)
 
-Note: external Lichess curated puzzles were used pre-2026-04-21 as a fallback
-when the community pool was thin. That's been removed — every training
-surface now uses real games only. The `_get_lichess_puzzles` method below is
-deprecated but kept so its dependencies don't break on import.
+External Lichess curated puzzles were removed on 2026-04-21 — the closed-loop
+vision means every training surface pulls from real games only.
 """
 
 import random
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-
-# aiohttp is only needed by the deprecated Lichess fetcher. Keep the import
-# optional so removing the aiohttp dependency doesn't break this module.
-try:
-    import aiohttp  # noqa: F401
-except ImportError:
-    aiohttp = None
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +111,6 @@ class CoachingPuzzleService:
     
     def __init__(self, db):
         self.db = db
-        self.lichess_api_base = "https://lichess.org/api"
         # We'll cache some puzzles locally for speed
         self.puzzle_cache = {}
     
@@ -376,10 +366,29 @@ class CoachingPuzzleService:
             "issue_type": weakness_pattern,
             "shared_by": {"$ne": user_id},  # not this user's own puzzles
         }
-        # Rating filter (puzzle's rating field = rating of the user whose game
-        # it came from). Wide-ish net if rating_range is missing.
-        if rating_range and len(rating_range) == 2:
-            query["rating"] = {"$gte": rating_range[0], "$lte": rating_range[1]}
+
+        # Rating-aware match: pre-2026-04-21 this filtered by a `rating` field
+        # that extraction never actually stores — excluded every puzzle
+        # (3,517 of them), leaving the user with at most 2 own-puzzles.
+        # Fix: match by the `difficulty` field that extraction DOES store,
+        # mapped to the user's rating band.
+        #
+        # difficulty mapping (set in puzzle_extraction_service.py based on cp_loss):
+        #   cp_loss >= 400 -> "beginner"     (obvious blunders, easier to spot)
+        #   cp_loss >= 200 -> "intermediate"
+        #   cp_loss <  200 -> "advanced"     (subtle mistakes)
+        #
+        # rating-band mapping (wider nets for beginners, subtler for advanced):
+        user_rating = int((rating_range[0] + rating_range[1]) / 2) if rating_range and len(rating_range) == 2 else 1200
+        if user_rating < 1000:
+            allowed_difficulties = ["beginner"]
+        elif user_rating < 1400:
+            allowed_difficulties = ["beginner", "intermediate"]
+        elif user_rating < 1800:
+            allowed_difficulties = ["intermediate", "advanced"]
+        else:
+            allowed_difficulties = ["advanced"]
+        query["difficulty"] = {"$in": allowed_difficulties}
 
         puzzles: List[Dict] = []
         try:
@@ -417,172 +426,6 @@ class CoachingPuzzleService:
         
         return True  # Default: include
     
-    async def _get_lichess_puzzles(
-        self,
-        themes: List[str],
-        rating_range: tuple,
-        limit: int
-    ) -> List[Dict]:
-        """
-        Fetch puzzles from Lichess API or local cache.
-        
-        For now, we'll use the Lichess puzzle API to get daily puzzles
-        and filter by theme from our local sample.
-        """
-        puzzles = []
-        
-        # Try to get puzzle of the day from Lichess
-        try:
-            async with aiohttp.ClientSession() as session:
-                # Get daily puzzle
-                async with session.get(f"{self.lichess_api_base}/puzzle/daily") as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        puzzle = self._format_lichess_puzzle(data.get("puzzle", {}), data.get("game", {}))
-                        if puzzle:
-                            puzzles.append(puzzle)
-        except Exception as e:
-            logger.error(f"Error fetching Lichess puzzle: {e}")
-        
-        # Add from our curated puzzle samples
-        # In production, we'd query a local copy of the Lichess puzzle DB
-        sample_puzzles = self._get_sample_puzzles_by_theme(themes, rating_range, limit - len(puzzles))
-        puzzles.extend(sample_puzzles)
-        
-        return puzzles
-    
-    def _format_lichess_puzzle(self, puzzle: Dict, game: Dict) -> Optional[Dict]:
-        """Format a Lichess API puzzle response."""
-        if not puzzle:
-            return None
-        
-        # Lichess doesn't return FEN directly - we need to extract from PGN
-        # For now, skip the daily puzzle if we can't get FEN
-        # In production, we'd parse the PGN to get the position
-        
-        puzzle_id = puzzle.get("id")
-        solution = puzzle.get("solution", [])
-        rating = puzzle.get("rating", 1200)
-        themes = puzzle.get("themes", [])
-        
-        # We'll use a placeholder for now - in production we'd parse PGN
-        # The sample puzzles have FEN so they'll work
-        return {
-            "source": "lichess_daily",
-            "puzzle_id": puzzle_id,
-            "fen": None,  # Would need PGN parsing
-            "solution": solution,
-            "rating": rating,
-            "themes": themes,
-            "game_url": f"https://lichess.org/training/{puzzle_id}",
-            "context": "Daily puzzle from Lichess - solve at lichess.org/training"
-        }
-    
-    def _get_sample_puzzles_by_theme(
-        self,
-        themes: List[str],
-        rating_range: tuple,
-        limit: int
-    ) -> List[Dict]:
-        """
-        Get sample puzzles by theme.
-        
-        In production, this would query a local SQLite/Postgres copy of 
-        the Lichess puzzle database. For now, we'll return curated samples.
-        """
-        # Curated puzzle samples by theme
-        # These are real Lichess puzzles that teach specific concepts
-        SAMPLE_PUZZLES = {
-            "hangingPiece": [
-                {
-                    "puzzle_id": "sample_hang_1",
-                    "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
-                    "solution": ["Qxf7"],
-                    "rating": 800,
-                    "themes": ["hangingPiece", "mateIn1"],
-                    "context": "Black's f7 pawn is only defended by the king. Scholar's Mate pattern!"
-                },
-                {
-                    "puzzle_id": "sample_hang_2",
-                    "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
-                    "solution": ["Nf6"],
-                    "rating": 900,
-                    "themes": ["hangingPiece", "development"],
-                    "context": "Develop while defending. The knight on f6 defends the e4 threat."
-                }
-            ],
-            "fork": [
-                {
-                    "puzzle_id": "sample_fork_1",
-                    "fen": "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
-                    "solution": ["Bxc6", "dxc6"],
-                    "rating": 1000,
-                    "themes": ["fork", "opening"],
-                    "context": "After Bxc6, White gets a pawn and damages Black's structure."
-                },
-                {
-                    "puzzle_id": "sample_fork_2",
-                    "fen": "r1bqkbnr/ppp2ppp/2np4/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
-                    "solution": ["Ng5"],
-                    "rating": 1100,
-                    "themes": ["fork", "attackingF2F7"],
-                    "context": "Knight attacks f7 (weak square) and threatens fork patterns."
-                }
-            ],
-            "pin": [
-                {
-                    "puzzle_id": "sample_pin_1",
-                    "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 2 5",
-                    "solution": ["Bg5"],
-                    "rating": 1000,
-                    "themes": ["pin"],
-                    "context": "Pin the knight to the queen! It can't move without losing the queen."
-                }
-            ],
-            "defensiveMove": [
-                {
-                    "puzzle_id": "sample_def_1",
-                    "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 5 4",
-                    "solution": ["g6"],
-                    "rating": 900,
-                    "themes": ["defensiveMove"],
-                    "context": "Defend f7! The queen threatens mate. g6 blocks the attack."
-                }
-            ],
-            "backRankMate": [
-                {
-                    "puzzle_id": "sample_back_1",
-                    "fen": "6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1",
-                    "solution": ["Ra8"],
-                    "rating": 800,
-                    "themes": ["backRankMate", "mateIn1"],
-                    "context": "Classic back rank mate! The king has no escape square."
-                }
-            ],
-            "discoveredAttack": [
-                {
-                    "puzzle_id": "sample_disc_1",
-                    "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3",
-                    "solution": ["Ng5"],
-                    "rating": 1100,
-                    "themes": ["discoveredAttack"],
-                    "context": "Moving the knight discovers an attack on e5 by the queen."
-                }
-            ]
-        }
-        
-        # Collect puzzles matching the requested themes
-        matching = []
-        for theme in themes:
-            if theme in SAMPLE_PUZZLES:
-                for p in SAMPLE_PUZZLES[theme]:
-                    if rating_range[0] <= p.get("rating", 1000) <= rating_range[1]:
-                        p["source"] = "curated"
-                        matching.append(p)
-        
-        # Shuffle and limit
-        random.shuffle(matching)
-        return matching[:limit]
     
     def _get_coaching_context(self, puzzle: Dict, weakness_pattern: str) -> Dict:
         """
