@@ -1199,37 +1199,40 @@ const LabV2 = ({ user }) => {
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               
-              <div className="flex items-center gap-4">
-                {/* Accuracy ring */}
+              <div className="flex items-center gap-3">
+                {/* Accuracy ring — shrunk to a peripheral indicator, not the headline */}
                 {accuracy != null && (
-                  <div className="relative w-11 h-11" data-testid="accuracy-ring">
+                  <div className="relative w-8 h-8 shrink-0" data-testid="accuracy-ring">
                     <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-200 dark:text-gray-700" />
-                      <circle 
-                        cx="18" cy="18" r="15.5" fill="none" strokeWidth="2.5" strokeLinecap="round"
+                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-border" />
+                      <circle
+                        cx="18" cy="18" r="15.5" fill="none" strokeWidth="2" strokeLinecap="round"
                         stroke={accuracy >= 80 ? '#10B981' : accuracy >= 60 ? '#F59E0B' : '#EF4444'}
                         strokeDasharray={`${accuracy * 0.975} 97.5`}
                       />
                     </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono">
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium font-mono tabular-nums text-muted-foreground">
                       {accuracy.toFixed(0)}
                     </span>
                   </div>
                 )}
-                
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <h1 className="text-base font-semibold tracking-tight">
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+                      Review
+                    </span>
+                    <span className="font-serif text-[15px] text-foreground/90">
                       vs {game?.opponent_name || "Opponent"}
-                    </h1>
+                    </span>
                     <ResultBadge result={result} userColor={userColor} />
                     {game?.termination && game.termination !== "unknown" && (
                       <TerminationTag termination={game.termination} result={result} userColor={userColor} />
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-[11px] text-muted-foreground/70 mt-0.5 font-mono tabular-nums truncate">
                     {game?.opening_name || game?.opening || ""}
-                    {game?.time_control && <span className="ml-2 opacity-60">{game.time_control}s</span>}
+                    {game?.time_control && <span className="ml-2 opacity-70">· {game.time_control}s</span>}
                   </p>
                 </div>
               </div>
@@ -1278,11 +1281,14 @@ const LabV2 = ({ user }) => {
             </div>
           </div>
           
-          {/* Coach narrative strip — only on coach/habits tabs */}
-          {viewMode !== "decrypt" && coachSummary?.key_observation && (
-            <div className="px-5 pb-2.5">
-              <p className="text-xs text-muted-foreground italic leading-relaxed pl-14" data-testid="coach-narrative-strip">
-                {coachSummary.key_observation}
+          {/* Coach's verdict — one sentence, both tabs. Lead with the story. */}
+          {coachSummary?.key_observation && (
+            <div className="px-5 pb-4 pt-1">
+              <p
+                className="font-serif text-[16px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 max-w-[780px]"
+                data-testid="coach-narrative-strip"
+              >
+                "{coachSummary.key_observation}"
               </p>
             </div>
           )}
@@ -1503,28 +1509,82 @@ const LabV2 = ({ user }) => {
               {/* Insights panel — phases, behaviors, key moments, fundamentals */}
               {true && (
                 <div className="p-6 space-y-4">
-                  {/* Phase Analysis */}
+                  {/* Phase Analysis — narrative ribbon (not three stacked cards).
+                      A single horizontal bar colored by per-phase accuracy, with
+                      the phase name + accuracy under its segment. Verdict text
+                      becomes a single-line annotation beneath the ribbon. */}
                   {coachReview?.phases && (
                     <div>
-                      <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">Game phases</p>
-                      <div className="flex gap-2">
-                        {["opening", "middlegame", "endgame"].map(key => {
-                          const p = coachReview.phases[key];
-                          if (!p) return null;
-                          const color = p.accuracy >= 80 ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-                            : p.accuracy >= 60 ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
-                            : "text-red-400 bg-red-500/10 border-red-500/20";
-                          return (
-                            <div key={key} className={`flex-1 rounded-xl border p-3 ${color}`}>
-                              <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-xs font-semibold">{p.name}</span>
-                                <span className="text-sm font-bold font-mono">{p.accuracy}%</span>
-                              </div>
-                              <p className="text-[10px] opacity-70">{p.verdict}</p>
+                      <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-3">
+                        How the game flowed
+                      </p>
+
+                      {(() => {
+                        const phaseKeys = ["opening", "middlegame", "endgame"].filter(
+                          (k) => coachReview.phases[k]
+                        );
+                        const segColor = (acc) =>
+                          acc >= 80
+                            ? "bg-emerald-500/80"
+                            : acc >= 60
+                              ? "bg-amber-500/80"
+                              : "bg-rose-500/80";
+                        const segWeight = phaseKeys.map((k) =>
+                          coachReview.phases[k].move_count || 1
+                        );
+                        const totalWeight = segWeight.reduce((a, b) => a + b, 0);
+
+                        return (
+                          <>
+                            {/* Ribbon */}
+                            <div className="flex h-1.5 rounded-full overflow-hidden bg-muted/40 ring-1 ring-border">
+                              {phaseKeys.map((k, i) => {
+                                const p = coachReview.phases[k];
+                                const pct = (segWeight[i] / totalWeight) * 100;
+                                return (
+                                  <div
+                                    key={k}
+                                    className={segColor(p.accuracy)}
+                                    style={{ width: `${pct}%` }}
+                                    title={`${p.name} — ${p.accuracy}%`}
+                                  />
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
+
+                            {/* Labels underneath */}
+                            <div
+                              className="grid gap-2 mt-2"
+                              style={{
+                                gridTemplateColumns: phaseKeys
+                                  .map((_, i) => `${(segWeight[i] / totalWeight) * 100}fr`)
+                                  .join(" "),
+                              }}
+                            >
+                              {phaseKeys.map((k) => {
+                                const p = coachReview.phases[k];
+                                return (
+                                  <div key={k} className="min-w-0">
+                                    <div className="flex items-baseline gap-1.5">
+                                      <span className="text-[11px] text-foreground font-medium capitalize">
+                                        {p.name || k}
+                                      </span>
+                                      <span className="text-[10.5px] font-mono tabular-nums text-muted-foreground">
+                                        {p.accuracy}%
+                                      </span>
+                                    </div>
+                                    {p.verdict && (
+                                      <p className="text-[11px] text-muted-foreground/80 leading-snug mt-0.5">
+                                        {p.verdict}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -1580,30 +1640,56 @@ const LabV2 = ({ user }) => {
                     </div>
                   )}
 
-                  {/* Key Moments */}
+                  {/* Key Moments — the centerpiece.
+                      Each moment is a full-width clickable block with serif
+                      commentary, the move comparison in mono, and a severity
+                      tag. Tap to jump the board to that ply. */}
                   {coachReview?.key_moments?.length > 0 && (
                     <div>
-                      <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">Key moments</p>
-                      <div className="space-y-2">
-                        {coachReview.key_moments.slice(0, 3).map((m, i) => (
-                          <div key={i}
-                            onClick={() => navigateToMoveNumber(m.move_number)}
-                            className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 cursor-pointer transition-all"
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-mono text-muted-foreground">Move {m.move_number}</span>
-                              <span className="text-xs font-mono text-red-400">{m.move}</span>
-                              <span className="text-muted-foreground/30">→</span>
-                              <span className="text-xs font-mono text-emerald-400">{m.best_move || "?"}</span>
-                              <span className={`text-[9px] px-1.5 py-0 rounded ${
-                                m.severity === "blunder" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"
-                              }`}>{m.severity}</span>
-                            </div>
-                            {m.commentary?.summary && (
-                              <p className="text-[11px] text-muted-foreground leading-snug">{m.commentary.summary}</p>
-                            )}
-                          </div>
-                        ))}
+                      <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-violet-500 dark:text-violet-300 mb-3">
+                        Key moments · tap to jump
+                      </p>
+                      <div className="space-y-3">
+                        {coachReview.key_moments.slice(0, 3).map((m, i) => {
+                          const isBlunder = m.severity === "blunder";
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => navigateToMoveNumber(m.move_number)}
+                              className={`w-full text-left rounded-xl border p-4 transition-colors ${
+                                isBlunder
+                                  ? "border-rose-400/25 bg-rose-500/[0.03] hover:bg-rose-500/[0.06]"
+                                  : "border-amber-400/25 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]"
+                              }`}
+                            >
+                              <div className="flex items-baseline gap-2.5 mb-2 flex-wrap">
+                                <span
+                                  className={`text-[10.5px] uppercase tracking-[0.22em] font-semibold ${
+                                    isBlunder
+                                      ? "text-rose-500 dark:text-rose-300"
+                                      : "text-amber-600 dark:text-amber-300"
+                                  }`}
+                                >
+                                  {m.severity} · move {m.move_number}
+                                </span>
+                                <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
+                                  <span className="text-rose-500/80 dark:text-rose-300/80">
+                                    {m.move}
+                                  </span>
+                                  <span className="text-muted-foreground/40 mx-1.5">→</span>
+                                  <span className="text-emerald-600/90 dark:text-emerald-300/80">
+                                    {m.best_move || "?"}
+                                  </span>
+                                </span>
+                              </div>
+                              {m.commentary?.summary && (
+                                <p className="font-serif text-[14.5px] leading-snug text-foreground/85">
+                                  {m.commentary.summary}
+                                </p>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
