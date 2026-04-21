@@ -15,23 +15,16 @@ import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 import {
   ArrowLeft,
-  Brain,
-  Target,
   CheckCircle2,
   XCircle,
-  Lightbulb,
   ChevronRight,
   Loader2,
   Trophy,
   AlertCircle,
-  Play,
   RotateCcw,
-  Eye
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { API } from "@/App";
 
 // Encouraging messages for puzzle completion
@@ -271,49 +264,91 @@ export default function PrescribedTraining() {
     );
   }
   
-  const progress = ((currentPuzzleIndex + (puzzleState === "correct" ? 1 : 0)) / trainingData.puzzles.length) * 100;
   const isComplete = currentPuzzleIndex >= trainingData.puzzles.length - 1 && puzzleState === "correct";
-  
+  const totalPuzzles = trainingData.puzzles.length;
+  const focusName =
+    trainingData.coaching_intro?.lesson ||
+    (weakness === "current" ? "Your focus" : weakness.replace(/_/g, " "));
+  const solvedMoves = currentPuzzle?.solution_san || currentPuzzle?.solution?.[0];
+
+  // Progress pips — solved ✓, missed ✗, current ●, upcoming ○
+  // `attempts` list isn't tracked globally; we synthesize pips from solvedCount + current index.
+  const pips = Array.from({ length: totalPuzzles }, (_, i) => {
+    if (i < currentPuzzleIndex) return "solved";
+    if (i === currentPuzzleIndex) {
+      if (puzzleState === "correct") return "solved";
+      if (puzzleState === "incorrect") return "missed";
+      return "current";
+    }
+    return "upcoming";
+  });
+
+  // Socratic question — use coaching.question if backend provides one, else a
+  // weakness-aware template, else a safe default. Never fake context we don't have.
+  const socraticQuestion =
+    currentPuzzle?.coaching?.question ||
+    (currentPuzzle?.source === "your_game"
+      ? "Before you moved — what did you miss?"
+      : {
+          piece_safety: "Which of your pieces has no defender?",
+          tactical_oversight: "What tactic is hiding in this position?",
+          missed_tactic: "What tactic is available here?",
+          missed_threat: "What's your opponent threatening?",
+          opponent_threats: "What's your opponent threatening?",
+          calculation_depth: "Look two moves ahead — what happens?",
+          king_safety: "Is your king as safe as it looks?",
+          poor_piece_safety: "Which piece can be taken for free?",
+        }[weakness] ||
+        "Find the best move.");
+
+  // Color / side to move — parse from FEN
+  const toMoveLabel = (() => {
+    try {
+      const turn = currentPuzzle?.fen?.split(" ")[1];
+      return turn === "b" ? "Black to move" : "White to move";
+    } catch {
+      return "";
+    }
+  })();
+
+  const puzzleRating = currentPuzzle?.rating || currentPuzzle?.avg_rating;
+
   return (
-    <div className="min-h-screen bg-background" data-testid="prescribed-training">
-      {/* Header */}
-      <div className="border-b bg-card/50">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-              <div>
-                <h1 className="font-semibold flex items-center gap-2">
-                  <Target className="w-5 h-5 text-primary" />
-                  {trainingData.coaching_intro?.lesson || "Training"}
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  Weakness: {weakness.replace(/_/g, " ")}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-medium">{solvedCount}/{trainingData.total}</p>
-                <p className="text-xs text-muted-foreground">Solved</p>
-              </div>
-              <Progress value={progress} className="w-24 h-2" />
-            </div>
+    <div className="min-h-screen bg-background text-foreground" data-testid="prescribed-training">
+      <div className="max-w-[1080px] mx-auto px-6 md:px-10 py-8 md:py-12">
+
+        {/* Back nav — subtle */}
+        <button
+          onClick={() => navigate(-1)}
+          className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5 mb-8"
+        >
+          <ArrowLeft className="w-3 h-3" strokeWidth={1.75} />
+          Back
+        </button>
+
+        {/* ─── Page head: focus + progress pips ─── */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-10 md:mb-14">
+          <div className="flex items-baseline gap-4 md:gap-5 flex-wrap">
+            <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+              Training · focus session
+            </p>
+            <span className="text-[13px] text-foreground font-medium capitalize">{focusName}</span>
+          </div>
+          <div className="flex items-center gap-5">
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {Math.min(currentPuzzleIndex + 1, totalPuzzles)} of {totalPuzzles}
+            </span>
+            <Pips pips={pips} />
           </div>
         </div>
-      </div>
-      
-      {/* Main content */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Board */}
-          <div>
+
+        {/* ─── Stage: board + coaching panel ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(320px,520px)_1fr] gap-8 lg:gap-14 items-start">
+
+          {/* Board column */}
+          <div className="w-full">
             {currentPuzzle?.fen ? (
-              <div className="rounded-lg overflow-hidden border border-border">
+              <div className="rounded-lg overflow-hidden ring-1 ring-border">
                 <LichessBoard
                   ref={boardRef}
                   fen={game.fen()}
@@ -326,74 +361,43 @@ export default function PrescribedTraining() {
                   interactive={puzzleState === "thinking"}
                   viewOnly={puzzleState !== "thinking"}
                   arrows={
-                    // Show arrows when solution is revealed or incorrect
                     (showSolution || puzzleState === "incorrect")
                       ? (() => {
                           const arrows = [];
-                          
-                          // Green arrow for best move
                           if (currentPuzzle.solution?.[0]) {
                             arrows.push([
                               currentPuzzle.solution[0].slice(0, 2),
                               currentPuzzle.solution[0].slice(2, 4),
-                              "green"
+                              "green",
                             ]);
                           }
-                          
-                          // Orange arrow for the threat (what you missed)
                           if (currentPuzzle.threat) {
-                            // Try to parse the threat as a UCI move (e.g., "e2e4" or "fxe5")
                             const threat = currentPuzzle.threat;
-                            
-                            // If threat is 4 chars, it's a UCI move
                             if (threat.length === 4 && /^[a-h][1-8][a-h][1-8]$/.test(threat)) {
                               arrows.push([threat.slice(0, 2), threat.slice(2, 4), "orange"]);
                             }
-                            // If threat is like "fxe5" or "Nxe5", try to parse it
-                            else if (threat.includes('x')) {
-                              // Extract the target square from capture notation
-                              const match = threat.match(/x([a-h][1-8])/);
-                              if (match) {
-                                // We can show a highlight on the target square
-                                // For arrow, we'd need the from square - skip for now
-                              }
-                            }
-                            // If threat is just a square like "b5", highlight it
-                            // (This will be handled by highlights, not arrows)
                           }
-                          
                           return arrows;
                         })()
                       : []
                   }
                   highlights={
-                    // Highlight squares when solution is revealed or incorrect
                     (showSolution || puzzleState === "incorrect")
                       ? (() => {
                           const highlights = [];
-                          
-                          // Highlight the move that was played (mistake) when from own game
                           if (currentPuzzle.your_move_uci) {
                             highlights.push(currentPuzzle.your_move_uci.slice(0, 2));
                             highlights.push(currentPuzzle.your_move_uci.slice(2, 4));
                           }
-                          
-                          // Highlight the threat square if it's a simple notation
                           if (currentPuzzle.threat) {
                             const threat = currentPuzzle.threat;
-                            // If threat is a square like "b5" or "e4"
                             if (/^[a-h][1-8]$/.test(threat)) {
                               highlights.push(threat);
-                            }
-                            // If threat is capture notation like "fxe5", highlight target
-                            else if (threat.includes('x')) {
+                            } else if (threat.includes("x")) {
                               const match = threat.match(/x([a-h][1-8])/);
-                              if (match) {
-                                highlights.push(match[1]);
-                              }
+                              if (match) highlights.push(match[1]);
                             }
                           }
-                          
                           return highlights;
                         })()
                       : []
@@ -401,282 +405,292 @@ export default function PrescribedTraining() {
                 />
               </div>
             ) : currentPuzzle?.game_url ? (
-              <div className="aspect-square bg-slate-800/50 rounded-lg flex items-center justify-center">
+              <div className="aspect-square bg-muted/40 rounded-lg flex items-center justify-center">
                 <div className="text-center p-6">
                   <p className="text-muted-foreground mb-4">
                     This puzzle is from Lichess
                   </p>
-                  <Button
-                    onClick={() => window.open(currentPuzzle.game_url, "_blank")}
-                  >
+                  <Button onClick={() => window.open(currentPuzzle.game_url, "_blank")}>
                     Solve on Lichess
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="aspect-square bg-slate-800/50 rounded-lg flex items-center justify-center">
+              <div className="aspect-square bg-muted/40 rounded-lg flex items-center justify-center">
                 <p className="text-muted-foreground">No puzzle available</p>
               </div>
             )}
-            
-            {/* Puzzle status */}
-            {puzzleState === "correct" && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-4 rounded-lg bg-green-500/10 border border-green-500/30"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  <span className="font-medium text-green-500">Correct!</span>
-                  {streak >= 3 && (
-                    <Badge variant="outline" className="ml-2 border-amber-500/50 text-amber-400">
-                      {streak} streak 🔥
-                    </Badge>
-                  )}
-                </div>
-                {encouragement && (
-                  <p className="text-sm text-green-400/80 ml-7">{encouragement}</p>
-                )}
-              </motion.div>
-            )}
-            
-            {puzzleState === "incorrect" && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-4 rounded-lg bg-red-500/10 border border-red-500/30"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <XCircle className="w-5 h-5 text-red-500" />
-                  <span className="font-medium text-red-500">Not quite!</span>
-                </div>
-                {encouragement && (
-                  <p className="text-sm text-red-400/80 ml-7">{encouragement}</p>
-                )}
-                {/* Show the correct answer */}
-                <p className="text-sm text-muted-foreground mt-2 ml-7">
-                  The best move was <span className="text-green-400 font-medium">{currentPuzzle.solution_san || currentPuzzle.solution?.[0]}</span>
-                  {currentPuzzle.your_move && (
-                    <> — in your game you played <span className="text-red-400">{currentPuzzle.your_move}</span></>
-                  )}
-                </p>
-                {/* Show the threat that was missed */}
-                {currentPuzzle.threat && (
-                  <div className="mt-2 ml-7 p-2 bg-orange-500/10 rounded border border-orange-500/20">
-                    <p className="text-xs text-orange-400">
-                      <span className="font-medium">Threat you missed:</span> {currentPuzzle.threat}
-                    </p>
-                  </div>
-                )}
-                {/* Show coaching note if available */}
-                {currentPuzzle.coaching?.what_you_missed && (
-                  <p className="text-xs text-muted-foreground mt-2 ml-7 italic">
-                    {currentPuzzle.coaching.what_you_missed}
-                  </p>
-                )}
-              </motion.div>
-            )}
-            
-            {/* Show solution revealed feedback */}
-            {puzzleState === "revealed" && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/30"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Eye className="w-5 h-5 text-blue-400" />
-                  <span className="font-medium text-blue-400">Solution</span>
-                </div>
-                <p className="text-sm text-muted-foreground ml-7">
-                  The best move was <span className="text-green-400 font-medium">{currentPuzzle.solution_san || currentPuzzle.solution?.[0]}</span>
-                  {currentPuzzle.your_move && (
-                    <> — in your game you played <span className="text-red-400">{currentPuzzle.your_move}</span></>
-                  )}
-                </p>
-                {/* Show the threat that was missed */}
-                {currentPuzzle.threat && (
-                  <div className="mt-2 ml-7 p-2 bg-orange-500/10 rounded border border-orange-500/20">
-                    <p className="text-xs text-orange-400">
-                      <span className="font-medium">Threat you missed:</span> {currentPuzzle.threat}
-                    </p>
-                  </div>
-                )}
-                {/* Show coaching note if available */}
-                {currentPuzzle.coaching?.what_you_missed && (
-                  <p className="text-xs text-muted-foreground mt-2 ml-7 italic">
-                    {currentPuzzle.coaching.what_you_missed}
-                  </p>
-                )}
-              </motion.div>
-            )}
-            
-            {/* Show move comparison for own games */}
-            {currentPuzzle?.source === "your_game" && puzzleState === "thinking" && (
-              <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                <p className="text-sm text-amber-400">
-                  <span className="font-medium">From your game:</span> You played <span className="text-red-400">{currentPuzzle.your_move}</span>. 
-                  Can you find the better move?
-                </p>
-              </div>
-            )}
-            
-            {/* Controls */}
-            <div className="mt-4 flex items-center gap-2">
-              {puzzleState === "thinking" && (
-                <Button variant="outline" onClick={revealSolution}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Show Solution
-                </Button>
-              )}
-              
-              {puzzleState === "incorrect" && (
-                <Button variant="outline" onClick={retryPuzzle}>
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Retry
-                </Button>
-              )}
-              
-              {(puzzleState === "correct" || puzzleState === "revealed") && !isComplete && (
-                <Button onClick={nextPuzzle}>
-                  <ChevronRight className="w-4 h-4 mr-2" />
-                  Next Puzzle
-                </Button>
-              )}
-              
-              {isComplete && (
-                <Button onClick={() => navigate("/home")}>
-                  <Trophy className="w-4 h-4 mr-2" />
-                  Training Complete!
-                </Button>
-              )}
-            </div>
           </div>
-          
-          {/* Coaching panel */}
-          <div className="space-y-4">
-            {/* Coaching intro */}
-            <Card className="border-primary/20">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg">Coach's Focus</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm">
-                  {trainingData.coaching_intro?.why_this_matters}
-                </p>
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-xs text-amber-400 font-medium mb-1">
-                    WHAT TO LOOK FOR
-                  </p>
-                  <p className="text-sm text-amber-300">
-                    {trainingData.coaching_intro?.what_to_look_for}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Current puzzle context */}
-            {currentPuzzle && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">
-                      Puzzle {currentPuzzleIndex + 1} of {trainingData.total}
-                    </CardTitle>
-                    <Badge variant="outline">
-                      {currentPuzzle.source === "your_game" ? "From Your Game" : 
-                       currentPuzzle.source === "curated" ? "Training Puzzle" : "Lichess"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Why this puzzle - explains the connection to weakness */}
-                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p className="text-xs text-blue-400 font-medium mb-1 flex items-center gap-1">
-                      <Lightbulb className="w-3 h-3" />
-                      WHY THIS PUZZLE?
-                    </p>
-                    <p className="text-sm text-blue-300">
-                      {currentPuzzle.framing_text
-                        ? currentPuzzle.framing_text
-                        : currentPuzzle.source === "your_game"
-                          ? `This is from your actual game. You made this mistake, so practicing it will help you spot it next time.`
-                          : currentPuzzle.context
-                            ? currentPuzzle.context
-                            : `This puzzle trains your ${weakness.replace(/_/g, " ")} detection. Solving similar patterns builds pattern recognition.`
-                      }
-                    </p>
-                  </div>
 
-                  {/* Social proof: motivating miss-rate signal from community solves */}
-                  {currentPuzzle.miss_rate_text && currentPuzzle.source !== "your_game" && (
-                    <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                      <p className="text-xs text-amber-300 flex items-center gap-1.5">
-                        <AlertCircle className="w-3 h-3" />
-                        {currentPuzzle.miss_rate_text}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Personal note for user's own games */}
-                  {currentPuzzle.source === "your_game" && (
-                    <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                      <p className="text-xs text-violet-400 font-medium mb-1">
-                        FROM YOUR GAME
-                      </p>
-                      <p className="text-sm text-violet-300">
-                        You played <span className="font-mono">{currentPuzzle.your_move}</span> but 
-                        the best move was <span className="font-mono">{currentPuzzle.solution_san || currentPuzzle.solution?.[0]}</span>
-                      </p>
-                      {currentPuzzle.threat && (
-                        <p className="text-sm text-red-400 mt-2">
-                          You missed: <span className="font-medium">{currentPuzzle.threat}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Solution reveal */}
-                  {showSolution && currentPuzzle.solution && (
-                    <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                      <p className="text-xs text-green-400 font-medium mb-1">
-                        SOLUTION
-                      </p>
-                      <p className="text-sm text-green-300 font-mono">
-                        {currentPuzzle.solution.join(" → ")}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+          {/* Coaching panel */}
+          <div className="pt-2 flex flex-col min-h-[480px]">
+            {puzzleState === "thinking" ? (
+              <PuzzlePrompt
+                framing={
+                  currentPuzzle?.framing_text ||
+                  currentPuzzle?.context ||
+                  (currentPuzzle?.source === "your_game"
+                    ? `From your own game — you had this position and the coach thought you could do better.`
+                    : `This puzzle trains ${weakness.replace(/_/g, " ")}. Keep solving similar patterns and the recognition sticks.`)
+                }
+                question={socraticQuestion}
+                toMoveLabel={toMoveLabel}
+                missRateText={
+                  currentPuzzle?.source !== "your_game" ? currentPuzzle?.miss_rate_text : null
+                }
+                rating={puzzleRating}
+                onReveal={revealSolution}
+                onSkip={nextPuzzle}
+                isFromOwnGame={currentPuzzle?.source === "your_game"}
+              />
+            ) : (
+              <FeedbackPanel
+                outcome={
+                  puzzleState === "correct"
+                    ? "correct"
+                    : puzzleState === "revealed"
+                      ? "revealed"
+                      : "missed"
+                }
+                principle={
+                  puzzleState === "correct"
+                    ? encouragement ||
+                      "You saw the pattern. That's exactly the instinct we're building."
+                    : currentPuzzle?.coaching?.what_you_missed ||
+                      "Before moving, always check what your opponent just threatened."
+                }
+                san={
+                  puzzleState === "correct"
+                    ? solvedMoves
+                    : currentPuzzle?.your_move && solvedMoves
+                      ? `${currentPuzzle.your_move} (you played) · ${solvedMoves} (solution)`
+                      : solvedMoves
+                }
+                threat={currentPuzzle?.threat}
+                streak={streak}
+                isComplete={isComplete}
+                onNext={nextPuzzle}
+                onRetry={retryPuzzle}
+                onComplete={() => navigate("/home")}
+              />
             )}
-            
-            {/* Progress summary */}
-            <Card className="bg-slate-800/30">
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{solvedCount} Correct</p>
-                    <p className="text-xs text-muted-foreground">
-                      {trainingData.prescription?.duration}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-primary">
-                      {Math.round((solvedCount / trainingData.total) * 100)}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Accuracy</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Design-system components (from redesign/03_Training.html)                 */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+// Progress pips: solved/missed/current/upcoming
+function Pips({ pips }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {pips.map((p, i) => {
+        if (p === "solved")
+          return <span key={i} className="h-1.5 w-6 rounded-full bg-emerald-400/70" />;
+        if (p === "missed")
+          return <span key={i} className="h-1.5 w-6 rounded-full bg-rose-400/70" />;
+        if (p === "current")
+          return (
+            <span
+              key={i}
+              className="h-1.5 w-6 rounded-full bg-violet-400 ring-2 ring-violet-400/20 ring-offset-2 ring-offset-background"
+            />
+          );
+        return <span key={i} className="h-1.5 w-6 rounded-full bg-muted" />;
+      })}
+    </div>
+  );
+}
+
+// Pre-solve: provenance + Socratic question + community signal
+function PuzzlePrompt({
+  framing,
+  question,
+  toMoveLabel,
+  missRateText,
+  rating,
+  onReveal,
+  onSkip,
+  isFromOwnGame,
+}) {
+  return (
+    <>
+      {/* Provenance — the differentiator */}
+      <div className="mb-8">
+        <div className="text-[10.5px] uppercase tracking-[0.22em] text-amber-500/90 dark:text-amber-300/80 font-semibold mb-3">
+          {isFromOwnGame ? "From your game" : "Why this puzzle"}
+        </div>
+        <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-[420px]">
+          {framing}
+        </p>
+      </div>
+
+      {/* Socratic question — heart of the page */}
+      <motion.div
+        key={question}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="mb-auto"
+      >
+        <p className="font-serif italic text-[22px] md:text-[26px] leading-[1.25] tracking-[-0.01em] text-foreground max-w-[440px]">
+          {question}
+        </p>
+        {toMoveLabel && (
+          <p className="mt-4 text-[12.5px] text-muted-foreground">
+            {toMoveLabel}. Play the move on the board.
+          </p>
+        )}
+      </motion.div>
+
+      {/* Footer: community signal + escape hatches */}
+      <div className="pt-8 mt-8 border-t border-border/60 space-y-5">
+        {missRateText && (
+          <div className="flex items-center gap-2.5">
+            <span className="h-1 w-1 rounded-full bg-amber-500/80" />
+            <span className="text-[11.5px] text-muted-foreground">{missRateText}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-5 text-[12.5px] flex-wrap">
+          <button
+            onClick={onReveal}
+            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
+          >
+            <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Show the solution
+          </button>
+          <span className="text-border">·</span>
+          <button
+            onClick={onSkip}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip this one
+          </button>
+          {rating && (
+            <span className="ml-auto text-[11px] text-muted-foreground/70 font-mono tabular-nums">
+              rated {Math.round(rating)}
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Post-solve: correct / missed / revealed
+function FeedbackPanel({
+  outcome,
+  principle,
+  san,
+  threat,
+  streak,
+  isComplete,
+  onNext,
+  onRetry,
+  onComplete,
+}) {
+  const isCorrect = outcome === "correct";
+  const isRevealed = outcome === "revealed";
+  const toneBorder = isCorrect
+    ? "border-emerald-400/30 bg-emerald-500/[0.04]"
+    : isRevealed
+      ? "border-blue-400/30 bg-blue-500/[0.04]"
+      : "border-rose-400/30 bg-rose-500/[0.04]";
+  const label = isCorrect ? "Correct" : isRevealed ? "Solution" : "Missed";
+  const toneAccent = isCorrect
+    ? "text-emerald-600 dark:text-emerald-300"
+    : isRevealed
+      ? "text-blue-600 dark:text-blue-300"
+      : "text-rose-600 dark:text-rose-300";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className={`rounded-2xl border p-6 md:p-7 ${toneBorder}`}
+    >
+      <div className="grid grid-cols-[auto_1fr] md:grid-cols-[auto_1fr_auto] gap-5 md:gap-6 items-start">
+        {/* Glyph */}
+        <div
+          className={`h-10 w-10 rounded-full flex items-center justify-center border ${
+            isCorrect
+              ? "border-emerald-400/40 bg-emerald-500/10"
+              : isRevealed
+                ? "border-blue-400/40 bg-blue-500/10"
+                : "border-rose-400/40 bg-rose-500/10"
+          }`}
+        >
+          {isCorrect ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" strokeWidth={2} />
+          ) : isRevealed ? (
+            <Eye className="h-4 w-4 text-blue-500" strokeWidth={2} />
+          ) : (
+            <XCircle className="h-4 w-4 text-rose-500" strokeWidth={2} />
+          )}
+        </div>
+
+        {/* Copy */}
+        <div>
+          <div className="flex items-baseline gap-3 mb-3 flex-wrap">
+            <span
+              className={`text-[10.5px] uppercase tracking-[0.2em] font-semibold ${toneAccent}`}
+            >
+              {label}
+            </span>
+            {san && (
+              <span className="font-mono text-[12px] text-muted-foreground">{san}</span>
+            )}
+            {isCorrect && streak >= 3 && (
+              <span className="text-[10.5px] uppercase tracking-[0.18em] text-amber-500 font-semibold">
+                {streak} streak
+              </span>
+            )}
+          </div>
+          <p className="font-serif text-[17px] md:text-[19px] leading-snug text-foreground max-w-[540px] mb-3">
+            {principle}
+          </p>
+          {threat && !isCorrect && (
+            <p className="text-[13px] text-muted-foreground leading-relaxed max-w-[560px]">
+              <span className="font-medium text-foreground/80">Threat: </span>
+              {threat}
+            </p>
+          )}
+        </div>
+
+        {/* Next */}
+        <div className="col-span-2 md:col-span-1 md:text-right mt-2 md:mt-0">
+          {isComplete ? (
+            <Button onClick={onComplete} className="h-10 px-5 rounded-lg font-medium">
+              <Trophy className="mr-2 h-3.5 w-3.5" />
+              Training complete
+            </Button>
+          ) : isCorrect || isRevealed ? (
+            <Button onClick={onNext} className="h-10 px-5 rounded-lg font-medium">
+              Next puzzle
+              <ChevronRight className="ml-2 h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <div className="flex md:flex-col items-center md:items-end gap-2">
+              <Button onClick={onRetry} className="h-10 px-5 rounded-lg font-medium">
+                <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                Try again
+              </Button>
+              <button
+                onClick={onNext}
+                className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Move on →
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }

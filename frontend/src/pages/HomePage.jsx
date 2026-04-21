@@ -1,12 +1,17 @@
 /**
- * HOME — "Opening a text from your coach."
+ * HOME — A text from your coach.
  *
- * Personal, specific, forward-looking.
- * 1. Greeting with relationship context
- * 2. Last session recap (what happened)
- * 3. Current problem (what's holding you back)
- * 4. Today's plan (what to do next)
- * 5. One clear CTA
+ * Implements `redesign/01_Home.html`:
+ *   - Greeting strip (one line, quiet)
+ *   - Hero prescription (via <TodayHero/>, editorial variant)
+ *   - Evidence (last session recap + optional improvement trend)
+ *   - Nav tiles (quiet four-up)
+ *
+ * All data paths and onboarding flows are preserved from the previous
+ * HomePage. Engine 1 + Engine 2 prescriptions are still driven by
+ * /api/today inside <TodayHero/>. The old mood-based layered sections
+ * ("celebrating / encouraging / confronting / neutral") collapse into a
+ * single Evidence block that speaks in one voice regardless of mood.
  */
 
 import { useState, useEffect } from "react";
@@ -14,46 +19,57 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import {
-  ChevronRight, Swords, Target, Brain, Import,
-  TrendingUp, Trophy, XCircle, Minus, BookOpen, Zap, Flame,
-} from "lucide-react";
 import LichessBoard from "@/components/LichessBoard";
 import TodayHero from "@/components/TodayHero";
+import {
+  ChevronRight,
+  Swords,
+  FlaskConical,
+  Target,
+  BookOpen,
+  Import,
+  ArrowRight,
+  TrendingUp,
+} from "lucide-react";
 
-const PROBLEM_HEADLINES = {
-  tactical_miss: "You are missing tactics that are right in front of you.",
-  one_move_blunder: "You are giving away pieces for free.",
-  calculation_error: "You are losing games because you stop thinking too early.",
-  calculation_depth: "You are losing games because you stop thinking too early.",
-  positional: "You are being outplayed. Your pieces have no plan.",
-  endgame_collapse: "You reach endgames you should win. You don't finish them.",
-  opening_disaster: "Your games are lost before they start.",
-  time_collapse: "You are losing on the clock, not on the board.",
-  threw_winning: "You are throwing winning positions.",
-  piece_safety: "You are giving away pieces for free.",
-  ignore_threat: "You are not looking at what your opponent is doing.",
-  missed_tactic: "You are missing simple winning chances.",
-  king_safety: "You are leaving your king exposed.",
-  conversion: "You get the advantage. Then you give it back.",
+// ─── Utilities ──────────────────────────────────────────────────────────────
+
+const resultLabel = (session) => {
+  const r = String(session?.result || "").toLowerCase();
+  if (r === "win" || r === "w") return "Win";
+  if (r === "loss" || r === "l") return "Loss";
+  if (r === "draw" || r === "d" || r === "1/2-1/2") return "Draw";
+  return null;
 };
 
-const PROBLEM_RULES = {
-  tactical_miss: "Before every move — check captures, checks, and threats.",
-  one_move_blunder: "Before every move — is anything I own under attack?",
-  calculation_error: "Before every move — what will they do next?",
-  calculation_depth: "Before every move — what will they do next?",
-  positional: "Before every move — which piece is doing the least?",
-  endgame_collapse: "In the endgame — activate your king first.",
-  opening_disaster: "First 10 moves — develop, control center, castle.",
-  time_collapse: "Under 2 minutes — play the simplest move.",
-  threw_winning: "When ahead — trade pieces, not pawns.",
-  piece_safety: "Before every move — is anything I own under attack?",
-  ignore_threat: "Before every move — what is my opponent attacking?",
-  missed_tactic: "Before every move — is there a tactic here?",
-  king_safety: "Before you attack — is my king safe?",
-  conversion: "When ahead — simplify. Don't get creative.",
+const timeOfDayGreeting = () => {
+  const h = new Date().getHours();
+  if (h < 5) return "Up late";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 };
+
+const formatWhen = () => {
+  const now = new Date();
+  const day = now.toLocaleDateString(undefined, { weekday: "long" });
+  const time = now.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${day} · ${time}`;
+};
+
+// ─── Nav tiles (design spec) ────────────────────────────────────────────────
+
+const NAV = [
+  { id: "play", icon: Swords, label: "Play with Coach", sub: "coached games", href: "/play-with-coach" },
+  { id: "lab", icon: FlaskConical, label: "Lab", sub: "review games", href: "/lab" },
+  { id: "training", icon: Target, label: "Training", sub: "drill patterns", href: "/training" },
+  { id: "openings", icon: BookOpen, label: "Openings", sub: "your repertoire", href: "/openings" },
+];
+
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 const HomePage = ({ user }) => {
   const navigate = useNavigate();
@@ -77,336 +93,261 @@ const HomePage = ({ user }) => {
         }
         if (proofRes.ok) {
           const proofData = await proofRes.json();
-          console.log("[Home] Improvement proof:", proofData?.has_data, "primary:", proofData?.primary_pattern?.label, "reduction:", proofData?.primary_pattern?.reduction_pct);
           setProof(proofData);
         }
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
+  // ─── Loading ─────────────────────────────────────────────────────────
   if (loading) {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center h-[60vh]">
-          <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
         </div>
       </Layout>
     );
   }
 
-  // New user onboarding — no games, no sessions
-  const coachGamesPlayed = data?.greeting?.games_together || 0;
+  // ─── Derived ─────────────────────────────────────────────────────────
+  const greeting = data?.greeting || {};
+  const coachGamesPlayed = greeting.games_together || 0;
+  const lastSession = data?.last_session;
 
-  if (!hasGames && !data?.last_session) {
+  // Pretty first name
+  const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
+  const firstName = rawName.split(/[._-]/).filter(Boolean)[0] || "";
+  const displayName =
+    firstName.length <= 12
+      ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
+      : "";
+
+  // ─── New user onboarding (no games yet) ──────────────────────────────
+  if (!hasGames && !lastSession) {
     return (
       <Layout user={user}>
-        <div className="max-w-md mx-auto px-6 py-10" data-testid="home-page">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <div
+          className="max-w-[640px] mx-auto px-6 md:px-10 py-12 md:py-16"
+          data-testid="home-page"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-12"
+          >
+            {/* Greeting */}
+            <div className="flex items-baseline justify-between">
+              <p className="text-muted-foreground text-[13px]">
+                {displayName
+                  ? `${timeOfDayGreeting()}, ${displayName}.`
+                  : `${timeOfDayGreeting()}.`}
+              </p>
+              <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">
+                {formatWhen()}
+              </p>
+            </div>
 
-            {/* Welcome */}
-            <div className="text-center">
-              <div className="w-14 h-14 rounded-2xl gradient-gold flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/20">
-                <Brain className="w-6 h-6 text-black" strokeWidth={2} />
-              </div>
-              <h1 className="text-2xl font-heading text-foreground tracking-tight mb-2">
-                Welcome to ChessGuru
-              </h1>
-              <p className="text-sm text-muted-foreground">
+            {/* Welcome hero */}
+            <section>
+              <p className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+                First session
+              </p>
+              <h1 className="font-serif text-[32px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[560px]">
                 I'm your personal chess coach. Let's find out how you play.
-              </p>
-            </div>
-
-            {/* Step indicator */}
-            <div className="flex items-center justify-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${coachGamesPlayed >= 1 ? "bg-emerald-500" : "bg-primary"}`} />
-              <div className={`w-2.5 h-2.5 rounded-full ${coachGamesPlayed >= 2 ? "bg-emerald-500" : "bg-muted"}`} />
-              <div className={`w-2.5 h-2.5 rounded-full ${coachGamesPlayed >= 3 ? "bg-emerald-500" : "bg-muted"}`} />
-              <span className="text-xs text-muted-foreground ml-2">
-                {coachGamesPlayed === 0 ? "Play your first game" :
-                 coachGamesPlayed < 3 ? `${coachGamesPlayed}/3 games — ${3 - coachGamesPlayed} more to build your profile` :
-                 "Profile ready!"}
-              </span>
-            </div>
-
-            {/* Main CTA — Play with Coach */}
-            <div className="rounded-2xl border-2 border-primary/20 bg-primary/[0.03] p-5">
-              <h2 className="text-base font-semibold text-foreground mb-2">
+              </h1>
+              <p className="mt-6 text-[14px] text-muted-foreground max-w-[520px] leading-relaxed">
                 {coachGamesPlayed === 0
-                  ? "Play a game with me"
+                  ? "Play a game and I'll watch how you think. No preparation — your natural game is what I need to see."
                   : coachGamesPlayed < 3
-                    ? "Keep going — I'm learning how you think"
-                    : "I know your game now"
-                }
-              </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                {coachGamesPlayed === 0
-                  ? "I'll watch how you play and tell you what I see. No preparation needed — just play your natural game."
-                  : coachGamesPlayed < 3
-                    ? `After ${3 - coachGamesPlayed} more game${3 - coachGamesPlayed > 1 ? "s" : ""}, I'll have your full profile — strengths, weaknesses, and a plan to improve.`
-                    : "Your profile is ready. Let's keep improving."
-                }
+                    ? `We've played ${coachGamesPlayed} game${coachGamesPlayed > 1 ? "s" : ""} together. ${3 - coachGamesPlayed} more and I'll have your full profile.`
+                    : "Your profile is ready. Let's keep working."}
               </p>
-              <button onClick={() => navigate("/play-with-coach")}
-                className="w-full py-4 text-[15px] font-semibold rounded-xl gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
-              >
-                <Swords className="w-4 h-4" strokeWidth={2} />
-                {coachGamesPlayed === 0 ? "Play my first game" : "Play another game"}
-                <ChevronRight className="w-4 h-4 opacity-60" />
-              </button>
-            </div>
+
+              <div className="mt-10 flex flex-wrap items-center gap-5">
+                <button
+                  onClick={() => navigate("/play-with-coach")}
+                  className="h-12 px-7 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[15px] transition-colors inline-flex items-center gap-2"
+                >
+                  <Swords className="h-4 w-4" strokeWidth={2} />
+                  {coachGamesPlayed === 0 ? "Play my first game" : "Play another game"}
+                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </div>
+            </section>
 
             {/* Already have an account? */}
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <p className="text-sm text-foreground mb-3">Already play on Chess.com or Lichess?</p>
-              <p className="text-xs text-muted-foreground mb-3">
-                Connect your account and I'll analyze your existing games. Instant profile — no games with me needed.
+            <section className="pt-8 border-t border-border/60">
+              <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
+                Already play elsewhere?
               </p>
-              <button onClick={() => navigate("/import")}
-                className="w-full py-2.5 text-sm border border-border text-foreground rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
+              <p className="text-[13.5px] text-muted-foreground mb-5 leading-relaxed max-w-[480px]">
+                Connect your Chess.com or Lichess account and I'll analyze your
+                existing games. Instant profile — no games with me needed.
+              </p>
+              <button
+                onClick={() => navigate("/import")}
+                className="text-[13px] text-foreground hover:underline transition-colors inline-flex items-center gap-1.5"
               >
-                <Import className="w-4 h-4" strokeWidth={2} />
+                <Import className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Connect Chess.com or Lichess
               </button>
-            </div>
-
+            </section>
           </motion.div>
         </div>
       </Layout>
     );
   }
 
-  const greeting = data?.greeting || {};
-  const lastSession = data?.last_session;
-  const problem = data?.problem;
-  const plan = data?.todays_plan || {};
-  const warmup = data?.warmup;
-  const focusPlan = data?.focus_plan;
-  const activeFocus = data?.active_focus || null;
-  const learnNext = data?.learn_next || null;
+  // ─── Evidence data ───────────────────────────────────────────────────
+  const lastResult = resultLabel(lastSession);
+  const lastBoard = lastSession?.critical_fen || lastSession?.board_fen;
+  const lastStory = lastSession?.story;
+  const lastAccuracy = lastSession?.accuracy;
+  const lastMoves = lastSession?.total_moves;
+  const hasEvidence = Boolean(lastStory || lastBoard);
 
-  // Determine the page mood — ONE message, not contradictory signals
-  // 1. Last game clean + improving → celebrate
-  // 2. Last game bad / focus violated → confront
-  // 3. No recent data → neutral, just plan
-  const lastGameWasGood = lastSession?.result === "win" || (lastSession?.accuracy >= 75 && lastSession?.total_moves >= 15);
-  const hasImprovement = proof?.has_data && (proof?.primary_pattern?.reduction_pct > 15 || proof?.streaks?.no_big_mistake_games >= 3);
-  const mood = lastGameWasGood && hasImprovement ? "celebrating"
-    : lastGameWasGood ? "encouraging"
-    : problem?.category ? "confronting"
-    : "neutral";
+  // Improvement trend — optional
+  const trendShowing =
+    proof?.has_data &&
+    (proof.primary_pattern?.reduction_pct > 0 ||
+      proof.streaks?.no_big_mistake_games >= 3);
 
-  // Extract a reasonable display name from email
-  const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
-  // Split on dots, underscores, or camelCase boundaries to get first name
-  const nameParts = rawName.split(/[._-]/).filter(Boolean);
-  const firstName = nameParts[0] || "";
-  const displayName = firstName.length <= 12
-    ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
-    : "";
-
+  // ─── Main render ─────────────────────────────────────────────────────
   return (
     <Layout user={user}>
-      <div className="max-w-md mx-auto px-6 py-8" data-testid="home-page">
+      <div
+        className="max-w-[880px] mx-auto px-6 md:px-10 py-10 md:py-16"
+        data-testid="home-page"
+      >
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="space-y-6"
         >
-
-          {/* ─── GREETING ─── */}
-          <div>
-            <h1 className="text-2xl font-heading text-foreground tracking-tight">
-              {displayName ? `Hey ${displayName}.` : "Welcome back."}
-            </h1>
+          {/* ─── Greeting strip ─── */}
+          <div className="flex items-baseline justify-between mb-10 md:mb-12">
+            <p className="text-muted-foreground text-[13px]">
+              {displayName
+                ? `${timeOfDayGreeting()}, ${displayName}.`
+                : `${timeOfDayGreeting()}.`}
+            </p>
+            <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">
+              {formatWhen()}
+            </p>
           </div>
 
-          {/* ─── TODAY'S FOCUS (from /api/today — Engine 1 + Engine 2) ─── */}
-          <TodayHero />
+          {/* ━━ HERO PRESCRIPTION (via TodayHero) ━━ */}
+          <section className="mb-16 md:mb-20">
+            <TodayHero />
+          </section>
 
-          {/* ─── Divider before the broader home sections ─── */}
-          <div className="border-t border-border/50 !my-8" />
+          {/* ━━ EVIDENCE ━━ */}
+          {hasEvidence && (
+            <section className="mb-16 md:mb-20">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
+                Evidence
+              </div>
 
-          {/* ═══ MOOD: CELEBRATING — last game good + improving ═══ */}
-          {mood === "celebrating" && (
-            <>
-              {/* Improvement proof */}
-              {proof?.primary_pattern?.reduction_pct > 0 && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-                  className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/[0.03] p-4"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                    <span className="text-sm font-semibold text-foreground">
-                      {proof.primary_pattern.reduction_pct}% fewer {proof.primary_pattern.label.toLowerCase()} mistakes
-                    </span>
+              <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 md:gap-10 items-start">
+                {/* Board thumb */}
+                {lastBoard && (
+                  <div>
+                    <div className="rounded-lg overflow-hidden ring-1 ring-border w-[168px]">
+                      <LichessBoard fen={lastBoard} viewOnly={true} width={168} />
+                    </div>
+                    <div className="mt-3 text-[11px] tabular-nums text-muted-foreground leading-relaxed">
+                      {lastSession?.opponent && (
+                        <>vs {lastSession.opponent}</>
+                      )}
+                      {lastSession?.opponent_rating && (
+                        <> · {lastSession.opponent_rating}</>
+                      )}
+                      <br />
+                      {[
+                        lastResult,
+                        lastAccuracy != null ? `${lastAccuracy}% acc` : null,
+                        lastMoves != null ? `${lastMoves} moves` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
                   </div>
-                  {proof.before_after?.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-muted-foreground mb-2">{proof.before_after[0].message}</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <p className="text-[9px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Before</p>
-                          <div className="rounded-lg overflow-hidden border border-red-500/20">
-                            <LichessBoard fen={proof.before_after[0].old_fen} viewOnly={true} width={150} />
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[9px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
-                          <div className="rounded-lg overflow-hidden border border-emerald-500/20">
-                            <LichessBoard fen={proof.before_after[0].new_fen} viewOnly={true} width={150} />
-                          </div>
-                        </div>
+                )}
+
+                {/* Story + trend + link */}
+                <div className="pt-1 space-y-6">
+                  {lastStory && (
+                    <p className="font-serif italic text-[17px] md:text-[18px] text-foreground leading-snug max-w-[440px]">
+                      "{lastStory}"
+                    </p>
+                  )}
+
+                  {trendShowing && (
+                    <div className="flex items-baseline gap-4">
+                      <TrendingUp
+                        className="h-4 w-4 text-emerald-500 shrink-0"
+                        strokeWidth={2}
+                      />
+                      <div>
+                        <p className="font-serif text-[17px] md:text-[19px] text-emerald-600 dark:text-emerald-400 leading-snug tracking-[-0.01em]">
+                          <span className="tabular-nums font-medium">
+                            {proof.primary_pattern?.reduction_pct}% fewer
+                          </span>{" "}
+                          {proof.primary_pattern?.label?.toLowerCase() || "mistakes"}
+                        </p>
+                        <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground mt-1.5 font-medium">
+                          30-day trend
+                        </p>
                       </div>
                     </div>
                   )}
-                  <p className="text-xs text-foreground/60 mt-3">This used to happen every game. Now it doesn't.</p>
-                </motion.div>
-              )}
 
-              {/* Last session — brief, positive */}
-              {lastSession && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-                  className="rounded-2xl border border-emerald-500/15 bg-card p-4"
+                  <button
+                    onClick={() => navigate("/lab")}
+                    className="inline-flex items-center gap-1.5 text-[12.5px] text-violet-500 dark:text-violet-300 hover:text-violet-400 dark:hover:text-violet-200 transition-colors group"
+                  >
+                    Open in Lab
+                    <ChevronRight
+                      className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+                      strokeWidth={2}
+                    />
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ━━ NAV TILES — quiet row ━━ */}
+          <section>
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
+              Elsewhere
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {NAV.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => navigate(n.href)}
+                  className="group text-left rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border transition-colors px-4 py-4"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Trophy className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Last session</span>
+                  <n.icon
+                    className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors mb-3"
+                    strokeWidth={1.75}
+                  />
+                  <div className="text-[13.5px] font-medium text-foreground leading-tight">
+                    {n.label}
                   </div>
-                  <p className="text-sm text-foreground">{lastSession.story}</p>
-                </motion.div>
-              )}
-            </>
-          )}
-
-          {/* ═══ MOOD: ENCOURAGING — last game good, no strong improvement data ═══ */}
-          {mood === "encouraging" && lastSession && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-              className="rounded-2xl border border-emerald-500/15 bg-card p-4"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Trophy className="w-4 h-4 text-emerald-500" strokeWidth={2} />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-500/60">Last session</span>
-              </div>
-              <p className="text-sm text-foreground">{lastSession.story}</p>
-              {lastSession.accuracy > 0 && lastSession.total_moves >= 15 && (
-                <p className="text-xs text-muted-foreground mt-1.5">{lastSession.total_moves} moves · {lastSession.accuracy}% accuracy</p>
-              )}
-            </motion.div>
-          )}
-
-          {/* ═══ MOOD: CONFRONTING — brief last-session line only ═══ */}
-          {mood === "confronting" && lastSession && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-              className="rounded-2xl border border-border bg-card p-3"
-            >
-              <div className="flex items-center gap-2">
-                <XCircle className="w-3.5 h-3.5 text-red-400" strokeWidth={2} />
-                <p className="text-xs text-muted-foreground">{lastSession.story}</p>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ═══ MOOD: NEUTRAL — plain last-session ═══ */}
-          {mood === "neutral" && lastSession && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              <p className="text-sm text-foreground">{lastSession.story}</p>
-            </motion.div>
-          )}
-
-          {/* "Fix this" and "Learn next" blocks now live inside <TodayHero />
-              above. Keeping them here would duplicate what the hero already
-              says (often with a different focus because the two data paths
-              diverge), so they're intentionally removed. */}
-
-          {/* ─── TODAY'S PLAN ─── */}
-          {plan.opening && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="rounded-2xl border-2 border-primary/20 bg-primary/[0.03] p-4"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <BookOpen className="w-4 h-4 text-primary" strokeWidth={2} />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-primary">
-                  Today's session
-                </span>
-              </div>
-              <p className="text-sm text-foreground leading-relaxed mb-1">
-                Play the <span className="font-semibold">{plan.opening}</span>
-                {plan.branch && <> — <span className="font-semibold">{plan.branch}</span></>}
-                .
-              </p>
-              {plan.reason
-                && !(plan.branch && plan.reason.includes(plan.branch))
-                && !(plan.opening && plan.reason.includes(plan.opening)
-                     && plan.reason.split(" ").length < 12) && (
-                <p className="text-xs text-muted-foreground">{plan.reason}</p>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── MAIN CTA — after loss: train first. after win: play. ─── */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="space-y-3"
-          >
-            {/* The "Fix this first" training CTA used to live here.
-                TodayHero's primary button now owns it. */}
-
-            {/* Play with Coach — primary after win, secondary after loss */}
-            <button
-              onClick={() => {
-                const opening = plan.opening || "";
-                const focus = activeFocus?.focus || problem?.category || "";
-                const params = new URLSearchParams();
-                if (opening) params.set("opening", opening);
-                if (focus) params.set("focus", focus);
-                navigate(`/play-with-coach${params.toString() ? `?${params}` : ""}`);
-              }}
-              className={`w-full py-4 text-[15px] font-semibold rounded-xl flex items-center justify-center gap-2 ${
-                mood === "confronting"
-                  ? "border border-border text-foreground hover:bg-muted/50 transition-all"
-                  : "gradient-gold text-black hover:opacity-90 transition-all shadow-lg shadow-amber-500/20"
-              }`}
-              data-testid="coach-cta"
-            >
-              <Swords className="w-4 h-4" strokeWidth={2} />
-              {plan.opening
-                ? `Play ${plan.opening}${plan.branch ? ` — ${plan.branch}` : ""}`
-                : "Play with Coach"
-              }
-              <ChevronRight className="w-4 h-4 opacity-60" />
-            </button>
-
-            {/* Warmup puzzles — only show when NOT in confronting mode (training CTA handles it) */}
-            {mood !== "confronting" && warmup?.available && (
-              <button
-                onClick={() => navigate(`/training/prescribed?weakness=${warmup.pattern}`)}
-                className="w-full py-3 text-sm text-muted-foreground hover:text-foreground border border-border rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
-              >
-                <Zap className="w-3.5 h-3.5" strokeWidth={2} />
-                Quick warmup — {warmup.label} puzzles
-                <span className="text-[10px] text-muted-foreground/40">3 min</span>
-              </button>
-            )}
-
-            {/* Progress link */}
-            <button
-              onClick={() => navigate("/progress")}
-              className="w-full py-2.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center justify-center gap-1"
-            >
-              <TrendingUp className="w-3 h-3" />
-              See your full progress
-            </button>
-          </motion.div>
-
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {n.sub}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
         </motion.div>
       </div>
     </Layout>

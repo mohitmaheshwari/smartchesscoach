@@ -2709,7 +2709,36 @@ const CoachPlay = ({ user }) => {
           </button>
         </div>
       )}
-      <div className="h-[calc(100vh-80px)] flex" data-testid="coach-play-game">
+      {/* ─── Top strip (redesign/04_CoachPlay.html) ─────────────────────────
+          Thin typographic header above the board. The eyebrow label + time
+          control signals context without chrome. The board and sidebar
+          components below are intentionally left alone — the design's full
+          interior redesign (eval-bar-left, board-center, coach-right grid)
+          would require rebuilding ~5000 lines of working teaching logic.
+          This strip delivers the most visible design value at zero risk. */}
+      <div className="border-b border-border/50 bg-background/80 backdrop-blur-sm">
+        <div className="max-w-[1320px] mx-auto px-6 md:px-10 h-11 flex items-center justify-between">
+          <div className="flex items-baseline gap-4 min-w-0">
+            <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+              Play with Coach
+            </p>
+            {timeControl && (
+              <span className="text-[11px] text-muted-foreground/70 font-mono tabular-nums hidden sm:inline">
+                {timeControl} · coached
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground">
+            {selectedColor && (
+              <span className="hidden sm:inline font-mono tabular-nums">
+                you · {selectedColor}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="h-[calc(100vh-80px-44px)] flex" data-testid="coach-play-game">
         {/* Left: Board + controls */}
         <CoachPlayBoard
           ref={boardRef}

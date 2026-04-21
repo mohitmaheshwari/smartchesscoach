@@ -1,29 +1,51 @@
 /**
- * LAB — "Let me show you the exact moment you keep losing."
+ * LAB — Review room.
  *
- * ONE problem. ONE board. ONE question.
- * Below: tabs to browse your games (imported vs with Coach).
+ * Implements the redesign spec at
+ *   chessguru-design-system/project/redesign/02_Lab.{html,jsx}
+ *
+ * One promoted game (Coach's Pick) gets the hero slot — mini board + a
+ * Fraunces-serif verdict sentence + move-by-move reasoning + tags + single
+ * CTA. The rest of the games collapse into a quiet filterable archive
+ * table. No cards on the hero, no accuracy progress chrome, no emoji.
+ *
+ * All existing data fetching (/api/lab-coach-pick), navigation to
+ * /game/:id, /play-with-coach, /import, /training/prescribed, and the
+ * empty-state flow are preserved.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import LichessBoard from "@/components/LichessBoard";
 import {
-  Import, ChevronRight, Eye, Swords, Target
+  Import,
+  ChevronRight,
+  Swords,
+  Target,
+  ArrowRight,
+  Search,
 } from "lucide-react";
 
+// ─── Copy fallbacks ──────────────────────────────────────────────────────────
+
 const BEHAVIOR_DESCRIPTIONS = {
-  threw_winning: "You stop paying attention once you're ahead. The game slips away.",
+  threw_winning:
+    "You were winning. Then you stopped defending — and never noticed.",
   tactical_miss: "You're missing tactics that are right in front of you.",
-  one_move_blunder: "You're moving without checking if your pieces are safe.",
-  calculation_error: "You stop thinking too early. One move deeper would save you.",
-  time_collapse: "You run out of time and panic. The mistakes come from rushing.",
-  opening_disaster: "Your games go wrong in the first 10 moves.",
-  endgame_collapse: "You reach winning endgames but can't finish them.",
-  positional: "Your opponent outplays you in small ways. The position gradually slips.",
+  one_move_blunder:
+    "You're moving without checking if your pieces are still safe.",
+  calculation_error:
+    "You stop thinking too early. One move deeper would save you.",
+  time_collapse:
+    "You run out of time and panic. The mistakes come from rushing.",
+  opening_disaster: "Your games go wrong in the first ten moves.",
+  endgame_collapse:
+    "You reach winning endgames, but can't close them.",
+  positional:
+    "Your opponent outplays you in small ways. The position gradually slips.",
 };
 
 const PATTERN_MAP = {
@@ -36,67 +58,211 @@ const PATTERN_MAP = {
   endgame_collapse: "endgame_technique",
 };
 
-const resultWord = (g) => {
-  const r = String(g.result || "").toLowerCase().trim();
-  if (r === "win" || r === "w") return "Won";
-  if (r === "loss" || r === "l") return "Lost";
-  if (r === "draw" || r === "d" || r === "1/2-1/2" || r === "½-½") return "Drew";
-  const color = String(g.user_color || "").toLowerCase();
-  if (r === "1-0") return color === "white" ? "Won" : "Lost";
-  if (r === "0-1") return color === "black" ? "Won" : "Lost";
-  return r ? r.charAt(0).toUpperCase() + r.slice(1) : "—";
+// ─── Utilities ──────────────────────────────────────────────────────────────
+
+const resultLetter = (g) => {
+  const r = String(g?.result || "").toLowerCase().trim();
+  if (r === "win" || r === "w") return "W";
+  if (r === "loss" || r === "l") return "L";
+  if (r === "draw" || r === "d" || r === "1/2-1/2" || r === "½-½") return "D";
+  const color = String(g?.user_color || "").toLowerCase();
+  if (r === "1-0") return color === "white" ? "W" : "L";
+  if (r === "0-1") return color === "black" ? "W" : "L";
+  return null;
 };
 
 const fmtDate = (g) => {
-  const d = g.analyzed_at || g.created_at || g.date;
+  const d = g?.analyzed_at || g?.created_at || g?.date;
   if (!d) return "";
   const ts = new Date(d);
   const diffH = (Date.now() - ts.getTime()) / 3600000;
-  if (diffH < 1) return `${Math.floor(diffH * 60)}m ago`;
-  if (diffH < 24) return `${Math.floor(diffH)}h ago`;
+  if (diffH < 1) return `${Math.floor(diffH * 60)}m`;
+  if (diffH < 24) return `${Math.floor(diffH)}h`;
   const days = Math.floor(diffH / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return `${days}d`;
   return ts.toLocaleDateString();
 };
+
+const humanPattern = (key) =>
+  key ? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
+
+// Derive the "worst moment" label from game data.
+const worstMoment = (g) => {
+  if (!g) return null;
+  if (g.critical_move) {
+    const severity =
+      g.blunders && g.blunders > 0
+        ? "Blunder"
+        : g.mistakes && g.mistakes > 0
+          ? "Mistake"
+          : g.critical_severity || "Critical";
+    return `${severity} · ${g.critical_move}`;
+  }
+  return null;
+};
+
+// ─── Components ─────────────────────────────────────────────────────────────
+
+function ResultGlyph({ r }) {
+  if (!r) return <span className="text-muted-foreground/40">—</span>;
+  const map = {
+    W: { label: "W", cls: "text-emerald-500 dark:text-emerald-400" },
+    L: { label: "L", cls: "text-rose-500 dark:text-rose-400" },
+    D: { label: "½", cls: "text-muted-foreground" },
+  };
+  const { label, cls } = map[r];
+  return (
+    <span className={`font-serif text-[15px] tabular-nums ${cls}`}>{label}</span>
+  );
+}
+
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [expandedGameId, setExpandedGameId] = useState(null);
+  const [filter, setFilter] = useState("all"); // all | unreviewed | losses | coach | week
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API}/lab-coach-pick`, { credentials: "include" });
+      const res = await fetch(`${API}/lab-coach-pick`, {
+        credentials: "include",
+      });
       if (res.ok) setData(await res.json());
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) {
-    return <Layout user={user}><div className="flex items-center justify-center h-[60vh]"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div></Layout>;
+  // ─── Derived state (same semantics as before, just better-named) ─────
+  const coaching = data?.coaching;
+  const games = useMemo(() => data?.games || [], [data]);
+  const topProblems = coaching?.top_problems || [];
+  const groupedGames = coaching?.grouped_games || {};
+  const priorityGame = coaching?.priority_game;
+  const activeFocus = coaching?.active_focus || null;
+  const primaryProblem = topProblems[0] || null;
+  const primaryGames = primaryProblem
+    ? groupedGames[primaryProblem.category]?.games || []
+    : [];
+  const unreviewed = primaryGames.filter((g) => !g.reviewed);
+
+  // Featured game for Coach's Pick hero — same logic as before
+  let featuredGame = null;
+  try {
+    if (priorityGame) {
+      featuredGame = {
+        ...priorityGame,
+        critical_fen:
+          priorityGame.critical_fen ||
+          priorityGame.replay?.mistake_fen ||
+          null,
+        critical_move:
+          priorityGame.critical_move || priorityGame.move_number || null,
+      };
+    }
+    if (!featuredGame?.critical_fen && unreviewed.length > 0) {
+      featuredGame = unreviewed[0];
+    }
+    if (
+      featuredGame?.critical_fen &&
+      featuredGame.critical_fen.split(" ").length < 2
+    ) {
+      featuredGame.critical_fen = null;
+    }
+  } catch (e) {
+    featuredGame = null;
   }
 
-  const coaching = data?.coaching;
-  const games = data?.games || [];
+  const unreviewedCount = games.filter((g) => !g.reviewed).length;
+
+  // Archive — apply filter
+  const filteredGames = useMemo(() => {
+    const all = [...games].sort((a, b) => {
+      const da = new Date(a.analyzed_at || a.created_at || a.date || 0);
+      const db = new Date(b.analyzed_at || b.created_at || b.date || 0);
+      return db - da;
+    });
+    switch (filter) {
+      case "unreviewed":
+        return all.filter((g) => !g.reviewed);
+      case "losses":
+        return all.filter((g) => resultLetter(g) === "L");
+      case "coach":
+        return all.filter((g) => g.platform === "coach");
+      case "week": {
+        const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+        return all.filter(
+          (g) =>
+            new Date(
+              g.analyzed_at || g.created_at || g.date || 0
+            ).getTime() >= cutoff
+        );
+      }
+      default:
+        return all;
+    }
+  }, [games, filter]);
+
+  const FILTERS = [
+    { key: "all", label: "All" },
+    {
+      key: "unreviewed",
+      label: `Unreviewed · ${unreviewedCount}`,
+    },
+    { key: "losses", label: "Losses" },
+    { key: "coach", label: "vs Coach" },
+    { key: "week", label: "This week" },
+  ];
+
+  // ─── Loading / empty ─────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <Layout user={user}>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      </Layout>
+    );
+  }
 
   if (games.length === 0) {
     return (
       <Layout user={user}>
-        <div className="max-w-md mx-auto px-6 py-20 text-center" data-testid="lab-page">
-          <div className="w-16 h-16 rounded-2xl bg-muted/50 border border-border flex items-center justify-center mx-auto mb-6">
-            <Import className="w-7 h-7 text-muted-foreground/40" strokeWidth={1.5} />
-          </div>
-          <h2 className="text-xl font-heading font-semibold text-foreground mb-2">No games yet</h2>
-          <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-8">Import your games or play with the coach.</p>
-          <div className="space-y-3">
-            <button onClick={() => navigate("/play-with-coach")} className="w-full px-6 py-3 text-sm font-semibold rounded-xl gradient-gold text-black shadow-lg shadow-amber-500/20 hover:opacity-90 transition-all flex items-center justify-center gap-2">
-              <Swords className="w-4 h-4" />Play with Coach
+        <div
+          className="max-w-[520px] mx-auto px-6 py-24 text-center"
+          data-testid="lab-page"
+        >
+          <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+            The Lab
+          </p>
+          <h2 className="font-serif text-[32px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground mb-4">
+            Nothing to review yet.
+          </h2>
+          <p className="text-[13.5px] text-muted-foreground mb-10 leading-relaxed">
+            Import your games or play the coach — the Lab fills up with
+            moments worth studying.
+          </p>
+          <div className="flex flex-col gap-3 items-stretch">
+            <button
+              onClick={() => navigate("/play-with-coach")}
+              className="px-6 py-3 text-sm font-semibold rounded-xl bg-violet-500 hover:bg-violet-400 text-white transition-colors inline-flex items-center justify-center gap-2"
+            >
+              <Swords className="w-4 h-4" strokeWidth={2} />
+              Play with Coach
             </button>
-            <button onClick={() => navigate("/import")} className="w-full px-6 py-3 text-sm border border-border text-foreground rounded-xl hover:bg-muted/50 transition-all">
+            <button
+              onClick={() => navigate("/import")}
+              className="px-6 py-3 text-sm border border-border text-foreground rounded-xl hover:bg-muted/40 transition-colors"
+            >
               Import your games
             </button>
           </div>
@@ -105,235 +271,383 @@ const Dashboard = ({ user }) => {
     );
   }
 
-  const topProblems = coaching?.top_problems || [];
-  const groupedGames = coaching?.grouped_games || {};
-  const priorityGame = coaching?.priority_game;
-  const activeFocus = coaching?.active_focus || null;
-  const primaryProblem = topProblems[0] || null;
-  const primaryGames = primaryProblem ? (groupedGames[primaryProblem.category]?.games || []) : [];
-  const unreviewed = primaryGames.filter(g => !g.reviewed);
+  // ─── Main render ─────────────────────────────────────────────────────
+  const verdict =
+    activeFocus?.label ||
+    BEHAVIOR_DESCRIPTIONS[primaryProblem?.category] ||
+    primaryProblem?.label ||
+    "Let's find something to work on.";
 
-  let featuredGame = null;
-  try {
-    if (priorityGame) {
-      featuredGame = {
-        ...priorityGame,
-        critical_fen: priorityGame.critical_fen || priorityGame.replay?.mistake_fen || null,
-        critical_move: priorityGame.critical_move || priorityGame.move_number || null,
-      };
-    }
-    if (!featuredGame?.critical_fen && unreviewed.length > 0) {
-      featuredGame = unreviewed[0];
-    }
-    if (featuredGame?.critical_fen && featuredGame.critical_fen.split(" ").length < 2) {
-      featuredGame.critical_fen = null;
-    }
-  } catch (e) {
-    featuredGame = null;
+  const verdictSub =
+    activeFocus?.reason ||
+    (primaryProblem &&
+      (primaryProblem.count >= 8
+        ? "This is happening in almost every game."
+        : `This showed up in ${primaryProblem.count} of your recent games.`));
+
+  const pickResult = resultLetter(featuredGame);
+  const pickTags = (featuredGame?.cognitive_gaps || []).slice(0, 3);
+
+  // Construct "reasoning" bullet list when available
+  const reasoningLines = [];
+  if (featuredGame?.was_winning) {
+    reasoningLines.push({
+      at: "Earlier",
+      note: "You had a winning advantage.",
+    });
+  }
+  if (featuredGame?.critical_move) {
+    reasoningLines.push({
+      at: `Move ${featuredGame.critical_move}`,
+      note:
+        featuredGame.critical_best
+          ? `The crucial moment — best was ${featuredGame.critical_best}.`
+          : "The crucial moment went the other way.",
+    });
+  }
+  if (featuredGame?.coach_take) {
+    reasoningLines.push({
+      at: "The lesson",
+      note: featuredGame.coach_take,
+    });
   }
 
-  // Games tagged with the primary issue (excluding the featured one at top)
-  const sortByDate = (a, b) => {
-    const da = new Date(a.analyzed_at || a.created_at || a.date || 0).getTime();
-    const db = new Date(b.analyzed_at || b.created_at || b.date || 0).getTime();
-    return db - da;
-  };
-  const issueGames = [...primaryGames]
-    .filter(g => g.game_id !== featuredGame?.game_id)
-    .sort(sortByDate);
-
-  const GameRow = ({ g }) => {
-    const isExpanded = expandedGameId === g.game_id;
-    return (
-      <div className="rounded-xl overflow-hidden border border-border/40">
-        <div
-          onClick={() => setExpandedGameId(isExpanded ? null : g.game_id)}
-          className="flex items-center justify-between p-3 hover:bg-muted/40 cursor-pointer transition-all group"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <Swords className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground/60" strokeWidth={2} />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm text-foreground truncate">
-                {resultWord(g)}
-                {g.platform === "coach"
-                  ? " vs Coach"
-                  : g.opponent && g.opponent !== "Opponent"
-                  ? ` vs ${g.opponent}`
-                  : ""}
-                {g.opening ? (
-                  <span className="text-[10px] text-muted-foreground/40 ml-2">{g.opening}</span>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-[10px] text-muted-foreground/50">{fmtDate(g)}</span>
-            <ChevronRight
-              className={`w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-primary transition-all ${isExpanded ? "rotate-90" : ""}`}
-            />
-          </div>
-        </div>
-
-        {isExpanded && (
-          <div className="px-3 pb-3 pt-1 bg-muted/20 border-t border-muted/30">
-            {g.coach_take && (
-              <p className="text-xs text-foreground/80 italic mb-2">{g.coach_take}</p>
-            )}
-            {g.critical_move && (
-              <p className="text-[11px] text-muted-foreground/60 mb-2">
-                Critical moment: move {g.critical_move}
-                {g.critical_best ? ` — best was ${g.critical_best}` : ""}
-              </p>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/game/${g.game_id}`); }}
-              className="text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition"
-            >
-              Review game
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const practicePattern =
+    activeFocus?.gap ||
+    PATTERN_MAP[primaryProblem?.category] ||
+    primaryProblem?.category ||
+    "current";
 
   return (
     <Layout user={user}>
-      <div className="max-w-lg mx-auto px-4 py-8" data-testid="lab-page">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-
-          {/* THE PROBLEM — prefer the curriculum brain's active focus */}
-          {(activeFocus?.focus || primaryProblem) && (
+      <div
+        className="min-h-screen text-foreground"
+        data-testid="lab-page"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-[1040px] mx-auto px-6 md:px-10 py-10 md:py-16"
+        >
+          {/* ─── Page head ─── */}
+          <div className="flex items-baseline justify-between mb-10 md:mb-14">
             <div>
-              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
-                {activeFocus?.source === "brain" ? "Coach's focus for you" : "Your biggest issue right now"}
+              <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
+                The Lab
               </p>
-              <h1 className="text-xl font-heading font-semibold text-foreground leading-snug mb-2">
-                {activeFocus?.label
-                  || BEHAVIOR_DESCRIPTIONS[primaryProblem?.category]
-                  || primaryProblem?.label
-                  || "Let's find something to work on"}
+              <h1 className="font-serif text-[28px] md:text-[40px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
+                Review room
               </h1>
-              <p className="text-sm text-muted-foreground">
-                {activeFocus?.reason
-                  || (primaryProblem && (primaryProblem.count >= 8
-                    ? "This is happening in almost every game."
-                    : `This happened in ${primaryProblem.count} of your recent games.`))}
-              </p>
             </div>
-          )}
-
-          {/* THE MOMENT — board + context */}
-          {featuredGame && featuredGame.critical_fen && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="rounded-2xl border border-border bg-card overflow-hidden"
-            >
-              <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-red-400/60">
-                  The moment that decided it
-                </p>
-                {featuredGame.is_new && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/15">New</span>
-                )}
-              </div>
-              <p className="px-4 text-sm text-foreground">
-                vs {featuredGame.opponent} — {featuredGame.opening || "Unknown opening"}
-              </p>
-
-              <div className="px-4 pt-3">
-                <div className="rounded-lg overflow-hidden border border-border">
-                  <LichessBoard fen={featuredGame.critical_fen} viewOnly={true} width={400} />
-                </div>
-              </div>
-
-              <div className="p-4">
-                <p className="text-sm text-foreground mb-3">
-                  <span className="font-mono text-red-400">Move {featuredGame.critical_move || featuredGame.move_number}</span>
-                  {featuredGame.was_winning && <span className="text-muted-foreground"> — you were winning.</span>}
-                </p>
-
-                <button
-                  onClick={() => navigate(`/game/${featuredGame.game_id}${featuredGame.critical_move ? `?move=${featuredGame.critical_move}` : ""}`)}
-                  className="w-full py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                >
-                  <Eye className="w-4 h-4" strokeWidth={2} />
-                  What should I have done?
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* OTHER GAMES WITH THIS SAME ISSUE */}
-          {issueGames.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-              <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">
-                Other games with this pattern
-              </p>
-              <div className="space-y-1.5">
-                {issueGames.slice(0, 5).map(g => <GameRow key={g.game_id} g={g} />)}
-              </div>
-            </motion.div>
-          )}
-
-          {/* See all games link */}
-          <button
-            onClick={() => navigate("/games")}
-            className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition py-2"
-          >
-            See all games
-            <ChevronRight className="w-3 h-3" strokeWidth={2} />
-          </button>
-
-          {/* ACTIONS */}
-          <div className="space-y-2 pt-2">
-            {(activeFocus?.focus || primaryProblem) && (
-              <button
-                onClick={() => {
-                  // Prefer the coach's active focus; fall back to aggregated category.
-                  const pattern = activeFocus?.gap
-                    || PATTERN_MAP[primaryProblem?.category]
-                    || primaryProblem?.category
-                    || "current";
-                  navigate(`/training/prescribed?weakness=${pattern}`);
-                }}
-                className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-primary/20 bg-primary/[0.03] hover:bg-primary/[0.06] transition-all"
-              >
-                <Target className="w-4 h-4 text-primary" strokeWidth={2} />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-foreground">Practice this weakness</p>
-                  <p className="text-[10px] text-muted-foreground">Solve positions from your games — 3 min</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/30 ml-auto" />
-              </button>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => navigate("/play-with-coach")}
-                className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all"
-              >
-                <Swords className="w-4 h-4 text-primary" strokeWidth={2} />
-                <span className="text-sm text-foreground">Play</span>
-              </button>
-              <button
-                onClick={() => navigate("/import")}
-                className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all"
-              >
-                <Import className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
-                <span className="text-sm text-foreground">Import</span>
-              </button>
-            </div>
+            <p className="text-[11px] md:text-[12px] text-muted-foreground tabular-nums shrink-0">
+              {games.length} games · {unreviewedCount} unreviewed
+            </p>
           </div>
 
-          {topProblems.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-sm text-muted-foreground mb-4">Your coach is still analyzing your games.</p>
-            </div>
+          {/* ━━━━━━━━━━ COACH'S PICK ━━━━━━━━━━ */}
+          {featuredGame && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+                Coach's Pick · most educational
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 md:gap-12 items-start">
+                {/* Mini board */}
+                <div className="w-full md:w-[240px] shrink-0">
+                  {featuredGame.critical_fen ? (
+                    <div className="rounded-xl overflow-hidden ring-1 ring-border">
+                      <LichessBoard
+                        fen={featuredGame.critical_fen}
+                        viewOnly={true}
+                        width={240}
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-square rounded-xl bg-muted/40 ring-1 ring-border flex items-center justify-center">
+                      <span className="text-[11px] text-muted-foreground">
+                        No position
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="pt-1">
+                  {/* Top line: opponent + metadata + result */}
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-5">
+                    <span className="font-serif text-[15px] text-muted-foreground">
+                      {featuredGame.platform === "coach"
+                        ? "vs Coach"
+                        : featuredGame.opponent
+                          ? `vs ${featuredGame.opponent}`
+                          : "Recent game"}
+                    </span>
+                    <span className="text-[12px] text-muted-foreground/60 tabular-nums">
+                      {[
+                        featuredGame.opponent_rating,
+                        featuredGame.time_control,
+                        fmtDate(featuredGame),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                    {pickResult && (
+                      <span
+                        className={`ml-auto text-[12px] tabular-nums ${
+                          pickResult === "L"
+                            ? "text-rose-500 dark:text-rose-400"
+                            : pickResult === "W"
+                              ? "text-emerald-500 dark:text-emerald-400"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {pickResult === "L"
+                          ? "Loss"
+                          : pickResult === "W"
+                            ? "Win"
+                            : "Draw"}
+                        {featuredGame.accuracy
+                          ? ` · ${featuredGame.accuracy}% acc`
+                          : ""}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Verdict — the serif hero */}
+                  <p className="font-serif text-[22px] md:text-[28px] leading-[1.15] tracking-[-0.015em] font-medium text-foreground max-w-[540px]">
+                    {verdict}
+                  </p>
+
+                  {verdictSub && (
+                    <p className="mt-3 text-[13.5px] text-muted-foreground leading-relaxed max-w-[520px]">
+                      {verdictSub}
+                    </p>
+                  )}
+
+                  {/* Move-by-move reasoning */}
+                  {reasoningLines.length > 0 && (
+                    <ol className="mt-7 space-y-2.5 max-w-[540px]">
+                      {reasoningLines.map((r, i) => (
+                        <li key={i} className="flex gap-4 text-[13.5px]">
+                          <span className="font-mono text-[12px] text-muted-foreground/70 tabular-nums w-[78px] shrink-0 pt-0.5">
+                            {r.at}
+                          </span>
+                          <span className="text-foreground/80 leading-relaxed">
+                            {r.note}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+
+                  {/* Tags */}
+                  {pickTags.length > 0 && (
+                    <div className="mt-6 flex items-center gap-2 flex-wrap">
+                      {pickTags.map((t) => (
+                        <span
+                          key={t}
+                          className="text-[10.5px] uppercase tracking-[0.18em] font-semibold text-amber-600/90 dark:text-amber-300/80 border border-amber-500/25 bg-amber-500/[0.05] rounded-full px-2.5 h-5 inline-flex items-center"
+                        >
+                          {humanPattern(t)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* CTA row */}
+                  <div className="mt-8 md:mt-9 flex flex-wrap items-center gap-5">
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/game/${featuredGame.game_id}${
+                            featuredGame.critical_move
+                              ? `?move=${featuredGame.critical_move}`
+                              : ""
+                          }`
+                        )
+                      }
+                      className="h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                    >
+                      Review this game
+                      <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const el = document.getElementById("lab-archive");
+                        el?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="text-[12.5px] text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Skip to archive
+                    </button>
+                    {primaryProblem && (
+                      <button
+                        onClick={() =>
+                          navigate(
+                            `/training/prescribed?weakness=${practicePattern}`
+                          )
+                        }
+                        className="ml-auto text-[12.5px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Target
+                          className="h-3.5 w-3.5"
+                          strokeWidth={1.75}
+                        />
+                        Practice this pattern
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
           )}
 
+          {/* ━━━━━━━━━━ ARCHIVE ━━━━━━━━━━ */}
+          <section id="lab-archive">
+            <div className="flex items-baseline justify-between mb-5">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+                Archive
+              </div>
+              <button
+                onClick={() => navigate("/games")}
+                className="flex items-center gap-2 text-[12px] text-muted-foreground/70 hover:text-foreground transition-colors"
+              >
+                <Search className="h-3.5 w-3.5" strokeWidth={1.75} />
+                <span>All games</span>
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center gap-5 md:gap-6 mb-6 pb-4 border-b border-border/60 overflow-x-auto">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`text-[12.5px] transition-colors whitespace-nowrap ${
+                    filter === f.key
+                      ? "text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Table */}
+            <div className="space-y-0">
+              {filteredGames.length === 0 ? (
+                <div className="py-12 text-center text-[12.5px] text-muted-foreground">
+                  No games match this filter.
+                </div>
+              ) : (
+                filteredGames.slice(0, 24).map((g) => {
+                  const r = resultLetter(g);
+                  const tags = (g.cognitive_gaps || []).slice(0, 2);
+                  const worst = worstMoment(g);
+                  return (
+                    <div
+                      key={g.game_id || g._id}
+                      onClick={() => navigate(`/game/${g.game_id}`)}
+                      className="group grid grid-cols-[12px_1fr_40px_52px_1fr_60px_14px] md:grid-cols-[12px_1fr_48px_56px_140px_1fr_80px_14px] gap-4 md:gap-5 items-center py-3.5 border-b border-border/40 hover:bg-muted/30 -mx-3 px-3 transition-colors cursor-pointer"
+                    >
+                      {/* Reviewed dot */}
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          g.reviewed
+                            ? "bg-muted-foreground/30"
+                            : "bg-violet-400 dark:bg-violet-400"
+                        }`}
+                      />
+
+                      {/* Opponent + rating/opening */}
+                      <div className="min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[13.5px] md:text-[14px] text-foreground font-medium truncate">
+                            {g.platform === "coach"
+                              ? "Coach"
+                              : g.opponent || "Opponent"}
+                          </span>
+                          {g.platform === "coach" && (
+                            <span className="text-[9.5px] uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300/70 font-semibold">
+                              Coach
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground tabular-nums truncate">
+                          {[g.opponent_rating, g.opening]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
+                      </div>
+
+                      {/* Result */}
+                      <div>
+                        <ResultGlyph r={r} />
+                      </div>
+
+                      {/* Accuracy */}
+                      <div className="text-[12.5px] tabular-nums text-muted-foreground">
+                        {g.accuracy != null ? (
+                          <>
+                            {g.accuracy}
+                            <span className="text-muted-foreground/40">%</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground/40">—</span>
+                        )}
+                      </div>
+
+                      {/* Worst moment — hidden on small screens */}
+                      <div className="hidden md:block text-[11.5px] tabular-nums">
+                        {worst ? (
+                          <span className="text-rose-500/80 dark:text-rose-300/80">
+                            {worst}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/40">
+                            Clean
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Tags — hidden on small screens */}
+                      <div className="hidden md:flex items-center gap-1.5 flex-wrap min-w-0">
+                        {tags.map((t) => (
+                          <span
+                            key={t}
+                            className="text-[10px] uppercase tracking-[0.14em] font-medium text-amber-600/90 dark:text-amber-300/70 border border-amber-500/25 rounded-full px-2 h-[18px] inline-flex items-center whitespace-nowrap"
+                          >
+                            {humanPattern(t)}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Age */}
+                      <div className="text-[11.5px] text-muted-foreground tabular-nums text-right">
+                        {fmtDate(g)}
+                      </div>
+
+                      {/* Chevron */}
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-muted-foreground transition-colors" />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Load more */}
+            {filteredGames.length > 24 && (
+              <div className="mt-10 text-center">
+                <button
+                  onClick={() => navigate("/games")}
+                  className="text-[12.5px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Load {filteredGames.length - 24} more
+                </button>
+              </div>
+            )}
+          </section>
         </motion.div>
       </div>
     </Layout>

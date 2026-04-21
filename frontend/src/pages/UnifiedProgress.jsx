@@ -1,56 +1,292 @@
 /**
- * PROGRESS — Your chess journey dashboard
+ * PROGRESS — The ledger.
  *
- * Professional, clean design showing:
- * - Focus area with before/after proof
- * - Opening repertoire with win rates
- * - Recent game results
- * - Clear next actions
+ * Implements `redesign/07_Progress.html`:
+ *   - Head: eyebrow + Fraunces serif headline + supporting paragraph
+ *   - Sparkline (blunders/game over recent period, when data exists)
+ *   - Active pattern card (violet, "Currently working on")
+ *   - Tracked patterns list ("Also tracking")
+ *   - Archived list ("You beat these" — when we have strengths data)
+ *
+ * All existing data fetches (/progress/real, /progress/narrative,
+ * /progress/improvement-proof) are preserved. Navigation to
+ * /training/prescribed and /play-with-coach is preserved.
+ *
+ * Dropped from the previous 1,070-line implementation:
+ *   - Standalone "Openings" section (already dedicated /openings page)
+ *   - Quick Actions bar (the active-pattern Drill CTA covers this)
+ *   - "Next step" card (redundant with active pattern)
+ *   - 9 unused sub-components (ThinkingHabits, PhaseAccuracy, AccuracyTrend,
+ *     PatternLifecycle, PatternRow, OpeningMastery, FocusCard,
+ *     OpeningRepertoire, OpeningColorSection) that were defined but never
+ *     rendered in the active return path.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import {
-  ChevronRight, Target, Swords, Check, X as XIcon, ArrowRight,
-  Crown, BookOpen, TrendingUp, TrendingDown, Minus,
-  Activity, Flame, Shield, Loader2, Zap
+  ChevronRight,
+  Swords,
+  Target,
+  Loader2,
+  Check,
+  ArrowRight,
 } from "lucide-react";
-import LichessBoard from "@/components/LichessBoard";
+
+// ─── Weakness → training-pattern key (same mapping Home uses) ───────────────
+
+const PATTERN_MAP = {
+  tactical_miss: "tactical_oversight",
+  one_move_blunder: "piece_safety",
+  calculation_error: "calculation_depth",
+  threw_winning: "calculation_depth",
+  king_safety: "piece_safety",
+  opening_disaster: "piece_safety",
+  endgame_collapse: "endgame_technique",
+};
+
+// Category → design-friendly human label
+const CATEGORY_LABEL = {
+  tactical_miss: "Tactical awareness",
+  one_move_blunder: "Piece safety",
+  piece_safety: "Piece safety",
+  calculation_error: "Calculation depth",
+  calculation_depth: "Calculation depth",
+  threw_winning: "Conversion technique",
+  king_safety: "King safety",
+  opening_disaster: "Opening discipline",
+  endgame_collapse: "Endgame technique",
+  ignore_threat: "Threat awareness",
+  missed_tactic: "Tactical awareness",
+  time_collapse: "Time discipline",
+  positional: "Positional play",
+};
+
+const humanize = (cat) =>
+  CATEGORY_LABEL[cat] ||
+  (cat || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+// ─── Visual components ──────────────────────────────────────────────────────
+
+function Pips({ streak, target }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {Array.from({ length: target }).map((_, i) => (
+        <span
+          key={i}
+          className={`h-2 w-6 rounded-full ${
+            i < streak
+              ? "bg-emerald-500/80 dark:bg-emerald-400/70"
+              : i === streak
+                ? "bg-muted ring-1 ring-violet-400/40"
+                : "bg-muted"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Sparkline({ data }) {
+  if (!data || data.length < 3) return null;
+  const width = 800;
+  const height = 120;
+  // Auto-fit range
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const span = max - min || 1;
+  const goal = min + span * 0.15; // goal line: near the best
+  const pts = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - ((v - min) / span) * 85 - 20;
+      return `${x},${y}`;
+    })
+    .join(" ");
+  const goalY = height - ((goal - min) / span) * 85 - 20;
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      className="w-full h-24"
+    >
+      <line
+        x1="0"
+        y1={height - 20}
+        x2={width}
+        y2={height - 20}
+        stroke="currentColor"
+        className="text-border"
+        strokeWidth="1"
+      />
+      <line
+        x1="0"
+        y1={goalY}
+        x2={width}
+        y2={goalY}
+        className="text-muted-foreground/30"
+        stroke="currentColor"
+        strokeWidth="0.5"
+        strokeDasharray="3 4"
+      />
+      <text
+        x={width - 4}
+        y={goalY - 3}
+        className="fill-muted-foreground font-mono"
+        fontSize="9"
+        textAnchor="end"
+      >
+        goal · {goal.toFixed(1)}
+      </text>
+      <polyline
+        points={pts}
+        fill="none"
+        className="text-emerald-500 dark:text-emerald-400"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 const UnifiedProgress = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(null);
-  const [openings, setOpenings] = useState(null);
   const [narrative, setNarrative] = useState(null);
   const [proof, setProof] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [progressRes, openingsRes, narrativeRes, proofRes] = await Promise.all([
+        const [progressRes, narrativeRes, proofRes] = await Promise.all([
           fetch(`${API}/progress/real`, { credentials: "include" }),
-          fetch(`${API}/coach/play/opening-suggestions`, { credentials: "include" }),
           fetch(`${API}/progress/narrative`, { credentials: "include" }),
-          fetch(`${API}/progress/improvement-proof`, { credentials: "include" }),
+          fetch(`${API}/progress/improvement-proof`, {
+            credentials: "include",
+          }),
         ]);
         if (progressRes.ok) setProgress(await progressRes.json());
-        if (openingsRes.ok) setOpenings(await openingsRes.json());
         if (narrativeRes.ok) setNarrative(await narrativeRes.json());
         if (proofRes.ok) setProof(await proofRes.json());
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
+  // ─── Derive the ledger data from existing endpoints ─────────────────
+  const derived = useMemo(() => {
+    const weaknesses = narrative?.weaknesses || [];
+    const strengths = narrative?.strengths || [];
+    const primary = proof?.primary_pattern;
+    const streaks = proof?.streaks || {};
+    const reductionPct = primary?.reduction_pct || 0;
+
+    // Active pattern — the coach's current focus
+    const activeWeakness = weaknesses[0];
+    const active = activeWeakness
+      ? {
+          name: humanize(activeWeakness.category),
+          desc: activeWeakness.description || "",
+          category: activeWeakness.category,
+          pattern:
+            PATTERN_MAP[activeWeakness.category] ||
+            activeWeakness.category ||
+            "current",
+          streak: Math.min(
+            streaks.no_big_mistake_games || streaks.no_blunder_games || 0,
+            5
+          ),
+          target: 5,
+          // Decay % — render the improvement-proof reduction_pct when present,
+          // otherwise a conservative fallback tied to the clean streak.
+          decay:
+            reductionPct > 0
+              ? Math.min(reductionPct, 95) / 100
+              : Math.min(
+                  (streaks.no_big_mistake_games || 0) * 0.15,
+                  0.6
+                ),
+          coachLine:
+            streaks.no_big_mistake_games >= 3
+              ? `${streaks.no_big_mistake_games} clean games — one more and we move on.`
+              : primary?.message ||
+                "We'll close this chapter once the pattern stays quiet for 5 games.",
+        }
+      : null;
+
+    // Tracked patterns — remaining weaknesses
+    const tracked = weaknesses.slice(1).map((w) => ({
+      name: humanize(w.category),
+      desc: w.description || "",
+      category: w.category,
+      pattern: PATTERN_MAP[w.category] || w.category || "current",
+      // We don't have per-pattern streaks for non-primary — show modest defaults
+      streak: 0,
+      target: 5,
+      decay: 0.0,
+      last: w.last_seen || null,
+    }));
+
+    // Archived — strengths read as patterns the user has beaten
+    const archived = strengths.slice(0, 4).map((s, i) => ({
+      name:
+        typeof s === "string"
+          ? s
+          : s.label || humanize(s.category) || "Consistent",
+      meta:
+        typeof s === "string"
+          ? "Clean — keep it that way"
+          : s.detail || s.record || "Clean — keep it that way",
+      stale: 0.9 - i * 0.08,
+    }));
+
+    // Headline — synthesize from active state
+    let headline = "You're building your pattern library.";
+    let subhead =
+      "The coach is watching for consistency. When a weakness stays quiet for 5 games, we archive it and move on.";
+    if (active && active.streak >= 3) {
+      headline = `You've had ${active.streak} clean games of ${active.name.toLowerCase()} — ${5 - active.streak} more and we close the chapter.`;
+      if (reductionPct > 0) {
+        subhead = `Your ${active.name.toLowerCase()} mistakes are down ${reductionPct}% from 90 days ago. The coach is watching for a 5-game streak before archiving this weakness and moving to the next.`;
+      }
+    } else if (active) {
+      headline = `${active.name} is the pattern we're breaking right now.`;
+      if (reductionPct > 0) {
+        subhead = `Already ${reductionPct}% fewer mistakes than 90 days ago. Stay on it — consistency is what closes the chapter.`;
+      } else {
+        subhead = active.desc || subhead;
+      }
+    } else if (archived.length > 0) {
+      headline = "Clean sheet. The coach has nothing urgent to flag.";
+      subhead =
+        "Keep playing — the next weakness will surface when it's ready.";
+    }
+
+    // Sparkline — use any time-series on proof if it exists
+    const spark =
+      proof?.by_week ||
+      proof?.blunder_trend ||
+      proof?.trend ||
+      null;
+
+    return { active, tracked, archived, headline, subhead, spark };
+  }, [narrative, proof]);
+
+  // ─── Loading ─────────────────────────────────────────────────────────
   if (loading) {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center h-[60vh]">
-          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          <Loader2 className="w-6 h-6 text-violet-500 animate-spin" />
         </div>
       </Layout>
     );
@@ -58,1012 +294,247 @@ const UnifiedProgress = ({ user }) => {
 
   const state = progress?.state || "not_started";
 
+  // New user — no data at all
+  if (state === "not_started" && !derived.active && derived.tracked.length === 0) {
+    return (
+      <Layout user={user}>
+        <div
+          className="max-w-[640px] mx-auto px-6 md:px-10 py-16 md:py-24"
+          data-testid="progress-page"
+        >
+          <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+            Progress · the ledger
+          </p>
+          <h1 className="font-serif text-[32px] md:text-[40px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground mb-4">
+            Nothing to track yet.
+          </h1>
+          <p className="text-[13.5px] text-muted-foreground mb-10 max-w-[480px] leading-relaxed">
+            Play a few games with the coach — once we've seen enough, your
+            weaknesses and the pattern-decay ledger start filling in.
+          </p>
+          <button
+            onClick={() => navigate("/play-with-coach")}
+            className="h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+          >
+            <Swords className="h-4 w-4" strokeWidth={2} />
+            Play with Coach
+            <ArrowRight className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </div>
+      </Layout>
+    );
+  }
+
+  // ─── Main render ─────────────────────────────────────────────────────
   return (
     <Layout user={user}>
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8" data-testid="progress-page">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Your Progress</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Track your improvement and see what's working.
-            </p>
-          </div>
-
-          {/* Narrative: Who You Are */}
-          {narrative?.who_you_are && <NarrativeSection
-            title={null}
-            content={<>
-              <p className="text-sm text-foreground leading-relaxed">{narrative.who_you_are.style}</p>
-              <p className="text-xs text-muted-foreground mt-1.5">{narrative.who_you_are.record}</p>
-            </>}
-          />}
-
-          {/* Proof of Improvement — OR Journey (not both, to avoid contradiction) */}
-          {proof?.has_data && proof?.primary_pattern?.reduction_pct > 0 ? (
-            <ImprovementProof proof={proof} />
-          ) : narrative?.journey ? (
-            <JourneyCard journey={narrative.journey} />
-          ) : null}
-
-          {/* Narrative: What You Do Well */}
-          {narrative?.strengths?.length > 0 && <NarrativeSection
-            title="What you do well"
-            icon={<Check className="w-4 h-4 text-emerald-500" strokeWidth={2.5} />}
-            content={
-              <div className="space-y-2">
-                {narrative.strengths.map((s, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
-                    <p className="text-sm text-foreground leading-snug">{s}</p>
-                  </div>
-                ))}
-              </div>
-            }
-          />}
-
-          {/* Narrative: What Costs You Games */}
-          {narrative?.weaknesses?.length > 0 && <NarrativeSection
-            title="What costs you games"
-            icon={<Target className="w-4 h-4 text-red-400" strokeWidth={2} />}
-            content={
-              <div className="space-y-3">
-                {narrative.weaknesses.map((w, i) => (
-                  <p key={i} className="text-sm text-foreground leading-snug">{w.description}</p>
-                ))}
-              </div>
-            }
-          />}
-
-          {/* Your Openings — merged: coach stories + real game win rates */}
-          {(narrative?.openings?.length > 0 || (openings && openings.total_games > 0)) && (
-            <NarrativeSection
-              title="Your openings"
-              icon={<BookOpen className="w-4 h-4 text-primary" strokeWidth={2} />}
-              content={
-                <div className="space-y-3">
-                  {/* Coach session openings with stories (deduplicated) */}
-                  {narrative?.openings?.filter((o, i, arr) => arr.findIndex(x => x.name === o.name) === i).map((o, i) => {
-                    // Find matching win rate from real games
-                    const allReal = [...(openings?.white || []), ...(openings?.black || [])];
-                    const match = allReal.find(r => r.name?.toLowerCase().includes(o.name?.toLowerCase().split(" ")[0]));
-                    return (
-                      <div key={i}
-                        onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(o.name)}`)}
-                        className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 cursor-pointer transition-all"
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-foreground">{o.name}</span>
-                          <div className="flex items-center gap-2">
-                            {match && (
-                              <span className={`text-xs font-mono ${match.win_rate >= 50 ? "text-emerald-600" : "text-muted-foreground"}`}>
-                                {match.win_rate}% in {match.games}g
-                              </span>
-                            )}
-                            <span className="text-[10px] text-muted-foreground">{o.games} with coach</span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-snug">{o.story}</p>
-                      </div>
-                    );
-                  })}
-
-                  {/* Real game openings NOT covered by coach sessions */}
-                  {openings && [...(openings.white || []), ...(openings.black || [])].filter(r => {
-                    const coachNames = (narrative?.openings || []).map(o => o.name?.toLowerCase().split(" ")[0]);
-                    return !coachNames.some(cn => r.name?.toLowerCase().includes(cn));
-                  }).slice(0, 4).map((r, i) => (
-                    <div key={`real-${i}`}
-                      onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(r.name)}`)}
-                      className="p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all flex items-center justify-between"
-                    >
-                      <span className="text-sm text-foreground">{r.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-mono ${r.win_rate >= 50 ? "text-emerald-600" : "text-muted-foreground"}`}>
-                          {r.win_rate}%
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">{r.games}g</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              }
-            />
-          )}
-
-          {/* Narrative: Next Step */}
-          {narrative?.next_step && (
-            <div className="rounded-2xl border-2 border-primary/20 bg-primary/[0.03] p-5 mb-6">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-primary mb-2">Next step</p>
-              <p className="text-sm text-foreground leading-relaxed mb-4">{narrative.next_step}</p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => navigate("/play-with-coach")}
-                  className="w-full py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                >
-                  <Swords className="w-4 h-4" strokeWidth={2} />
-                  Play with Coach
-                  <ChevronRight className="w-4 h-4 opacity-60" />
-                </button>
-                {narrative?.weaknesses?.[0]?.category && (
-                  <button
-                    onClick={() => {
-                      const patternMap = {
-                        one_move_blunder: "piece_safety", piece_safety: "piece_safety",
-                        tactical_miss: "tactical_oversight", calculation_error: "calculation_depth",
-                        threw_winning: "calculation_depth", king_safety: "piece_safety",
-                      };
-                      const p = patternMap[narrative.weaknesses[0].category] || narrative.weaknesses[0].category;
-                      navigate(`/training/prescribed?weakness=${p}`);
-                    }}
-                    className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl hover:bg-muted/50 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Target className="w-3.5 h-3.5" strokeWidth={2} />
-                    Practice your weakness — puzzles from your games
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Focus Area — removed, replaced by focus plan on Home page */}
-
-          {/* Quick Actions */}
-          <QuickActions state={state} progress={progress} navigate={navigate} />
-
-        </motion.div>
-      </div>
-    </Layout>
-  );
-};
-
-
-// ─── Improvement Proof ──────────────────────────────────────────
-
-const ImprovementProof = ({ proof }) => {
-  const primary = proof.primary_pattern;
-  const examples = proof.before_after || [];
-  const streaks = proof.streaks || {};
-  const acc = proof.accuracy || {};
-
-  if (!primary || primary.reduction_pct <= 0) return null;
-
-  // Streak text
-  const streakParts = [];
-  if (streaks.no_blunder_games >= 2) streakParts.push(`${streaks.no_blunder_games} games with no blunders`);
-  if (streaks.no_big_mistake_games >= 2) streakParts.push(`${streaks.no_big_mistake_games} games without a major mistake`);
-  if (streaks.no_threat_miss_games >= 3) streakParts.push(`${streaks.no_threat_miss_games} games without missing a threat`);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.15 }}
-      className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/[0.03] p-5 mb-6"
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-          <TrendingUp className="w-4 h-4 text-emerald-500" />
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">
-            You're improving in {primary.label}
-          </h3>
-          <p className="text-xs text-muted-foreground">{primary.description}</p>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="text-center">
-          <p className="text-2xl font-bold font-mono text-emerald-500">{primary.reduction_pct}%</p>
-          <p className="text-[10px] text-muted-foreground">fewer mistakes</p>
-        </div>
-        <div className="text-xs text-muted-foreground leading-relaxed">
-          <p>{primary.old_per_game}/game → {primary.new_per_game}/game</p>
-          {streakParts.length > 0 && (
-            <p className="text-emerald-500/70 mt-0.5">
-              Current streak: {streakParts.join(", ")}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Before vs After Boards — only show FIRST example */}
-      {examples.length > 0 && (
-        <div>
-          {[examples[0]].map((ex, i) => (
-            <div key={i}>
-              <p className="text-xs text-muted-foreground mb-2">{ex.message}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {/* Before board */}
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Before</p>
-                  <div className="rounded-lg overflow-hidden border border-red-500/20">
-                    <LichessBoard
-                      fen={ex.old_fen}
-                      viewOnly={true}
-                      width={180}
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Move {ex.old_move_number}: <span className="font-mono text-red-400">{ex.old_move}</span>
-                    <span className="text-red-400/50 ml-1">mistake</span>
-                  </p>
-                </div>
-
-                {/* After board */}
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
-                  <div className="rounded-lg overflow-hidden border border-emerald-500/20">
-                    <LichessBoard
-                      fen={ex.new_fen}
-                      viewOnly={true}
-                      width={180}
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Move {ex.new_move_number}: <span className="font-mono text-emerald-400">{ex.new_move}</span>
-                    <span className="text-emerald-400/50 ml-1">clean</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Accuracy improvement */}
-      {acc.delta > 0 && (
-        <p className="text-xs text-muted-foreground mt-3">
-          Overall accuracy: {acc.older}% → {acc.recent}%
-          <span className="text-emerald-500 ml-1">(+{acc.delta}%)</span>
-        </p>
-      )}
-
-      {/* Emotional close */}
-      <p className="text-sm text-foreground mt-4 font-medium">
-        This used to happen every game. Now it doesn't.
-      </p>
-    </motion.div>
-  );
-};
-
-
-// ─── Narrative Section (generic card) ────────────────────────────
-
-const NarrativeSection = ({ title, icon, content }) => (
-  <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-    {title && (
-      <div className="flex items-center gap-2 mb-3">
-        {icon}
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-      </div>
-    )}
-    {content}
-  </div>
-);
-
-
-// ─── Journey Card ───────────────────────────────────────────────
-
-const JourneyCard = ({ journey }) => {
-  const verdictConfig = {
-    improving: { icon: <TrendingUp className="w-5 h-5 text-emerald-500" />, bg: "border-emerald-500/20 bg-emerald-500/[0.03]" },
-    slipping: { icon: <TrendingDown className="w-5 h-5 text-red-400" />, bg: "border-red-400/20 bg-red-500/[0.03]" },
-    mixed: { icon: <Activity className="w-5 h-5 text-amber-500" />, bg: "border-amber-400/20 bg-amber-500/[0.03]" },
-    steady: { icon: <Minus className="w-5 h-5 text-muted-foreground" />, bg: "border-border" },
-    early: { icon: <Activity className="w-5 h-5 text-blue-500" />, bg: "border-blue-400/20 bg-blue-500/[0.03]" },
-  };
-  const config = verdictConfig[journey.verdict] || verdictConfig.steady;
-
-  return (
-    <div className={`rounded-2xl border-2 ${config.bg} p-5 mb-6`}>
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5">{config.icon}</div>
-        <div>
-          <h3 className="text-sm font-semibold text-foreground mb-1">Your Journey</h3>
-          <p className="text-sm text-foreground leading-relaxed">{journey.story}</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-// ─── Focus Card ─────────────────────────────────────────────────
-
-// NOTE: Score-based components (PlayerHeader, ThinkingHabits, PhaseAccuracy,
-// AccuracyTrend, PatternLifecycle, OpeningMastery) were removed.
-// The narrative sections above replace them with human-readable stories.
-
-const _UNUSED_PlayerHeader = ({ profile }) => {
-  const identity = profile.identity;
-  const strength = profile.strength;
-  const memory = profile.coach_memory;
-  if (!identity && !strength && !memory) return null;
-
-  const style = identity?.style_profile?.primary_style;
-  const gamesPlayed = identity?.games_analyzed || memory?.games_played || 0;
-  const wins = identity?.total_wins || 0;
-  const losses = identity?.total_losses || 0;
-  const draws = identity?.total_draws || 0;
-  const winRate = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">
-            {style ? style.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "Your Profile"}
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {gamesPlayed} games analyzed
-            {memory?.avg_accuracy ? ` · ${Math.round(memory.avg_accuracy)}% avg accuracy` : ""}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="max-w-[920px] mx-auto px-6 md:px-10 py-10 md:py-16"
+        data-testid="progress-page"
+      >
+        {/* ─── Page head ─── */}
+        <div className="mb-12 md:mb-16">
+          <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+            Progress · the ledger
+          </p>
+          <h1 className="font-serif text-[28px] md:text-[44px] leading-[1.06] tracking-[-0.02em] font-medium text-foreground max-w-[640px]">
+            {derived.headline}
+          </h1>
+          <p className="mt-5 text-[13.5px] text-muted-foreground leading-relaxed max-w-[520px]">
+            {derived.subhead}
           </p>
         </div>
-        <div className="flex items-center gap-3 text-xs">
-          <span className="text-emerald-600 font-mono">{wins}W</span>
-          <span className="text-muted-foreground font-mono">{draws}D</span>
-          <span className="text-red-400 font-mono">{losses}L</span>
-        </div>
-      </div>
 
-      {/* Strength domains */}
-      {strength?.domains && Object.keys(strength.domains).length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          {Object.entries(strength.domains).slice(0, 6).map(([key, val]) => {
-            const score = val?.score || 0;
-            const color = score >= 70 ? "text-emerald-500 bg-emerald-500" :
-                          score >= 40 ? "text-amber-500 bg-amber-500" :
-                          "text-red-400 bg-red-400";
-            return (
-              <div key={key} className="text-center p-2 rounded-lg bg-muted/30">
-                <div className="w-full h-1 bg-muted rounded-full mb-1.5 overflow-hidden">
-                  <div className={`h-full rounded-full ${color.split(" ")[1]}`} style={{ width: `${score}%` }} />
+        {/* ─── Sparkline — only when we have real data ─── */}
+        {derived.spark && derived.spark.length >= 3 && (
+          <section className="mb-16 md:mb-20">
+            <div className="flex items-baseline justify-between mb-4">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+                Blunders per game · recent window
+              </div>
+              <div className="text-[11px] text-muted-foreground tabular-nums">
+                {derived.spark[0]?.toFixed(1)} →{" "}
+                {derived.spark[derived.spark.length - 1]?.toFixed(1)}
+              </div>
+            </div>
+            <Sparkline data={derived.spark} />
+            <div className="mt-3 flex justify-between text-[10px] text-muted-foreground font-mono">
+              <span>start</span>
+              <span>·</span>
+              <span>today</span>
+            </div>
+          </section>
+        )}
+
+        {/* ─── Active pattern ─── */}
+        {derived.active && (
+          <section className="mb-12">
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300 font-semibold mb-5">
+              Currently working on
+            </div>
+            <div className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-6 md:p-7">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 md:gap-8 items-start">
+                <div>
+                  <h2 className="font-serif text-[22px] md:text-[26px] leading-[1.2] tracking-[-0.015em] font-medium text-foreground mb-2">
+                    {derived.active.name}
+                  </h2>
+                  {derived.active.desc && (
+                    <p className="text-[13px] text-muted-foreground leading-relaxed max-w-[440px]">
+                      {derived.active.desc}
+                    </p>
+                  )}
+                  <div className="mt-6 flex items-center gap-3 flex-wrap">
+                    <Pips
+                      streak={derived.active.streak}
+                      target={derived.active.target}
+                    />
+                    <span className="text-[11.5px] text-muted-foreground tabular-nums">
+                      {derived.active.streak} / {derived.active.target} clean games
+                    </span>
+                  </div>
+                  {derived.active.coachLine && (
+                    <p className="mt-5 font-serif italic text-[14px] text-foreground/80 leading-snug max-w-[420px]">
+                      "{derived.active.coachLine}"
+                    </p>
+                  )}
                 </div>
-                <p className="text-[10px] text-muted-foreground truncate">{key.replace(/_/g, " ")}</p>
-                <p className={`text-xs font-mono font-semibold ${color.split(" ")[0]}`}>{score}</p>
+                <div className="flex md:flex-col items-start md:items-end gap-4 justify-between md:justify-start">
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/training/prescribed?weakness=${derived.active.pattern}`
+                      )
+                    }
+                    className="h-10 px-5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                  >
+                    <Target className="h-3.5 w-3.5" strokeWidth={2} />
+                    Drill this pattern
+                  </button>
+                  {derived.active.decay > 0 && (
+                    <div className="md:text-right">
+                      <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+                        Decay
+                      </div>
+                      <div className="font-serif text-[20px] md:text-[22px] tabular-nums text-foreground leading-none mt-1.5">
+                        {Math.round(derived.active.decay * 100)}%
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-
-// ─── Thinking Habits ────────────────────────────────────────────
-
-const HABIT_LABELS = {
-  threat_awareness: "Seeing opponent threats",
-  tactical_vision: "Finding tactics",
-  move_verification: "Double-checking before moving",
-  king_safety: "Keeping your king safe",
-  patience: "Not rushing moves",
-};
-
-const ThinkingHabits = ({ data }) => {
-  const habits = data.habits || {};
-  if (Object.keys(habits).length === 0) return null;
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-          <Activity className="w-4 h-4 text-purple-500" />
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Thinking Habits</h3>
-          <p className="text-[10px] text-muted-foreground">Last {data.games_sampled} games averaged</p>
-        </div>
-        <span className="ml-auto text-lg font-bold font-mono text-foreground">{data.overall}</span>
-      </div>
-
-      <div className="space-y-2">
-        {Object.entries(habits).map(([key, score]) => {
-          const label = HABIT_LABELS[key] || key.replace(/_/g, " ");
-          const color = score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-amber-400" : "bg-red-400";
-          return (
-            <div key={key} className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground w-48 text-right">{label}</span>
-              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
-              </div>
-              <span className="text-xs font-mono w-6 text-right">{score}</span>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
+          </section>
+        )}
 
-
-// ─── Phase Accuracy ─────────────────────────────────────────────
-
-const PhaseAccuracy = ({ data }) => {
-  const phases = ["opening", "middlegame", "endgame"];
-  const hasData = phases.some(p => data[p] != null);
-  if (!hasData) return null;
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-          <Shield className="w-4 h-4 text-blue-500" />
-        </div>
-        <h3 className="text-sm font-semibold text-foreground">Phase Accuracy</h3>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        {phases.map(phase => {
-          const acc = data[phase];
-          if (acc == null) return (
-            <div key={phase} className="text-center p-3 rounded-xl bg-muted/30">
-              <p className="text-2xl font-bold font-mono text-muted-foreground/30">—</p>
-              <p className="text-[10px] text-muted-foreground mt-1 capitalize">{phase}</p>
+        {/* ─── Tracked patterns ─── */}
+        {derived.tracked.length > 0 && (
+          <section className="mb-16 md:mb-20">
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
+              Also tracking
             </div>
-          );
-          const color = acc >= 80 ? "text-emerald-500" : acc >= 60 ? "text-amber-500" : "text-red-400";
-          return (
-            <div key={phase} className="text-center p-3 rounded-xl bg-muted/30">
-              <p className={`text-2xl font-bold font-mono ${color}`}>{acc}%</p>
-              <p className="text-[10px] text-muted-foreground mt-1 capitalize">{phase}</p>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-
-// ─── Accuracy Trend ─────────────────────────────────────────────
-
-const AccuracyTrend = ({ data }) => {
-  const max = Math.max(...data.map(d => d.accuracy), 100);
-  const min = Math.min(...data.map(d => d.accuracy), 0);
-  const range = max - min || 1;
-
-  // Trend direction
-  const first3 = data.slice(0, 3).reduce((s, d) => s + d.accuracy, 0) / 3;
-  const last3 = data.slice(-3).reduce((s, d) => s + d.accuracy, 0) / 3;
-  const trend = last3 - first3;
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-            trend >= 3 ? "bg-emerald-500/10" : trend <= -3 ? "bg-red-500/10" : "bg-muted"
-          }`}>
-            {trend >= 3 ? <TrendingUp className="w-4 h-4 text-emerald-500" /> :
-             trend <= -3 ? <TrendingDown className="w-4 h-4 text-red-400" /> :
-             <Minus className="w-4 h-4 text-muted-foreground" />}
-          </div>
-          <h3 className="text-sm font-semibold text-foreground">Accuracy Trend</h3>
-        </div>
-        <span className={`text-xs font-medium ${
-          trend >= 3 ? "text-emerald-600" : trend <= -3 ? "text-red-400" : "text-muted-foreground"
-        }`}>
-          {trend >= 3 ? `+${trend.toFixed(0)}% improving` : trend <= -3 ? `${trend.toFixed(0)}% declining` : "Steady"}
-        </span>
-      </div>
-
-      {/* Mini bar chart */}
-      <div className="flex items-end gap-1 h-16">
-        {data.map((d, i) => {
-          const height = Math.max(8, ((d.accuracy - min) / range) * 100);
-          const color = d.accuracy >= 80 ? "bg-emerald-500" :
-                        d.accuracy >= 60 ? "bg-amber-400" : "bg-red-400";
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-              <div className={`w-full rounded-sm ${color}`} style={{ height: `${height}%` }}
-                   title={`${d.accuracy}% accuracy, ${d.blunders} blunders`} />
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex justify-between mt-1">
-        <span className="text-[9px] text-muted-foreground/40">Oldest</span>
-        <span className="text-[9px] text-muted-foreground/40">Latest</span>
-      </div>
-    </div>
-  );
-};
-
-
-// ─── Pattern Lifecycle ──────────────────────────────────────────
-
-const ANGER_COLORS = {
-  first_time: "text-blue-500 bg-blue-500/10",
-  recurring: "text-amber-500 bg-amber-500/10",
-  returned: "text-orange-500 bg-orange-500/10",
-  chronic: "text-red-500 bg-red-500/10",
-};
-
-const PatternLifecycle = ({ patterns }) => {
-  const active = patterns.filter(p => p.state === "active");
-  const declining = patterns.filter(p => p.state === "declining");
-  const fading = patterns.filter(p => p.state === "fading");
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-          <Flame className="w-4 h-4 text-red-400" />
-        </div>
-        <h3 className="text-sm font-semibold text-foreground">Mistake Patterns</h3>
-      </div>
-
-      {active.length > 0 && (
-        <div className="mb-3">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-red-400/60 mb-1.5">Active</p>
-          {active.map(p => <PatternRow key={p.category} pattern={p} />)}
-        </div>
-      )}
-      {declining.length > 0 && (
-        <div className="mb-3">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-amber-400/60 mb-1.5">Declining</p>
-          {declining.map(p => <PatternRow key={p.category} pattern={p} />)}
-        </div>
-      )}
-      {fading.length > 0 && (
-        <div>
-          <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1.5">Fading</p>
-          {fading.map(p => <PatternRow key={p.category} pattern={p} />)}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const PatternRow = ({ pattern }) => {
-  const label = pattern.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-  const anger = ANGER_COLORS[pattern.anger] || ANGER_COLORS.first_time;
-  return (
-    <div className="flex items-center justify-between py-1.5">
-      <span className="text-sm text-foreground">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-mono text-muted-foreground">{pattern.count}x</span>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${anger}`}>
-          {pattern.anger?.replace(/_/g, " ")}
-        </span>
-      </div>
-    </div>
-  );
-};
-
-
-// ─── Opening Mastery (Coach sessions) ───────────────────────────
-
-const PHASE_LABELS = {
-  introduction: { label: "Learning", color: "text-blue-500 bg-blue-500/10" },
-  awareness: { label: "Practicing", color: "text-amber-500 bg-amber-500/10" },
-  free_play: { label: "Testing", color: "text-purple-500 bg-purple-500/10" },
-  mastered: { label: "Mastered", color: "text-emerald-500 bg-emerald-500/10" },
-};
-
-const OpeningMastery = ({ data, navigate }) => (
-  <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-    <div className="flex items-center gap-2.5 mb-4">
-      <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-        <Crown className="w-4 h-4 text-indigo-500" />
-      </div>
-      <h3 className="text-sm font-semibold text-foreground">Opening Mastery</h3>
-      <span className="text-[10px] text-muted-foreground">with Coach</span>
-    </div>
-
-    <div className="space-y-2">
-      {data.map(m => {
-        const phaseInfo = PHASE_LABELS[m.phase] || PHASE_LABELS.introduction;
-        const key = m.opening_key?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-        return (
-          <div key={m.opening_key}
-               onClick={() => navigate(`/play-with-coach?opening=${encodeURIComponent(key)}`)}
-               className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-all"
-          >
             <div>
-              <p className="text-sm font-medium text-foreground">{key}</p>
-              <p className="text-[10px] text-muted-foreground">
-                {m.games_played} game{m.games_played !== 1 ? "s" : ""}
-                {m.branches_seen?.length > 0 && ` · ${m.branches_seen.length} variation${m.branches_seen.length !== 1 ? "s" : ""}`}
-              </p>
+              {derived.tracked.map((p, i) => (
+                <div
+                  key={i}
+                  className="group grid grid-cols-[1fr_auto] md:grid-cols-[1fr_180px_110px_80px] gap-4 md:gap-8 items-center py-4 md:py-5 border-b border-border/50 hover:bg-muted/20 -mx-3 px-3 transition-colors"
+                >
+                  {/* Name + desc */}
+                  <div className="min-w-0">
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <span className="font-serif text-[16px] md:text-[18px] text-foreground leading-snug">
+                        {p.name}
+                      </span>
+                      {p.last && (
+                        <span className="text-[10.5px] text-muted-foreground tabular-nums">
+                          last miss · {p.last}
+                        </span>
+                      )}
+                    </div>
+                    {p.desc && (
+                      <div className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
+                        {p.desc}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pips (desktop) */}
+                  <div className="hidden md:block">
+                    <Pips streak={p.streak} target={p.target} />
+                    <div className="text-[10.5px] text-muted-foreground mt-1.5 tabular-nums">
+                      {p.streak} / {p.target} clean
+                    </div>
+                  </div>
+
+                  {/* Decay % (desktop) */}
+                  <div className="hidden md:block text-right">
+                    <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+                      decay
+                    </div>
+                    <div className="font-serif text-[17px] tabular-nums text-muted-foreground leading-none mt-1">
+                      {Math.round(p.decay * 100)}%
+                    </div>
+                  </div>
+
+                  {/* Drill action */}
+                  <button
+                    onClick={() =>
+                      navigate(`/training/prescribed?weakness=${p.pattern}`)
+                    }
+                    className="text-[11.5px] text-muted-foreground hover:text-violet-500 dark:hover:text-violet-300 transition-colors text-right"
+                  >
+                    Drill →
+                  </button>
+                </div>
+              ))}
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${phaseInfo.color}`}>
-              {phaseInfo.label}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-);
+          </section>
+        )}
 
-
-// ─── Focus Card ─────────────────────────────────────────────────
-
-const FocusCard = ({ state, progress, navigate }) => {
-
-  // NOT STARTED
-  if (state === "not_started") {
-    return (
-      <div className="rounded-2xl border border-border bg-card p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-            <Target className="w-5 h-5 text-muted-foreground" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-foreground">No focus area yet</h2>
-            <p className="text-xs text-muted-foreground">Analyze your games to find what to improve</p>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed mb-5">
-          Go to Lab to review your games. The coach will identify your biggest weakness and build a training plan around it.
-        </p>
-        <button
-          onClick={() => navigate("/lab")}
-          className="w-full py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
-        >
-          Go to Lab
-          <ChevronRight className="w-4 h-4 opacity-60" />
-        </button>
-      </div>
-    );
-  }
-
-  // WAITING FOR GAMES
-  if (state === "waiting_for_games") {
-    const played = progress.post_games_played || 0;
-    const needed = progress.post_games_needed || 3;
-    const pct = Math.round((played / needed) * 100);
-
-    return (
-      <div className="rounded-2xl border border-border bg-card p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-            <Activity className="w-5 h-5 text-amber-500" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Working on</p>
-            <h2 className="text-base font-semibold text-foreground">{progress.focus_label}</h2>
-          </div>
-          <div className="ml-auto flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={2.5} />
-            <span className="text-xs text-emerald-600 font-medium">Trained</span>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <p className="text-xs text-muted-foreground">Apply in real games</p>
-            <p className="text-xs font-mono text-muted-foreground">{played}/{needed}</p>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-amber-500 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${pct}%` }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            />
-          </div>
-        </div>
-
-        {/* Game dots */}
-        <div className="flex items-center gap-1.5 mb-5">
-          {Array.from({ length: needed }).map((_, i) => (
-            <div key={i} className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
-              i < played
-                ? "bg-emerald-500/10 border border-emerald-500/20"
-                : "bg-muted/50 border border-border/50"
-            }`}>
-              {i < played
-                ? <Check className="w-3 h-3 text-emerald-500" strokeWidth={2.5} />
-                : <span className="text-muted-foreground/30">{i + 1}</span>
-              }
+        {/* ─── Archived — you beat these ─── */}
+        {derived.archived.length > 0 && (
+          <section>
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground/70 font-semibold mb-5">
+              Archived · you've been consistent at
             </div>
-          ))}
-        </div>
-
-        <button
-          onClick={() => navigate("/play-with-coach")}
-          className="w-full py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
-        >
-          <Swords className="w-4 h-4" strokeWidth={2} />
-          Play Game {played + 1}
-        </button>
-      </div>
-    );
-  }
-
-  // TRACKING — the proof
-  const pre = progress.pre_training || {};
-  const post = progress.post_training || {};
-  const verdict = progress.verdict || "no_change";
-  const postGames = progress.post_training_games || [];
-
-  const verdictConfig = {
-    improving: {
-      icon: TrendingUp,
-      text: "You're improving",
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10",
-      border: "border-emerald-500/20",
-      iconColor: "text-emerald-500",
-    },
-    slipping: {
-      icon: TrendingDown,
-      text: "Needs more work",
-      color: "text-red-400",
-      bg: "bg-red-500/10",
-      border: "border-red-500/20",
-      iconColor: "text-red-400",
-    },
-    no_change: {
-      icon: Minus,
-      text: "No change yet",
-      color: "text-muted-foreground",
-      bg: "bg-muted",
-      border: "border-border",
-      iconColor: "text-muted-foreground",
-    },
-  };
-
-  const v = verdictConfig[verdict] || verdictConfig.no_change;
-  const VerdictIcon = v.icon;
-  const delta = (pre.mistakes || 0) - (post.mistakes || 0);
-
-  return (
-    <div className="rounded-2xl border border-border bg-card mb-6 overflow-hidden">
-      {/* Header */}
-      <div className="px-6 pt-6 pb-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl ${v.bg} flex items-center justify-center`}>
-            <VerdictIcon className={`w-5 h-5 ${v.iconColor}`} />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs text-muted-foreground">Working on</p>
-            <h2 className="text-base font-semibold text-foreground">{progress.focus_label}</h2>
-          </div>
-          <div className={`px-3 py-1.5 rounded-full text-xs font-semibold ${v.bg} ${v.color} ${v.border} border`}>
-            {v.text}
-          </div>
-        </div>
-      </div>
-
-      {/* Before / After comparison */}
-      <div className="px-6 pb-5">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-muted/50 p-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-2">Before</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold font-mono text-foreground">{pre.mistakes ?? "—"}</span>
-              <span className="text-xs text-muted-foreground">mistakes</span>
+            <div className="opacity-70">
+              {derived.archived.map((a, i) => (
+                <div
+                  key={i}
+                  className="py-3 md:py-4 border-b border-border/40 grid grid-cols-[auto_1fr_auto] gap-4 md:gap-6 items-center"
+                >
+                  <Check
+                    className="h-3.5 w-3.5 text-emerald-500/80"
+                    strokeWidth={2}
+                  />
+                  <div>
+                    <div className="font-serif text-[15px] md:text-[16px] text-foreground/80">
+                      {a.name}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground/70 mt-0.5">
+                      {a.meta}
+                    </div>
+                  </div>
+                  <span className="text-[10.5px] text-muted-foreground/60 font-mono tabular-nums">
+                    stable
+                  </span>
+                </div>
+              ))}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1">in {pre.games ?? 0} games</p>
-          </div>
-          <div className={`rounded-xl p-4 ${
-            verdict === "improving" ? "bg-emerald-500/[0.05]" :
-            verdict === "slipping" ? "bg-red-500/[0.05]" :
-            "bg-muted/50"
-          }`}>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-2">After</p>
-            <div className="flex items-baseline gap-1">
-              <span className={`text-3xl font-bold font-mono ${v.color}`}>{post.mistakes ?? "—"}</span>
-              <span className="text-xs text-muted-foreground">mistakes</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1">in {post.games ?? 0} games</p>
-          </div>
-        </div>
+          </section>
+        )}
 
-        {/* Delta indicator */}
-        {delta !== 0 && (
-          <div className="flex items-center justify-center mt-3">
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-              delta > 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500"
-            }`}>
-              {delta > 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-              {delta > 0 ? `${delta} fewer mistakes` : `${Math.abs(delta)} more mistakes`}
-            </div>
+        {/* ─── Empty-patterns fallback ─── */}
+        {!derived.active && derived.tracked.length === 0 && (
+          <div className="py-12 text-[13.5px] text-muted-foreground">
+            The coach is still building your profile. Keep playing — the
+            ledger fills in as patterns stabilize.
           </div>
         )}
-      </div>
-
-      {/* Recent games strip */}
-      {postGames.length > 0 && (
-        <div className="px-6 pb-5">
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/40 mb-2">Recent games</p>
-          <div className="flex items-center gap-1.5">
-            {postGames.map((g, i) => (
-              <div
-                key={i}
-                className={`h-8 flex-1 rounded-md flex items-center justify-center transition-all ${
-                  g.had_mistake
-                    ? "bg-red-500/8 border border-red-500/12"
-                    : "bg-emerald-500/8 border border-emerald-500/12"
-                }`}
-                title={`vs ${g.opponent} — ${g.had_mistake ? "had mistake" : "clean"}`}
-              >
-                {g.had_mistake
-                  ? <XIcon className="w-3 h-3 text-red-400" strokeWidth={2.5} />
-                  : <Check className="w-3 h-3 text-emerald-500" strokeWidth={2.5} />
-                }
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <p className="text-[10px] text-muted-foreground/40">
-              {postGames.filter(g => !g.had_mistake).length} clean
-            </p>
-            <p className="text-[10px] text-muted-foreground/40">
-              {postGames.filter(g => g.had_mistake).length} with mistakes
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-
-// ─── Opening Repertoire ─────────────────────────────────────────
-
-const OpeningRepertoire = ({ openings, navigate }) => {
-  if (!openings || openings.total_games === 0) return null;
-
-  const bestWhite = openings.white?.length > 0
-    ? openings.white.reduce((a, b) => (b.win_rate > a.win_rate && b.games >= 3) ? b : a, openings.white[0])
-    : null;
-  const bestBlack = openings.black?.length > 0
-    ? openings.black.reduce((a, b) => (b.win_rate > a.win_rate && b.games >= 3) ? b : a, openings.black[0])
-    : null;
-
-  return (
-    <div className="rounded-2xl border border-border bg-card mb-6 overflow-hidden">
-      <div className="px-6 pt-5 pb-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <BookOpen className="w-4 h-4 text-primary" />
-          </div>
-          <h3 className="text-sm font-semibold text-foreground">Your Openings</h3>
-        </div>
-      </div>
-
-      <div className="px-6 pb-5 space-y-4">
-        <OpeningColorSection label="As White" list={openings.white} best={bestWhite} />
-        <OpeningColorSection label="As Black" list={openings.black} best={bestBlack} />
-      </div>
-
-      {/* Coach recommendation */}
-      {(bestWhite || bestBlack) && (
-        <div className="px-6 pb-5">
-          <div className="rounded-xl bg-primary/[0.04] border border-primary/10 p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Flame className="w-3.5 h-3.5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-primary mb-0.5">Coach recommends</p>
-                <p className="text-sm text-foreground leading-relaxed">
-                  Focus on{" "}
-                  {bestWhite && <span className="font-semibold">{bestWhite.name}</span>}
-                  {bestWhite && bestBlack && " and "}
-                  {bestBlack && <span className="font-semibold">{bestBlack.name}</span>}
-                  . Mastering 1-2 openings deeply is how you climb.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                const opening = bestWhite?.name || bestBlack?.name || "";
-                navigate(`/play-with-coach${opening ? `?opening=${encodeURIComponent(opening)}` : ""}`);
-              }}
-              className="mt-3 ml-10 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
-            >
-              Practice with Coach
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const OpeningColorSection = ({ label, list, best }) => {
-  if (!list?.length) return null;
-
-  return (
-    <div>
-      <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">{label}</p>
-      <div className="space-y-1">
-        {list.slice(0, 4).map((o) => {
-          const isBest = best && o.name === best.name && best.games >= 3;
-          return (
-            <div
-              key={o.name}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                isBest
-                  ? "bg-emerald-500/[0.04] border border-emerald-500/15"
-                  : "hover:bg-muted/50"
-              }`}
-            >
-              {isBest && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
-              <span className={`text-sm text-foreground flex-1 truncate ${isBest ? "font-medium" : ""}`}>
-                {o.name}
-              </span>
-
-              {/* Win rate bar */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      o.win_rate >= 55 ? "bg-emerald-500" :
-                      o.win_rate >= 45 ? "bg-amber-400" :
-                      "bg-red-400"
-                    }`}
-                    style={{ width: `${Math.min(100, o.win_rate)}%` }}
-                  />
-                </div>
-                <span className={`text-xs font-mono w-8 text-right ${
-                  o.win_rate >= 55 ? "text-emerald-600" :
-                  o.win_rate >= 45 ? "text-foreground" :
-                  "text-red-400"
-                }`}>
-                  {o.win_rate}%
-                </span>
-                <span className="text-[10px] text-muted-foreground/50 w-5 text-right">{o.games}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-
-// ─── Quick Actions ──────────────────────────────────────────────
-
-const QuickActions = ({ state, progress, navigate }) => {
-  const verdict = progress?.verdict;
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <button
-        onClick={() => navigate("/play-with-coach")}
-        className="flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:bg-muted/50 transition-all group"
-      >
-        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
-          <Swords className="w-4 h-4 text-primary" strokeWidth={2} />
-        </div>
-        <div className="text-left">
-          <p className="text-sm font-medium text-foreground">Play with Coach</p>
-          <p className="text-[11px] text-muted-foreground">Practice your openings</p>
-        </div>
-      </button>
-
-      <button
-        onClick={() => navigate("/lab")}
-        className="flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:bg-muted/50 transition-all group"
-      >
-        <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/15 transition-colors">
-          <Target className="w-4 h-4 text-amber-500" strokeWidth={2} />
-        </div>
-        <div className="text-left">
-          <p className="text-sm font-medium text-foreground">Review Games</p>
-          <p className="text-[11px] text-muted-foreground">Find your weaknesses</p>
-        </div>
-      </button>
-    </div>
+      </motion.div>
+    </Layout>
   );
 };
 

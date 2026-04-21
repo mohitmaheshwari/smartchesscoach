@@ -10,6 +10,7 @@ module.exports = {
                 fontFamily: {
                         sans: ['Manrope', 'system-ui', 'sans-serif'],
                         heading: ['Outfit', 'system-ui', 'sans-serif'],
+                        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
                         mono: ['JetBrains Mono', 'Menlo', 'monospace'],
                 },
                 letterSpacing: {
