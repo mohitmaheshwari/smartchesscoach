@@ -199,35 +199,59 @@ def compute_game_summary(
             "Winning positions need the same focus as losing ones. Check threats every single move."
         )
 
-    # Check for opening collapse
+    # Check for piece giveaway FIRST — behavioural classification beats
+    # phase-based classification. A queen hang in the opening teaches
+    # "check before every move", not "learn your Scandinavian theory".
+    # Threshold is 300cp+ so ordinary theory slips still route to OPENING_COLLAPSE.
+    piece_giveaways = [m for m in user_moves if 300 <= m["cp_loss"] < 5000]
+    if piece_giveaways and len(blunders) <= 3:
+        giveaway = max(piece_giveaways, key=lambda m: m["cp_loss"])
+        hung = _infer_hung_piece(
+            giveaway.get("san", ""),
+            giveaway.get("best_move", ""),
+            giveaway.get("cp_loss", 0),
+        )
+        opener = (
+            "Single-move blunder"
+            if len(piece_giveaways) == 1
+            else f"{len(piece_giveaways)} single-move blunders"
+        )
+        worst_line = (
+            f"{opener} — Move {giveaway['move_number']} {giveaway['san']} hung {hung}."
+        )
+        context_lines = [
+            f"Move {giveaway['move_number']}: {giveaway['san']} — {giveaway['cp_loss'] / 100:.1f} pawns of material gone",
+        ]
+        if giveaway.get("best_move"):
+            context_lines.append(f"{giveaway['best_move']} would have saved {hung}")
+        context_lines.append(
+            "The position was equal before this" if abs(giveaway.get("eval_before", 0)) < 100
+            else "You were already under pressure"
+        )
+        return _build_summary(
+            GameDiagnosis.PIECE_GIVEAWAY,
+            worst_line,
+            giveaway,
+            context_lines,
+            "Before every move: what's attacked? What happens if I move anyway? The habit matters more than the calculation."
+        )
+
+    # Check for opening collapse — now only for SMALLER opening-phase mistakes
+    # (theory slips, positional misreads), not material hangs.
     opening_blunders = [m for m in user_moves if m["phase"] == "opening" and m["cp_loss"] >= 100]
     if opening_blunders and blunders and blunders[0]["phase"] == "opening":
+        first = opening_blunders[0]
+        opening_tail = f" in your {opening_name}" if opening_name else ""
         return _build_summary(
             GameDiagnosis.OPENING_COLLAPSE,
-            f"You lost this in the opening. {opening_name + ' went wrong.' if opening_name else 'The opening preparation failed.'}",
-            opening_blunders[0],
+            f"Opening theory miss — Move {first['move_number']} {first['san']} broke your setup{opening_tail}.",
+            first,
             [
                 f"Lost {sum(m['cp_loss'] for m in opening_blunders)} centipawns in the opening alone",
-                f"Move {opening_blunders[0]['move_number']}: {opening_blunders[0]['san']} was the first critical error",
+                f"Move {first['move_number']}: {first['san']} was the first critical error",
                 "You were already struggling before the middlegame started",
             ],
             "This opening needs study. Know the key ideas, not just the moves."
-        )
-
-    # Check for piece giveaway
-    piece_giveaways = [m for m in user_moves if 200 <= m["cp_loss"] < 5000]
-    if piece_giveaways and len(blunders) <= 2:
-        giveaway = piece_giveaways[0]
-        return _build_summary(
-            GameDiagnosis.PIECE_GIVEAWAY,
-            f"You gave away material. Move {giveaway['move_number']}: {giveaway['san']} lost a piece.",
-            giveaway,
-            [
-                f"Lost {giveaway['cp_loss'] / 100:.1f} pawns of material",
-                f"{giveaway['best_move']} was the safe option" if giveaway["best_move"] else "A safer move was available",
-                f"{'The position was equal before this' if abs(giveaway['eval_before']) < 100 else 'You were already under pressure'}",
-            ],
-            "Before every move: is my piece still defended after I move? Check the basics."
         )
 
     # Check for time collapse (blunders in last 25% of game)
@@ -639,6 +663,47 @@ def _cp_to_pieces(cp: int) -> str:
         return "a pawn"
     else:
         return "a small advantage"
+
+
+def _infer_hung_piece(played_san: str, best_san: str, cp_loss: int) -> str:
+    """
+    Name what the user just lost. Used to turn generic "you gave away material"
+    into specific "you hung your queen."
+
+    Strategy: when the best move and the played move are DIFFERENT piece types,
+    the best move almost always saves the piece that was under attack — so the
+    first char of the best-move SAN tells us which piece was meant to be saved.
+    When the pieces match (or no best_move), fall back on cp_loss magnitude.
+    """
+    def _piece_letter(san: str) -> str:
+        if not san:
+            return ""
+        s = san.lstrip("O").lstrip("-")  # strip castling noise
+        if not s:
+            return ""
+        return s[0] if s[0].isupper() else "P"
+
+    played_piece = _piece_letter(played_san)
+    best_piece = _piece_letter(best_san)
+    names = {
+        "Q": "your queen",
+        "R": "a rook",
+        "B": "a bishop",
+        "N": "a knight",
+        "P": "a pawn",
+    }
+    if best_piece and played_piece and best_piece != played_piece:
+        return names.get(best_piece, "material")
+
+    # Fallback — cp_loss bands. A hung queen usually shows ~700+; a minor
+    # piece with some positional compensation can land around 300-500.
+    if cp_loss >= 700:
+        return "your queen"
+    if cp_loss >= 400:
+        return "a major piece"
+    if cp_loss >= 250:
+        return "a piece"
+    return "material"
 
 
 def _get_phase(move_index: int) -> str:
