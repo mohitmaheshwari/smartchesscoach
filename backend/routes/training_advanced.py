@@ -1455,16 +1455,19 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         except Exception:
             pass
 
-        # Move-grounded one-line diagnosis for the Lab game list.
-        # Replaces "opening · accuracy · cognitive-gap tags" with a specific
-        # statement about what went wrong in THIS game.
+        # Move-grounded headline + subline for the Lab game list and Coach's Pick.
+        # root_cause  = the coach's opening line (short, emotional, memorable)
+        # subline     = the supporting specific-move sentence
+        # Termination/opponent/decisive-moment live in context[] for detail views.
         root_cause = ""
+        subline = ""
         diagnosis = ""
         try:
             from services.game_coach_summary import compute_game_summary
-            _gs = compute_game_summary(evals, result, uc, g.get("opening", "") or "")
+            _gs = compute_game_summary(evals, result, uc, g.get("opening", "") or "", termination=termination)
             diagnosis = _gs.get("diagnosis", "") or ""
             root_cause = _gs.get("root_cause", "") or ""
+            subline = _gs.get("subline", "") or ""
         except Exception as _diag_err:
             logger.debug(f"game diagnosis failed for {gid}: {_diag_err}")
 
@@ -1484,6 +1487,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "opening": g.get("opening", ""),
             "diagnosis": diagnosis,
             "root_cause": root_cause,
+            "subline": subline,
             "summary_headline": g.get("summary", {}).get("headline") if isinstance(g.get("summary"), dict) else None,
             "behavior": behavior,
             "lesson_label": lesson_label,

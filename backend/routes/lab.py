@@ -801,7 +801,7 @@ async def get_coach_insight(game_id: str, user: User = Depends(get_current_user)
             user_rating = int(m.group(1))
 
     # 1. Summary
-    summary = compute_game_summary(evals, game_result, user_color, opening)
+    summary = compute_game_summary(evals, game_result, user_color, opening, termination=game.get("termination", ""))
 
     # 2. Habits
     habits_report = analysis.get("habits_report")

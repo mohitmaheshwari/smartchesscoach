@@ -38,7 +38,7 @@ async def main():
 
     g = await db.games.find_one(
         {"game_id": args.game_id},
-        {"_id": 0, "user_id": 1, "user_color": 1, "user_plays_as": 1, "result": 1, "opening": 1, "platform": 1},
+        {"_id": 0, "user_id": 1, "user_color": 1, "user_plays_as": 1, "result": 1, "opening": 1, "platform": 1, "termination": 1},
     )
     print(f"game: {g}")
     if not g:
@@ -110,7 +110,7 @@ async def main():
     # Show what compute_game_summary returns
     from services.game_coach_summary import compute_game_summary
 
-    summary = compute_game_summary(moves, g.get("result", ""), uc, g.get("opening", "") or "")
+    summary = compute_game_summary(moves, g.get("result", ""), uc, g.get("opening", "") or "", termination=g.get("termination", "") or "")
     print("\ncompute_game_summary result:")
     print(f"  diagnosis:   {summary.get('diagnosis')}")
     print(f"  root_cause:  {summary.get('root_cause')}")

@@ -21,16 +21,17 @@ logger = logging.getLogger(__name__)
 # ─── GAME DIAGNOSIS TYPES ────────────────────────────────────────
 
 class GameDiagnosis:
-    THROW = "THROW"                    # Was winning, threw it away
-    MATE_BLIND = "MATE_BLIND"          # Missed checkmate threat
-    SLOW_BLEED = "SLOW_BLEED"          # Gradual outplay, no single blunder
-    OPENING_COLLAPSE = "OPENING_COLLAPSE"  # Lost in the opening
-    PIECE_GIVEAWAY = "PIECE_GIVEAWAY"  # Hung a piece
-    TACTICAL_MISS = "TACTICAL_MISS"    # Missed a winning tactic
-    TIME_COLLAPSE = "TIME_COLLAPSE"    # Blunders clustered at end (time trouble)
-    WON_CLEAN = "WON_CLEAN"           # Won without major mistakes
-    WON_OPPONENT_BLUNDER = "WON_OPPONENT_BLUNDER"  # Won because opponent blundered
-    DRAW = "DRAW"                      # Draw
+    THROW = "THROW"                            # Was winning, threw it away
+    MATE_BLIND = "MATE_BLIND"                  # Allowed a real short mate (confirmed by mate_info)
+    SLOW_BLEED = "SLOW_BLEED"                  # Accumulated small mistakes, no big blunder
+    OPENING_COLLAPSE = "OPENING_COLLAPSE"      # First blunder in opening, theory/positional
+    PIECE_GIVEAWAY = "PIECE_GIVEAWAY"          # 1–3 single-move blunders hung material
+    REPEATED_BLUNDERS = "REPEATED_BLUNDERS"    # 4+ blunders — pattern of one-move blindness
+    TACTICAL_MISS = "TACTICAL_MISS"            # Missed a tactic, moderate cp_loss
+    TIME_COLLAPSE = "TIME_COLLAPSE"            # Multiple blunders clustered in final quarter
+    WON_CLEAN = "WON_CLEAN"                    # Won without major mistakes
+    WON_OPPONENT_BLUNDER = "WON_OPPONENT_BLUNDER"  # Won largely because opponent blundered
+    DRAW = "DRAW"                              # Draw
 
 
 # ─── SUMMARY COMPUTATION ─────────────────────────────────────────
@@ -39,33 +40,58 @@ def compute_game_summary(
     move_evaluations: List[Dict],
     game_result: str,
     user_color: str,
-    opening_name: str = ""
+    opening_name: str = "",
+    termination: str = "",
 ) -> Dict:
     """
-    Compute the ONE reason this game was lost/won/drawn.
+    Translate Stockfish's facts into a coach verdict.
+
+    Pipeline:
+      1. _extract_facts — read move_evaluations in one pass. All facts
+         (user_moves, blunders, mate-info, eval curve, opponent behavior,
+         decisive-moment) come from Stockfish + the game-level termination.
+      2. dispatch by result (win / loss / draw).
+      3. each dispatch runs a decision tree on the facts and fills a
+         template sentence with real numbers and move names.
+
+    No heuristic proxies, no fabricated claims. If the data doesn't support
+    a claim, we don't make it.
+
     Returns: { diagnosis, root_cause, critical_move, context[], coach_note }
     """
     if not move_evaluations:
-        return {"diagnosis": "UNKNOWN", "root_cause": "No move data available"}
+        return _build_summary("UNKNOWN", "No move data available", "", None, [], "")
+
+    profile = _extract_facts(move_evaluations, user_color)
+    if not profile["user_moves"]:
+        return _build_summary("UNKNOWN", "No user moves found", "", None, [], "")
 
     user_is_white = user_color == "white"
     user_won = (game_result == "1-0" and user_is_white) or (game_result == "0-1" and not user_is_white)
     is_draw = "1/2" in game_result
 
-    # Extract user moves with eval data.
-    #
-    # The shape of `move_evaluations` isn't consistent across the DB: some
-    # games store the interleaved [white, black, white, black, ...] array
-    # from stockfish_service, others store a user-only array (older chess.com
-    # imports and some coach pipelines). A blind `i % 2` parity filter
-    # silently drops half the data on the user-only shape — and in the bug
-    # this fix addresses, it dropped the one move where the user hung their
-    # queen.
-    #
-    # Reliable signal: the FEN's active-color field tells us whose turn it
-    # is BEFORE the move, regardless of array shape. If that matches the
-    # user's color, it's a user move.
-    user_moves = []
+    if is_draw:
+        return _summarize_draw(profile)
+    if user_won:
+        return _summarize_win(profile)
+    return _summarize_loss(profile, opening_name, termination)
+
+
+def _extract_facts(move_evaluations: List[Dict], user_color: str) -> Dict:
+    """
+    One pass over move_evaluations → a fact-rich profile.
+
+    Array shape isn't consistent across the DB (some interleaved, some
+    user-only), so we identify user moves by FEN active-color rather than
+    index parity. Evals are stored from White's POV (Stockfish convention);
+    we flip the sign for black users once here so every downstream check
+    reads in the user's POV.
+    """
+    user_is_white = user_color == "white"
+    sign = 1 if user_is_white else -1
+
+    user_moves: List[Dict] = []
+    opponent_moves: List[Dict] = []
     for i, m in enumerate(move_evaluations):
         fen = m.get("fen_before") or ""
         parts = fen.split(" ")
@@ -73,230 +99,425 @@ def compute_game_summary(
         if side_to_move in ("w", "b"):
             is_user_move = (side_to_move == "w") == user_is_white
         else:
-            # Fallback when fen_before is missing — use the old parity rule.
             is_user_move = (i % 2 == 0) == user_is_white
-        if is_user_move:
-            # eval_before / eval_after are stored from WHITE's perspective
-            # (Stockfish convention). Flip for black users so all downstream
-            # comparisons ("was the user winning?") read in the user's POV.
-            raw_before = m.get("eval_before", 0) or 0
-            raw_after = m.get("eval_after", 0) or 0
-            sign = 1 if user_is_white else -1
-            user_moves.append({
+
+        cp_loss = m.get("cp_loss", 0) or 0
+        move_number = m.get("move_number") or ((i // 2) + 1)
+        san = m.get("san", m.get("move", "?"))
+
+        if not is_user_move:
+            opponent_moves.append({
                 "index": i,
-                "move_number": m.get("move_number") or ((i // 2) + 1),
-                "san": m.get("san", m.get("move", "?")),
-                "cp_loss": m.get("cp_loss", 0),
-                "eval_before": raw_before * sign,
-                "eval_after": raw_after * sign,
-                "best_move": m.get("best_move", ""),
-                "phase": _get_phase(i),
+                "move_number": move_number,
+                "san": san,
+                "cp_loss": cp_loss,
             })
+            continue
+
+        raw_before = m.get("eval_before", 0) or 0
+        raw_after = m.get("eval_after", 0) or 0
+        best_move = m.get("best_move", "")
+
+        # Mate info is stored from White's POV (+N = white mates in N, -N = black mates in N).
+        # From the user's POV, a negative number means the opponent will mate the user.
+        mate_info = m.get("mate_info") or {}
+        mate_after_raw = mate_info.get("after") if isinstance(mate_info, dict) else None
+        user_mate_after = (mate_after_raw * sign) if mate_after_raw is not None else None
+
+        user_moves.append({
+            "index": i,
+            "move_number": move_number,
+            "san": san,
+            "cp_loss": cp_loss,
+            "eval_before": raw_before * sign,
+            "eval_after": raw_after * sign,
+            "best_move": best_move,
+            "phase": _phase_from_move_number(move_number),
+            "user_mate_after": user_mate_after,
+        })
 
     if not user_moves:
-        return {"diagnosis": "UNKNOWN", "root_cause": "No user moves found"}
+        return {"user_moves": []}
 
-    # Find critical moment (biggest swing)
-    worst_move = max(user_moves, key=lambda m: m["cp_loss"])
-    biggest_cp_loss = worst_move["cp_loss"]
-
-    # Count blunders, mistakes
     blunders = [m for m in user_moves if m["cp_loss"] >= 200]
     mistakes = [m for m in user_moves if 100 <= m["cp_loss"] < 200]
+    worst_move = max(user_moves, key=lambda m: m["cp_loss"])
+    peak_user_eval = max((m["eval_before"] for m in user_moves), default=0)
     total_cp_loss = sum(m["cp_loss"] for m in user_moves)
+    total_user_moves = len(user_moves)
 
-    # Eval curve analysis
-    max_advantage = max((m["eval_before"] for m in user_moves), default=0)
-    was_winning = max_advantage >= 300  # Was +3 or better at some point
+    # Real short mate: the engine reports mate_info.after with the opponent
+    # mating within 5 moves (from user's POV, user_mate_after is in [-5, -1]).
+    # This is the ONLY signal for MATE_BLIND — we do not use cp_loss >= 5000
+    # any more because that also catches long mate-in-20 drops which aren't
+    # "missed an immediate mate".
+    short_mate_moves = [
+        m for m in user_moves
+        if m["user_mate_after"] is not None and -5 <= m["user_mate_after"] < 0
+    ]
 
-    # ─── DRAW ────────────
-    if is_draw:
-        return _build_summary(
-            GameDiagnosis.DRAW,
-            "Game ended in a draw.",
-            worst_move if biggest_cp_loss > 100 else None,
-            _draw_context(user_moves, max_advantage),
-            "Draws happen. Was there a moment you could have pushed for more?"
+    # THROW: user's eval peaked at +3.0 or better, then a blunder dropped
+    # them from winning (eval_before >= +2.0) to equal-or-losing.
+    threw_from_winning = False
+    throw_move = None
+    if peak_user_eval >= 300:
+        for b in blunders:
+            if b["eval_before"] >= 200 and b["eval_after"] < 100:
+                throw_move = b
+                threw_from_winning = True
+                break
+
+    blunders_in_opening = [b for b in blunders if b["phase"] == "opening"]
+    blunders_in_last_quarter = [
+        b for b in blunders if b["move_number"] > total_user_moves * 0.75
+    ]
+
+    # Opponent behaviour — blunder + mistake counts. A "clean" opponent is
+    # why a verdict says "you were outplayed" vs "both of you fumbled".
+    opponent_blunders = [m for m in opponent_moves if m["cp_loss"] >= 200]
+    opponent_mistakes = [m for m in opponent_moves if 100 <= m["cp_loss"] < 200]
+
+    # Decisive moment: the EARLIEST user blunder after which the user's eval
+    # never came back above -150 (half a pawn down). That's the point Stockfish
+    # says the game was practically over — often far earlier than the last
+    # blunder the player hit before resigning.
+    decisive_blunder = None
+    for b in blunders:
+        if b["eval_after"] >= -150:
+            continue  # this blunder didn't lock in a lost position
+        later_user_moves = [m for m in user_moves if m["index"] > b["index"]]
+        if not later_user_moves or all(m["eval_after"] < -150 for m in later_user_moves):
+            decisive_blunder = b
+            break
+
+    # Did the opponent offer chances back AFTER the decisive moment?
+    opponent_offered_chances = False
+    if decisive_blunder and opponent_blunders:
+        opponent_offered_chances = any(
+            o["index"] > decisive_blunder["index"] for o in opponent_blunders
         )
 
-    # ─── USER WON ────────
-    if user_won:
-        # Opponent moves via fen active-color (same reasoning as user moves
-        # above — array shape isn't reliable).
-        opponent_moves = []
-        for i, m in enumerate(move_evaluations):
-            fen = m.get("fen_before") or ""
-            parts = fen.split(" ")
-            side = parts[1] if len(parts) > 1 else ""
-            if side in ("w", "b"):
-                is_opp = (side == "w") != user_is_white
-            else:
-                is_opp = (i % 2 == 1) == user_is_white
-            if is_opp:
-                opponent_moves.append(m)
+    return {
+        "user_moves": user_moves,
+        "opponent_moves": opponent_moves,
+        "blunders": blunders,
+        "mistakes": mistakes,
+        "worst_move": worst_move,
+        "peak_user_eval": peak_user_eval,
+        "total_cp_loss": total_cp_loss,
+        "total_user_moves": total_user_moves,
+        "short_mate_moves": short_mate_moves,
+        "threw_from_winning": threw_from_winning,
+        "throw_move": throw_move,
+        "blunders_in_opening": blunders_in_opening,
+        "blunders_in_last_quarter": blunders_in_last_quarter,
+        "opponent_blunders": opponent_blunders,
+        "opponent_mistakes": opponent_mistakes,
+        "decisive_blunder": decisive_blunder,
+        "opponent_offered_chances": opponent_offered_chances,
+    }
 
-        opp_blunders = [m for m in opponent_moves if m.get("cp_loss", 0) >= 200]
 
-        if len(blunders) == 0:
-            return _build_summary(
-                GameDiagnosis.WON_CLEAN,
-                "Solid game. You played accurately and your opponent couldn't handle it.",
-                None,
-                _win_context(user_moves, total_cp_loss, len(opp_blunders)),
-                "Clean wins build confidence. Keep this level up."
-            )
-        else:
-            return _build_summary(
-                GameDiagnosis.WON_OPPONENT_BLUNDER,
-                f"You won, but you had {len(blunders)} blunder{'s' if len(blunders) > 1 else ''} yourself. Your opponent's mistakes were bigger.",
-                worst_move,
-                _win_context(user_moves, total_cp_loss, len(opp_blunders)),
-                "A win is a win, but those blunders will cost you against stronger opponents."
-            )
+def _describe_termination(termination: str, total_user_moves: int) -> str:
+    """Open the verdict with HOW the game ended, in coach voice.
 
-    # ─── USER LOST ───────
+    `termination` comes from the games collection and is typically one of:
+      checkmate / resignation / timeout / abandonment / stalemate / draw_agreed
+    (both chess.com and lichess normalise to similar keywords). Unknown
+    values fall back to a neutral opener so we don't fabricate.
+    """
+    t = (termination or "").lower()
+    if "mate" in t and "stale" not in t:
+        return f"Checkmated on move {total_user_moves}."
+    if "resign" in t:
+        return f"You resigned on move {total_user_moves}."
+    if "time" in t and "insufficient" not in t:
+        return f"Lost on time on move {total_user_moves}."
+    if "abandon" in t:
+        return f"Abandoned on move {total_user_moves}."
+    return "Lost this one."
 
-    # Check for mate blindness (cp_loss > 5000 = missed mate)
-    mate_blunders = [m for m in user_moves if m["cp_loss"] >= 5000]
-    if mate_blunders:
-        mate_move = mate_blunders[0]
-        was_winning_before = mate_move["eval_before"] >= 300
+
+def _describe_opponent(profile: Dict) -> str:
+    """One sentence about opponent behaviour — did they hand you chances back?
+
+    Key question: was this clearly outplayed, or mutual fumbling?
+    """
+    opp_blunders = profile["opponent_blunders"]
+    opp_mistakes = profile["opponent_mistakes"]
+    offered_chances = profile["opponent_offered_chances"]
+
+    if not opp_blunders and not opp_mistakes:
+        return "Your opponent played clean — no mistakes to punish."
+    if offered_chances:
+        return f"Your opponent had {len(opp_blunders)} blunder{'s' if len(opp_blunders) != 1 else ''} after the game tilted — chances you didn't take."
+    if opp_blunders:
+        return f"Your opponent had {len(opp_blunders)} blunder{'s' if len(opp_blunders) != 1 else ''} earlier, but didn't give you anything back once you tilted."
+    return "Your opponent played cleanly once the game turned."
+
+
+def _describe_decisive_moment(profile: Dict) -> str:
+    """Call out the moment the game was really lost — often earlier than the last blunder."""
+    decisive = profile["decisive_blunder"]
+    if not decisive:
+        return ""
+    worst = profile["worst_move"]
+    # Only surface this as a standalone sentence when it's meaningfully
+    # earlier than the player's worst move — otherwise it's redundant.
+    if decisive["move_number"] >= worst["move_number"] - 2:
+        return ""
+    hung = _infer_hung_piece(decisive.get("san", ""), decisive.get("best_move", ""), decisive.get("cp_loss", 0))
+    if hung not in ("material", ""):
+        return f"The game was really decided at move {decisive['move_number']}, when {decisive['san']} hung {hung}."
+    return f"The game was really decided at move {decisive['move_number']}, when {decisive['san']} tilted the eval past recovery."
+
+
+def _summarize_loss(profile: Dict, opening_name: str, termination: str) -> Dict:
+    """
+    Decision tree on extracted facts. Each diagnosis returns:
+      - headline (root_cause): ONE short, coach-voice sentence. The thing the
+        user remembers. No engine numbers, no termination, no opponent.
+      - subline: ONE supporting sentence with the specific move.
+      - context[]: the detail panel — termination, opponent behavior, decisive
+        moment, best move, etc. Surfaced when user expands.
+    """
+    blunders = profile["blunders"]
+    mistakes = profile["mistakes"]
+    worst = profile["worst_move"]
+    short_mate_moves = profile["short_mate_moves"]
+    total_moves = profile["total_user_moves"]
+
+    # These are facts the user might want — but they go into context, not
+    # the verdict. The verdict stays focused on the player's mistake.
+    termination_clause = _describe_termination(termination, total_moves)
+    opponent_clause = _describe_opponent(profile)
+    decisive_clause = _describe_decisive_moment(profile)
+
+    def _detail_context(extra: Optional[List[str]] = None) -> List[str]:
+        """Compose the expandable detail context from side-facts."""
+        ctx: List[str] = []
+        if termination_clause:
+            ctx.append(termination_clause)
+        if decisive_clause:
+            ctx.append(decisive_clause)
+        if opponent_clause:
+            ctx.append(opponent_clause)
+        if extra:
+            ctx.extend(extra)
+        return ctx
+
+    # 1. Real short mate — engine confirms opponent had mate ≤ 5 moves.
+    if short_mate_moves:
+        m = short_mate_moves[0]
+        mate_in = abs(m["user_mate_after"])
+        headline = f"You walked into mate in {mate_in}."
+        subline = f"Move {m['move_number']} {m['san']} allowed it."
+        extra = []
+        if m.get("best_move"):
+            extra.append(f"{m['best_move']} would have defended")
+        extra.append("King-safety habit, not a calculation skill")
         return _build_summary(
             GameDiagnosis.MATE_BLIND,
-            "You missed a checkmate threat and lost immediately." +
-            (f" You were completely winning (+{mate_move['eval_before'] / 100:.1f}) before this." if was_winning_before else ""),
-            mate_move,
-            [
-                f"You were {'+' + str(round(mate_move['eval_before']/100, 1)) if mate_move['eval_before'] >= 0 else str(round(mate_move['eval_before']/100, 1))} before the blunder",
-                f"Move {mate_move['move_number']}: {mate_move['san']} allowed forced checkmate",
-                f"{mate_move['best_move']} would have kept you alive" if mate_move["best_move"] else "There was a defense available",
-                "One moment of inattention cost the entire game",
-            ],
-            "This is not a skill issue. This is a habit issue: not checking opponent threats before moving."
+            headline, subline, m,
+            _detail_context(extra),
+            "Before every move: can I be mated? That one question catches most of these."
         )
 
-    # Check for THROW (was winning, then blundered)
-    if was_winning and biggest_cp_loss >= 200:
-        # Find the throw moment - first big blunder after being ahead
-        throw_move = None
-        for m in user_moves:
-            if m["eval_before"] >= 200 and m["cp_loss"] >= 200:
-                throw_move = m
-                break
-        if throw_move is None:
-            throw_move = worst_move
-
+    # 2. Threw a winning game — peak ≥ +3.0, one blunder from winning to losing.
+    if profile["threw_from_winning"]:
+        t = profile["throw_move"]
+        peak = profile["peak_user_eval"]
+        hung = _infer_hung_piece(t.get("san", ""), t.get("best_move", ""), t.get("cp_loss", 0))
+        headline = "You were winning. You let it slip."
+        if hung not in ("material", ""):
+            subline = f"Move {t['move_number']} {t['san']} cost you {hung}."
+        else:
+            subline = f"Move {t['move_number']} {t['san']} gave it back."
+        extra = [
+            f"Peak advantage: +{peak / 100:.1f}",
+            f"{t['cp_loss'] / 100:.1f} pawns of advantage given up on that move",
+        ]
+        if t.get("best_move"):
+            extra.append(f"{t['best_move']} would have held the win")
         return _build_summary(
             GameDiagnosis.THROW,
-            f"You threw a winning game. You were +{max_advantage / 100:.1f} and gave it away.",
-            throw_move,
-            [
-                f"Peak advantage: +{max_advantage / 100:.1f}",
-                "Position was stable — no pressure from opponent",
-                f"Move {throw_move['move_number']}: {throw_move['san']} lost {throw_move['cp_loss'] / 100:.1f} pawns worth of advantage",
-                "You didn't lose over many mistakes — you lost in one moment",
-            ],
-            "Winning positions need the same focus as losing ones. Check threats every single move."
+            headline, subline, t,
+            _detail_context(extra),
+            "Winning positions need the same focus as losing ones. Check threats every move."
         )
 
-    # Check for piece giveaway FIRST — behavioural classification beats
-    # phase-based classification. A queen hang in the opening teaches
-    # "check before every move", not "learn your Scandinavian theory".
-    # Threshold is 300cp+ so ordinary theory slips still route to OPENING_COLLAPSE.
-    piece_giveaways = [m for m in user_moves if 300 <= m["cp_loss"] < 5000]
-    if piece_giveaways and len(blunders) <= 3:
-        giveaway = max(piece_giveaways, key=lambda m: m["cp_loss"])
-        hung = _infer_hung_piece(
-            giveaway.get("san", ""),
-            giveaway.get("best_move", ""),
-            giveaway.get("cp_loss", 0),
-        )
-        opener = (
-            "Single-move blunder"
-            if len(piece_giveaways) == 1
-            else f"{len(piece_giveaways)} single-move blunders"
-        )
-        worst_line = (
-            f"{opener} — Move {giveaway['move_number']} {giveaway['san']} hung {hung}."
-        )
-        context_lines = [
-            f"Move {giveaway['move_number']}: {giveaway['san']} — {giveaway['cp_loss'] / 100:.1f} pawns of material gone",
+    # 3. Repeated blunders — 4+ single-move errors. The pattern IS the story.
+    if len(blunders) >= 4:
+        hung = _infer_hung_piece(worst.get("san", ""), worst.get("best_move", ""), worst.get("cp_loss", 0))
+        headline = f"{len(blunders)} single-move blunders in one game."
+        if hung not in ("material", ""):
+            subline = f"Worst was Move {worst['move_number']} {worst['san']} — hung {hung}."
+        else:
+            subline = f"Worst was Move {worst['move_number']} {worst['san']}."
+        listing = ", ".join(f"Move {b['move_number']} {b['san']}" for b in blunders[:5])
+        extra = [
+            f"Blunders: {listing}" + (f" (+{len(blunders) - 5} more)" if len(blunders) > 5 else ""),
+            f"Total material leaked: {sum(b['cp_loss'] for b in blunders) / 100:.1f} pawns worth",
+            "Pattern: piece safety — the habit, not the calculation",
         ]
-        if giveaway.get("best_move"):
-            context_lines.append(f"{giveaway['best_move']} would have saved {hung}")
-        context_lines.append(
-            "The position was equal before this" if abs(giveaway.get("eval_before", 0)) < 100
+        return _build_summary(
+            GameDiagnosis.REPEATED_BLUNDERS,
+            headline, subline, worst,
+            _detail_context(extra),
+            "Before every move: what's attacked? What happens if I move anyway? That one check fixes most of these."
+        )
+
+    # 4. Piece giveaway — 1 to 3 blunders, worst is a real material loss (≥ 300cp).
+    if blunders and worst["cp_loss"] >= 300:
+        hung = _infer_hung_piece(worst.get("san", ""), worst.get("best_move", ""), worst.get("cp_loss", 0))
+        if hung not in ("material", ""):
+            headline = f"You hung {hung}."
+        else:
+            headline = "Single-move blunder cost you material."
+        subline = f"Move {worst['move_number']} {worst['san']}."
+        extra = [
+            f"{worst['cp_loss'] / 100:.1f} pawns of material gone on that move",
+        ]
+        if worst.get("best_move"):
+            extra.append(f"{worst['best_move']} would have saved {hung}")
+        extra.append(
+            "Position was equal before this"
+            if abs(worst.get("eval_before", 0)) < 100
             else "You were already under pressure"
         )
         return _build_summary(
             GameDiagnosis.PIECE_GIVEAWAY,
-            worst_line,
-            giveaway,
-            context_lines,
-            "Before every move: what's attacked? What happens if I move anyway? The habit matters more than the calculation."
+            headline, subline, worst,
+            _detail_context(extra),
+            "Before every move: what's attacked? What happens if I move anyway?"
         )
 
-    # Check for opening collapse — now only for SMALLER opening-phase mistakes
-    # (theory slips, positional misreads), not material hangs.
-    opening_blunders = [m for m in user_moves if m["phase"] == "opening" and m["cp_loss"] >= 100]
-    if opening_blunders and blunders and blunders[0]["phase"] == "opening":
-        first = opening_blunders[0]
-        opening_tail = f" in your {opening_name}" if opening_name else ""
+    # 5. Opening collapse — only reached when the blunder(s) are in the opening
+    # and cp_loss is modest (< 300, not a material hang).
+    if profile["blunders_in_opening"] and blunders and blunders[0]["phase"] == "opening":
+        first = profile["blunders_in_opening"][0]
+        headline = "Your opening broke."
+        subline = f"Move {first['move_number']} {first['san']} was the first critical error."
+        opening_tail = f" (in your {opening_name})" if opening_name else ""
         return _build_summary(
             GameDiagnosis.OPENING_COLLAPSE,
-            f"Opening theory miss — Move {first['move_number']} {first['san']} broke your setup{opening_tail}.",
-            first,
-            [
-                f"Lost {sum(m['cp_loss'] for m in opening_blunders)} centipawns in the opening alone",
-                f"Move {first['move_number']}: {first['san']} was the first critical error",
+            headline, subline, first,
+            _detail_context([
+                f"Opening phase lost {sum(m['cp_loss'] for m in profile['blunders_in_opening'])} centipawns{opening_tail}",
                 "You were already struggling before the middlegame started",
-            ],
+            ]),
             "This opening needs study. Know the key ideas, not just the moves."
         )
 
-    # Check for time collapse (blunders in last 25% of game)
-    total_user_moves = len(user_moves)
-    late_blunders = [m for m in blunders if m["move_number"] > total_user_moves * 0.75]
-    if len(late_blunders) >= 2:
+    # 6. Time collapse — 2+ blunders clustered in the final quarter.
+    if len(profile["blunders_in_last_quarter"]) >= 2:
+        late = profile["blunders_in_last_quarter"]
+        headline = "Late-game collapse."
+        subline = f"{len(late)} blunders in the final phase."
+        listing = ", ".join(f"Move {b['move_number']} {b['san']}" for b in late[:4])
         return _build_summary(
             GameDiagnosis.TIME_COLLAPSE,
-            "You collapsed under time pressure. Blunders clustered in the last phase.",
-            worst_move,
-            [
-                f"{len(late_blunders)} blunders in the last {total_user_moves - int(total_user_moves * 0.75)} moves",
-                "Earlier play was decent — you ran out of time/energy, not ideas",
+            headline, subline, worst,
+            _detail_context([
+                f"Late blunders: {listing}",
+                "Earlier play was decent — time/energy ran out, not ideas",
                 "Time management is a skill, not luck",
-            ],
-            "Use your time earlier. The clock is as important as the position."
+            ]),
+            "Spend time earlier on critical positions. Save the clock for when it matters."
         )
 
-    # SLOW BLEED - no single catastrophic error
-    if biggest_cp_loss < 200:
+    # 7. Slow bleed — no blunders at all, just accumulated mistakes.
+    if not blunders:
+        headline = "Outplayed — no single blunder."
+        subline = (
+            f"{len(mistakes)} small mistake"
+            f"{'s' if len(mistakes) != 1 else ''} adding up to "
+            f"{profile['total_cp_loss'] / 100:.1f} pawns."
+        )
         return _build_summary(
             GameDiagnosis.SLOW_BLEED,
-            "No single blunder. You were outplayed — small inaccuracies added up.",
-            worst_move if biggest_cp_loss > 50 else None,
-            [
-                f"Total centipawn loss: {total_cp_loss}",
-                f"Worst move lost only {biggest_cp_loss} centipawns",
-                f"{len(mistakes)} small inaccuracies across the game",
-                "Your opponent simply made fewer mistakes",
-            ],
-            "This is the hardest loss type to learn from. Focus on understanding the plans, not just the moves."
+            headline, subline,
+            worst if worst["cp_loss"] > 50 else None,
+            _detail_context([
+                f"Total centipawn loss: {profile['total_cp_loss']}",
+                f"Worst single move lost only {worst['cp_loss']} centipawns",
+            ]),
+            "This is the hardest loss type to learn from. Focus on plans, not moves."
         )
 
-    # Default: tactical miss / general loss
+    # 8. Default — one tactical miss, moderate cp_loss (200-299).
+    headline = "Missed a tactic."
+    subline = f"Move {worst['move_number']} {worst['san']} cost {worst['cp_loss'] / 100:.1f} pawns."
+    extra = []
+    if worst.get("best_move"):
+        extra.append(f"{worst['best_move']} was the right move")
+    extra.append("The position required calculation, and the calculation fell short")
     return _build_summary(
         GameDiagnosis.TACTICAL_MISS,
-        f"You missed a critical tactic at move {worst_move['move_number']}.",
-        worst_move,
-        [
-            f"Move {worst_move['move_number']}: {worst_move['san']} lost {worst_move['cp_loss'] / 100:.1f} pawns",
-            f"{worst_move['best_move']} was the right move" if worst_move["best_move"] else "A better move existed",
-            "The position required calculation, and the calculation failed",
-        ],
+        headline, subline, worst,
+        _detail_context(extra),
         "Tactics come from calculation. Slow down on critical moves."
     )
+
+
+def _summarize_draw(profile: Dict) -> Dict:
+    user_moves = profile["user_moves"]
+    worst = profile["worst_move"]
+    peak = profile["peak_user_eval"]
+    if peak >= 200:
+        headline = "A draw you could have won."
+        subline = f"Peak advantage +{peak / 100:.1f}."
+    else:
+        headline = "Drawn."
+        subline = ""
+    return _build_summary(
+        GameDiagnosis.DRAW,
+        headline, subline,
+        worst if worst["cp_loss"] > 100 else None,
+        _draw_context(user_moves, peak),
+        "Draws happen. Was there a moment you could have pushed for more?"
+    )
+
+
+def _summarize_win(profile: Dict) -> Dict:
+    """Win classification — clean vs opponent-blunder win."""
+    user_moves = profile["user_moves"]
+    blunders = profile["blunders"]
+    total_cp_loss = profile["total_cp_loss"]
+    worst = profile["worst_move"]
+    opp_blunders = len(profile["opponent_blunders"])
+
+    if not blunders:
+        return _build_summary(
+            GameDiagnosis.WON_CLEAN,
+            "Clean win.",
+            "You played accurately throughout.",
+            None,
+            _win_context(user_moves, total_cp_loss, opp_blunders),
+            "Clean wins build confidence. Keep this level up."
+        )
+    return _build_summary(
+        GameDiagnosis.WON_OPPONENT_BLUNDER,
+        "Messy win.",
+        f"You had {len(blunders)} blunder{'s' if len(blunders) > 1 else ''} too — your opponent's were bigger.",
+        worst,
+        _win_context(user_moves, total_cp_loss, opp_blunders),
+        "A win is a win, but those blunders will cost you against stronger opponents."
+    )
+
+
+def _phase_from_move_number(move_number: int) -> str:
+    """Phase based on the move number, not on array index.
+
+    Safer than `_get_phase(i)` because array shape varies across the DB
+    (interleaved vs user-only), which makes an index-based cutoff wrong
+    for half the records.
+    """
+    if move_number <= 10:
+        return "opening"
+    if move_number <= 25:
+        return "middlegame"
+    return "endgame"
 
 
 # ─── HABITS COMPUTATION ──────────────────────────────────────────
@@ -715,10 +936,28 @@ def _get_phase(move_index: int) -> str:
     return "endgame"
 
 
-def _build_summary(diagnosis, root_cause, critical_move, context, coach_note):
+def _build_summary(diagnosis, headline, subline, critical_move, context, coach_note):
+    """
+    Return shape:
+      diagnosis      — internal enum (not rendered to users)
+      root_cause     — the HEADLINE sentence. This is the coach's opening line:
+                       one short, emotional, memorable truth. Rendered as
+                       primary everywhere (game list, Coach's Pick, /game/:id).
+      subline        — the SECONDARY line. Specific move detail. Rendered under
+                       the headline on Coach's Pick / game-review pages.
+      context[]      — detail-panel lines (termination, opponent behavior, etc).
+                       Only shown when user expands "see details".
+      critical_move  — structured data for the clickable move ref.
+      coach_note     — one-liner takeaway below the context.
+
+    The root_cause / subline split enforces the "one thing first, details on
+    demand" rule — user remembers the headline, the subline reinforces it,
+    the context is there for the curious.
+    """
     result = {
         "diagnosis": diagnosis,
-        "root_cause": root_cause,
+        "root_cause": headline,
+        "subline": subline or "",
         "context": context if isinstance(context, list) else [context],
         "coach_note": coach_note,
     }

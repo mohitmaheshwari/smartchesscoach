@@ -684,7 +684,7 @@ async def generate_coach_review(
     # Get diagnosis from existing coach summary
     from services.game_coach_summary import compute_game_summary
     opening_name = game.get("opening_name") or game.get("opening") or ""
-    summary = compute_game_summary(evals, result, user_color, opening_name)
+    summary = compute_game_summary(evals, result, user_color, opening_name, termination=game.get("termination", ""))
     diagnosis = summary.get("diagnosis", "UNKNOWN")
 
     # Get player identity

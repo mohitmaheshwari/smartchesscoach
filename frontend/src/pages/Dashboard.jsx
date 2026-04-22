@@ -109,8 +109,6 @@ const fmtDate = (g) => {
   return ts.toLocaleDateString();
 };
 
-const humanPattern = (key) =>
-  key ? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
 
 // ─── Components ─────────────────────────────────────────────────────────────
 
@@ -283,23 +281,27 @@ const Dashboard = ({ user }) => {
   }
 
   // ─── Main render ─────────────────────────────────────────────────────
+  // Coach's Pick primary: prefer the featured game's own coach-voice
+  // headline (e.g. "You were winning. You let it slip.") — that's the
+  // specific-game truth. Fall back to the cross-game pattern label only if
+  // no featured verdict is available yet.
   const verdict =
+    featuredGame?.root_cause ||
     activeFocus?.label ||
     BEHAVIOR_DESCRIPTIONS[primaryProblem?.category] ||
     primaryProblem?.label ||
     "Let's find something to work on.";
 
-  // Factual, specific. Dropped the "almost every game" variant — it was
-  // vague marketing language dressed up as data. If the count exists we
-  // name it; otherwise we stay quiet.
+  // Secondary line: the move-specific supporting sentence from the summary,
+  // or (if missing) the cross-game count. Numbers only when they're real.
   const verdictSub =
+    featuredGame?.subline ||
     activeFocus?.reason ||
     (primaryProblem && primaryProblem.count
       ? `Showing up in ${primaryProblem.count} of your recent games.`
       : null);
 
   const pickResult = resultLetter(featuredGame);
-  const pickTags = (featuredGame?.cognitive_gaps || []).slice(0, 3);
 
   // Construct "reasoning" bullet list when available. Per-game, factual.
   // No cross-game aggregation claims until we build the aggregator (P3+).
@@ -470,20 +472,6 @@ const Dashboard = ({ user }) => {
                         </li>
                       ))}
                     </ol>
-                  )}
-
-                  {/* Tags */}
-                  {pickTags.length > 0 && (
-                    <div className="mt-6 flex items-center gap-2 flex-wrap">
-                      {pickTags.map((t) => (
-                        <span
-                          key={t}
-                          className="text-[10.5px] uppercase tracking-[0.18em] font-semibold text-amber-600/90 dark:text-amber-300/80 border border-amber-500/25 bg-amber-500/[0.05] rounded-full px-2.5 h-5 inline-flex items-center"
-                        >
-                          {humanPattern(t)}
-                        </span>
-                      ))}
-                    </div>
                   )}
 
                   {/* CTA row */}

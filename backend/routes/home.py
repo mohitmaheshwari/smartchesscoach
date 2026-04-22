@@ -428,7 +428,7 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
                         result["last_battle"]["lesson_label"] = "Brilliant sacrifice" if sacrifice_count > 0 else "Brilliant play"
 
                 # Compute summary + memory
-                summary = compute_game_summary(evals, game_result, user_color, last_game.get("opening", ""))
+                summary = compute_game_summary(evals, game_result, user_color, last_game.get("opening", ""), termination=last_game.get("termination", ""))
                 memory = await compute_game_memory(db, user.user_id, summary, user_rating)
 
                 result["chess_dna"] = {

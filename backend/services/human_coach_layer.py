@@ -284,6 +284,7 @@ def generate_coach_voice_summary(
     user_color = game_data.get("user_color") or game_data.get("user_plays_as") or "white"
     result_field = game_data.get("result", "")
     opening = game_data.get("opening", "") or analysis.get("opening", "")
+    termination = game_data.get("termination", "") or ""
 
     # compute_game_summary expects PGN result ("1-0", "0-1", "1/2-1/2").
     # Normalize if we were handed the user-centric shorthand.
@@ -296,7 +297,7 @@ def generate_coach_voice_summary(
             "draw": "1/2-1/2",
         }[result_field]
 
-    diagnosis = compute_game_summary(move_evals, game_result, user_color, opening)
+    diagnosis = compute_game_summary(move_evals, game_result, user_color, opening, termination=termination)
 
     # Cross-game pattern context — only attach if the worst-move category
     # matches a known weakness we've seen before.
@@ -316,7 +317,8 @@ def generate_coach_voice_summary(
 
     context = diagnosis.get("context") or []
     return {
-        "key_observation": diagnosis.get("root_cause", ""),
+        "key_observation": diagnosis.get("root_cause", ""),    # the headline
+        "subline": diagnosis.get("subline", ""),                # specific-move secondary
         "actionable_takeaway": diagnosis.get("coach_note", ""),
         "behavioral_insight": behavioral_insight,
         # Structured data so downstream consumers can render specific moves.
@@ -396,7 +398,7 @@ async def enrich_game_analysis(
     # Generate coach voice summary
     game_data = await db.games.find_one(
         {"game_id": game_id, "user_id": user_id},
-        {"_id": 0, "result": 1, "user_color": 1, "user_plays_as": 1, "opponent": 1, "opening": 1}
+        {"_id": 0, "result": 1, "user_color": 1, "user_plays_as": 1, "opponent": 1, "opening": 1, "termination": 1}
     ) or {}
     
     enriched["coach_summary"] = generate_coach_voice_summary(

@@ -59,7 +59,7 @@ async def generate_coach_action(
 
     # 1. DIAGNOSIS
     from services.game_coach_summary import compute_game_summary
-    summary = compute_game_summary(evals, result, user_color, opening)
+    summary = compute_game_summary(evals, result, user_color, opening, termination=game.get("termination", ""))
     diagnosis = summary.get("diagnosis", "UNKNOWN")
 
     diag_info = DIAGNOSIS_LABELS.get(diagnosis, {"label": "Game reviewed", "short": "Check the details.", "fix_pattern": None})
@@ -204,7 +204,7 @@ async def _compute_trend(db, user_id: str, current_diagnosis: str, user_color: s
         if not evals:
             continue
 
-        summary = compute_game_summary(evals, result, uc, opening)
+        summary = compute_game_summary(evals, result, uc, opening, termination=g.get("termination", ""))
         if summary.get("diagnosis") == current_diagnosis:
             diagnosis_count += 1
             if i < 5:
