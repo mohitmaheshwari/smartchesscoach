@@ -24,34 +24,33 @@ logger = logging.getLogger(__name__)
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
-# System prompt for concise narrative generation
-NARRATOR_SYSTEM_PROMPT = """You are a FUN, MEMORABLE chess coach. Your students NEVER forget what you teach because you make it STICK.
+# System prompt for concise narrative generation.
+#
+# Role: LLM is a REWRITER, not an author. It receives a grounded plan
+# (what went wrong + better move, both derived from Stockfish upstream)
+# and outputs the same truth in warmer coach voice. It does not invent.
+NARRATOR_SYSTEM_PROMPT = """You are a friendly chess coach rewriting a short critique in natural voice.
 
-YOUR STYLE:
-- Talk like a friendly human, NOT a textbook
-- Use SIMPLE words a 12-year-old understands
-- Use standard piece names (knight, bishop, rook, queen, pawn)
-- Keep language natural and coaching-focused
-- Create HOOKS that stick in memory:
-  • "Knights on the rim are dim!" (bad knight placement)
-  • "Castle early, sleep safely!" (king safety)
-  • "Develop before you attack!" (opening principles)
-  • "Loose pieces drop off!" (hanging pieces)
+You will be given:
+- The move the player made (in chess notation)
+- The problem with that move (one sentence of ground truth)
+- What they should have played instead (often names a specific move)
 
-RULES:
-1. MAX 15 words
-2. Sound like a FRIEND teaching chess, not a computer
-3. Use ONE memorable phrase or hook per move
-4. Make it FUN - they should SMILE and learn
-5. If there's a tactic, give it a fun name
+Your job: REWRITE this in warm coach voice, as one short sentence.
 
-EXAMPLE OUTPUTS:
-- "Your knight wandered off! Now Nb5 forks your pawn. Knights need a purpose."
-- "Rook on the open file — that's strong. Open files are rook highways."
-- "Castle early, sleep safely! Your king thanks you."
-- "Oops! Loose piece = free piece. Always check who's undefended."
+HARD RULES — violating these fails the task:
+1. MAX 15 words total.
+2. DO NOT introduce any move, piece, square, tactic, or chess concept that is NOT in the input.
+   If the input doesn't name Bxb5, you MUST NOT name Bxb5.
+   If the input doesn't say "fork", you MUST NOT say "fork".
+   Invent nothing.
+3. Keep the exact move names and ideas from the input — just rephrase the WORDS.
+4. No engine language (eval, centipawns, accuracy).
+5. No catchy rhymes or invented hooks ("Knights on the rim are dim" etc.) unless
+   the input literally already makes that point.
+6. If the input is already natural, output it essentially unchanged.
 
-Return ONLY the coaching text. No quotes, no JSON."""
+Output ONLY the rewritten sentence. No quotes, no labels, no JSON."""
 
 
 async def generate_concise_narrative(
@@ -87,28 +86,31 @@ async def generate_concise_narrative(
         from llm_helper import LlmChat, UserMessage
         import uuid
         
-        # Build context for LLM
-        context_parts = []
-        
-        if plan_data:
-            if plan_data.get("current_problem"):
-                context_parts.append(f"Problem: {plan_data['current_problem']}")
-            if plan_data.get("consequence"):
-                context_parts.append(f"What happens: {plan_data['consequence']}")
-            if plan_data.get("better_approach"):
-                context_parts.append(f"Better: {plan_data['better_approach']}")
-            if plan_data.get("transferable_learning"):
-                context_parts.append(f"Learning: {plan_data['transferable_learning']}")
-        
-        user_prompt = f"""Move: {move_san}
-Phase: {phase}
-Severity: {severity}
-{'User move' if is_user_move else 'Opponent move'}
+        # Build the grounded context. Only pass what the upstream plan
+        # actually contains — no invented fields, no assumptions. If plan_data
+        # is empty, the LLM has nothing to rewrite; we go straight to fallback.
+        if not plan_data:
+            return _generate_fallback_narrative(move_san, plan_data, severity)
 
-Context:
-{chr(10).join(context_parts)}
+        problem = (plan_data.get("current_problem") or "").strip()
+        better = (plan_data.get("better_approach") or "").strip()
 
-Generate a MEMORABLE coaching sentence (max 20 words) that captures the key insight."""
+        if not problem and not better:
+            return _generate_fallback_narrative(move_san, plan_data, severity)
+
+        # Construct the input plan as a plain sentence or two. The LLM's job
+        # is to restate THIS, not to add to it.
+        lines = [f"Move played: {move_san}"]
+        if problem:
+            lines.append(f"Problem: {problem}")
+        if better:
+            lines.append(f"What was better: {better}")
+
+        user_prompt = (
+            "\n".join(lines)
+            + "\n\nRewrite the critique above as one short coach-voice sentence. "
+            "Use only the moves and ideas already named. Do not add anything."
+        )
 
         chat_instance = LlmChat(
             api_key=EMERGENT_LLM_KEY,
@@ -116,16 +118,19 @@ Generate a MEMORABLE coaching sentence (max 20 words) that captures the key insi
             system_message=NARRATOR_SYSTEM_PROMPT
         )
         chat_instance.with_model("openai", "gpt-4.1-mini")
-        
+
         response = await chat_instance.send_message(UserMessage(text=user_prompt))
-        
+
         narrative = response.strip().strip('"').strip("'")
-        
-        # Ensure under 20 words
+
+        # Hard length cap — anything over 25 words means the LLM ignored the
+        # constraint and probably invented something. Drop to fallback in
+        # that case; don't try to truncate a paragraph-hallucination.
         words = narrative.split()
-        if len(words) > 25:  # Allow some buffer
-            narrative = " ".join(words[:20]) + "..."
-        
+        if len(words) > 25:
+            logger.debug(f"LLM narrator output too long ({len(words)} words) — using fallback")
+            return _generate_fallback_narrative(move_san, plan_data, severity)
+
         return narrative
         
     except Exception as e:
@@ -235,30 +240,37 @@ Don't say "great move" or "well done" - be more specific."""
 
 
 def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) -> str:
-    """Fallback when LLM is unavailable - still make it FUN and MEMORABLE."""
-    if not plan_data:
-        if severity == "blunder":
-            return f"Ouch! {move_san} hurts. Big oops here!"
-        elif severity == "mistake":
-            return f"Hmm, {move_san} isn't great. Let's see why..."
-        elif severity == "inaccuracy":
-            return f"{move_san} - not bad, but there's a sneakier move!"
-        return f"{move_san}."
-    
-    # Use the plan data to create a fun narrative
-    problem = plan_data.get("current_problem", "")
-    
-    # Make it memorable based on what went wrong
-    if "knight" in problem.lower():
-        return f"Your knight is in trouble! {problem[:50]}"
-    elif "bishop" in problem.lower():
-        return f"Your bishop needs an open diagonal. {problem[:50]}"
-    elif "pawn" in problem.lower():
-        return f"Your pawn needs support. {problem[:50]}"
-    elif "king" in problem.lower():
-        return f"King safety first! {problem[:50]}"
-    else:
-        return f"{move_san} - {problem[:60]}" if problem else f"{move_san} needs a rethink."
+    """Deterministic fallback when the LLM isn't available.
+
+    Uses plan_data.current_problem verbatim if present — it's the same
+    ground-truth string the LLM would have rewritten. NO hardcoded
+    pattern-based prefixes ("Your bishop needs an open diagonal…"): those
+    were template lies that prepended a generic claim regardless of whether
+    the actual problem was about diagonals.
+    """
+    problem = (plan_data.get("current_problem") or "").strip() if plan_data else ""
+    better = (plan_data.get("better_approach") or "").strip() if plan_data else ""
+
+    # If we have a concrete problem sentence, use it as-is. It was built
+    # upstream from Stockfish's best_move — trusting that is safer than
+    # prepending speculative hooks.
+    if problem:
+        # Keep it short. If the problem already names the move, we don't
+        # need to prefix with move_san again.
+        if move_san and move_san in problem:
+            return problem
+        return f"{move_san}: {problem}" if move_san else problem
+
+    # No problem text — fall through to a severity-only acknowledgement.
+    if better:
+        return f"{move_san} — {better}" if move_san else better
+    if severity == "blunder":
+        return f"{move_san} was a blunder."
+    if severity == "mistake":
+        return f"{move_san} wasn't the best here."
+    if severity == "inaccuracy":
+        return f"{move_san} — a small inaccuracy."
+    return f"{move_san}."
 
 
 def _fallback_opponent_narrative(move_san: str, eval_swing: int, weak_squares: List[str]) -> tuple:

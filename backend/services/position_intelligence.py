@@ -299,63 +299,69 @@ async def read_board_deep(
 
     Falls back to deterministic read_board_like_a_coach if LLM fails.
     """
+    # Validate FEN early — if it's malformed, we can't do anything.
     try:
-        board = chess.Board(fen)
+        chess.Board(fen)
     except Exception:
         return read_board_like_a_coach(fen, user_color, user_rating)
 
-    user_is_white = user_color == "white"
-    user_color_bool = chess.WHITE if user_is_white else chess.BLACK
-    opp_color_bool = not user_color_bool
-
-    # Step 1: Extract CONCRETE facts — no templates, just data
-    facts = _extract_board_facts(board, user_color_bool, opp_color_bool)
-
-    # Step 2: Get deterministic plan as fallback + context
+    # Step 1: Compute the DETERMINISTIC coach plan. This is our ground truth —
+    # the actual plan we're willing to recommend, derived from verifiable
+    # board facts (hanging pieces, threats, king safety, etc.). The LLM's
+    # role is voice rewriting only; it does not propose moves.
     deterministic = read_board_like_a_coach(fen, user_color, user_rating)
+    grounded_plan = (deterministic.get("plan") or "").strip()
 
-    # Step 3: Send to LLM
+    # If the deterministic layer has nothing to say, we have nothing to say.
+    # Better to return the stock plan than to ask an LLM to invent one.
+    if not grounded_plan:
+        return deterministic
+
+    # Step 2: Rewrite-only LLM call. The prompt is constrained — the LLM may
+    # NOT introduce new moves, piece names, or tactics. It may only rephrase
+    # the grounded plan in a more natural coach voice.
     try:
         from llm_service import call_llm
 
         system = (
-            "You are a chess coach talking to a player rated around " + str(user_rating) + ". "
-            "You're looking at a chess position and telling the player what matters most RIGHT NOW. "
-            "Rules:\n"
-            "- Be SPECIFIC. Name pieces, squares, and concrete threats. Never say generic things like 'improve your position'.\n"
-            "- Maximum 3 short sentences. First sentence = the most important thing. Second = why. Third = what to do.\n"
-            "- Talk about THIS board, not general chess principles.\n"
-            "- If there's a tactic, say it. If it's quiet, say which piece to improve and where.\n"
+            f"You are a chess coach talking to a player rated around {user_rating}. "
+            "You have been given a short coaching plan for the current position. "
+            "Your ONLY job is to rewrite that plan in warm, natural coach voice.\n\n"
+            "Hard rules:\n"
+            "- ONE or TWO short sentences. No paragraphs, no multi-step plans.\n"
+            "- DO NOT introduce any move, piece, square, tactic, or idea that is NOT in the input plan. "
+            "If the input doesn't name Bxb5, you MUST NOT name Bxb5. Invent nothing.\n"
+            "- Keep the same moves and ideas the input already names. Only change the WORDS.\n"
             "- Never use engine language (eval, centipawns, accuracy).\n"
-            "- Sound like a human coach sitting next to the player, not a textbook."
+            "- No filler ('potentially', 'consider moves like', 'take advantage of'). Say the thing directly.\n"
+            "- If the input plan is already good, output it with minimal changes."
         )
 
         user_msg = (
-            f"Position (FEN): {fen}\n"
-            f"Player is {'White' if user_is_white else 'Black'} to move.\n\n"
-            f"Board facts:\n{facts}\n\n"
-            f"What should the player focus on? Be specific to this exact position."
+            f"Input plan to rewrite:\n{grounded_plan}\n\n"
+            "Rewrite this in coach voice, following the rules above. "
+            "Output only the rewritten sentence(s), nothing else."
         )
 
         llm_response = await call_llm(system, user_msg)
 
-        if llm_response and len(llm_response.strip()) > 20:
-            return {
-                "summary": llm_response.strip(),
-                "phase": deterministic.get("phase", "middlegame"),
-                "material": deterministic.get("material", ""),
-                "plan": llm_response.strip(),
-                "plan_id": deterministic.get("plan_id", "llm"),
-                "priority": deterministic.get("priority", "general"),
-                "focus": llm_response.strip().split(".")[0] + ".",
-                "observations": deterministic.get("observations", []),
-                "source": "llm",
-            }
+        if llm_response and llm_response.strip():
+            rewritten = llm_response.strip().strip('"').strip("'")
+            # Sanity cap: if the LLM ignored us and produced a paragraph, fall
+            # back. The constraint is "one or two short sentences" — anything
+            # much longer is a sign of drift.
+            if len(rewritten) <= 280:
+                return {
+                    **deterministic,
+                    "plan": rewritten,
+                    "focus": rewritten.split(".")[0] + ".",
+                    "source": "llm-rewrite",
+                }
 
     except Exception as e:
-        logger.debug(f"LLM board reading failed, using deterministic: {e}")
+        logger.debug(f"LLM rewrite failed, using deterministic plan: {e}")
 
-    # Fallback
+    # Fallback: the deterministic plan, untouched.
     return deterministic
 
 

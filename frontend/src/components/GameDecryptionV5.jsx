@@ -956,34 +956,25 @@ const MoveCoachingCardV5 = ({
     <Card className={`border ${borderClass}`} data-testid="move-coaching-card-v5">
       <CardContent className="p-5 space-y-3">
         {/* ─── HEADER ──────────────────────────────────────── */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {headerIcon}
-            <span className="font-bold text-gray-900 text-lg">{move.move_san}</span>
-            <Badge variant={isUser ? "default" : "secondary"} className="text-xs">
-              {isUser ? "Your move" : "Opponent"}
+        {/* Severity and phase tags removed — they were System-layer labels
+            leaking into the Surface. The border color (red/amber) and the
+            narrative below already convey how the move went. */}
+        <div className="flex items-center gap-2">
+          {headerIcon}
+          <span className="font-bold text-gray-900 text-lg">{move.move_san}</span>
+          <Badge variant={isUser ? "default" : "secondary"} className="text-xs">
+            {isUser ? "Your move" : "Opponent"}
+          </Badge>
+          {move.is_best_move && (
+            <Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+              Best move!
             </Badge>
-            {severity !== 'good' && severity !== 'context' && (
-              <Badge variant="outline" className={`text-xs ${
-                severity === 'blunder' ? 'text-red-400 border-red-500/30' :
-                severity === 'mistake' ? 'text-red-400 border-red-500/30' :
-                'text-orange-400 border-orange-500/30'
-              }`}>
-                {severity}
-              </Badge>
-            )}
-            {move.is_best_move && (
-              <Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                Best move!
-              </Badge>
-            )}
-            {weaknessMatch && (
-              <Badge className="text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">
-                Known pattern{move.weakness_count ? ` (${move.weakness_count}x)` : ''}
-              </Badge>
-            )}
-          </div>
-          <Badge variant="outline" className="text-xs text-gray-500">{move.phase}</Badge>
+          )}
+          {weaknessMatch && (
+            <Badge className="text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">
+              Known pattern{move.weakness_count ? ` (${move.weakness_count}x)` : ''}
+            </Badge>
+          )}
         </div>
 
         {/* ─── NARRATIVE ────────────────────────────────────── */}
@@ -997,7 +988,7 @@ const MoveCoachingCardV5 = ({
         {/* ─── POSITION COMMENTARY (what the board says) ──────── */}
         {positionCommentary && (isMistake || move.is_best_move) && (
           <div className="bg-blue-500/5 rounded-lg p-3 border border-blue-500/15">
-            <p className="text-xs text-blue-400/70 font-semibold mb-1">What the position demands</p>
+            <p className="text-xs text-blue-400/70 font-semibold mb-1">A better plan here</p>
             {positionCommentary.plan && (
               <p className="text-sm text-gray-700 mb-1">{positionCommentary.plan}</p>
             )}
