@@ -52,18 +52,43 @@ def compute_game_summary(
     user_won = (game_result == "1-0" and user_is_white) or (game_result == "0-1" and not user_is_white)
     is_draw = "1/2" in game_result
 
-    # Extract user moves with eval data
+    # Extract user moves with eval data.
+    #
+    # The shape of `move_evaluations` isn't consistent across the DB: some
+    # games store the interleaved [white, black, white, black, ...] array
+    # from stockfish_service, others store a user-only array (older chess.com
+    # imports and some coach pipelines). A blind `i % 2` parity filter
+    # silently drops half the data on the user-only shape — and in the bug
+    # this fix addresses, it dropped the one move where the user hung their
+    # queen.
+    #
+    # Reliable signal: the FEN's active-color field tells us whose turn it
+    # is BEFORE the move, regardless of array shape. If that matches the
+    # user's color, it's a user move.
     user_moves = []
     for i, m in enumerate(move_evaluations):
-        is_user_move = (i % 2 == 0 and user_is_white) or (i % 2 == 1 and not user_is_white)
+        fen = m.get("fen_before") or ""
+        parts = fen.split(" ")
+        side_to_move = parts[1] if len(parts) > 1 else ""
+        if side_to_move in ("w", "b"):
+            is_user_move = (side_to_move == "w") == user_is_white
+        else:
+            # Fallback when fen_before is missing — use the old parity rule.
+            is_user_move = (i % 2 == 0) == user_is_white
         if is_user_move:
+            # eval_before / eval_after are stored from WHITE's perspective
+            # (Stockfish convention). Flip for black users so all downstream
+            # comparisons ("was the user winning?") read in the user's POV.
+            raw_before = m.get("eval_before", 0) or 0
+            raw_after = m.get("eval_after", 0) or 0
+            sign = 1 if user_is_white else -1
             user_moves.append({
                 "index": i,
-                "move_number": (i // 2) + 1,
+                "move_number": m.get("move_number") or ((i // 2) + 1),
                 "san": m.get("san", m.get("move", "?")),
                 "cp_loss": m.get("cp_loss", 0),
-                "eval_before": m.get("eval_before", 0),
-                "eval_after": m.get("eval_after", 0),
+                "eval_before": raw_before * sign,
+                "eval_after": raw_after * sign,
                 "best_move": m.get("best_move", ""),
                 "phase": _get_phase(i),
             })
@@ -96,9 +121,17 @@ def compute_game_summary(
 
     # ─── USER WON ────────
     if user_won:
+        # Opponent moves via fen active-color (same reasoning as user moves
+        # above — array shape isn't reliable).
         opponent_moves = []
         for i, m in enumerate(move_evaluations):
-            is_opp = (i % 2 == 1 and user_is_white) or (i % 2 == 0 and not user_is_white)
+            fen = m.get("fen_before") or ""
+            parts = fen.split(" ")
+            side = parts[1] if len(parts) > 1 else ""
+            if side in ("w", "b"):
+                is_opp = (side == "w") != user_is_white
+            else:
+                is_opp = (i % 2 == 1) == user_is_white
             if is_opp:
                 opponent_moves.append(m)
 
