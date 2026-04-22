@@ -97,6 +97,36 @@ def _best_move_is_forcing(best_move_san: str) -> bool:
     return any(ch in best_move_san for ch in ("x", "+", "#"))
 
 
+def _played_move_hangs_piece(fen_before: str, move_uci: str) -> bool:
+    """Did the played move leave a user piece attacked with no defender?
+
+    Reliable inline replacement for cognitive_gap_service.find_hanging_pieces,
+    which expects a chess.Board + color but was being called with a FEN string
+    (silent exception, always returned falsy). With this detector piece_safety
+    actually fires on the classifier's output.
+    """
+    if not fen_before or not move_uci or len(move_uci) < 4:
+        return False
+    try:
+        import chess
+        board = chess.Board(fen_before)
+        mv = chess.Move.from_uci(move_uci)
+        if mv not in board.legal_moves:
+            return False
+        board.push(mv)
+        # After pushing, it's opponent's turn — we want to see if any piece
+        # belonging to the player who just moved is attacked and undefended.
+        user_color = not board.turn
+        for sq, piece in board.piece_map().items():
+            if piece.color != user_color or piece.piece_type == chess.KING:
+                continue
+            if board.attackers(not user_color, sq) and not board.attackers(user_color, sq):
+                return True
+        return False
+    except Exception:
+        return False
+
+
 class CriticalReason(str, Enum):
     """Why a move is marked critical for coaching"""
     TACTICAL_ERROR = "tactical_error"       # cp_loss >= 100 or blunder
@@ -278,23 +308,13 @@ class AnalysisInterpreter:
             coaching_focus = ""
             is_behavior_event = False
 
-            # Phase-specific takes priority — these are MORE specific
-            # explanations than the generic cp-loss fallback.
-            if cp_loss >= 100 and is_opening:
-                primary_gap = GAP_OPENING_KNOWLEDGE
-                confidence = 0.7
-                evidence = f"Opening move {move_number} lost {cp_loss}cp"
-                coaching_focus = "Learn the ideas behind the opening, not just the moves"
+            # Specific behavioural gaps first — these are stronger lessons
+            # than "you made a mistake in the opening/endgame phase". A
+            # hanging piece on move 3 is a piece_safety habit issue, not an
+            # opening_knowledge one.
 
-            if primary_gap is None and cp_loss >= 100 and is_endgame:
-                primary_gap = GAP_ENDGAME_TECHNIQUE
-                confidence = 0.75
-                evidence = f"Endgame slip cost {cp_loss}cp"
-                coaching_focus = "Active king, passed pawns, clean technique"
-
-            # King safety — run before hanging-piece so a checked/exposed
-            # king claims the move.
-            if primary_gap is None and cp_loss >= 100:
+            # King safety — king in direct danger.
+            if cp_loss >= 100:
                 try:
                     if _king_under_attack(fen_before):
                         primary_gap = GAP_KING_SAFETY
@@ -305,18 +325,27 @@ class AnalysisInterpreter:
                 except Exception:
                     pass
 
-            # Hanging piece → piece_safety (canonical CLAUDE.md name).
-            if primary_gap is None:
-                try:
-                    hanging = find_hanging_pieces(fen_before)
-                    if hanging:
-                        primary_gap = GAP_PIECE_SAFETY
-                        confidence = 0.8
-                        evidence = f"Undefended piece on {hanging[0]}"
-                        coaching_focus = "Scan for undefended pieces before moving"
-                        is_behavior_event = True
-                except Exception:
-                    pass
+            # Piece safety — the played move left a user piece hanging.
+            if primary_gap is None and cp_loss >= 100:
+                if _played_move_hangs_piece(fen_before, played_uci):
+                    primary_gap = GAP_PIECE_SAFETY
+                    confidence = 0.85
+                    evidence = "Move left a piece attacked with no defender"
+                    coaching_focus = "Before each move, scan your pieces — is anything undefended?"
+                    is_behavior_event = True
+
+            # Phase context — opening/endgame — only if no specific gap fired.
+            if primary_gap is None and cp_loss >= 100 and is_opening:
+                primary_gap = GAP_OPENING_KNOWLEDGE
+                confidence = 0.7
+                evidence = f"Opening move {move_number} lost {cp_loss}cp"
+                coaching_focus = "Learn the ideas behind the opening, not just the moves"
+
+            if primary_gap is None and cp_loss >= 100 and is_endgame:
+                primary_gap = GAP_ENDGAME_TECHNIQUE
+                confidence = 0.75
+                evidence = f"Endgame slip cost {cp_loss}cp"
+                coaching_focus = "Active king, passed pawns, clean technique"
 
             # Opponent had a real threat that was ignored.
             if primary_gap is None:
