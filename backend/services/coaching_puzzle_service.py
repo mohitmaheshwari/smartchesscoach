@@ -104,6 +104,24 @@ DEFAULT_COACHING = {
 }
 
 
+# Map the weakness names used in the UI / decay model to the `pattern_type`
+# tags stored on `community_training_positions` (the big V5-extracted pool,
+# ~3.7k positions at time of writing). Prior loader queried `community_puzzles`
+# which only held ~100 positions — a 30x smaller parallel pool.
+WEAKNESS_TO_PATTERN_TYPES = {
+    "calculation_depth":  ["calculation_depth", "short_calculation"],
+    "tactical_oversight": ["tactical_miss", "fork", "pin", "skewer", "discovered_attack"],
+    "missed_tactic":      ["fork", "pin", "skewer", "tactical_miss", "discovered_attack"],
+    "piece_safety":       ["hanging_piece", "trapped_piece"],
+    "king_safety":        ["checkmate_pattern", "back_rank"],
+    "pawn_structure":     ["positional"],
+    "piece_activity":     ["positional"],
+    "opening_knowledge":  ["positional"],
+    "endgame_technique":  ["positional"],
+    "time_pressure":      ["tactical_miss", "hanging_piece"],
+}
+
+
 class CoachingPuzzleService:
     """
     Service to fetch and present puzzles with coaching context.
@@ -136,19 +154,26 @@ class CoachingPuzzleService:
         # Product vision: training material comes from REAL games, not external
         # curated puzzles. Sources, in priority order:
         #   1. User's own mistakes (extracted from their analyzed games)
-        #   2. Community puzzles — OTHER users' mistakes matching this weakness,
-        #      rating-filtered to the user's band
-        # No Lichess curated fallback. If the pool is thin, we surface less —
-        # and the frontend can prompt for game import.
+        #   2. Community positions — OTHER users' mistakes matching this
+        #      weakness, rating-filtered to the user's band
+        # Both sources share a single `puzzle_id`/`position_id` format
+        # (`{game_id}_m{move_number}`) so the solved-filter works uniformly.
         puzzles = []
 
-        # Source 1: User's own mistakes (most relevant!)
+        # Pre-fetch ids the user has already solved (any source). Reused by
+        # both fetchers below so a solved puzzle never re-appears regardless
+        # of which path surfaces it.
+        solved_ids = await self._get_solved_ids(user_id)
+
+        # Source 1: user's own mistakes — cap at 40% of the session so community
+        # material still shows up even when a user has many own-puzzles.
+        own_limit = max(2, (num_puzzles * 2) // 5)
         user_puzzles = await self._get_puzzles_from_user_games(
-            user_id, weakness_pattern, limit=2
+            user_id, weakness_pattern, limit=own_limit, solved_ids=solved_ids
         )
         puzzles.extend(user_puzzles)
 
-        # Source 2: Community puzzles from other users' games, rating-filtered
+        # Source 2: community positions from other users' games, rating-filtered
         remaining = num_puzzles - len(puzzles)
         if remaining > 0:
             community_puzzles = await self._get_community_puzzles(
@@ -156,6 +181,7 @@ class CoachingPuzzleService:
                 weakness_pattern=weakness_pattern,
                 rating_range=rating_range,
                 limit=remaining,
+                solved_ids=solved_ids,
             )
             puzzles.extend(community_puzzles)
 
@@ -257,18 +283,39 @@ class CoachingPuzzleService:
 
         return puzzles
     
+    async def _get_solved_ids(self, user_id: str) -> set:
+        """Puzzle ids the user has already solved correctly, across all sources.
+
+        Reads `puzzle_attempts` — the collection the prescribed-training
+        frontend writes on each correct solve (via /api/training/puzzle-attempt).
+        """
+        ids: set = set()
+        try:
+            async for a in self.db.puzzle_attempts.find(
+                {"user_id": user_id, "correct": True},
+                {"_id": 0, "puzzle_id": 1},
+            ):
+                pid = a.get("puzzle_id")
+                if pid:
+                    ids.add(pid)
+        except Exception as e:
+            logger.warning(f"solved-ids fetch failed for {user_id}: {e}")
+        return ids
+
     async def _get_puzzles_from_user_games(
         self,
         user_id: str,
         weakness_pattern: str,
-        limit: int = 3
+        limit: int = 3,
+        solved_ids: Optional[set] = None,
     ) -> List[Dict]:
         """
         Create puzzles from user's OWN games where they made this type of mistake.
-        
+
         This is the most powerful training - solving positions from your own games!
         """
         puzzles = []
+        solved_ids = solved_ids if solved_ids is not None else await self._get_solved_ids(user_id)
         
         # Find games where user had this weakness
         games = await self.db.game_analyses.find({
@@ -288,6 +335,13 @@ class CoachingPuzzleService:
                 
                 # Check if this move matches the weakness pattern
                 if cp_loss >= 100 and self._move_matches_weakness(move, weakness_pattern):
+                    # Stable id — same format as community_training_positions
+                    # so the solved-filter works across both puzzle sources.
+                    move_number = move.get("move_number")
+                    puzzle_id = f"{game.get('game_id')}_m{move_number}" if move_number else None
+                    if puzzle_id and puzzle_id in solved_ids:
+                        continue
+
                     # Get UCI moves for arrows
                     your_move_uci = move.get("move_uci", "")
                     best_move_san = move.get("best_move", "")
@@ -310,7 +364,6 @@ class CoachingPuzzleService:
                     # the source game and hint that a better move existed,
                     # without naming it. The solution + your-move comparison
                     # lives in the post-solve feedback panel.
-                    move_number = move.get("move_number")
                     prefix = (
                         f"From your own game — move {move_number}"
                         if move_number
@@ -321,6 +374,7 @@ class CoachingPuzzleService:
                     )
 
                     puzzle = {
+                        "puzzle_id": puzzle_id,
                         "source": "your_game",
                         "game_id": game.get("game_id"),
                         "fen": move.get("fen_before"),
@@ -351,79 +405,96 @@ class CoachingPuzzleService:
         weakness_pattern: str,
         rating_range: tuple,
         limit: int,
+        solved_ids: Optional[set] = None,
     ) -> List[Dict]:
-        """Fetch puzzles extracted from OTHER users' games matching this weakness.
+        """Fetch positions extracted from OTHER users' games matching this weakness.
 
-        Puzzles live in the `community_puzzles` collection (shared_by ≠ user_id).
-        Filtered by the user's rating band so a 900-rated player doesn't get
-        puzzles pulled from 1800-rated players' games.
-
-        Also excludes puzzles this user already attempted correctly.
+        Reads `community_training_positions` — the V5-decryption-driven pool
+        (~3.7k rows in prod). Filters:
+          - `source_user_id != user_id`
+          - `pattern_type` ∈ mapped types for this weakness
+          - `source_user_rating` within ±200 of the user's rating; widens to
+            the full pool if the narrow band is thin
+          - already-solved `position_id`s excluded
         """
         if limit <= 0:
             return []
 
-        # Which puzzle ids has this user already solved?
-        solved_ids: set = set()
-        try:
-            async for attempt in self.db.puzzle_attempts.find(
-                {"user_id": user_id, "correct": True},
-                {"_id": 0, "puzzle_id": 1},
-            ):
-                pid = attempt.get("puzzle_id")
-                if pid:
-                    solved_ids.add(pid)
-        except Exception:
-            pass
+        solved_ids = solved_ids if solved_ids is not None else await self._get_solved_ids(user_id)
 
-        # Query community_puzzles — other users' mistakes for this weakness.
-        # `issue_type` is the stored cognitive-gap tag used by the extractor.
-        query = {
-            "issue_type": weakness_pattern,
-            "shared_by": {"$ne": user_id},  # not this user's own puzzles
-        }
-
-        # Rating-aware match: pre-2026-04-21 this filtered by a `rating` field
-        # that extraction never actually stores — excluded every puzzle
-        # (3,517 of them), leaving the user with at most 2 own-puzzles.
-        # Fix: match by the `difficulty` field that extraction DOES store,
-        # mapped to the user's rating band.
-        #
-        # difficulty mapping (set in puzzle_extraction_service.py based on cp_loss):
-        #   cp_loss >= 400 -> "beginner"     (obvious blunders, easier to spot)
-        #   cp_loss >= 200 -> "intermediate"
-        #   cp_loss <  200 -> "advanced"     (subtle mistakes)
-        #
-        # rating-band mapping (wider nets for beginners, subtler for advanced):
+        pattern_types = WEAKNESS_TO_PATTERN_TYPES.get(weakness_pattern, [weakness_pattern])
         user_rating = int((rating_range[0] + rating_range[1]) / 2) if rating_range and len(rating_range) == 2 else 1200
-        if user_rating < 1000:
-            allowed_difficulties = ["beginner"]
-        elif user_rating < 1400:
-            allowed_difficulties = ["beginner", "intermediate"]
-        elif user_rating < 1800:
-            allowed_difficulties = ["intermediate", "advanced"]
-        else:
-            allowed_difficulties = ["advanced"]
-        query["difficulty"] = {"$in": allowed_difficulties}
+        narrow_low, narrow_high = user_rating - 200, user_rating + 200
 
-        puzzles: List[Dict] = []
-        try:
-            cursor = self.db.community_puzzles.find(query, {"_id": 0}).sort(
-                "solve_rate", -1
-            ).limit(limit * 3)  # overfetch — we'll drop already-solved
-            async for p in cursor:
-                if p.get("puzzle_id") in solved_ids:
-                    continue
-                puzzles.append(p)
-                if len(puzzles) >= limit:
-                    break
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(
-                f"community puzzle fetch failed: {e}"
-            )
+        base_query = {
+            "source_user_id": {"$ne": user_id},
+            "pattern_type": {"$in": pattern_types},
+        }
+        if solved_ids:
+            base_query["position_id"] = {"$nin": list(solved_ids)}
 
-        return puzzles
+        collected: List[Dict] = []
+        seen_ids: set = set()
+
+        async def _collect(query: Dict, remaining: int) -> None:
+            if remaining <= 0:
+                return
+            try:
+                cursor = self.db.community_training_positions.find(
+                    query, {"_id": 0}
+                ).sort("solve_rate", -1).limit(remaining * 2)
+                async for p in cursor:
+                    pid = p.get("position_id")
+                    if not pid or pid in seen_ids:
+                        continue
+                    seen_ids.add(pid)
+                    collected.append(p)
+                    if len(collected) >= limit:
+                        return
+            except Exception as e:
+                logger.warning(f"community positions fetch failed: {e}")
+
+        # Pass 1: rating-banded match
+        narrow_query = dict(base_query)
+        narrow_query["source_user_rating"] = {"$gte": narrow_low, "$lte": narrow_high}
+        await _collect(narrow_query, limit - len(collected))
+
+        # Pass 2: widen — drop the rating band if we came up short
+        if len(collected) < limit:
+            await _collect(base_query, limit - len(collected))
+
+        # Normalize to the puzzle shape the frontend expects.
+        return [self._normalize_community_position(p, weakness_pattern) for p in collected[:limit]]
+
+    @staticmethod
+    def _normalize_community_position(p: Dict, weakness_pattern: str) -> Dict:
+        """Map a `community_training_positions` row → the frontend puzzle shape."""
+        best_uci = p.get("best_move_uci") or ""
+        best_san = p.get("best_move_san") or ""
+        source_rating = p.get("source_user_rating")
+        context = (
+            f"From a {source_rating}-rated player's game — find the best move."
+            if source_rating
+            else "From another player's game — find the best move."
+        )
+        return {
+            "puzzle_id": p.get("position_id"),
+            "source": "community",
+            "fen": p.get("fen"),
+            "solution": [best_uci] if best_uci else [best_san],
+            "solution_san": best_san,
+            "your_move": p.get("user_move_san"),
+            "your_move_uci": p.get("user_move_uci"),
+            "cp_loss": p.get("cp_loss"),
+            "move_number": p.get("move_number"),
+            "rating": source_rating,
+            "opening": p.get("opening_name") or "",
+            "solve_rate": p.get("solve_rate"),
+            "themes": [weakness_pattern],
+            "context": context,
+            "pattern_type": p.get("pattern_type"),
+            "moment_tag": p.get("moment_tag"),
+        }
 
     def _move_matches_weakness(self, move: Dict, weakness_pattern: str) -> bool:
         """Check if a move's mistake type matches the weakness pattern."""

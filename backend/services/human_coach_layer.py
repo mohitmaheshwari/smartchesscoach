@@ -271,87 +271,59 @@ def generate_coach_voice_summary(
     player_identity: Dict
 ) -> Dict[str, Any]:
     """
-    Generate a human-coach-style summary of the game.
-    
-    This is what a real coach would say after reviewing your game.
+    Coach-voice verdict grounded in the actual move list.
+
+    Delegates to `compute_game_summary` (the same move-grounded engine that
+    powers home / lab / coach_review), then maps its output into the shape
+    LabV2 + training + progress consumers read.
     """
-    result = game_data.get("result", "unknown")
-    accuracy = analysis.get("accuracy", 0)
-    blunders = analysis.get("blunders", 0)
-    mistakes = analysis.get("mistakes", 0)
-    turning_point = analysis.get("turning_point", {})
-    
-    # Get player's known weaknesses
-    known_weaknesses = player_identity.get("blunder_taxonomy", {}).get("by_type", {})
-    most_common_weakness = max(known_weaknesses.items(), key=lambda x: x[1])[0] if known_weaknesses else None
-    
-    summary = {
-        "opening_line": "",
-        "key_observation": "",
-        "behavioral_insight": "",
-        "actionable_takeaway": "",
-        "encouragement": ""
-    }
-    
-    # Opening line based on result
-    if result == "win":
-        if accuracy >= 90:
-            summary["opening_line"] = "Excellent game! You played with precision and earned this win."
-        elif accuracy >= 75:
-            summary["opening_line"] = "A solid win. You played well, though there's room to sharpen a few moments."
-        else:
-            summary["opening_line"] = "You got the win, but let's be honest—there were some shaky moments. Let's learn from them."
-    elif result == "loss":
-        if accuracy >= 80:
-            summary["opening_line"] = "A tough loss, but you actually played quite well. Sometimes that happens in chess."
-        else:
-            summary["opening_line"] = "This game had some struggles. Let's understand what went wrong so it doesn't happen again."
-    else:
-        summary["opening_line"] = "An interesting battle that ended in a draw. Let's see if there were missed opportunities."
-    
-    # Key observation
-    if turning_point:
-        move_num = turning_point.get("move_number", "?")
-        pattern = turning_point.get("pattern_name", "error")
-        summary["key_observation"] = f"The critical moment was move {move_num}. A {pattern.lower()} that cost you the advantage."
-    elif blunders > 0:
-        summary["key_observation"] = f"You had {blunders} serious error{'s' if blunders > 1 else ''} that significantly affected the game."
-    elif mistakes > 0:
-        summary["key_observation"] = f"The game was mostly solid with {mistakes} inaccurac{'ies' if mistakes > 1 else 'y'} that slightly shifted the balance."
-    else:
-        summary["key_observation"] = "No major errors—this was a clean game from your side."
-    
-    # Behavioral insight (if we have pattern data)
+    from services.game_coach_summary import compute_game_summary
+
+    sf = analysis.get("stockfish_analysis") or {}
+    move_evals = sf.get("move_evaluations") or analysis.get("move_evaluations") or []
+    user_color = game_data.get("user_color") or game_data.get("user_plays_as") or "white"
+    result_field = game_data.get("result", "")
+    opening = game_data.get("opening", "") or analysis.get("opening", "")
+
+    # compute_game_summary expects PGN result ("1-0", "0-1", "1/2-1/2").
+    # Normalize if we were handed the user-centric shorthand.
+    game_result = result_field
+    if result_field in ("win", "loss", "draw"):
+        user_is_white = (user_color == "white")
+        game_result = {
+            "win":  "1-0" if user_is_white else "0-1",
+            "loss": "0-1" if user_is_white else "1-0",
+            "draw": "1/2-1/2",
+        }[result_field]
+
+    diagnosis = compute_game_summary(move_evals, game_result, user_color, opening)
+
+    # Cross-game pattern context — only attach if the worst-move category
+    # matches a known weakness we've seen before.
+    known_weaknesses = player_identity.get("blunder_taxonomy", {}).get("by_type", {}) or {}
+    most_common_weakness = (
+        max(known_weaknesses.items(), key=lambda x: x[1])[0] if known_weaknesses else None
+    )
+    turning_point = analysis.get("turning_point") or {}
+    behavioral_insight = ""
     if most_common_weakness and turning_point:
-        tp_category = turning_point.get("category", "")
-        if most_common_weakness.lower() in tp_category.lower():
-            summary["behavioral_insight"] = f"This type of mistake ({most_common_weakness.replace('_', ' ')}) has come up before in your games. It's becoming a pattern we should address."
-        else:
-            summary["behavioral_insight"] = f"This mistake was different from your usual pattern. Stay aware of this type of position."
-    
-    # Actionable takeaway
-    if turning_point:
-        focus = turning_point.get("training_focus", "general")
-        if focus == "tactical":
-            summary["actionable_takeaway"] = "Practice tactical puzzles, especially ones involving the pattern you missed here."
-        elif focus == "positional":
-            summary["actionable_takeaway"] = "Study similar pawn structures and plans. Understanding the position helps you find the right moves."
-        elif focus == "endgame":
-            summary["actionable_takeaway"] = "Endgame technique! This phase cost you. Work on basic endgame patterns."
-        else:
-            summary["actionable_takeaway"] = "Review this position until the correct idea feels natural."
-    else:
-        summary["actionable_takeaway"] = "Keep playing and analyzing. Consistent practice is how you improve."
-    
-    # Encouragement
-    if accuracy >= 85:
-        summary["encouragement"] = "You're playing at a strong level. Keep it up!"
-    elif accuracy >= 70:
-        summary["encouragement"] = "Solid foundation. A bit more focus and you'll see real improvement."
-    else:
-        summary["encouragement"] = "Every game is a lesson. The fact that you're analyzing shows you're on the right path."
-    
-    return summary
+        tp_category = (turning_point.get("category") or "").lower()
+        if most_common_weakness.lower() in tp_category:
+            behavioral_insight = (
+                f"This type of mistake ({most_common_weakness.replace('_', ' ')}) "
+                "has come up before in your games. It's becoming a pattern we should address."
+            )
+
+    context = diagnosis.get("context") or []
+    return {
+        "key_observation": diagnosis.get("root_cause", ""),
+        "actionable_takeaway": diagnosis.get("coach_note", ""),
+        "behavioral_insight": behavioral_insight,
+        # Structured data so downstream consumers can render specific moves.
+        "diagnosis": diagnosis.get("diagnosis"),
+        "critical_move": diagnosis.get("critical_move"),
+        "context": context,
+    }
 
 
 async def enrich_game_analysis(
@@ -424,7 +396,7 @@ async def enrich_game_analysis(
     # Generate coach voice summary
     game_data = await db.games.find_one(
         {"game_id": game_id, "user_id": user_id},
-        {"_id": 0, "result": 1, "user_color": 1, "opponent": 1}
+        {"_id": 0, "result": 1, "user_color": 1, "user_plays_as": 1, "opponent": 1, "opening": 1}
     ) or {}
     
     enriched["coach_summary"] = generate_coach_voice_summary(

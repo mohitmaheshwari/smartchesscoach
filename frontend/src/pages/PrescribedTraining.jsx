@@ -96,7 +96,7 @@ export default function PrescribedTraining() {
       setLoading(true);
       try {
         const response = await fetch(
-          `${API}/training/prescribed/${weakness}?num_puzzles=5`,
+          `${API}/training/prescribed/${weakness}?num_puzzles=10`,
           { credentials: "include" }
         );
         if (response.ok) {
