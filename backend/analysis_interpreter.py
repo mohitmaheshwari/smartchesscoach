@@ -26,6 +26,77 @@ from cognitive_gap_service import (
 logger = logging.getLogger(__name__)
 
 
+# Canonical cognitive-gap taxonomy used by the Lab / Home / Training surfaces
+# and keyed into COACHING_DIAGNOSIS in routes/training_advanced.py. The older
+# CognitiveGap enum used different string values (e.g. "hanging_piece_blindness"
+# instead of "piece_safety"), which caused downstream lookups to miss and the
+# prod pool to collapse into just 2 tags. All new classifier output emits
+# these canonical strings.
+GAP_PIECE_SAFETY       = "piece_safety"
+GAP_IGNORE_THREAT      = "ignore_threat"
+GAP_CALCULATION_DEPTH  = "calculation_depth"
+GAP_MISSED_TACTIC      = "missed_tactic"
+GAP_TACTICAL_OVERSIGHT = "tactical_oversight"
+GAP_KING_SAFETY        = "king_safety"
+GAP_PAWN_STRUCTURE     = "pawn_structure"
+GAP_PIECE_ACTIVITY     = "piece_activity"
+GAP_OPENING_KNOWLEDGE  = "opening_knowledge"
+GAP_ENDGAME_TECHNIQUE  = "endgame_technique"
+
+
+def _count_non_king_pieces(fen: str) -> int:
+    """Piece count on the board excluding kings — used to detect endgame phase."""
+    if not fen:
+        return 32
+    try:
+        board_part = fen.split(" ", 1)[0]
+        return sum(1 for ch in board_part if ch.isalpha() and ch not in "Kk")
+    except Exception:
+        return 32
+
+
+def _is_pawn_move(move_uci: str, fen_before: str) -> bool:
+    """True if the played move was a pawn move (from the side to move's POV)."""
+    if not move_uci or len(move_uci) < 4 or not fen_before:
+        return False
+    try:
+        import chess
+        board = chess.Board(fen_before)
+        mv = chess.Move.from_uci(move_uci)
+        piece = board.piece_at(mv.from_square)
+        return piece is not None and piece.piece_type == chess.PAWN
+    except Exception:
+        return False
+
+
+def _king_under_attack(fen_before: str, user_is_side_to_move: bool = True) -> bool:
+    """Rough check: is the side-to-move's king under immediate attack or highly exposed?"""
+    if not fen_before:
+        return False
+    try:
+        import chess
+        board = chess.Board(fen_before)
+        if board.is_check():
+            return True
+        king_sq = board.king(board.turn)
+        if king_sq is None:
+            return False
+        # Count opponent attackers on squares adjacent to the king
+        opp = not board.turn
+        adj = chess.SquareSet(chess.BB_KING_ATTACKS[king_sq])
+        attacker_count = sum(1 for sq in adj if board.attackers(opp, sq))
+        return attacker_count >= 2
+    except Exception:
+        return False
+
+
+def _best_move_is_forcing(best_move_san: str) -> bool:
+    """Captures, checks, mate — the forcing-move family that defines 'missed tactic'."""
+    if not best_move_san:
+        return False
+    return any(ch in best_move_san for ch in ("x", "+", "#"))
+
+
 class CriticalReason(str, Enum):
     """Why a move is marked critical for coaching"""
     TACTICAL_ERROR = "tactical_error"       # cp_loss >= 100 or blunder
@@ -176,74 +247,133 @@ class AnalysisInterpreter:
     
     def _analyze_gap(self, move: Dict) -> Optional[Dict]:
         """
-        Run cognitive gap analysis for a move.
-        
-        Uses the cognitive_gap_service to determine WHY
-        the player made this decision.
+        Classify the cognitive gap behind a critical move.
+
+        Emits one of the canonical CLAUDE.md taxonomy strings (see GAP_*
+        constants above). Priority-ordered: phase-specific gaps first
+        (opening / endgame), then king/piece safety, then threat / tactic
+        detectors, then pawn/piece framing, then a cp-loss fallback.
+        Earlier detectors are more specific — they claim the move before
+        generic buckets swallow it.
         """
         try:
             fen_before = move.get("fen_before", "")
-            fen_after = move.get("fen_after", "")
-            played_move = move.get("move_uci", "")
-            best_move = move.get("best_move_uci", "")
+            played_uci = move.get("move_uci", "")
+            best_move_san = move.get("best_move", "")
             cp_loss = move.get("cp_loss", 0)
             evaluation = move.get("evaluation", "good")
             threat = move.get("threat")
-            
+            move_number = move.get("move_number", 0) or 0
+
             if not fen_before:
                 return None
-            
-            # Determine primary gap based on position analysis
+
+            piece_count = _count_non_king_pieces(fen_before)
+            is_opening = move_number > 0 and move_number <= 10
+            is_endgame = piece_count <= 12
+
             primary_gap = None
             confidence = 0.0
             evidence = ""
             coaching_focus = ""
             is_behavior_event = False
-            
-            # Check for hanging pieces
-            try:
-                hanging = find_hanging_pieces(fen_before)
-                if hanging:
-                    primary_gap = CognitiveGap.HANGING_PIECE_BLINDNESS.value
-                    confidence = 0.8
-                    evidence = f"Undefended piece on {hanging[0] if hanging else 'board'}"
-                    coaching_focus = "Scan for undefended pieces before moving"
-                    is_behavior_event = True
-            except:
-                pass
-            
-            # Check for threats
-            if not primary_gap:
+
+            # Phase-specific takes priority — these are MORE specific
+            # explanations than the generic cp-loss fallback.
+            if cp_loss >= 100 and is_opening:
+                primary_gap = GAP_OPENING_KNOWLEDGE
+                confidence = 0.7
+                evidence = f"Opening move {move_number} lost {cp_loss}cp"
+                coaching_focus = "Learn the ideas behind the opening, not just the moves"
+
+            if primary_gap is None and cp_loss >= 100 and is_endgame:
+                primary_gap = GAP_ENDGAME_TECHNIQUE
+                confidence = 0.75
+                evidence = f"Endgame slip cost {cp_loss}cp"
+                coaching_focus = "Active king, passed pawns, clean technique"
+
+            # King safety — run before hanging-piece so a checked/exposed
+            # king claims the move.
+            if primary_gap is None and cp_loss >= 100:
+                try:
+                    if _king_under_attack(fen_before):
+                        primary_gap = GAP_KING_SAFETY
+                        confidence = 0.8
+                        evidence = "King under pressure here"
+                        coaching_focus = "Check the king's safety before attacking"
+                        is_behavior_event = True
+                except Exception:
+                    pass
+
+            # Hanging piece → piece_safety (canonical CLAUDE.md name).
+            if primary_gap is None:
+                try:
+                    hanging = find_hanging_pieces(fen_before)
+                    if hanging:
+                        primary_gap = GAP_PIECE_SAFETY
+                        confidence = 0.8
+                        evidence = f"Undefended piece on {hanging[0]}"
+                        coaching_focus = "Scan for undefended pieces before moving"
+                        is_behavior_event = True
+                except Exception:
+                    pass
+
+            # Opponent had a real threat that was ignored.
+            if primary_gap is None:
                 try:
                     threats = find_threats(fen_before)
-                    if threats and threat:
-                        primary_gap = CognitiveGap.THREAT_BLINDNESS.value
-                        confidence = 0.85
-                        evidence = f"Opponent threat: {threat}"
-                        coaching_focus = "Check opponent's forcing moves before committing"
+                    if threats and (threat or evaluation in ("blunder", "mistake")):
+                        primary_gap = GAP_IGNORE_THREAT
+                        confidence = 0.8
+                        evidence = f"Opponent threat: {threat or 'unaddressed'}"
+                        coaching_focus = "Name the threat before picking your move"
                         is_behavior_event = True
-                except:
+                except Exception:
                     pass
-            
-            # Classify based on move characteristics
-            if not primary_gap:
+
+            # Best move was a forcing move (capture/check/mate) the player
+            # didn't see — the classic "missed tactic".
+            if primary_gap is None and cp_loss >= 150 and _best_move_is_forcing(best_move_san):
+                primary_gap = GAP_MISSED_TACTIC
+                confidence = 0.7
+                evidence = f"Missed {best_move_san}"
+                coaching_focus = "Scan checks, captures, threats every move"
+
+            # Pawn move with lasting structural cost.
+            if primary_gap is None and cp_loss >= 100 and _is_pawn_move(played_uci, fen_before):
+                primary_gap = GAP_PAWN_STRUCTURE
+                confidence = 0.6
+                evidence = "Pawn move with lasting positional cost"
+                coaching_focus = "Every pawn push is permanent — think before pushing"
+
+            # Best move was a quiet piece repositioning → piece activity / coordination.
+            if primary_gap is None and cp_loss >= 100 and best_move_san and not _best_move_is_forcing(best_move_san):
+                if not _is_pawn_move(played_uci, fen_before):
+                    primary_gap = GAP_PIECE_ACTIVITY
+                    confidence = 0.55
+                    evidence = f"A quieter move ({best_move_san}) improved piece coordination"
+                    coaching_focus = "Look for moves that activate sleeping pieces"
+
+            # cp-loss fallback — the generic buckets catch anything the
+            # specific detectors above missed.
+            if primary_gap is None:
                 if evaluation == "blunder" and cp_loss >= 300:
-                    primary_gap = CognitiveGap.TACTICAL_OVERSIGHT.value
+                    primary_gap = GAP_TACTICAL_OVERSIGHT
                     confidence = 0.9
                     evidence = f"Lost {cp_loss} centipawns"
-                    coaching_focus = "Verify forcing moves before executing"
+                    coaching_focus = "Pause for the opponent's best reply"
                 elif evaluation == "mistake" and cp_loss >= 100:
-                    primary_gap = CognitiveGap.CALCULATION_DEPTH.value
+                    primary_gap = GAP_CALCULATION_DEPTH
                     confidence = 0.7
-                    evidence = f"Better continuation existed"
+                    evidence = "One move deeper was needed"
                     coaching_focus = "Calculate one move deeper"
                 elif move.get("is_turning_point"):
-                    primary_gap = CognitiveGap.POSITIONAL_MISREAD.value
-                    confidence = 0.6
-                    evidence = "Position evaluation shifted significantly"
-                    coaching_focus = "Re-evaluate position after each exchange"
+                    primary_gap = GAP_CALCULATION_DEPTH
+                    confidence = 0.5
+                    evidence = "Position shifted here"
+                    coaching_focus = "Re-evaluate after each exchange"
                     is_behavior_event = True
-            
+
             if primary_gap:
                 return {
                     "primary_gap": primary_gap,
@@ -252,9 +382,9 @@ class AnalysisInterpreter:
                     "coaching_focus": coaching_focus,
                     "is_behavior_event": is_behavior_event
                 }
-            
+
             return None
-            
+
         except Exception as e:
             logger.warning(f"Gap analysis failed: {e}")
             return None

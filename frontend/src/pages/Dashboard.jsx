@@ -58,6 +58,32 @@ const PATTERN_MAP = {
   endgame_collapse: "endgame_technique",
 };
 
+// Short, human label for the pattern — used in the page header as the
+// replacement for the "50 unreviewed" backlog counter. One focus, named.
+const FOCUS_LABEL = {
+  threw_winning:     "throwing winning positions",
+  tactical_miss:     "missing tactics",
+  one_move_blunder:  "piece safety",
+  calculation_error: "calculation depth",
+  time_collapse:     "time pressure",
+  opening_disaster:  "opening fundamentals",
+  endgame_collapse:  "endgame conversion",
+  positional:        "positional drift",
+};
+
+// Drill-style CTA copy keyed by the same categories. Makes the button
+// specific to the pattern instead of the generic "Practice this pattern".
+const CTA_LABEL = {
+  threw_winning:     "Drill: Hold winning positions",
+  tactical_miss:     "Drill: Spot the tactic",
+  one_move_blunder:  "Drill: Piece safety check",
+  calculation_error: "Drill: One move deeper",
+  time_collapse:     "Drill: Clock discipline",
+  opening_disaster:  "Drill: Opening fundamentals",
+  endgame_collapse:  "Drill: Endgame technique",
+  positional:        "Drill: Quiet improvements",
+};
+
 // ─── Utilities ──────────────────────────────────────────────────────────────
 
 const resultLetter = (g) => {
@@ -85,21 +111,6 @@ const fmtDate = (g) => {
 
 const humanPattern = (key) =>
   key ? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
-
-// Derive the "worst moment" label from game data.
-const worstMoment = (g) => {
-  if (!g) return null;
-  if (g.critical_move) {
-    const severity =
-      g.blunders && g.blunders > 0
-        ? "Blunder"
-        : g.mistakes && g.mistakes > 0
-          ? "Mistake"
-          : g.critical_severity || "Critical";
-    return `${severity} · ${g.critical_move}`;
-  }
-  return null;
-};
 
 // ─── Components ─────────────────────────────────────────────────────────────
 
@@ -278,22 +289,25 @@ const Dashboard = ({ user }) => {
     primaryProblem?.label ||
     "Let's find something to work on.";
 
+  // Factual, specific. Dropped the "almost every game" variant — it was
+  // vague marketing language dressed up as data. If the count exists we
+  // name it; otherwise we stay quiet.
   const verdictSub =
     activeFocus?.reason ||
-    (primaryProblem &&
-      (primaryProblem.count >= 8
-        ? "This is happening in almost every game."
-        : `This showed up in ${primaryProblem.count} of your recent games.`));
+    (primaryProblem && primaryProblem.count
+      ? `Showing up in ${primaryProblem.count} of your recent games.`
+      : null);
 
   const pickResult = resultLetter(featuredGame);
   const pickTags = (featuredGame?.cognitive_gaps || []).slice(0, 3);
 
-  // Construct "reasoning" bullet list when available
+  // Construct "reasoning" bullet list when available. Per-game, factual.
+  // No cross-game aggregation claims until we build the aggregator (P3+).
   const reasoningLines = [];
   if (featuredGame?.was_winning) {
     reasoningLines.push({
       at: "Earlier",
-      note: "You had a winning advantage.",
+      note: "You were winning this one.",
     });
   }
   if (featuredGame?.critical_move) {
@@ -303,6 +317,12 @@ const Dashboard = ({ user }) => {
         featuredGame.critical_best
           ? `The crucial moment — best was ${featuredGame.critical_best}.`
           : "The crucial moment went the other way.",
+    });
+  }
+  if (featuredGame?.was_winning && !featuredGame?.coach_take) {
+    reasoningLines.push({
+      at: "Outcome",
+      note: "And then it slipped.",
     });
   }
   if (featuredGame?.coach_take) {
@@ -339,8 +359,20 @@ const Dashboard = ({ user }) => {
                 Review room
               </h1>
             </div>
-            <p className="text-[11px] md:text-[12px] text-muted-foreground tabular-nums shrink-0">
-              {games.length} games · {unreviewedCount} unreviewed
+            <p className="text-[11px] md:text-[12px] text-muted-foreground shrink-0 text-right max-w-[220px]">
+              {primaryProblem && FOCUS_LABEL[primaryProblem.category] ? (
+                <>
+                  <span className="uppercase tracking-[0.18em] text-[10px] text-muted-foreground/80">
+                    One pattern costing you games
+                  </span>
+                  <br />
+                  <span className="text-foreground/80">
+                    {FOCUS_LABEL[primaryProblem.category]}
+                  </span>
+                </>
+              ) : (
+                <span className="tabular-nums">{games.length} games</span>
+              )}
             </p>
           </div>
 
@@ -493,7 +525,7 @@ const Dashboard = ({ user }) => {
                           className="h-3.5 w-3.5"
                           strokeWidth={1.75}
                         />
-                        Practice this pattern
+                        {CTA_LABEL[primaryProblem.category] || "Drill: fix this"}
                       </button>
                     )}
                   </div>
@@ -543,13 +575,22 @@ const Dashboard = ({ user }) => {
               ) : (
                 filteredGames.slice(0, 24).map((g) => {
                   const r = resultLetter(g);
-                  const tags = (g.cognitive_gaps || []).slice(0, 2);
-                  const worst = worstMoment(g);
+                  // Quality filter: only render the diagnosis line when it
+                  // adds signal. Bland fallbacks from compute_game_summary
+                  // (empty / "No move data" / a plain draw sentence) are
+                  // suppressed — the result glyph already carries the story.
+                  const raw = (g.root_cause || "").trim();
+                  const isWeak =
+                    !raw ||
+                    raw === "No move data available" ||
+                    raw === "No user moves found" ||
+                    raw === "Game ended in a draw.";
+                  const diagnosis = isWeak ? "" : raw;
                   return (
                     <div
                       key={g.game_id || g._id}
                       onClick={() => navigate(`/game/${g.game_id}`)}
-                      className="group grid grid-cols-[12px_1fr_40px_52px_1fr_60px_14px] md:grid-cols-[12px_1fr_48px_56px_140px_1fr_80px_14px] gap-4 md:gap-5 items-center py-3.5 border-b border-border/40 hover:bg-muted/30 -mx-3 px-3 transition-colors cursor-pointer"
+                      className="group grid grid-cols-[12px_1fr_40px_60px_14px] md:grid-cols-[12px_1fr_48px_80px_14px] gap-4 md:gap-5 items-center py-3.5 border-b border-border/40 hover:bg-muted/30 -mx-3 px-3 transition-colors cursor-pointer"
                     >
                       {/* Reviewed dot */}
                       <span
@@ -560,7 +601,7 @@ const Dashboard = ({ user }) => {
                         }`}
                       />
 
-                      {/* Opponent + rating/opening */}
+                      {/* Opponent + move-grounded diagnosis */}
                       <div className="min-w-0">
                         <div className="flex items-baseline gap-2">
                           <span className="text-[13.5px] md:text-[14px] text-foreground font-medium truncate">
@@ -574,53 +615,16 @@ const Dashboard = ({ user }) => {
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-muted-foreground tabular-nums truncate">
-                          {[g.opponent_rating, g.opening]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </div>
+                        {diagnosis && (
+                          <div className="text-[11.5px] text-muted-foreground truncate">
+                            {diagnosis}
+                          </div>
+                        )}
                       </div>
 
                       {/* Result */}
                       <div>
                         <ResultGlyph r={r} />
-                      </div>
-
-                      {/* Accuracy */}
-                      <div className="text-[12.5px] tabular-nums text-muted-foreground">
-                        {g.accuracy != null ? (
-                          <>
-                            {g.accuracy}
-                            <span className="text-muted-foreground/40">%</span>
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground/40">—</span>
-                        )}
-                      </div>
-
-                      {/* Worst moment — hidden on small screens */}
-                      <div className="hidden md:block text-[11.5px] tabular-nums">
-                        {worst ? (
-                          <span className="text-rose-500/80 dark:text-rose-300/80">
-                            {worst}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/40">
-                            Clean
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Tags — hidden on small screens */}
-                      <div className="hidden md:flex items-center gap-1.5 flex-wrap min-w-0">
-                        {tags.map((t) => (
-                          <span
-                            key={t}
-                            className="text-[10px] uppercase tracking-[0.14em] font-medium text-amber-600/90 dark:text-amber-300/70 border border-amber-500/25 rounded-full px-2 h-[18px] inline-flex items-center whitespace-nowrap"
-                          >
-                            {humanPattern(t)}
-                          </span>
-                        ))}
                       </div>
 
                       {/* Age */}

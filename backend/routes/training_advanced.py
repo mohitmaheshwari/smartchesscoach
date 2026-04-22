@@ -463,35 +463,39 @@ FORMAT: Each line starts with the 8-character game ID, then colon, then the stor
 # SECTION A: Lab pick + puzzles
 # =============================================================================
 
-# Pattern → human language (short for home, detail for lab)
+# Pattern → human language (short for home, detail for lab).
+# Voice: coach, not accuser. Frame each gap as a habit to build, not a flaw —
+# the home card is the first thing a user sees after a losing session.
 COACHING_DIAGNOSIS = {
-    "piece_safety":       {"short": "You leave pieces hanging.",                         "detail": "You are not checking if your pieces are under attack before you move."},
-    "ignore_threat":      {"short": "You ignore opponent threats.",                      "detail": "You play your move, but don't check what your opponent is attacking."},
-    "calculation_depth":  {"short": "You stop thinking too early.",                      "detail": "You decide your move without checking what your opponent will do next."},
-    "missed_tactic":      {"short": "You miss winning chances.",                         "detail": "You are not spotting simple tactics that are right in front of you."},
-    "tactical_oversight": {"short": "You don't check your opponent's reply.",            "detail": "You pick your move and stop thinking. Your opponent's response is what matters."},
-    "king_safety":        {"short": "You expose your king.",                             "detail": "You start attacking before your king is safe. Your opponent punishes it."},
-    "time_pressure":      {"short": "You run out of time.",                              "detail": "You spend too long on moves that don't matter, then rush the critical ones."},
-    "time_management":    {"short": "You lose on the clock, not the board.",             "detail": "You are thinking about the wrong things and spending time in the wrong places."},
-    "conversion":         {"short": "You throw winning positions.",                      "detail": "You have the win and give it away. When ahead, you get creative instead of simple."},
-    "endgame_technique":  {"short": "You can't finish endgames.",                        "detail": "You reach endgames you should win but don't know how to convert."},
-    "pawn_structure":     {"short": "You push pawns without thinking.",                  "detail": "You make pawn moves without thinking about the squares they leave behind."},
-    "game_abandonment":   {"short": "You quit games.",                                   "detail": "You abandon games. You learn nothing by quitting."},
+    "piece_safety":       {"short": "Let's make piece safety the first check.",         "detail": "Before each move, scan your pieces: which are defended, which aren't. That one habit fixes most hangs."},
+    "ignore_threat":      {"short": "Start with: what did they just threaten?",          "detail": "Every move your opponent makes is a threat or a setup. Naming it first is how we stop walking into it."},
+    "calculation_depth":  {"short": "One move deeper is where games turn.",              "detail": "A move isn't done until you've pictured their best reply. That's where the real decision lives."},
+    "missed_tactic":      {"short": "Checks, captures, threats — every move.",           "detail": "Winning tactics hide inside forcing moves. Scanning them every turn is the habit that catches them."},
+    "tactical_oversight": {"short": "Pick the move, then pause for their reply.",        "detail": "After choosing, take one more breath: what's their sharpest response? That pause catches most mistakes."},
+    "king_safety":        {"short": "Safety first, attack second.",                      "detail": "Before launching anything, confirm your king has cover and escape squares. Attacks without safety come back."},
+    "time_pressure":      {"short": "Spend time where it decides the game.",             "detail": "Move quickly when the answer is clear. Save the clock for critical positions — that's where thought pays."},
+    "time_management":    {"short": "Let's budget the clock for decisions.",             "detail": "Games are won on the board, not the clock. Spend time choosing, not on moves you already know."},
+    "conversion":         {"short": "When ahead, simplify.",                             "detail": "Winning positions reward clean technique, not creativity. Trade, defuse, squeeze — don't go hunting for flashy."},
+    "endgame_technique":  {"short": "Endgames are a skill we can build.",                "detail": "Endgames reward technique over tactics. Active king, passed pawns, clean decisions — one step at a time."},
+    "pawn_structure":     {"short": "Every pawn move is permanent.",                     "detail": "Before pushing a pawn, ask what square this weakens and whether you can defend it later."},
+    "game_abandonment":   {"short": "Let's play every game to the end.",                 "detail": "The sharpest lessons come from defending worse positions. Resigning early skips the learning."},
 }
 
+# Deeper "why this matters" line shown alongside the diagnosis. Coach voice —
+# explain the principle, frame the fix as a habit, no accusations.
 COACHING_INSIGHTS = {
-    "piece_safety":       "This is not about seeing the board. It's about checking before you move. You are moving too fast.",
-    "ignore_threat":      "This is not calculation. This is awareness. You are not looking at what your opponent just did.",
-    "calculation_depth":  "You see one move ahead. You need to see two. The second move is where the game is decided.",
-    "missed_tactic":      "The tactic was there. You didn't look for it. Checks, captures, threats — check every move.",
-    "tactical_oversight":  "You chose your move and stopped thinking. Your opponent's response is what matters.",
-    "king_safety":        "You attacked before your king was safe. Your opponent punished it.",
-    "time_pressure":      "You ran out of time because you spent too long on moves that didn't matter.",
-    "time_management":    "You lost on the clock, not on the board. That means you're thinking about the wrong things.",
-    "conversion":         "You had the win and gave it away. When you're ahead, simplify. Don't get creative.",
-    "endgame_technique":  "You reached an endgame you should win but didn't know how to finish it.",
-    "pawn_structure":     "You made pawn moves without thinking about the squares they leave behind.",
-    "game_abandonment":   "You quit the game. You learn nothing by quitting. Finish every game.",
+    "piece_safety":       "This isn't about seeing farther. It's the one-second check before committing — that's the muscle we're building.",
+    "ignore_threat":      "Threat awareness comes before calculation. Name what they're doing first; plan your reply second.",
+    "calculation_depth":  "Seeing one move ahead is natural. Seeing two is trained. The second move is where games are decided.",
+    "missed_tactic":      "Tactics rarely hide. They live inside checks, captures, and threats — scanning those every turn is the habit.",
+    "tactical_oversight": "The move feels done the moment you choose it. The pause that follows — picturing their reply — is where the mistake gets caught.",
+    "king_safety":        "Attack and defense share one rule: check the king first. Without that, every attack carries its own punishment.",
+    "time_pressure":      "Clock trouble is a budgeting problem, not a speed problem. Move fast on clear positions so the hard ones get their minutes.",
+    "time_management":    "Time well spent goes into decisions, not into moves you already know. Reclaim that budget for the critical turns.",
+    "conversion":         "Winning positions reward clean technique — trades, defusing threats, simple plans. The creative move is the opponent's escape route.",
+    "endgame_technique":  "Endgames are a learnable skill, not a personality trait. King activity and passed pawns, practiced a little at a time, close these out.",
+    "pawn_structure":     "Pawns don't come back. Every push is a permanent trade: a square gained somewhere for a weakness somewhere else.",
+    "game_abandonment":   "The hardest positions teach the most. Playing them out — even when they look lost — is how defensive skill actually forms.",
 }
 
 COACHING_RULES = {
@@ -1451,6 +1455,19 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         except Exception:
             pass
 
+        # Move-grounded one-line diagnosis for the Lab game list.
+        # Replaces "opening · accuracy · cognitive-gap tags" with a specific
+        # statement about what went wrong in THIS game.
+        root_cause = ""
+        diagnosis = ""
+        try:
+            from services.game_coach_summary import compute_game_summary
+            _gs = compute_game_summary(evals, result, uc, g.get("opening", "") or "")
+            diagnosis = _gs.get("diagnosis", "") or ""
+            root_cause = _gs.get("root_cause", "") or ""
+        except Exception as _diag_err:
+            logger.debug(f"game diagnosis failed for {gid}: {_diag_err}")
+
         enriched.append({
             "game_id": gid,
             "opponent": opp,
@@ -1465,6 +1482,8 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "max_advantage": round(max_advantage / 100, 1),
             "cognitive_gaps": cognitive_gaps,
             "opening": g.get("opening", ""),
+            "diagnosis": diagnosis,
+            "root_cause": root_cause,
             "summary_headline": g.get("summary", {}).get("headline") if isinstance(g.get("summary"), dict) else None,
             "behavior": behavior,
             "lesson_label": lesson_label,
