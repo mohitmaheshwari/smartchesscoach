@@ -692,6 +692,38 @@ async def get_coach_home(user: User = Depends(get_current_user)):
     except Exception as e:
         logger.warning(f"[COACH-HOME] Last session failed: {e}")
 
+    # ─── 2b. THE MIRROR (imported games) ───
+    # The latest analyzed imported game, shown through the lens of the
+    # user's established habits. Answers "did this game repeat you or
+    # break you?" instead of narrating what happened.
+    #
+    # Whichever is newer — the coach_session above or the imported game —
+    # wins the Evidence slot. We don't prefer one source over the other;
+    # we prefer RECENT, since that's what "the latest you" means.
+    try:
+        from services.game_mirror import build_game_mirror, _find_latest_game
+        latest_import = await _find_latest_game(db, user_id)
+        if latest_import:
+            import_ts = latest_import.get("created_at")
+            # Fetch the coach_session timestamp defensively — the earlier
+            # block may have failed before binding its local.
+            coach_session = await db.coach_sessions.find_one(
+                {"user_id": user_id, "status": "completed"},
+                {"_id": 0, "created_at": 1},
+                sort=[("created_at", -1)],
+            )
+            session_ts = coach_session.get("created_at") if coach_session else None
+            use_mirror = (
+                session_ts is None
+                or (import_ts is not None and import_ts > session_ts)
+            )
+            if use_mirror:
+                mirror_session = await build_game_mirror(db, user_id)
+                if mirror_session:
+                    result["last_session"] = mirror_session
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Mirror failed: {e}")
+
     # ─── 3. CURRENT PROBLEM ───
     try:
         problems = await db.problem_lifecycle.find(
