@@ -119,12 +119,22 @@ const OpeningLesson = () => {
     })();
   }, [openingKey]);
   
+  // Resolve board orientation from whichever path has data. Before the
+  // backend fix, `lesson.opening.color` was undefined for every lesson, so
+  // every board rendered white-on-bottom. Now the API returns `color` both
+  // at the top level (`lesson.color`) and nested (`lesson.opening.color`).
+  // The URL key fallback handles explicit `_black` suffixes (`italian_game_black`).
+  const resolvedOrientation =
+    lesson?.color ||
+    lesson?.opening?.color ||
+    (openingKey?.toLowerCase().endsWith("_black") ? "black" : "white");
+
   // Initialize board
   useEffect(() => {
     if (boardRef.current && !groundRef.current) {
       groundRef.current = Chessground(boardRef.current, {
         fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        orientation: lesson?.opening?.color || "white",
+        orientation: resolvedOrientation,
         movable: {
           free: false,
           color: undefined
@@ -132,23 +142,23 @@ const OpeningLesson = () => {
         animation: { duration: 300 }
       });
     }
-    
+
     return () => {
       if (groundRef.current) {
         groundRef.current.destroy();
         groundRef.current = null;
       }
     };
-  }, [lesson]);
-  
+  }, [lesson, resolvedOrientation]);
+
   // Update board orientation when lesson loads
   useEffect(() => {
-    if (groundRef.current && lesson?.opening?.color) {
+    if (groundRef.current && resolvedOrientation) {
       groundRef.current.set({
-        orientation: lesson.opening.color
+        orientation: resolvedOrientation
       });
     }
-  }, [lesson?.opening?.color]);
+  }, [resolvedOrientation]);
   
   // Update board position
   const updateBoard = useCallback((fen, lastMove = null) => {

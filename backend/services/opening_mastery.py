@@ -871,12 +871,55 @@ def get_available_openings() -> List[Dict]:
     ]
 
 
+def _infer_opening_color(opening_key: str, opening_name: str) -> str:
+    """Resolve the side of the board this opening is played from.
+
+    Sources in priority order:
+      1. Explicit `_black` suffix in opening_key (e.g. `italian_game_black`)
+      2. `color` field in opening_curriculum.json (authoritative when present)
+      3. Name-based heuristic ("defense" in name → black; otherwise white)
+
+    Used by the OpeningLesson UI to orient the board correctly — without
+    this the board always shows white-on-bottom even when the lesson is
+    about how black should respond.
+    """
+    key_lower = (opening_key or "").lower()
+    if key_lower.endswith("_black"):
+        return "black"
+
+    # Check the curriculum JSON — it explicitly tags color for some entries.
+    try:
+        import json
+        from pathlib import Path
+        path = Path(__file__).resolve().parent.parent / "data" / "opening_curriculum.json"
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                curriculum = json.load(f)
+            entry = curriculum.get(key_lower) or {}
+            c = (entry.get("color") or "").lower()
+            if c in ("white", "black"):
+                return c
+    except Exception:
+        pass
+
+    # Fallback heuristic by name. "Defense" / "Indian" typically = played by black.
+    name_lower = (opening_name or "").lower()
+    black_markers = ("defense", "indian", "grunfeld", "slav", "caro-kann",
+                     "sicilian", "french", "scandinavian", "pirc", "modern",
+                     "alekhine", "benoni", "dutch", "nimzowitsch")
+    if any(m in name_lower for m in black_markers):
+        return "black"
+    return "white"
+
+
 def get_opening_details(opening_key: str) -> Optional[Dict]:
     """Get full details of an opening."""
     opening = OPENING_DATABASE.get(opening_key)
     if not opening:
         return None
-    
+
+    color = _infer_opening_color(opening_key, opening.name)
+
     return {
         "name": opening.name,
         "eco_range": opening.eco_range,
@@ -884,6 +927,11 @@ def get_opening_details(opening_key: str) -> Optional[Dict]:
         "character": opening.character,
         "suitable_for": opening.suitable_for,
         "first_moves": opening.first_moves,
+        # `color` and the nested `opening` key serve the frontend's board
+        # orientation logic — reads `lesson.opening.color` OR `lesson.color`
+        # so both shapes work after the fix.
+        "color": color,
+        "opening": {"color": color, "name": opening.name},
         "variations": [
             {
                 "name": v.name,
