@@ -137,12 +137,18 @@ const Dashboard = ({ user }) => {
   const [trapIntel, setTrapIntel] = useState(null);
   const [openingReport, setOpeningReport] = useState(null);
   const [repeatMistakes, setRepeatMistakes] = useState(null);
+  const [graduation, setGraduation] = useState(null);
+  const [peerMoves, setPeerMoves] = useState(null);
+  const [openingBenchmark, setOpeningBenchmark] = useState(null);
 
   useEffect(() => {
     fetchData();
     fetchTrapIntel();
     fetchOpeningReport();
     fetchRepeatMistakes();
+    fetchGraduation();
+    fetchPeerMoves();
+    fetchOpeningBenchmark();
   }, []);
 
   const fetchData = async () => {
@@ -190,6 +196,27 @@ const Dashboard = ({ user }) => {
     } catch (_e) {
       /* card hidden on error */
     }
+  };
+
+  const fetchGraduation = async () => {
+    try {
+      const res = await fetch(`${API}/coach/graduation-insight`, { credentials: "include" });
+      if (res.ok) setGraduation(await res.json());
+    } catch (_e) { /* silent */ }
+  };
+
+  const fetchPeerMoves = async () => {
+    try {
+      const res = await fetch(`${API}/coach/peer-moves`, { credentials: "include" });
+      if (res.ok) setPeerMoves(await res.json());
+    } catch (_e) { /* silent */ }
+  };
+
+  const fetchOpeningBenchmark = async () => {
+    try {
+      const res = await fetch(`${API}/coach/opening-benchmark`, { credentials: "include" });
+      if (res.ok) setOpeningBenchmark(await res.json());
+    } catch (_e) { /* silent */ }
   };
 
   // ─── Derived state (same semantics as before, just better-named) ─────
@@ -680,6 +707,112 @@ const Dashboard = ({ user }) => {
                 >
                   <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Train this pattern
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* ━━━━━━━━━━ GRADUATION / IMPROVEMENT TRAJECTORY ━━━━━━━━━━ */}
+          {/* Celebration (graduate) OR roadmap (struggler). Silent for users
+              with <20 games or no improvement data. */}
+          {graduation?.has_data && graduation.status === "graduate" && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300/80 font-semibold mb-5">
+                You're improving
+              </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-6 md:p-7">
+                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
+                  {graduation.headline}
+                </p>
+                <p className="text-[13px] text-muted-foreground">
+                  {graduation.subline}
+                </p>
+              </div>
+            </section>
+          )}
+          {graduation?.has_data && graduation.status === "struggler" && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-sky-600 dark:text-sky-300/80 font-semibold mb-5">
+                Players who improved from your level
+              </div>
+              <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-6 md:p-7">
+                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
+                  {graduation.headline}
+                </p>
+                <p className="text-[13px] text-muted-foreground mb-5">
+                  {graduation.subline}
+                </p>
+                {graduation.training_weakness && (
+                  <button
+                    onClick={() =>
+                      navigate(`/training/prescribed?weakness=${graduation.training_weakness}`)
+                    }
+                    className="h-10 px-5 rounded-lg bg-sky-500/90 hover:bg-sky-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                  >
+                    <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Work on {graduation.training_weakness.replace(/_/g, " ")}
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* ━━━━━━━━━━ PEER MOVES IN YOUR TOP OPENING ━━━━━━━━━━ */}
+          {/* At each move number in your most-played opening, what other
+              users tend to play. Teaches by aggregate example. */}
+          {peerMoves?.has_data && peerMoves.move_distribution?.length > 0 && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-indigo-600 dark:text-indigo-300/80 font-semibold mb-5">
+                Peer moves in your top opening
+              </div>
+              <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.04] p-6 md:p-7">
+                <p className="font-serif text-[17px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-4">
+                  {peerMoves.headline}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 font-mono text-[12.5px]">
+                  {peerMoves.move_distribution.slice(0, 6).map((m) => (
+                    <div key={m.move_number} className="flex items-baseline gap-3">
+                      <span className="text-muted-foreground tabular-nums w-[32px]">
+                        {m.move_number}.
+                      </span>
+                      <span className="text-foreground/80">
+                        {m.choices
+                          .map((c) => `${c.san} (${c.pct}%)`)
+                          .join(" · ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-4">
+                  Across {peerMoves.peer_count} other users who played this setup.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* ━━━━━━━━━━ OPENING-KNOWLEDGE BAND BENCHMARK ━━━━━━━━━━ */}
+          {/* The only cognitive_gap with a real cross-band signal. Only shows
+              when the user is meaningfully above their band's average. */}
+          {openingBenchmark?.has_data && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-orange-600 dark:text-orange-300/80 font-semibold mb-5">
+                Benchmark vs your rating band
+              </div>
+              <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-6 md:p-7">
+                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
+                  {openingBenchmark.headline}
+                </p>
+                <p className="text-[13px] text-muted-foreground mb-5">
+                  {openingBenchmark.subline}
+                </p>
+                <button
+                  onClick={() =>
+                    navigate(`/training/prescribed?weakness=${openingBenchmark.training_weakness}`)
+                  }
+                  className="h-10 px-5 rounded-lg bg-orange-500/90 hover:bg-orange-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                >
+                  <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Study your openings
                 </button>
               </div>
             </section>

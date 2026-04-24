@@ -292,6 +292,55 @@ async def get_opening_report(user: User = Depends(get_current_user)):
         }
 
 
+@router.get("/graduation-insight")
+async def get_graduation(user: User = Depends(get_current_user)):
+    """
+    Per-user graduation classifier. Returns 'graduate' (celebrate — blunder
+    rate dropped ≥25%), 'struggler' (≥20 games, no improvement — surface
+    fleet graduate paths), or 'new' (hidden).
+    """
+    from services.peer_learning import get_graduation_insight
+    global db
+
+    try:
+        return await get_graduation_insight(db, user.user_id)
+    except Exception as e:
+        logger.warning(f"graduation-insight failed for {user.user_id}: {e}")
+        return {"has_data": False, "status": "new", "headline": "", "subline": ""}
+
+
+@router.get("/peer-moves")
+async def get_peer_moves(user: User = Depends(get_current_user)):
+    """
+    For the user's most-played opening + color, show what other users in
+    the fleet have played at each early move. Teaches by peer example.
+    """
+    from services.peer_learning import get_peer_moves_insight
+    global db
+
+    try:
+        return await get_peer_moves_insight(db, user.user_id)
+    except Exception as e:
+        logger.warning(f"peer-moves failed for {user.user_id}: {e}")
+        return {"has_data": False, "opening_family": "", "peer_count": 0, "move_distribution": []}
+
+
+@router.get("/opening-benchmark")
+async def get_opening_benchmark(user: User = Depends(get_current_user)):
+    """
+    Compare user's opening_knowledge mistake share vs their rating band
+    average. Only surfaces when user is meaningfully above band avg.
+    """
+    from services.peer_learning import get_opening_benchmark_insight
+    global db
+
+    try:
+        return await get_opening_benchmark_insight(db, user.user_id)
+    except Exception as e:
+        logger.warning(f"opening-benchmark failed for {user.user_id}: {e}")
+        return {"has_data": False, "user_pct": 0, "band_pct": 0, "band": ""}
+
+
 @router.get("/repeat-mistakes")
 async def get_repeat_mistakes(user: User = Depends(get_current_user)):
     """
