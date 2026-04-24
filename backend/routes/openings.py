@@ -287,7 +287,7 @@ async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict
             "game_id": 1,
             "stockfish_analysis.move_evaluations": 1,
         },
-    ):
+    ):  # noqa: E501
         game_id = analysis.get("game_id")
         game = game_by_id.get(game_id)
         if not game:
@@ -326,7 +326,9 @@ async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict
                 "game_id": game_id,
                 "move_number": move_num,
                 "your_move": played,
+                "your_move_uci": m.get("move_uci"),
                 "best_move": best,
+                "best_move_uci": m.get("best_move_uci"),
                 "cp_loss": cp_abs,
                 "fen_before": fen_before,
             })

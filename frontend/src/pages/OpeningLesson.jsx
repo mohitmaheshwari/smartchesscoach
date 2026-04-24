@@ -139,7 +139,8 @@ const OpeningLesson = () => {
           free: false,
           color: undefined
         },
-        animation: { duration: 300 }
+        animation: { duration: 300 },
+        drawable: { enabled: true, visible: true }
       });
     }
 
@@ -168,6 +169,42 @@ const OpeningLesson = () => {
         lastMove: lastMove ? [lastMove.slice(0, 2), lastMove.slice(2, 4)] : undefined
       });
     }
+  }, []);
+
+  // Play a mistake move on the board with an arrow. Resets to `fenBefore`
+  // first, then after a short beat applies the move so chessground animates
+  // the piece sliding, plus draws a colored arrow showing the move.
+  // `brush`: "red" for the user's played move, "green" for the best move.
+  const playMistakeMove = useCallback((fenBefore, moveUci, brush) => {
+    if (!groundRef.current || !fenBefore || !moveUci || moveUci.length < 4) return;
+    const from = moveUci.slice(0, 2);
+    const to = moveUci.slice(2, 4);
+
+    // Step 1: snap to the position *before* the move, clear any existing arrows.
+    groundRef.current.set({
+      fen: fenBefore,
+      lastMove: undefined,
+    });
+    groundRef.current.setAutoShapes([]);
+
+    // Step 2: after a beat, apply the move using chess.js for a clean FEN
+    // and let chessground animate. Draw the arrow once the move lands.
+    setTimeout(() => {
+      try {
+        const c = new Chess(fenBefore);
+        const res = c.move({ from, to, promotion: moveUci[4] || "q" });
+        if (!res) return;
+        groundRef.current.set({
+          fen: c.fen(),
+          lastMove: [from, to],
+        });
+        groundRef.current.setAutoShapes([{ orig: from, dest: to, brush }]);
+      } catch (e) {
+        // Invalid move against this FEN — just draw the arrow on the before-position.
+        groundRef.current.set({ fen: fenBefore });
+        groundRef.current.setAutoShapes([{ orig: from, dest: to, brush }]);
+      }
+    }, 300);
   }, []);
   
   // Go to specific move in main line
@@ -731,15 +768,7 @@ const OpeningLesson = () => {
                 {/* Historical mistakes from analyzed games */}
                 {user_mistakes?.length > 0 ? (
                   user_mistakes.map((mistake, i) => (
-                    <Card
-                      key={i}
-                      className={`border-red-500/30 bg-red-500/5 ${mistake.fen_before ? "cursor-pointer hover:bg-red-500/10 transition-colors" : ""}`}
-                      onClick={() => {
-                        if (mistake.fen_before) {
-                          updateBoard(mistake.fen_before);
-                        }
-                      }}
-                    >
+                    <Card key={i} className="border-red-500/30 bg-red-500/5">
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
@@ -755,10 +784,35 @@ const OpeningLesson = () => {
                             )}
                             <p className="text-xs text-muted-foreground mt-2">
                               Loss: {Math.abs(mistake.cp_loss)} centipawns
-                              {mistake.fen_before && (
-                                <span className="ml-2 text-primary">· Click to view on board</span>
-                              )}
                             </p>
+                            {mistake.fen_before && (
+                              <div className="flex gap-2 mt-3">
+                                {mistake.your_move_uci && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs border-red-500/40 text-red-300 hover:bg-red-500/10"
+                                    onClick={() =>
+                                      playMistakeMove(mistake.fen_before, mistake.your_move_uci, "red")
+                                    }
+                                  >
+                                    Play your move
+                                  </Button>
+                                )}
+                                {mistake.best_move_uci && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs border-green-500/40 text-green-300 hover:bg-green-500/10"
+                                    onClick={() =>
+                                      playMistakeMove(mistake.fen_before, mistake.best_move_uci, "green")
+                                    }
+                                  >
+                                    Play best move
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </CardContent>
