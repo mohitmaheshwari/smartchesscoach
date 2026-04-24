@@ -128,6 +128,137 @@ def _immediate_fork(board_before: chess.Board, best_move: chess.Move) -> Optiona
     return None
 
 
+def _direction(from_sq: int, to_sq: int) -> Optional[Tuple[int, int]]:
+    """Unit direction (df, dr) from from_sq to to_sq if they're aligned on a
+    rank, file, or diagonal. Returns None if not aligned."""
+    ff, fr = chess.square_file(from_sq), chess.square_rank(from_sq)
+    tf, tr = chess.square_file(to_sq), chess.square_rank(to_sq)
+    df, dr = tf - ff, tr - fr
+    if df == 0 and dr == 0:
+        return None
+    if df != 0 and dr != 0 and abs(df) != abs(dr):
+        return None
+    udf = 0 if df == 0 else (1 if df > 0 else -1)
+    udr = 0 if dr == 0 else (1 if dr > 0 else -1)
+    return udf, udr
+
+
+def _squares_beyond(slider_sq: int, target_sq: int):
+    """Yield squares on the same line as slider→target, continuing past target."""
+    d = _direction(slider_sq, target_sq)
+    if d is None:
+        return
+    udf, udr = d
+    f, r = chess.square_file(target_sq), chess.square_rank(target_sq)
+    while True:
+        f += udf
+        r += udr
+        if not (0 <= f < 8 and 0 <= r < 8):
+            return
+        yield chess.square(f, r)
+
+
+def _pin_or_skewer(board_before: chess.Board, best_move: chess.Move) -> Optional[Dict]:
+    """
+    After the best move, does the moving slider pin or skewer an opponent piece?
+
+    - Pin: less-valuable opponent piece in front, more-valuable behind on the
+      same line (front piece can't move without exposing the back one).
+    - Skewer: more-valuable in front, less-valuable behind (front forced to
+      move, back piece falls).
+    """
+    board = board_before.copy()
+    mover_color = board.turn
+    board.push(best_move)
+
+    piece = board.piece_at(best_move.to_square)
+    if piece is None or piece.piece_type not in (chess.BISHOP, chess.ROOK, chess.QUEEN):
+        return None
+
+    for target_sq in board.attacks(best_move.to_square):
+        target = board.piece_at(target_sq)
+        if target is None or target.color == mover_color:
+            continue
+        if target.piece_type == chess.KING:
+            continue
+        for behind_sq in _squares_beyond(best_move.to_square, target_sq):
+            behind = board.piece_at(behind_sq)
+            if behind is None:
+                continue
+            if behind.color == mover_color:
+                break
+            if behind.piece_type == chess.KING:
+                # target pinned against its own king — the hardest pin
+                return {
+                    "type": "pin",
+                    "front": target.piece_type,
+                    "back": chess.KING,
+                }
+            # Skip cases where the back piece is a pawn — "pinning a knight
+            # to a pawn" is barely a tactic and produces awkward sentences.
+            if behind.piece_type == chess.PAWN:
+                break
+            front_val = PIECE_VALUES.get(target.piece_type, 0)
+            back_val = PIECE_VALUES.get(behind.piece_type, 0)
+            if back_val > front_val:
+                return {
+                    "type": "pin",
+                    "front": target.piece_type,
+                    "back": behind.piece_type,
+                }
+            if front_val > back_val:
+                return {
+                    "type": "skewer",
+                    "front": target.piece_type,
+                    "back": behind.piece_type,
+                }
+            break
+    return None
+
+
+def _discovered_attack(board_before: chess.Board, best_move: chess.Move) -> Optional[Dict]:
+    """
+    Did moving the best-move piece uncover an attack from another user piece?
+
+    Detection: for each opponent piece, compare attacker-sets before and after
+    the move. A new attacker (other than the piece that just moved) means a
+    discovered attack.
+    """
+    mover_color = board_before.turn
+    board_after = board_before.copy()
+    board_after.push(best_move)
+
+    # Walk every opponent piece present before the move.
+    for opp_sq in list(chess.SQUARES):
+        opp_piece_before = board_before.piece_at(opp_sq)
+        if opp_piece_before is None or opp_piece_before.color == mover_color:
+            continue
+        if opp_piece_before.piece_type < chess.KNIGHT:
+            continue
+
+        # If the square is now empty (the opp piece was captured by the best
+        # move), that's just a direct capture — not a "discovered" attack.
+        opp_piece_after = board_after.piece_at(opp_sq)
+        if opp_piece_after is None:
+            continue
+        if opp_piece_after.piece_type != opp_piece_before.piece_type:
+            continue
+
+        before_attackers = set(board_before.attackers(mover_color, opp_sq))
+        # Remove the from-square — it's no longer occupied by the mover.
+        before_attackers.discard(best_move.from_square)
+
+        after_attackers = set(board_after.attackers(mover_color, opp_sq))
+        # Remove the destination — that's the piece that just moved, not a
+        # "discovered" attacker.
+        after_attackers.discard(best_move.to_square)
+
+        new_attackers = after_attackers - before_attackers
+        if new_attackers:
+            return {"type": "discovered_attack", "target": opp_piece_before.piece_type}
+    return None
+
+
 def _exposed_defender_loss(
     board_before: chess.Board,
     pv_moves: List[chess.Move],
@@ -263,39 +394,67 @@ def explain_best_move_tactically(
     if not pv_moves:
         return None
 
-    # Facts:
-    # 1. immediate fork after the best move
+    # Facts (priority-ordered for selection below):
+    # 1. Immediate fork (two+ valuable targets, or check + attack)
     fork_info = _immediate_fork(board, pv_moves[0])
 
-    # 2. material delta at end of PV (user POV)
+    # 2. Pin or skewer (slider lines up two opponent pieces)
+    pin_or_skewer = _pin_or_skewer(board, pv_moves[0])
+
+    # 3. Discovered attack (moved piece uncovers a second attacker)
+    discovered = _discovered_attack(board, pv_moves[0])
+
+    # 4. Material delta over the full PV (user POV)
     start_delta = _material_delta(board, user_is_white)
     end_delta = _material_delta(pv_board, user_is_white)
     material_won = end_delta - start_delta
 
-    # 3. defender deflection: a previously-defended opponent piece becomes
-    #    undefended / captured in the PV
+    # 5. Defender deflection — opponent piece becomes undefended later in PV
     deflection = _exposed_defender_loss(board, pv_moves, user_is_white)
 
     # ─── Compose the sentence ───
+    #
+    # Priority order (most specific / teachable first):
+    #   fork > pin > skewer > discovered_attack > deflection
+    # Material gain is appended when present.
     parts: List[str] = []
+    pattern_named = False
 
     if fork_info:
         if fork_info["type"] == "check_and_attack":
-            # first target only — keeps the sentence clean
             target_name = PIECE_NAMES.get(fork_info["targets"][0][1], "piece")
-            parts.append(
-                f"{best_move_san} attacks the king and the {target_name}"
-            )
+            parts.append(f"{best_move_san} attacks the king and the {target_name}")
         else:
             names = [PIECE_NAMES.get(pt, "piece") for _, pt in fork_info["targets"][:2]]
             parts.append(f"{best_move_san} forks {names[0]} and {names[1]}")
+        pattern_named = True
 
-    if deflection and not fork_info:
-        # A pure defender-deflection tactic (not also a fork)
+    if not pattern_named and pin_or_skewer:
+        front_name = PIECE_NAMES.get(pin_or_skewer["front"], "piece")
+        back_name = PIECE_NAMES.get(pin_or_skewer["back"], "piece")
+        if pin_or_skewer["type"] == "pin":
+            parts.append(
+                f"{best_move_san} pins the {front_name} against the {back_name}"
+            )
+        else:  # skewer
+            parts.append(
+                f"{best_move_san} skewers the {front_name} to the {back_name}"
+            )
+        pattern_named = True
+
+    if not pattern_named and discovered:
+        target_name = PIECE_NAMES.get(discovered["target"], "piece")
+        parts.append(
+            f"{best_move_san} uncovers an attack on the {target_name}"
+        )
+        pattern_named = True
+
+    if not pattern_named and deflection:
         piece_name = PIECE_NAMES.get(deflection["piece_type"], "piece")
         parts.append(
             f"{best_move_san} forces the defender to move — the {piece_name} falls next"
         )
+        pattern_named = True
 
     material_phrase = _describe_material_gain(material_won)
     if material_phrase:
@@ -304,7 +463,6 @@ def explain_best_move_tactically(
     if not parts:
         return None
 
-    # Single sentence, deterministic, grounded.
     if len(parts) == 1:
         return parts[0] + "."
     return parts[0] + " — " + ", ".join(parts[1:]) + "."
