@@ -731,11 +731,19 @@ const OpeningLesson = () => {
                 {/* Historical mistakes from analyzed games */}
                 {user_mistakes?.length > 0 ? (
                   user_mistakes.map((mistake, i) => (
-                    <Card key={i} className="border-red-500/30 bg-red-500/5">
+                    <Card
+                      key={i}
+                      className={`border-red-500/30 bg-red-500/5 ${mistake.fen_before ? "cursor-pointer hover:bg-red-500/10 transition-colors" : ""}`}
+                      onClick={() => {
+                        if (mistake.fen_before) {
+                          updateBoard(mistake.fen_before);
+                        }
+                      }}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm">
                               <span className="font-semibold">Move {mistake.move_number}:</span>{" "}
                               You played <span className="text-red-400">{mistake.your_move}</span>
@@ -747,6 +755,9 @@ const OpeningLesson = () => {
                             )}
                             <p className="text-xs text-muted-foreground mt-2">
                               Loss: {Math.abs(mistake.cp_loss)} centipawns
+                              {mistake.fen_before && (
+                                <span className="ml-2 text-primary">· Click to view on board</span>
+                              )}
                             </p>
                           </div>
                         </div>

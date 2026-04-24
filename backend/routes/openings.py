@@ -269,13 +269,24 @@ async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict
     if not game_ids:
         return []
 
-    MISTAKE_CP_THRESHOLD = 50   # inaccuracy-or-worse
-    OPENING_PLY_LIMIT = 20      # first ~10 full moves
+    # Opening phase = first 10 full moves. move_number is full-move count
+    # in python-chess, so 10 covers the typical book depth while keeping
+    # us out of the middlegame where mistakes are not opening issues.
+    OPENING_MOVE_LIMIT = 10
+    # Inaccuracy-or-worse. Below this isn't really a mistake for a 1200.
+    MISTAKE_CP_MIN = 50
+    # Above this is mate-detection sentinel, not a real cp loss — those
+    # are tactical/mate failures, not opening misplays.
+    MISTAKE_CP_MAX = 3000
 
     mistakes: List[Dict] = []
     async for analysis in db.game_analyses.find(
         {"user_id": user_id, "game_id": {"$in": game_ids}},
-        {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations": 1},
+        {
+            "_id": 0,
+            "game_id": 1,
+            "stockfish_analysis.move_evaluations": 1,
+        },
     ):
         game_id = analysis.get("game_id")
         game = game_by_id.get(game_id)
@@ -285,7 +296,7 @@ async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict
         moves = (analysis.get("stockfish_analysis") or {}).get("move_evaluations") or []
         for m in moves:
             move_num = m.get("move_number") or 0
-            if move_num <= 0 or move_num > OPENING_PLY_LIMIT:
+            if move_num <= 0 or move_num > OPENING_MOVE_LIMIT:
                 continue
             # Filter to user's moves via FEN active color before the move.
             fen_before = m.get("fen_before") or ""
@@ -299,14 +310,25 @@ async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict
             if cp_loss is None:
                 continue
             cp_abs = abs(cp_loss)
-            if cp_abs < MISTAKE_CP_THRESHOLD:
+            if cp_abs < MISTAKE_CP_MIN or cp_abs > MISTAKE_CP_MAX:
+                continue
+            played = (m.get("move") or "").strip()
+            best = (m.get("best_move") or "").strip()
+            if not played or not best:
+                continue
+            # Skip false positives where classifier says "mistake" but the
+            # played and best move are the same SAN (punctuation aside).
+            def _norm_san(s: str) -> str:
+                return s.replace("+", "").replace("#", "").replace("!", "").replace("?", "").lower()
+            if _norm_san(played) == _norm_san(best):
                 continue
             mistakes.append({
                 "game_id": game_id,
                 "move_number": move_num,
-                "your_move": m.get("move"),
-                "best_move": m.get("best_move"),
+                "your_move": played,
+                "best_move": best,
                 "cp_loss": cp_abs,
+                "fen_before": fen_before,
             })
 
     mistakes.sort(key=lambda x: -x["cp_loss"])
