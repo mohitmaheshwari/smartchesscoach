@@ -100,14 +100,20 @@ def training_weakness_for_trap(trap: Dict) -> str:
 
     Prefers the explicit `training_weakness` field on the trap; otherwise
     infers from `result_type`.
+
+    Bug fix (2026-04-24): the previous substring check `"mate" in rt`
+    matched "material" (material contains "mate"), so every wins_material
+    trap incorrectly routed to king_safety. Now uses exact-match or
+    word-boundary checks.
     """
     explicit = trap.get("training_weakness")
     if explicit:
         return explicit
-    rt = (trap.get("result_type") or "").lower()
-    if "mate" in rt:  # matches "checkmate"
+    rt = (trap.get("result_type") or "").lower().strip()
+    # Exact matches first — avoids the "material" contains "mate" trap.
+    if rt in ("checkmate", "mate", "mates"):
         return "king_safety"
-    if "material" in rt:
+    if rt in ("wins_material", "material", "piece_win", "pawn_win"):
         return "tactical_oversight"
     return DEFAULT_TRAINING_WEAKNESS
 

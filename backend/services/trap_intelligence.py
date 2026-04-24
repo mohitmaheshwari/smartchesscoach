@@ -123,12 +123,21 @@ def _build_headline(
 
 
 def _cta_for_role(role_hint: str) -> str:
-    """Button label per role. Training weakness + routing URL is built elsewhere."""
+    """Button label per role.
+
+    Honest copy: the CTA links to generic `/training/prescribed?weakness=<X>`
+    which serves themed puzzles (tactical_oversight / king_safety / etc.),
+    NOT trap-specific defense/attack content. The labels used to promise
+    "Train the defense" which overpromised. We don't have Fried Liver-
+    specific puzzles yet — that's Phase B (trap-specific teaching).
+
+    Until we do, the CTA names the training TYPE accurately.
+    """
     if role_hint == "defender":
-        return "Train the defense"
+        return "Sharpen your threat radar"
     if role_hint == "attacker":
-        return "Execute the tactic"
-    return "Learn the pattern"
+        return "Drill matching tactics"
+    return "Train this pattern"
 
 
 async def get_user_trap_intelligence(db, user_id: str) -> Dict:
