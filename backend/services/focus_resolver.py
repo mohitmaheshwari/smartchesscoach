@@ -264,10 +264,10 @@ def _fill_from_aggregate(result: Dict[str, Any], top_problem: Dict):
         "category": cat,
         "gap": CATEGORY_TO_GAP.get(cat, cat),
         "label": label,
-        "reason": (
-            "This is happening in almost every game." if count >= 8
-            else f"This happened in {count} of your recent games."
-        ),
+        # Always factual. Dropped the "almost every game" variant — it was
+        # vague marketing language dressed as data. Same principle as the
+        # frontend fix to verdictSub: if the count exists, name it.
+        "reason": f"This showed up in {count} of your recent games.",
         "type": "aggregate",
         "source": "aggregate",
     })

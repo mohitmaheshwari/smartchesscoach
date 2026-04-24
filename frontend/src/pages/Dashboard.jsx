@@ -386,7 +386,7 @@ const Dashboard = ({ user }) => {
       note:
         featuredGame.critical_best
           ? `The crucial moment — best was ${featuredGame.critical_best}.`
-          : "The crucial moment went the other way.",
+          : "This is where the game turned.",
     });
   }
   if (featuredGame?.was_winning && !featuredGame?.coach_take) {
@@ -733,7 +733,7 @@ const Dashboard = ({ user }) => {
           {graduation?.has_data && graduation.status === "struggler" && (
             <section className="mb-16 md:mb-24">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-sky-600 dark:text-sky-300/80 font-semibold mb-5">
-                Players who improved from your level
+                Players who improved
               </div>
               <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-6 md:p-7">
                 <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">

@@ -497,21 +497,53 @@ class CoachingPuzzleService:
         }
 
     def _move_matches_weakness(self, move: Dict, weakness_pattern: str) -> bool:
-        """Check if a move's mistake type matches the weakness pattern."""
-        threat = move.get("threat", "").lower()
-        best_move = move.get("best_move", "")
-        cp_loss = abs(move.get("cp_loss", 0))
-        
-        if weakness_pattern == "missed_threat":
-            return bool(threat)  # Has a threat that was missed
-        elif weakness_pattern == "poor_piece_safety":
-            return "x" in best_move.lower()  # Best move was a capture (piece was hanging)
-        elif weakness_pattern == "tactical_blindness":
-            return cp_loss >= 200  # Big tactical miss
-        elif weakness_pattern == "back_rank":
-            return "+" in threat or "#" in threat  # Check threat
-        
-        return True  # Default: include
+        """Does this move's cognitive_gap match the target weakness?
+
+        Uses the `cognitive_gap` tag written by `analysis_interpreter`
+        (backfilled across all games). This is the canonical taxonomy —
+        the same one used for pattern decay, training CTAs, and the
+        coaching diagnosis map.
+
+        Bug fix (2026-04-24): the previous version checked four legacy
+        weakness names ("missed_threat", "poor_piece_safety",
+        "tactical_blindness", "back_rank") and defaulted to `return True`
+        — meaning for every canonical weakness (king_safety / opening_knowledge /
+        tactical_oversight / etc.) EVERY critical move matched. Result:
+        the same top puzzle was served for every weakness. Huge bug.
+        """
+        pattern = (weakness_pattern or "").lower().strip()
+        move_gap = (move.get("cognitive_gap") or "").lower().strip()
+
+        # Direct cognitive_gap match — the canonical path.
+        if move_gap and move_gap == pattern:
+            return True
+
+        # Back-compat: callers still pass legacy names in a few places.
+        # Map them to the canonical cognitive_gap before comparing.
+        legacy_to_canonical = {
+            "missed_threat":       "ignore_threat",
+            "poor_piece_safety":   "piece_safety",
+            "tactical_blindness":  "tactical_oversight",
+            "failed_conversion":   "endgame_technique",
+            "positional_drift":    "pawn_structure",
+            "opening_inaccuracy":  "opening_knowledge",
+            "calculation_error":   "calculation_depth",
+            "material_blunder":    "piece_safety",
+            "missed_fork":         "missed_tactic",
+            "missed_pin":          "missed_tactic",
+            "missed_discovery":    "missed_tactic",
+            "back_rank":           "king_safety",
+            "king_attack":         "king_safety",
+            "hanging_piece":       "piece_safety",
+        }
+        mapped = legacy_to_canonical.get(pattern)
+        if mapped and move_gap == mapped:
+            return True
+
+        # No match. Moves without a cognitive_gap tag (older analyses that
+        # missed the backfill) do not match ANY specific weakness — they
+        # fall through to community puzzles instead of being mis-served.
+        return False
     
     
     def _get_coaching_context(self, puzzle: Dict, weakness_pattern: str) -> Dict:

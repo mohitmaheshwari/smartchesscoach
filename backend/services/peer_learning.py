@@ -137,14 +137,22 @@ async def get_graduation_insight(db, user_id: str) -> Dict:
     # Which cognitive_gap did graduates fix most? Look at aggregate drops.
     top_fixed_gap, times_fixed = _top_fixed_gap_across_graduates(fleet_graduates)
     gap_human = (top_fixed_gap or "").replace("_", " ")
+    # Honest copy: we scan ALL fleet users for graduates, not band-matched
+    # users. Don't claim "from your level" — that would require rating-band
+    # filtering which we don't do here (thin data at 55 users). Say what's
+    # actually true instead.
+    users_word = "user" if len(fleet_graduates) == 1 else "users"
     return {
         "has_data": True,
         "status": "struggler",
-        "headline": f"{len(fleet_graduates)} users improved from a similar point.",
+        "headline": (
+            f"{len(fleet_graduates)} {users_word} in the community improved "
+            f"their blunder rate over recent games."
+        ),
         "subline": (
-            f"They typically fixed {gap_human} first"
+            f"Their biggest shared win: fewer {gap_human} mistakes."
             if top_fixed_gap else
-            "Their path: more games + targeted puzzles over 30+ days."
+            "Their shared path: more games + targeted puzzles over 30+ days."
         ),
         "training_weakness": top_fixed_gap,
         "graduate_count": len(fleet_graduates),
