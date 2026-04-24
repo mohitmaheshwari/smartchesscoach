@@ -21,7 +21,8 @@ import {
   Sparkles,
   Loader2,
   X,
-  ChevronRight
+  ChevronRight,
+  Eye
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -339,9 +340,74 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
     setFeedback(null);
     setHintCount(0);
     setLastMove(null);
-    
+
     playSetupMovesFrom(0);
   }, [playSetupMovesFrom]);
+
+  // Watch-first demo: plays the full setup + trap line automatically so the
+  // user can LEARN the pattern before being asked to execute it. Critical
+  // for first-time encounters — previously users were dropped straight
+  // into "execute the trap" with no idea what the trap looked like.
+  const runDemo = useCallback(() => {
+    chessRef.current.reset();
+    setFen(chessRef.current.fen());
+    setPhase("demo");
+    setCurrentMoveIndex(0);
+    setLastMove(null);
+    setHintCount(0);
+    setFeedback({
+      type: "info",
+      message: "Watch how the trap plays out.",
+    });
+
+    // Lock the board — no user input during demo.
+    if (groundRef.current) {
+      groundRef.current.set({
+        movable: { free: false, color: undefined, dests: new Map() },
+      });
+    }
+
+    const fullSequence = [
+      ...setupMoves.map((m) => ({ move: m, note: "" })),
+      ...trapLine.map((m) => ({ move: m.move, note: m.explanation || "" })),
+    ];
+
+    const DEMO_STEP_MS = 1100;
+
+    const step = (i) => {
+      if (i >= fullSequence.length) {
+        // End of demo — reset and invite practice.
+        setTimeout(() => {
+          chessRef.current.reset();
+          setFen(chessRef.current.fen());
+          setLastMove(null);
+          setPhase("ready");
+          setFeedback({
+            type: "info",
+            message: "Now you try. Execute the trap yourself.",
+          });
+        }, DEMO_STEP_MS + 400);
+        return;
+      }
+      const entry = fullSequence[i];
+      try {
+        const result = chessRef.current.move(entry.move);
+        if (result) {
+          setFen(chessRef.current.fen());
+          setLastMove({ from: result.from, to: result.to });
+          if (entry.note) {
+            setFeedback({ type: "info", message: entry.note });
+          }
+        }
+      } catch (e) {
+        console.warn("demo move failed:", entry.move, e);
+      }
+      setTimeout(() => step(i + 1), DEMO_STEP_MS);
+    };
+
+    // Slight delay before starting so the opening-message is readable.
+    setTimeout(() => step(0), 600);
+  }, [setupMoves, trapLine]);
   
   // Get a hint
   const getHint = useCallback(() => {
@@ -537,12 +603,25 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
       {/* Controls */}
       <div className="flex gap-2">
         {phase === "ready" && (
-          <Button onClick={startPractice} className="flex-1" data-testid="start-trap-practice">
-            <Play className="w-4 h-4 mr-2" />
-            Start Practice
+          <>
+            <Button variant="outline" onClick={runDemo} className="flex-1" data-testid="watch-trap-demo">
+              <Eye className="w-4 h-4 mr-2" />
+              Watch first
+            </Button>
+            <Button onClick={startPractice} className="flex-1" data-testid="start-trap-practice">
+              <Play className="w-4 h-4 mr-2" />
+              Start Practice
+            </Button>
+          </>
+        )}
+
+        {phase === "demo" && (
+          <Button disabled className="flex-1">
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Playing trap demo...
           </Button>
         )}
-        
+
         {phase === "setup" && (
           <Button disabled className="flex-1">
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
