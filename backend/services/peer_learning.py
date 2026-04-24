@@ -2,14 +2,12 @@
 Peer-Learning Services
 ======================
 
-Three data-driven surfaces, all verified viable by
+Two data-driven surfaces, verified viable by
 scripts/validate_peer_learning.py:
 
   1. graduation_insight  — "you're improving" OR "users who improved
                            from your level did X"
-  2. peer_moves_insight  — "at your stage in this opening, other users
-                           play these moves"
-  3. opening_benchmark   — "your opening-knowledge mistakes are above
+  2. opening_benchmark   — "your opening-knowledge mistakes are above
                            your rating band's average"
 
 Each returns {has_data: bool, ...} so the UI can hide cards cleanly
@@ -30,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 GRADUATE_IMPROVEMENT_THRESHOLD = 0.25  # need ≥25% blunder-rate drop to count
 MIN_GAMES_FOR_TRAJECTORY = 20          # min games before we'll judge
-PEER_MOVES_LOOKAHEAD = 12              # scan first N full moves of shared openings
 GAP_OPENING_KNOWLEDGE = "opening_knowledge"
 
 
@@ -272,112 +269,6 @@ def _top_fixed_gap_across_graduates(graduates: List[Dict]) -> tuple:
         return (None, 0)
     top, total = aggregate.most_common(1)[0]
     return (top, total)
-
-
-# ── 2. Peer moves insight ────────────────────────────────────────────
-
-async def get_peer_moves_insight(db, user_id: str) -> Dict:
-    """
-    For the user's most-played opening, show what other users have played
-    at the same early moves. Teaches by peer example rather than theory.
-
-    Returns top common SAN choices per move_number (moves 3-10) for the
-    user's top opening_family + user_color.
-    """
-    empty = {"has_data": False, "opening_family": "", "user_color": "", "peer_count": 0, "move_distribution": []}
-
-    # Find user's top opening (by games played)
-    user_games = await db.games.find(
-        {"user_id": user_id, "is_analyzed": True},
-        {"_id": 0, "opening": 1, "user_color": 1},
-    ).to_list(500)
-    if not user_games:
-        return empty
-
-    combo_counts: Counter = Counter()
-    for g in user_games:
-        fam = normalize_opening(g.get("opening"))
-        if fam == "Other":
-            continue
-        color = (g.get("user_color") or "white").lower()
-        combo_counts[(fam, color)] += 1
-    if not combo_counts:
-        return empty
-
-    top_combo, top_count = combo_counts.most_common(1)[0]
-    fam, color = top_combo
-
-    # Gather games from ALL users who played this combo (including the user —
-    # they'll recognize their own moves but aggregate view is still useful).
-    matching_pgns: List[tuple] = []  # (pgn, user_id, user_color)
-    peer_user_ids: set = set()
-    async for g in db.games.find(
-        {"is_analyzed": True, "user_color": color},
-        {"_id": 0, "pgn": 1, "user_id": 1, "opening": 1, "user_color": 1},
-    ):
-        if normalize_opening(g.get("opening")) != fam:
-            continue
-        matching_pgns.append((g.get("pgn"), g.get("user_id"), color))
-        peer_user_ids.add(g.get("user_id"))
-
-    if len(peer_user_ids) < 3:
-        return empty
-
-    # Parse PGN SAN lists (use python-chess for correctness)
-    import chess.pgn, io
-    move_distribution: Dict[int, Counter] = defaultdict(Counter)  # move_number → SAN counts
-    for pgn, _uid, uc in matching_pgns:
-        if not pgn:
-            continue
-        try:
-            game = chess.pgn.read_game(io.StringIO(pgn))
-            if game is None:
-                continue
-            board = game.board()
-            ply_idx = 0
-            for mv in game.mainline_moves():
-                san = board.san(mv)
-                board.push(mv)
-                ply_idx += 1
-                # Only the user-color plies and only early moves
-                move_number = (ply_idx + 1) // 2
-                is_user_side_move = (ply_idx % 2 == 1 and uc == "white") or (ply_idx % 2 == 0 and uc == "black")
-                if not is_user_side_move:
-                    continue
-                if move_number > PEER_MOVES_LOOKAHEAD:
-                    break
-                move_distribution[move_number][san] += 1
-        except Exception as e:
-            logger.debug(f"peer moves pgn parse failed: {e}")
-
-    # Build output — per move_number, top 3 choices with % share
-    ranked: List[Dict] = []
-    for mn in sorted(move_distribution.keys()):
-        counts = move_distribution[mn]
-        total = sum(counts.values())
-        if total < 3:
-            continue  # too thin to report
-        top = counts.most_common(3)
-        ranked.append({
-            "move_number": mn,
-            "choices": [
-                {"san": s, "count": c, "pct": int(round(c / total * 100))}
-                for s, c in top
-            ],
-            "total_games": total,
-        })
-
-    return {
-        "has_data": bool(ranked),
-        "opening_family": fam,
-        "user_color": color,
-        "peer_count": len(peer_user_ids),
-        "move_distribution": ranked[:8],  # cap at 8 moves for UI brevity
-        "headline": (
-            f"In {fam} as {color}, peers ({len(peer_user_ids)} users) most often play:"
-            if ranked else ""
-        ),
-    }
 
 
 # ── 3. Opening knowledge benchmark ───────────────────────────────────

@@ -309,22 +309,6 @@ async def get_graduation(user: User = Depends(get_current_user)):
         return {"has_data": False, "status": "new", "headline": "", "subline": ""}
 
 
-@router.get("/peer-moves")
-async def get_peer_moves(user: User = Depends(get_current_user)):
-    """
-    For the user's most-played opening + color, show what other users in
-    the fleet have played at each early move. Teaches by peer example.
-    """
-    from services.peer_learning import get_peer_moves_insight
-    global db
-
-    try:
-        return await get_peer_moves_insight(db, user.user_id)
-    except Exception as e:
-        logger.warning(f"peer-moves failed for {user.user_id}: {e}")
-        return {"has_data": False, "opening_family": "", "peer_count": 0, "move_distribution": []}
-
-
 @router.get("/opening-benchmark")
 async def get_opening_benchmark(user: User = Depends(get_current_user)):
     """

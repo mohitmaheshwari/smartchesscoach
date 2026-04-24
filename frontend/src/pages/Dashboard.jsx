@@ -138,7 +138,6 @@ const Dashboard = ({ user }) => {
   const [openingReport, setOpeningReport] = useState(null);
   const [repeatMistakes, setRepeatMistakes] = useState(null);
   const [graduation, setGraduation] = useState(null);
-  const [peerMoves, setPeerMoves] = useState(null);
   const [openingBenchmark, setOpeningBenchmark] = useState(null);
 
   useEffect(() => {
@@ -147,7 +146,6 @@ const Dashboard = ({ user }) => {
     fetchOpeningReport();
     fetchRepeatMistakes();
     fetchGraduation();
-    fetchPeerMoves();
     fetchOpeningBenchmark();
   }, []);
 
@@ -202,13 +200,6 @@ const Dashboard = ({ user }) => {
     try {
       const res = await fetch(`${API}/coach/graduation-insight`, { credentials: "include" });
       if (res.ok) setGraduation(await res.json());
-    } catch (_e) { /* silent */ }
-  };
-
-  const fetchPeerMoves = async () => {
-    try {
-      const res = await fetch(`${API}/coach/peer-moves`, { credentials: "include" });
-      if (res.ok) setPeerMoves(await res.json());
     } catch (_e) { /* silent */ }
   };
 
@@ -754,39 +745,6 @@ const Dashboard = ({ user }) => {
                     Work on {graduation.training_weakness.replace(/_/g, " ")}
                   </button>
                 )}
-              </div>
-            </section>
-          )}
-
-          {/* ━━━━━━━━━━ PEER MOVES IN YOUR TOP OPENING ━━━━━━━━━━ */}
-          {/* At each move number in your most-played opening, what other
-              users tend to play. Teaches by aggregate example. */}
-          {peerMoves?.has_data && peerMoves.move_distribution?.length > 0 && (
-            <section className="mb-16 md:mb-24">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-indigo-600 dark:text-indigo-300/80 font-semibold mb-5">
-                Peer moves in your top opening
-              </div>
-              <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.04] p-6 md:p-7">
-                <p className="font-serif text-[17px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-4">
-                  {peerMoves.headline}
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 font-mono text-[12.5px]">
-                  {peerMoves.move_distribution.slice(0, 6).map((m) => (
-                    <div key={m.move_number} className="flex items-baseline gap-3">
-                      <span className="text-muted-foreground tabular-nums w-[32px]">
-                        {m.move_number}.
-                      </span>
-                      <span className="text-foreground/80">
-                        {m.choices
-                          .map((c) => `${c.san} (${c.pct}%)`)
-                          .join(" · ")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-4">
-                  Across {peerMoves.peer_count} other users who played this setup.
-                </p>
               </div>
             </section>
           )}
