@@ -271,6 +271,47 @@ async def get_trap_intelligence(user: User = Depends(get_current_user)):
         return {"has_data": False, "top_insight": None, "all_insights": [], "total_encounters": 0}
 
 
+@router.get("/opening-report")
+async def get_opening_report(user: User = Depends(get_current_user)):
+    """
+    Per-user opening repertoire report — games/wins/losses/accuracy
+    grouped by canonical opening + color. Identifies the one opening
+    where the user is frequently losing.
+    """
+    from services.opening_report_card import get_user_opening_report
+    global db
+
+    try:
+        return await get_user_opening_report(db, user.user_id)
+    except Exception as e:
+        logger.warning(f"opening-report failed for {user.user_id}: {e}")
+        return {
+            "has_data": False, "total_games": 0,
+            "as_white": {}, "as_black": {},
+            "problem_opening": None, "all_openings_flat": [],
+        }
+
+
+@router.get("/repeat-mistakes")
+async def get_repeat_mistakes(user: User = Depends(get_current_user)):
+    """
+    Cross-game repeat-mistake detection — identifies recurring mistake
+    patterns (same cognitive gap, same piece type, same phase) across
+    ≥3 distinct games. The "you do this every time" signal.
+    """
+    from services.repeat_mistake_detector import get_user_repeat_mistakes
+    global db
+
+    try:
+        return await get_user_repeat_mistakes(db, user.user_id)
+    except Exception as e:
+        logger.warning(f"repeat-mistakes failed for {user.user_id}: {e}")
+        return {
+            "has_data": False, "top_pattern": None,
+            "all_patterns": [], "total_games_analyzed": 0,
+        }
+
+
 @router.post("/theory/reload")
 async def reload_theory():
     """Reload theory database from JSON (after admin edits)."""

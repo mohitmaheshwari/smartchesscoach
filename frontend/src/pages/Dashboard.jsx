@@ -132,13 +132,17 @@ const Dashboard = ({ user }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all | unreviewed | losses | coach | week
-  // Trap intelligence — only shows a card when the user has actually hit a
-  // trap setup in their games. Hidden otherwise.
+  // Intelligence cards — each shows only when the user has real data. Fetched
+  // in parallel with the main Lab data so the page isn't blocked.
   const [trapIntel, setTrapIntel] = useState(null);
+  const [openingReport, setOpeningReport] = useState(null);
+  const [repeatMistakes, setRepeatMistakes] = useState(null);
 
   useEffect(() => {
     fetchData();
     fetchTrapIntel();
+    fetchOpeningReport();
+    fetchRepeatMistakes();
   }, []);
 
   const fetchData = async () => {
@@ -163,6 +167,28 @@ const Dashboard = ({ user }) => {
       if (res.ok) setTrapIntel(await res.json());
     } catch (_e) {
       // Silent — card just stays hidden.
+    }
+  };
+
+  const fetchOpeningReport = async () => {
+    try {
+      const res = await fetch(`${API}/coach/opening-report`, {
+        credentials: "include",
+      });
+      if (res.ok) setOpeningReport(await res.json());
+    } catch (_e) {
+      /* card hidden on error */
+    }
+  };
+
+  const fetchRepeatMistakes = async () => {
+    try {
+      const res = await fetch(`${API}/coach/repeat-mistakes`, {
+        credentials: "include",
+      });
+      if (res.ok) setRepeatMistakes(await res.json());
+    } catch (_e) {
+      /* card hidden on error */
     }
   };
 
@@ -586,6 +612,74 @@ const Dashboard = ({ user }) => {
                 >
                   <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
                   {trapIntel.top_insight.cta}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* ━━━━━━━━━━ OPENING REPORT CARD ━━━━━━━━━━ */}
+          {/* Surfaces when the user has a losing track record in a
+              specific opening. Headline names it; CTA routes to opening
+              training. */}
+          {openingReport?.has_data && openingReport.problem_opening && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-rose-500 dark:text-rose-300/80 font-semibold mb-5">
+                Opening report
+              </div>
+              <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.04] p-6 md:p-7">
+                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
+                  {openingReport.problem_opening.headline}
+                </p>
+                <p className="text-[13px] text-muted-foreground mb-5">
+                  {openingReport.problem_opening.subline}
+                </p>
+                <button
+                  onClick={() =>
+                    navigate(
+                      `/training/prescribed?weakness=${openingReport.problem_opening.training_weakness}`
+                    )
+                  }
+                  className="h-10 px-5 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                >
+                  <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Study this opening
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* ━━━━━━━━━━ REPEAT MISTAKE PATTERN ━━━━━━━━━━ */}
+          {/* "You've done this in N different games" signal — cross-game
+              pattern detection that mirrors what a human coach would
+              notice over multiple sessions. */}
+          {repeatMistakes?.has_data && repeatMistakes.top_pattern && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
+                Pattern across your games
+              </div>
+              <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
+                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
+                  {repeatMistakes.top_pattern.headline}
+                </p>
+                {repeatMistakes.top_pattern.example_games?.length > 0 && (
+                  <p className="text-[13px] text-muted-foreground mb-5">
+                    Most recent: Move {repeatMistakes.top_pattern.example_games[0].move_number}{" "}
+                    {repeatMistakes.top_pattern.example_games[0].san}
+                    {repeatMistakes.top_pattern.example_games.length > 1 && (
+                      <> · {repeatMistakes.top_pattern.example_games.length} examples on record</>
+                    )}
+                  </p>
+                )}
+                <button
+                  onClick={() =>
+                    navigate(
+                      `/training/prescribed?weakness=${repeatMistakes.top_pattern.training_weakness}`
+                    )
+                  }
+                  className="h-10 px-5 rounded-lg bg-violet-500/90 hover:bg-violet-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                >
+                  <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Train this pattern
                 </button>
               </div>
             </section>
