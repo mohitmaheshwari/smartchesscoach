@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,101 @@ def _piece_letter_of_move(san: str) -> str:
     if s.startswith("O-O"):
         return "K"
     return s[0] if s[0].isupper() else "P"
+
+
+# python-chess piece_type → SAN letter
+_PIECE_TYPE_TO_LETTER = {
+    1: "P",  # PAWN
+    2: "N",  # KNIGHT
+    3: "B",  # BISHOP
+    4: "R",  # ROOK
+    5: "Q",  # QUEEN
+    6: "K",  # KING
+}
+
+# Material values used for the "trade, not hang" check. Standard values.
+_PIECE_VALUE = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9, 6: 1000}
+
+
+def _hung_piece_letter_after_move(fen_before: str, move_uci: str) -> Optional[str]:
+    """Return the SAN letter of the most-valuable piece the played move
+    genuinely left hanging. "Genuinely" = after netting out what the
+    move itself captured.
+
+    Why the netting matters: if the move was Qxg5 capturing a queen,
+    the user's queen is now sitting on g5 possibly attacked by a pawn
+    — but the *net material* of the whole trade is even. That's not a
+    hang, it's a trade. A naive "attacked + undefended" check would
+    mis-classify these as piece-hangs. This is what caused the
+    "you hung your queen" reports on forced queen trades.
+
+    Returns None when no piece is genuinely hung.
+    """
+    if not fen_before or not move_uci or len(move_uci) < 4:
+        return None
+    try:
+        import chess
+        board = chess.Board(fen_before)
+        mv = chess.Move.from_uci(move_uci)
+        if mv not in board.legal_moves:
+            return None
+
+        # What did we capture, if anything? This OFFSETS a hang loss.
+        captured_piece = board.piece_at(mv.to_square)
+        captured_value = (
+            _PIECE_VALUE.get(captured_piece.piece_type, 0) if captured_piece else 0
+        )
+        # En passant — the captured pawn is on a different square.
+        if board.is_en_passant(mv):
+            captured_value = _PIECE_VALUE[1]  # pawn
+
+        board.push(mv)
+        user_color = not board.turn
+        worst_victim_letter = None
+        worst_net_loss = 0  # strictly positive means real net loss (hang)
+
+        for sq, piece in board.piece_map().items():
+            if piece.color != user_color or piece.piece_type == chess.KING:
+                continue
+            attackers = board.attackers(not user_color, sq)
+            if not attackers:
+                continue
+            victim_value = _PIECE_VALUE.get(piece.piece_type, 0)
+            defenders = board.attackers(user_color, sq)
+            cheapest_attacker = min(
+                (_PIECE_VALUE.get(board.piece_at(a).piece_type, 0) for a in attackers),
+                default=0,
+            )
+
+            # Estimate what opponent gains by capturing. Undefended =
+            # opponent gets victim_value clean. Defended but attacker
+            # worth >= victim = we recapture, net victim vs attacker;
+            # opponent would only take if trade is favorable for them.
+            if not defenders:
+                gross_loss = victim_value
+            else:
+                # Simplified SEE: if attacker < victim, opponent wins
+                # (victim - attacker) material after we recapture.
+                # If attacker >= victim, they wouldn't voluntarily trade
+                # (and we wouldn't see this as a hang).
+                if cheapest_attacker < victim_value:
+                    gross_loss = victim_value - cheapest_attacker
+                else:
+                    continue  # not a hang — trade is bad for opponent
+
+            # Offset by what WE captured on this move (trade balancing).
+            net_loss = gross_loss - captured_value
+            if net_loss <= 0:
+                continue  # even or favorable — not a hang
+
+            # Track the worst net-loss; pick that piece as the headline.
+            if net_loss > worst_net_loss:
+                worst_net_loss = net_loss
+                worst_victim_letter = _PIECE_TYPE_TO_LETTER.get(piece.piece_type)
+
+        return worst_victim_letter
+    except Exception:
+        return None
 
 
 def _phase_from_move_number(move_number: int) -> str:
@@ -135,6 +230,7 @@ async def get_user_repeat_mistakes(db, user_id: str) -> Dict:
             "_id": 0,
             "game_id": 1,
             "stockfish_analysis.move_evaluations.move": 1,
+            "stockfish_analysis.move_evaluations.move_uci": 1,
             "stockfish_analysis.move_evaluations.cp_loss": 1,
             "stockfish_analysis.move_evaluations.fen_before": 1,
             "stockfish_analysis.move_evaluations.cognitive_gap": 1,
@@ -179,9 +275,25 @@ async def get_user_repeat_mistakes(db, user_id: str) -> Dict:
                 continue
 
             san = ev.get("move") or ""
-            piece_letter = _piece_letter_of_move(san)
             move_number = ev.get("move_number") or 0
             phase = _phase_from_move_number(move_number)
+
+            # For piece_safety, the piece that matters is the one ACTUALLY
+            # left hanging — which is often different from the moving
+            # piece. Recompute from the position. If the post-move scan
+            # finds no real hang (e.g., forced trade, defended piece,
+            # lower-value attacker), this move is NOT a genuine piece_safety
+            # incident — drop it rather than mislabel it.
+            if gap == "piece_safety":
+                hung_letter = _hung_piece_letter_after_move(
+                    ev.get("fen_before") or "",
+                    ev.get("move_uci") or "",
+                )
+                if not hung_letter:
+                    continue  # classifier mis-fired on a trade; skip
+                piece_letter = hung_letter
+            else:
+                piece_letter = _piece_letter_of_move(san)
 
             sig = (gap, piece_letter, phase)
             buckets[sig].add(game_id)
