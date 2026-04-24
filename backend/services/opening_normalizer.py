@@ -144,3 +144,36 @@ def curriculum_key_for_opening(canonical_name: str, user_color: str = "") -> Opt
     if base == "italian_game" and color == "black":
         return "italian_game_black"
     return base
+
+
+# Inverse of _CURRICULUM_KEYS. Built at import time.
+_KEY_TO_CANONICAL = {v: k for k, v in _CURRICULUM_KEYS.items()}
+
+
+def canonical_name_for_curriculum_key(opening_key: Optional[str]) -> Optional[str]:
+    """Given a curriculum key like "italian_game" or "italian_game_black",
+    return the canonical family name ("Italian Game"). Returns None when
+    no mapping exists.
+    """
+    if not opening_key:
+        return None
+    key = opening_key.strip().lower()
+    # Strip color suffix — both variants map to the same canonical family.
+    if key.endswith("_black"):
+        key = key[: -len("_black")]
+    elif key.endswith("_white"):
+        key = key[: -len("_white")]
+    return _KEY_TO_CANONICAL.get(key)
+
+
+def color_for_curriculum_key(opening_key: Optional[str]) -> Optional[str]:
+    """Return "black"/"white" when the curriculum key carries an explicit
+    color suffix, else None (color not constrained by the key itself)."""
+    if not opening_key:
+        return None
+    k = opening_key.strip().lower()
+    if k.endswith("_black"):
+        return "black"
+    if k.endswith("_white"):
+        return "white"
+    return None

@@ -210,7 +210,7 @@ async def get_opening_lesson(
         "user_id": user.user_id,
         "opening_key": opening_key
     })
-    
+
     user_progress = {}
     if progress_doc:
         user_progress = {
@@ -219,13 +219,98 @@ async def get_opening_lesson(
             "times_practiced": progress_doc.get("times_practiced", 0),
             "last_practiced": progress_doc.get("last_practiced")
         }
-    
+
+    user_mistakes = await _compute_opening_mistakes(user.user_id, opening_key)
+
     return {
         "opening": lesson_data,
         "user_progress": user_progress,
-        "user_mistakes": [],
+        "user_mistakes": user_mistakes,
         "learning_progress": user_progress,
     }
+
+
+async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict]:
+    """Pull this user's mistakes inside the opening phase for games that
+    actually belong to this opening family. Returns up to 5 worst mistakes
+    (by cp_loss) in descending order. Facts-only — empty when nothing
+    qualifies. No invention, no fallbacks.
+    """
+    from services.opening_normalizer import (
+        normalize_opening,
+        canonical_name_for_curriculum_key,
+        color_for_curriculum_key,
+    )
+
+    canonical = canonical_name_for_curriculum_key(opening_key)
+    if not canonical:
+        return []
+
+    color_filter = color_for_curriculum_key(opening_key)
+
+    query = {"user_id": user_id, "is_analyzed": True}
+    if color_filter:
+        query["user_color"] = color_filter
+
+    games = await db.games.find(
+        query,
+        {"_id": 0, "game_id": 1, "opening": 1, "user_color": 1},
+    ).to_list(500)
+
+    matching = [
+        g for g in games
+        if normalize_opening(g.get("opening")) == canonical
+    ]
+    if not matching:
+        return []
+
+    game_by_id = {g["game_id"]: g for g in matching if g.get("game_id")}
+    game_ids = list(game_by_id.keys())
+    if not game_ids:
+        return []
+
+    MISTAKE_CP_THRESHOLD = 50   # inaccuracy-or-worse
+    OPENING_PLY_LIMIT = 20      # first ~10 full moves
+
+    mistakes: List[Dict] = []
+    async for analysis in db.game_analyses.find(
+        {"user_id": user_id, "game_id": {"$in": game_ids}},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations": 1},
+    ):
+        game_id = analysis.get("game_id")
+        game = game_by_id.get(game_id)
+        if not game:
+            continue
+        user_color = (game.get("user_color") or "white").lower()
+        moves = (analysis.get("stockfish_analysis") or {}).get("move_evaluations") or []
+        for m in moves:
+            move_num = m.get("move_number") or 0
+            if move_num <= 0 or move_num > OPENING_PLY_LIMIT:
+                continue
+            # Filter to user's moves via FEN active color before the move.
+            fen_before = m.get("fen_before") or ""
+            if fen_before:
+                parts = fen_before.split()
+                if len(parts) >= 2:
+                    active = "white" if parts[1] == "w" else "black"
+                    if active != user_color:
+                        continue
+            cp_loss = m.get("cp_loss")
+            if cp_loss is None:
+                continue
+            cp_abs = abs(cp_loss)
+            if cp_abs < MISTAKE_CP_THRESHOLD:
+                continue
+            mistakes.append({
+                "game_id": game_id,
+                "move_number": move_num,
+                "your_move": m.get("move"),
+                "best_move": m.get("best_move"),
+                "cp_loss": cp_abs,
+            })
+
+    mistakes.sort(key=lambda x: -x["cp_loss"])
+    return mistakes[:5]
 
 
 @router.post("/openings/corrections")
