@@ -392,6 +392,32 @@ export default function PrescribedTraining() {
           </div>
         </div>
 
+        {/* Pool-thin note: we returned fewer puzzles than the session target.
+            Explains WHY so the user doesn't think the app is broken. Once
+            solved, puzzles don't reappear — the pool grows as games get
+            imported or other users contribute. */}
+        {trainingData.pool_thin && (
+          <div
+            className="mb-8 md:mb-10 px-4 py-3 rounded-lg border border-amber-500/25 bg-amber-500/[0.04]"
+            data-testid="pool-thin-notice"
+          >
+            <p className="text-[12px] text-amber-700 dark:text-amber-300/80 leading-relaxed">
+              {totalPuzzles === 0 ? (
+                <>
+                  No puzzles for <span className="font-medium">{focusName}</span> yet.
+                  Import more games or practice another pattern while the pool grows.
+                </>
+              ) : (
+                <>
+                  You've seen most of what we have for <span className="font-medium">{focusName}</span>.
+                  Solved puzzles don't repeat — more will arrive as you (or the community)
+                  add more games.
+                </>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* ─── Stage: board + coaching panel ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(320px,520px)_1fr] gap-8 lg:gap-14 items-start">
 
