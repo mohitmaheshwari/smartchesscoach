@@ -103,6 +103,12 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
     recent_counts = _count_patterns(recent_ids, analyses)
     older_counts = _count_patterns(older_ids, analyses)
 
+    # Minimum events before we'll claim improvement. Going from 3 mistakes
+    # to 2 across 10 games is -33% on paper but well within random noise.
+    # Requiring ≥5 events in the baseline window cuts out the small-sample
+    # false positives. Tunable as more data comes in.
+    MIN_BASELINE_EVENTS = 5
+
     # ─── 2. FIND PRIMARY IMPROVING PATTERN ───
     improvements = []
     for root_key, root_data in ROOT_PATTERNS.items():
@@ -111,14 +117,21 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
         old_per_game = old_count / len(older_ids) if older_ids else 0
         new_per_game = new_count / len(recent_ids) if recent_ids else 0
 
-        if old_per_game > 0:
+        # Gate: only compute a reduction % when the baseline has enough
+        # events to make the ratio meaningful. Otherwise tag as "stable"
+        # (no claim) instead of reporting a noisy percentage.
+        if old_count < MIN_BASELINE_EVENTS:
+            reduction_pct = 0
+            trend = "insufficient_data"
+        elif old_per_game > 0:
             reduction_pct = round((1 - new_per_game / old_per_game) * 100)
+            trend = "improving" if reduction_pct >= 20 else "worsening" if reduction_pct <= -20 else "stable"
         elif new_per_game == 0:
-            reduction_pct = 0  # No data
+            reduction_pct = 0
+            trend = "stable"
         else:
-            reduction_pct = -100  # Getting worse from zero
-
-        trend = "improving" if reduction_pct >= 20 else "worsening" if reduction_pct <= -20 else "stable"
+            reduction_pct = -100
+            trend = "worsening"
 
         improvements.append({
             "pattern": root_key,

@@ -211,9 +211,12 @@ const HomePage = ({ user }) => {
   const lastMoves = lastSession?.total_moves;
   const hasEvidence = Boolean(lastStory || lastBoard);
 
-  // Improvement trend — optional
+  // Improvement trend — optional, and only shown when the backend says the
+  // sample is big enough to make a claim (trend !== "insufficient_data").
+  // Noise-gated: baseline window must have ≥5 events of the pattern.
   const trendShowing =
     proof?.has_data &&
+    proof.primary_pattern?.trend !== "insufficient_data" &&
     (proof.primary_pattern?.reduction_pct > 0 ||
       proof.streaks?.no_big_mistake_games >= 3);
 
@@ -301,7 +304,7 @@ const HomePage = ({ user }) => {
                           {proof.primary_pattern?.label?.toLowerCase() || "mistakes"}
                         </p>
                         <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground mt-1.5 font-medium">
-                          30-day trend
+                          Last 10 games vs previous 10
                         </p>
                       </div>
                     </div>
