@@ -25,9 +25,10 @@ class GameDiagnosis:
     TIME_LOSS_WHILE_WINNING = "TIME_LOSS_WHILE_WINNING"  # Had a winning peak but lost on the clock
     MATE_BLIND = "MATE_BLIND"                  # Allowed a real short mate (confirmed by mate_info + delivery)
     SLOW_BLEED = "SLOW_BLEED"                  # Accumulated small mistakes, no big blunder
-    OPENING_COLLAPSE = "OPENING_COLLAPSE"      # First blunder in opening, theory/positional
+    OPENING_COLLAPSE = "OPENING_COLLAPSE"      # Majority of mistakes in opening — real theory/positional gap
     PIECE_GIVEAWAY = "PIECE_GIVEAWAY"          # 1–3 single-move blunders hung material
     REPEATED_BLUNDERS = "REPEATED_BLUNDERS"    # 4+ blunders — pattern of one-move blindness
+    SCATTERED_MISTAKES = "SCATTERED_MISTAKES"  # Mistakes distributed across phases — named by recurring gap
     TACTICAL_MISS = "TACTICAL_MISS"            # Missed a tactic, moderate cp_loss
     TIME_COLLAPSE = "TIME_COLLAPSE"            # Multiple blunders clustered in final quarter
     WON_CLEAN = "WON_CLEAN"                    # Won without major mistakes
@@ -135,6 +136,9 @@ def _extract_facts(move_evaluations: List[Dict], user_color: str) -> Dict:
             "best_move": best_move,
             "phase": _phase_from_move_number(move_number),
             "user_mate_after": user_mate_after,
+            # cognitive_gap tagged upstream by analysis_interpreter — needed
+            # for the SCATTERED_MISTAKES theme detection below.
+            "cognitive_gap": m.get("cognitive_gap") or "",
         })
 
     if not user_moves:
@@ -421,9 +425,71 @@ def _summarize_loss(profile: Dict, opening_name: str, termination: str) -> Dict:
             "Before every move: what's attacked? What happens if I move anyway?"
         )
 
-    # 5. Opening collapse — only reached when the blunder(s) are in the opening
-    # and cp_loss is modest (< 300, not a material hang).
-    if profile["blunders_in_opening"] and blunders and blunders[0]["phase"] == "opening":
+    # 5a. Scattered mistakes — 4+ errors distributed across phases, no single
+    # phase dominates, and there's a recurring cognitive-gap theme. This is
+    # the honest diagnosis when the game is long and the mistakes aren't
+    # concentrated (e.g. a 47-move game with errors in opening + middle +
+    # endgame, all tagged king_safety — the lesson is the theme, not a
+    # single phase).
+    all_errors = mistakes + blunders  # cp_loss >= 100
+    if len(all_errors) >= 4:
+        phase_counts = {"opening": 0, "middlegame": 0, "endgame": 0}
+        for m in all_errors:
+            p = m.get("phase", "middlegame")
+            if p in phase_counts:
+                phase_counts[p] += 1
+        max_phase_share = max(phase_counts.values()) / len(all_errors)
+        is_scattered = max_phase_share < 0.6  # no phase dominates
+
+        # Find the recurring cognitive-gap theme across errors.
+        gap_counts: Dict[str, int] = {}
+        for m in all_errors:
+            gap = m.get("cognitive_gap") or ""
+            if gap:
+                gap_counts[gap] = gap_counts.get(gap, 0) + 1
+        top_gap = None
+        top_gap_count = 0
+        if gap_counts:
+            top_gap = max(gap_counts, key=gap_counts.get)
+            top_gap_count = gap_counts[top_gap]
+
+        if is_scattered:
+            theme_human = (top_gap or "").replace("_", " ")
+            if top_gap and top_gap_count >= 3:
+                headline = f"Mistakes scattered across the game — {theme_human} was the theme."
+                subline = f"{top_gap_count} of your {len(all_errors)} mistakes were about {theme_human}."
+            else:
+                headline = "Mistakes scattered across the game."
+                subline = (
+                    f"{len(all_errors)} errors spread across opening, middle, and endgame — "
+                    "no single moment decided it."
+                )
+            return _build_summary(
+                GameDiagnosis.SCATTERED_MISTAKES,
+                headline, subline, worst,
+                _detail_context([
+                    f"By phase: opening {phase_counts['opening']}, "
+                    f"middlegame {phase_counts['middlegame']}, "
+                    f"endgame {phase_counts['endgame']}",
+                    f"Worst single move: Move {worst['move_number']} {worst['san']} "
+                    f"({worst['cp_loss'] / 100:.1f} pawns)",
+                ]),
+                (
+                    f"The habit to build: before every move, {_habit_for_gap(top_gap)}."
+                    if top_gap else
+                    "The pattern isn't a single moment — it's a habit check every move."
+                )
+            )
+
+    # 5b. Opening collapse — tightened: require MAJORITY of mistakes to be
+    # in the opening. Previously fired when just the first blunder was in
+    # the opening, which mis-narrated games where errors were actually
+    # scattered across phases.
+    opening_errors = [m for m in all_errors if m.get("phase") == "opening"]
+    opening_dominates = (
+        len(all_errors) > 0 and len(opening_errors) / len(all_errors) >= 0.6
+    )
+    if opening_dominates and profile["blunders_in_opening"] and blunders and blunders[0]["phase"] == "opening":
         first = profile["blunders_in_opening"][0]
         headline = "Your opening broke."
         subline = f"Move {first['move_number']} {first['san']} was the first critical error."
@@ -433,6 +499,7 @@ def _summarize_loss(profile: Dict, opening_name: str, termination: str) -> Dict:
             headline, subline, first,
             _detail_context([
                 f"Opening phase lost {sum(m['cp_loss'] for m in profile['blunders_in_opening'])} centipawns{opening_tail}",
+                f"{len(opening_errors)} of {len(all_errors)} mistakes were in the opening",
                 "You were already struggling before the middlegame started",
             ]),
             "This opening needs study. Know the key ideas, not just the moves."
@@ -533,6 +600,27 @@ def _summarize_win(profile: Dict) -> Dict:
         _win_context(user_moves, total_cp_loss, opp_blunders),
         "A win is a win, but those blunders will cost you against stronger opponents."
     )
+
+
+def _habit_for_gap(gap: str) -> str:
+    """Map a cognitive_gap tag to the habit to build, in coach voice.
+
+    Used by SCATTERED_MISTAKES to name the habit that would prevent the
+    recurring theme. Falls back to a generic check if the gap is unknown.
+    """
+    habits = {
+        "piece_safety":       "scan your pieces — is anything undefended",
+        "king_safety":        "check your king's safety",
+        "ignore_threat":      "name what your opponent just threatened",
+        "calculation_depth":  "picture their best reply before committing",
+        "missed_tactic":      "scan checks, captures, threats",
+        "tactical_oversight": "pause for their sharpest response",
+        "pawn_structure":     "ask what square this pawn move weakens",
+        "piece_activity":     "look for moves that activate sleeping pieces",
+        "opening_knowledge":  "know the key ideas, not just the moves",
+        "endgame_technique":  "active king, passed pawns, clean decisions",
+    }
+    return habits.get(gap, "pause and ask what the position needs")
 
 
 def _phase_from_move_number(move_number: int) -> str:
