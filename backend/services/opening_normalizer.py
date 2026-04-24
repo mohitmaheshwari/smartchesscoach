@@ -110,3 +110,37 @@ def normalize_opening(name: Optional[str]) -> str:
         if keyword.lower() in lower:
             return canonical
     return "Other"
+
+
+# Canonical family name → opening_curriculum.json key. Only families with
+# actual lesson content are mapped. Others return None and the caller falls
+# back to the Openings overview or a training route.
+_CURRICULUM_KEYS = {
+    "Italian Game":           "italian_game",
+    "London System":          "london_system",
+    "Sicilian Defense":       "sicilian_defense",
+    "Caro-Kann":              "caro_kann",
+    "French Defense":         "french_defense",
+    "Queen's Gambit":         "queens_gambit",
+    "Scandinavian Defense":   "scandinavian_defense",
+    "Ruy Lopez":              "ruy_lopez",
+}
+
+
+def curriculum_key_for_opening(canonical_name: str, user_color: str = "") -> Optional[str]:
+    """
+    Map a canonical opening family name to its curriculum key, if a lesson
+    exists for it. Some openings (notably Italian Game) have a distinct
+    black-side variant — we use the user_color to pick the right one.
+
+    Returns None when no curriculum entry exists, so callers can fall back
+    to a generic route.
+    """
+    base = _CURRICULUM_KEYS.get(canonical_name)
+    if not base:
+        return None
+    # Italian Game has a separate `italian_game_black` curriculum entry.
+    color = (user_color or "").lower()
+    if base == "italian_game" and color == "black":
+        return "italian_game_black"
+    return base

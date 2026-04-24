@@ -22,7 +22,7 @@ import logging
 from collections import defaultdict
 from typing import Dict, List
 
-from services.opening_normalizer import normalize_opening
+from services.opening_normalizer import normalize_opening, curriculum_key_for_opening
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,10 @@ async def get_user_opening_report(db, user_id: str) -> Dict:
             **top,
             "headline": headline,
             "subline": subline,
-            # Route to opening_knowledge training — the most relevant gap.
+            # Route preference: opening lesson first (honest — the CTA says
+            # "Study this opening"), training_weakness as fallback when no
+            # curriculum entry exists for that family.
+            "opening_key": curriculum_key_for_opening(top["name"], top["color"]),
             "training_weakness": "opening_knowledge",
         }
 

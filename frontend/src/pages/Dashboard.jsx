@@ -646,8 +646,10 @@ const Dashboard = ({ user }) => {
 
           {/* ━━━━━━━━━━ OPENING REPORT CARD ━━━━━━━━━━ */}
           {/* Surfaces when the user has a losing track record in a
-              specific opening. Headline names it; CTA routes to opening
-              training. */}
+              specific opening. CTA routes to the opening LESSON when we
+              have one (opening_key matches a curriculum entry); otherwise
+              falls back to the opening overview page so we never route
+              "Study this opening" to generic training puzzles. */}
           {openingReport?.has_data && openingReport.problem_opening && (
             <section className="mb-16 md:mb-24">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-rose-500 dark:text-rose-300/80 font-semibold mb-5">
@@ -661,11 +663,10 @@ const Dashboard = ({ user }) => {
                   {openingReport.problem_opening.subline}
                 </p>
                 <button
-                  onClick={() =>
-                    navigate(
-                      `/training/prescribed?weakness=${openingReport.problem_opening.training_weakness}`
-                    )
-                  }
+                  onClick={() => {
+                    const key = openingReport.problem_opening.opening_key;
+                    navigate(key ? `/openings/${key}` : `/openings`);
+                  }}
                   className="h-10 px-5 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                 >
                   <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -792,7 +793,9 @@ const Dashboard = ({ user }) => {
 
           {/* ━━━━━━━━━━ OPENING-KNOWLEDGE BAND BENCHMARK ━━━━━━━━━━ */}
           {/* The only cognitive_gap with a real cross-band signal. Only shows
-              when the user is meaningfully above their band's average. */}
+              when the user is meaningfully above their band's average. CTA
+              routes to /openings (overview) — "Study your openings" is an
+              opening lesson flow, not generic training puzzles. */}
           {openingBenchmark?.has_data && (
             <section className="mb-16 md:mb-24">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-orange-600 dark:text-orange-300/80 font-semibold mb-5">
@@ -806,9 +809,7 @@ const Dashboard = ({ user }) => {
                   {openingBenchmark.subline}
                 </p>
                 <button
-                  onClick={() =>
-                    navigate(`/training/prescribed?weakness=${openingBenchmark.training_weakness}`)
-                  }
+                  onClick={() => navigate("/openings")}
                   className="h-10 px-5 rounded-lg bg-orange-500/90 hover:bg-orange-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
                 >
                   <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
