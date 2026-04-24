@@ -252,14 +252,18 @@ async def record_puzzle_attempt_endpoint(
     """Record an attempt on a training puzzle."""
     global db
     from datetime import datetime, timezone
-    
+
     puzzle_id = request.get("puzzle_id")
     correct = request.get("correct", False)
     time_taken_ms = request.get("time_taken_ms")
     moves_tried = request.get("moves_tried", [])
     weakness_type = request.get("weakness_type", "unknown")
-    
-    # Store the attempt
+    # NEW: optional move-quality field from the graduated evaluator.
+    # Tracks whether the user played best / acceptable / wrong, so we can
+    # later distinguish "user is solving puzzles cleanly" from "user is
+    # scraping by with near-best moves".
+    quality = request.get("quality")  # best / excellent / good / inaccuracy / mistake / blunder / None
+
     attempt = {
         "user_id": user.user_id,
         "puzzle_id": puzzle_id,
@@ -267,16 +271,54 @@ async def record_puzzle_attempt_endpoint(
         "time_taken_ms": time_taken_ms,
         "moves_tried": moves_tried,
         "weakness_type": weakness_type,
+        "quality": quality,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-    
+
     await db.puzzle_attempts.insert_one(attempt)
-    
+
     return {
         "success": True,
         "correct": correct,
         "message": "Attempt recorded"
     }
+
+
+@router.post("/evaluate-puzzle-move")
+async def evaluate_puzzle_move_endpoint(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Grade a user's move in a training puzzle against Stockfish.
+
+    Replaces binary string-match grading with a graduated classification:
+      best / excellent / good / inaccuracy / mistake / blunder.
+
+    Body:
+      fen: position before the user's move (puzzle.fen)
+      played_uci: the user's move in UCI (e.g. "e2e4")
+      known_best_san: optional — the puzzle's stored best move in SAN, used
+                      to confirm exact-match without an extra engine call.
+
+    Returns:
+      { quality, cp_loss, is_best, is_acceptable, best_move_san,
+        user_move_san, feedback }
+    """
+    fen = (request.get("fen") or "").strip()
+    played_uci = (request.get("played_uci") or "").strip()
+    known_best_san = (request.get("known_best_san") or "").strip() or None
+
+    if not fen or not played_uci:
+        raise HTTPException(status_code=400, detail="fen and played_uci are required")
+
+    from services.puzzle_move_evaluator import evaluate_puzzle_move
+    result = await evaluate_puzzle_move(
+        fen=fen,
+        played_uci=played_uci,
+        known_best_san=known_best_san,
+    )
+    return result
 
 
 # ==================== ONE-MOVE BLUNDERS ====================

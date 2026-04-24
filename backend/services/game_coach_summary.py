@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 # ─── GAME DIAGNOSIS TYPES ────────────────────────────────────────
 
 class GameDiagnosis:
-    THROW = "THROW"                            # Was winning, threw it away
-    MATE_BLIND = "MATE_BLIND"                  # Allowed a real short mate (confirmed by mate_info)
+    THROW = "THROW"                            # Was winning, threw it away in one decisive moment
+    TIME_LOSS_WHILE_WINNING = "TIME_LOSS_WHILE_WINNING"  # Had a winning peak but lost on the clock
+    MATE_BLIND = "MATE_BLIND"                  # Allowed a real short mate (confirmed by mate_info + delivery)
     SLOW_BLEED = "SLOW_BLEED"                  # Accumulated small mistakes, no big blunder
     OPENING_COLLAPSE = "OPENING_COLLAPSE"      # First blunder in opening, theory/positional
     PIECE_GIVEAWAY = "PIECE_GIVEAWAY"          # 1–3 single-move blunders hung material
@@ -157,12 +158,19 @@ def _extract_facts(move_evaluations: List[Dict], user_color: str) -> Dict:
     ]
 
     # THROW: user's eval peaked at +3.0 or better, then a blunder dropped
-    # them from winning (eval_before >= +2.0) to equal-or-losing.
+    # them from winning (eval_before >= +2.0) to equal-or-losing AND the
+    # user NEVER came back above +2.0 afterwards. If they recovered, this
+    # wasn't a true throw — it was an oscillating game and the real story
+    # is elsewhere (repeated blunders, time loss, etc.).
     threw_from_winning = False
     throw_move = None
     if peak_user_eval >= 300:
         for b in blunders:
             if b["eval_before"] >= 200 and b["eval_after"] < 100:
+                later_user_moves = [m for m in user_moves if m["index"] > b["index"]]
+                recovered = any(m["eval_before"] >= 200 for m in later_user_moves)
+                if recovered:
+                    continue  # not a real throw — user came back after this
                 throw_move = b
                 threw_from_winning = True
                 break
@@ -305,6 +313,27 @@ def _summarize_loss(profile: Dict, opening_name: str, termination: str) -> Dict:
         if extra:
             ctx.extend(extra)
         return ctx
+
+    # 0. Time loss while winning — if the user had a real winning peak
+    # (+3.0 or better) and the game ended on the clock, the lesson is
+    # clock discipline, not "you let it slip". Routed ABOVE all the
+    # position-based branches because termination dominates here.
+    is_timeout = "time" in termination.lower() and "insufficient" not in termination.lower()
+    if is_timeout and profile["peak_user_eval"] >= 300:
+        peak = profile["peak_user_eval"]
+        headline = "You had winning positions. Ran out the clock."
+        subline = f"Peak advantage +{peak / 100:.1f}, but the clock beat the board."
+        extra = [
+            f"Peak advantage: +{peak / 100:.1f}",
+            f"{len(blunders)} blunder{'s' if len(blunders) != 1 else ''} across {total_moves} moves",
+        ]
+        return _build_summary(
+            GameDiagnosis.TIME_LOSS_WHILE_WINNING,
+            headline, subline,
+            worst if worst["cp_loss"] >= 150 else None,
+            _detail_context(extra),
+            "Clock discipline: in winning positions, play fast, simple moves. Save thinking time for critical choices."
+        )
 
     # 1. Real short mate — engine confirms opponent had mate ≤ 5 moves.
     if short_mate_moves:
@@ -913,6 +942,18 @@ def _infer_hung_piece(played_san: str, best_san: str, cp_loss: int) -> str:
         "N": "a knight",
         "P": "a pawn",
     }
+
+    # If the best move is a CAPTURE (contains 'x'), the user missed an
+    # opportunity to take opponent material — they did NOT hang a piece of
+    # their own. Returning a piece name here would mislead: e.g. best=Nxc3
+    # vs played=Bd6 would say "cost you a knight" when the user actually
+    # missed capturing opponent's knight. Return empty so callers fall
+    # back to the "gave it back" phrasing instead of "cost you X".
+    best_is_capture = "x" in (best_san or "")
+    played_is_capture = "x" in (played_san or "")
+    if best_is_capture and not played_is_capture:
+        return ""
+
     if best_piece and played_piece and best_piece != played_piece:
         return names.get(best_piece, "material")
 

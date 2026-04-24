@@ -132,60 +132,106 @@ export default function PrescribedTraining() {
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
   
   // Handle move attempt
-  const onDrop = (sourceSquare, targetSquare) => {
+  const onDrop = async (sourceSquare, targetSquare) => {
     if (puzzleState !== "thinking") return false;
     if (!currentPuzzle) return false;
-    
+
+    let move;
     try {
-      const move = game.move({
+      move = game.move({
         from: sourceSquare,
         to: targetSquare,
-        promotion: "q"
+        promotion: "q",
       });
-      
-      if (move === null) return false;
-      
-      setUserMove(move.san);
-      
-      // Check if correct
-      const solution = currentPuzzle.solution || [];
-      const correctMove = solution[0];
-      const userMoveUci = `${sourceSquare}${targetSquare}`;
-      
-      // Compare moves (handle SAN or UCI notation)
-      const isCorrect = move.san === correctMove || 
-                       move.san === currentPuzzle.solution_san ||
-                       userMoveUci === correctMove ||
-                       move.lan?.toLowerCase() === correctMove?.toLowerCase();
-      
-      if (isCorrect) {
-        setPuzzleState("correct");
-        setSolvedCount(prev => prev + 1);
-        setStreak(prev => prev + 1);
-        setEncouragement(getEncouragement("correct", streak + 1));
-        
-        // Record attempt
-        recordAttempt(currentPuzzle, true);
-      } else {
-        setPuzzleState("incorrect");
-        setStreak(0);
-        setEncouragement(getEncouragement("incorrect"));
-        // Undo the wrong move
-        game.undo();
-        setGame(new Chess(game.fen()));
-        
-        // Record attempt
-        recordAttempt(currentPuzzle, false);
-      }
-      
-      return true;
     } catch (e) {
       return false;
     }
+    if (move === null) return false;
+
+    setUserMove(move.san);
+    const userMoveUci = `${sourceSquare}${targetSquare}${move.promotion || ""}`;
+
+    // Binary-match fallback — used if the graduated evaluator fails. Keeps
+    // the puzzle usable even when Stockfish is slow/unavailable.
+    const solution = currentPuzzle.solution || [];
+    const binaryCorrect =
+      move.san === solution[0] ||
+      move.san === currentPuzzle.solution_san ||
+      userMoveUci === solution[0] ||
+      move.lan?.toLowerCase() === solution[0]?.toLowerCase();
+
+    // Optimistic UI: mark evaluating while Stockfish runs (~100-200ms).
+    setPuzzleState("evaluating");
+
+    let result = null;
+    try {
+      const res = await fetch(`${API}/training/evaluate-puzzle-move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen: currentPuzzle.fen,
+          played_uci: userMoveUci,
+          known_best_san: currentPuzzle.solution_san || solution[0] || "",
+        }),
+      });
+      if (res.ok) {
+        result = await res.json();
+      }
+    } catch (_e) {
+      // Network error — we'll fall through to binary-match fallback.
+    }
+
+    // If the evaluator returned something usable, route by quality.
+    if (result && result.quality && result.quality !== "invalid") {
+      const bestSan = result.best_move_san || currentPuzzle.solution_san || "";
+      const feedback = result.feedback || "";
+
+      if (result.is_best) {
+        setPuzzleState("correct");
+        setSolvedCount((prev) => prev + 1);
+        setStreak((prev) => prev + 1);
+        setEncouragement(feedback || getEncouragement("correct", streak + 1));
+        recordAttempt(currentPuzzle, true, result.quality);
+      } else if (result.is_acceptable) {
+        // Good enough to advance, but name the sharper move. No streak credit —
+        // strict lesson: the specific tactic mattered.
+        setPuzzleState("acceptable");
+        setSolvedCount((prev) => prev + 1);
+        setEncouragement(feedback || `Solid. ${bestSan} was sharper.`);
+        recordAttempt(currentPuzzle, true, result.quality);
+      } else {
+        setPuzzleState("incorrect");
+        setStreak(0);
+        setEncouragement(feedback || getEncouragement("incorrect"));
+        game.undo();
+        setGame(new Chess(game.fen()));
+        recordAttempt(currentPuzzle, false, result.quality);
+      }
+      return true;
+    }
+
+    // Fallback: evaluator unavailable → binary-match.
+    if (binaryCorrect) {
+      setPuzzleState("correct");
+      setSolvedCount((prev) => prev + 1);
+      setStreak((prev) => prev + 1);
+      setEncouragement(getEncouragement("correct", streak + 1));
+      recordAttempt(currentPuzzle, true);
+    } else {
+      setPuzzleState("incorrect");
+      setStreak(0);
+      setEncouragement(getEncouragement("incorrect"));
+      game.undo();
+      setGame(new Chess(game.fen()));
+      recordAttempt(currentPuzzle, false);
+    }
+    return true;
   };
   
-  // Record puzzle attempt
-  const recordAttempt = async (puzzle, solved) => {
+  // Record puzzle attempt. `quality` is optional — set when the graduated
+  // evaluator ran; omitted on binary-match fallback.
+  const recordAttempt = async (puzzle, solved, quality = null) => {
     try {
       await fetch(`${API}/training/puzzle-attempt`, {
         method: "POST",
@@ -193,10 +239,11 @@ export default function PrescribedTraining() {
         credentials: "include",
         body: JSON.stringify({
           puzzle_id: puzzle.puzzle_id || puzzle.game_id,
-          solved,
-          time_taken: 0, // TODO: track time
-          weakness_pattern: weakness
-        })
+          correct: solved,
+          time_taken_ms: 0, // TODO: track time
+          weakness_type: weakness,
+          quality,
+        }),
       });
     } catch (e) {
       console.error("Error recording attempt:", e);
@@ -264,7 +311,10 @@ export default function PrescribedTraining() {
     );
   }
   
-  const isComplete = currentPuzzleIndex >= trainingData.puzzles.length - 1 && puzzleState === "correct";
+  // "acceptable" counts as solved for session-complete purposes — it was
+  // good enough to advance, just not the sharpest.
+  const isSolvedState = puzzleState === "correct" || puzzleState === "acceptable";
+  const isComplete = currentPuzzleIndex >= trainingData.puzzles.length - 1 && isSolvedState;
   const totalPuzzles = trainingData.puzzles.length;
   const focusName =
     trainingData.coaching_intro?.lesson ||
@@ -276,7 +326,7 @@ export default function PrescribedTraining() {
   const pips = Array.from({ length: totalPuzzles }, (_, i) => {
     if (i < currentPuzzleIndex) return "solved";
     if (i === currentPuzzleIndex) {
-      if (puzzleState === "correct") return "solved";
+      if (puzzleState === "correct" || puzzleState === "acceptable") return "solved";
       if (puzzleState === "incorrect") return "missed";
       return "current";
     }
@@ -424,7 +474,7 @@ export default function PrescribedTraining() {
 
           {/* Coaching panel */}
           <div className="pt-2 flex flex-col min-h-[480px]">
-            {puzzleState === "thinking" ? (
+            {(puzzleState === "thinking" || puzzleState === "evaluating") ? (
               <PuzzlePrompt
                 framing={
                   currentPuzzle?.framing_text ||
@@ -433,7 +483,7 @@ export default function PrescribedTraining() {
                     ? `From your own game — you had this position and the coach thought you could do better.`
                     : `This puzzle trains ${weakness.replace(/_/g, " ")}. Keep solving similar patterns and the recognition sticks.`)
                 }
-                question={socraticQuestion}
+                question={puzzleState === "evaluating" ? "Checking your move…" : socraticQuestion}
                 toMoveLabel={toMoveLabel}
                 missRateText={
                   currentPuzzle?.source !== "your_game" ? currentPuzzle?.miss_rate_text : null
@@ -448,19 +498,24 @@ export default function PrescribedTraining() {
                 outcome={
                   puzzleState === "correct"
                     ? "correct"
-                    : puzzleState === "revealed"
-                      ? "revealed"
-                      : "missed"
+                    : puzzleState === "acceptable"
+                      ? "correct"  // advance path — "solid but not sharpest"
+                      : puzzleState === "revealed"
+                        ? "revealed"
+                        : "missed"
                 }
                 principle={
-                  puzzleState === "correct"
+                  // "acceptable" always has the evaluator's feedback
+                  // ("Solid. X was sharper"). "correct" uses feedback if
+                  // provided, else the generic encouragement.
+                  isSolvedState
                     ? encouragement ||
                       "You saw the pattern. That's exactly the instinct we're building."
                     : currentPuzzle?.coaching?.what_you_missed ||
                       "Before moving, always check what your opponent just threatened."
                 }
                 san={
-                  puzzleState === "correct"
+                  isSolvedState
                     ? solvedMoves
                     : currentPuzzle?.your_move && solvedMoves
                       ? `${currentPuzzle.your_move} (you played) · ${solvedMoves} (solution)`
