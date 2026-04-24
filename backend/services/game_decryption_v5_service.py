@@ -2687,12 +2687,18 @@ async def generate_game_decryption_v5(
                 "fen_after": board.fen(),
                 "phase": phase,
                 "opening_name": opening_name,
-                
+
                 # Evaluation - include opponent eval data too
                 "cp_loss": cp_loss if is_user else opp_cp_loss,
                 "eval_before": eval_data.get("eval_before") if is_user else opp_eval_before,
                 "eval_after": eval_data.get("eval_after") if is_user else opp_eval_after,
                 "best_move_san": best_move,
+                # Threaded for the deterministic PV tactical analyzer so it
+                # can explain why the best move works (material gained,
+                # forks, defender deflection, etc.) instead of relying on
+                # the LLM narrator to guess the reason.
+                "best_move_uci": eval_data.get("best_move_uci", ""),
+                "pv_after_best": pv_after_best,
                 "severity": severity,
                 "is_mistake": severity in ("mistake", "blunder", "opp_blunder", "opp_mistake"),
                 
@@ -2751,41 +2757,76 @@ async def generate_game_decryption_v5(
         
         logger.info(f"[DECRYPTION V5] Generated coaching for {len(decryption_data)} moves")
         
-        # ─── LLM ENHANCEMENT PASS ────────────────────────────────────
-        # Enhance mistakes/inaccuracies with LLM for more natural language
+        # ─── NARRATIVE ENHANCEMENT PASS ───────────────────────────────
+        # Two-stage narrative: try the deterministic PV tactical analyzer
+        # first (walks Stockfish's principal variation with python-chess;
+        # grounded, no fabrication). If it finds a concrete tactical reason
+        # (fork, deflection, material gain), use that as the narrative. If
+        # not, fall back to the LLM narrator for positional/vague mistakes
+        # where the PV doesn't yield a clean tactical signal.
         try:
+            from services.pv_tactical_analyzer import explain_best_move_tactically
             from services.v5_llm_narrator import generate_concise_narrative
-            
+
             mistakes_to_enhance = [
                 (i, m) for i, m in enumerate(decryption_data)
-                if m.get("severity") in ("mistake", "blunder", "inaccuracy") 
+                if m.get("severity") in ("mistake", "blunder", "inaccuracy")
                 and m.get("plan")
                 and m.get("priority") != "silent"
             ]
-            
+
             if mistakes_to_enhance:
-                logger.info(f"[DECRYPTION V5] Enhancing {len(mistakes_to_enhance)} mistakes with LLM...")
-                
+                logger.info(
+                    f"[DECRYPTION V5] Enhancing {len(mistakes_to_enhance)} mistakes "
+                    f"(deterministic tactical first, LLM fallback)..."
+                )
+
+                det_hits = 0
+                llm_hits = 0
+
                 for idx, move_data in mistakes_to_enhance:
+                    # Stage 1: deterministic PV walk.
+                    det_narrative = None
+                    try:
+                        det_narrative = explain_best_move_tactically(
+                            fen_before=move_data.get("fen_before", ""),
+                            best_move_uci=move_data.get("best_move_uci", ""),
+                            best_move_san=move_data.get("best_move_san", ""),
+                            pv_after_best=move_data.get("pv_after_best") or [],
+                        )
+                    except Exception as e:
+                        logger.debug(f"PV analyzer failed for move {idx}: {e}")
+
+                    if det_narrative:
+                        decryption_data[idx]["narrative"] = det_narrative
+                        decryption_data[idx]["narrative_source"] = "pv_tactical"
+                        det_hits += 1
+                        continue
+
+                    # Stage 2: LLM narrator fallback.
                     try:
                         llm_narrative = await generate_concise_narrative(
                             move_san=move_data.get("move_san", ""),
                             plan_data=move_data.get("plan", {}),
                             phase=move_data.get("phase", "middlegame"),
                             severity=move_data.get("severity", "mistake"),
-                            is_user_move=True
+                            is_user_move=True,
                         )
                         if llm_narrative:
                             decryption_data[idx]["narrative"] = llm_narrative
-                            decryption_data[idx]["llm_enhanced"] = True
+                            decryption_data[idx]["narrative_source"] = "llm"
+                            llm_hits += 1
                     except Exception as e:
                         logger.warning(f"LLM enhancement failed for move {idx}: {e}")
-                        
-                logger.info("[DECRYPTION V5] LLM enhancement complete")
+
+                logger.info(
+                    f"[DECRYPTION V5] Narrative pass complete: "
+                    f"{det_hits} deterministic, {llm_hits} LLM fallback"
+                )
         except ImportError:
-            logger.warning("[DECRYPTION V5] LLM narrator not available, using rule-based narratives")
+            logger.warning("[DECRYPTION V5] Narrative enhancers not available, using rule-based narratives")
         except Exception as e:
-            logger.warning(f"[DECRYPTION V5] LLM enhancement skipped: {e}")
+            logger.warning(f"[DECRYPTION V5] Narrative enhancement skipped: {e}")
         
         return decryption_data
         
