@@ -79,6 +79,39 @@ def get_traps_by_difficulty(difficulty: str) -> List[Dict]:
     return out
 
 
+# ── Training routing ──────────────────────────────────────────────────
+#
+# Each trap maps to a cognitive_gap weakness — used to route Lab-page
+# trap-intelligence cards to `/training/prescribed?weakness=<X>`.
+#
+# Rule of thumb:
+#   - checkmate traps         → king_safety (teaches defending the king)
+#   - wins_material traps     → tactical_oversight (teaches seeing threats)
+#   - anything else           → tactical_oversight (safe default)
+#
+# Tag per trap in the JSON via `training_weakness` if you want a different
+# mapping than the rule above.
+
+DEFAULT_TRAINING_WEAKNESS = "tactical_oversight"
+
+
+def training_weakness_for_trap(trap: Dict) -> str:
+    """Return the cognitive_gap weakness to route this trap's training to.
+
+    Prefers the explicit `training_weakness` field on the trap; otherwise
+    infers from `result_type`.
+    """
+    explicit = trap.get("training_weakness")
+    if explicit:
+        return explicit
+    rt = (trap.get("result_type") or "").lower()
+    if "mate" in rt:  # matches "checkmate"
+        return "king_safety"
+    if "material" in rt:
+        return "tactical_oversight"
+    return DEFAULT_TRAINING_WEAKNESS
+
+
 def find_relevant_trap(fen: str, move_history: List[str]) -> Optional[Dict]:
     """If the current move history matches any trap setup, return it."""
     normalized_history = [m.replace("+", "").replace("#", "").lower() for m in move_history]

@@ -132,9 +132,13 @@ const Dashboard = ({ user }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all | unreviewed | losses | coach | week
+  // Trap intelligence — only shows a card when the user has actually hit a
+  // trap setup in their games. Hidden otherwise.
+  const [trapIntel, setTrapIntel] = useState(null);
 
   useEffect(() => {
     fetchData();
+    fetchTrapIntel();
   }, []);
 
   const fetchData = async () => {
@@ -148,6 +152,17 @@ const Dashboard = ({ user }) => {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTrapIntel = async () => {
+    try {
+      const res = await fetch(`${API}/coach/trap-intelligence`, {
+        credentials: "include",
+      });
+      if (res.ok) setTrapIntel(await res.json());
+    } catch (_e) {
+      // Silent — card just stays hidden.
     }
   };
 
@@ -518,6 +533,60 @@ const Dashboard = ({ user }) => {
                     )}
                   </div>
                 </div>
+              </div>
+            </section>
+          )}
+
+          {/* ━━━━━━━━━━ TRAP INTELLIGENCE ━━━━━━━━━━ */}
+          {/* Shows only when the user has actually hit an opening trap in
+              their games. Headline + specific move count + CTA to targeted
+              training. Nothing fabricated — if has_data is false the card
+              never mounts. */}
+          {trapIntel?.has_data && trapIntel.top_insight && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-amber-600 dark:text-amber-300/80 font-semibold mb-5">
+                Trap intelligence
+              </div>
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-6 md:p-7">
+                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
+                  {trapIntel.top_insight.headline}
+                </p>
+                <p className="text-[13px] text-muted-foreground mb-5">
+                  {trapIntel.top_insight.sprung > 0 ? (
+                    <>
+                      The trap line actually played out in{" "}
+                      <span className="text-foreground/80 font-medium">
+                        {trapIntel.top_insight.sprung} of {trapIntel.top_insight.encounters}
+                      </span>
+                      .
+                    </>
+                  ) : (
+                    <>
+                      The trap line didn't play out in any of them — but the setup came up{" "}
+                      <span className="text-foreground/80 font-medium">
+                        {trapIntel.top_insight.encounters}{" "}
+                        {trapIntel.top_insight.encounters === 1 ? "time" : "times"}
+                      </span>
+                      .
+                    </>
+                  )}
+                </p>
+                {trapIntel.all_insights.length > 1 && (
+                  <p className="text-[11.5px] text-muted-foreground/80 mb-5">
+                    {trapIntel.all_insights.length - 1} other trap{trapIntel.all_insights.length - 1 === 1 ? "" : "s"} in your games too.
+                  </p>
+                )}
+                <button
+                  onClick={() =>
+                    navigate(
+                      `/training/prescribed?weakness=${trapIntel.top_insight.training_weakness}`
+                    )
+                  }
+                  className="h-10 px-5 rounded-lg bg-amber-500/90 hover:bg-amber-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
+                >
+                  <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  {trapIntel.top_insight.cta}
+                </button>
               </div>
             </section>
           )}

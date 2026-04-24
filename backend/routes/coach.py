@@ -243,12 +243,32 @@ async def get_tactical_patterns():
 async def get_positional_rules():
     """Get all positional rules / golden rules (admin view)."""
     from services.chess_theory_service import get_theory_service
-    
+
     service = get_theory_service()
     return {
         "rules": service.get_all_positional_rules(),
         "count": len(service.get_all_positional_rules())
     }
+
+
+@router.get("/trap-intelligence")
+async def get_trap_intelligence(user: User = Depends(get_current_user)):
+    """
+    Return the user's trap encounter intelligence — which opening traps
+    they've hit in their games, which they executed, which they fell for.
+
+    Powers the Lab-page "Trap Intelligence" card. Returns `has_data: False`
+    when the user has no trap encounters (card is hidden by the frontend).
+    """
+    from services.trap_intelligence import get_user_trap_intelligence
+    global db
+
+    try:
+        result = await get_user_trap_intelligence(db, user.user_id)
+        return result
+    except Exception as e:
+        logger.warning(f"trap-intelligence failed for {user.user_id}: {e}")
+        return {"has_data": False, "top_insight": None, "all_insights": [], "total_encounters": 0}
 
 
 @router.post("/theory/reload")
