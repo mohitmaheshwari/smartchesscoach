@@ -773,17 +773,50 @@ const OpeningLesson = () => {
                         <div className="flex items-start gap-3">
                           <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
                           <div className="flex-1">
+                            {/* Lead-in: the moves that produced this position,
+                                so the user can recognize the Italian line. */}
+                            {mistake.moves_before?.length > 0 && (
+                              <p className="text-xs font-mono text-muted-foreground mb-2">
+                                {(() => {
+                                  const seq = mistake.moves_before;
+                                  const parts = [];
+                                  for (let k = 0; k < seq.length; k += 2) {
+                                    const num = Math.floor(k / 2) + 1;
+                                    const w = seq[k] || "";
+                                    const b = seq[k + 1] || "";
+                                    parts.push(`${num}.${w}${b ? " " + b : ""}`);
+                                  }
+                                  return parts.join(" ");
+                                })()}
+                              </p>
+                            )}
                             <p className="text-sm">
                               <span className="font-semibold">Move {mistake.move_number}:</span>{" "}
                               You played <span className="text-red-400">{mistake.your_move}</span>
+                              {mistake.book_move && (
+                                <>
+                                  {" "}— book was{" "}
+                                  <span className="text-green-400">{mistake.book_move}</span>
+                                </>
+                              )}
                             </p>
-                            {mistake.best_move && (
-                              <p className="text-sm mt-1">
-                                Better was <span className="text-green-400">{mistake.best_move}</span>
+                            {mistake.coach?.book_line && (
+                              <p className="text-sm text-foreground/90 mt-2 leading-relaxed">
+                                {mistake.coach.book_line}
+                              </p>
+                            )}
+                            {mistake.coach?.principle && (
+                              <p className="text-xs text-amber-300/90 mt-1 italic">
+                                Principle: {mistake.coach.principle}
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground mt-2">
-                              Loss: {Math.abs(mistake.cp_loss)} centipawns
+                              Loss: {Math.abs(mistake.cp_loss)} cp
+                              {mistake.cognitive_gap && (
+                                <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-foreground/70 uppercase tracking-wide text-[10px]">
+                                  {String(mistake.cognitive_gap).replace(/_/g, " ")}
+                                </span>
+                              )}
                             </p>
                             {mistake.fen_before && (
                               <div className="flex gap-2 mt-3">

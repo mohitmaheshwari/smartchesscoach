@@ -231,19 +231,41 @@ async def get_opening_lesson(
 
 
 async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict]:
-    """Pull this user's mistakes inside the opening phase for games that
-    actually belong to this opening family. Returns up to 5 worst mistakes
-    (by cp_loss) in descending order. Facts-only — empty when nothing
-    qualifies. No invention, no fallbacks.
+    """Authoritative opening-mistake finder.
+
+    Policy (what counts as an "opening mistake"):
+      1. The game belongs to the right opening family (normalized match).
+      2. The user's move deviated from THEORY (per curriculum JSON tree).
+      3. Stockfish flagged that same move as a real mistake (cp_loss
+         within MISTAKE_CP_MIN..MISTAKE_CP_MAX).
+
+    Both conditions 2 AND 3 must hold. A deviation that the engine says
+    is fine (transposition / alternate book move) is NOT a mistake. A
+    stockfish-flagged blunder that happens AFTER we left book is NOT an
+    opening mistake — it's middlegame.
+
+    Each returned mistake carries deterministic coach commentary built
+    from the theory node's right_feedback / golden_rules — no LLM,
+    no invention.
     """
     from services.opening_normalizer import (
         normalize_opening,
         canonical_name_for_curriculum_key,
         color_for_curriculum_key,
     )
+    from services.opening_theory_walker import (
+        walk_opening_theory,
+        build_mistake_commentary,
+        get_opening_curriculum,
+    )
 
     canonical = canonical_name_for_curriculum_key(opening_key)
     if not canonical:
+        return []
+    # If we have no curriculum for this opening, we can't honestly call
+    # anything an "opening mistake" — return empty rather than fall back
+    # to the heuristic (that's what the user pushed back on).
+    if not get_opening_curriculum(opening_key):
         return []
 
     color_filter = color_for_curriculum_key(opening_key)
@@ -269,15 +291,11 @@ async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict
     if not game_ids:
         return []
 
-    # Opening phase = first 10 full moves. move_number is full-move count
-    # in python-chess, so 10 covers the typical book depth while keeping
-    # us out of the middlegame where mistakes are not opening issues.
-    OPENING_MOVE_LIMIT = 10
-    # Inaccuracy-or-worse. Below this isn't really a mistake for a 1200.
-    MISTAKE_CP_MIN = 50
-    # Above this is mate-detection sentinel, not a real cp loss — those
-    # are tactical/mate failures, not opening misplays.
-    MISTAKE_CP_MAX = 3000
+    MISTAKE_CP_MIN = 50      # inaccuracy threshold
+    MISTAKE_CP_MAX = 3000    # cap out mate-detection sentinels
+
+    def _norm_san(s: str) -> str:
+        return (s or "").replace("+", "").replace("#", "").replace("!", "").replace("?", "").lower()
 
     mistakes: List[Dict] = []
     async for analysis in db.game_analyses.find(
@@ -287,51 +305,84 @@ async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict
             "game_id": 1,
             "stockfish_analysis.move_evaluations": 1,
         },
-    ):  # noqa: E501
+    ):
         game_id = analysis.get("game_id")
         game = game_by_id.get(game_id)
         if not game:
             continue
         user_color = (game.get("user_color") or "white").lower()
         moves = (analysis.get("stockfish_analysis") or {}).get("move_evaluations") or []
-        for m in moves:
-            move_num = m.get("move_number") or 0
-            if move_num <= 0 or move_num > OPENING_MOVE_LIMIT:
-                continue
-            # Filter to user's moves via FEN active color before the move.
-            fen_before = m.get("fen_before") or ""
-            if fen_before:
-                parts = fen_before.split()
-                if len(parts) >= 2:
-                    active = "white" if parts[1] == "w" else "black"
-                    if active != user_color:
-                        continue
-            cp_loss = m.get("cp_loss")
-            if cp_loss is None:
-                continue
-            cp_abs = abs(cp_loss)
-            if cp_abs < MISTAKE_CP_MIN or cp_abs > MISTAKE_CP_MAX:
-                continue
-            played = (m.get("move") or "").strip()
-            best = (m.get("best_move") or "").strip()
-            if not played or not best:
-                continue
-            # Skip false positives where classifier says "mistake" but the
-            # played and best move are the same SAN (punctuation aside).
-            def _norm_san(s: str) -> str:
-                return s.replace("+", "").replace("#", "").replace("!", "").replace("?", "").lower()
-            if _norm_san(played) == _norm_san(best):
-                continue
-            mistakes.append({
-                "game_id": game_id,
-                "move_number": move_num,
-                "your_move": played,
-                "your_move_uci": m.get("move_uci"),
-                "best_move": best,
-                "best_move_uci": m.get("best_move_uci"),
-                "cp_loss": cp_abs,
-                "fen_before": fen_before,
-            })
+        if not moves:
+            continue
+
+        # Sort by move_number + FEN active-color to get true ply order.
+        # move_number is full-move count, so each full move has a white
+        # and black ply with the same move_number. We order within by
+        # active color: white first.
+        def _ply_sort_key(m):
+            mn = m.get("move_number") or 0
+            fb = m.get("fen_before") or ""
+            parts = fb.split()
+            active = parts[1] if len(parts) >= 2 else "w"
+            return (mn, 0 if active == "w" else 1)
+        moves = sorted(moves, key=_ply_sort_key)
+
+        san_history = [(m.get("move") or "").strip() for m in moves]
+        # Trim trailing empties (shouldn't happen, but be safe)
+        while san_history and not san_history[-1]:
+            san_history.pop()
+        if not san_history:
+            continue
+
+        plies = walk_opening_theory(opening_key, san_history)
+        if not plies:
+            continue
+
+        # We only care about the FIRST deviation, and only if it was the
+        # user's move. If opponent deviated first, we stop — no user
+        # opening mistake in this game.
+        deviation = next((p for p in plies if not p.get("in_theory")), None)
+        if not deviation:
+            continue  # game stayed in book as far as we know it
+        if deviation.get("side") != user_color:
+            continue  # opponent deviated, not us
+
+        ply_index = deviation.get("ply")
+        if ply_index is None or ply_index >= len(moves):
+            continue
+        dev_move = moves[ply_index]
+
+        played_san = (dev_move.get("move") or "").strip()
+        best_san = (dev_move.get("best_move") or "").strip()
+        cp_loss = dev_move.get("cp_loss")
+        if cp_loss is None or not played_san:
+            continue
+        cp_abs = abs(cp_loss)
+        # Stockfish must also flag it as a real mistake. A theory
+        # deviation that the engine says is fine is NOT an opening
+        # mistake — it's a viable transposition.
+        if cp_abs < MISTAKE_CP_MIN or cp_abs > MISTAKE_CP_MAX:
+            continue
+        if best_san and _norm_san(played_san) == _norm_san(best_san):
+            continue
+
+        commentary = build_mistake_commentary(opening_key, deviation, played_san)
+
+        mistakes.append({
+            "game_id": game_id,
+            "move_number": dev_move.get("move_number"),
+            "ply": ply_index,
+            "your_move": played_san,
+            "your_move_uci": dev_move.get("move_uci"),
+            "best_move": best_san or deviation.get("expected"),
+            "best_move_uci": dev_move.get("best_move_uci"),
+            "book_move": deviation.get("expected"),
+            "cp_loss": cp_abs,
+            "fen_before": dev_move.get("fen_before") or "",
+            "moves_before": san_history[:ply_index],
+            "coach": commentary,  # opening_name / summary / book_line / principle
+            "cognitive_gap": dev_move.get("cognitive_gap"),
+        })
 
     mistakes.sort(key=lambda x: -x["cp_loss"])
     return mistakes[:5]
