@@ -252,6 +252,58 @@ async def scan(db, user_filter: str = "", limit: int = 0):
                 f"{ev['result']}"
             )
 
+    # Per-user breakdown — only shown when we scanned the whole fleet (no
+    # --user filter). Groups all trap events by user_id so you can see
+    # which users are hitting trap positions and in which roles.
+    if per_game_traps and not user_filter:
+        print()
+        print("=" * 60)
+        print("Per-user breakdown (users who encountered a trap setup):")
+        print()
+
+        # Aggregate: user_id → { total_setups, sprung, full, by_trap, colors }
+        user_agg = defaultdict(lambda: {
+            "setups": 0,
+            "sprung": 0,
+            "full": 0,
+            "by_trap": Counter(),
+            "colors": Counter(),
+            "events": [],
+        })
+        for ev in per_game_traps:
+            uid = ev["user_id"] or "unknown"
+            bucket = user_agg[uid]
+            bucket["setups"] += 1
+            if ev["sprung_moves"] >= 1:
+                bucket["sprung"] += 1
+            if ev["sprung_moves"] == ev["trap_total"] and ev["trap_total"] > 0:
+                bucket["full"] += 1
+            bucket["by_trap"][ev["trap_name"]] += 1
+            bucket["colors"][ev["user_color"]] += 1
+            bucket["events"].append(ev)
+
+        # Sort users by total trap-setup encounters, descending
+        sorted_users = sorted(user_agg.items(), key=lambda kv: -kv[1]["setups"])
+
+        print(f"  {'user_id':<30}  {'setups':>7}  {'sprung':>7}  {'full':>5}  top traps")
+        for uid, data in sorted_users:
+            top_traps = ", ".join(
+                f"{name} ({cnt})" for name, cnt in data["by_trap"].most_common(3)
+            )
+            colors = "/".join(
+                f"{c}:{cnt}" for c, cnt in data["colors"].most_common()
+            )
+            print(
+                f"  {uid:<30}  {data['setups']:>7}  {data['sprung']:>7}  "
+                f"{data['full']:>5}  {top_traps}  [{colors}]"
+            )
+
+        # Quick totals
+        print()
+        print(f"  Total unique users with trap encounters: {len(user_agg)}")
+        users_with_sprung = sum(1 for d in user_agg.values() if d["sprung"] > 0)
+        print(f"  Users where trap_line was actually played: {users_with_sprung}")
+
 
 async def main():
     parser = argparse.ArgumentParser(description="Scan games for known opening traps.")
