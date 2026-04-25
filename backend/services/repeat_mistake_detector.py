@@ -314,9 +314,18 @@ async def get_user_repeat_mistakes(db, user_id: str) -> Dict:
         if occurrences < MIN_GAMES_FOR_PATTERN:
             continue
         gap, piece_letter, phase = sig
+        # For piece_safety, piece_letter is the ACTUALLY-HUNG piece (not
+        # the moving piece) — surface a clean noun so the UI can say
+        # "Move 11 Nd4 — left a pawn undefended" rather than leaving the
+        # reader to reconcile the knight move with the "hung pawn" headline.
+        piece_name = (
+            PIECE_NAMES.get(piece_letter, "").replace("your ", "").replace("a ", "")
+            if piece_letter else ""
+        )
         patterns.append({
             "cognitive_gap": gap,
             "piece_letter": piece_letter,
+            "piece_name": piece_name,
             "phase": phase,
             "occurrences": occurrences,
             "example_games": example_games[sig],

@@ -1016,6 +1016,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
         critical_move_num = None
         critical_fen = None
         critical_best = None
+        critical_played = None
         critical_cp = 0
         for ev in evals:
             cp = ev.get("cp_loss", 0) or 0
@@ -1024,6 +1025,7 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
                 critical_move_num = ev.get("move_number")
                 critical_fen = ev.get("fen_before", "")
                 critical_best = ev.get("best_move", "")
+                critical_played = ev.get("move", "")
 
         # Platform detection with fallback cascade
         raw_platform = g.get("platform") or g.get("source") or ""
@@ -1059,6 +1061,8 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             "critical_move": critical_move_num,
             "critical_fen": critical_fen,
             "critical_best": critical_best,
+            "critical_played": critical_played,
+            "critical_cp": critical_cp or None,
             "platform": platform,
             "analyzed_at": g.get("analyzed_at") or a.get("created_at"),
             "created_at": g.get("created_at") or g.get("imported_at"),

@@ -363,7 +363,10 @@ const Dashboard = ({ user }) => {
   const pickResult = resultLetter(featuredGame);
 
   // Construct "reasoning" bullet list when available. Per-game, factual.
-  // No cross-game aggregation claims until we build the aggregator (P3+).
+  // Rule: only show a line when we have concrete data — the move you
+  // played, the best move, the coach take. No italic filler like
+  // "this is where the game turned" / "and then it slipped" — either
+  // we have the specifics, or we say nothing.
   const reasoningLines = [];
   if (featuredGame?.was_winning) {
     reasoningLines.push({
@@ -371,19 +374,23 @@ const Dashboard = ({ user }) => {
       note: "You were winning this one.",
     });
   }
-  if (featuredGame?.critical_move) {
+  if (
+    featuredGame?.critical_move &&
+    featuredGame?.critical_played &&
+    featuredGame?.critical_best
+  ) {
+    const cpChunk = featuredGame.critical_cp
+      ? ` (−${featuredGame.critical_cp}cp)`
+      : "";
     reasoningLines.push({
       at: `Move ${featuredGame.critical_move}`,
-      note:
-        featuredGame.critical_best
-          ? `The crucial moment — best was ${featuredGame.critical_best}.`
-          : "This is where the game turned.",
+      note: `You played ${featuredGame.critical_played}${cpChunk} — best was ${featuredGame.critical_best}.`,
     });
-  }
-  if (featuredGame?.was_winning && !featuredGame?.coach_take) {
+  } else if (featuredGame?.critical_move && featuredGame?.critical_best) {
+    // We know the book move but not what the user played — still useful.
     reasoningLines.push({
-      at: "Outcome",
-      note: "And then it slipped.",
+      at: `Move ${featuredGame.critical_move}`,
+      note: `Best here was ${featuredGame.critical_best}.`,
     });
   }
   if (featuredGame?.coach_take) {
@@ -684,8 +691,12 @@ const Dashboard = ({ user }) => {
                   <p className="text-[13px] text-muted-foreground mb-5">
                     Most recent: Move {repeatMistakes.top_pattern.example_games[0].move_number}{" "}
                     {repeatMistakes.top_pattern.example_games[0].san}
+                    {repeatMistakes.top_pattern.cognitive_gap === "piece_safety" &&
+                      repeatMistakes.top_pattern.piece_name && (
+                        <> — left a {repeatMistakes.top_pattern.piece_name} undefended</>
+                      )}
                     {repeatMistakes.top_pattern.example_games.length > 1 && (
-                      <> · {repeatMistakes.top_pattern.example_games.length} examples on record</>
+                      <> · {repeatMistakes.top_pattern.example_games.length} examples</>
                     )}
                   </p>
                 )}
@@ -722,33 +733,6 @@ const Dashboard = ({ user }) => {
               </div>
             </section>
           )}
-          {graduation?.has_data && graduation.status === "struggler" && (
-            <section className="mb-16 md:mb-24">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-sky-600 dark:text-sky-300/80 font-semibold mb-5">
-                Players who improved
-              </div>
-              <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-6 md:p-7">
-                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
-                  {graduation.headline}
-                </p>
-                <p className="text-[13px] text-muted-foreground mb-5">
-                  {graduation.subline}
-                </p>
-                {graduation.training_weakness && (
-                  <button
-                    onClick={() =>
-                      navigate(`/training/prescribed?weakness=${graduation.training_weakness}`)
-                    }
-                    className="h-10 px-5 rounded-lg bg-sky-500/90 hover:bg-sky-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
-                  >
-                    <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    Work on {graduation.training_weakness.replace(/_/g, " ")}
-                  </button>
-                )}
-              </div>
-            </section>
-          )}
-
           {/* ━━━━━━━━━━ OPENING-KNOWLEDGE BAND BENCHMARK ━━━━━━━━━━ */}
           {/* The only cognitive_gap with a real cross-band signal. Only shows
               when the user is meaningfully above their band's average. CTA
