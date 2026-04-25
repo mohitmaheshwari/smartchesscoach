@@ -385,6 +385,23 @@ async def mirror_engaged(
         return {"closed": False, "error": "internal"}
 
 
+@router.get("/opening-fit")
+async def get_opening_fit(user: User = Depends(get_current_user)):
+    """Per-user opening fit: which openings to play more, which to
+    avoid for now. Combines win rate + Mirror's weakness patterns +
+    per-opening theory burden, scaled by the user's rating so the
+    same logic works for a 1200 or an 1800.
+    """
+    from services.opening_fit import build_opening_fit
+    global db
+    try:
+        return await build_opening_fit(db, user.user_id)
+    except Exception as e:
+        logger.warning(f"opening-fit failed for {user.user_id}: {e}")
+        return {"has_data": False, "rating_used": 1500,
+                "play_more": [], "avoid": []}
+
+
 @router.get("/opening-benchmark")
 async def get_opening_benchmark(user: User = Depends(get_current_user)):
     """

@@ -142,6 +142,7 @@ const Dashboard = ({ user }) => {
   const [repeatMistakes, setRepeatMistakes] = useState(null);
   const [graduation, setGraduation] = useState(null);
   const [openingBenchmark, setOpeningBenchmark] = useState(null);
+  const [openingFit, setOpeningFit] = useState(null);
   // Session panel (Mirror window) — only loaded when ?session=... is in URL.
   const [mirrorSession, setMirrorSession] = useState(null);
 
@@ -152,11 +153,21 @@ const Dashboard = ({ user }) => {
     fetchRepeatMistakes();
     fetchGraduation();
     fetchOpeningBenchmark();
+    fetchOpeningFit();
     if (sessionParam) {
       fetchMirrorSession();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchOpeningFit = async () => {
+    try {
+      const res = await fetch(`${API}/coach/opening-fit`, {
+        credentials: "include",
+      });
+      if (res.ok) setOpeningFit(await res.json());
+    } catch (_e) { /* silent — card hides when no data */ }
+  };
 
   const fetchData = async () => {
     try {
@@ -749,6 +760,77 @@ const Dashboard = ({ user }) => {
                   <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Study this opening
                 </button>
+              </div>
+            </section>
+          )}
+
+          {/* ━━━━━━━━━━ OPENINGS THAT FIT YOU ━━━━━━━━━━ */}
+          {/* Combines win rate + Mirror's weakness patterns + theory
+              burden, scaled by user rating. Tells the user which
+              openings reward what they already do, and which keep
+              punishing the weakness they haven't fixed yet. */}
+          {openingFit?.has_data && (openingFit.play_more?.length > 0 || openingFit.avoid?.length > 0) && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-teal-600 dark:text-teal-300/80 font-semibold mb-5">
+                Openings that fit you
+              </div>
+              <div className="rounded-xl border border-teal-500/20 bg-teal-500/[0.04] p-6 md:p-7 space-y-5">
+                {openingFit.play_more?.length > 0 && (
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-300/80 font-semibold mb-3">
+                      Play more
+                    </div>
+                    <div className="space-y-2.5">
+                      {openingFit.play_more.map((o) => (
+                        <button
+                          key={`pm-${o.opening_key}-${o.color}`}
+                          onClick={() => navigate(`/openings/${o.opening_key}`)}
+                          className="w-full text-left flex items-baseline gap-3 py-1.5 px-2 rounded hover:bg-emerald-500/10 transition-colors"
+                        >
+                          <span className="text-emerald-500 dark:text-emerald-300/80 shrink-0">✓</span>
+                          <span className="font-medium text-foreground/90">
+                            {o.name}
+                            <span className="text-muted-foreground font-normal">
+                              {" "}({o.color})
+                            </span>
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-auto text-right">
+                            {o.reason}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {openingFit.avoid?.length > 0 && (
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-rose-600 dark:text-rose-300/80 font-semibold mb-3">
+                      Avoid for now
+                    </div>
+                    <div className="space-y-2.5">
+                      {openingFit.avoid.map((o) => (
+                        <div
+                          key={`av-${o.opening_key}-${o.color}`}
+                          className="flex items-baseline gap-3 py-1.5 px-2"
+                        >
+                          <span className="text-rose-500 dark:text-rose-300/80 shrink-0">✗</span>
+                          <span className="font-medium text-foreground/80">
+                            {o.name}
+                            <span className="text-muted-foreground font-normal">
+                              {" "}({o.color})
+                            </span>
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-auto text-right">
+                            {o.reason}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground/70 pt-2 border-t border-teal-500/10">
+                  Based on your rating ({openingFit.rating_used}) and recent patterns
+                </p>
               </div>
             </section>
           )}
