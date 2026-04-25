@@ -1061,7 +1061,18 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 game_doc["termination"] = _extract_chesscom_termination(game_data, game_doc.get("user_color", "white"))
             else:
                 game_doc["time_control"] = game_data.get("speed", "")
-                game_doc["result"] = game_data.get("status", "")
+                # Parse PGN [Result "..."] so we store the canonical
+                # "1-0"/"0-1"/"1/2-1/2" — the same thing chess.com does.
+                # Previously we stored game_data["status"] ("mate"/"resign"/
+                # "outoftime"), which broke every downstream W/L/D derivation
+                # since nothing else expects those values.
+                result_from_pgn = ""
+                if "[Result " in pgn:
+                    try:
+                        result_from_pgn = pgn.split("[Result ")[1].split("]")[0].strip('"')
+                    except Exception:
+                        result_from_pgn = ""
+                game_doc["result"] = result_from_pgn or game_data.get("status", "")
                 # Extract termination from Lichess API
                 game_doc["termination"] = _extract_lichess_termination(game_data)
             
