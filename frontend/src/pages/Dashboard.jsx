@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
@@ -129,6 +129,9 @@ function ResultGlyph({ r }) {
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionParam = searchParams.get("session");
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all | unreviewed | losses | coach | week
@@ -139,6 +142,8 @@ const Dashboard = ({ user }) => {
   const [repeatMistakes, setRepeatMistakes] = useState(null);
   const [graduation, setGraduation] = useState(null);
   const [openingBenchmark, setOpeningBenchmark] = useState(null);
+  // Session panel (Mirror window) — only loaded when ?session=... is in URL.
+  const [mirrorSession, setMirrorSession] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -147,6 +152,10 @@ const Dashboard = ({ user }) => {
     fetchRepeatMistakes();
     fetchGraduation();
     fetchOpeningBenchmark();
+    if (sessionParam) {
+      fetchMirrorSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {
@@ -161,6 +170,32 @@ const Dashboard = ({ user }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchMirrorSession = async () => {
+    try {
+      const res = await fetch(`${API}/coach/mirror-session`, {
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const payload = await res.json();
+      // Empty window — server says nothing to mirror; render nothing.
+      if (!payload || !payload.window_size) return;
+      setMirrorSession(payload);
+      // Now that the panel has rendered, close the window — this is
+      // the engagement signal. The next Home visit will see a fresh
+      // empty window until the user plays more games.
+      try {
+        await fetch(`${API}/coach/mirror-engaged`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: "lab_open" }),
+        });
+      } catch (_e) {
+        /* engagement is best-effort — don't break the panel */
+      }
+    } catch (_e) { /* silent */ }
   };
 
   const fetchTrapIntel = async () => {
@@ -443,6 +478,50 @@ const Dashboard = ({ user }) => {
               )}
             </p>
           </div>
+
+          {/* ━━━━━━━━━━ SESSION REVIEW ━━━━━━━━━━ */}
+          {/* Renders only when user arrived from Home's "Open in Lab"
+              with a Mirror window in URL. Scopes the top of Lab to
+              just the games that window covered, with the same verdict
+              the user saw on Home. Existing aggregate Lab cards still
+              render below — they speak to longer-horizon patterns. */}
+          {mirrorSession && mirrorSession.window_size > 0 && (
+            <section className="mb-16 md:mb-24">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-amber-600 dark:text-amber-300/80 font-semibold mb-5">
+                Recent session · {mirrorSession.window_size}{" "}
+                {mirrorSession.window_size === 1 ? "game" : "games"}
+              </div>
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-6 md:p-7">
+                {mirrorSession.story && (
+                  <p className="font-serif italic text-[17px] md:text-[19px] leading-snug text-foreground/90 mb-5 max-w-[640px]">
+                    "{mirrorSession.story}"
+                  </p>
+                )}
+                {mirrorSession.game_ids?.length > 0 && (
+                  <div className="space-y-1.5">
+                    {mirrorSession.game_ids.map((gid, i) => (
+                      <button
+                        key={gid}
+                        onClick={() => navigate(`/game/${gid}`)}
+                        className="w-full text-left flex items-baseline gap-3 text-[13px] py-1.5 px-2 rounded hover:bg-amber-500/10 transition-colors"
+                      >
+                        <span className="text-muted-foreground tabular-nums w-[24px]">
+                          {i + 1}.
+                        </span>
+                        <span className="text-foreground/80 truncate flex-1">
+                          Review game
+                        </span>
+                        <ChevronRight
+                          className="w-3.5 h-3.5 text-muted-foreground shrink-0"
+                          strokeWidth={1.75}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ━━━━━━━━━━ COACH'S PICK ━━━━━━━━━━ */}
           {featuredGame && (

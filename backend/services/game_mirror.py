@@ -153,10 +153,45 @@ async def _find_latest_game(db, user_id: str) -> Optional[Dict]:
             "opponent": 1,
             "opening": 1,
             "created_at": 1,
+            "imported_at": 1,
         },
-        sort=[("created_at", -1)],
+        sort=[("imported_at", -1)],
     )
     return g
+
+
+async def _find_window_games(db, user_id: str, since) -> List[Dict]:
+    """Return analyzed imported games imported strictly AFTER `since`.
+    Newest first. This is the set the Mirror will aggregate over.
+
+    `imported_at` is stored as an ISO-string in `db.games`, so we
+    serialize the threshold to ISO before querying. UTC ISO-8601 sorts
+    lexicographically the same way it does temporally.
+    """
+    from datetime import datetime
+    if isinstance(since, datetime):
+        since_str = since.isoformat()
+    else:
+        since_str = str(since)
+    cursor = db.games.find(
+        {
+            "user_id": user_id,
+            "is_analyzed": True,
+            "imported_at": {"$gt": since_str},
+        },
+        {
+            "_id": 0,
+            "game_id": 1,
+            "result": 1,
+            "user_color": 1,
+            "opponent": 1,
+            "opening": 1,
+            "created_at": 1,
+            "imported_at": 1,
+        },
+    ).sort("imported_at", -1)
+    games = await cursor.to_list(50)
+    return games
 
 
 def _result_word(result: str, user_color: str) -> str:
@@ -237,54 +272,201 @@ def _compose_verdict(
     }
 
 
-async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
-    """Top-level: return the Mirror verdict for the user's latest
-    analyzed game, shaped to drop into `last_session` on the home page.
-    Returns None if there is nothing to mirror.
+def _aggregate_verdict(
+    games_data: List[Dict],
+    established: List[str],
+    last_snapshot: Optional[Dict],
+) -> Dict[str, str]:
+    """Compose a coach-voice verdict for a multi-game window.
 
-    Shape (matches what HomePage.jsx's Evidence section reads):
-        {
-          game_id, result, story,
-          critical_fen, accuracy, total_moves,
-          opponent, opening,
-          mirror: { tone, headline, detail, game_gaps,
-                    established_patterns, sample_size }
-        }
+    games_data: per-game [{outcome, gaps}], newest first.
+    established: patterns currently flagged as recurring across the user's
+                 broader history.
+    last_snapshot: the most recent CLOSED window (if any), used for the
+                 "you listened" comparison.
     """
-    latest = await _find_latest_game(db, user_id)
-    if not latest:
-        return None
+    n = len(games_data)
+    wins = sum(1 for g in games_data if g["outcome"] == "won")
+    losses = sum(1 for g in games_data if g["outcome"] == "lost")
+    draws = sum(1 for g in games_data if g["outcome"] == "drew")
+    score = f"{wins}-{losses}-{draws}"
 
-    game_id = latest.get("game_id")
-    user_color = (latest.get("user_color") or "white").lower()
-    outcome = _result_word(latest.get("result"), user_color)
+    # Patterns that recurred in this window.
+    repeated_count: Dict[str, int] = {p: 0 for p in established}
+    for g in games_data:
+        for gap in g["gaps"]:
+            if gap in repeated_count:
+                repeated_count[gap] += 1
+    repeated = [(p, c) for p, c in repeated_count.items() if c > 0]
+    repeated.sort(key=lambda x: -x[1])
 
-    analysis = await _load_game_analysis(db, user_id, game_id)
-    game_gaps = analysis.get("gaps") or []
-    established, sample_size = await _established_patterns(db, user_id)
+    # No established patterns → don't mirror, just say honest.
+    if not established:
+        return {
+            "tone": "no_profile_yet",
+            "headline": (
+                f"Across {n} games: {score}. Still reading your patterns — "
+                f"play a few more and I'll have your profile."
+            ),
+            "detail": "",
+            "listening": "",
+        }
 
-    verdict = _compose_verdict(outcome, game_gaps, established, sample_size)
+    # Listening signal: did patterns flagged last time disappear?
+    listening = ""
+    if last_snapshot:
+        prev_flagged = set(last_snapshot.get("patterns_flagged") or [])
+        now_repeated = {p for p, _ in repeated}
+        improved = prev_flagged - now_repeated
+        persisted = prev_flagged & now_repeated
+        if prev_flagged and improved and not persisted:
+            voice = _pattern_voice(next(iter(improved)), form="noun")
+            listening = (
+                f"Last session was {voice}. {n} new games, none. You listened."
+            )
+        elif persisted:
+            voice = _pattern_voice(next(iter(persisted)))
+            listening = (
+                f"Same {voice} pattern as last session. Still happening."
+            )
 
-    # Merge headline + detail into `story` for the UI (the slot renders
-    # italic, single-block text). Keep the `mirror` object attached so
-    # callers that want the raw pieces can still read them.
-    story = verdict["headline"]
-    if verdict.get("detail"):
-        story = f"{story} {verdict['detail']}"
+    if not repeated:
+        # Clean window across all established patterns.
+        headline = f"Across {n} games: {score}. No repeated patterns."
+        detail = "This is what growth looks like."
+        return {"tone": "broke_pattern", "headline": headline,
+                "detail": detail, "listening": listening}
+
+    # Mixed or all-repeated window.
+    top_pattern, top_count = repeated[0]
+    voice_verb = _pattern_voice(top_pattern, form="verb")
+
+    if top_count == n:
+        headline = f"Across {n} games: {score}. You {voice_verb} in all of them."
+        detail = "Same old."
+    else:
+        headline = (
+            f"Across {n} games: {score}. You {voice_verb} in {top_count} of {n}."
+        )
+        clean = n - top_count
+        if clean == 1:
+            detail = "One was clean — that's the outlier."
+        else:
+            detail = f"{clean} were clean — partial progress."
+
+    if len(repeated) > 1:
+        second_pattern, _ = repeated[1]
+        detail = f"{detail} Also {_pattern_voice(second_pattern)}."
 
     return {
-        "game_id": game_id,
-        "result": latest.get("result"),
-        "user_color": user_color,
-        "opponent": latest.get("opponent"),
-        "opening": latest.get("opening"),
-        "critical_fen": analysis.get("critical_fen"),
-        "accuracy": analysis.get("accuracy"),
-        "total_moves": analysis.get("total_moves"),
+        "tone": "repeated",
+        "headline": headline,
+        "detail": detail,
+        "listening": listening,
+    }
+
+
+async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
+    """Window-aware Mirror.
+
+    Behavior:
+      • Window = analyzed imported games imported AFTER the user's
+        stored `mirror_window.opened_at` (capped at WINDOW_MAX_HOURS).
+      • 0 games in window → return None (don't render anything).
+      • 1 game → per-game voice (existing behavior).
+      • 2+ games → aggregate voice ("across N games: W-L-D, you X in K
+        of N, ...") + a "you listened" line when the previous closed
+        window flagged a pattern that disappeared this window.
+
+    Returns shape compatible with HomePage's `last_session` slot, plus
+    extras (`window_size`, `game_ids`, `opened_at`) so the Lab session
+    panel can scope to the same games.
+    """
+    from services.mirror_engagement import (
+        get_window_open_floor,
+        latest_snapshot,
+    )
+
+    floor = await get_window_open_floor(db, user_id)
+    games = await _find_window_games(db, user_id, floor)
+    if not games:
+        return None
+
+    # Pull analyses once. Build per-game records.
+    games_data: List[Dict] = []
+    union_gaps: set = set()
+    for g in games:
+        gid = g.get("game_id")
+        analysis = await _load_game_analysis(db, user_id, gid)
+        gaps = analysis.get("gaps") or []
+        union_gaps.update(gaps)
+        outcome = _result_word(g.get("result"), g.get("user_color"))
+        games_data.append({
+            "game_id": gid,
+            "result": g.get("result"),
+            "user_color": (g.get("user_color") or "white").lower(),
+            "opponent": g.get("opponent"),
+            "opening": g.get("opening"),
+            "outcome": outcome,
+            "gaps": gaps,
+            "critical_fen": analysis.get("critical_fen"),
+            "accuracy": analysis.get("accuracy"),
+            "total_moves": analysis.get("total_moves"),
+        })
+
+    established, sample_size = await _established_patterns(db, user_id)
+
+    # Compose verdict — single-game uses old voice, multi-game uses aggregate.
+    if len(games_data) == 1:
+        g0 = games_data[0]
+        verdict = _compose_verdict(g0["outcome"], g0["gaps"], established, sample_size)
+        verdict["listening"] = ""  # single-game has no listening line
+    else:
+        prev = await latest_snapshot(db, user_id)
+        verdict = _aggregate_verdict(games_data, established, prev)
+
+    # Story = headline + detail + listening, joined with spaces.
+    parts = [verdict.get("headline") or ""]
+    if verdict.get("detail"):
+        parts.append(verdict["detail"])
+    if verdict.get("listening"):
+        parts.append(verdict["listening"])
+    story = " ".join(p for p in parts if p).strip()
+
+    # Pick the "worst" game for the board thumb — highest critical cp_loss
+    # is too granular here; just use newest with a critical_fen.
+    thumb_game = next((g for g in games_data if g.get("critical_fen")), games_data[0])
+
+    # Patterns that actually repeated this window — for snapshot when
+    # the window closes (engagement endpoint reads this).
+    repeated_now = sorted({
+        p for p in established
+        if any(p in g["gaps"] for g in games_data)
+    })
+
+    return {
+        # Backward-compat last_session shape (HomePage reads these):
+        "game_id": thumb_game.get("game_id"),
+        "result": thumb_game.get("result"),
+        "user_color": thumb_game.get("user_color"),
+        "opponent": thumb_game.get("opponent"),
+        "opening": thumb_game.get("opening"),
+        "critical_fen": thumb_game.get("critical_fen"),
+        "accuracy": thumb_game.get("accuracy"),
+        "total_moves": thumb_game.get("total_moves"),
         "story": story,
+        # Window context:
+        "window_size": len(games_data),
+        "game_ids": [g["game_id"] for g in games_data],
+        "opened_at": floor.isoformat() if hasattr(floor, "isoformat") else str(floor),
+        "outcomes": {
+            "won": sum(1 for g in games_data if g["outcome"] == "won"),
+            "lost": sum(1 for g in games_data if g["outcome"] == "lost"),
+            "drawn": sum(1 for g in games_data if g["outcome"] == "drew"),
+        },
+        "patterns_repeated": repeated_now,
         "mirror": {
             **verdict,
-            "game_gaps": game_gaps,
             "established_patterns": established,
             "sample_size": sample_size,
         },

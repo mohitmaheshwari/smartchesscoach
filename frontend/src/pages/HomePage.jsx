@@ -249,11 +249,20 @@ const HomePage = ({ user }) => {
             <TodayHero />
           </section>
 
-          {/* ━━ EVIDENCE ━━ */}
+          {/* ━━ RECENT PLAY ━━ */}
+          {/* Per-window Mirror verdict over games imported since the user
+              last engaged with the coach. The pointer advances when the
+              user opens this in Lab (or clicks through to a specific
+              game review) — until then the verdict is stable. */}
           {hasEvidence && (
             <section className="mb-16 md:mb-20">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
-                Evidence
+                Recent play
+                {lastSession?.window_size > 1 && (
+                  <span className="ml-3 text-foreground/70 normal-case tracking-normal">
+                    · last {lastSession.window_size} games
+                  </span>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 md:gap-10 items-start">
@@ -311,7 +320,12 @@ const HomePage = ({ user }) => {
                   )}
 
                   <button
-                    onClick={() => navigate("/lab")}
+                    onClick={() => {
+                      const since = lastSession?.opened_at
+                        ? `?session=${encodeURIComponent(lastSession.opened_at)}`
+                        : "";
+                      navigate(`/lab${since}`);
+                    }}
                     className="inline-flex items-center gap-1.5 text-[12.5px] text-violet-500 dark:text-violet-300 hover:text-violet-400 dark:hover:text-violet-200 transition-colors group"
                   >
                     Open in Lab

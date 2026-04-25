@@ -309,6 +309,82 @@ async def get_graduation(user: User = Depends(get_current_user)):
         return {"has_data": False, "status": "new", "headline": "", "subline": ""}
 
 
+@router.get("/mirror-session")
+async def mirror_session(user: User = Depends(get_current_user)):
+    """Return the current open Mirror window — same data the home page
+    Evidence section uses, but exposed as a dedicated endpoint so the
+    Lab session panel can render without coupling to /home/coach-home.
+
+    Side-effect-free. The window is only closed (snapshot persisted +
+    pointer advanced) when the frontend POSTs /coach/mirror-engaged.
+    """
+    from services.game_mirror import build_game_mirror
+    global db
+    try:
+        mirror = await build_game_mirror(db, user.user_id)
+        return mirror or {"window_size": 0, "game_ids": [], "story": ""}
+    except Exception as e:
+        logger.warning(f"mirror-session failed for {user.user_id}: {e}")
+        return {"window_size": 0, "game_ids": [], "story": ""}
+
+
+class MirrorEngagedRequest(BaseModel):
+    reason: str  # "lab_open" | "game_open" | "train_click" | "opening_click"
+
+
+@router.post("/mirror-engaged")
+async def mirror_engaged(
+    body: MirrorEngagedRequest,
+    user: User = Depends(get_current_user),
+):
+    """Frontend pings this when the user takes an action that proves
+    they engaged with the Mirror's call-out: opens Lab session view,
+    clicks through to a specific game, clicks a Train CTA, etc.
+
+    We snapshot the current window's state so the next Mirror can ask
+    "did the flagged pattern actually disappear?" — then advance the
+    pointer so the next window is fresh.
+
+    Idempotent — calling this when there's nothing in the window just
+    advances opened_at without snapshotting.
+    """
+    from services.game_mirror import build_game_mirror
+    from services.mirror_engagement import close_window
+    global db
+
+    try:
+        # Compute the current window's contents so we can persist the
+        # exact patterns_flagged snapshot. We re-use build_game_mirror
+        # so frontend and snapshot see the same state.
+        mirror = await build_game_mirror(db, user.user_id)
+        if not mirror:
+            await close_window(
+                db, user.user_id,
+                closed_reason=body.reason,
+                game_ids=[],
+                patterns_flagged=[],
+                outcomes={"won": 0, "lost": 0, "drawn": 0},
+            )
+            return {"closed": True, "snapshotted": False}
+
+        await close_window(
+            db, user.user_id,
+            closed_reason=body.reason,
+            game_ids=mirror.get("game_ids") or [],
+            patterns_flagged=mirror.get("patterns_repeated") or [],
+            outcomes=mirror.get("outcomes") or {},
+        )
+        return {
+            "closed": True,
+            "snapshotted": True,
+            "game_count": mirror.get("window_size"),
+            "patterns_snapshotted": mirror.get("patterns_repeated") or [],
+        }
+    except Exception as e:
+        logger.warning(f"mirror-engaged failed for {user.user_id}: {e}")
+        return {"closed": False, "error": "internal"}
+
+
 @router.get("/opening-benchmark")
 async def get_opening_benchmark(user: User = Depends(get_current_user)):
     """
