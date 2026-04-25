@@ -188,10 +188,54 @@ async def _find_window_games(db, user_id: str, since) -> List[Dict]:
             "opening": 1,
             "created_at": 1,
             "imported_at": 1,
+            "move_time_stats": 1,
         },
     ).sort("imported_at", -1)
     games = await cursor.to_list(50)
     return games
+
+
+def _time_discipline_line(games_data: List[Dict]) -> str:
+    """Build a coach-voice "you rushed" / "you took your time" line from
+    move-time stats across the window. Honest gating: returns "" when
+    too few games carry timing data, or when no signal is strong enough
+    to mention.
+    """
+    timed = [g for g in games_data if g.get("move_time_stats")]
+    if not timed:
+        return ""
+
+    rushed = [g for g in timed if g["move_time_stats"].get("rushed_critical")]
+    took_time = [g for g in timed if g["move_time_stats"].get("took_time_critical")]
+
+    n_timed = len(timed)
+    n_rushed = len(rushed)
+    n_took = len(took_time)
+
+    if n_timed == 1:
+        # Single-game line — tie to the actual move.
+        st = timed[0]["move_time_stats"]
+        t = st.get("critical_move_time_s")
+        med = st.get("median_user_move_s")
+        mn = st.get("critical_move_number")
+        if st.get("rushed_critical") and t is not None and med:
+            return (
+                f"And you spent {t}s on the critical move (move {mn}) — "
+                f"fast even for you (your median is {med}s)."
+            )
+        if st.get("took_time_critical") and t is not None and med:
+            return (
+                f"You actually thought on the critical move ({t}s on move {mn}, "
+                f"vs your usual {med}s)."
+            )
+        return ""
+
+    # Aggregate across N games.
+    if n_rushed >= 2 and n_rushed >= n_timed - 1:
+        return f"You rushed the critical move in {n_rushed} of {n_timed}."
+    if n_took >= 2 and n_took >= n_timed - 1:
+        return f"You took your time on critical moves in {n_took} of {n_timed} — that's discipline."
+    return ""
 
 
 def _result_word(result: str, user_color: str) -> str:
@@ -412,6 +456,7 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
             "critical_fen": analysis.get("critical_fen"),
             "accuracy": analysis.get("accuracy"),
             "total_moves": analysis.get("total_moves"),
+            "move_time_stats": g.get("move_time_stats"),
         })
 
     established, sample_size = await _established_patterns(db, user_id)
@@ -425,12 +470,15 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
         prev = await latest_snapshot(db, user_id)
         verdict = _aggregate_verdict(games_data, established, prev)
 
-    # Story = headline + detail + listening, joined with spaces.
+    # Story = headline + detail + listening + time discipline, joined.
     parts = [verdict.get("headline") or ""]
     if verdict.get("detail"):
         parts.append(verdict["detail"])
     if verdict.get("listening"):
         parts.append(verdict["listening"])
+    time_line = _time_discipline_line(games_data)
+    if time_line:
+        parts.append(time_line)
     story = " ".join(p for p in parts if p).strip()
 
     # Pick the "worst" game for the board thumb — highest critical cp_loss

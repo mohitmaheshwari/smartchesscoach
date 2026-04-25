@@ -824,11 +824,28 @@ RULES:
         analysis_doc["critical_moments"] = critical_moments[:3]  # Keep top 3 worst moments
         
         await db.game_analyses.insert_one(analysis_doc)
-        
-        # Mark game as analyzed
+
+        # Compute move-time discipline stats (median user pace, critical-
+        # move time, rushed/took-time flags). PGN clk tags are required;
+        # None means we stay silent rather than fabricate signal.
+        move_time_stats = None
+        try:
+            from services.move_time_analyzer import compute_move_time_stats
+            tc_match = re.search(r'\[TimeControl\s+"([^"]*)"\]', pgn or "")
+            tc = tc_match.group(1) if tc_match else None
+            move_time_stats = compute_move_time_stats(
+                pgn, user_color, tc, sf_moves,
+            )
+        except Exception as mte:
+            logger.debug(f"move-time stats skipped for {game_id}: {mte}")
+
+        # Mark game as analyzed; attach move-time stats when available.
+        update_set = {"is_analyzed": True}
+        if move_time_stats:
+            update_set["move_time_stats"] = move_time_stats
         await db.games.update_one(
             {"game_id": game_id},
-            {"$set": {"is_analyzed": True}}
+            {"$set": update_set}
         )
 
         # Auto-extract training puzzles from blunders
