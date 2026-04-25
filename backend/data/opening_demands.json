@@ -1,0 +1,120 @@
+{
+  "_meta": {
+    "description": "Per-opening characteristics for the fit-score recommender. Curated, not auto-derived — chess pedagogy doesn't admit clean derivation here. Each entry says: which cognitive_gaps this opening amplifies (so users with that gap get steered AWAY), what style it rewards (for coach voice), and how heavy the theory burden is.",
+    "schema": {
+      "punishes": "list of cognitive_gap names from analysis taxonomy. If user has any of these as established patterns, fit score drops.",
+      "rewards_descriptor": "one phrase for coach voice (e.g. 'active piece play and central control').",
+      "character": "short adjective-style phrase for the headline.",
+      "theory_burden": "0.0 (very light — principles dominate) to 1.0 (deep memorization required).",
+      "color": "which side this entry covers — same opening can have different demands per side."
+    }
+  },
+
+  "italian_game": {
+    "name": "Italian Game",
+    "color": "white",
+    "character": "Tactical, principled, fast development",
+    "punishes": ["king_safety", "tactical_oversight"],
+    "rewards_descriptor": "active piece play and central control",
+    "theory_burden": 0.3
+  },
+
+  "italian_game_black": {
+    "name": "Italian Game (Black side)",
+    "color": "black",
+    "character": "Defensive, watchful — Fried Liver looms",
+    "punishes": ["king_safety", "piece_safety"],
+    "rewards_descriptor": "calm defense and resourceful counterattack",
+    "theory_burden": 0.4
+  },
+
+  "london_system": {
+    "name": "London System",
+    "color": "white",
+    "character": "Solid, system-based, low maintenance",
+    "punishes": ["piece_activity"],
+    "rewards_descriptor": "patience and consistent setup",
+    "theory_burden": 0.2
+  },
+
+  "ruy_lopez": {
+    "name": "Ruy Lopez",
+    "color": "white",
+    "character": "Strategic, deeply theoretical",
+    "punishes": ["opening_knowledge", "calculation_depth"],
+    "rewards_descriptor": "long-term positional understanding",
+    "theory_burden": 0.7
+  },
+
+  "queens_gambit": {
+    "name": "Queen's Gambit",
+    "color": "white",
+    "character": "Classical center fight",
+    "punishes": ["pawn_structure", "piece_activity"],
+    "rewards_descriptor": "central control and minor-piece coordination",
+    "theory_burden": 0.5
+  },
+
+  "sicilian_defense": {
+    "name": "Sicilian Defense",
+    "color": "black",
+    "character": "Sharp, asymmetric, theory-heavy",
+    "punishes": ["piece_safety", "calculation_depth", "time_pressure"],
+    "rewards_descriptor": "aggression and concrete counterplay",
+    "theory_burden": 0.8
+  },
+
+  "caro_kann": {
+    "name": "Caro-Kann",
+    "color": "black",
+    "character": "Solid, low-risk, structural",
+    "punishes": ["piece_activity"],
+    "rewards_descriptor": "endgame technique and patient defense",
+    "theory_burden": 0.4
+  },
+
+  "french_defense": {
+    "name": "French Defense",
+    "color": "black",
+    "character": "Locked center, slow burn",
+    "punishes": ["piece_activity", "pawn_structure"],
+    "rewards_descriptor": "patience and positional planning",
+    "theory_burden": 0.5
+  },
+
+  "scandinavian_defense": {
+    "name": "Scandinavian Defense",
+    "color": "black",
+    "character": "Simple, direct, low-theory",
+    "punishes": ["opening_knowledge"],
+    "rewards_descriptor": "concrete plans and quick development",
+    "theory_burden": 0.2
+  },
+
+  "kings_indian_defense": {
+    "name": "King's Indian Defense",
+    "color": "black",
+    "character": "Hypermodern, kingside-attack heavy",
+    "punishes": ["calculation_depth", "tactical_oversight", "pawn_structure"],
+    "rewards_descriptor": "kingside aggression and pawn-storm calculation",
+    "theory_burden": 0.7
+  },
+
+  "english_opening": {
+    "name": "English Opening",
+    "color": "white",
+    "character": "Flexible, flank-based, transpositional",
+    "punishes": ["opening_knowledge", "piece_activity"],
+    "rewards_descriptor": "flexible setups and middlegame creativity",
+    "theory_burden": 0.4
+  },
+
+  "pirc_defense": {
+    "name": "Pirc Defense",
+    "color": "black",
+    "character": "Hypermodern, give up center to counterstrike",
+    "punishes": ["pawn_structure", "calculation_depth"],
+    "rewards_descriptor": "central counter-strikes after castling",
+    "theory_burden": 0.4
+  }
+}
