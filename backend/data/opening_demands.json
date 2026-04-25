@@ -116,5 +116,32 @@
     "punishes": ["pawn_structure", "calculation_depth"],
     "rewards_descriptor": "central counter-strikes after castling",
     "theory_burden": 0.4
+  },
+
+  "budapest_gambit": {
+    "name": "Budapest Gambit",
+    "color": "black",
+    "character": "Sharp, surprise-driven, sacrificial",
+    "punishes": ["calculation_depth", "piece_safety", "tactical_oversight"],
+    "rewards_descriptor": "tactical surprise and active piece play",
+    "theory_burden": 0.5
+  },
+
+  "vienna_game": {
+    "name": "Vienna Game",
+    "color": "white",
+    "character": "Aggressive, attack-the-king from move 2",
+    "punishes": ["king_safety", "calculation_depth"],
+    "rewards_descriptor": "kingside attacks and direct play",
+    "theory_burden": 0.4
+  },
+
+  "trompowsky_attack": {
+    "name": "Trompowsky Attack",
+    "color": "white",
+    "character": "Anti-prep, pin-the-knight system",
+    "punishes": ["piece_activity", "pawn_structure"],
+    "rewards_descriptor": "avoiding mainline theory and forcing your structure",
+    "theory_burden": 0.3
   }
 }

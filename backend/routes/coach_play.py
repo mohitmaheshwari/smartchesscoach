@@ -6830,20 +6830,40 @@ async def _process_move_and_respond(
                         )
                         
                         if opening_offer:
-                            # Store the teaching offer as a coach message
-                            await db.coach_messages.insert_one({
-                                "session_id": session_id,
-                                "type": "opening_teaching_offer",
-                                "message": opening_offer["message"],
-                                "trigger": "opening_detected",
-                                "opening_name": opening_offer["opening_name"],
-                                "opening_key": opening_offer["opening_key"],
-                                "options": opening_offer["options"],
-                                "trap_name": opening_offer.get("trap_name"),
-                                "created_at": datetime.now(timezone.utc),
-                                "read": False,
-                            })
-                            logger.info(f"Opening detected: {opening_offer['opening_name']} - offered teaching")
+                            # Fit-check: suppress the teaching offer when this
+                            # opening is in the user's "avoid" list. Don't push
+                            # users to grind theory in openings their pattern
+                            # profile says they're not ready for.
+                            from services.opening_fit import opening_in_avoid_list
+                            should_skip = await opening_in_avoid_list(
+                                db, user_id, opening_offer.get("opening_key")
+                            )
+                            if should_skip:
+                                logger.info(
+                                    f"Suppressed teaching offer for "
+                                    f"{opening_offer['opening_name']} — poor fit "
+                                    f"for user {user_id}"
+                                )
+                                # Mark as shown so we don't re-evaluate every move
+                                # within this session.
+                                await db.coach_sessions.update_one(
+                                    {"session_id": session_id},
+                                    {"$set": {"opening_offer_shown": True}},
+                                )
+                            else:
+                                await db.coach_messages.insert_one({
+                                    "session_id": session_id,
+                                    "type": "opening_teaching_offer",
+                                    "message": opening_offer["message"],
+                                    "trigger": "opening_detected",
+                                    "opening_name": opening_offer["opening_name"],
+                                    "opening_key": opening_offer["opening_key"],
+                                    "options": opening_offer["options"],
+                                    "trap_name": opening_offer.get("trap_name"),
+                                    "created_at": datetime.now(timezone.utc),
+                                    "read": False,
+                                })
+                                logger.info(f"Opening detected: {opening_offer['opening_name']} - offered teaching")
                     except Exception as e:
                         logger.warning(f"Opening detection failed: {e}")
                 
@@ -7069,26 +7089,44 @@ async def _process_move_and_respond(
                             )
                             
                             if opening_offer:
-                                # Store the teaching offer as a coach message
-                                await db.coach_messages.insert_one({
-                                    "session_id": session_id,
-                                    "type": "opening_teaching_offer",
-                                    "message": opening_offer["message"],
-                                    "trigger": "opening_detected",
-                                    "opening_name": opening_offer["opening_name"],
-                                    "opening_key": opening_offer["opening_key"],
-                                    "options": opening_offer["options"],
-                                    "trap_name": opening_offer.get("trap_name"),
-                                    "created_at": datetime.now(timezone.utc),
-                                    "read": False,
-                                })
-                                logger.info(f"Opening detected after coach move: {opening_offer['opening_name']}")
-                                
-                                # Mark as shown so we don't show again
-                                await db.coach_sessions.update_one(
-                                    {"session_id": session_id},
-                                    {"$set": {"opening_offer_shown": True}}
+                                # Fit-check: same gating as the user-move
+                                # branch above. Suppress when the opening is
+                                # in the user's "avoid" list.
+                                from services.opening_fit import opening_in_avoid_list
+                                _uid_for_fit = session_doc.get("user_id", "unknown")
+                                should_skip = await opening_in_avoid_list(
+                                    db, _uid_for_fit, opening_offer.get("opening_key")
                                 )
+                                if should_skip:
+                                    logger.info(
+                                        f"Suppressed post-coach teaching offer for "
+                                        f"{opening_offer['opening_name']} — poor fit "
+                                        f"for user {_uid_for_fit}"
+                                    )
+                                    await db.coach_sessions.update_one(
+                                        {"session_id": session_id},
+                                        {"$set": {"opening_offer_shown": True}}
+                                    )
+                                else:
+                                    await db.coach_messages.insert_one({
+                                        "session_id": session_id,
+                                        "type": "opening_teaching_offer",
+                                        "message": opening_offer["message"],
+                                        "trigger": "opening_detected",
+                                        "opening_name": opening_offer["opening_name"],
+                                        "opening_key": opening_offer["opening_key"],
+                                        "options": opening_offer["options"],
+                                        "trap_name": opening_offer.get("trap_name"),
+                                        "created_at": datetime.now(timezone.utc),
+                                        "read": False,
+                                    })
+                                    logger.info(f"Opening detected after coach move: {opening_offer['opening_name']}")
+
+                                    # Mark as shown so we don't show again
+                                    await db.coach_sessions.update_one(
+                                        {"session_id": session_id},
+                                        {"$set": {"opening_offer_shown": True}}
+                                    )
                         except Exception as e:
                             logger.warning(f"Opening detection after coach move failed: {e}")
                     

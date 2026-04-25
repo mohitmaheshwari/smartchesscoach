@@ -225,3 +225,26 @@ async def build_opening_fit(db, user_id: str) -> Dict:
         "play_more": play_more,
         "avoid": avoid,
     }
+
+
+async def opening_in_avoid_list(db, user_id: str, opening_key: str) -> bool:
+    """Returns True if `opening_key` is currently in the user's "avoid"
+    recommendations — used by Play-with-Coach to suppress force-offering
+    teaching for openings the user shouldn't be grinding right now.
+
+    Honest gating: if we have no fit data (cold start, too few games),
+    returns False so the existing offer flow remains intact.
+    """
+    if not opening_key:
+        return False
+    try:
+        fit = await build_opening_fit(db, user_id)
+    except Exception as e:
+        logger.debug(f"opening_in_avoid_list lookup failed: {e}")
+        return False
+    if not fit.get("has_data"):
+        return False
+    return any(
+        (o.get("opening_key") == opening_key)
+        for o in (fit.get("avoid") or [])
+    )
