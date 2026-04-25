@@ -204,27 +204,28 @@ def compute_move_time_stats(
         "took_time_critical": False,
     }
 
-    # Pick the critical (worst-cp-loss) USER move and look up its time
-    # by directly indexing into `spent` — both arrays are ply-ordered.
-    if move_evaluations and len(move_evaluations) == len(spent):
+    # Critical move detection. `move_evaluations` from stockfish_service
+    # contains ONE entry per USER ply (not both sides). So we need a
+    # parallel per-user-ply timing array indexed the same way.
+    if move_evaluations:
+        user_times_by_ply = [
+            spent[i] for i in range(len(spent))
+            if (i % 2 == 0) == user_is_white
+        ]
+
         worst_cp = 0
         worst_move_num: Optional[int] = None
-        worst_ply_idx: Optional[int] = None
+        worst_user_idx: Optional[int] = None
         for idx, ev in enumerate(move_evaluations):
             cp = ev.get("cp_loss") or 0
             if cp <= worst_cp or cp >= 5000:
                 continue
-            fb = ev.get("fen_before") or ""
-            parts = fb.split()
-            active = parts[1] if len(parts) >= 2 else ""
-            if (active == "w") != user_is_white:
-                continue
             worst_cp = cp
             worst_move_num = ev.get("move_number")
-            worst_ply_idx = idx
+            worst_user_idx = idx
 
-        if worst_ply_idx is not None:
-            t = spent[worst_ply_idx]
+        if worst_user_idx is not None and worst_user_idx < len(user_times_by_ply):
+            t = user_times_by_ply[worst_user_idx]
             stats["critical_move_time_s"] = t
             stats["critical_move_number"] = worst_move_num
             if t is not None and median_pace > 0:
