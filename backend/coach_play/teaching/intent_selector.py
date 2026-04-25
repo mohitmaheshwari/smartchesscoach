@@ -71,6 +71,52 @@ WEAKNESS_TO_INTENTS = {
         TeachingIntent.FORK_OPPORTUNITY,
         TeachingIntent.OVERLOADED_PIECE,
     ],
+    # ── Aliases for canonical CLAUDE.md cognitive_gap taxonomy ──
+    # The Mirror and analysis pipelines produce these names. Mapping
+    # them in directly avoids a translation layer between systems —
+    # the Mirror's flagged pattern lands as a teaching intent on the
+    # next coach session.
+    "piece_safety": [
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.THREAT_AWARENESS,
+    ],
+    "king_safety": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.DISCOVERED_ATTACK,
+        TeachingIntent.PIN_EXPLOITATION,
+    ],
+    "tactical_oversight": [
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.DISCOVERED_ATTACK,
+    ],
+    "calculation_depth": [
+        TeachingIntent.DISCOVERED_ATTACK,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.OVERLOADED_PIECE,
+    ],
+    "missed_tactic": [
+        TeachingIntent.FORK_OPPORTUNITY,
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.SKEWER_OPPORTUNITY,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    ],
+    "ignore_threat": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+        TeachingIntent.PIN_EXPLOITATION,
+    ],
+    "piece_activity": [
+        TeachingIntent.OVERLOADED_PIECE,
+        TeachingIntent.PIN_EXPLOITATION,
+        TeachingIntent.FORK_OPPORTUNITY,
+    ],
+    "time_pressure": [
+        TeachingIntent.THREAT_AWARENESS,
+        TeachingIntent.HANGING_PIECE_PUNISHMENT,
+    ],
 }
 
 # Maps teaching_focus strings (from session) to intents

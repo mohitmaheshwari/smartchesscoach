@@ -82,6 +82,14 @@ class CoachGameSession:
     # Coach difficulty (based on user rating)
     user_rating: int = 1200  # User's rating for difficulty matching
     coach_skill_level: int = 5  # Stockfish skill level (0-20)
+
+    # Pedagogical Coach inputs — populated at session start from the
+    # user's established patterns (same source as Home page Mirror).
+    # Drives the V2 teaching move selector's intent ranking so the
+    # coach steers toward patterns the user has actually been losing
+    # to in their imported games.
+    student_weaknesses: List[str] = field(default_factory=list)
+    teaching_focus: Optional[str] = None
     
     # Async coaching state
     coach_move_pending: bool = False  # Whether coach is still thinking
@@ -212,15 +220,33 @@ async def start_coach_session(
     rating_data = await get_user_rating_from_games(db, user_id)
     user_rating = rating_data.get('rating', 1200)
     rating_source = rating_data.get('source', 'default')
-    
+
     # Log for debugging
     logger.info(f"User {user_id} rating: {user_rating} (source: {rating_source})")
-    
+
     skill_level = rating_to_skill_level(user_rating)
-    
+
     # Use custom starting position or default
     initial_fen = starting_fen if starting_fen else "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    
+
+    # Pull the user's established patterns — same source the home-page
+    # Mirror uses ("you've been hanging pieces"). Feeds the V2 teaching
+    # selector's intent ranking so the coach plays toward patterns the
+    # user actually loses to. Best-effort: if the lookup fails the
+    # session still starts with empty weaknesses.
+    student_weaknesses: List[str] = []
+    try:
+        from services.game_mirror import get_established_patterns
+        patterns, _ = await get_established_patterns(db, user_id)
+        student_weaknesses = patterns or []
+        if student_weaknesses:
+            logger.info(
+                f"Pedagogical session for {user_id}: "
+                f"student_weaknesses={student_weaknesses}"
+            )
+    except Exception as e:
+        logger.warning(f"established_patterns lookup failed for {user_id}: {e}")
+
     session = CoachGameSession(
         session_id=str(uuid.uuid4()),
         user_id=user_id,
@@ -234,7 +260,8 @@ async def start_coach_session(
         current_fen=initial_fen,
         user_rating=user_rating,
         coach_skill_level=skill_level,
-        pedagogical_mode_active=True  # Enable pedagogical opponent by default
+        pedagogical_mode_active=True,  # Enable pedagogical opponent by default
+        student_weaknesses=student_weaknesses,
     )
     
     # Add practice mode metadata

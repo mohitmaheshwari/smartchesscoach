@@ -105,6 +105,14 @@ async def _load_game_analysis(db, user_id: str, game_id: str) -> Dict:
     }
 
 
+async def get_established_patterns(db, user_id: str) -> Tuple[List[str], int]:
+    """Public wrapper — Coach Play needs the same established-pattern
+    list the Mirror uses, so the coach can teach what the Mirror is
+    flagging. Identical contract to `_established_patterns`.
+    """
+    return await _established_patterns(db, user_id)
+
+
 async def _established_patterns(db, user_id: str) -> Tuple[List[str], int]:
     """Identify the user's currently-established patterns: those that
     appeared in at least _ESTABLISHED_MIN_OCCURRENCES of the most recent
