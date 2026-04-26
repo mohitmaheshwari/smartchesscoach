@@ -501,6 +501,9 @@ const Dashboard = ({ user }) => {
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-amber-600 dark:text-amber-300/80 font-semibold mb-5">
                 Recent session · {mirrorSession.window_size}{" "}
                 {mirrorSession.window_size === 1 ? "game" : "games"}
+                <span className="ml-3 normal-case tracking-normal text-muted-foreground/70">
+                  · newest first
+                </span>
               </div>
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-6 md:p-7">
                 {mirrorSession.story && (
@@ -508,26 +511,67 @@ const Dashboard = ({ user }) => {
                     "{mirrorSession.story}"
                   </p>
                 )}
-                {mirrorSession.game_ids?.length > 0 && (
-                  <div className="space-y-1.5">
-                    {mirrorSession.game_ids.map((gid, i) => (
-                      <button
-                        key={gid}
-                        onClick={() => navigate(`/game/${gid}`)}
-                        className="w-full text-left flex items-baseline gap-3 text-[13px] py-1.5 px-2 rounded hover:bg-amber-500/10 transition-colors"
-                      >
-                        <span className="text-muted-foreground tabular-nums w-[24px]">
-                          {i + 1}.
-                        </span>
-                        <span className="text-foreground/80 truncate flex-1">
-                          Review game
-                        </span>
-                        <ChevronRight
-                          className="w-3.5 h-3.5 text-muted-foreground shrink-0"
-                          strokeWidth={1.75}
-                        />
-                      </button>
-                    ))}
+                {(mirrorSession.games_breakdown?.length > 0 ||
+                  mirrorSession.game_ids?.length > 0) && (
+                  <div className="space-y-1">
+                    {(mirrorSession.games_breakdown ||
+                      mirrorSession.game_ids?.map((gid) => ({ game_id: gid }))
+                    ).map((g, i) => {
+                      const outcomeLabel =
+                        g.outcome === "won" ? "Win" :
+                        g.outcome === "lost" ? "Loss" :
+                        g.outcome === "drew" ? "Draw" : null;
+                      const outcomeColor =
+                        g.outcome === "won" ? "text-emerald-500 dark:text-emerald-300/80" :
+                        g.outcome === "lost" ? "text-rose-500 dark:text-rose-300/80" :
+                        g.outcome === "drew" ? "text-muted-foreground" : "";
+                      const opening = g.opening
+                        ? String(g.opening).split(":")[0].trim()
+                        : null;
+                      const criticalLine = g.critical_played && g.critical_best && g.critical_move_number
+                        ? `move ${g.critical_move_number}: ${g.critical_played} → ${g.critical_best}`
+                        : null;
+                      return (
+                        <button
+                          key={g.game_id}
+                          onClick={() => navigate(`/game/${g.game_id}`)}
+                          className="w-full text-left flex items-baseline gap-3 text-[13px] py-2 px-2 rounded hover:bg-amber-500/10 transition-colors"
+                        >
+                          <span className="text-muted-foreground tabular-nums w-[24px] shrink-0">
+                            {i + 1}.
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              {outcomeLabel && (
+                                <span className={`font-medium ${outcomeColor}`}>
+                                  {outcomeLabel}
+                                </span>
+                              )}
+                              {g.opponent && (
+                                <span className="text-foreground/70">
+                                  vs {g.opponent}
+                                </span>
+                              )}
+                              {opening && (
+                                <span className="text-muted-foreground">
+                                  · {opening}
+                                </span>
+                              )}
+                            </div>
+                            {criticalLine && (
+                              <div className="text-[11.5px] text-muted-foreground/80 mt-0.5 font-mono">
+                                {criticalLine}
+                                {g.critical_cp ? ` (−${g.critical_cp}cp)` : ""}
+                              </div>
+                            )}
+                          </div>
+                          <ChevronRight
+                            className="w-3.5 h-3.5 text-muted-foreground shrink-0 self-center"
+                            strokeWidth={1.75}
+                          />
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

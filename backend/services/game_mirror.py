@@ -61,8 +61,8 @@ def _pattern_voice(pattern: str, form: str = "verb") -> str:
 
 async def _load_game_analysis(db, user_id: str, game_id: str) -> Dict:
     """Fetch the one game-analysis doc we need, returning the bits used by
-    the mirror + the home-page UI (gaps, accuracy, critical fen, total_moves).
-    Returns {} when nothing usable.
+    the mirror + the Lab session panel (gaps, accuracy, critical move
+    metadata, total_moves). Returns {} when nothing usable.
     """
     if not game_id:
         return {}
@@ -82,26 +82,41 @@ async def _load_game_analysis(db, user_id: str, game_id: str) -> Dict:
         return {"accuracy": sf.get("accuracy"), "total_moves": 0}
 
     gaps = sorted({m.get("cognitive_gap") for m in moves if m.get("cognitive_gap")})
-    # Critical position = fen_before of the move with the largest cp_loss
-    # (mate sentinels excluded).
+    # Critical position = the move with the largest cp_loss (mate
+    # sentinels excluded). We surface the move number, what the user
+    # played, what the engine recommended, and the cognitive_gap tag —
+    # so the Lab session panel can render a useful one-liner per game.
     critical_fen = None
-    worst_cp = 0
+    critical_move_number = None
+    critical_played = None
+    critical_best = None
+    critical_cp = 0
+    critical_gap = None
     for m in moves:
         cp = m.get("cp_loss")
         if cp is None:
             continue
         cp_abs = abs(cp)
-        if cp_abs > 3000:  # mate sentinel — skip
+        if cp_abs > 3000:  # mate sentinel
             continue
-        if cp_abs > worst_cp:
-            worst_cp = cp_abs
+        if cp_abs > critical_cp:
+            critical_cp = cp_abs
             critical_fen = m.get("fen_before")
+            critical_move_number = m.get("move_number")
+            critical_played = m.get("move")
+            critical_best = m.get("best_move")
+            critical_gap = m.get("cognitive_gap")
 
     return {
         "gaps": gaps,
         "accuracy": sf.get("accuracy"),
         "total_moves": len(moves),
         "critical_fen": critical_fen,
+        "critical_move_number": critical_move_number,
+        "critical_played": critical_played,
+        "critical_best": critical_best,
+        "critical_cp": critical_cp or None,
+        "critical_gap": critical_gap,
     }
 
 
@@ -462,6 +477,11 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
             "outcome": outcome,
             "gaps": gaps,
             "critical_fen": analysis.get("critical_fen"),
+            "critical_move_number": analysis.get("critical_move_number"),
+            "critical_played": analysis.get("critical_played"),
+            "critical_best": analysis.get("critical_best"),
+            "critical_cp": analysis.get("critical_cp"),
+            "critical_gap": analysis.get("critical_gap"),
             "accuracy": analysis.get("accuracy"),
             "total_moves": analysis.get("total_moves"),
             "move_time_stats": g.get("move_time_stats"),
@@ -500,6 +520,29 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
         if any(p in g["gaps"] for g in games_data)
     })
 
+    # Per-game breakdown for the Lab session panel — newest-first
+    # ordering follows the upstream sort. Each entry carries enough
+    # info for a one-line summary: opponent, result, opening, and
+    # the critical move (what you played + what was better).
+    games_breakdown = [
+        {
+            "game_id": g["game_id"],
+            "opponent": g.get("opponent"),
+            "opening": g.get("opening"),
+            "outcome": g.get("outcome"),
+            "result": g.get("result"),
+            "user_color": g.get("user_color"),
+            "accuracy": g.get("accuracy"),
+            "total_moves": g.get("total_moves"),
+            "critical_move_number": g.get("critical_move_number"),
+            "critical_played": g.get("critical_played"),
+            "critical_best": g.get("critical_best"),
+            "critical_cp": g.get("critical_cp"),
+            "critical_gap": g.get("critical_gap"),
+        }
+        for g in games_data
+    ]
+
     return {
         # Backward-compat last_session shape (HomePage reads these):
         "game_id": thumb_game.get("game_id"),
@@ -513,7 +556,8 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
         "story": story,
         # Window context:
         "window_size": len(games_data),
-        "game_ids": [g["game_id"] for g in games_data],
+        "game_ids": [g["game_id"] for g in games_data],  # legacy
+        "games_breakdown": games_breakdown,              # new — preferred
         "opened_at": floor.isoformat() if hasattr(floor, "isoformat") else str(floor),
         "outcomes": {
             "won": sum(1 for g in games_data if g["outcome"] == "won"),
