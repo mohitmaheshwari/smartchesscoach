@@ -48,42 +48,6 @@ const BEHAVIOR_DESCRIPTIONS = {
     "Your opponent outplays you in small ways. The position gradually slips.",
 };
 
-const PATTERN_MAP = {
-  threw_winning: "calculation_depth",
-  tactical_miss: "tactical_oversight",
-  one_move_blunder: "piece_safety",
-  calculation_error: "calculation_depth",
-  time_collapse: "calculation_depth",
-  opening_disaster: "piece_safety",
-  endgame_collapse: "endgame_technique",
-};
-
-// Short, human label for the pattern — used in the page header as the
-// replacement for the "50 unreviewed" backlog counter. One focus, named.
-const FOCUS_LABEL = {
-  threw_winning:     "throwing winning positions",
-  tactical_miss:     "missing tactics",
-  one_move_blunder:  "piece safety",
-  calculation_error: "calculation depth",
-  time_collapse:     "time pressure",
-  opening_disaster:  "opening fundamentals",
-  endgame_collapse:  "endgame conversion",
-  positional:        "positional drift",
-};
-
-// Drill-style CTA copy keyed by the same categories. Makes the button
-// specific to the pattern instead of the generic "Practice this pattern".
-const CTA_LABEL = {
-  threw_winning:     "Drill: Hold winning positions",
-  tactical_miss:     "Drill: Spot the tactic",
-  one_move_blunder:  "Drill: Piece safety check",
-  calculation_error: "Drill: One move deeper",
-  time_collapse:     "Drill: Clock discipline",
-  opening_disaster:  "Drill: Opening fundamentals",
-  endgame_collapse:  "Drill: Endgame technique",
-  positional:        "Drill: Quiet improvements",
-};
-
 // ─── Utilities ──────────────────────────────────────────────────────────────
 
 const resultLetter = (g) => {
@@ -446,12 +410,6 @@ const Dashboard = ({ user }) => {
     });
   }
 
-  const practicePattern =
-    activeFocus?.gap ||
-    PATTERN_MAP[primaryProblem?.category] ||
-    primaryProblem?.category ||
-    "current";
-
   return (
     <Layout user={user}>
       <div
@@ -474,19 +432,7 @@ const Dashboard = ({ user }) => {
               </h1>
             </div>
             <p className="text-[11px] md:text-[12px] text-muted-foreground shrink-0 text-right max-w-[220px]">
-              {primaryProblem && FOCUS_LABEL[primaryProblem.category] ? (
-                <>
-                  <span className="uppercase tracking-[0.18em] text-[10px] text-muted-foreground/80">
-                    One pattern costing you games
-                  </span>
-                  <br />
-                  <span className="text-foreground/80">
-                    {FOCUS_LABEL[primaryProblem.category]}
-                  </span>
-                </>
-              ) : (
-                <span className="tabular-nums">{games.length} games</span>
-              )}
+              <span className="tabular-nums">{games.length} games</span>
             </p>
           </div>
 
@@ -709,22 +655,6 @@ const Dashboard = ({ user }) => {
                     >
                       Skip to archive
                     </button>
-                    {primaryProblem && (
-                      <button
-                        onClick={() =>
-                          navigate(
-                            `/training/prescribed?weakness=${practicePattern}`
-                          )
-                        }
-                        className="ml-auto text-[12.5px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
-                      >
-                        <Target
-                          className="h-3.5 w-3.5"
-                          strokeWidth={1.75}
-                        />
-                        {CTA_LABEL[primaryProblem.category] || "Drill: fix this"}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -813,6 +743,12 @@ const Dashboard = ({ user }) => {
                   <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Study this opening
                 </button>
+                {openingBenchmark?.has_data && (
+                  <p className="text-[11px] text-muted-foreground/80 mt-4 pt-4 border-t border-rose-500/10">
+                    {openingBenchmark.subline ||
+                      `Your opening-theory mistakes are above your rating band's average.`}
+                  </p>
+                )}
               </div>
             </section>
           )}
@@ -947,34 +883,6 @@ const Dashboard = ({ user }) => {
               </div>
             </section>
           )}
-          {/* ━━━━━━━━━━ OPENING-KNOWLEDGE BAND BENCHMARK ━━━━━━━━━━ */}
-          {/* The only cognitive_gap with a real cross-band signal. Only shows
-              when the user is meaningfully above their band's average. CTA
-              routes to /openings (overview) — "Study your openings" is an
-              opening lesson flow, not generic training puzzles. */}
-          {openingBenchmark?.has_data && (
-            <section className="mb-16 md:mb-24">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-orange-600 dark:text-orange-300/80 font-semibold mb-5">
-                Benchmark vs your rating band
-              </div>
-              <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-6 md:p-7">
-                <p className="font-serif text-[19px] md:text-[22px] leading-[1.3] tracking-[-0.01em] text-foreground/90 mb-3">
-                  {openingBenchmark.headline}
-                </p>
-                <p className="text-[13px] text-muted-foreground mb-5">
-                  {openingBenchmark.subline}
-                </p>
-                <button
-                  onClick={() => navigate("/openings")}
-                  className="h-10 px-5 rounded-lg bg-orange-500/90 hover:bg-orange-500 text-white font-medium text-[13px] transition-colors inline-flex items-center gap-2"
-                >
-                  <Target className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Study your openings
-                </button>
-              </div>
-            </section>
-          )}
-
           {/* ━━━━━━━━━━ ARCHIVE ━━━━━━━━━━ */}
           <section id="lab-archive">
             <div className="flex items-baseline justify-between mb-5">

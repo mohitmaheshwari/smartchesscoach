@@ -195,9 +195,22 @@ async def build_opening_fit(db, user_id: str) -> Dict:
 
         fit = winrate_signal - weakness_score - theory_score
 
+        # Display name correction. Some openings' name implies a side
+        # (e.g., "Sicilian Defense" — black plays the defense). When the
+        # user's color doesn't match the opening's natural side, prefix
+        # with "vs " so we don't say "Sicilian Defense (white)" to a
+        # player who's actually playing 1.e4 against a Sicilian.
+        natural_color = (demand.get("color") or "").lower()
+        display_name = demand.get("name") or stats["canonical"]
+        if natural_color and natural_color != stats["color"]:
+            # Strip a trailing "(Black side)" / "(White side)" if our
+            # data already captures it, then prefix "vs ".
+            base = display_name.split("(")[0].strip()
+            display_name = f"vs {base}"
+
         scored.append({
             "opening_key": opening_key,
-            "name": demand.get("name") or stats["canonical"],
+            "name": display_name,
             "color": stats["color"],
             "fit": round(fit, 3),
             "win_rate": round(win_rate, 3),
@@ -214,8 +227,19 @@ async def build_opening_fit(db, user_id: str) -> Dict:
 
     scored.sort(key=lambda e: -e["fit"])
     play_more = [e for e in scored if e["fit"] > 0.05][:3]
+
+    # Avoid list — never include an opening where the user is winning at
+    # or above their personal baseline. Telling someone "avoid Sicilian,
+    # you win 60%" is internally contradictory: if you're winning, the
+    # pattern isn't actually getting punished, regardless of theoretical
+    # punishment vectors. The avoid list exists for openings where the
+    # user is BOTH losing AND has the wrong fundamentals.
     avoid = sorted(
-        [e for e in scored if e["fit"] < -0.05],
+        [
+            e for e in scored
+            if e["fit"] < -0.05
+            and e["win_rate"] < baseline_winrate
+        ],
         key=lambda e: e["fit"],
     )[:2]
 
