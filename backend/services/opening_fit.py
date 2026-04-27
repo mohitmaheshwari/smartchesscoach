@@ -39,10 +39,26 @@ from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# How many user plies count as "the opening" for the per-game phase
-# accuracy signal. Aligned with the opening-mistakes route — if the
-# user leaves theory by ply 8-10, anything after is middlegame.
-_OPENING_PHASE_USER_PLIES = 10
+# Opening-phase cutoff scales with each opening's theory burden — a
+# Scandinavian's "opening" is over by ply 5, a Najdorf's runs to ply 15.
+# Buckets are curated against real chess theory depth:
+#   • burden ≤ 0.25 (London, Scandinavian)        → 6 user plies
+#   • burden 0.25–0.5 (Italian, Caro-Kann, French) → 9 user plies
+#   • burden 0.5–0.75 (Queen's Gambit, KID)        → 12 user plies
+#   • burden > 0.75 (Sicilian, Ruy Lopez)          → 15 user plies
+# Used in lieu of one global cutoff so the "opening phase" metric is
+# fair across openings of wildly different theoretical depth.
+def _phase_plies_for_burden(burden: float) -> int:
+    if burden <= 0.25:
+        return 6
+    if burden <= 0.50:
+        return 9
+    if burden <= 0.75:
+        return 12
+    return 15
+
+# Fallback for openings without a demands entry (no theory_burden known).
+_OPENING_PHASE_DEFAULT_PLIES = 9
 
 _DEMANDS_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -144,17 +160,23 @@ def _voice_reason(
 
 async def _opening_phase_cp_by_family(db, user_id: str) -> Tuple[Dict[str, Tuple[float, int]], float]:
     """For each canonical opening family the user has played, compute
-    the user's average cp_loss per move in the first _OPENING_PHASE_USER_PLIES
-    user plies, averaged across their games of that family.
+    the user's average cp_loss per move in the first N user plies of
+    each game — where N depends on that opening's theory_burden so the
+    cutoff scales with actual chess theory depth.
 
     Returns ({canonical_name: (avg_cp_per_move, n_games)}, baseline_avg).
     `baseline_avg` is the user's overall average opening-phase cp_loss
     across all families — the comparison point.
 
     `move_evaluations` stores ONE entry per user ply (verified earlier),
-    so moves[:10] gives us user plies 1..10.
+    so moves[:N] gives us user plies 1..N for that game.
     """
-    from services.opening_normalizer import normalize_opening
+    from services.opening_normalizer import (
+        normalize_opening,
+        curriculum_key_for_opening,
+    )
+
+    demands = _load_demands()
 
     games = await db.games.find(
         {
@@ -162,7 +184,7 @@ async def _opening_phase_cp_by_family(db, user_id: str) -> Tuple[Dict[str, Tuple
             "is_analyzed": True,
             "termination": {"$not": {"$regex": "abandon", "$options": "i"}},
         },
-        {"_id": 0, "game_id": 1, "opening": 1},
+        {"_id": 0, "game_id": 1, "opening": 1, "user_color": 1},
     ).to_list(500)
     if not games:
         return {}, 0.0
@@ -171,15 +193,32 @@ async def _opening_phase_cp_by_family(db, user_id: str) -> Tuple[Dict[str, Tuple
     if not games_by_id:
         return {}, 0.0
 
-    # Pull the move_evaluations for every game in one pass.
+    # Helper: resolve a game's per-game opening cutoff in user plies,
+    # based on the matched opening's theory_burden.
+    def _cutoff_for_game(g: Dict) -> int:
+        canon = normalize_opening(g.get("opening"))
+        color = (g.get("user_color") or "white").lower()
+        key = curriculum_key_for_opening(canon, color)
+        if not key:
+            return _OPENING_PHASE_DEFAULT_PLIES
+        demand = demands.get(key)
+        if not demand:
+            return _OPENING_PHASE_DEFAULT_PLIES
+        burden = float(demand.get("theory_burden") or 0.5)
+        return _phase_plies_for_burden(burden)
+
     per_game_avg: Dict[str, float] = {}
     async for a in db.game_analyses.find(
         {"user_id": user_id, "game_id": {"$in": list(games_by_id.keys())}},
         {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations": 1},
     ):
         gid = a.get("game_id")
+        game = games_by_id.get(gid)
+        if not game:
+            continue
+        cutoff = _cutoff_for_game(game)
         moves = (a.get("stockfish_analysis") or {}).get("move_evaluations") or []
-        opening_moves = moves[:_OPENING_PHASE_USER_PLIES]
+        opening_moves = moves[:cutoff]
         cp_losses = [
             abs(m.get("cp_loss") or 0)
             for m in opening_moves
