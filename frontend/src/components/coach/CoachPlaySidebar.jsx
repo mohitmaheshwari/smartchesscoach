@@ -927,13 +927,18 @@ const CoachPlaySidebar = ({
                         {interactiveCoaching.coachMoveCoaching.trap_warning.question}
                       </p>
                     )}
+                    {interactiveCoaching.coachMoveCoaching.trap_warning.error && (
+                      <p className="text-[12px] text-rose-500 dark:text-rose-300 mt-2">
+                        {interactiveCoaching.coachMoveCoaching.trap_warning.error}
+                      </p>
+                    )}
                     {interactiveCoaching.coachMoveCoaching.trap_warning.offers_teaching && (
                       <div className="flex gap-2 mt-2">
                         <button
                           onClick={async () => {
                             const trapId = interactiveCoaching.coachMoveCoaching.trap_warning.trap_id;
                             try {
-                              await fetch(`${API}/coach/play/teaching/start`, {
+                              const res = await fetch(`${API}/coach/play/teaching/start`, {
                                 method: "POST",
                                 credentials: "include",
                                 headers: { "Content-Type": "application/json" },
@@ -943,7 +948,29 @@ const CoachPlaySidebar = ({
                                   trap_key: trapId,
                                 }),
                               });
-                              // Frontend trap state will refresh on next poll
+                              if (!res.ok) {
+                                const errBody = await res.json().catch(() => ({}));
+                                const msg = errBody?.detail || errBody?.error || `Couldn't start the lesson (HTTP ${res.status}).`;
+                                console.error("Failed to start trap lesson:", msg);
+                                if (interactiveCoaching?.setCoachMoveCoaching) {
+                                  interactiveCoaching.setCoachMoveCoaching({
+                                    ...interactiveCoaching.coachMoveCoaching,
+                                    trap_warning: {
+                                      ...interactiveCoaching.coachMoveCoaching.trap_warning,
+                                      error: msg,
+                                    },
+                                  });
+                                }
+                                return;
+                              }
+                              // Force a fresh teaching-state poll so the UI
+                              // flips into lesson mode immediately rather
+                              // than waiting for the next poll tick.
+                              if (interactiveCoaching?.refreshTeachingState) {
+                                interactiveCoaching.refreshTeachingState();
+                              } else if (typeof onRefreshSession === "function") {
+                                onRefreshSession();
+                              }
                             } catch (e) {
                               console.error("Failed to start trap lesson:", e);
                             }

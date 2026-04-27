@@ -418,9 +418,13 @@ async def start_lesson(db, session_id: str, user_id: str, lesson_type: str, para
     elif lesson_type == "endgame":
         return await start_endgame_lesson(db, session_id, user_id, params)
     elif lesson_type in ("learn_trap", "learn_main_line", "opening"):
-        # Delegate to existing opening teaching
+        # Delegate to existing opening teaching. trap_key (when provided)
+        # tells the lesson which specific trap to teach — without it the
+        # lesson falls back to whatever's "suggested" on the session,
+        # which may not match what the user clicked.
         from services.opening_teaching_integration import start_opening_lesson
-        return await start_opening_lesson(db, session_id, user_id, lesson_type)
+        trap_key = params.get("trap_key") if isinstance(params, dict) else None
+        return await start_opening_lesson(db, session_id, user_id, lesson_type, trap_key=trap_key)
     else:
         return {"error": f"Unknown lesson type: {lesson_type}"}
 

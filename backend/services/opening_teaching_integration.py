@@ -208,12 +208,18 @@ async def start_opening_lesson(
     db,
     session_id: str,
     user_id: str,
-    lesson_type: str  # "learn_trap" or "learn_main_line"
+    lesson_type: str,  # "learn_trap" or "learn_main_line"
+    trap_key: Optional[str] = None,
 ) -> Dict:
     """
     Start an interactive opening lesson.
     Pauses the normal game and enters teaching mode.
     All lesson data comes from the JSON theory file.
+
+    `trap_key` (optional, only used when lesson_type=="learn_trap")
+    points the lesson at a specific trap — needed when the user clicked
+    "Teach me" on a trap warning and we want to teach THAT trap, not
+    whatever's loosely "suggested" on the session.
     """
     from services.opening_mastery import get_user_opening_progress
 
@@ -221,7 +227,20 @@ async def start_opening_lesson(
     if not session_doc:
         return {"error": "Session not found"}
 
+    # Try the session's tracked opening first. If missing — common when
+    # the trap warning fired without an explicit opening detection — fall
+    # back to deriving the opening from the trap_key the user clicked.
     opening_key = session_doc.get("detected_opening") or session_doc.get("opening_to_teach")
+    if not opening_key and trap_key:
+        from services.verified_opening_traps import get_verified_trap
+        trap = get_verified_trap(trap_key)
+        if trap and getattr(trap, "opening_key", None):
+            opening_key = trap.opening_key
+            # Persist so subsequent moves pick up the right opening.
+            await db.coach_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"detected_opening": opening_key}},
+            )
     if not opening_key:
         return {"error": "No opening detected"}
 
@@ -234,7 +253,10 @@ async def start_opening_lesson(
     progress = await get_user_opening_progress(db, user_id, opening_name)
 
     if lesson_type == "learn_trap":
-        return await _start_trap_lesson(db, session_id, session_doc, opening_key, opening_name, user_plays_white, progress)
+        return await _start_trap_lesson(
+            db, session_id, session_doc, opening_key, opening_name,
+            user_plays_white, progress, trap_key=trap_key,
+        )
     else:
         # Check if deep theory exists before starting
         variations = get_available_variations(opening_key)
@@ -354,22 +376,42 @@ async def _start_main_line_lesson(db, session_id, session_doc, opening_key, open
     return result
 
 
-async def _start_trap_lesson(db, session_id, session_doc, opening_key, opening_name, user_plays_white, progress):
-    """Start a trap lesson (unchanged logic, uses verified_opening_traps)."""
+async def _start_trap_lesson(
+    db, session_id, session_doc, opening_key, opening_name,
+    user_plays_white, progress, trap_key: Optional[str] = None,
+):
+    """Start a trap lesson (uses verified_opening_traps).
+
+    Resolution order for which trap to teach:
+      1. `trap_key` from caller — what the user actually clicked.
+      2. Corrected trap from admin overrides for the current line.
+      3. Suggested trap on the session.
+      4. Preferred trap matching moves played.
+      5. First trap of the opening (only when no moves played yet).
+    """
     from services.opening_correction_service import get_trap_override
+    from services.verified_opening_traps import get_verified_trap
 
     move_history = session_doc.get("move_history", [])
     moves_played_san = [m.get("move", "") for m in move_history if m.get("move")]
-    corrected_trap = await select_corrected_trap_for_current_line(db, opening_key, moves_played_san)
-    corrected_trap_name = corrected_trap.get("corrected_name") or corrected_trap.get("trap_name") if corrected_trap else None
 
     trap = None
-    suggested_trap = session_doc.get("suggested_trap")
 
-    if corrected_trap:
-        trap = corrected_trap
-    elif suggested_trap and suggested_trap.get("name"):
-        trap = get_verified_trap_by_name(opening_key, suggested_trap.get("name"))
+    # Highest priority: the user clicked "Teach me" on a specific trap.
+    if trap_key:
+        trap = get_verified_trap(trap_key)
+
+    if not trap:
+        corrected_trap = await select_corrected_trap_for_current_line(db, opening_key, moves_played_san)
+        corrected_trap_name = corrected_trap.get("corrected_name") or corrected_trap.get("trap_name") if corrected_trap else None
+        suggested_trap = session_doc.get("suggested_trap")
+
+        if corrected_trap:
+            trap = corrected_trap
+        elif suggested_trap and suggested_trap.get("name"):
+            trap = get_verified_trap_by_name(opening_key, suggested_trap.get("name"))
+    else:
+        corrected_trap_name = None
 
     if not trap:
         trap = select_preferred_trap(opening_key, moves_played_san)
