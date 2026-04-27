@@ -25,21 +25,21 @@ COACH_MOVE = {
     # ─── OPENING: Piece development ───
 
     "opening_develop_knight": [
-        {"explanation": "I brought my {piece} to {square}. That's a natural spot for it in the {opening}.", "question": "Where are you going to put your {piece}?", "hint": "Think about which squares give your pieces the most room."},
-        {"explanation": "{move} — my {piece} is in the game now. This is how the {opening} starts.", "question": "How many of your pieces are still on the back row?", "hint": "The faster you get your pieces out, the better."},
-        {"explanation": "I played {move} to get my {piece} working. We're in the {opening}.", "question": "What's your plan for getting your pieces out?", "hint": "Knights and bishops should come out before the queen."},
+        {"explanation": "{piece} to {square}. Natural spot for it in the {opening}.", "question": "Where are you going to put your {piece}?", "hint": "Pick squares that give your pieces room to do something."},
+        {"explanation": "{move} — my {piece} is out. This is how the {opening} usually goes.", "question": "How many of your pieces are still sitting on the back row?", "hint": "Faster you get them out, better off you are."},
+        {"explanation": "{move} — getting my {piece} into the game.", "question": "What's your plan for getting your pieces out?", "hint": "Knights and bishops first. Queen later."},
     ],
 
     "opening_develop_bishop": [
-        {"explanation": "My bishop is on {square} now — it can see a lot of the board from there.", "question": "Where do you want your bishops?", "hint": "Bishops like long open lines where nothing blocks them."},
-        {"explanation": "{move} — putting my bishop where it does the most work.", "question": "Can you see what my bishop is looking at from {square}?", "hint": "Follow the diagonal from {square} and see what's there."},
-        {"explanation": "I played {move}. My bishop has a nice view from {square}.", "question": "Are your bishops doing anything useful right now?", "hint": "A bishop stuck behind its own pawns isn't helping."},
+        {"explanation": "Bishop to {square}. Sees a lot of the board from here.", "question": "Where do you want your bishops?", "hint": "Bishops like long lines with nothing in the way."},
+        {"explanation": "{move} — putting my bishop where it actually does something.", "question": "What's my bishop looking at from {square}?", "hint": "Follow the line from {square} — what's down it?"},
+        {"explanation": "{move} — my bishop's got a clear view from {square}.", "question": "Are your bishops doing anything?", "hint": "A bishop stuck behind your own pawns isn't helping."},
     ],
 
     "opening_pawn_center": [
-        {"explanation": "I pushed my pawn to {square} to fight for the center. We're playing the {opening}.", "question": "Who has more control of the center right now?", "hint": "Look at d4, d5, e4, e5 — who has more pieces and pawns there?"},
-        {"explanation": "{move} — fighting for the center in the {opening}.", "question": "What are you doing to control the center?", "hint": "Pawns on e4/d4 or e5/d5 are your best tools for this."},
-        {"explanation": "I played {move}. In the {opening}, the center is where the fight starts.", "question": "Do you have a pawn in the center?", "hint": "If not, think about how to get one there."},
+        {"explanation": "Pawn to {square} — fighting for the middle. We're in the {opening}.", "question": "Who's got more in the middle right now?", "hint": "Look at d4, d5, e4, e5 — who's got more there?"},
+        {"explanation": "{move} — fighting for the middle in the {opening}.", "question": "What are you doing about the middle?", "hint": "Pawns on e4/d4 or e5/d5 are your best tool."},
+        {"explanation": "{move}. In the {opening}, the middle is where the game gets decided.", "question": "Do you have a pawn in the middle?", "hint": "If not, think about how to get one there."},
     ],
 
     "opening_pawn_flank": [
@@ -51,109 +51,109 @@ COACH_MOVE = {
     ],
 
     "opening_pawn_support": [
-        {"explanation": "I played {move} to support my setup. Not flashy, but it makes my position sturdier.", "question": "Is your position solid right now, or are there weak squares?", "hint": "Sometimes the best move is a quiet one that fixes a small problem."},
+        {"explanation": "{move} — quiet move, just keeping my setup solid.", "question": "Is your side of the board steady, or are there gaps?", "hint": "Sometimes the best move is the calm one that closes a hole."},
     ],
 
     # ─── Coach captures (piece-specific) — routed when move_type=="capture" ───
 
     "capture_trade": [
-        {"explanation": "{move} — I took a {target}. When you capture, always check what you're giving up in return.", "question": "Is this trade good for me or you?", "hint": "Count: piece values on both sides, and who's left with better pieces."},
-        {"explanation": "I captured your {target} with {move}.", "question": "Was that capture forced, or did I have other options?", "hint": "When someone trades, ask: did the position get better or worse for them?"},
+        {"explanation": "{move} — took your {target}. Whenever you capture, check what you give back.", "question": "Is this trade good for me or you?", "hint": "Count what's left: who's got the better pieces after?"},
+        {"explanation": "Took your {target} with {move}.", "question": "Did I have to take, or did I want to?", "hint": "When someone trades, ask: did their side get better or worse after?"},
     ],
 
     "capture_free": [
-        {"explanation": "I took your {target} — it had no protection, so it was free.", "question": "What should have been guarding that {target}?", "hint": "Before every move, scan your own pieces: is each one defended?"},
-        {"explanation": "{move} wins material. Your {target} was hanging on {square}.", "question": "How do you make sure your pieces don't hang?", "hint": "After every move, re-count defenders on each of your pieces."},
+        {"explanation": "Took your {target} — nobody was guarding it.", "question": "Who was supposed to be watching that {target}?", "hint": "Before every move, look at each of your pieces — who's defending it?"},
+        {"explanation": "{move} — free piece. Your {target} on {square} had no help.", "question": "How do you stop pieces from hanging like that?", "hint": "After every move you make, check each piece — who's protecting it?"},
     ],
 
     # ─── Coach retreats / piece shuffles — not development ───
 
     "retreat_knight": [
-        {"explanation": "I pulled my knight back to {square} — sometimes you retreat to find a better square.", "question": "What's my knight doing from {square}?", "hint": "Not every move has to be forward. Repositioning is fine."},
+        {"explanation": "Pulled my knight back to {square}. Sometimes the right move is backwards.", "question": "What's my knight up to from {square}?", "hint": "Not every move goes forward. Going back to a better spot is fine."},
     ],
 
     "retreat_bishop": [
-        {"explanation": "My bishop is stepping back to {square}. This keeps it safe and flexible.", "question": "Why might I not want my bishop forward right now?", "hint": "Bishops often need to find the right diagonal, not the furthest one."},
+        {"explanation": "Bishop's stepping back to {square}. Keeps it safe and ready.", "question": "Why might my bishop be better here than further forward?", "hint": "Bishops want the right diagonal, not the longest one."},
     ],
 
     "piece_reposition": [
-        {"explanation": "I'm moving my {piece} to {square} to reposition — not creating a threat, just improving its job.", "question": "Is your {piece} well-placed right now?", "hint": "Every piece has a 'best square' for the position. It's worth finding."},
+        {"explanation": "Moving my {piece} to {square} — just finding it a better spot.", "question": "Is your {piece} on a good square right now?", "hint": "Every piece has a best spot. Worth a few seconds to find it."},
     ],
 
     "opening_castle": [
-        {"explanation": "I castled. My king is safe now and my rook can join the fight.", "question": "Have you castled yet?", "hint": "If your king is still in the center, it's time to fix that."},
-        {"explanation": "King is tucked away, rook is connected. That's what castling does.", "question": "Is your king safe right now?", "hint": "Castling is usually the most important thing to do in the first 10 moves."},
+        {"explanation": "Castled. King's safe, rook's free to play.", "question": "Have you castled yet?", "hint": "If your king is still in the middle, get it tucked away."},
+        {"explanation": "King's tucked into the corner. Rook's already in the game.", "question": "Is your king safe?", "hint": "Castling is usually the most important thing to do in the first 10 moves."},
     ],
 
     "opening_generic": [
-        {"explanation": "I played {move}. We're in the {opening} — a solid way to start.", "question": "Do you know the main idea of this opening?", "hint": "Every opening has a plan. Think about what pieces you want to move first."},
-        {"explanation": "{move} — following the {opening}. Both sides are setting up.", "question": "What's your next piece to develop?", "hint": "Look at your back row — who hasn't moved yet?"},
+        {"explanation": "{move}. We're in the {opening} — solid start.", "question": "Know the main idea of this opening?", "hint": "Every opening has a plan. Think about which pieces to move first."},
+        {"explanation": "{move} — playing the {opening}. We're both still setting up.", "question": "Which piece are you bringing out next?", "hint": "Look at your back row — who hasn't moved yet?"},
     ],
 
     # ─── MIDDLEGAME: Teaching intents ───
 
     "hanging_piece_capture": [
-        {"explanation": "Your {target} on {square} had no protection — so I took it.", "question": "Before you moved, did you check if everything was safe?", "hint": "Before every move, scan the board: is anything of mine without protection?"},
-        {"explanation": "I took your {target} on {square}. It was sitting there with no help.", "question": "What was supposed to protect your {target}?", "hint": "Count the pieces guarding each of your important pieces."},
-        {"explanation": "Your {target} was alone on {square}. I took it for free.", "question": "How do you avoid leaving pieces without protection?", "hint": "After every move, ask yourself: did I leave anything hanging?"},
+        {"explanation": "Your {target} on {square} had nobody guarding it. So I took it.", "question": "Did you check if your stuff was safe before you moved?", "hint": "Before every move, look around: is anything of mine alone?"},
+        {"explanation": "Took your {target} on {square}. Nobody was watching it.", "question": "What was supposed to be guarding your {target}?", "hint": "Count who's protecting each of your important pieces."},
+        {"explanation": "Your {target} was just sitting on {square} alone. Free for me.", "question": "How do you stop leaving pieces alone like that?", "hint": "After every move, ask: did I leave anything hanging?"},
     ],
 
     "hanging_piece_create": [
-        {"explanation": "I played {move}. Look carefully at your pieces — is everything protected?", "question": "Can you find which piece has no protection?", "hint": "One of your pieces is in trouble right now. Scan the board."},
-        {"explanation": "{move} — now something on your side has no help. Can you see it?", "question": "Which one of your pieces is in danger?", "hint": "Check each of your pieces: who is guarding it?"},
-        {"explanation": "I just played {move}. Something changed. Look at your pieces.", "question": "What's different after my move?", "hint": "One of your pieces lost its protection. Find it before I take it."},
+        {"explanation": "{move}. Look at your pieces — is anything left alone now?", "question": "Which one of your pieces has no protection?", "hint": "One of your pieces just lost its guard. Find it."},
+        {"explanation": "{move} — something on your side just got exposed. See it?", "question": "Which of your pieces is in trouble?", "hint": "Go piece by piece: who's guarding each one?"},
+        {"explanation": "{move}. Something just changed — look at your pieces.", "question": "What's different after my move?", "hint": "One of your pieces lost its protection. Find it before I do."},
     ],
 
     "fork_created": [
-        {"explanation": "{move} — my {piece} is now attacking two things at once.", "question": "Can you see what two pieces I'm threatening?", "hint": "My {piece} on {square} is looking at more than one target."},
-        {"explanation": "I played {move}. My {piece} is hitting two of your pieces at the same time.", "question": "Which piece will you save?", "hint": "You can't save both — pick the more valuable one."},
-        {"explanation": "{move} — that's a double attack from my {piece}.", "question": "Where is my {piece} looking? Count the targets.", "hint": "Two of your pieces are under attack at the same time."},
+        {"explanation": "{move} — my {piece} is hitting two things at once.", "question": "Can you see both pieces I'm attacking?", "hint": "My {piece} on {square} is aiming at more than one target."},
+        {"explanation": "{move}. My {piece} is on two of your pieces at the same time.", "question": "Which one will you save?", "hint": "You can't save both. Save the bigger one."},
+        {"explanation": "{move} — fork. My {piece} attacks two things.", "question": "Where's my {piece} looking? Count the targets.", "hint": "Two of your pieces are under attack right now."},
     ],
 
     "threat_created_specific": [
-        {"explanation": "I played {move}. Your {target} on {target_square} is now in danger.", "question": "What are you going to do about your {target}?", "hint": "It has {defenders} pieces protecting it. Is that enough?"},
-        {"explanation": "{move} — now I'm looking at your {target} on {target_square}.", "question": "Can you see the threat?", "hint": "Check what my piece on {square} is attacking."},
+        {"explanation": "{move}. Your {target} on {target_square} is in trouble now.", "question": "What are you going to do about your {target}?", "hint": "It's got {defenders} guarding it. Enough?"},
+        {"explanation": "{move} — now I'm aiming at your {target} on {target_square}.", "question": "See the threat?", "hint": "Look at what my piece on {square} is attacking."},
     ],
 
     "threat_created_general": [
-        {"explanation": "I played {move}. Something changed on the board.", "question": "What does my move threaten?", "hint": "Look at what my piece on {square} can do next turn."},
-        {"explanation": "{move} — always check what changed after your opponent moves.", "question": "Before you play, what should you look at first?", "hint": "Ask yourself: what is my opponent threatening?"},
+        {"explanation": "{move}. Something just changed on the board.", "question": "What does my move threaten?", "hint": "Look at what my piece on {square} can do next turn."},
+        {"explanation": "{move}. Always look at what changed after I move.", "question": "Before you play, what should you check first?", "hint": "Ask: what is my opponent threatening?"},
     ],
 
     "rook_open_file": [
-        {"explanation": "I put my rook on {square} — it's an open file with no pawns in the way.", "question": "Do you have a rook on an open file?", "hint": "Rooks are most powerful when they have a clear path up and down."},
+        {"explanation": "Rook to {square} — open file, no pawns blocking it.", "question": "Got a rook on an open file?", "hint": "Rooks are strongest when they've got a clear path up and down."},
     ],
 
     "quiet_developing": [
-        {"explanation": "I played {move} — getting my {piece} to a better spot.", "question": "What's your plan for the next move?", "hint": "Think about which of your pieces needs to be more active."},
-        {"explanation": "{move} — making my position a bit better, step by step.", "question": "Which of your pieces is doing the least right now?", "hint": "Find your worst piece and improve it."},
+        {"explanation": "{move} — just getting my {piece} to a better spot.", "question": "What's your plan for next move?", "hint": "Look at your pieces — which one is doing the least?"},
+        {"explanation": "{move} — small move, makes my side a bit better.", "question": "Which of your pieces is just sitting there?", "hint": "Find your laziest piece. Move it somewhere useful."},
     ],
 
     # ─── TRAPS ───
 
     "trap_hint": [
-        {"explanation": "Be careful — there's a trick here: the {trap_name}.", "question": "Can you see the danger?", "hint": "Look at what happens if you play the obvious move."},
-        {"explanation": "Watch out — the {trap_name} catches many players in this position.", "question": "Do you know what to avoid here?", "hint": "The obvious move here is actually a mistake."},
+        {"explanation": "Careful here — there's a trick: the {trap_name}.", "question": "See the danger?", "hint": "Try the obvious move in your head — see what happens."},
+        {"explanation": "Watch out — the {trap_name} catches a lot of players right here.", "question": "Know what to avoid?", "hint": "The obvious move is actually the mistake."},
     ],
 
     "trap_fell_for": [
-        {"explanation": "That's the {trap_name}. {trap_explanation}", "question": "Can you see why that move was a mistake now?", "hint": "Look at what I can do next."},
-        {"explanation": "You fell for the {trap_name}. Don't worry — now you'll remember it. {trap_explanation}", "question": "What should you have played instead?", "hint": "The safe move was to avoid {trap_move}."},
+        {"explanation": "That's the {trap_name}. {trap_explanation}", "question": "See why that move was a mistake now?", "hint": "Look at what I can do next."},
+        {"explanation": "You walked into the {trap_name}. No worries — now you'll remember it. {trap_explanation}", "question": "What should you have played instead?", "hint": "The safe move was anything except {trap_move}."},
     ],
 
     "trap_avoided": [
-        {"explanation": "Nice — you avoided the {trap_name}.", "question": "Did you see the trap, or did you just play a solid move?", "hint": "Either way, good job staying safe."},
-        {"explanation": "Good awareness! The {trap_name} catches many players, but not you.", "question": "What would have happened if you played the trap move?", "hint": "Think about what the trick was."},
+        {"explanation": "Nice — you didn't fall for the {trap_name}.", "question": "Did you spot the trap, or just play a safe move?", "hint": "Either way — good."},
+        {"explanation": "Good — the {trap_name} catches a lot of players, but not you.", "question": "What would have happened if you played the trap move?", "hint": "Think about what the trick was."},
     ],
 
     # ─── ENDGAME ───
 
     "endgame_king_active": [
-        {"explanation": "I moved my king to {square}. In the endgame, the king needs to be active.", "question": "Where is your king? Is it in the action?", "hint": "In endgames, your king is a fighting piece — don't leave it on the back row."},
+        {"explanation": "King to {square}. In endgames, your king has to fight too.", "question": "Where's your king? Is it doing anything?", "hint": "In endgames the king is a fighting piece — get it off the back row."},
     ],
 
     "endgame_pawn_push": [
-        {"explanation": "I pushed my pawn to {square}. In endgames, passed pawns are gold.", "question": "Can you stop my pawn from reaching the other side?", "hint": "A pawn that nobody can block is very dangerous."},
+        {"explanation": "Pushed my pawn to {square}. A pawn nobody can stop is gold in the endgame.", "question": "Can you stop my pawn from reaching the other end?", "hint": "If nothing blocks or attacks it, it's going to queen."},
     ],
 }
 
@@ -167,54 +167,54 @@ USER_FEEDBACK = {
     # ─── Blunders ───
 
     "blunder_hanging_piece": [
-        {"narrative": "Wait — your {piece} on {square} has no protection now! Before you move anything, always check: is everything safe?", "question": "Which piece did you leave without protection?", "hint": "Look at {square}. Who is guarding your {piece} there?", "plan": "Take a breath. Check all your pieces are safe."},
-        {"narrative": "Your {piece} is just sitting on {square} with nobody guarding it. That's free for me to take.", "question": "What was protecting your {piece} before you moved?", "hint": "Whatever was guarding it — you moved it away.", "plan": "Before your next move, count the guards on every piece."},
+        {"narrative": "Wait — your {piece} on {square} just lost its guard. Before you move anything, always check: is my stuff safe?", "question": "Which piece did you leave alone?", "hint": "Look at {square}. Who's guarding your {piece}?", "plan": "Pause for a second. Check every one of your pieces is protected."},
+        {"narrative": "Your {piece} is sitting on {square} with nobody watching it. Free for me.", "question": "Who was guarding your {piece} before you moved?", "hint": "Whatever was protecting it — you moved away from it.", "plan": "Before your next move, count guards on every piece."},
     ],
 
     "blunder_allows_fork": [
-        {"narrative": "Wait — did you see that? {threat} That's the game right there. Before moving, always check what your opponent's pieces can jump to.", "question": "Can you see how {threat_piece} gets to {threat_square}?", "hint": "Look at where their {threat_piece} can go next move.", "plan": "Before every move, ask: can my opponent fork anything?"},
-        {"narrative": "Oh no — {threat} You just lost your most valuable piece. Always look at your opponent's knight moves — they're the trickiest.", "question": "What squares can their {threat_piece} reach?", "hint": "Knights can jump over pieces — check all their landing squares.", "plan": "Build the habit: before moving, check opponent's knight moves."},
+        {"narrative": "Wait — did you see that? {threat} That's the game right there. Before you move, look at where my pieces can jump.", "question": "Can you see how my {threat_piece} gets to {threat_square}?", "hint": "Look at every square my {threat_piece} can reach next move.", "plan": "Before every move, ask: can my opponent fork anything?"},
+        {"narrative": "Oh — {threat} You just lost your biggest piece. Knights are sneaky — always check their jumps.", "question": "What squares can my {threat_piece} reach?", "hint": "Knights jump over pieces — check every landing square.", "plan": "Habit: before moving, check the opponent's knight squares."},
     ],
 
     "blunder_allows_capture": [
-        {"narrative": "Wait — {threat} You just gave away a piece for free!", "question": "Did you check if that square was safe before moving?", "hint": "Look at what's now without protection.", "plan": "Before every move, scan: is anything of mine without protection?"},
+        {"narrative": "Wait — {threat} That's a piece, just gone.", "question": "Did you check that square was safe before moving?", "hint": "Look — what just lost its protection?", "plan": "Before every move, scan: is anything of mine alone?"},
     ],
 
     "blunder_allows_mate": [
-        {"narrative": "That's checkmate! {threat} Always check if your king is safe before anything else.", "question": "Can you see the checkmate?", "hint": "Look at all the pieces pointing at your king.", "plan": "King safety first — always."},
+        {"narrative": "Checkmate. {threat} Before anything else, always check if your king is safe.", "question": "See the checkmate?", "hint": "Look at every piece aiming at your king.", "plan": "King safety first. Always."},
     ],
 
     "blunder_calculation": [
-        {"narrative": "You didn't see what happens next. After your move, something bad happens.", "question": "Did you think about what I would do after your move?", "hint": "Try the 2-move rule: your move, then my reply. What happens?", "plan": "Slow down. Think: what will my opponent do?"},
-        {"narrative": "This move looks okay at first, but look one step ahead — it falls apart.", "question": "What can I do now that I couldn't do before?", "hint": "Something changed after your move. Find it.", "plan": "Before moving, always check your opponent's best reply."},
+        {"narrative": "You didn't see what comes next. After your move, things go bad.", "question": "Did you think about what I'd play after?", "hint": "Try the two-move rule: your move, my reply. What happens?", "plan": "Slow down. Ask: what will my opponent do after this?"},
+        {"narrative": "Move looks fine at first — but one move ahead, it falls apart.", "question": "What can I do now that I couldn't do before?", "hint": "Something changed after your move. Find it.", "plan": "Before moving, always check my best reply."},
     ],
 
     "blunder_king_safety": [
-        {"narrative": "Your king is in trouble! You need to think about king safety first.", "question": "Is your king safe right now?", "hint": "Look at the pieces pointing at your king.", "plan": "Get your king safe. That's the only priority right now."},
+        {"narrative": "Your king is in trouble. King safety comes first — always.", "question": "Is your king safe right now?", "hint": "Look at every piece pointing at your king.", "plan": "Get your king safe. Nothing else matters right now."},
     ],
 
     # ─── Mistakes ───
 
     "mistake_hanging_piece": [
-        {"narrative": "Good idea, but you left your {piece} without enough protection on {square}.", "question": "Is your {piece} on {square} safe?", "hint": "Count how many pieces are attacking it vs defending it.", "plan": "Check your pieces are safe before going for your plan."},
+        {"narrative": "Good idea — but your {piece} on {square} doesn't have enough cover.", "question": "Is your {piece} on {square} actually safe?", "hint": "Count: how many pieces attacking it vs defending it?", "plan": "Make sure your pieces are safe before going for the plan."},
     ],
 
     "mistake_calculation": [
-        {"narrative": "{best_move} was stronger here.", "question": "What did I have in reply to your move?", "hint": "Before committing, ask: what's my opponent's best answer?", "plan": "Check your opponent's replies before deciding."},
+        {"narrative": "{best_move} was the stronger move here.", "question": "What did I have as a reply to your move?", "hint": "Before you commit, ask: what's my opponent's best answer?", "plan": "Check my replies before you decide."},
     ],
 
     "mistake_check_opponent": [
-        {"narrative": "You didn't look at what I just did. My last move changed something important.", "question": "What did my last move threaten?", "hint": "Go back and look at what my piece is now doing.", "plan": "After every opponent move, ask: what changed?"},
+        {"narrative": "You didn't look at what I just did. My last move changed something.", "question": "What did my last move threaten?", "hint": "Go back — what's my piece doing now?", "plan": "After every move I make, ask: what changed?"},
     ],
 
     "mistake_development": [
-        {"narrative": "You moved the same piece again instead of bringing a new one into the game.", "question": "How many of your pieces are still on the back row?", "hint": "Every piece sitting at home is a piece not helping.", "plan": "Develop a new piece before moving one that's already out."},
+        {"narrative": "You moved the same piece again. Bring a new one out instead.", "question": "How many of your pieces are still on the back row?", "hint": "Every piece sitting at home is a piece not helping.", "plan": "Get a new piece out before moving one that's already played."},
     ],
 
     # ─── Inaccuracies ───
 
     "inaccuracy_generic": [
-        {"narrative": "That's okay, but there was something a bit better.", "question": "Can you think of what might have been stronger here?", "hint": "Look at what the best move achieves that your move doesn't."},
+        {"narrative": "Fine move — there was something a touch better.", "question": "Can you think of what might've been stronger?", "hint": "Look at what the best move does that yours doesn't."},
     ],
 
     # ─── Good moves ───
