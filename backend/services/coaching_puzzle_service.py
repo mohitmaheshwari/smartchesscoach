@@ -24,22 +24,44 @@ logger = logging.getLogger(__name__)
 
 # Map our weakness patterns to Lichess puzzle themes
 # Lichess themes: https://lichess.org/training/themes
+# Includes BOTH legacy weakness names and the canonical CLAUDE.md
+# cognitive_gap taxonomy so the picker can serve either.
 WEAKNESS_TO_PUZZLE_THEMES = {
-    # Our pattern -> Lichess themes
+    # ── Canonical cognitive_gap names (what the Mirror produces) ──
+    "piece_safety":       ["hangingPiece", "trappedPiece", "capturingDefender"],
+    "king_safety":        ["kingsideAttack", "queensideAttack", "attackingF2F7",
+                           "exposedKing", "defensiveMove"],
+    "tactical_oversight": ["fork", "pin", "skewer", "discoveredAttack",
+                           "deflection", "removeTheDefender", "xRayAttack",
+                           "interference", "attraction"],
+    "missed_tactic":      ["fork", "pin", "skewer", "discoveredAttack",
+                           "deflection", "mateIn2", "mateIn3"],
+    "calculation_depth":  ["long", "veryLong", "intermezzo", "quietMove",
+                           "sacrifice", "mateIn3", "mateIn4"],
+    "ignore_threat":      ["hangingPiece", "defensiveMove", "trappedPiece",
+                           "attackingF2F7"],
+    "endgame_technique":  ["endgame", "pawnEndgame", "rookEndgame",
+                           "queenEndgame", "knightEndgame", "bishopEndgame",
+                           "queenRookEndgame"],
+    "opening_knowledge":  ["opening"],
+    # piece_activity, pawn_structure, time_pressure — no clean Lichess
+    # theme support, intentionally absent. Picker falls back to community
+    # puzzles or own-game positions for these.
+
+    # ── Legacy weakness names (kept for back-compat with older callers) ──
     "missed_threat": ["hangingPiece", "trappedPiece", "defensiveMove"],
     "poor_piece_safety": ["hangingPiece", "trappedPiece", "skewer", "pin"],
     "tactical_blindness": ["fork", "discoveredAttack", "doubleCheck", "xRayAttack"],
     "failed_conversion": ["endgame", "queenEndgame", "rookEndgame", "pawnEndgame"],
     "positional_drift": ["quietMove", "zugzwang", "deflection"],
     "opening_inaccuracy": ["opening", "advancedPawn"],
-    "time_trouble": ["short", "oneMove", "veryLong"],  # Quick puzzles for time trouble
+    "time_trouble": ["short", "oneMove", "veryLong"],
     "missed_fork": ["fork", "knightEndgame"],
     "missed_pin": ["pin", "skewer"],
     "missed_discovery": ["discoveredAttack", "doubleCheck"],
     "back_rank": ["backRankMate", "mateIn1", "mateIn2"],
-    "king_safety": ["kingsideAttack", "queensideAttack", "attackingF2F7"],
     "material_blunder": ["hangingPiece", "equality", "advantage"],
-    "calculation_error": ["long", "veryLong"],  # Longer calculation puzzles
+    "calculation_error": ["long", "veryLong"],
 }
 
 # Coaching context for each theme
@@ -165,15 +187,32 @@ class CoachingPuzzleService:
         # of which path surfaces it.
         solved_ids = await self._get_solved_ids(user_id)
 
-        # Source 1: user's own mistakes — cap at 40% of the session so community
-        # material still shows up even when a user has many own-puzzles.
+        # Source 1: user's own mistakes — cap at 40% of the session so other
+        # sources still show up even when a user has many own-puzzles.
         own_limit = max(2, (num_puzzles * 2) // 5)
         user_puzzles = await self._get_puzzles_from_user_games(
             user_id, weakness_pattern, limit=own_limit, solved_ids=solved_ids
         )
         puzzles.extend(user_puzzles)
 
-        # Source 2: community positions from other users' games, rating-filtered
+        # Source 2: Lichess puzzle DB — theme-matched, rating-banded,
+        # 4M+ verified puzzles. Primary curated source after the user's
+        # own positions; serves the bulk of the prescription.
+        remaining = num_puzzles - len(puzzles)
+        if remaining > 0:
+            lichess_puzzles = await self._get_lichess_puzzles(
+                user_id=user_id,
+                weakness_pattern=weakness_pattern,
+                rating_range=rating_range,
+                limit=remaining,
+                solved_ids=solved_ids,
+            )
+            puzzles.extend(lichess_puzzles)
+
+        # Source 3: community positions from other users' games — fallback
+        # for cognitive_gaps with no Lichess theme support (piece_activity,
+        # pawn_structure, time_pressure) or when Lichess + own-games came up
+        # short of the requested count.
         remaining = num_puzzles - len(puzzles)
         if remaining > 0:
             community_puzzles = await self._get_community_puzzles(
@@ -495,6 +534,101 @@ class CoachingPuzzleService:
             "pattern_type": p.get("pattern_type"),
             "moment_tag": p.get("moment_tag"),
         }
+
+    async def _get_lichess_puzzles(
+        self,
+        user_id: str,
+        weakness_pattern: str,
+        rating_range: tuple,
+        limit: int,
+        solved_ids: Optional[set] = None,
+    ) -> List[Dict]:
+        """Fetch theme-matched Lichess puzzles from `lichess_puzzles`.
+
+        Lichess stores each puzzle with `fen` (the position before the
+        opponent's setup move), `moves` (UCI list — first move is the
+        opponent's, the rest are the user's solution). We advance the
+        board by the opponent's move so the returned `fen` is the
+        position the user actually solves from.
+
+        Filters: themes ∈ mapped themes, rating within ±200 of user's
+        band, popularity ordered, already-solved puzzles excluded.
+        """
+        if limit <= 0:
+            return []
+        themes = WEAKNESS_TO_PUZZLE_THEMES.get(weakness_pattern)
+        if not themes:
+            return []
+
+        solved_ids = solved_ids if solved_ids is not None else await self._get_solved_ids(user_id)
+        # Already-solved Lichess puzzle ids are stored as `lichess_<puzzle_id>`.
+        already_solved_lichess = {
+            sid.replace("lichess_", "")
+            for sid in solved_ids
+            if isinstance(sid, str) and sid.startswith("lichess_")
+        }
+
+        rating_low, rating_high = rating_range if rating_range and len(rating_range) == 2 else (600, 2200)
+
+        query = {
+            "themes": {"$in": themes},
+            "rating": {"$gte": rating_low, "$lte": rating_high},
+        }
+        if already_solved_lichess:
+            query["puzzle_id"] = {"$nin": list(already_solved_lichess)}
+
+        # Pull a few extra to handle edge cases (illegal-move puzzles,
+        # parse failures). Cap pull at limit*3 so we don't churn the DB.
+        pull_n = max(limit * 3, limit + 5)
+        try:
+            cursor = self.db.lichess_puzzles.find(
+                query, {"_id": 0}
+            ).sort("popularity", -1).limit(pull_n)
+        except Exception as e:
+            logger.warning(f"lichess_puzzles fetch failed: {e}")
+            return []
+
+        import chess
+        out: List[Dict] = []
+        async for p in cursor:
+            try:
+                fen = p.get("fen", "")
+                uci_moves = p.get("moves") or []
+                if not fen or not uci_moves:
+                    continue
+                board = chess.Board(fen)
+                opp = chess.Move.from_uci(uci_moves[0])
+                if opp not in board.legal_moves:
+                    continue
+                board.push(opp)
+                solution_moves = uci_moves[1:]
+                if not solution_moves:
+                    continue
+                first_sol = chess.Move.from_uci(solution_moves[0])
+                if first_sol not in board.legal_moves:
+                    continue
+                solution_san = board.san(first_sol)
+
+                out.append({
+                    "puzzle_id": f"lichess_{p['puzzle_id']}",
+                    "source": "lichess",
+                    "fen": board.fen(),
+                    "solution": solution_moves,
+                    "solution_san": solution_san,
+                    "rating": p.get("rating"),
+                    "themes": p.get("themes") or [],
+                    "popularity": p.get("popularity"),
+                    "opening": (p.get("opening_tags") or [None])[0] if p.get("opening_tags") else "",
+                    "context": "Theme-matched from Lichess — find the best move.",
+                    "game_url": p.get("game_url"),
+                })
+                if len(out) >= limit:
+                    break
+            except Exception as e:
+                logger.debug(f"lichess puzzle parse failed for {p.get('puzzle_id')}: {e}")
+                continue
+
+        return out
 
     def _move_matches_weakness(self, move: Dict, weakness_pattern: str) -> bool:
         """Does this move's cognitive_gap match the target weakness?
