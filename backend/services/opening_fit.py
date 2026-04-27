@@ -39,26 +39,54 @@ from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# Opening-phase cutoff scales with each opening's theory burden — a
-# Scandinavian's "opening" is over by ply 5, a Najdorf's runs to ply 15.
-# Buckets are curated against real chess theory depth:
-#   • burden ≤ 0.25 (London, Scandinavian)        → 6 user plies
-#   • burden 0.25–0.5 (Italian, Caro-Kann, French) → 9 user plies
-#   • burden 0.5–0.75 (Queen's Gambit, KID)        → 12 user plies
-#   • burden > 0.75 (Sicilian, Ruy Lopez)          → 15 user plies
-# Used in lieu of one global cutoff so the "opening phase" metric is
-# fair across openings of wildly different theoretical depth.
-def _phase_plies_for_burden(burden: float) -> int:
-    if burden <= 0.25:
-        return 6
-    if burden <= 0.50:
-        return 9
-    if burden <= 0.75:
-        return 12
-    return 15
+# Opening-phase cutoff comes from the theory_tree we already have:
+# `data/coaching/opening_theory_tree.json` records `main_line` (the
+# canonical SAN sequence to identify the opening) and `variations`
+# (deeper continuations). Real book depth = main_line + deepest
+# variation continuation. Divided by 2 to get user-side plies.
+# Falls back to a default when the opening isn't in the theory tree.
 
-# Fallback for openings without a demands entry (no theory_burden known).
-_OPENING_PHASE_DEFAULT_PLIES = 9
+_THEORY_TREE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data",
+    "coaching",
+    "opening_theory_tree.json",
+)
+_OPENING_PHASE_DEFAULT_PLIES = 8  # average of computed depths
+
+
+@lru_cache(maxsize=1)
+def _load_theory_tree() -> Dict:
+    try:
+        with open(_THEORY_TREE_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        return {k: v for k, v in data.items() if not k.startswith("_")}
+    except Exception as e:
+        logger.warning(f"could not load opening_theory_tree: {e}")
+        return {}
+
+
+@lru_cache(maxsize=1)
+def _book_depth_user_plies_by_key() -> Dict[str, int]:
+    """For each opening_key in the theory_tree, compute the book depth
+    in USER plies = (main_line + deepest variation continuation) // 2,
+    rounded UP so the cutoff is generous (user wants the opening
+    phase to include the FULL book, not be cut early)."""
+    tree = _load_theory_tree()
+    out: Dict[str, int] = {}
+    for key, data in tree.items():
+        main = len(data.get("main_line") or [])
+        deepest_var = 0
+        for v in (data.get("variations") or {}).values():
+            if isinstance(v, dict):
+                cont = v.get("continuation") or v.get("moves_from_parent") or []
+                deepest_var = max(deepest_var, len(cont))
+        total_plies = main + deepest_var
+        # Round UP for the user side, since variation depth maps loosely
+        # to total plies and we'd rather include the last book move than
+        # exclude it.
+        out[key] = max(4, (total_plies + 1) // 2)
+    return out
 
 _DEMANDS_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -193,19 +221,22 @@ async def _opening_phase_cp_by_family(db, user_id: str) -> Tuple[Dict[str, Tuple
     if not games_by_id:
         return {}, 0.0
 
-    # Helper: resolve a game's per-game opening cutoff in user plies,
-    # based on the matched opening's theory_burden.
+    # Helper: resolve a game's per-game opening cutoff in user plies
+    # from the theory_tree's actual main_line + variation depth. This
+    # uses real chess data, not subjective buckets — Italian's depth
+    # comes out around 7 plies, Sicilian Defense's around 9, etc.
+    book_depth_map = _book_depth_user_plies_by_key()
+
     def _cutoff_for_game(g: Dict) -> int:
         canon = normalize_opening(g.get("opening"))
         color = (g.get("user_color") or "white").lower()
         key = curriculum_key_for_opening(canon, color)
         if not key:
             return _OPENING_PHASE_DEFAULT_PLIES
-        demand = demands.get(key)
-        if not demand:
-            return _OPENING_PHASE_DEFAULT_PLIES
-        burden = float(demand.get("theory_burden") or 0.5)
-        return _phase_plies_for_burden(burden)
+        # Strip color suffix when looking up theory tree (which uses
+        # uncolored keys like "italian_game").
+        base_key = key.replace("_black", "").replace("_white", "")
+        return book_depth_map.get(base_key, _OPENING_PHASE_DEFAULT_PLIES)
 
     per_game_avg: Dict[str, float] = {}
     async for a in db.game_analyses.find(
