@@ -223,18 +223,67 @@ const UnifiedProgress = ({ user }) => {
         }
       : null;
 
-    // Tracked patterns — remaining weaknesses
-    const tracked = weaknesses.slice(1).map((w) => ({
-      name: humanize(w.category),
-      desc: w.description || "",
-      category: w.category,
-      pattern: PATTERN_MAP[w.category] || w.category || "current",
-      // We don't have per-pattern streaks for non-primary — show modest defaults
-      streak: 0,
-      target: 5,
-      decay: 0.0,
-      last: w.last_seen || null,
-    }));
+    // Map a narrative category to the root bucket the backend's
+    // improvement_proof_engine groups it under. Same buckets as the
+    // backend's GAP_TO_ROOT — we don't try to invent new ones, we
+    // just look up what already exists.
+    const CATEGORY_TO_ROOT = {
+      // Calculation bucket
+      tactical_miss: "calculation",
+      missed_tactic: "calculation",
+      calculation_error: "calculation",
+      calculation_depth: "calculation",
+      one_move_blunder: "calculation",
+      // Threat awareness bucket
+      ignore_threat: "threat_awareness",
+      hung_pieces: "threat_awareness",
+      piece_safety: "threat_awareness",
+      king_safety: "threat_awareness",
+      // Coordination bucket
+      piece_activity: "coordination",
+      opening_disaster: "coordination",
+      // Endgame bucket — also where "threw_winning" lives
+      endgame_collapse: "endgame",
+      endgame_technique: "endgame",
+      threw_winning: "endgame",
+      // No clean match — fall back to calculation, the engine's default
+      time_collapse: "calculation",
+      positional: "coordination",
+    };
+
+    // Build root → reduction_pct lookup from proof.all_patterns.
+    const allPatterns = proof?.all_patterns || [];
+    const reductionByRoot = {};
+    for (const p of allPatterns) {
+      if (p.pattern && typeof p.reduction_pct === "number") {
+        reductionByRoot[p.pattern] = p.reduction_pct;
+      }
+    }
+
+    // Tracked patterns — remaining weaknesses. Each one gets a real
+    // decay value from the matching root pattern's reduction_pct, OR
+    // null when we have nothing meaningful to show (no match, or
+    // non-positive reduction). Showing "0%" implied no progress —
+    // we'd rather hide the field than mislead.
+    const tracked = weaknesses.slice(1).map((w) => {
+      const root = CATEGORY_TO_ROOT[w.category];
+      const rPct = root ? reductionByRoot[root] : undefined;
+      const decayValue =
+        typeof rPct === "number" && rPct > 0
+          ? Math.min(rPct, 95) / 100
+          : null;
+      return {
+        name: humanize(w.category),
+        desc: w.description || "",
+        category: w.category,
+        pattern: PATTERN_MAP[w.category] || w.category || "current",
+        // We don't have per-pattern streaks for non-primary — leave at 0.
+        streak: 0,
+        target: 5,
+        decay: decayValue,
+        last: w.last_seen || null,
+      };
+    });
 
     // Archived — strengths read as patterns the user has beaten
     const archived = strengths.slice(0, 4).map((s, i) => ({
@@ -468,14 +517,26 @@ const UnifiedProgress = ({ user }) => {
                     </div>
                   </div>
 
-                  {/* Decay % (desktop) */}
+                  {/* Decay % (desktop) — only render when we have a
+                      real positive reduction from improvement_proof for
+                      this pattern's root bucket. Showing "0%" was
+                      misleading: it implied no progress when really we
+                      just hadn't computed it for tracked patterns. */}
                   <div className="hidden md:block text-right">
-                    <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-                      decay
-                    </div>
-                    <div className="font-serif text-[17px] tabular-nums text-muted-foreground leading-none mt-1">
-                      {Math.round(p.decay * 100)}%
-                    </div>
+                    {p.decay != null ? (
+                      <>
+                        <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
+                          decay
+                        </div>
+                        <div className="font-serif text-[17px] tabular-nums text-muted-foreground leading-none mt-1">
+                          {Math.round(p.decay * 100)}%
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground/50">
+                        no signal yet
+                      </div>
+                    )}
                   </div>
 
                   {/* Drill action */}
