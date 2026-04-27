@@ -34,6 +34,7 @@ class GameDiagnosis:
     WON_CLEAN = "WON_CLEAN"                    # Won without major mistakes
     WON_OPPONENT_BLUNDER = "WON_OPPONENT_BLUNDER"  # Won largely because opponent blundered
     DRAW = "DRAW"                              # Draw
+    ABANDONED = "ABANDONED"                    # Game ended by disconnect/abandon — not a coaching moment
 
 
 # ─── SUMMARY COMPUTATION ─────────────────────────────────────────
@@ -317,6 +318,27 @@ def _summarize_loss(profile: Dict, opening_name: str, termination: str) -> Dict:
         if extra:
             ctx.extend(extra)
         return ctx
+
+    # 0a. Abandoned — game ended via disconnect, not over the board.
+    # Don't moralize. The user wasn't there to play. Position state
+    # (winning / losing) is informational, not a coaching verdict.
+    # Routed ABOVE all position-based branches because termination
+    # dominates here — same as timeout.
+    if "abandon" in termination.lower():
+        peak = profile["peak_user_eval"]
+        headline = "Game abandoned."
+        subline = "Likely a connection issue — not a coaching moment."
+        extra: List[str] = []
+        if peak >= 300:
+            extra.append(f"You were ahead (+{peak / 100:.1f}) when it ended")
+        elif peak <= -300:
+            extra.append(f"You were behind ({peak / 100:.1f}) when it ended")
+        return _build_summary(
+            GameDiagnosis.ABANDONED,
+            headline, subline, None,
+            _detail_context(extra),
+            ""
+        )
 
     # 0. Time loss while winning — if the user had a real winning peak
     # (+3.0 or better) and the game ended on the clock, the lesson is

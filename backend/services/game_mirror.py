@@ -139,11 +139,19 @@ async def _established_patterns(db, user_id: str) -> Tuple[List[str], int]:
     appeared in at least _ESTABLISHED_MIN_OCCURRENCES of the most recent
     _RECENT_WINDOW analyzed games (excluding the one being evaluated).
 
+    Abandoned games are excluded from the pattern count — a disconnect
+    isn't a coaching moment, and counting its mistakes would falsely
+    inflate the user's established weaknesses.
+
     Returns (patterns, sample_size). patterns is ordered most-frequent-first.
     Empty list means "not enough signal yet".
     """
     cursor = db.games.find(
-        {"user_id": user_id, "is_analyzed": True},
+        {
+            "user_id": user_id,
+            "is_analyzed": True,
+            "termination": {"$not": {"$regex": "abandon", "$options": "i"}},
+        },
         {"_id": 0, "game_id": 1, "created_at": 1},
     ).sort("created_at", -1).limit(_RECENT_WINDOW)
     games = await cursor.to_list(_RECENT_WINDOW)
@@ -207,6 +215,10 @@ async def _find_window_games(db, user_id: str, since) -> List[Dict]:
             "user_id": user_id,
             "is_analyzed": True,
             "imported_at": {"$gt": since_str},
+            # Abandoned games aren't coaching moments — exclude them
+            # from the Mirror window so the verdict doesn't blame the
+            # user for a disconnect.
+            "termination": {"$not": {"$regex": "abandon", "$options": "i"}},
         },
         {
             "_id": 0,
@@ -218,6 +230,7 @@ async def _find_window_games(db, user_id: str, since) -> List[Dict]:
             "created_at": 1,
             "imported_at": 1,
             "move_time_stats": 1,
+            "termination": 1,
         },
     ).sort("imported_at", -1)
     games = await cursor.to_list(50)
