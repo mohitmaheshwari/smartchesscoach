@@ -195,9 +195,25 @@ class CoachingPuzzleService:
         )
         puzzles.extend(user_puzzles)
 
-        # Source 2: Lichess puzzle DB — theme-matched, rating-banded,
-        # 4M+ verified puzzles. Primary curated source after the user's
-        # own positions; serves the bulk of the prescription.
+        # Source 2: community positions from other users' games — reserve
+        # ~20% of the session for these. Same-rating-band peer mistakes
+        # carry a social signal Lichess doesn't ("another 1200 missed
+        # this") and connect users on the platform. When the community
+        # pool is thin for this gap, unused slots cascade to Lichess
+        # below — no wasted budget.
+        community_limit = max(1, num_puzzles // 5)
+        community_puzzles = await self._get_community_puzzles(
+            user_id=user_id,
+            weakness_pattern=weakness_pattern,
+            rating_range=rating_range,
+            limit=community_limit,
+            solved_ids=solved_ids,
+        )
+        puzzles.extend(community_puzzles)
+
+        # Source 3: Lichess puzzle DB — theme-matched, rating-banded,
+        # 4M+ verified puzzles. Fills whatever own + community didn't
+        # cover. Serves the bulk of the prescription.
         remaining = num_puzzles - len(puzzles)
         if remaining > 0:
             lichess_puzzles = await self._get_lichess_puzzles(
@@ -208,21 +224,6 @@ class CoachingPuzzleService:
                 solved_ids=solved_ids,
             )
             puzzles.extend(lichess_puzzles)
-
-        # Source 3: community positions from other users' games — fallback
-        # for cognitive_gaps with no Lichess theme support (piece_activity,
-        # pawn_structure, time_pressure) or when Lichess + own-games came up
-        # short of the requested count.
-        remaining = num_puzzles - len(puzzles)
-        if remaining > 0:
-            community_puzzles = await self._get_community_puzzles(
-                user_id=user_id,
-                weakness_pattern=weakness_pattern,
-                rating_range=rating_range,
-                limit=remaining,
-                solved_ids=solved_ids,
-            )
-            puzzles.extend(community_puzzles)
 
         # Add coaching context to each puzzle
         for puzzle in puzzles:
