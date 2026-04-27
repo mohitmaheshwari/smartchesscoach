@@ -963,13 +963,21 @@ const CoachPlaySidebar = ({
                                 }
                                 return;
                               }
-                              // Force a fresh teaching-state poll so the UI
-                              // flips into lesson mode immediately rather
-                              // than waiting for the next poll tick.
-                              if (interactiveCoaching?.refreshTeachingState) {
-                                interactiveCoaching.refreshTeachingState();
-                              } else if (typeof onRefreshSession === "function") {
-                                onRefreshSession();
+                              // Backend returned the lesson payload — feed it
+                              // straight into handleStartLesson, which sets
+                              // activeLesson / lessonInstruction / FEN / chat
+                              // and flips the UI into teaching mode.
+                              const lessonData = await res.json();
+                              if (typeof handleStartLesson === "function" && lessonData?.success) {
+                                handleStartLesson(lessonData);
+                              }
+                              // Clear the trap_warning panel so it doesn't
+                              // linger after the lesson takes over.
+                              if (interactiveCoaching?.setCoachMoveCoaching) {
+                                interactiveCoaching.setCoachMoveCoaching({
+                                  ...interactiveCoaching.coachMoveCoaching,
+                                  trap_warning: null,
+                                });
                               }
                             } catch (e) {
                               console.error("Failed to start trap lesson:", e);
