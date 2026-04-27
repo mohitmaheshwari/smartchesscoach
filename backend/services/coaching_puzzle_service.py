@@ -158,7 +158,7 @@ class CoachingPuzzleService:
         self,
         user_id: str,
         weakness_pattern: str,
-        num_puzzles: int = 5,
+        num_puzzles: int = 10,
         rating_range: tuple = (800, 1400),
         *,
         strong_openings: Optional[set] = None,

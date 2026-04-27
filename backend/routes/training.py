@@ -162,7 +162,7 @@ async def get_available_habits(user: User = Depends(get_current_user)):
 @router.get("/prescribed/{weakness}")
 async def get_prescribed_training_endpoint(
     weakness: str,
-    num_puzzles: int = 5,
+    num_puzzles: int = 10,
     user: User = Depends(get_current_user)
 ):
     """
