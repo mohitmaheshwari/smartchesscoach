@@ -126,6 +126,10 @@ async def close_window(
             {"user_id": user_id},
             {"$set": {"mirror_window.opened_at": _utcnow()}},
         )
+        logger.info(
+            f"[MIRROR] window closed for {user_id} via {closed_reason} "
+            f"(empty window — pointer advanced)"
+        )
         return
 
     floor = await get_window_open_floor(db, user_id)
@@ -155,4 +159,9 @@ async def close_window(
             "mirror_window.opened_at": _utcnow(),
             "mirror_window.snapshots": snaps,
         }},
+    )
+    logger.info(
+        f"[MIRROR] window closed for {user_id} via {closed_reason}, "
+        f"snapshotted {len(game_ids)} games, "
+        f"patterns={patterns_flagged}"
     )

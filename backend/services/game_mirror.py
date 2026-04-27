@@ -49,6 +49,12 @@ _PATTERN_VOICE: Dict[str, Dict[str, str]] = {
 _RECENT_WINDOW = 15
 _ESTABLISHED_MIN_OCCURRENCES = 3
 
+# Hard cap on per-game cards rendered in the Lab session panel. Voice
+# stats (e.g., "you hung a piece in 3 of 8") still use the full window;
+# the breakdown shows only the N most-recent so the user isn't faced
+# with a wall of buttons to click through.
+_BREAKDOWN_MAX = 5
+
 
 def _pattern_voice(pattern: str, form: str = "verb") -> str:
     entry = _PATTERN_VOICE.get(pattern)
@@ -404,26 +410,50 @@ def _aggregate_verdict(
         return {"tone": "broke_pattern", "headline": headline,
                 "detail": detail, "listening": listening}
 
+    # Compute fully-clean = no established pattern appeared in those games.
+    # "Clean" in the headline must mean clean ACROSS ALL flagged patterns,
+    # not just clean on the top one. Otherwise we say "5 were clean" while
+    # also mentioning "Also exposed your king" — internally inconsistent.
+    fully_clean = sum(
+        1 for g in games_data
+        if not any(p in g["gaps"] for p in established)
+    )
+
     # Mixed or all-repeated window.
     top_pattern, top_count = repeated[0]
     voice_verb = _pattern_voice(top_pattern, form="verb")
+    pct_repeat = top_count / n
 
+    # Headline: dominant pattern with full count.
     if top_count == n:
         headline = f"Across {n} games: {score}. You {voice_verb} in all of them."
-        detail = "Same old."
     else:
-        headline = (
-            f"Across {n} games: {score}. You {voice_verb} in {top_count} of {n}."
-        )
-        clean = n - top_count
-        if clean == 1:
-            detail = "One was clean — that's the outlier."
-        else:
-            detail = f"{clean} were clean — partial progress."
+        headline = f"Across {n} games: {score}. You {voice_verb} in {top_count} of {n}."
 
+    # Second-pattern note if there's another recurring pattern.
+    second_note = ""
     if len(repeated) > 1:
-        second_pattern, _ = repeated[1]
-        detail = f"{detail} Also {_pattern_voice(second_pattern)}."
+        second_pattern, second_count = repeated[1]
+        second_note = (
+            f" Also {_pattern_voice(second_pattern)} in {second_count} of {n}."
+        )
+
+    # Tone for the "clean" line — be honest. 37%+ recurrence isn't progress.
+    if fully_clean == 0:
+        clean_line = "No clean games — same patterns showing up everywhere."
+    elif top_count == n:
+        clean_line = "Same old."
+    elif pct_repeat >= 0.5:
+        clean_line = (
+            f"{fully_clean} fully clean — but the pattern is still recurring."
+        )
+    elif pct_repeat >= 0.25:
+        clean_line = f"{fully_clean} fully clean — pattern is still showing up."
+    else:
+        # <25% recurrence is real partial progress.
+        clean_line = f"{fully_clean} fully clean — pattern is fading."
+
+    detail = f"{clean_line}{second_note}".strip()
 
     return {
         "tone": "repeated",
@@ -521,9 +551,9 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
     })
 
     # Per-game breakdown for the Lab session panel — newest-first
-    # ordering follows the upstream sort. Each entry carries enough
-    # info for a one-line summary: opponent, result, opening, and
-    # the critical move (what you played + what was better).
+    # ordering follows the upstream sort. Capped at _BREAKDOWN_MAX so
+    # large windows don't dump 8+ buttons on the user. Voice/stats
+    # below still use the full window.
     games_breakdown = [
         {
             "game_id": g["game_id"],
@@ -540,7 +570,7 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
             "critical_cp": g.get("critical_cp"),
             "critical_gap": g.get("critical_gap"),
         }
-        for g in games_data
+        for g in games_data[:_BREAKDOWN_MAX]
     ]
 
     return {

@@ -501,9 +501,18 @@ const Dashboard = ({ user }) => {
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-amber-600 dark:text-amber-300/80 font-semibold mb-5">
                 Recent session · {mirrorSession.window_size}{" "}
                 {mirrorSession.window_size === 1 ? "game" : "games"}
-                <span className="ml-3 normal-case tracking-normal text-muted-foreground/70">
-                  · newest first
-                </span>
+                {mirrorSession.games_breakdown &&
+                  mirrorSession.games_breakdown.length < mirrorSession.window_size && (
+                    <span className="ml-3 normal-case tracking-normal text-muted-foreground/70">
+                      · showing {mirrorSession.games_breakdown.length} most recent
+                    </span>
+                  )}
+                {(!mirrorSession.games_breakdown ||
+                  mirrorSession.games_breakdown.length === mirrorSession.window_size) && (
+                  <span className="ml-3 normal-case tracking-normal text-muted-foreground/70">
+                    · newest first
+                  </span>
+                )}
               </div>
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-6 md:p-7">
                 {mirrorSession.story && (
