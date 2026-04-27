@@ -224,31 +224,32 @@ const UnifiedProgress = ({ user }) => {
       : null;
 
     // Map a narrative category to the root bucket the backend's
-    // improvement_proof_engine groups it under. Same buckets as the
-    // backend's GAP_TO_ROOT — we don't try to invent new ones, we
-    // just look up what already exists.
+    // improvement_proof_engine groups it under. ONLY entries that map
+    // to a real bucket on the backend (see ROOT_PATTERNS in
+    // improvement_proof_engine.py). Categories without a real backend
+    // home — time_collapse, positional, opening_disaster — are
+    // intentionally absent so the row shows "no signal yet" instead
+    // of borrowing an unrelated bucket's reduction_pct.
     const CATEGORY_TO_ROOT = {
-      // Calculation bucket
+      // calculation bucket — gaps backend lists explicitly
       tactical_miss: "calculation",
-      missed_tactic: "calculation",
-      calculation_error: "calculation",
+      missed_tactic: "calculation",       // alias of tactical_miss
+      calculation_error: "calculation",   // alias of calculation_depth
       calculation_depth: "calculation",
+      tactical_oversight: "calculation",
       one_move_blunder: "calculation",
-      // Threat awareness bucket
+      // threat_awareness bucket
       ignore_threat: "threat_awareness",
       hung_pieces: "threat_awareness",
       piece_safety: "threat_awareness",
       king_safety: "threat_awareness",
-      // Coordination bucket
+      // coordination bucket
       piece_activity: "coordination",
-      opening_disaster: "coordination",
-      // Endgame bucket — also where "threw_winning" lives
+      // endgame bucket
       endgame_collapse: "endgame",
       endgame_technique: "endgame",
       threw_winning: "endgame",
-      // No clean match — fall back to calculation, the engine's default
-      time_collapse: "calculation",
-      positional: "coordination",
+      conversion: "endgame",
     };
 
     // Build root → reduction_pct lookup from proof.all_patterns.
