@@ -43,12 +43,11 @@ COACH_MOVE = {
     ],
 
     "opening_pawn_flank": [
-        # Coach voice rewrite (2026-04-27): the older "I'm using the turn
-        # for something small" line read as apologetic and didn't teach.
-        # Both entries now name the move's effect plainly and pivot to a
-        # concrete user action — fight for the center, develop a piece.
-        {"explanation": "I played {move} — a flank pawn move. Slower than fighting for the center. Your turn to take the central initiative.", "question": "What's the strongest central or developing move you have right now?", "hint": "Pawns to e4/d4/e5/d5, or a piece coming out toward the center."},
-        {"explanation": "{move} — flank pawns rarely create threats on their own. While I play on the edge, the center is wide open for you.", "question": "Where can YOU put a pawn or piece in the center this turn?", "hint": "When your opponent plays on the wing, answer in the middle."},
+        # Coach voice rewrite (2026-04-27): plain words, short sentences,
+        # the way a friend who plays chess would actually say it.
+        # No jargon ("flank", "initiative"). Pivot to concrete user move.
+        {"explanation": "{move}. Just a small move on the side.", "question": "What can you do in the middle?", "hint": "A center pawn, or get a knight or bishop out."},
+        {"explanation": "I played {move} — staying on the edge. The middle is yours.", "question": "What's your best move in the center?", "hint": "When I'm playing on the side, answer in the middle."},
     ],
 
     "opening_pawn_support": [
