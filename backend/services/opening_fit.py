@@ -33,10 +33,16 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections import defaultdict
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# How many user plies count as "the opening" for the per-game phase
+# accuracy signal. Aligned with the opening-mistakes route — if the
+# user leaves theory by ply 8-10, anything after is middlegame.
+_OPENING_PHASE_USER_PLIES = 10
 
 _DEMANDS_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -85,26 +91,123 @@ def _voice_reason(
     demand: Dict,
     user_winrate: float,
     baseline: float,
+    phase_signal: float = 0.0,
+    phase_avg: Optional[float] = None,
+    phase_baseline: Optional[float] = None,
 ) -> str:
-    """Build the per-opening one-line reason the user sees."""
+    """Build the per-opening one-line reason the user sees.
+
+    Truth-discipline: only claim the opening is the problem when the
+    opening-phase metric actually says so (phase_signal < 0). When the
+    opening is fine but the user's whole-game record is bad, name what
+    we actually see: the opening phase is fine, the losses come later.
+    """
     rewards = demand.get("rewards_descriptor") or "your style"
     pct = int(round(user_winrate * 100))
+
+    # Positive fit → recommend.
     if fit > 0.05:
         if user_winrate - baseline >= 0.10:
             return f"{pct}% wins · rewards {rewards}"
         return f"rewards {rewards}"
+
+    # Negative fit → explain WHY honestly.
     if fit < -0.05:
-        if user_gaps_matching:
-            from services.game_mirror import _PATTERN_VOICE
-            gap_voice = _PATTERN_VOICE.get(
-                user_gaps_matching[0], {}
-            ).get("noun") or user_gaps_matching[0].replace("_", " ")
-            return (
-                f"{pct}% wins · your {gap_voice} pattern keeps getting "
-                f"punished here"
+        # Opening phase IS measurably worse than baseline.
+        if phase_signal < -0.2 and phase_avg is not None and phase_baseline is not None:
+            gap_cp = round(phase_avg - phase_baseline)
+            base_msg = (
+                f"{pct}% wins · opening phase {gap_cp}cp worse "
+                f"than your usual"
             )
-        return f"{pct}% wins · poor fit for your current play"
+            if user_gaps_matching:
+                from services.game_mirror import _PATTERN_VOICE
+                gap_voice = _PATTERN_VOICE.get(
+                    user_gaps_matching[0], {}
+                ).get("noun") or user_gaps_matching[0].replace("_", " ")
+                return f"{base_msg} ({gap_voice} likely showing here)"
+            return base_msg
+
+        # Opening phase is FINE — the problem is elsewhere in the game.
+        # Don't blame the opening when the data doesn't support it.
+        if phase_signal >= -0.2:
+            return (
+                f"{pct}% wins · opening itself is fine — losses come "
+                f"after the opening"
+            )
+
+        # Fallback (no phase data).
+        return f"{pct}% wins · poor fit overall"
+
     return f"{pct}% wins · neutral fit"
+
+
+async def _opening_phase_cp_by_family(db, user_id: str) -> Tuple[Dict[str, Tuple[float, int]], float]:
+    """For each canonical opening family the user has played, compute
+    the user's average cp_loss per move in the first _OPENING_PHASE_USER_PLIES
+    user plies, averaged across their games of that family.
+
+    Returns ({canonical_name: (avg_cp_per_move, n_games)}, baseline_avg).
+    `baseline_avg` is the user's overall average opening-phase cp_loss
+    across all families — the comparison point.
+
+    `move_evaluations` stores ONE entry per user ply (verified earlier),
+    so moves[:10] gives us user plies 1..10.
+    """
+    from services.opening_normalizer import normalize_opening
+
+    games = await db.games.find(
+        {
+            "user_id": user_id,
+            "is_analyzed": True,
+            "termination": {"$not": {"$regex": "abandon", "$options": "i"}},
+        },
+        {"_id": 0, "game_id": 1, "opening": 1},
+    ).to_list(500)
+    if not games:
+        return {}, 0.0
+
+    games_by_id = {g["game_id"]: g for g in games if g.get("game_id")}
+    if not games_by_id:
+        return {}, 0.0
+
+    # Pull the move_evaluations for every game in one pass.
+    per_game_avg: Dict[str, float] = {}
+    async for a in db.game_analyses.find(
+        {"user_id": user_id, "game_id": {"$in": list(games_by_id.keys())}},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations": 1},
+    ):
+        gid = a.get("game_id")
+        moves = (a.get("stockfish_analysis") or {}).get("move_evaluations") or []
+        opening_moves = moves[:_OPENING_PHASE_USER_PLIES]
+        cp_losses = [
+            abs(m.get("cp_loss") or 0)
+            for m in opening_moves
+            if (m.get("cp_loss") is not None and abs(m.get("cp_loss") or 0) < 3000)
+        ]
+        if cp_losses:
+            per_game_avg[gid] = sum(cp_losses) / len(cp_losses)
+
+    if not per_game_avg:
+        return {}, 0.0
+
+    # Group per-game avg by canonical opening family.
+    by_family: Dict[str, List[float]] = defaultdict(list)
+    for gid, avg in per_game_avg.items():
+        canon = normalize_opening(games_by_id[gid].get("opening"))
+        if canon == "Other":
+            continue
+        by_family[canon].append(avg)
+
+    family_avg = {
+        fam: (sum(vals) / len(vals), len(vals))
+        for fam, vals in by_family.items()
+    }
+
+    # Baseline: average across all per-game opening-phase cp_loss values.
+    all_vals = list(per_game_avg.values())
+    baseline = sum(all_vals) / len(all_vals) if all_vals else 0.0
+    return family_avg, baseline
 
 
 async def build_opening_fit(db, user_id: str) -> Dict:
@@ -146,6 +249,12 @@ async def build_opening_fit(db, user_id: str) -> Dict:
     # Established patterns drive the weakness penalties.
     from services.game_mirror import get_established_patterns
     user_gaps, _ = await get_established_patterns(db, user_id)
+
+    # Opening-phase performance per family — the corrected "is this
+    # opening actually a problem for me?" signal. Whole-game win rate
+    # conflated middlegame/endgame losses into "Italian is bad for you."
+    # This isolates the opening phase itself.
+    phase_by_family, phase_baseline = await _opening_phase_cp_by_family(db, user_id)
 
     # User rating — pull the same way coach_play does (most-recent
     # PGN-derived rating, falling back to default).
@@ -189,11 +298,35 @@ async def build_opening_fit(db, user_id: str) -> Dict:
         win_rate = stats["win_rate"]
         winrate_signal = (win_rate - baseline_winrate) * 0.5
 
+        # Opening-phase signal — the honest "is the opening itself a
+        # problem?" measure. Positive when the user plays this opening
+        # MORE accurately than their personal baseline; negative when
+        # they play it WORSE. Scaled by 50 so a 50cp gap maps to ~1.0.
+        canon = stats.get("canonical")
+        phase_signal = 0.0
+        phase_avg = None
+        phase_n = 0
+        if canon and canon in phase_by_family and phase_baseline > 0:
+            phase_avg, phase_n = phase_by_family[canon]
+            phase_signal = (phase_baseline - phase_avg) / 50.0
+            # Clamp so a single noisy opening can't dominate the score.
+            phase_signal = max(-1.0, min(1.0, phase_signal))
+
         matching = [g for g in user_gaps if g in (demand.get("punishes") or [])]
         weakness_score = _weakness_penalty(rating) * len(matching)
         theory_score = _theory_penalty(rating, demand.get("theory_burden", 0.0))
 
-        fit = winrate_signal - weakness_score - theory_score
+        # Fit blends opening-phase performance (primary) with whole-game
+        # win rate (secondary tiebreaker). The phase signal carries 0.5
+        # weight; the win-rate signal weighs 0.25 — half of what it was
+        # before — since whole-game results are not a clean opening
+        # quality measure.
+        fit = (
+            phase_signal * 0.5
+            + winrate_signal * 0.5
+            - weakness_score
+            - theory_score
+        )
 
         # Display name correction. Some openings' name implies a side
         # (e.g., "Sicilian Defense" — black plays the defense). When the
@@ -216,8 +349,14 @@ async def build_opening_fit(db, user_id: str) -> Dict:
             "win_rate": round(win_rate, 3),
             "games_played": games,
             "matching_gaps": matching,
+            "phase_avg_cp": round(phase_avg, 1) if phase_avg is not None else None,
+            "phase_baseline_cp": round(phase_baseline, 1) if phase_baseline else None,
+            "phase_signal": round(phase_signal, 3),
             "reason": _voice_reason(
                 fit, matching, demand, win_rate, baseline_winrate,
+                phase_signal=phase_signal,
+                phase_avg=phase_avg,
+                phase_baseline=phase_baseline,
             ),
             "theory_burden": demand.get("theory_burden"),
         })
@@ -228,17 +367,21 @@ async def build_opening_fit(db, user_id: str) -> Dict:
     scored.sort(key=lambda e: -e["fit"])
     play_more = [e for e in scored if e["fit"] > 0.05][:3]
 
-    # Avoid list — never include an opening where the user is winning at
-    # or above their personal baseline. Telling someone "avoid Sicilian,
-    # you win 60%" is internally contradictory: if you're winning, the
-    # pattern isn't actually getting punished, regardless of theoretical
-    # punishment vectors. The avoid list exists for openings where the
-    # user is BOTH losing AND has the wrong fundamentals.
+    # Avoid list. Three independent gates:
+    #   1. Negative fit (the score itself says "not great")
+    #   2. Below-baseline whole-game win rate (you're losing more here
+    #      than your overall play would predict)
+    #   3. Opening-phase signal is actually negative — the opening
+    #      ITSELF is where things go wrong, not just the middlegame.
+    # Without #3, we'd say "avoid Italian — losing 70%" when the
+    # opening phase is actually fine; that's just bad whole-game play
+    # and a different conversation.
     avoid = sorted(
         [
             e for e in scored
             if e["fit"] < -0.05
             and e["win_rate"] < baseline_winrate
+            and (e.get("phase_signal") or 0) < -0.05
         ],
         key=lambda e: e["fit"],
     )[:2]
