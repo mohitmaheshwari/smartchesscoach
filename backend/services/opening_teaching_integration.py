@@ -487,6 +487,30 @@ async def _start_trap_lesson(
 
     first_instruction = _get_teaching_instruction(teaching_data, mode, current_move_index)
 
+    # Whose side is the trap's "attacker" (the one springing it).
+    # victim_color is the side that GETS caught — so attacker is the other.
+    victim = (trap_victim_color or "").lower()
+    attacker_color = "black" if victim == "white" else "white" if victim == "black" else None
+    user_is_attacker = (
+        attacker_color == ("white" if user_plays_white else "black")
+        if attacker_color
+        else None
+    )
+
+    # Build key_ideas honestly from what the trap actually teaches.
+    # Three lines max, each one a takeaway for THIS user (attacker or
+    # defender side).
+    key_ideas: List[str] = []
+    if trap_explanation:
+        key_ideas.append(trap_explanation)
+    if user_is_attacker is False and trap_refutation:
+        # User is on the side that gets caught — refutation is the lesson.
+        key_ideas.append(f"Defense: {trap_refutation}")
+    elif user_is_attacker is True and trap_refutation:
+        # User is the attacker — note the defense so they know what
+        # NOT to fall for if they face it from the other side.
+        key_ideas.append(f"If you face this as the other side: {trap_refutation}")
+
     result = {
         "success": True,
         "mode": mode,
@@ -496,7 +520,11 @@ async def _start_trap_lesson(
         "current_move_index": current_move_index,
         "instruction": first_instruction,
         "teaching_fen": teaching_data["teaching_fen"],
-        "key_ideas": [],
+        "key_ideas": key_ideas,
+        "explanation": trap_explanation,
+        "refutation": trap_refutation,
+        "victim_color": trap_victim_color,
+        "user_is_attacker": user_is_attacker,
         "user_plays_white": user_plays_white,
     }
 

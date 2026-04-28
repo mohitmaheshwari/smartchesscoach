@@ -69,14 +69,31 @@ const useTeachingMode = ({
         setCurrentFen(lessonData.teaching_fen);
       }
 
+      // Lead with what the trap/lesson actually teaches — the WHY.
+      // Without this, "follow along and play the moves" felt like
+      // puppeteering the user with no understanding of the idea.
+      const idea = lessonData.explanation || null;
+      const sideNote = (() => {
+        if (lessonData.mode !== "trap") return null;
+        if (lessonData.user_is_attacker === true) {
+          return "You're springing this trap. Watch the pattern.";
+        }
+        if (lessonData.user_is_attacker === false) {
+          return "You're the side that gets caught. Watch what to avoid.";
+        }
+        return null;
+      })();
+
       setCurrentInsight({
         quality: "teaching",
-        main_insight: `Let's learn the ${lessonData.lesson_name}! ${
-          lessonData.instruction?.message || "Follow along and play the moves."
-        }`,
-        why: lessonData.opening_name
+        main_insight: idea
+          ? `${lessonData.lesson_name}. ${idea}`
+          : `Let's learn the ${lessonData.lesson_name}! ${
+              lessonData.instruction?.message || "Follow along and play the moves."
+            }`,
+        why: sideNote || (lessonData.opening_name
           ? `Part of the ${lessonData.opening_name}`
-          : null,
+          : null),
         next_idea: lessonData.instruction?.is_user_move
           ? `Your turn: play ${lessonData.instruction.move}`
           : `Watch: I'll play ${lessonData.instruction?.move}`,
@@ -85,17 +102,35 @@ const useTeachingMode = ({
         teaching_mode: true,
         lesson_name: lessonData.lesson_name,
         remaining_moves: lessonData.instruction?.remaining,
+        key_ideas: lessonData.key_ideas || [],
+        refutation: lessonData.refutation || null,
       });
 
+      // Chat thread: lead with the idea, then the side note, then "your
+      // turn". Three short messages so each lands clearly.
+      const introMessage = idea
+        ? `${lessonData.lesson_name} — ${idea}`
+        : `Let's learn the ${lessonData.lesson_name}! Follow along and play the moves.`;
       setChatMessages((prev) => [
         ...prev,
         {
           type: "coach",
           trigger: "teaching",
-          message: `Let's learn the ${lessonData.lesson_name}! Follow along and play the moves.`,
+          message: introMessage,
           timestamp: Date.now(),
         },
       ]);
+      if (sideNote) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            type: "coach",
+            trigger: "teaching",
+            message: sideNote,
+            timestamp: Date.now() + 1,
+          },
+        ]);
+      }
 
       if (lessonData.auto_played_move) {
         setChatMessages((prev) => [
