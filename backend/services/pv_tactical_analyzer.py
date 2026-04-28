@@ -88,23 +88,32 @@ def _immediate_fork(board_before: chess.Board, best_move: chess.Move) -> Optiona
     After playing the best move, does the moving piece attack 2+ valuable
     opponent targets — or attack 1 target with check?
 
+    INTERIM safety check (2026-04-28): rejects "fake forks" where the
+    forking piece is itself unsafe (attacked + cheaper attacker than
+    the forker, with no defender). This kills the most common false
+    positive — knight-forks-knight where the other knight just takes
+    back.
+
+    NOTE: this is NOT the full confidence formula — that's pending the
+    SEE implementation per FORK_CONFIDENCE_FORMULA.md. This is a hard
+    binary gate to stop fake forks reaching the user while the proper
+    scoring system is built.
+
     Returns None if no fork-like pattern, else a dict describing it.
     """
     board = board_before.copy()
     mover_color = board.turn
     board.push(best_move)
 
-    piece_at_dest = board.piece_at(best_move.to_square)
-    if piece_at_dest is None:
+    forker = board.piece_at(best_move.to_square)
+    if forker is None:
         return None
 
-    # Valuable = knight or better (pawn attacks don't really fork)
-    valuable_targets: List[Tuple[int, int]] = []  # list of (square, piece_type)
+    # Targets: opponent pieces (knight or better, since pawn-pieces aren't a fork).
+    valuable_targets: List[Tuple[int, int]] = []
     for sq in board.attacks(best_move.to_square):
         target = board.piece_at(sq)
-        if target is None:
-            continue
-        if target.color == mover_color:
+        if target is None or target.color == mover_color:
             continue
         if target.piece_type == chess.KING:
             continue  # check handled separately
@@ -113,19 +122,70 @@ def _immediate_fork(board_before: chess.Board, best_move: chess.Move) -> Optiona
 
     gives_check = board.is_check()
 
-    if gives_check and valuable_targets:
+    # ── INTERIM SAFETY GATE ──
+    # Reject if the fork square itself is unsafe. "Unsafe" =
+    # opponent's cheapest attacker is worth less than the forker AND
+    # the forker has no defender. That's the knight-fork-knight case.
+    forker_value = _PIECE_VALUES.get(forker.piece_type, 0)
+    fork_sq = best_move.to_square
+    attackers_on_forker = board.attackers(not mover_color, fork_sq)
+    if attackers_on_forker:
+        defenders_of_forker = board.attackers(mover_color, fork_sq)
+        cheapest_attacker = min(
+            (_PIECE_VALUES.get(board.piece_at(a).piece_type, 0) for a in attackers_on_forker),
+            default=0,
+        )
+        # If unsafe — opponent can capture forker for material gain — and
+        # no check (which would force them to deal with that first), the
+        # fork is fake.
+        unsafe = (cheapest_attacker < forker_value) and not defenders_of_forker
+        if unsafe and not gives_check:
+            return None
+
+    # ── INTERIM TARGET-RECAPTURE GATE ──
+    # For each "target," check whether the target itself attacks the
+    # forker square (i.e., can recapture for free or for value). If the
+    # ONLY targets that exist are ones that can recapture profitably,
+    # this is a trade not a fork. Same-piece-type forks (knight forks
+    # knight where both can capture) are killed here.
+    real_targets: List[Tuple[int, int]] = []
+    for sq, ttype in valuable_targets:
+        # Does this target piece attack the forker's square?
+        target_attacks = board.attacks(sq)
+        target_can_recapture = fork_sq in target_attacks
+        if target_can_recapture:
+            target_value = _PIECE_VALUES.get(ttype, 0)
+            # Recapture is profitable for opponent if their target is
+            # worth >= forker, AND we have no support (defender) on
+            # the fork square.
+            defenders = board.attackers(mover_color, fork_sq)
+            if target_value >= forker_value and not defenders:
+                # Recapture trade is fine for opponent — this target
+                # doesn't materially threaten anything.
+                continue
+        real_targets.append((sq, ttype))
+
+    if gives_check and real_targets:
         return {
             "type": "check_and_attack",
-            "targets": valuable_targets,
+            "targets": real_targets,
             "gives_check": True,
         }
-    if len(valuable_targets) >= 2:
+    if len(real_targets) >= 2:
         return {
             "type": "fork",
-            "targets": valuable_targets[:3],
+            "targets": real_targets[:3],
             "gives_check": False,
         }
     return None
+
+
+# Piece values, kept here so _immediate_fork has a local table even if
+# imported elsewhere later. Matches FORK_CONFIDENCE_FORMULA.md.
+_PIECE_VALUES = {
+    chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+    chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 1000,
+}
 
 
 def _direction(from_sq: int, to_sq: int) -> Optional[Tuple[int, int]]:
