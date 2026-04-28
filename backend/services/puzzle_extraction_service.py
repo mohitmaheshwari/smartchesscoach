@@ -19,6 +19,78 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# ── Quality gates for "is this position worth keeping as a puzzle?" ──
+# Loose extraction gave us positional moves where the engine prefers
+# move A over move B by 30cp — bad teaching material because there's
+# no clean idea to teach. Real puzzles need a forcing best move OR a
+# detectable tactical pattern.
+
+# Mate-detection sentinel cap. cp_loss can spike to 5000+ on missed
+# mates; we exclude those — "find mate-in-7" is not a 1200 puzzle.
+PUZZLE_MAX_CP_LOSS = 2000
+
+# Below this rating, an endgame-phase mistake (move > END_PHASE_PLY)
+# usually isn't tactical training material — they need pattern training,
+# not endgame conversion grind.
+ENDGAME_FILTER_RATING = 1500
+END_PHASE_PLY = 30  # full-move number, not ply
+
+
+def _is_puzzle_worthy(
+    fen_before: str,
+    best_move_san: str,
+    best_move_uci: Optional[str],
+    pv_after_best: Optional[List[str]],
+    move_number: int,
+    user_rating: int,
+    cp_loss: int,
+) -> bool:
+    """Decide whether a (position, best_move) pair is good teaching
+    material. Three checks:
+
+    1. cp_loss within sane bounds (no mate sentinels)
+    2. Best move is forcing (capture / check / mate) OR
+       pv_tactical_analyzer detects a real pattern
+    3. Phase appropriate for the user's rating
+    """
+    # 1. Bounds
+    if cp_loss <= 0 or cp_loss > PUZZLE_MAX_CP_LOSS:
+        return False
+
+    # 3. Phase filter — endgame mistakes for low-rated users aren't
+    # the tactical pattern training the system serves.
+    if user_rating < ENDGAME_FILTER_RATING and move_number > END_PHASE_PLY:
+        return False
+
+    # 2. Forcing test (cheap): capture / check / mate marker in SAN.
+    san = (best_move_san or "").strip()
+    if not san:
+        return False
+    is_forcing = any(ch in san for ch in ("x", "+", "#"))
+
+    if is_forcing:
+        return True
+
+    # 2b. Tactical-pattern test (more expensive): does the engine's PV
+    # show a fork/pin/skewer/discovery/exposed-defender after best move?
+    # If yes, it's a real pattern even though SAN doesn't have x/+/#
+    # (e.g., a quiet move that sets up a winning threat).
+    if best_move_uci and pv_after_best:
+        try:
+            from services.pv_tactical_analyzer import explain_best_move_tactically
+            tactical = explain_best_move_tactically(
+                fen_before, best_move_uci, san, pv_after_best
+            )
+            if tactical:
+                return True
+        except Exception as e:
+            logger.debug(f"pv_tactical_analyzer failed for puzzle screen: {e}")
+
+    # No forcing move, no detectable pattern — likely a positional
+    # preference. Skip; it's not pattern training.
+    return False
+
+
 async def extract_puzzles_from_game(
     db: AsyncIOMotorDatabase,
     game_id: str,
@@ -64,6 +136,7 @@ async def extract_puzzles_from_game(
 
     created = []
 
+    skipped_quality = 0
     for ev in evals:
         cp_loss = ev.get("cp_loss", 0)
         # Rating-aware threshold
@@ -73,10 +146,25 @@ async def extract_puzzles_from_game(
         fen_before = ev.get("fen_before")
         # Support both field names
         best_move = ev.get("best_move_san") or ev.get("best_move")
+        best_move_uci = ev.get("best_move_uci")
+        pv_after_best = ev.get("pv_after_best") or []
         cognitive_gap = ev.get("cognitive_gap", "")
         move_number = ev.get("move_number", 0)
 
         if not fen_before or not best_move:
+            continue
+
+        # Quality gate — skip positional/non-teaching positions.
+        if not _is_puzzle_worthy(
+            fen_before=fen_before,
+            best_move_san=best_move,
+            best_move_uci=best_move_uci,
+            pv_after_best=pv_after_best if isinstance(pv_after_best, list) else [],
+            move_number=move_number,
+            user_rating=int(user_rating or 1200),
+            cp_loss=int(cp_loss),
+        ):
+            skipped_quality += 1
             continue
 
         # Infer cognitive gap from position if not explicitly tagged
@@ -145,9 +233,10 @@ async def extract_puzzles_from_game(
         puzzle_copy["puzzle_id"] = str(result.inserted_id)
         created.append(puzzle_copy)
 
-    if created:
+    if created or skipped_quality:
         logger.info(
-            f"Extracted {len(created)} puzzles from game {game_id} (user {user_id})"
+            f"Extracted {len(created)} puzzles from game {game_id} "
+            f"(user {user_id}, skipped {skipped_quality} positional/no-pattern)"
         )
 
     return created
