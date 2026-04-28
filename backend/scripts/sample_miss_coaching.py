@@ -115,6 +115,7 @@ async def main(n: int, theme_filter: list[str] | None) -> None:
             best_move_uci=solution_uci,
             pv_after_best=pv_after_best,
             cognitive_gap=gap,
+            themes=themes,
         )
 
         print(f"\n── Sample {i}/{len(samples)} ─────────────────────")

@@ -52,6 +52,85 @@ _GAP_TAKEAWAY = {
 _GENERIC_TAKEAWAY = "Before every move, ask: what is my opponent threatening right now?"
 
 
+# Lichess theme groups. When the puzzle's role is clear, we frame the
+# coaching around what the USER was supposed to do rather than "you
+# didn't address the threat." A fork puzzle's lesson is "find the fork,"
+# not "defend it."
+_OFFENSIVE_THEMES = {
+    "fork", "pin", "skewer", "discoveredAttack", "discoveredCheck",
+    "doubleCheck", "deflection", "removeTheDefender", "attraction",
+    "interference", "xRayAttack", "trappedPiece",
+    "mate", "mateIn1", "mateIn2", "mateIn3", "mateIn4", "mateIn5",
+    "kingsideAttack", "queensideAttack", "attackingF2F7",
+    "backRankMate", "smotheredMate", "anastasiaMate", "arabianMate",
+    "bodenMate", "doubleBishopMate", "dovetailMate", "hookMate",
+    "sacrifice", "clearance", "intermezzo", "quietMove",
+}
+_DEFENSIVE_THEMES = {"defensiveMove", "exposedKing"}
+
+# Pretty names for theme → coach voice headline. Lets us say "you missed
+# the fork" instead of "there's a stronger move."
+_THEME_NAMES = {
+    "fork":              "fork",
+    "pin":               "pin",
+    "skewer":            "skewer",
+    "discoveredAttack":  "discovered attack",
+    "discoveredCheck":   "discovered check",
+    "doubleCheck":       "double check",
+    "deflection":        "deflection",
+    "removeTheDefender": "remove-the-defender tactic",
+    "attraction":        "attraction tactic",
+    "interference":      "interference",
+    "xRayAttack":        "x-ray attack",
+    "trappedPiece":      "trapped piece",
+    "mateIn1":           "mate in 1",
+    "mateIn2":           "mate in 2",
+    "mateIn3":           "mate in 3",
+    "mateIn4":           "mate in 4",
+    "mateIn5":           "mate in 5",
+    "mate":              "checkmate",
+    "kingsideAttack":    "kingside attack",
+    "queensideAttack":   "queenside attack",
+    "attackingF2F7":     "f7/f2 attack",
+    "backRankMate":      "back-rank mate",
+    "smotheredMate":     "smothered mate",
+    "sacrifice":         "sacrifice",
+    "clearance":         "clearance",
+    "intermezzo":        "in-between move",
+    "quietMove":         "quiet move",
+    "hangingPiece":      "free piece to grab",
+}
+
+
+def _puzzle_role(themes: List[str]) -> str:
+    """Return 'attacker', 'defender', or 'unclear' based on themes."""
+    theme_set = set(themes or [])
+    if theme_set & _OFFENSIVE_THEMES:
+        return "attacker"
+    if theme_set & _DEFENSIVE_THEMES:
+        return "defender"
+    return "unclear"
+
+
+def _primary_theme_name(themes: List[str]) -> Optional[str]:
+    """Pick the most teaching-friendly theme to name in coach voice."""
+    if not themes:
+        return None
+    # Prefer specific patterns over generic descriptors
+    priority = [
+        "mateIn1", "mateIn2", "mateIn3", "mateIn4", "mateIn5", "mate",
+        "fork", "pin", "skewer", "discoveredCheck", "discoveredAttack",
+        "doubleCheck", "deflection", "removeTheDefender", "attraction",
+        "interference", "xRayAttack", "trappedPiece", "hangingPiece",
+        "smotheredMate", "backRankMate", "sacrifice", "intermezzo",
+        "quietMove", "kingsideAttack", "queensideAttack", "attackingF2F7",
+    ]
+    for t in priority:
+        if t in themes:
+            return _THEME_NAMES.get(t)
+    return None
+
+
 # ──────────────────────────────────────────────────────────────
 # Position summary
 # ──────────────────────────────────────────────────────────────
@@ -185,19 +264,34 @@ def _critique_played_move(
     played_uci: Optional[str],
     played_san: str,
     threats_before: List[str],
+    role: str,
+    theme_name: Optional[str],
+    best_san: str,
 ) -> str:
-    """Why does the user's move fall short? Compare threats before vs
-    threats after. If the played move didn't address any of them, say so
-    plainly. If it addressed some, name what's left.
+    """Why does the user's move fall short?
+
+    Framing depends on the puzzle's role:
+      • attacker — user was supposed to FIND a tactic. Frame as "you
+        missed the [theme]" with the best move named. Don't talk about
+        "addressing threats" because that's the wrong direction.
+      • defender — user was supposed to handle a threat. Use threat
+        comparison: did their move address it, partially, or not.
+      • unclear — generic "there's a stronger move" fallback, but with
+        the best move named so it isn't empty advice.
     """
     if not played_san:
         return ""
-    if not threats_before:
-        # No active threats — user's move just wasn't the strongest.
-        return f"Your {played_san} doesn't lose anything, but there's a stronger move."
 
-    # If we have a UCI, compute threats after to see what was addressed.
-    if played_uci:
+    # ── Attacker puzzle ──
+    if role == "attacker":
+        if theme_name:
+            return (
+                f"You missed the {theme_name}. {best_san} was the move."
+            )
+        return f"You missed the tactic. {best_san} was the move."
+
+    # ── Defender / threat-driven puzzle ──
+    if role == "defender" and threats_before and played_uci:
         try:
             played_move = chess.Move.from_uci(played_uci)
         except Exception:
@@ -205,23 +299,29 @@ def _critique_played_move(
         if played_move and played_move in board_before.legal_moves:
             after = board_before.copy()
             after.push(played_move)
-            # Now opponent to move — check threats AGAINST the user that
-            # opponent could still execute.
-            after.turn = not after.turn  # null-move flip back to user side
+            after.turn = not after.turn  # null-flip: see threats from opponent
             threats_after = _opponent_threats(after)
             if not threats_after:
-                return f"{played_san} addresses the immediate threat but there's a stronger move."
+                return (
+                    f"{played_san} stops the threat — but {best_san} was "
+                    f"the cleaner answer."
+                )
             if len(threats_after) < len(threats_before):
                 return (
-                    f"{played_san} handles part of it, but a threat is still "
-                    f"there: {threats_after[0]}"
+                    f"{played_san} handles part of it. There's still: "
+                    f"{threats_after[0]}"
                 )
+            # Didn't address it
+            threat_text = threats_before[0]
+            # Strip leading "My " so it reads naturally after the dash
+            if threat_text.startswith("My "):
+                threat_text = threat_text[3:]
             return (
-                f"{played_san} doesn't address the threat — "
-                f"{threats_before[0].lstrip('My ').rstrip('.')}, still."
+                f"{played_san} doesn't address it — {threat_text.rstrip('.')}, still."
             )
 
-    return f"{played_san} doesn't address what's threatening you right now."
+    # ── Unclear / no threat ──
+    return f"{best_san} was stronger here. Try playing it on the board to feel why."
 
 
 # ──────────────────────────────────────────────────────────────
@@ -237,10 +337,16 @@ def build_miss_coaching(
     played_move_uci: Optional[str] = None,
     pv_after_best: Optional[List[str]] = None,
     cognitive_gap: Optional[str] = None,
+    themes: Optional[List[str]] = None,
 ) -> Optional[Dict]:
     """Build the full coaching breakdown for a puzzle miss. Returns None
     when the FEN can't be parsed — caller should fall back to a simpler
     panel.
+
+    `themes`: Lichess puzzle themes when available — drives critique
+    framing (attacker vs defender vs unclear). When the user is the
+    ATTACKER (fork/pin/skewer/mate), we frame "you missed the X" rather
+    than "you didn't address the threat" (which is wrong direction).
     """
     if not fen_before or not best_move_san:
         return None
@@ -250,14 +356,20 @@ def build_miss_coaching(
         return None
 
     pv_after_best = pv_after_best or []
+    themes = themes or []
+    role = _puzzle_role(themes)
+    theme_name = _primary_theme_name(themes)
 
     position_summary = _build_position_summary(board)
     threats = _opponent_threats(board)
     played_critique = _critique_played_move(
-        board, played_move_uci, played_move_san, threats
+        board, played_move_uci, played_move_san, threats,
+        role=role, theme_name=theme_name, best_san=best_move_san,
     )
 
-    # Best-move idea — use the existing tactical analyzer.
+    # Best-move idea — use the existing tactical analyzer, then
+    # ALWAYS prefix the move SAN so output reads as a complete idea
+    # (avoids fragments like "wins a piece" with no move named).
     best_move_idea = ""
     if best_move_uci:
         try:
@@ -268,14 +380,23 @@ def build_miss_coaching(
         except Exception as e:
             logger.debug(f"pv_tactical_analyzer failed: {e}")
 
+    # If the analyzer's text doesn't already mention the SAN, prefix it.
+    if best_move_idea and best_move_san not in best_move_idea:
+        best_move_idea = f"{best_move_san} — {best_move_idea}"
+
     if not best_move_idea:
-        # Falls back to a plain "the engine prefers X" — honest about
-        # not having a tactical signal rather than fabricating one.
-        best_move_idea = (
-            f"{best_move_san} is stronger here. The engine sees a small "
-            f"advantage that's hard to explain in one line — play through "
-            f"the move on the board to feel it."
-        )
+        # Fallback when no tactical signal — name the move + theme.
+        if theme_name:
+            best_move_idea = (
+                f"{best_move_san} sets up the {theme_name}. "
+                f"Play through it on the board to see how."
+            )
+        else:
+            best_move_idea = (
+                f"{best_move_san} is stronger here. The engine sees a small "
+                f"advantage that's hard to explain in one line — play it on "
+                f"the board to feel why."
+            )
 
     takeaway = (
         _GAP_TAKEAWAY.get(cognitive_gap, _GENERIC_TAKEAWAY)
@@ -290,4 +411,6 @@ def build_miss_coaching(
         "best_move_san": best_move_san,
         "played_move_san": played_move_san,
         "takeaway": takeaway,
+        "role": role,
+        "theme_name": theme_name,
     }
