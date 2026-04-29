@@ -5968,26 +5968,43 @@ async def make_coach_play_move(
         
         action_revision = session_doc.get("action_revision", 0) + 1
 
-        # Update session with user's move (coach move pending)
-        await db.coach_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": {
-                "current_fen": fen_after_user,
-                "move_history": move_history,
-                "coach_move_pending": True,
-                "action_revision": action_revision
-            }}
-        )
-        
-        # Check if game is over after user's move
+        # Check if game is over after user's move BEFORE persisting, so the
+        # session update can carry the final result/status. Previously we
+        # only set coach_move_pending=True and the local `result` was used
+        # only for the websocket event — never written to session.result.
+        # That made the frontend (which re-reads session.result on refresh)
+        # fall back to "Draw" even after a user mate.
         game_over = board.is_game_over()
         result = None
         if game_over:
             if board.is_checkmate():
                 result = "win"  # User checkmated opponent
-            elif board.is_stalemate() or board.is_insufficient_material():
+            elif (
+                board.is_stalemate()
+                or board.is_insufficient_material()
+                or board.is_seventyfive_moves()
+                or board.is_fivefold_repetition()
+            ):
                 result = "draw"
-        
+
+        update_fields = {
+            "current_fen": fen_after_user,
+            "move_history": move_history,
+            # Coach only has a turn coming if the game continues.
+            "coach_move_pending": not game_over,
+            "action_revision": action_revision,
+        }
+        if game_over:
+            update_fields["status"] = "completed"
+            update_fields["ended_at"] = datetime.now(timezone.utc).isoformat()
+            if result is not None:
+                update_fields["result"] = result
+
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": update_fields}
+        )
+
         # If the user's own move ends the game, no coach turn — push now.
         if game_over:
             publish_session_event(session_id, {
