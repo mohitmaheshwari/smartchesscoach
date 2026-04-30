@@ -986,9 +986,14 @@ const MoveCoachingCardV5 = ({
         )}
 
         {/* ─── POSITION COMMENTARY (what the board says) ──────── */}
+        {/* Header is "What this position tells us" — NOT "A better plan here".
+            The plan/observations come from PLAN_RULES + position_reader,
+            which describe position features (pins, back-rank pieces, etc.)
+            independent of the move actually played. Labeling them as
+            move-specific advice lies to the user. */}
         {positionCommentary && (isMistake || move.is_best_move) && (
           <div className="bg-blue-500/5 rounded-lg p-3 border border-blue-500/15">
-            <p className="text-xs text-blue-400/70 font-semibold mb-1">A better plan here</p>
+            <p className="text-xs text-blue-400/70 font-semibold mb-1">What this position tells us</p>
             {positionCommentary.plan && (
               <p className="text-sm text-gray-700 mb-1">{positionCommentary.plan}</p>
             )}

@@ -60,13 +60,27 @@ PLAN_RULES = [
         ]),
     },
     {
+        # Their piece is pinned — opportunity to pile up.
+        # Title in position_reader is "Opponent's {piece} is pinned".
         "id": "exploit_pin",
-        "conditions": lambda f, m, p: _has_feature(f, "tactics", "pinned"),
+        "conditions": lambda f, m, p: _has_feature_with_title_prefix(f, "tactics", "Opponent"),
         "priority": "tactics",
-        "plan": lambda f, m, p: f"Their piece is pinned. {_get_feature_text(f, 'tactics', 'pinned')}",
+        "plan": lambda f, m, p: f"Their piece is pinned. {_get_feature_text_with_title_prefix(f, 'tactics', 'Opponent')}",
         "summary": lambda f, m, p: _build_summary([
-            _get_feature_text(f, "tactics", "pinned"),
+            _get_feature_text_with_title_prefix(f, "tactics", "Opponent"),
             "Add more pressure to the pinned piece.",
+        ]),
+    },
+    {
+        # Our piece is pinned — defensive concern, not an opportunity.
+        # Title in position_reader is "Your {piece} is pinned".
+        "id": "defend_pinned_piece",
+        "conditions": lambda f, m, p: _has_feature_with_title_prefix(f, "tactics", "Your") and "pinned" in (_get_feature_title_with_title_prefix(f, "tactics", "Your") or "").lower(),
+        "priority": "defense",
+        "plan": lambda f, m, p: f"Your piece is pinned. {_get_feature_text_with_title_prefix(f, 'tactics', 'Your')}",
+        "summary": lambda f, m, p: _build_summary([
+            _get_feature_text_with_title_prefix(f, "tactics", "Your"),
+            "Be careful — moving the pinned piece can lose material.",
         ]),
     },
 
@@ -653,6 +667,35 @@ def _get_feature_text(features: List[Dict], category: str, title_contains: str) 
     for f in features:
         if f.get("category", "") == category and title_contains.lower() in f.get("title", "").lower():
             return f.get("description", "")
+    return ""
+
+
+def _has_feature_with_title_prefix(features: List[Dict], category: str, title_prefix: str) -> bool:
+    """Match features whose title STARTS with a prefix (case-insensitive).
+    Stricter than _has_feature — needed when the title's leading word
+    determines whose piece the feature is about (e.g., "Your knight is
+    pinned" vs "Opponent's knight is pinned" both contain "pinned" but
+    mean opposite things)."""
+    pref = title_prefix.lower()
+    for f in features:
+        if f.get("category", "") == category and f.get("title", "").lower().startswith(pref):
+            return True
+    return False
+
+
+def _get_feature_text_with_title_prefix(features: List[Dict], category: str, title_prefix: str) -> str:
+    pref = title_prefix.lower()
+    for f in features:
+        if f.get("category", "") == category and f.get("title", "").lower().startswith(pref):
+            return f.get("description", "")
+    return ""
+
+
+def _get_feature_title_with_title_prefix(features: List[Dict], category: str, title_prefix: str) -> str:
+    pref = title_prefix.lower()
+    for f in features:
+        if f.get("category", "") == category and f.get("title", "").lower().startswith(pref):
+            return f.get("title", "")
     return ""
 
 
