@@ -11,6 +11,8 @@
       "WebFetch",
       "WebSearch",
 
+      "Bash(*)",
+
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push)",
