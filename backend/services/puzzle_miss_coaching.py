@@ -38,10 +38,10 @@ logger = logging.getLogger(__name__)
 _GAP_TAKEAWAY = {
     "piece_safety":       "Before every move, ask: is each of my pieces defended?",
     "king_safety":        "Watch what my pieces are aiming at near your king. King first.",
-    "tactical_oversight": "Captures and checks first — they make moves forced.",
+    "tactical_oversight": "Captures and checks first — those are the forcing moves.",
     "missed_tactic":      "Look for forks, pins, and skewers before quiet moves.",
     "calculation_depth":  "One move deeper. What does my move threaten next turn?",
-    "ignore_threat":      "After my every move, ask: what changed? What am I now threatening?",
+    "ignore_threat":      "After every move I make, ask: what changed? What am I now threatening?",
     "endgame_technique":  "In the endgame, your king is a fighting piece — use it.",
     "opening_knowledge":  "In the opening, develop pieces and fight for the center first.",
     "piece_activity":     "A piece that isn't doing anything is a wasted piece.",
@@ -317,7 +317,7 @@ def _critique_played_move(
             if threat_text.startswith("My "):
                 threat_text = threat_text[3:]
             return (
-                f"{played_san} doesn't address it — {threat_text.rstrip('.')}, still."
+                f"{played_san} doesn't stop it — {threat_text.rstrip('.')} is still on."
             )
 
     # ── Unclear / no threat ──
@@ -393,9 +393,8 @@ def build_miss_coaching(
             )
         else:
             best_move_idea = (
-                f"{best_move_san} is stronger here. The engine sees a small "
-                f"advantage that's hard to explain in one line — play it on "
-                f"the board to feel why."
+                f"{best_move_san} is stronger here. The advantage is subtle — "
+                f"play it on the board to feel why."
             )
 
     takeaway = (
