@@ -1,5 +1,5 @@
 # ChessGuru robots.txt
-# https://chessguru.app/
+# https://chessguru.ai/
 
 User-agent: *
 Allow: /
@@ -55,4 +55,4 @@ User-agent: Bytespider
 Disallow: /
 
 # Sitemap
-Sitemap: https://chessguru.app/sitemap.xml
+Sitemap: https://chessguru.ai/sitemap.xml
