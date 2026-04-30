@@ -139,9 +139,9 @@ class CoachLanguage:
     
     MISTAKE_TEMPLATES = {
         PlayerLevel.ROOKIE: {
-            "gentle": "Hmm, not that one. Let me show you a better move.",
-            "encouragement": "It's okay, we all start somewhere. Chess is tricky!",
-            "explanation_prefix": "See, when you moved there, ",
+            "gentle": "Not that one — let me show you a better move.",
+            "encouragement": "Chess is tough. The mistakes start fading once you slow down.",
+            "explanation_prefix": "When you moved there, ",
             "try_again": "Want to try again? No rush."
         },
         PlayerLevel.BEGINNER: {
@@ -175,10 +175,10 @@ class CoachLanguage:
             "try_again": "Recalculate - what's the refutation?"
         },
         PlayerLevel.EXPERT: {
-            "gentle": "Second-best. The engine line wins material.",
-            "encouragement": "Practical choice, but objectively there's better.",
+            "gentle": "Second-best. The sharper line wins material.",
+            "encouragement": "Practical choice — objectively there's better.",
             "explanation_prefix": "The improvement: ",
-            "try_again": "Find the engine move."
+            "try_again": "Find the sharpest move."
         },
         PlayerLevel.MASTER: {
             "gentle": "Interesting but suboptimal.",
@@ -194,9 +194,9 @@ class CoachLanguage:
     
     CORRECT_TEMPLATES = {
         PlayerLevel.ROOKIE: {
-            "praise": "Yes! Perfect! You found it!",
-            "explanation": "That's exactly right. You're learning fast!",
-            "next_step": "Let's see what happens next..."
+            "praise": "Perfect — you found it.",
+            "explanation": "Exactly right.",
+            "next_step": "Let's see what happens next."
         },
         PlayerLevel.BEGINNER: {
             "praise": "Great find! That's the move!",
@@ -693,7 +693,7 @@ VOICE GUIDELINES:
 - Be concise - no obvious explanations.
 - Discuss evaluation differences directly.
 
-Example tone: "The engine prefers Rd1 but your move is playable. The difference is about 0.3 - you're exchanging precision for practical chances. Fine for rapid, questionable for classical."
+Example tone: "Rd1 is sharper but your move is playable. You're trading a touch of precision for practical chances. Fine for rapid, questionable for classical."
 """,
             
             PlayerLevel.EXPERT: f"""Analyzing with {name}, an expert player (~1800-2000).

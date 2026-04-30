@@ -686,30 +686,30 @@ def _generate_game_insights(
     
     # Compare to average
     if accuracy > memory.performance.avg_accuracy + 5:
-        insights.append(f"Your accuracy ({accuracy:.1f}%) was above your average ({memory.performance.avg_accuracy:.1f}%)! Great focus!")
+        insights.append(f"Your accuracy ({accuracy:.1f}%) was above your average ({memory.performance.avg_accuracy:.1f}%) — sharp game.")
     elif accuracy < memory.performance.avg_accuracy - 10:
         insights.append("Your accuracy was below your usual level. What happened?")
-    
+
     # Blunder comparison
     if blunders == 0 and memory.performance.avg_blunders_per_game > 0.5:
-        insights.append("Zero blunders! You're usually at {:.1f} per game - excellent discipline!".format(
+        insights.append("Zero blunders this game — you usually average {:.1f}.".format(
             memory.performance.avg_blunders_per_game
         ))
     elif blunders > memory.performance.avg_blunders_per_game + 1:
-        insights.append(f"More blunders than usual ({blunders} vs your avg {memory.performance.avg_blunders_per_game:.1f})")
-    
+        insights.append(f"More blunders than usual ({blunders} vs your avg {memory.performance.avg_blunders_per_game:.1f}).")
+
     # Habit insights
     for habit_id in improved:
         habit_info = DETECTABLE_WEAKNESSES.get(habit_id, {})
-        insights.append(f"You avoided {habit_info.get('name', habit_id)} this game! That's improvement!")
-    
+        insights.append(f"You avoided {habit_info.get('name', habit_id)} this game. That's the pattern starting to fade.")
+
     # Recurring issues
     for habit_id in violated:
         habit_info = DETECTABLE_WEAKNESSES.get(habit_id, {})
         # Check if this is a recurring issue
         for w in memory.weaknesses:
             if w.habit_id == habit_id and w.detection_count >= 3:
-                insights.append(f"'{w.name}' appeared again ({w.detection_count} times now). Let's focus on this!")
+                insights.append(f"'{w.name}' showed up again — {w.detection_count} times now. This is the one to fix.")
                 break
     
     return insights[:4]  # Max 4 insights
@@ -839,12 +839,12 @@ async def get_personalized_greeting(db, user_id: str) -> str:
     context = _get_greeting_context(memory)
     
     greetings = {
-        "first_game": "Welcome! I'm your chess coach. Let's see what you've got!",
-        "after_win": "Welcome back! Great win last time. Ready to keep the momentum?",
-        "after_loss": "Good to see you again! Last game was tough, but every game teaches us something. Let's go!",
-        "improving": f"You're on fire! {memory.performance.improvement_rate*100:.0f}% win rate recently. Let's keep it up!",
-        "struggling": "Hey! I know it's been tough lately, but I'm here to help you improve. Let's focus today.",
-        "normal": f"Welcome back! Game #{memory.performance.games_played + 1}. Ready to improve?"
+        "first_game": "First game together. Let's see how you play.",
+        "after_win": "Welcome back. Good win last time — let's keep the momentum.",
+        "after_loss": "Welcome back. Last game was tough; today's a fresh one.",
+        "improving": f"You're playing well — {memory.performance.improvement_rate*100:.0f}% win rate recently.",
+        "struggling": "Welcome back. Things have been tough — let's focus on one thing today.",
+        "normal": f"Welcome back. Game #{memory.performance.games_played + 1}.",
     }
     
     return greetings.get(context, greetings["normal"])
@@ -901,17 +901,17 @@ async def get_realtime_pattern_context(
                 if weakness.detection_count >= 3:
                     result["pattern_message"] = (
                         f"This is the {weakness.detection_count}th time with {weakness.name}. "
-                        f"We need to work on this na?"
+                        f"This is the one to fix."
                     )
                 elif weakness.detection_count == 2:
                     result["pattern_message"] = (
-                        f"This {weakness.name} happened last game too. Let's fix it!"
+                        f"{weakness.name} happened last game too. Same kind of slip."
                     )
-                
+
                 # Check if improving
                 if weakness.improving:
                     result["improvement_note"] = (
-                        f"But I've noticed you're getting better at {weakness.name}. Keep it up!"
+                        f"You're getting better at {weakness.name} — the pattern is fading."
                     )
                 break
     

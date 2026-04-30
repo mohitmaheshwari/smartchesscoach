@@ -422,10 +422,10 @@ Keep each field SHORT (max 15 words). No fluff."""
     def _generate_fallback_feedback(self) -> str:
         """Generate fallback feedback if LLM fails."""
         return '''{
-  "main_message": "Interesting move! Let me think about your reasoning.",
-  "reasoning_feedback": "I see what you were thinking.",
-  "position_insight": "There are several factors to consider here.",
-  "improvement_tip": "Always check for checks, captures, and threats.",
+  "main_message": "That's a real move. Let's break it down.",
+  "reasoning_feedback": "Good thinking process.",
+  "position_insight": "Several pieces matter in this position.",
+  "improvement_tip": "Always check for checks, captures, and threats first.",
   "encouragement": true
 }'''
     
@@ -464,8 +464,8 @@ Keep each field SHORT (max 15 words). No fluff."""
             # Return basic feedback
             return CoachFeedback(
                 main_message=self._get_quality_message(move.quality),
-                reasoning_feedback="I understand your thinking.",
-                position_insight="Consider all the tactical possibilities.",
+                reasoning_feedback="Real thinking — keep going.",
+                position_insight="Look at every check and capture before quiet moves.",
                 improvement_tip="Check for forcing moves first." if move.quality.value in ["mistake", "blunder"] else None,
                 opening_comment=f"We're in the {position.opening_name}." if position.opening_name else None,
                 move_quality=move.quality,
@@ -475,15 +475,15 @@ Keep each field SHORT (max 15 words). No fluff."""
     def _get_quality_message(self, quality: MoveQuality) -> str:
         """Get a basic message for move quality."""
         messages = {
-            MoveQuality.BRILLIANT: "Brilliant! That was an exceptional move!",
-            MoveQuality.GREAT: "Excellent! You found the best move!",
-            MoveQuality.GOOD: "Good move! That's one of the best options.",
-            MoveQuality.OKAY: "Reasonable move. There were slightly better options.",
-            MoveQuality.INACCURACY: "That's a small inaccuracy. Let's see what was better.",
-            MoveQuality.MISTAKE: "That's a mistake. Let me show you what was missed.",
-            MoveQuality.BLUNDER: "That's a blunder. Something important was missed here."
+            MoveQuality.BRILLIANT: "Brilliant move — only deep calculation finds that.",
+            MoveQuality.GREAT: "Best move. You saw it.",
+            MoveQuality.GOOD: "Solid — one of the strongest options here.",
+            MoveQuality.OKAY: "Reasonable. There was a touch sharper.",
+            MoveQuality.INACCURACY: "Small inaccuracy. Let's see what was sharper.",
+            MoveQuality.MISTAKE: "That's a mistake. Here's what was missed.",
+            MoveQuality.BLUNDER: "That's a blunder. Something important was missed."
         }
-        return messages.get(quality, "Interesting move.")
+        return messages.get(quality, "Move played.")
     
     async def _stockfish_analyze(
         self,
@@ -891,12 +891,14 @@ Keep it under 20 words. Be conversational, not formal."""
                 return f"{best_move} was slightly better. {position_insight}"
         
         # Fallback to FACTUAL message only (no LLM guessing)
+        # Voice rule: never leak engine units (cp, centipawns) to the
+        # player. Translate severity to felt language instead.
         if severity == "blunder":
-            return f"You played {move}. {best_move} was much stronger here (about {int(abs(eval_loss)*100)} centipawns better)."
+            return f"{move}. {best_move} was much stronger here."
         elif severity == "mistake":
-            return f"{best_move} was better than {move}. Take your time to find the best move."
+            return f"{best_move} was better than {move}. Slow down on the next one."
         else:
-            return f"{best_move} was slightly more accurate than {move}."
+            return f"{best_move} was a touch sharper than {move}."
     
     return ""
 
