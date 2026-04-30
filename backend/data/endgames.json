@@ -152,7 +152,7 @@
     "common_mistakes": [
       "Don't push the pawn too early - King goes first!",
       "Losing the opposition often means a draw",
-      "Always try to get your King IN FRONT of the pawn"
+      "Always get your king in front of the pawn — that’s the key idea."
     ],
     "practice_positions": []
   },
@@ -162,7 +162,7 @@
     "description": "Learn when your King can catch a passed pawn.",
     "key_concepts": [
       "Draw a square from the pawn to the promotion square",
-      "If your King can step INTO the square, it catches the pawn",
+      "If your king can step into the square, it catches the pawn.",
       "Count carefully - one wrong square loses!",
       "Diagonal moves are just as fast as straight moves"
     ],
@@ -186,7 +186,7 @@
       "9": "We caught it! The King reaches the pawn in time."
     },
     "common_mistakes": [
-      "Don't forget: the square is drawn from the PAWN, not the King",
+      "The square is drawn from the pawn, not the king.",
       "Count the squares carefully before deciding to chase",
       "Remember: King moves diagonally just as fast!"
     ],

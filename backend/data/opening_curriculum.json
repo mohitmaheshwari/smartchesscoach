@@ -4,9 +4,18 @@
     "color": "white",
     "summary": "A solid, easy-to-learn opening. You play the same setup almost every game. Bishop out before e3 — that's the golden rule.",
     "difficulty": "beginner",
-    "setup_order": ["d4", "Bf4", "e3", "Nf3", "Bd3", "O-O", "Nbd2", "c3"],
+    "setup_order": [
+      "d4",
+      "Bf4",
+      "e3",
+      "Nf3",
+      "Bd3",
+      "O-O",
+      "Nbd2",
+      "c3"
+    ],
     "golden_rules": [
-      "Bishop to f4 BEFORE e3. Always.",
+      "Bishop to f4 first, before e3. Always.",
       "Don't trade your dark bishop unless you get something big.",
       "Your dream setup: d4, e3, Bf4, Nf3, Bd3, O-O.",
       "After setup is done, push for e4."
@@ -15,7 +24,9 @@
       {
         "name": "Englund Gambit Trap",
         "trigger_move": "e5",
-        "trigger_after": ["d4"],
+        "trigger_after": [
+          "d4"
+        ],
         "description": "They play 1...e5 trying to trick you. Take the pawn and win.",
         "trap_idea": "They try to grab your b2 pawn with their queen. Let them — then trap the queen.",
         "how_to_avoid": "Just play normal development. Their queen gets stuck."
@@ -23,7 +34,13 @@
       {
         "name": "Bg4 Pin Trick",
         "trigger_move": "Bg4",
-        "trigger_after": ["d4", "d5", "Bf4", "Nf6", "e3"],
+        "trigger_after": [
+          "d4",
+          "d5",
+          "Bf4",
+          "Nf6",
+          "e3"
+        ],
         "description": "They pin your knight spot with Bg4. You have a strong response.",
         "trap_idea": "Push h3 then g4 to kick their bishop, then jump Ne5.",
         "how_to_avoid": "Don't panic when they play Bg4. h3 then g4 is strong."
@@ -31,7 +48,13 @@
       {
         "name": "Queen Trap after c5",
         "trigger_move": "Qb6",
-        "trigger_after": ["d4", "d5", "Bf4", "c5", "e3"],
+        "trigger_after": [
+          "d4",
+          "d5",
+          "Bf4",
+          "c5",
+          "e3"
+        ],
         "description": "They take b2 with their queen. Nb5 and Rb1 traps it.",
         "trap_idea": "Let them take b2. Their queen has no escape.",
         "how_to_avoid": "Make sure you have Nb5 before allowing Qxb2."
@@ -53,17 +76,11 @@
             "wrong_feedback": "In the London, the bishop MUST come to f4 before e3.",
             "responses": {
               "Nf6": {
-                "name": "London Classical",
-                "idea_opponent": "Developing and attacking your e4 square.",
-                "next": "e3",
-                "hint": "Your bishop is out. How do you solidify the center?",
-                "right_feedback": "e3 — solid. d4+e3 is a wall.",
-                "wrong_feedback": "e3 makes your center rock solid.",
-                "responses": {
-                  "e6": {"next": "Nf3", "hint": "Which knight controls the most important squares?", "right_feedback": "Nf3 — eyes e5, a great outpost.", "idea_opponent": "Solid setup."},
-                  "c5": {"next": "c3", "hint": "They're attacking d4. How do you support it?", "right_feedback": "c3 holds everything.", "idea_opponent": "Challenging your center."},
-                  "Bg4": {"next": "Nf3", "hint": "They pinned your knight spot. Should you worry?", "right_feedback": "Nf3 — don't fear the pin. Deal with it later.", "trap_reference": "Bg4 Pin Trick", "idea_opponent": "Trying to pin your knight."}
-                }
+                "name": "Indian Setup",
+                "idea_opponent": "Flexible development.",
+                "next": "Bf4",
+                "hint": "Same question as always — which piece first?",
+                "right_feedback": "Bf4 — doesn't matter what they play, bishop first."
               },
               "c5": {
                 "name": "Early c5",
@@ -72,7 +89,13 @@
                 "hint": "They attacked your center. What's the calm response?",
                 "right_feedback": "e3 — stay calm. Your center holds.",
                 "responses": {
-                  "Qb6": {"next": "Nc3", "hint": "Their queen eyes b2. How do you develop AND set a trap?", "right_feedback": "Nc3 — if they take b2, Nb5+Rb1 traps their queen.", "trap_reference": "Queen Trap after c5", "idea_opponent": "Threatening b2."}
+                  "Qb6": {
+                    "next": "Nc3",
+                    "hint": "Their queen eyes b2. How do you develop AND set a trap?",
+                    "right_feedback": "Nc3 — if they take b2, Nb5+Rb1 traps their queen.",
+                    "trap_reference": "Queen Trap after c5",
+                    "idea_opponent": "Threatening b2."
+                  }
                 }
               },
               "e5": {
@@ -84,27 +107,63 @@
                 "wrong_feedback": "Take the pawn! dxe5 is strong.",
                 "trap_reference": "Englund Gambit Trap"
               },
-              "Bf5": {"name": "Mirror London", "idea_opponent": "Copying your idea.", "next": "e3", "hint": "They mirrored your London. Change your plan?", "right_feedback": "e3 — stick to the plan. You have more space."},
-              "Nf6": {"name": "Indian Setup", "idea_opponent": "Flexible development.", "next": "Bf4", "hint": "Same question as always — which piece first?", "right_feedback": "Bf4 — doesn't matter what they play, bishop first."}
+              "Bf5": {
+                "name": "Mirror London",
+                "idea_opponent": "Copying your idea.",
+                "next": "e3",
+                "hint": "They mirrored your London. Change your plan?",
+                "right_feedback": "e3 — stick to the plan. You have more space."
+              }
             }
           }
         }
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Push e4 to open the center. Trade off defensive pieces.", "ideas": ["Push e4", "Knight on e5 is a monster", "Trade bishops to open lines"]},
-      "when_equal": {"plan": "Aim for e4. If blocked, play on the queenside with a4-a5.", "ideas": ["e4 is the dream", "Keep your dark bishop", "Open files for rooks"]},
-      "when_behind": {"plan": "Keep it closed. d4+e3 is hard to break. Wait for their mistake.", "ideas": ["Don't panic", "Trade queens if possible", "Your structure is solid"]}
+      "when_ahead": {
+        "plan": "Push e4 to open the center. Trade off defensive pieces.",
+        "ideas": [
+          "Push e4",
+          "Knight on e5 is a monster",
+          "Trade bishops to open lines"
+        ]
+      },
+      "when_equal": {
+        "plan": "Aim for e4. If blocked, play on the queenside with a4-a5.",
+        "ideas": [
+          "e4 is the dream",
+          "Keep your dark bishop",
+          "Open files for rooks"
+        ]
+      },
+      "when_behind": {
+        "plan": "Keep it closed. d4+e3 is hard to break. Wait for their mistake.",
+        "ideas": [
+          "Don't panic",
+          "Trade queens if possible",
+          "Your structure is solid"
+        ]
+      }
     },
-    "endgame_tips": ["d4+e3 structure is solid in endgames.", "Activate your king early.", "Push passed pawns."]
+    "endgame_tips": [
+      "d4+e3 structure is solid in endgames.",
+      "Activate your king early.",
+      "Push passed pawns."
+    ]
   },
-
   "italian_game": {
     "name": "Italian Game",
     "color": "white",
     "summary": "A classic opening. Develop quickly, point your bishop at f7, and attack the king. Simple and dangerous.",
     "difficulty": "beginner",
-    "setup_order": ["e4", "Nf3", "Bc4", "c3", "d4", "O-O"],
+    "setup_order": [
+      "e4",
+      "Nf3",
+      "Bc4",
+      "c3",
+      "d4",
+      "O-O"
+    ],
     "golden_rules": [
       "Bishop to c4 — aim at f7, the weakest square.",
       "c3 prepares d4 — the ideal center.",
@@ -115,7 +174,14 @@
       {
         "name": "Fried Liver Attack",
         "trigger_move": "Ng5",
-        "trigger_after": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6"],
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6"
+        ],
         "description": "Knight goes to g5 attacking f7. If they take, you sacrifice the knight for a devastating attack.",
         "trap_idea": "After Nxf7, their king is dragged out. The attack is crushing.",
         "how_to_avoid": "Black should play d5 instead of allowing Ng5."
@@ -123,7 +189,16 @@
       {
         "name": "Legal's Mate",
         "trigger_move": "Nxe5",
-        "trigger_after": ["e4", "e5", "Nf3", "Nc6", "Bc4", "d6", "Nc3", "Bg4"],
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "d6",
+          "Nc3",
+          "Bg4"
+        ],
         "description": "Sacrifice the queen to deliver checkmate with minor pieces.",
         "trap_idea": "If they take your queen with Bxd1, you play Bxf7+ Ke7 Nd5#. Checkmate!",
         "how_to_avoid": "Don't take the queen if you see Bxf7+ coming."
@@ -131,7 +206,13 @@
       {
         "name": "Blackburne Shilling Gambit",
         "trigger_move": "Nd4",
-        "trigger_after": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4"
+        ],
         "description": "Black plays Nd4 hoping you grab f7. Don't — just take the knight.",
         "trap_idea": "Bxf7+ looks tempting but wastes your bishop. Nxd4 wins a piece.",
         "how_to_avoid": "Don't be greedy. Nxd4 is simple and strong."
@@ -158,7 +239,13 @@
                 "right_feedback": "Bc4 — aimed at f7, the weakest square in their position.",
                 "wrong_feedback": "Bc4 targets f7 — the weak spot next to their king.",
                 "responses": {
-                  "Bc5": {"name": "Giuoco Piano", "idea_opponent": "They develop aggressively too.", "next": "c3", "hint": "How do you prepare to build an ideal center with d4?", "right_feedback": "c3 — prepares d4. Textbook Italian.", "idea_opponent": "Active bishop development."},
+                  "Bc5": {
+                    "name": "Giuoco Piano",
+                    "idea_opponent": "Active bishop development.",
+                    "next": "c3",
+                    "hint": "How do you prepare to build an ideal center with d4?",
+                    "right_feedback": "c3 — prepares d4. Textbook Italian."
+                  },
                   "Nf6": {
                     "name": "Two Knights Defense",
                     "idea_opponent": "Counter-attacking your e4 pawn.",
@@ -168,8 +255,21 @@
                     "wrong_feedback": "Ng5 attacks f7 with two pieces. Very dangerous for Black.",
                     "trap_reference": "Fried Liver Attack",
                     "responses": {
-                      "d5": {"name": "Main Defense", "idea_opponent": "The correct defense — counter in the center.", "next": "exd5", "hint": "They challenged your center. Take?", "right_feedback": "exd5 — now you have an extra pawn in the center."},
-                      "Bc5": {"name": "Traxler Counter", "idea_opponent": "They ignore f7 and counter-attack YOUR f2!", "next": "Nxf7", "hint": "They left f7 undefended! Take it?", "right_feedback": "Nxf7 — fork the queen and rook!", "trap_reference": "Fried Liver Attack"}
+                      "d5": {
+                        "name": "Main Defense",
+                        "idea_opponent": "The correct defense — counter in the center.",
+                        "next": "exd5",
+                        "hint": "They challenged your center. Take?",
+                        "right_feedback": "exd5 — now you have an extra pawn in the center."
+                      },
+                      "Bc5": {
+                        "name": "Traxler Counter",
+                        "idea_opponent": "They ignore f7 and counter-attack your f2.",
+                        "next": "Nxf7",
+                        "hint": "They left f7 undefended! Take it?",
+                        "right_feedback": "Nxf7 — fork the queen and rook!",
+                        "trap_reference": "Fried Liver Attack"
+                      }
                     }
                   },
                   "Nd4": {
@@ -189,19 +289,50 @@
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Open the center with d4. Attack the king.", "ideas": ["d4 opens lines", "Battery on f7 diagonal", "Double rooks on open files"]},
-      "when_equal": {"plan": "Control d4 and d5. Keep bishops active.", "ideas": ["c3+d4 center", "Bishop pair is strong", "Castle and connect rooks"]},
-      "when_behind": {"plan": "Keep pieces active. Look for tactical tricks.", "ideas": ["Bc4 still eyes f7", "Look for Ng5 ideas", "Don't trade into a bad endgame"]}
+      "when_ahead": {
+        "plan": "Open the center with d4. Attack the king.",
+        "ideas": [
+          "d4 opens lines",
+          "Battery on f7 diagonal",
+          "Double rooks on open files"
+        ]
+      },
+      "when_equal": {
+        "plan": "Control d4 and d5. Keep bishops active.",
+        "ideas": [
+          "c3+d4 center",
+          "Bishop pair is strong",
+          "Castle and connect rooks"
+        ]
+      },
+      "when_behind": {
+        "plan": "Keep pieces active. Look for tactical tricks.",
+        "ideas": [
+          "Bc4 still eyes f7",
+          "Look for Ng5 ideas",
+          "Don't trade into a bad endgame"
+        ]
+      }
     },
-    "endgame_tips": ["Bishop pair is strong in open endgames.", "Central pawns are powerful.", "Activate rooks on open files."]
+    "endgame_tips": [
+      "Bishop pair is strong in open endgames.",
+      "Central pawns are powerful.",
+      "Activate rooks on open files."
+    ]
   },
-
   "italian_game_black": {
     "name": "Italian Game (Black side)",
     "color": "black",
     "summary": "White plays the Italian. As Black, develop solidly, watch for f7 tricks, and counter in the center with d5.",
     "difficulty": "beginner",
-    "setup_order": ["e5", "Nc6", "Bc5", "Nf6", "d6", "O-O"],
+    "setup_order": [
+      "e5",
+      "Nc6",
+      "Bc5",
+      "Nf6",
+      "d6",
+      "O-O"
+    ],
     "golden_rules": [
       "Watch f7 — it's your weakest square.",
       "d5 counter-strike is your best weapon.",
@@ -212,7 +343,15 @@
       {
         "name": "Traxler Counterattack",
         "trigger_move": "Bc5",
-        "trigger_after": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5"],
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bc4",
+          "Nf6",
+          "Ng5"
+        ],
         "description": "Instead of defending f7, counter-attack their f2! Dangerous for White.",
         "trap_idea": "White expects you to defend. Bc5 attacks f2 and creates chaos.",
         "how_to_avoid": "White should be careful — Bc5 is a real counter."
@@ -234,19 +373,50 @@
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Push d5 to open the center. Use your active pieces.", "ideas": ["d5 breaks open the center", "Rooks on open files", "Target White's weak pawns"]},
-      "when_equal": {"plan": "Play d5 when ready. Keep pieces active.", "ideas": ["d5 is always the plan", "Don't let White dominate the center", "Bishop pair helps"]},
-      "when_behind": {"plan": "Keep it closed. Look for counter-chances on the kingside.", "ideas": ["f5 push can create chaos", "Knight on d4 is strong", "Don't trade into a lost endgame"]}
+      "when_ahead": {
+        "plan": "Push d5 to open the center. Use your active pieces.",
+        "ideas": [
+          "d5 breaks open the center",
+          "Rooks on open files",
+          "Target White's weak pawns"
+        ]
+      },
+      "when_equal": {
+        "plan": "Play d5 when ready. Keep pieces active.",
+        "ideas": [
+          "d5 is always the plan",
+          "Don't let White dominate the center",
+          "Bishop pair helps"
+        ]
+      },
+      "when_behind": {
+        "plan": "Keep it closed. Look for counter-chances on the kingside.",
+        "ideas": [
+          "f5 push can create chaos",
+          "Knight on d4 is strong",
+          "Don't trade into a lost endgame"
+        ]
+      }
     },
-    "endgame_tips": ["Central pawns matter.", "Activate your king quickly.", "Rooks belong on open files."]
+    "endgame_tips": [
+      "Central pawns matter.",
+      "Activate your king quickly.",
+      "Rooks belong on open files."
+    ]
   },
-
   "sicilian_defense": {
     "name": "Sicilian Defense",
     "color": "black",
     "summary": "The sharpest response to e4. You fight for the center with c5 instead of e5. Leads to rich, complex positions.",
     "difficulty": "intermediate",
-    "setup_order": ["c5", "d6", "Nf6", "Nc6", "g6", "Bg7"],
+    "setup_order": [
+      "c5",
+      "d6",
+      "Nf6",
+      "Nc6",
+      "g6",
+      "Bg7"
+    ],
     "golden_rules": [
       "c5 fights for d4 without committing your e-pawn.",
       "You're playing for a queenside counter-attack.",
@@ -257,7 +427,18 @@
       {
         "name": "Siberian Trap",
         "trigger_move": "Qa5",
-        "trigger_after": ["e4", "c5", "Nf3", "e6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "Bb4"],
+        "trigger_after": [
+          "e4",
+          "c5",
+          "Nf3",
+          "e6",
+          "d4",
+          "cxd4",
+          "Nxd4",
+          "Nf6",
+          "Nc3",
+          "Bb4"
+        ],
         "description": "Black plays Qa5 pinning the knight and threatening Bxc3+.",
         "trap_idea": "White's knight on c3 is pinned. If they don't see it, you win material.",
         "how_to_avoid": "White should play Bd2 or Nb3 to break the pin."
@@ -265,7 +446,19 @@
       {
         "name": "Magnus Smith Trap",
         "trigger_move": "Nd5",
-        "trigger_after": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "g6", "Bc4"],
+        "trigger_after": [
+          "e4",
+          "c5",
+          "Nf3",
+          "d6",
+          "d4",
+          "cxd4",
+          "Nxd4",
+          "Nf6",
+          "Nc3",
+          "g6",
+          "Bc4"
+        ],
         "description": "White plays Bc4 and after Bg7, Nd5! forks everything.",
         "trap_idea": "The knight on d5 attacks multiple pieces. Black's in trouble.",
         "how_to_avoid": "Black should delay Bg7 and play a6 or e6 first."
@@ -286,19 +479,50 @@
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Push on the queenside with a5-a4, b5-b4. Open the a and b files.", "ideas": ["Queenside attack is your territory", "Open files for rooks", "Your bishops are strong on long diagonals"]},
-      "when_equal": {"plan": "Control d5 and fight for the center.", "ideas": ["d5 break when ready", "Knights on c6 and d4 are strong", "Counter-attack before White attacks"]},
-      "when_behind": {"plan": "Complicate. The Sicilian is a fighting opening.", "ideas": ["Don't simplify — keep pieces on", "Look for tactical tricks", "The Sicilian favors the brave"]}
+      "when_ahead": {
+        "plan": "Push on the queenside with a5-a4, b5-b4. Open the a and b files.",
+        "ideas": [
+          "Queenside attack is your territory",
+          "Open files for rooks",
+          "Your bishops are strong on long diagonals"
+        ]
+      },
+      "when_equal": {
+        "plan": "Control d5 and fight for the center.",
+        "ideas": [
+          "d5 break when ready",
+          "Knights on c6 and d4 are strong",
+          "Counter-attack before White attacks"
+        ]
+      },
+      "when_behind": {
+        "plan": "Complicate. The Sicilian is a fighting opening.",
+        "ideas": [
+          "Don't simplify — keep pieces on",
+          "Look for tactical tricks",
+          "The Sicilian favors the brave"
+        ]
+      }
     },
-    "endgame_tips": ["Your queenside pawns can be dangerous.", "The Sicilian often leads to opposite-side attacks.", "King activity is key."]
+    "endgame_tips": [
+      "Your queenside pawns can be dangerous.",
+      "The Sicilian often leads to opposite-side attacks.",
+      "King activity is key."
+    ]
   },
-
   "caro_kann": {
     "name": "Caro-Kann Defense",
     "color": "black",
     "summary": "A solid, reliable response to e4. You play c6 then d5, challenging the center while keeping a solid pawn structure.",
     "difficulty": "beginner",
-    "setup_order": ["c6", "d5", "Bf5", "e6", "Nf6", "Bd6"],
+    "setup_order": [
+      "c6",
+      "d5",
+      "Bf5",
+      "e6",
+      "Nf6",
+      "Bd6"
+    ],
     "golden_rules": [
       "c6 then d5 — challenge the center solidly.",
       "Get your bishop OUT before playing e6 (same idea as London!).",
@@ -309,7 +533,18 @@
       {
         "name": "Caro-Kann Smothered Mate",
         "trigger_move": "Nd6",
-        "trigger_after": ["e4", "c6", "d4", "d5", "Nc3", "dxe4", "Nxe4", "Nd7", "Qe2", "Ngf6"],
+        "trigger_after": [
+          "e4",
+          "c6",
+          "d4",
+          "d5",
+          "Nc3",
+          "dxe4",
+          "Nxe4",
+          "Nd7",
+          "Qe2",
+          "Ngf6"
+        ],
         "description": "White plays Nd6# — smothered mate! Black's pieces block all escape squares.",
         "trap_idea": "The knight on d6 delivers checkmate because Black's own pieces block the king.",
         "how_to_avoid": "Black should not play Nd7 and Ngf6 without checking for Nd6."
@@ -330,19 +565,50 @@
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Use your solid structure. Push pawns on the queenside.", "ideas": ["c5 break opens the position", "Bishop pair in open positions", "Rooks on c and d files"]},
-      "when_equal": {"plan": "Stay solid. The Caro-Kann is a fortress.", "ideas": ["Don't weaken your pawn structure", "Knights on d5 or e4 outposts", "Patient play wins"]},
-      "when_behind": {"plan": "Keep the position closed. Your structure is hard to break.", "ideas": ["Solid structure = hard to lose", "Look for endgame chances", "Trade off the attacking pieces"]}
+      "when_ahead": {
+        "plan": "Use your solid structure. Push pawns on the queenside.",
+        "ideas": [
+          "c5 break opens the position",
+          "Bishop pair in open positions",
+          "Rooks on c and d files"
+        ]
+      },
+      "when_equal": {
+        "plan": "Stay solid. The Caro-Kann is a fortress.",
+        "ideas": [
+          "Don't weaken your pawn structure",
+          "Knights on d5 or e4 outposts",
+          "Patient play wins"
+        ]
+      },
+      "when_behind": {
+        "plan": "Keep the position closed. Your structure is hard to break.",
+        "ideas": [
+          "Solid structure = hard to lose",
+          "Look for endgame chances",
+          "Trade off the attacking pieces"
+        ]
+      }
     },
-    "endgame_tips": ["Your pawn structure shines in endgames.", "Bishop + pawns endgames favor you.", "Passed c-pawn can be a winner."]
+    "endgame_tips": [
+      "Your pawn structure shines in endgames.",
+      "Bishop + pawns endgames favor you.",
+      "Passed c-pawn can be a winner."
+    ]
   },
-
   "french_defense": {
     "name": "French Defense",
     "color": "black",
     "summary": "Play e6 then d5. You let White take space but build a solid wall and counter-attack later.",
     "difficulty": "intermediate",
-    "setup_order": ["e6", "d5", "c5", "Nc6", "Nf6", "Bd6"],
+    "setup_order": [
+      "e6",
+      "d5",
+      "c5",
+      "Nc6",
+      "Nf6",
+      "Bd6"
+    ],
     "golden_rules": [
       "e6 first, then d5 — challenge the center.",
       "Your light bishop gets locked in. Find a way to activate it.",
@@ -353,7 +619,19 @@
       {
         "name": "French Winawer Poisoned Pawn",
         "trigger_move": "Qg4",
-        "trigger_after": ["e4", "e6", "d4", "d5", "Nc3", "Bb4", "e5", "c5", "a3", "Bxc3+", "bxc3"],
+        "trigger_after": [
+          "e4",
+          "e6",
+          "d4",
+          "d5",
+          "Nc3",
+          "Bb4",
+          "e5",
+          "c5",
+          "a3",
+          "Bxc3+",
+          "bxc3"
+        ],
         "description": "Black grabs the g2 pawn with Qg4. Risky but powerful if White doesn't know the theory.",
         "trap_idea": "The g2 pawn is free and White's kingside is weak.",
         "how_to_avoid": "White should protect g2 or play Qg4 prevention lines."
@@ -374,19 +652,50 @@
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Break with c5 and open the position for your pieces.", "ideas": ["c5 challenges d4", "f6 can undermine e5", "Activate the bad bishop"]},
-      "when_equal": {"plan": "Play c5 and look to free your light bishop.", "ideas": ["c5 is always the plan", "b6 + Ba6 activates the bishop", "Control d4"]},
-      "when_behind": {"plan": "Keep it closed. Your pawn chain is hard to break.", "ideas": ["f5 can block the kingside", "a5-a4 queenside play", "The French fortress is tough"]}
+      "when_ahead": {
+        "plan": "Break with c5 and open the position for your pieces.",
+        "ideas": [
+          "c5 challenges d4",
+          "f6 can undermine e5",
+          "Activate the bad bishop"
+        ]
+      },
+      "when_equal": {
+        "plan": "Play c5 and look to free your light bishop.",
+        "ideas": [
+          "c5 is always the plan",
+          "b6 + Ba6 activates the bishop",
+          "Control d4"
+        ]
+      },
+      "when_behind": {
+        "plan": "Keep it closed. Your pawn chain is hard to break.",
+        "ideas": [
+          "f5 can block the kingside",
+          "a5-a4 queenside play",
+          "The French fortress is tough"
+        ]
+      }
     },
-    "endgame_tips": ["Your pawn structure is solid.", "The bad bishop problem disappears in endgames with trades.", "King activity matters."]
+    "endgame_tips": [
+      "Your pawn structure is solid.",
+      "The bad bishop problem disappears in endgames with trades.",
+      "King activity matters."
+    ]
   },
-
   "queens_gambit": {
     "name": "Queen's Gambit",
     "color": "white",
     "summary": "Offer a pawn with c4 to control the center. If they take, you get it back easily. Classic, strong, reliable.",
     "difficulty": "intermediate",
-    "setup_order": ["d4", "c4", "Nc3", "Nf3", "Bg5", "e3"],
+    "setup_order": [
+      "d4",
+      "c4",
+      "Nc3",
+      "Nf3",
+      "Bg5",
+      "e3"
+    ],
     "golden_rules": [
       "c4 fights for d5 control.",
       "If they take c4, don't panic — you get it back.",
@@ -397,7 +706,19 @@
       {
         "name": "Elephant Trap",
         "trigger_move": "Nxe4",
-        "trigger_after": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Nbd7", "cxd5", "exd5", "Nxd5"],
+        "trigger_after": [
+          "d4",
+          "d5",
+          "c4",
+          "e6",
+          "Nc3",
+          "Nf6",
+          "Bg5",
+          "Nbd7",
+          "cxd5",
+          "exd5",
+          "Nxd5"
+        ],
         "description": "White takes d5 thinking it wins a pawn. But Nxe4! wins the bishop because of the pin.",
         "trap_idea": "After Nxe4, White's bishop on g5 is attacked by the queen, and the knight on e4 forks.",
         "how_to_avoid": "White should NOT play Nxd5 in this position."
@@ -416,31 +737,81 @@
             "hint": "How do you challenge their d5 pawn?",
             "right_feedback": "c4 — the Queen's Gambit! Attack their center.",
             "responses": {
-              "e6": {"name": "QGD Classical", "idea_opponent": "Solid defense.", "next": "Nc3", "hint": "Develop toward the center.", "right_feedback": "Nc3 — supports e4 push later."},
-              "dxc4": {"name": "QGA", "idea_opponent": "They took the pawn. Don't worry — you'll get it back.", "next": "e3", "hint": "How do you recapture the c4 pawn?", "right_feedback": "e3 — opens the bishop to take back on c4."},
-              "c6": {"name": "Slav Defense", "idea_opponent": "Supporting d5 with c6. Solid.", "next": "Nf3", "hint": "Develop a piece.", "right_feedback": "Nf3 — natural development."}
+              "e6": {
+                "name": "QGD Classical",
+                "idea_opponent": "Solid defense.",
+                "next": "Nc3",
+                "hint": "Develop toward the center.",
+                "right_feedback": "Nc3 — supports e4 push later."
+              },
+              "dxc4": {
+                "name": "QGA",
+                "idea_opponent": "They took the pawn. You'll get it back.",
+                "next": "e3",
+                "hint": "How do you recapture the c4 pawn?",
+                "right_feedback": "e3 — opens the bishop to take back on c4."
+              },
+              "c6": {
+                "name": "Slav Defense",
+                "idea_opponent": "Supporting d5 with c6. Solid.",
+                "next": "Nf3",
+                "hint": "Develop a piece.",
+                "right_feedback": "Nf3 — natural development."
+              }
             }
           }
         }
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Push e4 and open the center. Your pieces are better.", "ideas": ["e4 break is powerful", "Minority attack on queenside", "Rooks on c and d files"]},
-      "when_equal": {"plan": "Control d5. Play for the minority attack.", "ideas": ["b4-b5 minority attack", "Keep central control", "Bishop pair is an asset"]},
-      "when_behind": {"plan": "Simplify. Your pawn structure is usually good.", "ideas": ["Trade into an endgame", "Central pawns compensate", "Don't let them attack your king"]}
+      "when_ahead": {
+        "plan": "Push e4 and open the center. Your pieces are better.",
+        "ideas": [
+          "e4 break is powerful",
+          "Minority attack on queenside",
+          "Rooks on c and d files"
+        ]
+      },
+      "when_equal": {
+        "plan": "Control d5. Play for the minority attack.",
+        "ideas": [
+          "b4-b5 minority attack",
+          "Keep central control",
+          "Bishop pair is an asset"
+        ]
+      },
+      "when_behind": {
+        "plan": "Simplify. Your pawn structure is usually good.",
+        "ideas": [
+          "Trade into an endgame",
+          "Central pawns compensate",
+          "Don't let them attack your king"
+        ]
+      }
     },
-    "endgame_tips": ["Central pawns are strong.", "The minority attack creates weaknesses.", "Rook endgames favor better structure."]
+    "endgame_tips": [
+      "Central pawns are strong.",
+      "The minority attack creates weaknesses.",
+      "Rook endgames favor better structure."
+    ]
   },
-
   "scandinavian_defense": {
     "name": "Scandinavian Defense",
     "color": "black",
     "summary": "Immediately challenge e4 with d5. Simple, direct, and gets your queen active early.",
     "difficulty": "beginner",
-    "setup_order": ["d5", "Qd5", "Qa5", "Nf6", "Bf5", "e6", "c6"],
+    "setup_order": [
+      "d5",
+      "Qd5",
+      "Qa5",
+      "Nf6",
+      "Bf5",
+      "e6",
+      "c6"
+    ],
     "golden_rules": [
       "Take the pawn back with your queen — Qd5 or Qd6.",
-      "Get your bishop out BEFORE e6 (same as London!).",
+      "Get your bishop out before e6 — same as London.",
       "Qa5 is the safest queen square.",
       "Develop quickly — your queen is already out."
     ],
@@ -448,7 +819,12 @@
       {
         "name": "Portuguese Gambit Trap",
         "trigger_move": "Bg4",
-        "trigger_after": ["e4", "d5", "exd5", "Nf6"],
+        "trigger_after": [
+          "e4",
+          "d5",
+          "exd5",
+          "Nf6"
+        ],
         "description": "Instead of taking back the pawn, play Nf6 then Bg4, creating tactical pressure.",
         "trap_idea": "Bg4 pins the queen to the king. If White plays Be2, Nxd5 wins the pawn back with activity.",
         "how_to_avoid": "White should be careful about the pin and not play passively."
@@ -469,19 +845,51 @@
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Your development lead matters. Open lines.", "ideas": ["Open the position", "Your queen is already active", "Attack before they catch up"]},
-      "when_equal": {"plan": "Solid development. Bf5, e6, c6 fortress.", "ideas": ["c6+d5 center", "Bishop on f5 is strong", "Castle and play solidly"]},
-      "when_behind": {"plan": "Keep it solid. Your pawn structure is reliable.", "ideas": ["c6 fortress", "Don't trade your active pieces", "Counter-attack when ready"]}
+      "when_ahead": {
+        "plan": "Your development lead matters. Open lines.",
+        "ideas": [
+          "Open the position",
+          "Your queen is already active",
+          "Attack before they catch up"
+        ]
+      },
+      "when_equal": {
+        "plan": "Solid development. Bf5, e6, c6 fortress.",
+        "ideas": [
+          "c6+d5 center",
+          "Bishop on f5 is strong",
+          "Castle and play solidly"
+        ]
+      },
+      "when_behind": {
+        "plan": "Keep it solid. Your pawn structure is reliable.",
+        "ideas": [
+          "c6 fortress",
+          "Don't trade your active pieces",
+          "Counter-attack when ready"
+        ]
+      }
     },
-    "endgame_tips": ["Your structure is solid.", "Active queen gives endgame chances.", "Don't let them control the d-file."]
+    "endgame_tips": [
+      "Your structure is solid.",
+      "Active queen gives endgame chances.",
+      "Don't let them control the d-file."
+    ]
   },
-
   "ruy_lopez": {
     "name": "Ruy Lopez",
     "color": "white",
     "summary": "The king of openings. Bb5 puts pressure on Black's defense of e5. Deep, strategic, tested for centuries.",
     "difficulty": "intermediate",
-    "setup_order": ["e4", "Nf3", "Bb5", "O-O", "Re1", "c3", "d4"],
+    "setup_order": [
+      "e4",
+      "Nf3",
+      "Bb5",
+      "O-O",
+      "Re1",
+      "c3",
+      "d4"
+    ],
     "golden_rules": [
       "Bb5 doesn't try to WIN the e5 pawn — it puts long-term pressure.",
       "Castle early, then build with c3+d4.",
@@ -492,7 +900,20 @@
       {
         "name": "Noah's Ark Trap",
         "trigger_move": "c4",
-        "trigger_after": ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O", "b5", "Bb3", "d6"],
+        "trigger_after": [
+          "e4",
+          "e5",
+          "Nf3",
+          "Nc6",
+          "Bb5",
+          "a6",
+          "Ba4",
+          "Nf6",
+          "O-O",
+          "b5",
+          "Bb3",
+          "d6"
+        ],
         "description": "Black traps White's bishop on b3 with a5-a4. The bishop has nowhere to go.",
         "trap_idea": "After a5, a4, the bishop is trapped by its own pawns.",
         "how_to_avoid": "White should retreat the bishop to d5 or c2 early."
@@ -519,8 +940,20 @@
                 "right_feedback": "Bb5 — the Ruy Lopez! Pressure on Nc6 which defends e5.",
                 "wrong_feedback": "Bb5 puts indirect pressure on e5 through the Nc6 defender.",
                 "responses": {
-                  "a6": {"name": "Morphy Defense", "idea_opponent": "Kicking your bishop.", "next": "Ba4", "hint": "They kicked your bishop. Where does it retreat to stay active?", "right_feedback": "Ba4 — stays on the diagonal, still eyeing c6."},
-                  "Nf6": {"name": "Berlin Defense", "idea_opponent": "Counter-attacking e4.", "next": "O-O", "hint": "Your e4 is attacked. But castling first is more important. Why?", "right_feedback": "O-O — king safety first. e4 isn't really hanging because of the pin."}
+                  "a6": {
+                    "name": "Morphy Defense",
+                    "idea_opponent": "Kicking your bishop.",
+                    "next": "Ba4",
+                    "hint": "They kicked your bishop. Where does it retreat to stay active?",
+                    "right_feedback": "Ba4 — stays on the diagonal, still eyeing c6."
+                  },
+                  "Nf6": {
+                    "name": "Berlin Defense",
+                    "idea_opponent": "Counter-attacking e4.",
+                    "next": "O-O",
+                    "hint": "Your e4 is attacked. But castling first is more important. Why?",
+                    "right_feedback": "O-O — king safety first. e4 isn't really hanging because of the pin."
+                  }
                 }
               }
             }
@@ -529,10 +962,35 @@
       }
     },
     "middlegame_plans": {
-      "when_ahead": {"plan": "Push d4 and open the center.", "ideas": ["c3+d4 is the dream", "Control the center completely", "Open lines for rooks"]},
-      "when_equal": {"plan": "Build slowly with c3, d4, Nbd2-f1-g3.", "ideas": ["Maneuver knight to g3 or f5", "Control d5", "Be patient"]},
-      "when_behind": {"plan": "Keep pieces active. The Ruy Lopez structure is resilient.", "ideas": ["Don't panic", "Your bishop pair helps", "Look for tactical chances"]}
+      "when_ahead": {
+        "plan": "Push d4 and open the center.",
+        "ideas": [
+          "c3+d4 is the dream",
+          "Control the center completely",
+          "Open lines for rooks"
+        ]
+      },
+      "when_equal": {
+        "plan": "Build slowly with c3, d4, Nbd2-f1-g3.",
+        "ideas": [
+          "Maneuver knight to g3 or f5",
+          "Control d5",
+          "Be patient"
+        ]
+      },
+      "when_behind": {
+        "plan": "Keep pieces active. The Ruy Lopez structure is resilient.",
+        "ideas": [
+          "Don't panic",
+          "Your bishop pair helps",
+          "Look for tactical chances"
+        ]
+      }
     },
-    "endgame_tips": ["The Ruy Lopez often leads to complex endgames.", "Bishop pair is an advantage.", "Central control wins endgames."]
+    "endgame_tips": [
+      "The Ruy Lopez often leads to complex endgames.",
+      "Bishop pair is an advantage.",
+      "Central control wins endgames."
+    ]
   }
 }

@@ -182,7 +182,7 @@
     },
     {
       "name": "Traxler Counterattack",
-      "description": "Black's daring counter-trap against the Fried Liver setup \u2014 if white takes on f7, black launches a king-hunt.",
+      "description": "Black's daring counter-trap against the Fried Liver setup — if white takes on f7, black launches a king-hunt.",
       "setup_moves": [
         "e4",
         "e5",
@@ -196,7 +196,7 @@
       "trap_line": [
         {
           "move": "Nxf7",
-          "explanation": "White assumes the Fried Liver sacrifice works \u2014 it doesn't."
+          "explanation": "White assumes the Fried Liver sacrifice works — it doesn't."
         },
         {
           "move": "Bxf2+",
@@ -204,7 +204,7 @@
         },
         {
           "move": "Kxf2",
-          "explanation": "Forced \u2014 king must take."
+          "explanation": "Forced — king must take."
         },
         {
           "move": "Nxe4+",
@@ -212,11 +212,11 @@
         },
         {
           "move": "Ke3",
-          "explanation": "King walks forward \u2014 the hunt is on."
+          "explanation": "King walks forward — the hunt is on."
         },
         {
           "move": "Qh4",
-          "explanation": "Queen joins \u2014 white's king has no safe squares."
+          "explanation": "Queen joins — white's king has no safe squares."
         }
       ],
       "success_message": "The Traxler! White's greedy Nxf7 walks into a king-hunt.",
@@ -387,7 +387,7 @@
     },
     {
       "name": "Lasker Trap",
-      "description": "A stunning queen trap in the Albin Counter-Gambit!",
+      "description": "A sharp queen trap in the Albin Counter-Gambit!",
       "setup_moves": [
         "d4",
         "d5",
@@ -426,7 +426,7 @@
           "explanation": "Check! And the queen falls next move."
         }
       ],
-      "success_message": "The Lasker Trap with underpromotion! A stunning queen trap.",
+      "success_message": "The Lasker Trap with underpromotion! A sharp queen trap.",
       "result_type": "wins_queen",
       "difficulty": "advanced"
     },
@@ -454,7 +454,7 @@
       "trap_line": [
         {
           "move": "cxd5",
-          "explanation": "Trades center pawns \u2014 opens the e-file for white."
+          "explanation": "Trades center pawns — opens the e-file for white."
         },
         {
           "move": "exd5",
@@ -470,10 +470,10 @@
         },
         {
           "move": "Nxd5",
-          "explanation": "Nxd5! Black can't take back \u2014 Qxh7 would be mate."
+          "explanation": "Nxd5! Black can't take back — Qxh7 would be mate."
         }
       ],
-      "success_message": "The Rubinstein Trap \u2014 a careless a6 lets white win a pawn via the h7 pin.",
+      "success_message": "The Rubinstein Trap — a careless a6 lets white win a pawn via the h7 pin.",
       "result_type": "wins_material",
       "difficulty": "advanced",
       "training_weakness": "tactical_oversight"
@@ -888,7 +888,7 @@
     },
     {
       "name": "Petroff Marshall Trap",
-      "description": "The most famous beginner trap in the Petroff \u2014 copying white's moves walks into a discovered-check queen grab.",
+      "description": "The most famous beginner trap in the Petroff — copying white's moves walks into a discovered-check queen grab.",
       "setup_moves": [
         "e4",
         "e5",
@@ -899,22 +899,22 @@
       "trap_line": [
         {
           "move": "Nxe4",
-          "explanation": "Black 'copies' white but breaks symmetry \u2014 correct is d6 first."
+          "explanation": "Black 'copies' white but breaks symmetry — correct is d6 first."
         },
         {
           "move": "Qe2",
-          "explanation": "The quiet trap move \u2014 threatens Nc6+ discovered check."
+          "explanation": "The quiet trap move — threatens Nc6+ discovered check."
         },
         {
           "move": "Nf6",
-          "explanation": "Black's knight retreats \u2014 walking into the discovered check."
+          "explanation": "Black's knight retreats — walking into the discovered check."
         },
         {
           "move": "Nc6+",
-          "explanation": "Discovered check from the queen \u2014 wins the queen on d8."
+          "explanation": "Discovered check from the queen — wins the queen on d8."
         }
       ],
-      "success_message": "Petroff Marshall Trap \u2014 copying moves without checking for discovered attacks costs the queen.",
+      "success_message": "Petroff Marshall Trap — copying moves without checking for discovered attacks costs the queen.",
       "result_type": "wins_material",
       "difficulty": "beginner",
       "training_weakness": "tactical_oversight"
@@ -923,7 +923,7 @@
   "budapest-gambit": [
     {
       "name": "Kieninger Trap",
-      "description": "A stunning smothered mate in the Budapest Gambit!",
+      "description": "A sharp smothered mate in the Budapest Gambit!",
       "setup_moves": [
         "d4",
         "Nf6",
@@ -1580,7 +1580,7 @@
   "blackmar-diemer-gambit": [
     {
       "name": "Halosar Trap",
-      "description": "Classic Blackmar-Diemer Gambit trap \u2014 black grabs the d4 pawn and gets punished by rapid development.",
+      "description": "Classic Blackmar-Diemer Gambit trap — black grabs the d4 pawn and gets punished by rapid development.",
       "setup_moves": [
         "d4",
         "d5",
@@ -1618,7 +1618,7 @@
           "explanation": "Bxa7! Threatens Rxd8+ and Bb7 winning the queen."
         }
       ],
-      "success_message": "The Halosar Trap \u2014 greed for a pawn costs black the queen.",
+      "success_message": "The Halosar Trap — greed for a pawn costs black the queen.",
       "result_type": "wins_material",
       "difficulty": "intermediate",
       "training_weakness": "tactical_oversight"
@@ -1642,7 +1642,7 @@
       "trap_line": [
         {
           "move": "h6",
-          "explanation": "Black tries to kick the knight on g5 \u2014 but it's too late."
+          "explanation": "Black tries to kick the knight on g5 — but it's too late."
         },
         {
           "move": "Nxf7",
@@ -1650,11 +1650,11 @@
         },
         {
           "move": "Kxf7",
-          "explanation": "Forced \u2014 the king must recapture."
+          "explanation": "Forced — the king must recapture."
         },
         {
           "move": "Bg6+",
-          "explanation": "The real point \u2014 bishop delivers check, king must take."
+          "explanation": "The real point — bishop delivers check, king must take."
         },
         {
           "move": "Kxg6",
@@ -1665,7 +1665,7 @@
           "explanation": "White wins the queen."
         }
       ],
-      "success_message": "Tennison Trap \u2014 h6 looked safe but walked into the Bg6+ queen snatch.",
+      "success_message": "Tennison Trap — h6 looked safe but walked into the Bg6+ queen snatch.",
       "result_type": "wins_material",
       "difficulty": "intermediate",
       "training_weakness": "tactical_oversight"
@@ -1674,7 +1674,7 @@
   "bogo-indian": [
     {
       "name": "Monticelli Trap",
-      "description": "A classic Bogo-Indian trap \u2014 black's Ne4 backfires when white plays Ng5 unleashing tactics on the long diagonal.",
+      "description": "A classic Bogo-Indian trap — black's Ne4 backfires when white plays Ng5 unleashing tactics on the long diagonal.",
       "setup_moves": [
         "d4",
         "Nf6",
@@ -1702,14 +1702,14 @@
         },
         {
           "move": "Nxe2",
-          "explanation": "Black grabs the knight \u2014 but now the long diagonal explodes."
+          "explanation": "Black grabs the knight — but now the long diagonal explodes."
         },
         {
           "move": "Bxb7",
-          "explanation": "Bishop takes \u2014 white emerges with extra material."
+          "explanation": "Bishop takes — white emerges with extra material."
         }
       ],
-      "success_message": "The Monticelli Trap \u2014 Ng5 wins material through the long-diagonal geometry.",
+      "success_message": "The Monticelli Trap — Ng5 wins material through the long-diagonal geometry.",
       "result_type": "wins_material",
       "difficulty": "advanced",
       "training_weakness": "tactical_oversight"
