@@ -2250,7 +2250,7 @@ const CoachPlay = ({ user }) => {
         moveObj = chess.move({
           from: sourceSquare,
           to: targetSquare,
-          promotion: piece?.[1]?.toLowerCase() === "p" ? "q" : undefined
+          promotion: "q"
         });
       } catch { return false; }
       if (!moveObj) return false;
@@ -2302,7 +2302,7 @@ const CoachPlay = ({ user }) => {
       moveObj = chess.move({
         from: sourceSquare,
         to: targetSquare,
-        promotion: piece?.[1]?.toLowerCase() === "p" ? "q" : undefined
+        promotion: "q"
       });
     } catch {
       return false;
