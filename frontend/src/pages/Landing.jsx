@@ -59,7 +59,7 @@ const Landing = () => {
               <span className="text-[15px] font-heading font-bold tracking-tight text-white">ChessGuru</span>
             </div>
             <nav className="hidden md:flex items-center gap-8">
-              {["Features", "How it works", "Compare"].map((item) => (
+              {["Features", "How it works", "Compare", "FAQ"].map((item) => (
                 <button key={item} onClick={() => document.getElementById(item.toLowerCase().replace(/\s/g, "-"))?.scrollIntoView({ behavior: "smooth" })}
                   className="text-sm text-gray-500 hover:text-white transition-colors">{item}</button>
               ))}
@@ -99,25 +99,30 @@ const Landing = () => {
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs font-mono mb-6">
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                AI Chess Coaching That Learns You
+                AI Chess Coach for 600–1500 Rated Players
               </motion.div>
 
               <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                className="text-[3.2rem] sm:text-[4rem] font-heading font-bold tracking-[-0.04em] leading-[0.95] text-white mb-6">
-                Stop making
+                className="text-[3.2rem] sm:text-[4rem] font-heading font-bold tracking-[-0.04em] leading-[0.95] text-white mb-3">
+                The AI chess coach
                 <br />
-                the same
+                that knows
                 <br />
                 <span className="relative inline-block">
-                  <span className="bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">mistakes.</span>
+                  <span className="bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">your mistakes.</span>
                   <motion.div className="absolute -bottom-2 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-amber-400/60 to-transparent"
                     initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.6 }} style={{ transformOrigin: "left" }} />
                 </span>
               </motion.h1>
 
+              <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                className="text-base text-gray-500 italic mb-6">
+                Stop making the same ones.
+              </motion.p>
+
               <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
                 className="text-lg text-gray-400 leading-relaxed max-w-lg mb-10">
-                ChessGuru remembers every mistake you've ever made, finds the patterns you can't see, and trains you on positions from <em>your own games</em> until the pattern breaks.
+                ChessGuru is a personalized AI chess coach for players rated 600–1500. We watch every game you play, find the patterns behind your losses, and train you on positions from <em>your own games</em> — until the pattern breaks.
               </motion.p>
 
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
@@ -258,7 +263,7 @@ const Landing = () => {
           <FadeIn>
             <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">And there's more</p>
             <h2 className="text-3xl font-heading font-bold tracking-tight text-white text-center mb-14">
-              Everything a chess coach would do.
+              Everything a personal chess coach would do.
             </h2>
           </FadeIn>
 
@@ -291,7 +296,7 @@ const Landing = () => {
           <FadeIn>
             <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">How we compare</p>
             <h2 className="text-3xl font-heading font-bold tracking-tight text-white text-center mb-12">
-              This isn't another analysis tool.
+              How ChessGuru compares to Chess.com lessons and other coaching apps.
             </h2>
           </FadeIn>
 
@@ -301,7 +306,7 @@ const Landing = () => {
                 <thead>
                   <tr className="border-b border-white/[0.06]">
                     <th className="text-left text-xs text-gray-500 font-mono uppercase tracking-wider p-4 w-1/2">Feature</th>
-                    <th className="text-center text-xs text-gray-500 font-mono uppercase tracking-wider p-4">Others</th>
+                    <th className="text-center text-xs text-gray-500 font-mono uppercase tracking-wider p-4">Chess.com / Aimchess</th>
                     <th className="text-center text-xs font-mono uppercase tracking-wider p-4 text-amber-400">ChessGuru</th>
                   </tr>
                 </thead>
@@ -365,6 +370,127 @@ const Landing = () => {
               </FadeIn>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ═══ FAQ ═══ */}
+      {/* FAQ section serves three roles: (1) resolves common pre-signup
+          questions before the final CTA, (2) feeds Google FAQPage rich
+          results (collapsible Q&A in search), (3) gives AI engines
+          (ChatGPT, Claude, Perplexity) clean Q&A pairs to cite when
+          users ask about chess coaching apps. The JSON-LD schema below
+          mirrors the visible questions so the rendered HTML and the
+          structured data stay in sync. */}
+      <section id="faq" className="py-24 relative">
+        <div className="max-w-3xl mx-auto px-6">
+          <FadeIn>
+            <p className="text-xs tracking-[0.25em] uppercase font-mono text-amber-400 text-center mb-4">Frequently asked</p>
+            <h2 className="text-3xl font-heading font-bold tracking-tight text-white text-center mb-12">
+              Questions players ask before signing up.
+            </h2>
+          </FadeIn>
+
+          <div className="space-y-3">
+            {[
+              {
+                q: "What rating range is ChessGuru for?",
+                a: "ChessGuru is built for players rated 600–1500 stuck on a plateau. The coaching gets calibrated to your rating: an 800-rated player gets encouragement and pattern reinforcement, a 1500 gets Socratic questions and deeper calculation prompts. We've optimized every signal — feedback thresholds, puzzle difficulty, lesson order — for that range.",
+              },
+              {
+                q: "How is ChessGuru different from Chess.com or Lichess analysis?",
+                a: "Chess.com and Lichess show you what move was wrong. ChessGuru shows you why you keep making the same kind of mistake — and trains you specifically on it. We track recurring thinking errors across every game (forks you miss, hangs you create, pawn breaks you ignore), then build training puzzles from your own positions. It's the difference between a report card and a coach.",
+              },
+              {
+                q: "Does ChessGuru work with Chess.com and Lichess?",
+                a: "Yes. Connect your Chess.com or Lichess username and we import your full game history automatically. Every analyzed game feeds your coaching profile, your weakness patterns, and your training puzzle pool. You don't need to leave the platform you already play on.",
+              },
+              {
+                q: "Is ChessGuru free?",
+                a: "Free to start with no credit card. The free tier includes game import, automatic analysis, your coaching profile, and pattern training. Paid tiers unlock deeper coaching features, but the core 'watches your games and trains you on your weaknesses' loop is free.",
+              },
+              {
+                q: "How does the AI chess coach actually work?",
+                a: "Three layers. Stockfish evaluates every move for material truth. A behavioral analyzer detects the pattern category — was this a fork miss, a hung piece, a positional drift, a time-pressure error? An LLM-grounded coach voice converts that data into coaching that names what you did and why it kept happening. The coach is rating-aware, history-aware, and pattern-aware.",
+              },
+              {
+                q: "Can ChessGuru help me break my rating plateau?",
+                a: "That's exactly what it's designed for. Plateaus happen when you keep losing to the same handful of mistakes — the ones generic puzzle apps don't drill. ChessGuru identifies your two or three recurring mistake patterns, runs targeted puzzles extracted from your own losses, and tracks the decay of each pattern over time. When a pattern stops appearing in your games, the system knows.",
+              },
+            ].map((item, i) => (
+              <FadeIn key={i} delay={i * 0.04}>
+                <details className="group rounded-xl border border-white/[0.06] bg-white/[0.015] hover:border-amber-500/15 transition-all">
+                  <summary className="cursor-pointer p-5 list-none flex items-start justify-between gap-4">
+                    <h3 className="text-base font-heading font-semibold text-white">{item.q}</h3>
+                    <ChevronRight className="w-4 h-4 text-amber-400/60 mt-0.5 flex-shrink-0 transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="px-5 pb-5 -mt-1">
+                    <p className="text-sm text-gray-400 leading-relaxed">{item.a}</p>
+                  </div>
+                </details>
+              </FadeIn>
+            ))}
+          </div>
+
+          {/* JSON-LD FAQPage schema — mirrors the questions above. */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": [
+                  {
+                    "@type": "Question",
+                    "name": "What rating range is ChessGuru for?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "ChessGuru is built for players rated 600–1500 stuck on a plateau. The coaching gets calibrated to your rating: an 800-rated player gets encouragement and pattern reinforcement, a 1500 gets Socratic questions and deeper calculation prompts."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "How is ChessGuru different from Chess.com or Lichess analysis?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "Chess.com and Lichess show you what move was wrong. ChessGuru shows you why you keep making the same kind of mistake and trains you specifically on it. We track recurring thinking errors across every game and build training puzzles from your own positions."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "Does ChessGuru work with Chess.com and Lichess?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "Yes. Connect your Chess.com or Lichess username and we import your full game history automatically. Every analyzed game feeds your coaching profile, your weakness patterns, and your training puzzle pool."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "Is ChessGuru free?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "Free to start with no credit card. The free tier includes game import, automatic analysis, your coaching profile, and pattern training. Paid tiers unlock deeper coaching features, but the core loop is free."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "How does the AI chess coach actually work?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "Three layers. Stockfish evaluates every move for material truth. A behavioral analyzer detects the pattern category. An LLM-grounded coach voice converts that data into coaching that names what you did and why it kept happening. The coach is rating-aware, history-aware, and pattern-aware."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "Can ChessGuru help me break my rating plateau?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "Yes. Plateaus happen when you keep losing to the same handful of mistakes — the ones generic puzzle apps don't drill. ChessGuru identifies your recurring mistake patterns, runs targeted puzzles extracted from your own losses, and tracks the decay of each pattern over time."
+                    }
+                  }
+                ]
+              })
+            }}
+          />
         </div>
       </section>
 
