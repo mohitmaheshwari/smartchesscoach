@@ -173,7 +173,7 @@ const AlternateTimeline = ({
           
           {/* Coaching insight */}
           <p className="text-xs text-emerald-300/80 italic border-t border-emerald-500/20 pt-2">
-            This is the line the engine expected. Your opponent might play differently, but you'd have the advantage.
+            This is the line that holds your advantage. Your opponent might play differently, but you'd still be on top.
           </p>
         </div>
       )}

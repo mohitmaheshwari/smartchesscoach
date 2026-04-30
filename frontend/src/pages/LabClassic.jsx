@@ -2592,8 +2592,8 @@ const LabClassic = ({ user }) => {
                               "Look for forcing continuations",
                               "Don't trade into a drawn endgame"
                             ] : [
-                              "Analyze the position",
-                              "Consider candidate moves",
+                              "Read the position",
+                              "List the candidate moves",
                               "Verify your choice"
                             ]).map((step, idx) => (
                               <button
@@ -3294,10 +3294,10 @@ const PracticeModeOverlay = ({ positions, currentIndex, onNext, onClose, userCol
             <h2 className="text-2xl font-bold mb-2">Practice Complete!</h2>
             <p className="text-4xl font-bold text-primary mb-2">{score.correct} / {score.total}</p>
             <p className="text-muted-foreground">
-              {percentage >= 80 ? "Excellent! You found the best moves." :
-               percentage >= 60 ? "Good job! Keep practicing these patterns." :
-               percentage >= 40 ? "You're learning. Review these positions again." :
-               "These positions need more study. Try again!"}
+              {percentage >= 80 ? "Sharp — you found the best moves." :
+               percentage >= 60 ? "Solid. A few patterns to firm up." :
+               percentage >= 40 ? "Some patterns landed, others didn't. Review and run it again." :
+               "These patterns aren't sticking yet. Review and try again."}
             </p>
           </div>
           

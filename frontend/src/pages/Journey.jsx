@@ -419,7 +419,7 @@ const CoachNarrativeRail = ({ journeyData, focusMastery }) => {
     
     if (improvements.length > 0 && concerns.length === 0) {
       headline = "You're Making Progress";
-      story = `Your ${improvements.join(" and ")} ${improvements.length > 1 ? "are" : "is"} improving. Keep up the good work.`;
+      story = `Your ${improvements.join(" and ")} ${improvements.length > 1 ? "are" : "is"} improving. Same approach, more games.`;
       mood = "positive";
     } else if (concerns.length > 0 && improvements.length === 0) {
       headline = "Time to Refocus";
@@ -1140,7 +1140,7 @@ const ProgressTrackerSection = ({ baseline, current, progress, hasBaseline, game
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/30">
-                  Great job! No major concerns right now.
+                  No major concerns right now.
                 </p>
               )}
             </div>

@@ -70,11 +70,11 @@ const COACH_MISTAKE = [
 ];
 
 const COACH_ENCOURAGEMENT = [
-  "Don't worry - recognizing the mistake is the first step.",
+  "Recognizing the mistake is the first step.",
   "Every strong player has made this exact mistake before.",
-  "This is exactly why we review games - to learn.",
-  "Good that you're studying this. That's how you improve.",
-  "One game at a time. You're doing the right thing by reviewing."
+  "This is exactly why we review games — to spot the patterns.",
+  "Studying this is how you improve.",
+  "One game at a time. Reviewing is the work."
 ];
 
 const COACH_CONCLUSION = [

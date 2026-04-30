@@ -79,7 +79,7 @@ const KeyMomentCard = ({
         whatWentWrong: `${move} weakened your position.`,
         whyItMatters: "Every pawn move creates permanent weaknesses. Every piece retreat loses tempo. Think twice before these commitments.",
         thinkingError: "You didn't consider the long-term consequences of this move.",
-        correction: bestMove ? `${bestMove} maintains a healthier position.` : "Consider how each move affects your pawn structure and piece coordination."
+        correction: bestMove ? `${bestMove} keeps your structure cleaner.` : "Every move reshapes your pawn structure and piece coordination — think twice before committing."
       }
     };
     

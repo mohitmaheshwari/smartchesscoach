@@ -238,7 +238,7 @@ const CandidateMoves = ({ sessionId, fen, isPlayerTurn, onHighlightMove, opening
           <div className="flex items-center gap-2">
             <Target className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
             <span className="text-xs text-muted-foreground">
-              {guidance ? "Need a hint? Engine picks" : "Your best options"}
+              {guidance ? "Need a hint? Top moves here" : "Your best options"}
             </span>
           </div>
           {showEngine ? <ChevronUp className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />}

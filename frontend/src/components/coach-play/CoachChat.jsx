@@ -81,7 +81,7 @@ const CoachChat = ({ sessionId, disabled = false }) => {
       // Add error message
       setMessages(prev => [...prev, {
         role: "coach",
-        content: "Sorry, I couldn't process that. Let me think...",
+        content: "Couldn't process that — try again.",
         isError: true,
         timestamp: new Date().toISOString()
       }]);

@@ -49,7 +49,7 @@ const ResultBanner = ({ result }) => {
     },
     loss: {
       icon: Target,
-      text: "Good effort!",
+      text: "Tough one. Let's review.",
       bgColor: "bg-orange-500/20",
       borderColor: "border-orange-500/30",
       textColor: "text-orange-400"

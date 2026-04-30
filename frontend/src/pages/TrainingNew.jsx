@@ -907,7 +907,7 @@ const Training = ({ user }) => {
                     </div>
                     <div>
                       <p className="text-white font-medium">General Improvement Drills</p>
-                      <p className="text-xs text-gray-400">No major weaknesses detected. Keep practicing to maintain your skills!</p>
+                      <p className="text-xs text-gray-400">No major weaknesses showing up. General drills to keep sharp.</p>
                     </div>
                   </div>
                 </CardContent>

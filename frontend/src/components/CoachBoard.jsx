@@ -135,7 +135,7 @@ const CoachBoard = forwardRef(({
     } else {
       setDrillFeedback({ 
         type: 'error', 
-        message: `Try again. Hint: Consider ${expectedMoves[0]}` 
+        message: `Try again. Hint: ${expectedMoves[0]} works here.`
       });
       // Undo the wrong move - reset to previous position
       const prevFen = position || initialFen;

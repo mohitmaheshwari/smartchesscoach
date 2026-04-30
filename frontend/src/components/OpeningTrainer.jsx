@@ -415,7 +415,7 @@ const OpeningTrainer = () => {
           if (isWinningMove || currentMoveCount + 1 >= fullSequence.length) {
             // Trap completed!
             setTrickPracticeState("success");
-            toast.success("Brilliant! You've learned the trap!");
+            toast.success("Got it. You can spring this trap now.");
             recordTrapAttempt(selectedTrick.key, "execution", true);
             return;
           }

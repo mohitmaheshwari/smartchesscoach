@@ -1663,14 +1663,12 @@ const CoachPlay = ({ user }) => {
     setFeedbackCorrectPattern("");
   };
 
-  // Fun thinking messages for coach
+  // Coach is thinking
   const THINKING_MESSAGES = [
-    "Coach is studying your move...",
-    "Hmm, interesting choice...",
-    "Let me think about that...",
-    "Analyzing the position...",
-    "Coach is pondering...",
-    "Considering the options...",
+    "Studying your move...",
+    "Looking at the board...",
+    "Working out the reply...",
+    "Checking the candidates...",
   ];
   
   const [coachThinking, setCoachThinking] = useState(false);
@@ -1927,9 +1925,9 @@ const CoachPlay = ({ user }) => {
               setGameOver(true);
               setGameResult(data.session.result);
               if (data.session.result === "loss") {
-                toast.info("Coach wins! Keep practicing!");
+                toast.info("Coach won this one. Let's review what happened.");
               } else if (data.session.result === "draw") {
-                toast.info("It's a draw!");
+                toast.info("It's a draw.");
               }
             } else {
               setIsPlayerTurn(true);

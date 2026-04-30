@@ -98,7 +98,7 @@ const GuardianWarning = ({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Lightbulb className="w-4 h-4 text-yellow-500" />
-                    <span>Consider instead:</span>
+                    <span>Better moves:</span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     {intervention.alternative_moves.map((move, idx) => (
