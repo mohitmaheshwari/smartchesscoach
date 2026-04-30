@@ -140,7 +140,7 @@ def _analyze_king_safety(board, user_color, opp_color) -> List[PositionFeature]:
                         title="Opponent's king hasn't castled",
                         description=f"Their king is stuck on {king_name} with {'only 1 escape: ' + escape_squares[0] if escape_squares else 'almost no escape squares'}. It's vulnerable in the center.",
                         min_rating=800,
-                        actionable="Open the center! An uncastled king hates open lines. Look for checks.",
+                        actionable="Open the center. An uncastled king is exposed to checks down open lines.",
                     ))
                 else:
                     features.append(PositionFeature(
@@ -160,7 +160,7 @@ def _analyze_king_safety(board, user_color, opp_color) -> List[PositionFeature]:
                 title="Opponent's pawn shield is broken",
                 description=f"Their king castled but the pawns in front are damaged. This creates attack opportunities.",
                 min_rating=1000,
-                actionable="Look for ways to open lines toward their king. A broken pawn shield = attacking chances.",
+                actionable="Open lines toward their king. A broken pawn shield gives you attacking chances.",
             ))
 
     # User's own king — only warn if genuinely exposed
@@ -466,7 +466,7 @@ def _analyze_piece_activity(board, user_color, opp_color) -> List[PositionFeatur
                     title=f"Knight stuck on {sq_name}",
                     description=f"Your knight on {sq_name} is on the edge with {mobility} moves, none of them toward the center.",
                     min_rating=800,
-                    actionable=f"This knight needs a better square. Look for a way to reroute it toward the center.",
+                    actionable=f"This knight needs a better square. Find a way to move it toward the center.",
                 ))
                 break
 
@@ -631,9 +631,9 @@ def _analyze_checks(board, user_color) -> List[PositionFeature]:
             priority=4,
             category="tactics",
             title=f"{len(checks)} checks available",
-            description=f"You can give check with: {', '.join(check_sans)}. Always consider checks — they force the opponent to respond.",
+            description=f"You can give check with: {', '.join(check_sans)}. Always look at checks — they force a reply.",
             min_rating=800,
-            actionable="Check each check: does it lead to something good? A check that wins material or improves position is powerful.",
+            actionable="Try each check in your head. One that wins material or improves your position is the move.",
         ))
 
     return features
@@ -877,7 +877,7 @@ def _analyze_our_pins(board, user_color, opp_color) -> List[PositionFeature]:
                     title=f"Your {piece_name} is pinned",
                     description=f"Your {piece_name} on {sq_name} is pinned by {pinner_name}. It can't move without exposing your king or queen.",
                     min_rating=600,
-                    actionable=f"Consider breaking the pin — move your king, block the pin line, or challenge the pinner.",
+                    actionable=f"Break the pin: move your king, block the line, or attack the pinner.",
                 ))
                 break  # One is enough
 

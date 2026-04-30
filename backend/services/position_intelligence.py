@@ -93,18 +93,18 @@ PLAN_RULES = [
             p != "endgame"
         ),
         "priority": "attack",
-        "plan": lambda f, m, p: "Open the center and attack their king. You're ahead in material and their king is exposed — don't trade pieces, attack.",
+        "plan": lambda f, m, p: "You're up material and their king is stuck in the center. Attack — don't trade.",
         "summary": lambda f, m, p: _build_summary([
             f"You're ahead in material.",
             _get_feature_text(f, "king_safety", "hasn't castled"),
-            "This is the time to attack, not simplify.",
+            "Attack now. Trades only help them.",
         ]),
     },
     {
         "id": "attack_exposed_king",
         "conditions": lambda f, m, p: _has_feature(f, "king_safety", "hasn't castled") and p != "endgame",
         "priority": "attack",
-        "plan": lambda f, m, p: "Their king is stuck in the center. Open the position and use your developed pieces to create threats.",
+        "plan": lambda f, m, p: "Their king is stuck in the center. Open lines and aim your developed pieces at it.",
         "summary": lambda f, m, p: _build_summary([
             _get_feature_text(f, "king_safety", "hasn't castled"),
             "Look for pawn pushes or piece moves that open lines toward their king.",
@@ -150,10 +150,10 @@ PLAN_RULES = [
         "id": "simplify_winning",
         "conditions": lambda f, m, p: m.get("advantage", 0) >= 3,
         "priority": "convert",
-        "plan": lambda f, m, p: "You're up significant material. Trade pieces, not pawns. Simplify into a winning endgame.",
+        "plan": lambda f, m, p: "You're up significant material. Trade pieces, not pawns. Aim for a clean endgame.",
         "summary": lambda f, m, p: _build_summary([
             m.get("eval_text", "You're ahead."),
-            "Trade pieces to make the game simpler. The fewer pieces, the harder it is for them to come back.",
+            "Trade pieces. The fewer pieces, the harder it is for them to come back.",
         ]),
     },
 
@@ -194,7 +194,7 @@ PLAN_RULES = [
         "id": "fight_for_center",
         "conditions": lambda f, m, p: _has_feature(f, "center", "Opponent controls"),
         "priority": "positional",
-        "plan": lambda f, m, p: "Your opponent controls the center. Challenge it with a pawn push or piece placement.",
+        "plan": lambda f, m, p: "Your opponent owns the center. Challenge it — push a pawn or move a piece in.",
         "summary": lambda f, m, p: _build_summary([
             _get_feature_text(f, "center", "Opponent controls"),
             "Push a pawn toward the center (d5, e5, c5, or f5) to fight back.",
@@ -337,17 +337,25 @@ async def read_board_deep(
     try:
         from llm_service import call_llm
 
+        # Voice prompt aligned to the canonical 6 rules
+        # (memory/project_coach_voice.md). Character: "the smartest
+        # friend who plays better than you and tells you the truth
+        # without making you feel small."
         system = (
             f"You are a chess coach talking to a player rated around {user_rating}. "
             "You have been given a short coaching plan for the current position. "
-            "Your ONLY job is to rewrite that plan in warm, natural coach voice.\n\n"
+            "Your ONLY job is to rewrite that plan in the locked ChessGuru coach voice.\n\n"
+            "VOICE: a smart friend who plays chess. Not a textbook.\n\n"
             "Hard rules:\n"
-            "- ONE or TWO short sentences. No paragraphs, no multi-step plans.\n"
+            "- ONE or TWO short sentences. Sometimes very short. No paragraphs, no multi-step plans.\n"
+            "- Use 'you' and contractions. Skip 'consider', 'potentially', 'might', 'could', 'you may want to'.\n"
+            "- Name the thing — the move, the square, the piece, the pattern. Never vague.\n"
             "- DO NOT introduce any move, piece, square, tactic, or idea that is NOT in the input plan. "
             "If the input doesn't name Bxb5, you MUST NOT name Bxb5. Invent nothing.\n"
             "- Keep the same moves and ideas the input already names. Only change the WORDS.\n"
-            "- Never use engine language (eval, centipawns, accuracy).\n"
-            "- No filler ('potentially', 'consider moves like', 'take advantage of'). Say the thing directly.\n"
+            "- No engine language (eval, centipawns, accuracy, engine choice).\n"
+            "- No first person ('I see', 'I think'). The coach IS the player's voice.\n"
+            "- No generic praise or platitudes. No 'don't worry', 'great job', 'keep practicing'.\n"
             "- If the input plan is already good, output it with minimal changes."
         )
 
