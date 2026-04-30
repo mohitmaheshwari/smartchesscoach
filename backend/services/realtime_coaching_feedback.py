@@ -554,10 +554,6 @@ def _contrastive_explanation(fen_before: str, user_move: str, best_move: str, us
     if best_msg:
         parts.append(f"{best_msg}." if not wrong_msg else f"Better: {best_msg}.")
 
-    # Indian coach flavor for beginners on critical errors
-    if user_rating < 1000 and hanging and parts:
-        parts[0] = f"Arre! {parts[0]}"
-
     if rule:
         parts.append(f"**Rule: {rule}**")
 
@@ -705,24 +701,19 @@ def _generate_coaching_message(
         "expects_response": False
     }
     
-    name = user_name or "friend"
     is_beginner = user_rating < 1000
-    
+
     # ========== BRILLIANT MOVES ==========
     if quality == "brilliant":
         brilliant_phrases = [
-            f"BRILLIANT! {user_move} — that sacrifice is absolutely stunning! You saw what the engine sees!",
-            f"Wow {name}! {user_move} is a BRILLIANT sacrifice! This is the kind of move that makes chess beautiful!",
-            f"Incredible! {user_move} — giving up material to win. This shows real calculation depth, {name}!",
-            f"That's a world-class move! {user_move} — a sacrifice that was the only way to win. Outstanding vision!",
-            f"BRILLIANT {name}! {user_move} — you calculated deeper than the surface. This is elite-level play!",
+            f"Brilliant. {user_move} — that sacrifice wins.",
+            f"{user_move} is brilliant. You gave up material to win.",
+            f"{user_move} — the kind of sacrifice only deep calculation finds.",
         ]
         result["coaching_message"] = random.choice(brilliant_phrases)
         result["encouragement"] = random.choice([
-            "That was genuinely impressive.",
-            "Moves like this show real chess understanding.",
-            "Your tactical vision is sharp today!",
-            "Remember this moment — this is your best chess.",
+            "Sharp calculation.",
+            "Real vision on that one.",
         ])
         return result
 
@@ -730,8 +721,8 @@ def _generate_coaching_message(
     if quality == "book":
         book_phrases = [
             f"{user_move}. Theory.",
-            f"{user_move} — standard opening move.",
-            f"{user_move}. Following the opening principles.",
+            f"{user_move} — book move.",
+            f"{user_move}. Standard in this opening.",
         ]
         result["coaching_message"] = random.choice(book_phrases)
         result["user_move_quality"] = "book"
@@ -740,31 +731,27 @@ def _generate_coaching_message(
     # ========== EXCELLENT MOVES ==========
     if quality == "excellent":
         base = random.choice([
-            f"Excellent! {user_move} is exactly right.",
-            f"Yes! {user_move} — you saw it.",
-            f"Beautiful! {user_move} is spot on.",
+            f"{user_move} — exactly right.",
+            f"Yes. {user_move} is the move.",
+            f"{user_move}. Best move here.",
         ])
         # Add position-aware context
         context = _move_context(user_move, tactical_analysis)
         result["coaching_message"] = f"{base}{context}"
-        result["encouragement"] = random.choice([
-            "Keep this up!",
-            "You're playing well today.",
-            "This is good chess!",
-        ])
+        # No blanket encouragement — the message itself is the praise
         return result
 
     # ========== GOOD MOVES ==========
     elif quality == "good":
         base = random.choice([
-            f"{user_move} is a solid choice.",
-            f"Good thinking. {user_move} is reasonable here.",
-            f"That works. {user_move} keeps things steady.",
+            f"{user_move} works.",
+            f"{user_move} — solid.",
+            f"{user_move}. Keeps things steady.",
         ])
         context = _move_context(user_move, tactical_analysis)
         result["coaching_message"] = f"{base}{context}"
         if best_move and best_move != user_move:
-            result["coaching_message"] += f" {best_move} was slightly more precise, but your move is fine."
+            result["coaching_message"] += f" {best_move} was a touch sharper."
         return result
     
     # ========== INACCURACIES ==========
@@ -802,7 +789,7 @@ def _generate_coaching_message(
             result["coaching_message"] = meta["coaching_message"]
             result["meta_pattern_id"] = meta["pattern_id"]
             result["rule"] = meta["rule"]
-            result["encouragement"] = "Koi baat nahi. Let's learn from this."
+            result["encouragement"] = "Even strong players miss this kind of thing."
             return result
 
         # === 2. Fall back to contrastive explanation (position-specific) ===
@@ -813,18 +800,18 @@ def _generate_coaching_message(
             if contrast:
                 result["coaching_message"] = contrast
             else:
-                reveal_parts = [f"Careful {name}! {user_move} loses some advantage."]
+                reveal_parts = [f"{user_move} loses some ground."]
                 if user_move != best_move:
-                    reveal_parts.append(f"Try {best_move} instead.")
+                    reveal_parts.append(f"{best_move} was the move.")
                 result["coaching_message"] = " ".join(reveal_parts)
-            result["encouragement"] = "Good effort though. Let's keep going!"
+            # No filler encouragement — the message stands on its own
             return result
 
         # Socratic question
         socratic_questions = [
-            f"{name}, interesting choice with {user_move}. What was your thinking?",
-            f"Hmm {user_move}. Walk me through it {name} — why this move?",
-            f"Okay {name}. Before I say anything — what was the idea behind {user_move}?",
+            f"Interesting — what was your thinking on {user_move}?",
+            f"Walk me through it — why {user_move}?",
+            f"Before I say anything: what was the idea behind {user_move}?",
         ]
         result["socratic_question"] = random.choice(socratic_questions)
         result["expects_response"] = True
@@ -833,18 +820,15 @@ def _generate_coaching_message(
         if contrast:
             result["coaching_message"] = contrast
         else:
-            reveal_parts = [f"Dekho {name}, that {user_move} lets some advantage slip."]
+            reveal_parts = [f"{user_move} lets some advantage slip."]
             if tactical_analysis.get("threats_created"):
                 reveal_parts.append(f"Now I can play {tactical_analysis['threats_created'][0]}.")
             if user_move != best_move:
                 reveal_parts.append(f"The move to find was {best_move}.")
             result["coaching_message"] = " ".join(reveal_parts)
 
-        result["encouragement"] = random.choice([
-            "Koi baat nahi. Let's learn from this.",
-            "It's okay. This is how we improve.",
-            "Don't worry. Even strong players miss things.",
-        ])
+        # One tight, honest acknowledgment — no platitudes
+        result["encouragement"] = "Even strong players miss this kind of thing."
         return result
     
     # ========== BLUNDERS - META-PATTERN > CONTRASTIVE > SOCRATIC ==========
@@ -868,21 +852,21 @@ def _generate_coaching_message(
             if contrast:
                 result["coaching_message"] = contrast
             else:
-                reveal_parts = [f"Oops {name}! {user_move} loses material."]
+                reveal_parts = [f"{user_move} drops material."]
                 if tactical_analysis.get("best_move_captures"):
-                    reveal_parts.append(f"You could have played {best_move} and won the {tactical_analysis['best_move_captures']}!")
+                    reveal_parts.append(f"{best_move} would have won the {tactical_analysis['best_move_captures']}.")
                 elif user_move != best_move:
                     reveal_parts.append(f"The safe move was {best_move}.")
                 result["coaching_message"] = " ".join(reveal_parts)
-            result["socratic_question"] = "Before your next move, check: is any of your pieces hanging?"
-            result["encouragement"] = "It's okay! Just check for hanging pieces before every move."
+            result["socratic_question"] = "Before your next move, check every piece — is anything left alone?"
+            # No filler encouragement — the message + socratic carry it
             return result
 
         # Socratic question
         socratic_questions = [
-            f"Arre {name}! {user_move}... what were you thinking?",
-            f"{name}, hold on. That {user_move} — explain your reasoning.",
-            f"Wait {name}. {user_move}? What did you see here?",
+            f"Wait. {user_move}? What did you see here?",
+            f"Hold on — that {user_move}. Walk me through your thinking.",
+            f"That {user_move} hurt. What was the plan?",
         ]
         result["socratic_question"] = random.choice(socratic_questions)
         result["expects_response"] = True
@@ -891,20 +875,17 @@ def _generate_coaching_message(
         if contrast:
             result["coaching_message"] = contrast
         else:
-            reveal_parts = [f"See {name}, that {user_move} was a serious mistake."]
+            reveal_parts = [f"{user_move} was a serious mistake."]
             if tactical_analysis.get("best_move_captures"):
-                reveal_parts.append(f"You could have won material with {best_move} — takes the {tactical_analysis['best_move_captures']}!")
+                reveal_parts.append(f"{best_move} wins the {tactical_analysis['best_move_captures']}.")
             elif tactical_analysis.get("threats_created"):
-                reveal_parts.append(f"That allows {tactical_analysis['threats_created'][0]}.")
+                reveal_parts.append(f"It lets me play {tactical_analysis['threats_created'][0]}.")
             else:
-                reveal_parts.append(f"The position needed {best_move}.")
+                reveal_parts.append(f"The move was {best_move}.")
             result["coaching_message"] = " ".join(reveal_parts)
 
-        result["encouragement"] = random.choice([
-            "But it's okay. Everyone blunders sometimes. Even Magnus!",
-            "Koi baat nahi. Let's understand why and move on.",
-            "This is tough, but we learn from these moments.",
-        ])
+        # One tight, honest acknowledgment — these moves are the ones that fade
+        result["encouragement"] = "These are the moves that fade once you slow down on captures."
         return result
     
     # Fallback
@@ -1185,14 +1166,19 @@ async def generate_move_feedback(
             if tactical.get("best_move_captures"):
                 best_move_explanation = f"Wins the {tactical['best_move_captures']}"
             elif tactical.get("best_move_attacks"):
-                best_move_explanation = f"Creates pressure: {', '.join(tactical['best_move_attacks'][:2])}"
+                attacks = tactical['best_move_attacks'][:2]
+                if len(attacks) == 1:
+                    best_move_explanation = f"Hits the {attacks[0]}"
+                else:
+                    best_move_explanation = f"Hits {attacks[0]} and {attacks[1]}"
             else:
-                best_move_explanation = "Maintains better position"
-        
-        # Encouragement for good moves
+                best_move_explanation = "Holds your position better"
+
+        # Encouragement only for the genuinely strong move — drop generic
+        # praise on plain "good" moves; the coaching_message itself is enough.
         encouragement = coaching_result.get("encouragement")
-        if not encouragement and quality in ["excellent", "good"]:
-            encouragement = "Keep it up!" if quality == "good" else "That's the move!"
+        if not encouragement and quality == "excellent":
+            encouragement = "That's the move."
 
     # ═══ MID-GAME ADAPTATION — adjust based on how user is playing THIS game ═══
     # The nudge is shown as a separate field, NOT prepended to the main message,
@@ -1275,19 +1261,21 @@ async def generate_move_feedback(
 
     if not coach_explanation and coach_move:
         if quality in ["mistake", "blunder"] and tactical.get("threats_created"):
-            coach_explanation = "Takes advantage of the error."
+            coach_explanation = f"I play {coach_move} — punishes the slip."
         else:
             coach_explanation = f"I play {coach_move}."
     
     # Check if relates to known weakness (used by both paths)
+    # Voice rule: name the pattern, drop generic motivational closers
+    # ("keep practicing", "you know better than this" — both anti-patterns).
     relates_to = None
     if understanding_context:
         weakness = understanding_context.get("primary_weakness", "")
-        if weakness:
-            if "tactical" in weakness.lower() and quality in ["mistake", "blunder"]:
-                relates_to = f"This relates to your {weakness} - keep practicing!"
-            elif "consistency" in weakness.lower() and quality in ["mistake", "blunder"]:
-                relates_to = "Stay focused - you know better than this!"
+        if weakness and quality in ["mistake", "blunder"]:
+            if "tactical" in weakness.lower():
+                relates_to = f"This is the {weakness} pattern showing up again."
+            elif "consistency" in weakness.lower():
+                relates_to = "Same kind of slip you've made in earlier games."
     
     # Check if a trap is available from this position
     trap_suggestion = None
@@ -1317,7 +1305,7 @@ async def generate_move_feedback(
         # Best move as primary candidate
         candidate_moves.append({
             "move": best_move,
-            "idea": best_move_explanation or f"{best_move} was the engine's top choice",
+            "idea": best_move_explanation or f"{best_move} is the strongest move here",
             "type": _determine_move_type(tactical, best_move),
             "is_best": True
         })
@@ -1355,15 +1343,15 @@ async def generate_move_feedback(
                         to_file = chess.square_file(move_obj.to_square)
                         to_rank = chess.square_rank(move_obj.to_square)
                         if to_file in [0, 7] or to_rank in [0, 7]:
-                            golden_rule = "Knights on the rim are dim! They have fewer squares to jump to."
+                            golden_rule = "Knights on the rim are dim — they have fewer squares to jump to."
                         else:
-                            golden_rule = "Every piece needs a job! Ask: what is this piece doing for me?"
+                            golden_rule = "Every piece needs a job. What is this knight doing for you?"
                     elif piece.piece_type == chess.PAWN:
-                        golden_rule = "Pawns can NEVER go back! Every pawn move creates a weakness somewhere."
+                        golden_rule = "Pawns can't go back. Every pawn move creates a weakness somewhere."
                     elif piece.piece_type == chess.BISHOP:
-                        golden_rule = "Bishops need OPEN diagonals. If pawns block them, they're sad!"
+                        golden_rule = "Bishops need open diagonals. A bishop blocked by your own pawns is wasted."
                     elif piece.piece_type == chess.QUEEN:
-                        golden_rule = "Don't bring the Queen out too early - she'll get chased around!"
+                        golden_rule = "The queen out early gets chased and loses you tempo."
             except Exception:
                 pass
     
