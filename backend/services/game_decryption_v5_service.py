@@ -1021,12 +1021,51 @@ def _explain_move_idea(board: chess.Board, move_san: str, user_color: bool) -> O
     # 4. CENTRAL CONTROL: Does this move improve center control?
     center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
     if to_sq in center_squares:
-        placed_name = "pawn" if piece.piece_type == chess.PAWN else chess.piece_name(piece.piece_type)
-        ideas.append({
-            "type": "central",
-            "explanation": f"{move_san} puts your {placed_name} in the center where it controls the most squares",
-            "score": 7
-        })
+        if piece.piece_type == chess.PAWN:
+            # Distinguish first central push (d2-d4) from break (d3-d4).
+            # Both land on d4 but they're different ideas: the first
+            # OCCUPIES the center; the second CHALLENGES the opposing
+            # pawn that already contests the center. Same words for both
+            # produces nonsense like "puts your pawn in the center" when
+            # the pawn was already on d3.
+            from_rank = chess.square_rank(move.from_square)
+            is_first_push = (
+                (user_color == chess.WHITE and from_rank == 1)
+                or (user_color == chess.BLACK and from_rank == 6)
+            )
+            if is_first_push:
+                ideas.append({
+                    "type": "central",
+                    "explanation": f"{move_san} puts your pawn in the center where it controls the most squares",
+                    "score": 7,
+                })
+            else:
+                # Identify the enemy pawn this break now attacks, if any.
+                attacked_pawn_sq = None
+                for atk_sq in sim.attacks(to_sq):
+                    p = sim.piece_at(atk_sq)
+                    if p and p.color != user_color and p.piece_type == chess.PAWN:
+                        attacked_pawn_sq = atk_sq
+                        break
+                if attacked_pawn_sq is not None:
+                    ideas.append({
+                        "type": "central",
+                        "explanation": f"{move_san} strikes at their pawn on {chess.square_name(attacked_pawn_sq)} and opens the center",
+                        "score": 7,
+                    })
+                else:
+                    ideas.append({
+                        "type": "central",
+                        "explanation": f"{move_san} pushes forward in the center and opens lines",
+                        "score": 7,
+                    })
+        else:
+            placed_name = chess.piece_name(piece.piece_type)
+            ideas.append({
+                "type": "central",
+                "explanation": f"{move_san} puts your {placed_name} in the center where it controls the most squares",
+                "score": 7,
+            })
     elif piece.piece_type == chess.PAWN and to_file in [3, 4]:  # d or e file
         ideas.append({
             "type": "central",
