@@ -1698,8 +1698,8 @@ def _find_tactical_opportunities(board: chess.Board, user_is_white: bool) -> Lis
                                 tactics.append({
                                     "type": "knight fork",
                                     "squares": [chess.square_name(knight_move.to_square)],
-                                    "description": "the knight can attack multiple pieces!",
-                                    "plan": f"Look for {board.san(knight_move)}!"
+                                    "description": "the knight forks two pieces.",
+                                    "plan": f"Look for {board.san(knight_move)}."
                                 })
                                 return tactics
     
@@ -1726,7 +1726,7 @@ def _check_piece_activity_loss(
         return {
             "problem": f"puts their {piece_name} on a passive square",
             "exploitation": "your pieces have more freedom now",
-            "plan": "Take control of the center and active squares!"
+            "plan": "Take the center. Their piece can't stop you from there."
         }
     
     # Check if piece is now blocked
@@ -1741,8 +1741,8 @@ def _check_piece_activity_loss(
         if blocked_by_pawns >= 2:
             return {
                 "problem": "blocks their own bishop behind pawns",
-                "exploitation": "their bishop is a 'tall pawn' now",
-                "plan": "Your pieces are more active — use them!"
+                "exploitation": "their bishop is buried — does nothing",
+                "plan": "Your pieces are more active. Press your advantage."
             }
     
     return None
@@ -2087,110 +2087,103 @@ def recognize_good_move(
     
     # Check if WE just gave checkmate
     if board_after.is_checkmate():
-        return f"CHECKMATE! {move_san} ends it! Game over!", "checkmate_delivery", True
-    
+        return f"Checkmate. {move_san} ends the game.", "checkmate_delivery", True
+
     # Check for mate threats (eval indicates forced mate - values near ±10000)
     if eval_after is not None:
         # We're getting mated (eval around -9000 to -10000 for mate scores)
         if eval_after <= -5000:  # Forced mate against us
             if is_best:
-                return f"{move_san} — the only move! You're facing a forced mate, but this puts up the best fight.", "defensive_critical", True
+                return f"{move_san} — the only move. You're facing a forced mate; this puts up the best fight.", "defensive_critical", True
             else:
                 return f"{move_san} delays it, but mate is coming. The position was already lost.", "defensive_critical", False
-        
+
         # We're winning with mate (eval around +9000 to +10000)
         if eval_after >= 5000:
             if is_best:
-                return f"Crushing! {move_san} maintains the winning attack. Mate is in sight!", "winning_attack", True
+                return f"{move_san} keeps the winning attack going. Mate is close.", "winning_attack", True
             else:
-                return f"{move_san} — you're winning! Keep finding accurate moves to finish.", "winning_attack", False
-        
+                return f"{move_san}. You're winning — keep playing accurate moves to close it out.", "winning_attack", False
+
         # Check if eval dropped significantly (position collapsed from okay to lost)
         if eval_before is not None:
             # Went from reasonable to getting mated
             if eval_before > -1000 and eval_after <= -5000:
                 if is_best:
-                    return f"{move_san} — sadly, the best option in a lost position. The damage was done earlier.", "best_in_lost", True
+                    return f"{move_san} — the best option in a lost position. The damage was done earlier.", "best_in_lost", True
                 else:
-                    return f"{move_san} — but the position collapsed. This was a critical moment.", "desperate_defense", False
-            
+                    return f"{move_san} — but the position collapsed. This was the critical moment.", "desperate_defense", False
+
             # Went from reasonable to significantly worse (but not mate)
             if eval_before > -200 and eval_after <= -500:
                 if is_best:
                     return f"{move_san} — best in a difficult position. You're under pressure.", "best_under_pressure", True
                 else:
-                    return f"{move_san} — things are getting tough here. Time to dig deep.", "under_pressure", False
-    
+                    return f"{move_san} — things are tough here. Time to slow down.", "under_pressure", False
+
     # ─── Check if this matches opening theory ───
     typical_ideas = opening_data.get("typical_ideas", {})
     if move_san in typical_ideas:
         concept_applied = f"opening_{move_san.lower()}"
-        if is_best:
-            narrative = f"Boom! {move_san} — {typical_ideas[move_san]}"
-        else:
-            narrative = f"Nice! {move_san}. {typical_ideas[move_san]}"
+        narrative = f"{move_san}. {typical_ideas[move_san]}"
         return narrative, concept_applied, is_best
-    
-    # Castling - FUN language
+
+    # Castling
     if board.is_castling(move):
         concept_applied = "king_safety_castling"
         move_num = len(list(board.move_stack)) // 2 + 1
         if move_num <= 10:
-            narrative = "Castle early, sleep safely! Your King is tucked in nice and cozy."
+            narrative = "Castled. King's in the corner, rook joins the game."
         else:
-            narrative = "Finally! Your King was getting nervous out there. Safe at last!"
+            narrative = "Castled. Should have come sooner — but the king is safe now."
         return narrative, concept_applied, is_best
-    
-    # Development with FUN piece names
+
+    # Development by piece type
     if piece:
         back_rank = 0 if piece.color == chess.WHITE else 7
-        
+
         if piece.piece_type == chess.KNIGHT:
             to_sq = move.to_square
             if to_sq in [chess.F3, chess.C3, chess.F6, chess.C6]:
                 concept_applied = "knight_development"
-                narrative = f"Good horsey! {move_san} — Knights love f3/c3. They control the center from here."
+                narrative = f"{move_san}. Knights are strongest on f3/c3 — they control the center from here."
                 if is_best:
-                    narrative = f"Perfect horsey! {move_san} is THE spot."
+                    narrative = f"{move_san}. The right square for the knight here."
                 return narrative, concept_applied, is_best
             elif to_sq in [chess.E5, chess.D5, chess.E4, chess.D4]:
                 concept_applied = "central_knight"
-                narrative = f"BOSS KNIGHT! {move_san} in the center is a monster. Hard to kick out!"
+                narrative = f"{move_san}. Knight in the center, hard to kick out."
                 return narrative, concept_applied, is_best
-        
+
         elif piece.piece_type == chess.BISHOP:
             if chess.square_rank(move.from_square) == back_rank:
                 concept_applied = "bishop_development"
                 to_sq = move.to_square
                 to_file = chess.square_file(to_sq)
                 if to_file in [1, 2, 5, 6]:  # b, c, f, g files - active squares
-                    narrative = f"Bishop unleashed! {move_san} — active diagonal."
+                    narrative = f"{move_san}. Bishop on an active diagonal."
                 else:
-                    narrative = f"Bishop is out! {move_san} — bishops love open diagonals."
-                if is_best:
-                    narrative = f"Perfect! {narrative}"
+                    narrative = f"{move_san}. Bishop out — open diagonal ahead."
                 return narrative, concept_applied, is_best
-        
+
         elif piece.piece_type == chess.PAWN:
             to_file = chess.square_file(move.to_square)
             if to_file in [3, 4]:  # d or e file
                 to_rank = chess.square_rank(move.to_square)
                 if (piece.color == chess.WHITE and to_rank == 3) or (piece.color == chess.BLACK and to_rank == 4):
                     concept_applied = "center_control"
-                    narrative = f"Good pawn move! {move_san} grabs space in the center."
-                    if is_best:
-                        narrative = f"Perfect! {narrative}"
+                    narrative = f"{move_san}. Grabs space in the center."
                     return narrative, concept_applied, is_best
-        
+
         elif piece.piece_type == chess.ROOK:
             to_file = chess.square_file(move.to_square)
             file_pawns = len([sq for sq in chess.SQUARES if chess.square_file(sq) == to_file and board.piece_at(sq) and board.piece_at(sq).piece_type == chess.PAWN])
             if file_pawns == 0:
                 concept_applied = "rook_on_open_file"
-                narrative = f"Tower Power! {move_san} — rook on an open file is DEADLY."
+                narrative = f"{move_san}. Rook on an open file — controls the whole column."
                 return narrative, concept_applied, is_best
-    
-    # Check if this is a capture that wins material
+
+    # Capture that wins material
     if board.is_capture(move):
         captured = board.piece_at(move.to_square)
         if captured:
@@ -2198,27 +2191,27 @@ def recognize_good_move(
             captured_value = _piece_value(captured)
             if captured_value > attacker_value:
                 concept_applied = "winning_material"
-                narrative = f"Chomp! {move_san} wins material. Free stuff!"
+                narrative = f"{move_san} wins material — straight gain."
                 return narrative, concept_applied, is_best
-    
-    # Generic good move
+
+    # Generic best move
     if is_best:
         sim = board.copy()
         sim.push(move)
-        
+
         for sq, p in sim.piece_map().items():
             if p.color != piece.color:
                 attackers = sim.attackers(piece.color, sq)
                 if attackers:
-                    narrative = f"Sneaky! {move_san} creates a threat. Your opponent's in trouble!"
+                    narrative = f"{move_san}. Creates a new threat — they have to respond."
                     return narrative, "found_best_move", True
-        
-        narrative = f"Nailed it! {move_san} is the best move here."
+
+        narrative = f"{move_san}. Best move here."
         return narrative, "found_best_move", True
-    
+
     if cp_loss < 10:
-        return f"Solid! {move_san}.", None, False
-    
+        return f"{move_san}. Solid.", None, False
+
     return f"{move_san}.", None, False
 
 
