@@ -1,17 +1,87 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Initial sitemap. Will expand in Phase 2 once /openings, /patterns,
-  and /improve programmatic pages exist. For now, only the Landing
-  page is publicly indexable.
+  ChessGuru sitemap. Lists every public, indexable URL.
 
-  When production domain is set, update the loc URLs and resubmit
-  the sitemap in Google Search Console + Bing Webmaster Tools.
+  Auth-gated routes (/home, /lab, /play-with-coach, etc.) are NOT
+  listed here — they're explicitly disallowed in robots.txt.
+
+  When new public surfaces ship (/learn/patterns/*, /improve/*,
+  /blog/*), append entries here and resubmit to Google Search Console
+  + Bing Webmaster Tools.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+    <!-- Landing -->
     <url>
         <loc>https://chessguru.ai/</loc>
         <lastmod>2026-04-30</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
+
+    <!-- Opening guides hub -->
+    <url>
+        <loc>https://chessguru.ai/learn/openings</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- Per-opening guides — slugs match opening_curriculum.json keys
+         with underscores → hyphens. -->
+    <url>
+        <loc>https://chessguru.ai/learn/openings/italian-game</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://chessguru.ai/learn/openings/italian-game-black</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://chessguru.ai/learn/openings/sicilian-defense</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://chessguru.ai/learn/openings/caro-kann</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://chessguru.ai/learn/openings/french-defense</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://chessguru.ai/learn/openings/queens-gambit</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://chessguru.ai/learn/openings/scandinavian-defense</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://chessguru.ai/learn/openings/ruy-lopez</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>https://chessguru.ai/learn/openings/london-system</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+
 </urlset>

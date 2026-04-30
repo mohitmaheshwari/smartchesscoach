@@ -3,10 +3,8 @@
 
 User-agent: *
 Allow: /
-Allow: /openings
-Allow: /openings/
-Allow: /patterns
-Allow: /patterns/
+Allow: /learn
+Allow: /learn/
 Allow: /improve
 Allow: /improve/
 Allow: /blog
@@ -14,6 +12,8 @@ Allow: /blog/
 
 # Auth-gated app surfaces — no value to crawlers, lots of duplicate
 # state, and possible PII in URL params. Block them.
+# Note: /openings is the AUTH-GATED logged-in repertoire flow.
+# Public opening content lives at /learn/openings/* (allowed above).
 Disallow: /home
 Disallow: /lab
 Disallow: /play-with-coach
@@ -21,6 +21,10 @@ Disallow: /game/
 Disallow: /reflect
 Disallow: /training
 Disallow: /training/
+Disallow: /openings
+Disallow: /openings/
+Disallow: /opening-walkthrough
+Disallow: /openings-overview
 Disallow: /journey
 Disallow: /import
 Disallow: /settings

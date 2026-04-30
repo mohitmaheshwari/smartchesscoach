@@ -39,6 +39,10 @@ import PlateauBreakerDashboard from "@/pages/PlateauBreakerDashboard";
 import PlateauBreakerReview from "@/pages/PlateauBreakerReview";
 import ApplyMode from "@/pages/ApplyMode";
 
+// Public SEO pages — no auth, served to crawlers + cold visitors
+import OpeningsIndex from "@/pages/OpeningsIndex";
+import OpeningGuide from "@/pages/OpeningGuide";
+
 // Components
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -166,6 +170,12 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+
+      {/* Public SEO routes — no auth required. Indexed by crawlers,
+          served to cold visitors as marketing/teaching content. */}
+      <Route path="/learn/openings" element={<OpeningsIndex />} />
+      <Route path="/learn/openings/:slug" element={<OpeningGuide />} />
+
       <Route path="/onboarding" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <Onboarding user={user} />}

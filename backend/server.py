@@ -263,6 +263,7 @@ from routes import player as player_routes
 from routes import training_advanced as training_advanced_routes
 from routes import coach_advanced as coach_advanced_routes
 from routes import oauth as oauth_routes
+from routes import public_seo as public_seo_routes
 
 
 # ==================== INJECT DEPENDENCIES ====================
@@ -354,6 +355,7 @@ app.include_router(player_routes.router, prefix="/api")
 app.include_router(training_advanced_routes.router, prefix="/api")
 app.include_router(coach_advanced_routes.router, prefix="/api")
 app.include_router(oauth_routes.router, prefix="/api")
+app.include_router(public_seo_routes.router, prefix="/api")
 
 
 # ==================== CORS ====================
