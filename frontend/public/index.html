@@ -3,16 +3,116 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#000000" />
-        <meta name="description" content="ChessGuru - AI Chess Coaching" />
+        <meta name="theme-color" content="#06060B" />
+
+        <!--
+          Baseline SEO metadata. This is what crawlers and social-media
+          scrapers see BEFORE React renders. Per-route overrides happen
+          via react-helmet-async (see src/components/seo/SEO.jsx).
+          Update PUBLIC_SITE_URL below when production domain is known.
+        -->
+
+        <title>ChessGuru — AI Chess Coach That Knows Your Mistakes</title>
+        <meta name="description" content="Personalized chess coaching for 600–1500 rated players. ChessGuru watches your games, finds the patterns behind your losses, and trains you on your actual weaknesses." />
+        <meta name="keywords" content="ai chess coach, personalized chess training, chess coach for beginners, fix chess blunders, chess improvement, chess coaching app" />
+        <meta name="author" content="ChessGuru" />
+        <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+
+        <!-- Canonical — set per-route at runtime via Helmet; baseline points at root -->
+        <link rel="canonical" href="https://chessguru.app/" />
+
+        <!-- Open Graph (Facebook, LinkedIn, Discord, iMessage) -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="ChessGuru" />
+        <meta property="og:title" content="ChessGuru — AI Chess Coach That Knows Your Mistakes" />
+        <meta property="og:description" content="Personalized chess coaching for 600–1500 rated players. ChessGuru watches your games, finds the patterns behind your losses, and trains you on your actual weaknesses." />
+        <meta property="og:url" content="https://chessguru.app/" />
+        <meta property="og:image" content="https://chessguru.app/og-image.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="ChessGuru — AI Chess Coach" />
+        <meta property="og:locale" content="en_US" />
+
+        <!-- Twitter / X cards -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="ChessGuru — AI Chess Coach That Knows Your Mistakes" />
+        <meta name="twitter:description" content="Personalized chess coaching for 600–1500 rated players. We watch your games and train you on your actual weaknesses." />
+        <meta name="twitter:image" content="https://chessguru.app/og-image.png" />
+        <meta name="twitter:image:alt" content="ChessGuru — AI Chess Coach" />
+
+        <!-- Icons + PWA manifest -->
         <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/chessguru-logo.svg" />
+        <link rel="apple-touch-icon" href="%PUBLIC_URL%/chessguru-logo.svg" />
+        <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+        <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
-        <title>ChessGuru</title>
+
+        <!--
+          JSON-LD: structured data for Google rich results and AI-engine
+          citation (ChatGPT, Perplexity, Claude). SoftwareApplication +
+          Organization schemas describe what ChessGuru is in a way that
+          crawlers and LLMs can extract verbatim.
+        -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "Organization",
+                    "@id": "https://chessguru.app/#organization",
+                    "name": "ChessGuru",
+                    "url": "https://chessguru.app/",
+                    "logo": "https://chessguru.app/chessguru-logo-full.svg",
+                    "description": "Personalized AI chess coaching for plateaued players.",
+                    "sameAs": []
+                },
+                {
+                    "@type": "WebSite",
+                    "@id": "https://chessguru.app/#website",
+                    "url": "https://chessguru.app/",
+                    "name": "ChessGuru",
+                    "publisher": { "@id": "https://chessguru.app/#organization" },
+                    "inLanguage": "en-US"
+                },
+                {
+                    "@type": "SoftwareApplication",
+                    "@id": "https://chessguru.app/#app",
+                    "name": "ChessGuru",
+                    "operatingSystem": "Web",
+                    "applicationCategory": "EducationalApplication",
+                    "applicationSubCategory": "Chess Training",
+                    "description": "ChessGuru is an AI chess coach that watches your games, identifies the patterns behind your mistakes, and builds personalized training around your specific weaknesses. Built for players rated 600–1500 stuck on a plateau.",
+                    "url": "https://chessguru.app/",
+                    "image": "https://chessguru.app/og-image.png",
+                    "publisher": { "@id": "https://chessguru.app/#organization" },
+                    "offers": {
+                        "@type": "Offer",
+                        "price": "0",
+                        "priceCurrency": "USD",
+                        "availability": "https://schema.org/InStock"
+                    },
+                    "featureList": [
+                        "Personalized coaching from your real games",
+                        "Pattern recognition across game history",
+                        "Real-time move-by-move feedback",
+                        "Rating-aware difficulty",
+                        "Tactical pattern training (forks, pins, skewers)",
+                        "Opening curriculum tailored to your style",
+                        "Endgame lessons"
+                    ]
+                }
+            ]
+        }
+        </script>
     </head>
     <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <noscript>
+            <h1>ChessGuru — AI Chess Coach</h1>
+            <p>ChessGuru is a personalized chess coach for players rated 600–1500. We watch your games, identify the patterns behind your losses, and train you on your actual weaknesses. Please enable JavaScript to use the app.</p>
+        </noscript>
         <div id="root"></div>
         <script>
             !(function (t, e) {

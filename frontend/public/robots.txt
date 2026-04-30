@@ -1,0 +1,58 @@
+# ChessGuru robots.txt
+# https://chessguru.app/
+
+User-agent: *
+Allow: /
+Allow: /openings
+Allow: /openings/
+Allow: /patterns
+Allow: /patterns/
+Allow: /improve
+Allow: /improve/
+Allow: /blog
+Allow: /blog/
+
+# Auth-gated app surfaces — no value to crawlers, lots of duplicate
+# state, and possible PII in URL params. Block them.
+Disallow: /home
+Disallow: /lab
+Disallow: /play-with-coach
+Disallow: /game/
+Disallow: /reflect
+Disallow: /training
+Disallow: /training/
+Disallow: /journey
+Disallow: /import
+Disallow: /settings
+Disallow: /admin
+Disallow: /admin/
+Disallow: /auth
+Disallow: /auth/
+Disallow: /onboarding
+Disallow: /post-loss-recovery
+Disallow: /mission
+Disallow: /mission/
+Disallow: /challenge
+Disallow: /coach-replay
+Disallow: /apply
+Disallow: /endgames/
+Disallow: /weakness
+Disallow: /progress
+
+# Block AI scraper bots that don't add value (optional — flip to Allow
+# if/when we want LLM citation traffic from these specifically).
+# As of 2026 the GEO signal mostly comes from being widely cited and
+# having clean structured content, not from allowing every bot.
+# We allow GPTBot, ClaudeBot, PerplexityBot, GoogleOther — they bring
+# referral traffic when cited. We block scrapers that don't.
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+# Sitemap
+Sitemap: https://chessguru.app/sitemap.xml

@@ -1,0 +1,17 @@
+{
+  "short_name": "ChessGuru",
+  "name": "ChessGuru — AI Chess Coach",
+  "description": "Personalized chess coaching for plateaued players. We watch your games, identify your patterns, and train you on your actual weaknesses.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#06060B",
+  "background_color": "#06060B",
+  "icons": [
+    {
+      "src": "chessguru-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

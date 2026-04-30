@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Initial sitemap. Will expand in Phase 2 once /openings, /patterns,
+  and /improve programmatic pages exist. For now, only the Landing
+  page is publicly indexable.
+
+  When production domain is set, update the loc URLs and resubmit
+  the sitemap in Google Search Console + Bing Webmaster Tools.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://chessguru.app/</loc>
+        <lastmod>2026-04-30</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+</urlset>
