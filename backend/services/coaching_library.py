@@ -222,25 +222,25 @@ USER_FEEDBACK = {
     "good_best_move": [
         {"narrative": "Yes! {move} — that's exactly the right move. Well played."},
         {"narrative": "Perfect! {move} is the best move here. You saw it."},
-        {"narrative": "{move} — spot on. That's what the engine plays too."},
+        {"narrative": "{move} — spot on. That's the right move here."},
     ],
 
     "good_move": [
-        {"narrative": "Good move. {move} keeps your position solid."},
-        {"narrative": "{move} — nice. You're playing well here."},
-        {"narrative": "Solid choice. {move} keeps things under control."},
+        {"narrative": "{move}. Solid — keeps things under control."},
+        {"narrative": "{move}. Looks fine."},
+        {"narrative": "{move} — clean move."},
     ],
 
     "good_theory": [
-        {"narrative": "{move} — that's the book move. You know your openings."},
-        {"narrative": "That's theory! {move} is exactly what the books say to play here."},
+        {"narrative": "{move} — book move. Right plan in this opening."},
+        {"narrative": "That's theory — {move} is what the books play here."},
     ],
 
     # ─── Brilliant ───
 
     "brilliant_sacrifice": [
         {"narrative": "Brilliant! You gave up your {piece} with {move} — but it wins. That takes real vision."},
-        {"narrative": "Wow! {move} — giving up your {piece} for something bigger. Incredible."},
+        {"narrative": "{move} — you gave up your {piece} for something bigger. Incredible."},
     ],
 }
 
