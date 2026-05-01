@@ -233,14 +233,74 @@ class StockfishEngine:
             logger.error(f"Failed to get threat: {e}")
             return None
     
-    def classify_move(self, cp_loss: int, missed_mate: bool = False) -> str:
-        """Classify a move based on centipawn loss"""
+    def classify_move(
+        self,
+        cp_loss: int,
+        missed_mate: bool = False,
+        eval_before_player_cp: Optional[int] = None,
+    ) -> str:
+        """Classify a move based on centipawn loss.
+
+        Args:
+            cp_loss: how much the eval dropped from the moving player's
+                perspective. Always >= 0.
+            missed_mate: True when the player had a forced mate and
+                played a non-mating move. These stay as blunders even
+                in winning positions.
+            eval_before_player_cp: position eval BEFORE the move, from
+                the moving player's perspective. When provided, applies
+                winning-/losing-position grace so we don't tag moves as
+                blunders just for dropping +900 to +500 (still
+                completely winning). Without it, falls back to raw
+                cp_loss thresholds.
+
+        The grace mirrors what Chess.com does via win-probability
+        deltas: a 400cp drop in a +900 position is meaningless because
+        you're still winning by 5 pawns. Calling that a "blunder" in
+        the analyzed-game pipeline is the bug that produced 41%
+        accuracy on a game Chess.com scored 85%.
+        """
         if missed_mate:
             return MoveClassification.BLUNDER
 
         if cp_loss <= 0:
             return MoveClassification.BEST
-        elif cp_loss <= CP_THRESHOLDS["excellent"]:
+
+        # Position-context grace
+        if eval_before_player_cp is not None:
+            eval_after_player_cp = eval_before_player_cp - cp_loss
+
+            # Already completely winning AND still completely winning.
+            # Worst case is "inaccuracy" — never blunder/mistake.
+            if eval_before_player_cp >= 500 and eval_after_player_cp >= 300:
+                if cp_loss <= 30:
+                    return MoveClassification.EXCELLENT
+                elif cp_loss <= 150:
+                    return MoveClassification.GOOD
+                else:
+                    return MoveClassification.INACCURACY
+
+            # Already completely losing AND still completely losing.
+            # Don't pile on penalties — the player is fighting a lost
+            # game. Worst case "inaccuracy".
+            if eval_before_player_cp <= -500 and eval_after_player_cp <= -300:
+                if cp_loss <= 100:
+                    return MoveClassification.GOOD
+                else:
+                    return MoveClassification.INACCURACY
+
+            # Dropping FROM winning DOWN to balanced/losing — that's a
+            # real blunder (threw the win). Use stricter threshold.
+            if eval_before_player_cp >= 500 and eval_after_player_cp < 300:
+                # threw a winning position
+                if cp_loss >= 200:
+                    return MoveClassification.BLUNDER
+                elif cp_loss >= 100:
+                    return MoveClassification.MISTAKE
+
+        # Standard thresholds (no context, or in roughly balanced
+        # positions where every centipawn matters)
+        if cp_loss <= CP_THRESHOLDS["excellent"]:
             return MoveClassification.EXCELLENT
         elif cp_loss <= CP_THRESHOLDS["good"]:
             return MoveClassification.GOOD
@@ -508,8 +568,13 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         (not is_white_move and prev_mate < 0 and (current_mate is None or current_mate >= 0))
                     )
                 
-                # Classify the move
-                classification = engine.classify_move(cp_loss, missed_mate)
+                # Classify the move with position context.
+                # Convert prev_eval (white's POV) to moving player's POV
+                # so the classifier can apply winning-position grace.
+                eval_before_player = prev_eval if is_white_move else -prev_eval
+                classification = engine.classify_move(
+                    cp_loss, missed_mate, eval_before_player_cp=eval_before_player,
+                )
 
                 # Detect sacrifice and brilliant moves
                 move_is_sacrifice = False

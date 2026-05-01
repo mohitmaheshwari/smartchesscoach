@@ -121,13 +121,20 @@ def read_position(fen: str, user_color: str = "white", user_rating: int = 1200) 
 def _analyze_king_safety(board, user_color, opp_color) -> List[PositionFeature]:
     features = []
 
+    # In the endgame the king is supposed to be active, not tucked away.
+    # All "uncastled = vulnerable" framing is wrong once we're in an
+    # endgame, regardless of which side it's about. Skip the whole
+    # function rather than emit misleading insights.
+    phase = _get_phase(board)
+    is_endgame = phase == "endgame"
+
     # Opponent's king analysis
     opp_king_sq = board.king(opp_color)
     if opp_king_sq is not None:
         opp_castled = _is_castled(board, opp_color, opp_king_sq)
         opp_pawn_shield = _has_pawn_shield(board, opp_color, opp_king_sq)
-        
-        if not opp_castled:
+
+        if not opp_castled and not is_endgame:
             # King in the center — only flag if game is far enough along
             if board.fullmove_number >= 8:
                 king_name = chess.square_name(opp_king_sq)
@@ -163,12 +170,26 @@ def _analyze_king_safety(board, user_color, opp_color) -> List[PositionFeature]:
                 actionable="Open lines toward their king. A broken pawn shield gives you attacking chances.",
             ))
 
-    # User's own king — only warn if genuinely exposed
+    # User's own king — only warn if genuinely exposed.
+    # Three guards prevent false positives:
+    #   1. Phase != endgame — once queens are off + material is low,
+    #      the king is supposed to be active. Suggesting "castle" in an
+    #      endgame is the bug a tester reported producing nonsense
+    #      insights on a winning endgame.
+    #   2. has_castling_rights — if the king already moved (even just
+    #      to step into the center for the endgame), castling is
+    #      impossible and the suggestion is bogus.
+    #   3. fullmove_number >= 8 — preserves the old "not too early" gate.
     user_king_sq = board.king(user_color)
     if user_king_sq is not None:
         user_castled = _is_castled(board, user_color, user_king_sq)
-        
-        if not user_castled and board.fullmove_number >= 8:
+
+        if (
+            not user_castled
+            and board.has_castling_rights(user_color)
+            and board.fullmove_number >= 8
+            and not is_endgame
+        ):
             features.append(PositionFeature(
                 priority=2,
                 category="king_safety",
@@ -677,8 +698,18 @@ def _get_phase(board) -> str:
 
 
 def _analyze_castling(board, user_color, opp_color) -> List[PositionFeature]:
-    """Castling opportunities and status."""
+    """Castling opportunities and status.
+
+    Both branches are gated on phase != endgame. In an endgame the
+    king should be active, so suggesting castling is wrong; calling
+    out an opponent's lost castling rights is also pointless once the
+    game has passed king-safety into king-activity territory.
+    """
     features = []
+
+    phase = _get_phase(board)
+    if phase == "endgame":
+        return features
 
     user_can_castle = board.has_castling_rights(user_color)
     opp_can_castle = board.has_castling_rights(opp_color)

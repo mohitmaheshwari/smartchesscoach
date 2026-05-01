@@ -339,12 +339,42 @@ def get_teaching_explanation(move_san: str, fen_before: str, fen_after: str, mov
 
 
 def classify_move(eval_before: float, eval_after: float, user_color: str) -> str:
-    """Classify a move as blunder, mistake, inaccuracy, or good based on centipawn loss."""
+    """Classify a move with winning-/losing-position grace.
+
+    eval_before / eval_after are in pawns from white's perspective.
+    cp_loss is computed from the moving player's POV.
+
+    Mirrors stockfish_service.classify_move logic: in a position that
+    was already completely winning (or losing), don't tag as
+    blunder/mistake just for dropping cp — the player is still in
+    the same practical state. This is what kept 41%-accuracy bug
+    showing up on games Chess.com rated 85%.
+    """
     if user_color == "white":
         cp_loss = (eval_before - eval_after) * 100
+        eval_before_player = eval_before * 100
     else:
         cp_loss = (eval_after - eval_before) * 100
-    
+        eval_before_player = -eval_before * 100
+
+    if cp_loss <= 0:
+        return "good"
+
+    eval_after_player = eval_before_player - cp_loss
+
+    # Already completely winning AND still winning — worst case "inaccuracy"
+    if eval_before_player >= 500 and eval_after_player >= 300:
+        if cp_loss >= 150:
+            return "inaccuracy"
+        return "good"
+
+    # Already losing badly AND still losing — don't pile on
+    if eval_before_player <= -500 and eval_after_player <= -300:
+        if cp_loss >= 200:
+            return "inaccuracy"
+        return "good"
+
+    # Standard thresholds
     if cp_loss >= 300:
         return "blunder"
     elif cp_loss >= 100:
