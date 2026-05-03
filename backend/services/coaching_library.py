@@ -317,6 +317,7 @@ def match_coach_scenario(
     has_target: bool = False,
     target_piece: Optional[str] = None,
     move_category: Optional[str] = None,
+    target_was_undefended: bool = False,
 ) -> Optional[str]:
     """
     Map v2 intent + context to a library scenario key.
@@ -324,11 +325,22 @@ def match_coach_scenario(
 
     move_category (when passed) is the PositionFacts MoveCategory value and
     refines pawn routing so a flank push like a3 doesn't get center-push text.
+
+    target_was_undefended: when True, the captured piece had no defenders
+    on its square (after the capture, no opponent attackers on the
+    landing square). Only THEN do we route to "capture_free" — its
+    template says "free piece, nobody was guarding it." Tester reported
+    this firing on defended captures (e.g. Qxd5 with d5 defended by
+    the black queen). Defaults to False so any caller that doesn't
+    know better falls through to capture_trade — accurate for any
+    capture where a recapture is coming.
     """
     # CAPTURES — route before anything else. A capture is never "development".
-    # has_target indicates we know what got taken; route to trade vs free capture.
+    # Only call it "free" when the target really was undefended; any
+    # opponent attacker on the landing square means a recapture is
+    # coming, which is a TRADE not a free piece.
     if move_type == "capture":
-        return "capture_free" if has_target else "capture_trade"
+        return "capture_free" if (has_target and target_was_undefended) else "capture_trade"
 
     # RETREATS — based on move_category. A knight going back to its home rank
     # isn't "opening_develop_knight" — it's a retreat.

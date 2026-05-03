@@ -321,6 +321,22 @@ async def generate_smart_coach_explanation(
             if target_piece_name:
                 break
 
+    # Tester-reported bug: coach said "Qxd5 — free piece, nobody was
+    # guarding it" on a capture where d5 was defended by the queen.
+    # Compute whether the captured piece was actually undefended so
+    # the routing below picks the right template.
+    #
+    # "Truly free" means: after our capture, no opponent piece attacks
+    # the landing square. ANY attacker means a recapture is coming —
+    # even if the trade ends up favorable, the piece wasn't "free."
+    target_was_undefended = False
+    if move_type == "capture":
+        try:
+            opp_attackers_after = board_after.attackers(not piece.color, move.to_square)
+            target_was_undefended = len(opp_attackers_after) == 0
+        except Exception:
+            target_was_undefended = False
+
     detected_opening_key = opening_info_detected.get("opening_key", "") if opening_info_detected else ""
     scenario_key = build_scenario_key(
         intent=intent_key,
@@ -346,6 +362,7 @@ async def generate_smart_coach_explanation(
             has_target=bool(target_piece_name),
             target_piece=target_piece_name,
             move_category=facts.move_category.value,
+            target_was_undefended=target_was_undefended,
         )
         if lib_key:
             # Prefer the pretty name from PositionFacts (e.g. "King's Pawn Opening"),
