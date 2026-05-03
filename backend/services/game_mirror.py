@@ -78,11 +78,18 @@ async def _load_game_analysis(db, user_id: str, game_id: str) -> Dict:
             "_id": 0,
             "stockfish_analysis.move_evaluations": 1,
             "stockfish_analysis.accuracy": 1,
+            "cct": 1,
+            "cct_held_initiative": 1,
         },
     )
     if not doc:
         return {}
     sf = doc.get("stockfish_analysis") or {}
+    # CCT discipline signal — present on games analyzed after the CCT
+    # detector shipped. Absent on older games (pre-Phase-1) — treated
+    # as "no signal" and skipped in the aggregate.
+    cct = doc.get("cct") or {}
+    held = doc.get("cct_held_initiative") or {}
     moves = sf.get("move_evaluations") or []
     if not moves:
         return {"accuracy": sf.get("accuracy"), "total_moves": 0}
@@ -123,6 +130,13 @@ async def _load_game_analysis(db, user_id: str, game_id: str) -> Dict:
         "critical_best": critical_best,
         "critical_cp": critical_cp or None,
         "critical_gap": critical_gap,
+        # CCT discipline (Phase 6) — None on games analyzed before
+        # the detector shipped. The Mirror aggregator treats None as
+        # "no signal" and excludes those games from the CCT line.
+        "cct_score": cct.get("cct_score"),
+        "cct_max_streak": cct.get("cct_max_streak"),
+        "cct_decisions": cct.get("cct_decisions"),
+        "cct_held_initiative_count": held.get("count", 0) if held else 0,
     }
 
 
@@ -277,6 +291,61 @@ def _time_discipline_line(games_data: List[Dict]) -> str:
         return f"You rushed the critical move in {n_rushed} of {n_timed}."
     if n_took >= 2 and n_took >= n_timed - 1:
         return f"You took your time on critical moves in {n_took} of {n_timed} — that's discipline."
+    return ""
+
+
+def _cct_discipline_line(games_data: List[Dict]) -> str:
+    """Build a coach-voice CCT-discipline line from the window's games.
+
+    Honest gating — returns "" when there's no real signal:
+      • <2 games carry CCT data (need at least 2 to call it a habit)
+      • No held-initiative segments AND average cct_score < 0.65
+
+    Three signal paths, priority order:
+      1. Held-initiative segments across the window
+         ("you held the initiative after a miss in N of {window} games")
+      2. Strong CCT score average (>= 0.7) over multiple games
+         ("forcing-move discipline staying high — X% across {N} games")
+      3. Otherwise silent. We never narrate weak CCT as a weakness here
+         — the existing pattern decay handles weakness signals; the
+         Mirror's job is to celebrate consistent strengths.
+
+    The Mirror is supposed to surface durable habits. CCT discipline is
+    a strength habit alongside time discipline.
+    """
+    cct_games = [g for g in games_data if g.get("cct_decisions")]
+    if len(cct_games) < 2:
+        return ""
+
+    total_held = sum(g.get("cct_held_initiative_count", 0) or 0 for g in cct_games)
+    n = len(cct_games)
+
+    if total_held >= 2:
+        # Multi-game held-initiative pattern — the high-value signal
+        return (
+            f"You held the initiative after a miss in {total_held} different "
+            f"moments across these {n} games — real CCT discipline."
+        )
+
+    if total_held == 1 and n >= 2:
+        return (
+            f"You missed a killer in one game but kept hunting forcing moves "
+            f"until one landed. That's the discipline — keep it."
+        )
+
+    # Average score path — only celebrate when it's actually high
+    scores = [
+        g["cct_score"] for g in cct_games
+        if g.get("cct_score") is not None
+    ]
+    if len(scores) >= 2:
+        avg = sum(scores) / len(scores)
+        if avg >= 0.7:
+            pct = round(avg * 100)
+            return (
+                f"Forcing-move discipline staying sharp — {pct}% across these {n} games."
+            )
+
     return ""
 
 
@@ -541,7 +610,9 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
         prev = await latest_snapshot(db, user_id)
         verdict = _aggregate_verdict(games_data, established, prev)
 
-    # Story = headline + detail + listening + time discipline, joined.
+    # Story = headline + detail + listening + time discipline + cct
+    # discipline, joined. CCT line is gated to fire only on real
+    # multi-game signals; never narrates weakness here.
     parts = [verdict.get("headline") or ""]
     if verdict.get("detail"):
         parts.append(verdict["detail"])
@@ -550,6 +621,9 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
     time_line = _time_discipline_line(games_data)
     if time_line:
         parts.append(time_line)
+    cct_line = _cct_discipline_line(games_data)
+    if cct_line:
+        parts.append(cct_line)
     story = " ".join(p for p in parts if p).strip()
 
     # Pick the "worst" game for the board thumb — highest critical cp_loss

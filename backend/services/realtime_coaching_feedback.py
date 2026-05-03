@@ -76,6 +76,14 @@ class MoveFeedback:
     is_sacrifice: bool = False
     is_brilliant: bool = False
 
+    # CCT discipline grace — set when the user played a forcing move
+    # (check / capture / threat) in a position where the engine's best
+    # was also forcing. Even if not THE best, we don't tag this as a
+    # blunder — the discipline is what matters mid-game. Frontend uses
+    # this to soften penalty framing.
+    cct_discipline_held: bool = False
+    cct_voice_line: Optional[str] = None
+
     def to_dict(self) -> Dict:
         # Compute best_move_uci from SAN + FEN for board arrow drawing
         best_move_uci = ""
@@ -117,6 +125,9 @@ class MoveFeedback:
             # Board annotations
             "is_sacrifice": self.is_sacrifice,
             "is_brilliant": self.is_brilliant,
+            # CCT discipline
+            "cct_discipline_held": self.cct_discipline_held,
+            "cct_voice_line": self.cct_voice_line,
         }
         if self.trap_suggestion:
             result["trap_suggestion"] = self.trap_suggestion
@@ -963,6 +974,55 @@ async def generate_move_feedback(
         cp_change = abs(eval_after - eval_before) * 100
         if cp_change < 30:  # Less than 0.3 pawn swing = standard theory
             quality = "book"
+
+    # ===== CCT DISCIPLINE GRACE (Phase 5b) =====
+    # When the user plays a forcing move (check/capture/threat) in a
+    # position where the engine's best was ALSO forcing, we shouldn't
+    # tag the move as blunder/mistake just because it wasn't THE best.
+    # The discipline of staying in forcing-move mode is what matters
+    # mid-game — that's the pattern we want to reward, not penalize.
+    #
+    # Mechanism: if quality is mistake/blunder AND user played forcing
+    # AND best was forcing, downgrade to inaccuracy and attach a CCT
+    # voice line that the coaching surface can use instead of the
+    # standard penalty narrative.
+    cct_discipline_held = False
+    cct_voice_line = None
+    if quality in ("mistake", "blunder") and fen_before and best_move and user_move:
+        try:
+            from services.cct_detector import classify_move_cct
+            from services.cct_voice import coach_play_held_initiative_message
+
+            board_before = chess.Board(fen_before)
+            played_obj = board_before.parse_san(user_move)
+            best_obj = None
+            try:
+                best_obj = board_before.parse_san(best_move)
+            except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+                best_obj = None
+
+            cct_tags = classify_move_cct(
+                board_before, played_obj, best_move=best_obj
+            )
+
+            if cct_tags.get("played_forcing_when_best_was_forcing"):
+                # Downgrade severity. The held-discipline message
+                # carries the teaching weight; we don't need the
+                # blunder framing on top.
+                quality = "inaccuracy"
+                cct_discipline_held = True
+                # Build a voice line from the segment-style data we
+                # have at this single move (no lookahead window
+                # available mid-game; we synthesize one from the
+                # current move alone).
+                cct_voice_line = coach_play_held_initiative_message({
+                    "miss_move_san": user_move,
+                    "missed_best_san": best_move,
+                    "window_moves_san": [user_move],
+                })
+        except Exception as cct_err:
+            # Non-fatal — fall through with original quality
+            logger.debug(f"CCT grace check failed (non-fatal): {cct_err}")
     
     # ===== CHESS BRAIN INTEGRATION =====
     # Try to get deterministic coaching from Chess Brain
@@ -1394,7 +1454,9 @@ async def generate_move_feedback(
         fen_before=fen_before,
         piece_moved=piece_moved,
         is_sacrifice=is_sacrifice,
-        is_brilliant=is_brilliant
+        is_brilliant=is_brilliant,
+        cct_discipline_held=cct_discipline_held,
+        cct_voice_line=cct_voice_line,
     )
 
 
