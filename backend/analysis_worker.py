@@ -933,7 +933,65 @@ def process_job(db, job):
         
         # Update heartbeat after intent recognition
         update_job_heartbeat(db, game_id)
-        
+
+        # =========================================================================
+        # PHASE 4: CCT DISCIPLINE (Checks, Captures, Threats)
+        # Tags every USER move with whether it was a forcing move,
+        # whether forcing options were available, and whether the
+        # engine's best was forcing. Aggregate goes on the game record
+        # so coaching surfaces can reward forcing-move discipline as a
+        # strength, not just penalize the missed killer.
+        # =========================================================================
+        cct_aggregate = {}
+        try:
+            from services.cct_detector import tag_moves_with_cct, compute_cct_aggregate
+
+            # Build best-move-by-ply list from the Stockfish output
+            # (move_evaluations covers both sides; we want each ply).
+            best_san_by_ply = []
+            for me in move_evaluations:
+                # move_evaluations may use 'best_move_san' or 'best_move' depending on path
+                best_san_by_ply.append(
+                    me.get("best_move_san") or me.get("best_move") or None
+                )
+
+            tagged_user_moves = tag_moves_with_cct(
+                pgn, user_color=user_color, best_moves_san=best_san_by_ply
+            )
+
+            # Merge CCT tags back into move_evaluations matched by ply.
+            # Tagged moves are user-only — pull them onto the right
+            # entries in move_evaluations.
+            tagged_by_ply = {t["ply"]: t for t in tagged_user_moves}
+            for i, me in enumerate(move_evaluations):
+                t = tagged_by_ply.get(i)
+                if not t:
+                    continue
+                me["cct_is_check"] = t.get("is_check", False)
+                me["cct_is_capture"] = t.get("is_capture", False)
+                me["cct_creates_threat"] = t.get("creates_threat", False)
+                me["cct_forcing"] = t.get("forcing", False)
+                me["cct_had_forcing_options"] = t.get("had_forcing_options", False)
+                me["cct_best_was_forcing"] = t.get("best_was_forcing", False)
+                me["cct_played_forcing_when_best_was_forcing"] = t.get(
+                    "played_forcing_when_best_was_forcing", False
+                )
+
+            cct_aggregate = compute_cct_aggregate(tagged_user_moves)
+            logger.info(
+                f"[CCT] {game_id}: score={cct_aggregate.get('cct_score')} "
+                f"correct={cct_aggregate.get('cct_correct')}/"
+                f"{cct_aggregate.get('cct_decisions')}, "
+                f"max_streak={cct_aggregate.get('cct_max_streak')}"
+            )
+
+        except Exception as cct_error:
+            # Non-fatal — CCT tags are additive, no fallback needed
+            logger.warning(f"[CCT] Failed (non-fatal): {cct_error}")
+
+        # Update heartbeat after CCT pass
+        update_job_heartbeat(db, game_id)
+
         # Create/update analysis record
         analysis_doc = {
             "game_id": game_id,
@@ -952,6 +1010,10 @@ def process_job(db, job):
             },
             # NEW: Behavioral interpretation summary
             "interpretation": interpretation_summary if interpretation_summary else {},
+            # NEW: CCT discipline aggregate (Checks/Captures/Threats).
+            # Empty dict when computation failed; coaching surfaces
+            # treat that as "no signal" and stay silent.
+            "cct": cct_aggregate,
             "analysis_depth": STOCKFISH_DEPTH,
             "analyzed_at": datetime.now(timezone.utc),
             "created_at": datetime.now(timezone.utc),
