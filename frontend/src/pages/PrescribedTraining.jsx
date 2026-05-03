@@ -84,6 +84,10 @@ export default function PrescribedTraining() {
   const [solvedCount, setSolvedCount] = useState(0);
   const [streak, setStreak] = useState(0);
   const [encouragement, setEncouragement] = useState("");
+  // Per-move coaching from build_miss_coaching — populated when the
+  // user gets a puzzle wrong. Carries position_summary, played_critique,
+  // best_move_idea, takeaway. Cleared on next puzzle / retry.
+  const [missCoaching, setMissCoaching] = useState(null);
   
   // Board state
   const [game, setGame] = useState(new Chess());
@@ -187,6 +191,15 @@ export default function PrescribedTraining() {
       const bestSan = result.best_move_san || currentPuzzle.solution_san || "";
       const feedback = result.feedback || "";
 
+      // Capture rich miss-coaching when the backend included it.
+      // Cleared automatically on next puzzle / retry. Only meaningful
+      // for non-best moves; backend skips it on best.
+      if (result.miss_coaching) {
+        setMissCoaching(result.miss_coaching);
+      } else {
+        setMissCoaching(null);
+      }
+
       if (result.is_best) {
         setPuzzleState("correct");
         setSolvedCount((prev) => prev + 1);
@@ -258,7 +271,8 @@ export default function PrescribedTraining() {
       setPuzzleState("thinking");
       setUserMove(null);
       setShowSolution(false);
-      
+      setMissCoaching(null);
+
       const nextPuzzle = trainingData.puzzles[nextIdx];
       if (nextPuzzle.fen) {
         const newGame = new Chess(nextPuzzle.fen);
@@ -268,7 +282,7 @@ export default function PrescribedTraining() {
       }
     }
   };
-  
+
   // Retry puzzle
   const retryPuzzle = () => {
     if (currentPuzzle?.fen) {
@@ -277,6 +291,7 @@ export default function PrescribedTraining() {
       setPuzzleState("thinking");
       setUserMove(null);
       setShowSolution(false);
+      setMissCoaching(null);
     }
   };
   
@@ -543,9 +558,11 @@ export default function PrescribedTraining() {
                 san={
                   isSolvedState
                     ? solvedMoves
-                    : currentPuzzle?.your_move && solvedMoves
-                      ? `${currentPuzzle.your_move} (you played) · ${solvedMoves} (solution)`
-                      : solvedMoves
+                    : userMove && solvedMoves
+                      ? `${userMove} (you played) · ${solvedMoves} (solution)`
+                      : currentPuzzle?.your_move && solvedMoves
+                        ? `${currentPuzzle.your_move} (originally) · ${solvedMoves} (solution)`
+                        : solvedMoves
                 }
                 threat={currentPuzzle?.threat}
                 streak={streak}
@@ -553,6 +570,7 @@ export default function PrescribedTraining() {
                 onNext={nextPuzzle}
                 onRetry={retryPuzzle}
                 onComplete={() => navigate("/home")}
+                missCoaching={missCoaching}
               />
             )}
           </div>
@@ -674,6 +692,7 @@ function FeedbackPanel({
   onNext,
   onRetry,
   onComplete,
+  missCoaching,
 }) {
   const isCorrect = outcome === "correct";
   const isRevealed = outcome === "revealed";
@@ -737,10 +756,44 @@ function FeedbackPanel({
             {principle}
           </p>
           {threat && !isCorrect && (
-            <p className="text-[13px] text-muted-foreground leading-relaxed max-w-[560px]">
+            <p className="text-[13px] text-muted-foreground leading-relaxed max-w-[560px] mb-3">
               <span className="font-medium text-foreground/80">Threat: </span>
               {threat}
             </p>
+          )}
+
+          {/* Bug 2 fix: rich per-move explanations from
+              build_miss_coaching. Only render on miss/revealed paths
+              (correct moves don't need a critique). Cards stay tight —
+              one short paragraph per available field, no filler. */}
+          {!isCorrect && missCoaching && (
+            <div className="mt-3 space-y-2 max-w-[560px]">
+              {missCoaching.played_critique && (
+                <div className="rounded-lg border border-rose-400/20 bg-rose-500/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-rose-500/80 font-semibold mb-1">
+                    Why your move falls short
+                  </div>
+                  <p className="text-[13px] text-foreground/85 leading-relaxed">
+                    {missCoaching.played_critique}
+                  </p>
+                </div>
+              )}
+              {missCoaching.best_move_idea && (
+                <div className="rounded-lg border border-emerald-400/20 bg-emerald-500/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-emerald-600/80 dark:text-emerald-300/80 font-semibold mb-1">
+                    Why the best move works
+                  </div>
+                  <p className="text-[13px] text-foreground/85 leading-relaxed">
+                    {missCoaching.best_move_idea}
+                  </p>
+                </div>
+              )}
+              {missCoaching.takeaway && (
+                <p className="text-[12px] italic text-muted-foreground leading-relaxed pl-1">
+                  {missCoaching.takeaway}
+                </p>
+              )}
+            </div>
           )}
         </div>
 

@@ -68,16 +68,122 @@ def _material_delta(board: chess.Board, user_is_white: bool) -> int:
     return (white - black) if user_is_white else (black - white)
 
 
+_PIECE_NAME = {
+    chess.PAWN: "pawn",
+    chess.KNIGHT: "knight",
+    chess.BISHOP: "bishop",
+    chess.ROOK: "rook",
+    chess.QUEEN: "queen",
+}
+
+
+def _describe_pv_material_gain(
+    board_before: chess.Board,
+    pv_moves: List[chess.Move],
+    user_is_white: bool,
+) -> Optional[str]:
+    """Walk the PV, track exactly what each side captures, and return a
+    coach-voice phrase that reflects the real transaction.
+
+    Replaces the old delta-only _describe_material_gain which produced
+    misleading lines like "wins two pawns" any time the net delta was
+    +2 — even when the actual transaction was "wins a knight for a
+    pawn" (also +2 net) or "wins a bishop for a pawn." Tester reported
+    this firing repeatedly across game reviews; the fix is to look at
+    captures, not just numbers.
+
+    Returns None when no material is won.
+    """
+    if not pv_moves:
+        return None
+
+    user_captured: List[int] = []  # piece_types user took
+    user_lost: List[int] = []      # piece_types user lost
+
+    sim = board_before.copy()
+    for move in pv_moves:
+        is_user_move = (sim.turn == chess.WHITE) == user_is_white
+        if sim.is_capture(move):
+            if sim.is_en_passant(move):
+                captured_type = chess.PAWN
+            else:
+                captured = sim.piece_at(move.to_square)
+                captured_type = captured.piece_type if captured else None
+            if captured_type is not None:
+                if is_user_move:
+                    user_captured.append(captured_type)
+                else:
+                    user_lost.append(captured_type)
+        sim.push(move)
+
+    gained_value = sum(PIECE_VALUES.get(p, 0) for p in user_captured)
+    lost_value = sum(PIECE_VALUES.get(p, 0) for p in user_lost)
+    net = gained_value - lost_value
+
+    if net <= 0 or not user_captured:
+        return None
+
+    # ── Clean win: user captured, opponent didn't capture back ──
+    if not user_lost:
+        # Multiple pawn captures
+        if all(p == chess.PAWN for p in user_captured):
+            n = len(user_captured)
+            if n == 1:
+                return "wins a pawn"
+            if n == 2:
+                return "wins two pawns"
+            return f"wins {n} pawns"
+        # Single non-pawn capture (or pawn + something)
+        if len(user_captured) == 1:
+            name = _PIECE_NAME.get(user_captured[0], "piece")
+            return f"wins the {name}" if name != "pawn" else "wins a pawn"
+        # Multiple captures including a piece — name the biggest
+        biggest = max(user_captured, key=lambda p: PIECE_VALUES.get(p, 0))
+        biggest_name = _PIECE_NAME.get(biggest, "piece")
+        if biggest == chess.PAWN:
+            return f"wins {len(user_captured)} pawns"
+        return f"wins the {biggest_name} and more"
+
+    # ── Trade: captures both sides ──
+    biggest_captured_type = max(user_captured, key=lambda p: PIECE_VALUES.get(p, 0))
+    biggest_lost_type = max(user_lost, key=lambda p: PIECE_VALUES.get(p, 0))
+    captured_name = _PIECE_NAME.get(biggest_captured_type, "piece")
+    lost_name = _PIECE_NAME.get(biggest_lost_type, "piece")
+    captured_value = PIECE_VALUES.get(biggest_captured_type, 0)
+    lost_value_top = PIECE_VALUES.get(biggest_lost_type, 0)
+
+    # Piece-for-pawn (or higher-piece-for-lower-piece) trades
+    if captured_value > lost_value_top:
+        # User won a more valuable piece than they lost
+        if captured_name == "pawn":
+            # net positive but biggest captured is a pawn — odd, fall through
+            return "wins material — a pawn ahead after the exchange"
+        return f"wins a {captured_name} for a {lost_name}"
+
+    # Equal-value trade somehow nets positive (multiple captures, e.g.
+    # user took pawn+pawn, opponent took knight)
+    if net >= 3:
+        return f"comes out a piece ahead after the exchange"
+    if net == 2:
+        return "wins two pawns net after the exchange"
+    return "wins a pawn after the exchange"
+
+
+# Backwards-compat shim. Older callers passed only the delta. Prefer
+# _describe_pv_material_gain for new code — the delta-only version
+# was the source of the "wins two pawns" misclassification bug.
 def _describe_material_gain(delta: int) -> Optional[str]:
-    """Turn a signed pawn-equivalent delta into a coach phrase (or None if trivial)."""
+    """Delta-only fallback. Less accurate than _describe_pv_material_gain
+    when an exchange is involved. Kept for places that only have a number.
+    """
     if delta >= 8:
         return "wins the queen"
     if delta >= 5:
         return "wins a rook"
     if delta >= 3:
-        return "wins a piece"
+        return "wins material"  # was: "wins a piece" — too specific without context
     if delta == 2:
-        return "wins two pawns"
+        return "wins material"  # was: "wins two pawns" — the bug
     if delta >= 1:
         return "wins a pawn"
     return None
@@ -516,7 +622,14 @@ def explain_best_move_tactically(
         )
         pattern_named = True
 
-    material_phrase = _describe_material_gain(material_won)
+    # Walk the PV to describe what was actually traded. Honest about
+    # exchanges — replaces the old delta-only phrasing that said "wins
+    # two pawns" any time the net was +2, even for piece-for-pawn
+    # exchanges. Falls back to the legacy delta-based phrase when the
+    # PV-based analysis turns up empty.
+    material_phrase = _describe_pv_material_gain(board, pv_moves, user_is_white)
+    if not material_phrase:
+        material_phrase = _describe_material_gain(material_won)
     if material_phrase:
         parts.append(material_phrase)
 

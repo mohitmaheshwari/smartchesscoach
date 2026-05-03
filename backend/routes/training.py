@@ -308,6 +308,10 @@ async def evaluate_puzzle_move_endpoint(
     fen = (request.get("fen") or "").strip()
     played_uci = (request.get("played_uci") or "").strip()
     known_best_san = (request.get("known_best_san") or "").strip() or None
+    # Optional context — when the frontend has it, we can pass it
+    # through to puzzle_miss_coaching for richer per-move explanations.
+    themes = request.get("themes") or []
+    cognitive_gap = request.get("cognitive_gap") or None
 
     if not fen or not played_uci:
         raise HTTPException(status_code=400, detail="fen and played_uci are required")
@@ -318,6 +322,47 @@ async def evaluate_puzzle_move_endpoint(
         played_uci=played_uci,
         known_best_san=known_best_san,
     )
+
+    # Bug 2 fix: when the user got it wrong (or just sub-optimal), include
+    # the rich miss-coaching block. The evaluator's "feedback" is one
+    # short line; this adds position_summary, played_critique,
+    # best_move_idea, takeaway — the explanations the tester asked for.
+    # Skip on best moves (no need to explain a correct answer beyond
+    # the existing "You found it" line) and on parse errors.
+    quality = result.get("quality")
+    if quality and quality not in ("invalid", "best") and result.get("best_move_san"):
+        try:
+            from services.puzzle_miss_coaching import build_miss_coaching
+
+            best_san = result.get("best_move_san", "")
+            played_san = result.get("user_move_san", "")
+            # Best UCI from SAN parse — the miss-coaching service
+            # tolerates None for played_uci/best_uci, but providing
+            # them yields better critique fields.
+            best_uci = ""
+            try:
+                import chess as _chess
+                _b = _chess.Board(fen)
+                _best = _b.parse_san(best_san)
+                best_uci = _best.uci()
+            except Exception:
+                best_uci = ""
+
+            coaching = build_miss_coaching(
+                fen_before=fen,
+                played_move_san=played_san,
+                best_move_san=best_san,
+                best_move_uci=best_uci,
+                played_move_uci=played_uci,
+                cognitive_gap=cognitive_gap,
+                themes=themes,
+            )
+            if coaching:
+                result["miss_coaching"] = coaching
+        except Exception as e:
+            # Non-fatal — the basic feedback line still ships
+            logger.debug(f"build_miss_coaching failed: {e}")
+
     return result
 
 
