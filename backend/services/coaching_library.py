@@ -242,6 +242,26 @@ USER_FEEDBACK = {
         {"narrative": "Brilliant! You gave up your {piece} with {move} — but it wins. That takes real vision."},
         {"narrative": "{move} — you gave up your {piece} for something bigger. Incredible."},
     ],
+
+    # ─── CCT discipline (held the initiative after a miss) ─────────
+    # Phase 4 strings tied to detected cct_held_initiative_segments.
+    # These fire when the system saw a real "missed THE killer but
+    # kept giving checks until one landed" pattern in the game.
+    # Variables: {missed_move} = the engine's best forcing move,
+    # {played_move} = what the user actually played, {rebound_move}
+    # = the forcing move from the lookahead window that landed.
+
+    "held_initiative_after_miss": [
+        {"narrative": "You missed {missed_move} — the cleanest finish. But you didn't drop the habit. Kept giving checks until {rebound_move} landed. That's how strong players close out games."},
+        {"narrative": "{played_move} wasn't the killer ({missed_move} was). What matters: you stayed in forcing-move mode and pressure paid off — {rebound_move} hit."},
+        {"narrative": "Engine wanted {missed_move} for the cleanest finish. You played {played_move} instead — but you kept hunting checks and {rebound_move} broke through. The discipline is what separates plateau players from improving ones."},
+    ],
+
+    "cct_discipline_streak": [
+        # For end-of-game summaries when the cct_max_streak is high
+        {"narrative": "You hit {streak} forcing moves in a row at one stretch. That's real discipline."},
+        {"narrative": "{streak} consecutive correct CCT decisions. You stayed in attack mode."},
+    ],
 }
 
 

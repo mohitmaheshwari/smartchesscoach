@@ -881,6 +881,23 @@ async def get_game_decryption_v5(
                     )
                     
                     if decryption_data:
+                        # Phase 5: surface CCT discipline as a top-level
+                        # narrative line. When the analyzer detected
+                        # held-initiative-after-miss segments OR a
+                        # strong CCT streak, the line celebrates that
+                        # specifically. When no CCT signal, returns None
+                        # and the field stays empty — frontend treats
+                        # null as "don't render."
+                        cct_narrative = None
+                        try:
+                            from services.cct_voice import game_review_cct_line
+                            cct_narrative = game_review_cct_line(
+                                full_analysis.get("cct"),
+                                full_analysis.get("cct_held_initiative"),
+                            )
+                        except Exception as cct_voice_err:
+                            logger.warning(f"CCT narrative failed (non-fatal): {cct_voice_err}")
+
                         # Generate habits analysis for the game
                         habits_report = None
                         try:
@@ -918,7 +935,8 @@ async def get_game_decryption_v5(
                                 "decryption_v5_generated_at": datetime.now(timezone.utc).isoformat(),
                                 "decryption_v5_generating": False,
                                 "decryption_v5_version": V5_COACHING_VERSION,
-                                "habits_report": habits_report
+                                "habits_report": habits_report,
+                                "cct_narrative": cct_narrative,
                             }}
                         )
                         logger.info(f"[DECRYPTION V5] Background generation complete for {game_id}")

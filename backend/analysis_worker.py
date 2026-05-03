@@ -943,8 +943,15 @@ def process_job(db, job):
         # strength, not just penalize the missed killer.
         # =========================================================================
         cct_aggregate = {}
+        held_initiative_summary = {"count": 0, "best_segment": None}
+        held_initiative_segments = []
         try:
-            from services.cct_detector import tag_moves_with_cct, compute_cct_aggregate
+            from services.cct_detector import (
+                tag_moves_with_cct,
+                compute_cct_aggregate,
+                detect_held_initiative_segments,
+                summarize_held_initiative,
+            )
 
             # Build best-move-by-ply list from the Stockfish output
             # (move_evaluations covers both sides; we want each ply).
@@ -978,11 +985,24 @@ def process_job(db, job):
                 )
 
             cct_aggregate = compute_cct_aggregate(tagged_user_moves)
+
+            # Phase 3: held-initiative-after-miss detection.
+            # Surfaces moments where the user missed THE best forcing
+            # move but kept the discipline and didn't collapse — the
+            # pattern that today's analyzer treats only as a blunder.
+            held_initiative_segments = detect_held_initiative_segments(
+                tagged_user_moves, move_evaluations
+            )
+            held_initiative_summary = summarize_held_initiative(
+                held_initiative_segments
+            )
+
             logger.info(
                 f"[CCT] {game_id}: score={cct_aggregate.get('cct_score')} "
                 f"correct={cct_aggregate.get('cct_correct')}/"
                 f"{cct_aggregate.get('cct_decisions')}, "
-                f"max_streak={cct_aggregate.get('cct_max_streak')}"
+                f"max_streak={cct_aggregate.get('cct_max_streak')}, "
+                f"held_initiative_segments={held_initiative_summary['count']}"
             )
 
         except Exception as cct_error:
@@ -1014,6 +1034,14 @@ def process_job(db, job):
             # Empty dict when computation failed; coaching surfaces
             # treat that as "no signal" and stay silent.
             "cct": cct_aggregate,
+            # NEW: Held-initiative-after-miss segments. Each entry
+            # names the missed-best ply, the missed move, and the
+            # forcing-move window that followed. Used by game review
+            # narrative to say "you missed Qh7 mate but kept giving
+            # checks until Rxe1 landed" instead of just penalizing
+            # the missed mate.
+            "cct_held_initiative": held_initiative_summary,
+            "cct_held_initiative_segments": held_initiative_segments,
             "analysis_depth": STOCKFISH_DEPTH,
             "analyzed_at": datetime.now(timezone.utc),
             "created_at": datetime.now(timezone.utc),

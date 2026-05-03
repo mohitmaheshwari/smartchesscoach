@@ -346,3 +346,157 @@ def compute_cct_aggregate(tagged_moves: List[Dict]) -> Dict:
         "forcing_moves_played": forcing_played,
         "user_moves_total": len(tagged_moves),
     }
+
+
+# ─── Phase 3: held-initiative-after-miss detector ─────────────────────
+
+
+# Tunables — kept local so they're easy to adjust after seeing real
+# data, without affecting the lower-level CCT tagging.
+HELD_INITIATIVE_LOOKAHEAD = 3       # next-N user moves to inspect
+HELD_INITIATIVE_MIN_FORCING = 2     # need at least this many forcing moves in the window
+MISS_CP_LOSS_THRESHOLD = 150        # only treat best_was_forcing as a "miss" with this much cp loss
+EVAL_HOLD_FLOOR_CP = 200            # eval at +N must have stayed within 200cp of pre-miss winning eval
+
+
+def detect_held_initiative_segments(
+    tagged_user_moves: List[Dict],
+    move_evaluations: List[Dict],
+) -> List[Dict]:
+    """Find moments where the user missed THE best forcing move but
+    kept the discipline of forcing-move play and didn't collapse.
+
+    This is the pattern from the user's reported game: "missed mate
+    in 2, but kept giving checks until one landed." The system today
+    flags the missed-best as a blunder and never notices the recovery.
+    This function surfaces that recovery so coaching surfaces can
+    reward it.
+
+    Algorithm — for each user move M:
+      1. Was best_was_forcing AND cp_loss >= MISS_CP_LOSS_THRESHOLD?
+         (the user had a clear forcing line and missed it, not just
+         a pixel-perfect choice between two near-equal forcing moves)
+      2. Look at the next HELD_INITIATIVE_LOOKAHEAD user moves.
+      3. Count how many were forcing.
+      4. Check that the eval at the end of the window didn't collapse
+         (user kept the position from going from winning to losing).
+      5. If forcing_count >= HELD_INITIATIVE_MIN_FORCING AND eval
+         held: emit a segment.
+
+    Args:
+        tagged_user_moves: output of tag_moves_with_cct.
+        move_evaluations: full list (both colors) from Stockfish; we
+            need eval_before per ply for the hold-floor check.
+
+    Returns:
+        List of segment dicts, one per detected held-initiative
+        moment. Empty list when no patterns found.
+    """
+    if not tagged_user_moves or not move_evaluations:
+        return []
+
+    # Build ply → cp_loss + eval lookup from full move_evaluations
+    # (so we can read the user's eval at "the missed move" and at
+    # the end of the lookahead window).
+    eval_by_ply: Dict[int, Dict] = {}
+    for me in move_evaluations:
+        ply = me.get("ply")
+        if ply is None:
+            # Fallback for older docs without explicit ply: use index
+            # — we iterate in-order, so the natural index works.
+            continue
+        eval_by_ply[ply] = me
+
+    # If ply isn't in move_evaluations, fall back to index ordering.
+    if not eval_by_ply:
+        for i, me in enumerate(move_evaluations):
+            eval_by_ply[i] = me
+
+    segments: List[Dict] = []
+
+    for i, m in enumerate(tagged_user_moves):
+        if not m.get("best_was_forcing"):
+            continue
+
+        ply = m["ply"]
+        me = eval_by_ply.get(ply, {})
+        cp_loss = abs(me.get("cp_loss", 0))
+        if cp_loss < MISS_CP_LOSS_THRESHOLD:
+            continue
+
+        # Skip cases where user actually played the forcing best —
+        # that's not a "miss" worth narrating.
+        if m.get("played_forcing_when_best_was_forcing"):
+            continue
+
+        # Look at the next N user moves
+        window_user_moves = tagged_user_moves[i + 1 : i + 1 + HELD_INITIATIVE_LOOKAHEAD]
+        if not window_user_moves:
+            continue
+
+        forcing_in_window = sum(1 for w in window_user_moves if w.get("forcing"))
+        if forcing_in_window < HELD_INITIATIVE_MIN_FORCING:
+            continue
+
+        # Hold-floor: eval at end of window vs eval before the missed
+        # move. We pull the entry's score_before / cp_loss; the actual
+        # field name varies (score_after vs eval_after) so try several.
+        last_window_ply = window_user_moves[-1]["ply"]
+        last_eval_entry = eval_by_ply.get(last_window_ply, {})
+        eval_before_miss = me.get("score_before", me.get("eval_before"))
+        eval_after_window = (
+            last_eval_entry.get("score_after")
+            or last_eval_entry.get("eval_after")
+            or last_eval_entry.get("score_before")  # fallback
+        )
+
+        held_floor = True
+        if eval_before_miss is not None and eval_after_window is not None:
+            # If user was winning before the miss and still close to
+            # winning at the end of the window, count as held.
+            try:
+                before = float(eval_before_miss)
+                after = float(eval_after_window)
+                # Convert to user's POV. The eval fields can be in
+                # either pawns or cp; normalize to cp.
+                if abs(before) < 100 and abs(after) < 100:
+                    before *= 100
+                    after *= 100
+                # User was winning before the miss
+                if before >= 200:
+                    # Still winning (or at least not collapsed)
+                    held_floor = after >= (before - EVAL_HOLD_FLOOR_CP)
+            except (TypeError, ValueError):
+                pass  # if data is messy, default to held=True
+
+        if not held_floor:
+            continue
+
+        segments.append({
+            "miss_ply": ply,
+            "miss_move_san": m.get("move_san"),
+            "missed_best_san": m.get("best_move_san"),
+            "miss_cp_loss": cp_loss,
+            "window_plies": [w["ply"] for w in window_user_moves],
+            "window_moves_san": [w.get("move_san") for w in window_user_moves],
+            "forcing_in_window": forcing_in_window,
+            "window_size": len(window_user_moves),
+        })
+
+    return segments
+
+
+def summarize_held_initiative(segments: List[Dict]) -> Dict:
+    """Compact summary suitable for a game-level CCT record.
+
+    Returns:
+        {
+          "count": int,             # how many held-initiative moments in this game
+          "best_segment": dict|None # the longest forcing-window run, for narrative use
+        }
+    """
+    if not segments:
+        return {"count": 0, "best_segment": None}
+
+    best = max(segments, key=lambda s: s.get("forcing_in_window", 0))
+    return {"count": len(segments), "best_segment": best}
