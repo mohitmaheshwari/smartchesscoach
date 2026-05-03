@@ -839,7 +839,10 @@ async def get_game_decryption_v5(
                 "status": "complete",
                 "generated_at": analysis.get("decryption_v5_generated_at"),
                 "concepts_to_acknowledge": concepts_to_acknowledge,
-                "habits_report": analysis.get("habits_report")
+                "habits_report": analysis.get("habits_report"),
+                # CCT discipline narrative — null when no signal worth
+                # surfacing (silence > filler per voice rules).
+                "cct_narrative": analysis.get("cct_narrative"),
             }
         
         # Check if generation is in progress

@@ -128,6 +128,7 @@ function _generateThoughtOptions(move, posCommentary) {
 
 const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName, coachReview, onPlayBestLine }) => {
   const [decryptionData, setDecryptionData] = useState(null);
+  const [cctNarrative, setCctNarrative] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -197,10 +198,18 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       }
       
       setDecryptionData(data.decryption_data);
-      
+
       // Store habits report if available
       if (data.habits_report) {
         setHabitsReport(data.habits_report);
+      }
+
+      // CCT discipline narrative — null/missing means "no signal worth
+      // narrating", show nothing. When present, it's a coach-voice line
+      // celebrating either a held-initiative-after-miss segment or a
+      // strong CCT streak.
+      if (data.cct_narrative) {
+        setCctNarrative(data.cct_narrative);
       }
       
       // Pre-load acknowledged concepts
@@ -694,9 +703,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       {/* RIGHT: Coaching */}
       <div className="lg:w-1/2 space-y-4">
         {currentMoveIndex === -1 ? (
-          <GameStartCard 
-            decryptionData={decryptionData} 
+          <GameStartCard
+            decryptionData={decryptionData}
             habitsReport={habitsReport}
+            cctNarrative={cctNarrative}
             coachSummary={coachSummary}
             coreLesson={coreLesson}
             gameResult={gameResult}
@@ -762,9 +772,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
 // ─── GAME START CARD ────────────────────────────────────────────────
 
-const GameStartCard = ({ decryptionData, habitsReport, coachSummary, coreLesson, gameResult, opponentName, onBegin }) => {
+const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, coachSummary, coreLesson, gameResult, opponentName, onBegin }) => {
   if (!decryptionData?.length) return null;
-  
+
   // Calculate stats
   const userMoves = decryptionData.filter(m => m.is_user_move);
   const mistakes = userMoves.filter(m => m.severity === 'mistake' || m.severity === 'blunder').length;
@@ -829,6 +839,21 @@ const GameStartCard = ({ decryptionData, habitsReport, coachSummary, coreLesson,
         </div>
       </div>
       
+      {/* CCT discipline celebration — fires only when the analyzer
+          detected a held-initiative-after-miss segment OR a strong
+          forcing-move streak. Backend returns null when there's no
+          signal worth narrating; in that case the block stays hidden. */}
+      {cctNarrative && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-4" data-testid="cct-narrative">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-600 dark:text-amber-400 mb-2">
+            What you got right
+          </p>
+          <p className="text-sm text-foreground leading-relaxed">
+            {cctNarrative}
+          </p>
+        </div>
+      )}
+
       {/* What this analysis does */}
       <div className="rounded-lg border border-border p-4 bg-background">
         <p className="text-sm text-muted-foreground leading-relaxed">
@@ -836,7 +861,7 @@ const GameStartCard = ({ decryptionData, habitsReport, coachSummary, coreLesson,
           Tap <span className="text-amber-600 dark:text-amber-400 font-medium">"I understand"</span> on each concept to track what you've learned.
         </p>
       </div>
-      
+
       {/* CTA */}
       <button 
         onClick={onBegin}
