@@ -5,6 +5,7 @@ import "@/App.css";
 // Pages
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import Pricing from "@/pages/Pricing";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
 import HomePage from "@/pages/HomePage";  // NEW focused homepage
@@ -172,6 +173,7 @@ function AppRouter() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/pricing" element={<Pricing />} />
 
       {/* Public SEO routes — no auth required. Indexed by crawlers,
           served to cold visitors as marketing/teaching content. */}

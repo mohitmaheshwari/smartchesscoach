@@ -65,6 +65,8 @@ const Landing = () => {
                 <button key={item} onClick={() => document.getElementById(item.toLowerCase().replace(/\s/g, "-"))?.scrollIntoView({ behavior: "smooth" })}
                   className="text-sm text-gray-500 hover:text-white transition-colors">{item}</button>
               ))}
+              <button onClick={() => navigate("/pricing")}
+                className="text-sm text-gray-500 hover:text-white transition-colors">Pricing</button>
             </nav>
             <div className="flex items-center gap-3">
               {devMode && (

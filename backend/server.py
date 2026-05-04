@@ -264,6 +264,7 @@ from routes import training_advanced as training_advanced_routes
 from routes import coach_advanced as coach_advanced_routes
 from routes import oauth as oauth_routes
 from routes import public_seo as public_seo_routes
+from routes import billing as billing_routes
 
 
 # ==================== INJECT DEPENDENCIES ====================
@@ -320,6 +321,7 @@ training_advanced_routes.set_llm(call_llm)
 coach_advanced_routes.set_db(db)
 oauth_routes.init_db(db)
 coach_advanced_routes.set_llm(call_llm)
+billing_routes.set_db(db)
 
 
 # ==================== REGISTER ROUTERS ====================
@@ -356,6 +358,7 @@ app.include_router(training_advanced_routes.router, prefix="/api")
 app.include_router(coach_advanced_routes.router, prefix="/api")
 app.include_router(oauth_routes.router, prefix="/api")
 app.include_router(public_seo_routes.router, prefix="/api")
+app.include_router(billing_routes.router, prefix="/api")
 
 
 # ==================== CORS ====================
