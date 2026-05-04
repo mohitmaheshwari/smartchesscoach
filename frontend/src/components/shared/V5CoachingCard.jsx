@@ -39,12 +39,19 @@ import {
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import ClickableMoves from "@/components/shared/ClickableMove";
 
-// Severity colors and labels — text only, no cryptic icons
+// Severity colors and labels — text only, no cryptic icons.
+// Tester reported only "good" / "mistake" labels surfacing despite
+// the engine producing all 6 levels. The "great" key here previously
+// only matched callers using "great"; "excellent" from stockfish
+// classification fell through to default. Both keys now map; same
+// for "best" from the puzzle evaluator.
 const SEVERITY_CONFIG = {
   brilliant: { color: "cyan", label: "Brilliant" },
-  great: { color: "emerald", label: "Excellent" },
+  best: { color: "emerald", label: "Best" },
+  excellent: { color: "emerald", label: "Excellent" },
+  great: { color: "emerald", label: "Excellent" },  // legacy alias
   good: { color: "green", label: "Good move" },
-  book: { color: "blue", label: "Best" },
+  book: { color: "blue", label: "Theory" },
   context: { color: "zinc", label: "Opponent's move" },
   inaccuracy: { color: "yellow", label: "Inaccuracy" },
   mistake: { color: "orange", label: "Mistake" },
@@ -217,9 +224,14 @@ const V5CoachingCard = ({
 
         {/* Why the best move is better — clickable moves */}
         {isMistake && coaching.why_best_is_better && (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+          <div className="group rounded-lg bg-amber-50 border border-amber-200 p-3">
             <p className="text-[10px] uppercase tracking-widest font-bold text-amber-600 mb-1">
               Why {coaching.best_move} is better
+              <InlineFlag
+                section="why_best_is_better"
+                flaggedText={coaching.why_best_is_better}
+                context={flagCtx}
+              />
             </p>
             {fen && onShowArrow ? (
               <ClickableMoves

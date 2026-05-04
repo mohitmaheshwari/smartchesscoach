@@ -296,8 +296,6 @@ async def generate_smart_coach_explanation(
         sub = v2_context.get("v2_breakdown", {}).get("sub_scores", {})
         if sub.get("capture_punishment", 0) > 0:
             threat_type_key = "capture_punishment"
-            if captured:
-                target_piece_name = chess.piece_name(captured.piece_type)
         elif sub.get("undefended", 0) > 0:
             threat_type_key = "undefended"
         elif sub.get("underdefended", 0) > 0:
@@ -311,10 +309,26 @@ async def generate_smart_coach_explanation(
         elif sub.get("safe_captures", 0) > 0:
             threat_type_key = "safe_capture"
 
+    # Tester-reported bug: coach said "Bxb3 — free piece. Your bishop
+    # on b3 had no help" when b3 actually had a pawn. Root cause:
+    # target_piece_name was only set inside the capture_punishment
+    # branch above, so non-v2 captures fell through to the
+    # threat_facts fallback below — which scans for "queen / rook /
+    # bishop / knight" keywords in arbitrary strings and misnames the
+    # actual captured piece.
+    #
+    # Fix: when the move IS a capture, the captured piece's actual
+    # piece_type IS the target. Use it unconditionally — overrides any
+    # lossy fallback. Also add "pawn" to the threat_facts fallback
+    # word list so non-capture threats with pawn targets aren't
+    # silently misnamed as a higher piece.
+    if captured:
+        target_piece_name = chess.piece_name(captured.piece_type)
+
     # Find target piece from threats if not from capture
     if not target_piece_name and threat_facts:
         for tf in threat_facts:
-            for pt in ["queen", "rook", "bishop", "knight"]:
+            for pt in ["queen", "rook", "bishop", "knight", "pawn"]:
                 if pt in tf.lower():
                     target_piece_name = pt
                     break

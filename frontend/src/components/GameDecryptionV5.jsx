@@ -1038,23 +1038,40 @@ const MoveCoachingCardV5 = ({
           </div>
         )}
 
-        {/* ─── OPENING THEORY (if in opening phase) ────────────── */}
+        {/* ─── OPENING THEORY (if in opening phase) ──────────────
+            Tester reported the "Deviated: played dxc4 instead of e6"
+            phrasing was confusing — dxc4 is the Queen's Gambit
+            Accepted main line, not a deviation. The wording now says
+            "Played X — book continues with Y" which is honest whether
+            X is a true deviation or a valid alternative line.
+            Also bumped contrast from text-gray-500/400 (faded in dark
+            mode) to text-foreground/80 + foreground/60 for readability. */}
         {openingAnalysis && move.phase === "opening" && move.move_number <= 12 && (
-          <div className="bg-primary/5 rounded-lg p-3 border border-primary/15">
-            <p className="text-xs text-primary/70 font-semibold mb-1">
+          <div className="bg-primary/5 rounded-lg p-3 border border-primary/30">
+            <p className="text-xs text-primary font-semibold mb-1">
               Opening: {openingAnalysis.name}
-              <span className="text-primary/40 ml-2">{openingAnalysis.moves_in_theory}/{openingAnalysis.total_theory_moves} theory</span>
+              <span className="text-primary/60 ml-2">{openingAnalysis.moves_in_theory}/{openingAnalysis.total_theory_moves} theory</span>
             </p>
             {openingAnalysis.deviation && openingAnalysis.deviation.ply <= (move.move_number * 2) && (
-              <p className="text-xs text-gray-500">
-                Deviated: played <span className="font-mono text-red-400">{openingAnalysis.deviation.played}</span>
-                {" "}instead of <span className="font-mono text-emerald-400">{openingAnalysis.deviation.expected}</span>
-                {openingAnalysis.deviation.idea && <span className="text-gray-400"> — {openingAnalysis.deviation.idea}</span>}
+              <p className="group text-xs text-foreground/80">
+                Played <span className="font-mono text-amber-500">{openingAnalysis.deviation.played}</span>
+                {" "}— book continues with <span className="font-mono text-emerald-500">{openingAnalysis.deviation.expected}</span>
+                {openingAnalysis.deviation.idea && <span className="text-foreground/60"> — {openingAnalysis.deviation.idea}</span>}
+                <InlineFlag
+                  section="opening_deviation"
+                  flaggedText={`Played ${openingAnalysis.deviation.played} — book continues with ${openingAnalysis.deviation.expected}${openingAnalysis.deviation.idea ? ` — ${openingAnalysis.deviation.idea}` : ""}`}
+                  context={flagCtx}
+                />
               </p>
             )}
             {openingAnalysis.traps?.map((t, i) => (
-              <p key={i} className="text-xs text-amber-500 mt-1">
+              <p key={i} className="group text-xs text-amber-500 mt-1">
                 <span className="font-semibold">{t.name}:</span> {t.story || t.explanation}
+                <InlineFlag
+                  section={`opening_trap_${i}`}
+                  flaggedText={`${t.name}: ${t.story || t.explanation}`}
+                  context={flagCtx}
+                />
               </p>
             ))}
           </div>
