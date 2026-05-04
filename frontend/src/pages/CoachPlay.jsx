@@ -297,6 +297,53 @@ const CoachPlay = ({ user }) => {
   // Note: server-side guidance (coachFlow.openingGuidance) is used for CommentaryPanel text only.
   // Arrows are driven exclusively by client-side openingIdeas to avoid conflicts.
 
+  // Auto-render candidate moves as arrows on the board, Lichess-style.
+  // When v5Coaching surfaces candidate_moves (after a mistake), we
+  // overlay all of them simultaneously with rank-varying colors:
+  //   best → green (strongest, the engine's choice)
+  //   2nd  → blue
+  //   3rd+ → yellow
+  // User can still click a single candidate in the panel to override
+  // (setCoachArrows fires from the click handler, replacing this set).
+  useEffect(() => {
+    if (!v5Coaching || !currentFen) return;
+    const candidates = v5Coaching.candidate_moves || [];
+    if (candidates.length === 0) return;
+    // Don't overlay during opening-curriculum teaching — the
+    // single-line arrow set up by openingIdeas takes priority there.
+    if (openingIdeas.length && gamePly < openingIdeas.length) return;
+
+    try {
+      const probe = new Chess(currentFen);
+      const arrowTuples = [];
+      const colors = ["green", "blue", "yellow"];
+      // Sort: is_best first, then by order they came in
+      const sorted = [...candidates].sort((a, b) => {
+        if (a.is_best && !b.is_best) return -1;
+        if (!a.is_best && b.is_best) return 1;
+        return 0;
+      });
+      sorted.slice(0, 3).forEach((cand, i) => {
+        if (!cand.move) return;
+        try {
+          // Reset probe and parse SAN to get from/to squares
+          const probe2 = new Chess(currentFen);
+          const moveObj = probe2.move(cand.move);
+          if (moveObj && moveObj.from && moveObj.to) {
+            arrowTuples.push([moveObj.from, moveObj.to, colors[i] || "yellow"]);
+          }
+        } catch (_e) {
+          // Skip un-parseable candidates
+        }
+      });
+      if (arrowTuples.length > 0) {
+        setCoachArrows(arrowTuples);
+      }
+    } catch (_e) {
+      // Ignore — fall back to whatever arrows were there
+    }
+  }, [v5Coaching, currentFen, openingIdeas.length, gamePly]);
+
   // Opening line completion summary
   const [openingComplete, setOpeningComplete] = useState(null);
 
