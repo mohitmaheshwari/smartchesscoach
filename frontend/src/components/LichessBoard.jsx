@@ -236,6 +236,13 @@ const LichessBoard = forwardRef(({
         orientation: orientation,
         turnColor: getTurnColor(fen),
         viewOnly: !shouldBeInteractive,
+        // Tester reported file letters (a-h) overlapping the bottom-rank
+        // pieces and rank numbers (1-8) overlapping the a-file pieces.
+        // Chessground's default in-square coordinate rendering collided
+        // with our piece set's full-square footprint. Disable in-square
+        // coords here and render labels outside the board via CSS
+        // (see App.css cg-wrap-with-coords block).
+        coordinates: false,
         events: {
           select: (key) => {
             console.log("LichessBoard piece selected:", key);
