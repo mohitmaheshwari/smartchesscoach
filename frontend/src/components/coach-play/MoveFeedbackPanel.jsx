@@ -25,18 +25,19 @@ import {
   Eye
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
-const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse }) => {
+const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId, gameId }) => {
   const [showingAnswer, setShowingAnswer] = useState(false);
   const [userResponse, setUserResponse] = useState("");
   const [hasResponded, setHasResponded] = useState(false);
-  
+
   if (!feedback) return null;
-  
-  const { 
-    user_move, 
-    user_move_quality, 
-    best_move, 
+
+  const {
+    user_move,
+    user_move_quality,
+    best_move,
     best_move_explanation,
     coach_move,
     coach_move_explanation,
@@ -48,8 +49,23 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse }) => {
     socratic_question,
     expects_response,
     pattern_reference,
-    memory_reference
+    memory_reference,
+    // Position context fields used to enrich tester flags
+    fen_before,
   } = feedback;
+
+  // Shared flag context for every InlineFlag in this panel — tester
+  // gets full position + classification + best-move data on every flag.
+  const flagCtx = {
+    source: "play_with_coach",
+    sessionId: sessionId || feedback.session_id || null,
+    gameId: gameId || feedback.game_id || feedback.session_id || null,
+    fen: fen_before || feedback.fen || "",
+    moveSan: user_move || null,
+    severity: user_move_quality || null,
+    bestMove: best_move || null,
+    component: "MoveFeedbackPanel",
+  };
   
   // Quality colors
   const qualityColors = {
@@ -123,12 +139,16 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse }) => {
             {/* Coach's question */}
             <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30">
               <HelpCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">{socratic_question}</p>
+              <div className="flex-1">
+                <p className="group text-sm font-medium">
+                  {socratic_question}
+                  <InlineFlag section="socratic_question" flaggedText={socratic_question} context={flagCtx} />
+                </p>
                 {pattern_reference && (
-                  <p className="text-xs text-amber-400 mt-2">
+                  <p className="group text-xs text-amber-400 mt-2">
                     <Lightbulb className="w-3 h-3 inline mr-1" />
                     {pattern_reference}
+                    <InlineFlag section="pattern_reference" flaggedText={pattern_reference} context={flagCtx} />
                   </p>
                 )}
               </div>
@@ -173,30 +193,33 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse }) => {
             className="space-y-3"
           >
             {/* Main coaching message */}
-            <p className="text-sm">
+            <p className="group text-sm">
               {coaching_message}
+              <InlineFlag section="coaching_message" flaggedText={coaching_message} context={flagCtx} />
             </p>
-            
+
             {/* Pattern reference - "This is the 3rd time this week..." */}
             {pattern_reference && (
               <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30">
-                <p className="text-xs text-amber-400">
+                <p className="group text-xs text-amber-400">
                   <Lightbulb className="w-3 h-3 inline mr-1" />
                   {pattern_reference}
+                  <InlineFlag section="pattern_reference" flaggedText={pattern_reference} context={flagCtx} />
                 </p>
               </div>
             )}
-            
+
             {/* Memory reference - "Remember your game last Tuesday?" */}
             {memory_reference && (
               <div className="p-2 rounded bg-blue-500/10 border border-blue-500/30">
-                <p className="text-xs text-blue-400">
+                <p className="group text-xs text-blue-400">
                   <Brain className="w-3 h-3 inline mr-1" />
                   {memory_reference}
+                  <InlineFlag section="memory_reference" flaggedText={memory_reference} context={flagCtx} />
                 </p>
               </div>
             )}
-            
+
             {/* Trap Suggestion */}
             {trap_suggestion && trap_suggestion.moves_until_trap <= 3 && (
               <div className="p-2 rounded bg-purple-500/10 border border-purple-500/30">
@@ -206,8 +229,9 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse }) => {
                     Trap Alert: {trap_suggestion.name}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground pl-5 mb-2">
+                <p className="group text-xs text-muted-foreground pl-5 mb-2">
                   {trap_suggestion.description}
+                  <InlineFlag section="trap_suggestion" flaggedText={trap_suggestion.description} context={flagCtx} />
                 </p>
                 {trap_suggestion.setup_remaining?.length > 0 && (
                   <div className="pl-5 flex items-center gap-1 text-xs">
@@ -232,13 +256,14 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse }) => {
                   <span className="font-medium text-primary">Best was {best_move}</span>
                 </div>
                 {best_move_explanation && (
-                  <p className="text-xs text-muted-foreground pl-5">
+                  <p className="group text-xs text-muted-foreground pl-5">
                     {best_move_explanation}
+                    <InlineFlag section="best_move_explanation" flaggedText={best_move_explanation} context={flagCtx} />
                   </p>
                 )}
               </div>
             )}
-            
+
             {/* Coach's response */}
             {coach_move && (
               <div className="p-2 rounded bg-background/50">
@@ -249,26 +274,29 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse }) => {
                   </span>
                 </div>
                 {coach_move_explanation && (
-                  <p className="text-xs text-muted-foreground pl-5 mt-1">
+                  <p className="group text-xs text-muted-foreground pl-5 mt-1">
                     {coach_move_explanation}
+                    <InlineFlag section="coach_move_explanation" flaggedText={coach_move_explanation} context={flagCtx} />
                   </p>
                 )}
               </div>
             )}
-            
+
             {/* Personal feedback */}
             {relates_to_weakness && (
-              <div className="text-xs text-amber-400 border-t border-border/50 pt-2">
+              <div className="group text-xs text-amber-400 border-t border-border/50 pt-2">
                 <Lightbulb className="w-3 h-3 inline mr-1" />
                 {relates_to_weakness}
+                <InlineFlag section="relates_to_weakness" flaggedText={relates_to_weakness} context={flagCtx} />
               </div>
             )}
-            
+
             {/* Encouragement */}
             {encouragement && (
-              <div className={`text-xs border-t border-border/50 pt-2 ${isGoodMove ? 'text-green-400' : 'text-muted-foreground'}`}>
+              <div className={`group text-xs border-t border-border/50 pt-2 ${isGoodMove ? 'text-green-400' : 'text-muted-foreground'}`}>
                 <CheckCircle2 className="w-3 h-3 inline mr-1" />
                 {encouragement}
+                <InlineFlag section="encouragement" flaggedText={encouragement} context={flagCtx} />
               </div>
             )}
           </motion.div>

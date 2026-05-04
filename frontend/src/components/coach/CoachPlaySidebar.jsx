@@ -30,7 +30,7 @@ import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
 import LiveChecklist from "@/components/coach/LiveChecklist";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
-import { FlagMoveButton } from "@/components/shared/FlagMoveDialog";
+import { FlagMoveButton, InlineFlag } from "@/components/shared/FlagMoveDialog";
 import {
   OpeningTeachingOffer,
 } from "@/components/coach/OpeningTeachingPanel";
@@ -417,6 +417,8 @@ const LegacyChatMessages = ({
       <MoveFeedbackPanel
         feedback={moveFeedback}
         onDismiss={() => setMoveFeedback(null)}
+        sessionId={session?.session_id}
+        gameId={session?.session_id}
       />
     )}
 
@@ -509,15 +511,29 @@ const LegacyChatMessages = ({
               </span>
             )}
             <p
-              className={
+              className={`group ${
                 msg.type === "coach"
                   ? ""
                   : msg.type === "thinking"
                   ? "text-primary italic"
                   : "text-muted-foreground"
-              }
+              }`}
             >
               {msg.message}
+              {msg.type === "coach" && (
+                <InlineFlag
+                  section={`coach_chat_${msg.trigger || "general"}`}
+                  flaggedText={msg.message}
+                  context={{
+                    source: "play_with_coach",
+                    sessionId: session?.session_id,
+                    gameId: session?.session_id,
+                    fen: currentFen,
+                    moveSan: msg.move || null,
+                    component: "CoachPlaySidebar.ChatMessage",
+                  }}
+                />
+              )}
             </p>
 
             {/* Quick Action Buttons */}
@@ -855,7 +871,20 @@ const CoachPlaySidebar = ({
                 ("TEACHING MOMENT" / "COACH PLAYED"), the explanation renders in
                 Fraunces serif, Socratic questions in italic, and the opponent-
                 opportunity + trap-warning inline use quieter panels. */}
-            {interactiveCoaching?.coachMoveCoaching?.explanation && (
+            {interactiveCoaching?.coachMoveCoaching?.explanation && (() => {
+              // Single flag context for the whole Teaching Moment card.
+              // Every coach-generated text block inside gets an InlineFlag
+              // for tester feedback (per "consistent flag everywhere" goal).
+              const teachingFlagCtx = {
+                source: "play_with_coach",
+                sessionId: session?.session_id,
+                gameId: session?.session_id,
+                fen: currentFen,
+                moveSan: lastCoachMoveSan || null,
+                phase: session?.phase || null,
+                component: "CoachPlaySidebar.TeachingMoment",
+              };
+              return (
               <article className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-5 space-y-3">
                 {/* Eyebrow: TEACHING MOMENT / COACH PLAYED + SAN + optional v2 label */}
                 <div className="flex items-center gap-2 flex-wrap">
@@ -885,19 +914,29 @@ const CoachPlaySidebar = ({
                 </div>
 
                 {/* The explanation — Fraunces serif, the coach's voice */}
-                <p className="font-serif text-[17px] leading-[1.3] tracking-[-0.005em] text-foreground">
+                <p className="group font-serif text-[17px] leading-[1.3] tracking-[-0.005em] text-foreground">
                   <ClickableMoves
                     text={interactiveCoaching.coachMoveCoaching.explanation}
                     fen={currentFen}
                     onShowArrow={onShowArrow}
                     className="inline"
                   />
+                  <InlineFlag
+                    section="coach_explanation"
+                    flaggedText={interactiveCoaching.coachMoveCoaching.explanation}
+                    context={teachingFlagCtx}
+                  />
                 </p>
 
                 {/* Socratic hint — italic serif */}
                 {interactiveCoaching.coachMoveCoaching.hint_for_user && (
-                  <p className="font-serif italic text-[14px] text-foreground/80 leading-snug border-l-2 border-violet-400/30 pl-4">
+                  <p className="group font-serif italic text-[14px] text-foreground/80 leading-snug border-l-2 border-violet-400/30 pl-4">
                     {interactiveCoaching.coachMoveCoaching.hint_for_user}
+                    <InlineFlag
+                      section="coach_socratic_hint"
+                      flaggedText={interactiveCoaching.coachMoveCoaching.hint_for_user}
+                      context={teachingFlagCtx}
+                    />
                   </p>
                 )}
 
@@ -907,8 +946,13 @@ const CoachPlaySidebar = ({
                     <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-amber-600 dark:text-amber-300/80 mb-1.5">
                       Can you see it?
                     </p>
-                    <p className="font-serif italic text-[14px] text-foreground/85 leading-snug">
+                    <p className="group font-serif italic text-[14px] text-foreground/85 leading-snug">
                       {interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
+                      <InlineFlag
+                        section="opponent_opportunity"
+                        flaggedText={interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
+                        context={teachingFlagCtx}
+                      />
                     </p>
                   </div>
                 )}
@@ -919,12 +963,22 @@ const CoachPlaySidebar = ({
                     <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-rose-500 dark:text-rose-300 mb-1.5">
                       Trap · {interactiveCoaching.coachMoveCoaching.trap_warning.name}
                     </p>
-                    <p className="text-[13px] text-foreground/85 leading-snug">
+                    <p className="group text-[13px] text-foreground/85 leading-snug">
                       {interactiveCoaching.coachMoveCoaching.trap_warning.hint}
+                      <InlineFlag
+                        section="trap_warning_hint"
+                        flaggedText={interactiveCoaching.coachMoveCoaching.trap_warning.hint}
+                        context={teachingFlagCtx}
+                      />
                     </p>
                     {interactiveCoaching.coachMoveCoaching.trap_warning.question && (
-                      <p className="font-serif italic text-[13px] text-foreground/75 mt-2">
+                      <p className="group font-serif italic text-[13px] text-foreground/75 mt-2">
                         {interactiveCoaching.coachMoveCoaching.trap_warning.question}
+                        <InlineFlag
+                          section="trap_warning_question"
+                          flaggedText={interactiveCoaching.coachMoveCoaching.trap_warning.question}
+                          context={teachingFlagCtx}
+                        />
                       </p>
                     )}
                     {interactiveCoaching.coachMoveCoaching.trap_warning.error && (
@@ -1030,7 +1084,8 @@ const CoachPlaySidebar = ({
                   </button>
                 )}
               </article>
-            )}
+              );
+            })()}
 
             {/* ═══ User's Move Feedback ═══ */}
             {v5Coaching && !session?.curriculum_active && (
@@ -1062,7 +1117,16 @@ const CoachPlaySidebar = ({
             )}
 
             {/* Trap Result — fell for or avoided a known trap */}
-            {interactiveCoaching?.trapResult && (
+            {interactiveCoaching?.trapResult && (() => {
+              const trapFlagCtx = {
+                source: "play_with_coach",
+                sessionId: session?.session_id,
+                gameId: session?.session_id,
+                fen: currentFen,
+                phase: session?.phase || null,
+                component: "CoachPlaySidebar.TrapResult",
+              };
+              return (
               <div
                 className={`rounded-xl border px-4 py-3 ${
                   interactiveCoaching.trapResult.fell_for
@@ -1082,16 +1146,27 @@ const CoachPlaySidebar = ({
                     : "Avoided"}{" "}
                   · {interactiveCoaching.trapResult.name}
                 </p>
-                <p className="font-serif text-[15px] leading-snug text-foreground">
+                <p className="group font-serif text-[15px] leading-snug text-foreground">
                   {interactiveCoaching.trapResult.explanation}
+                  <InlineFlag
+                    section="trap_result_explanation"
+                    flaggedText={interactiveCoaching.trapResult.explanation}
+                    context={trapFlagCtx}
+                  />
                 </p>
                 {interactiveCoaching.trapResult.question && (
-                  <p className="font-serif italic text-[13px] text-foreground/75 mt-2">
+                  <p className="group font-serif italic text-[13px] text-foreground/75 mt-2">
                     {interactiveCoaching.trapResult.question}
+                    <InlineFlag
+                      section="trap_result_question"
+                      flaggedText={interactiveCoaching.trapResult.question}
+                      context={trapFlagCtx}
+                    />
                   </p>
                 )}
               </div>
-            )}
+              );
+            })()}
 
             {/* Fundamentals Checklist — shows pass/fail for 7 fundamentals */}
             {v5Coaching?.checklist_snapshot && (

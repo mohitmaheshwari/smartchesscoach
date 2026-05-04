@@ -6,8 +6,9 @@
 
 import { CheckCircle2, XCircle, TrendingUp, TrendingDown, Lightbulb } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
-const ConsequenceFeedback = ({ consequence, onDismiss }) => {
+const ConsequenceFeedback = ({ consequence, onDismiss, sessionId, gameId, fen }) => {
   if (!consequence) return null;
   
   const { 
@@ -62,8 +63,19 @@ const ConsequenceFeedback = ({ consequence, onDismiss }) => {
         </div>
         
         {/* Message */}
-        <p className="text-sm text-zinc-300 mb-3">
+        <p className="group text-sm text-zinc-300 mb-3">
           {message}
+          <InlineFlag
+            section="consequence_message"
+            flaggedText={message}
+            context={{
+              source: "play_with_coach",
+              sessionId, gameId, fen: fen || "",
+              moveSan: user_move || null,
+              bestMove: expected_move || null,
+              component: "ConsequenceFeedback",
+            }}
+          />
         </p>
         
         {/* Eval Change Indicator */}

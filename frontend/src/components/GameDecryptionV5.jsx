@@ -1020,10 +1020,20 @@ const MoveCoachingCardV5 = ({
           <div className="bg-blue-500/5 rounded-lg p-3 border border-blue-500/15">
             <p className="text-xs text-blue-400/70 font-semibold mb-1">What this position tells us</p>
             {positionCommentary.plan && (
-              <p className="text-sm text-gray-700 mb-1">{positionCommentary.plan}</p>
+              <p className="group text-sm text-gray-700 mb-1">
+                {positionCommentary.plan}
+                <InlineFlag section="position_plan" flaggedText={positionCommentary.plan} context={flagCtx} />
+              </p>
             )}
             {positionCommentary.observations?.slice(0, 2).map((obs, i) => (
-              <p key={i} className="text-xs text-gray-500 leading-snug">• {obs.title}: {obs.description}</p>
+              <p key={i} className="group text-xs text-gray-500 leading-snug">
+                • {obs.title}: {obs.description}
+                <InlineFlag
+                  section={`position_observation_${i}`}
+                  flaggedText={`${obs.title}: ${obs.description}`}
+                  context={flagCtx}
+                />
+              </p>
             ))}
           </div>
         )}
@@ -1216,7 +1226,10 @@ const MoveCoachingCardV5 = ({
             <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1">
               <Sparkles className="w-3 h-3" /> You demonstrated
             </p>
-            <p className="text-gray-900 text-sm">{move.concept_applied.replace(/_/g, ' ')}</p>
+            <p className="group text-gray-900 text-sm">
+              {move.concept_applied.replace(/_/g, ' ')}
+              <InlineFlag section="concept_applied" flaggedText={move.concept_applied} context={flagCtx} />
+            </p>
           </div>
         )}
 
