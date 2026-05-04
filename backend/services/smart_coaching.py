@@ -323,17 +323,14 @@ async def generate_smart_coach_explanation(
 
     # Tester-reported bug: coach said "Qxd5 — free piece, nobody was
     # guarding it" on a capture where d5 was defended by the queen.
-    # Compute whether the captured piece was actually undefended so
-    # the routing below picks the right template.
-    #
-    # "Truly free" means: after our capture, no opponent piece attacks
-    # the landing square. ANY attacker means a recapture is coming —
-    # even if the trade ends up favorable, the piece wasn't "free."
+    # Use the canonical SEE-based helper so this surface and every
+    # other "free piece" claim across the codebase agree on the
+    # answer.
     target_was_undefended = False
     if move_type == "capture":
         try:
-            opp_attackers_after = board_after.attackers(not piece.color, move.to_square)
-            target_was_undefended = len(opp_attackers_after) == 0
+            from services.tactical_safety import target_truly_undefended
+            target_was_undefended = target_truly_undefended(board_before, move)
         except Exception:
             target_was_undefended = False
 

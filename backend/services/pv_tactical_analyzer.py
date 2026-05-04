@@ -228,25 +228,30 @@ def _immediate_fork(board_before: chess.Board, best_move: chess.Move) -> Optiona
 
     gives_check = board.is_check()
 
-    # ── INTERIM SAFETY GATE ──
-    # Reject if the fork square itself is unsafe. "Unsafe" =
-    # opponent's cheapest attacker is worth less than the forker AND
-    # the forker has no defender. That's the knight-fork-knight case.
-    forker_value = _PIECE_VALUES.get(forker.piece_type, 0)
+    # SEE-based safety gate. Real exchange evaluation, not the
+    # "cheapest_attacker < forker_value AND no defender" heuristic
+    # used previously. Catches the one-defender cases where SEE is
+    # still negative (knight on pawn-defended square + one defender
+    # = still loses 2 net pawns).
     fork_sq = best_move.to_square
-    attackers_on_forker = board.attackers(not mover_color, fork_sq)
-    if attackers_on_forker:
-        defenders_of_forker = board.attackers(mover_color, fork_sq)
-        cheapest_attacker = min(
-            (_PIECE_VALUES.get(board.piece_at(a).piece_type, 0) for a in attackers_on_forker),
-            default=0,
-        )
-        # If unsafe — opponent can capture forker for material gain — and
-        # no check (which would force them to deal with that first), the
-        # fork is fake.
-        unsafe = (cheapest_attacker < forker_value) and not defenders_of_forker
-        if unsafe and not gives_check:
+    try:
+        from services.tactical_safety import fork_is_safe as _see_fork_is_safe
+        if not _see_fork_is_safe(board, fork_sq, mover_color, gives_check=gives_check):
             return None
+    except Exception:
+        # Fail-soft: keep the old binary gate as fallback if the
+        # helper fails for any reason.
+        forker_value = _PIECE_VALUES.get(forker.piece_type, 0)
+        attackers_on_forker = board.attackers(not mover_color, fork_sq)
+        if attackers_on_forker:
+            defenders_of_forker = board.attackers(mover_color, fork_sq)
+            cheapest_attacker = min(
+                (_PIECE_VALUES.get(board.piece_at(a).piece_type, 0) for a in attackers_on_forker),
+                default=0,
+            )
+            unsafe = (cheapest_attacker < forker_value) and not defenders_of_forker
+            if unsafe and not gives_check:
+                return None
 
     # ── INTERIM TARGET-RECAPTURE GATE ──
     # For each "target," check whether the target itself attacks the

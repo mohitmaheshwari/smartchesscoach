@@ -242,37 +242,18 @@ class CoachCommentary:
                 chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
                 chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
             }
-            piece_values_local = {
-                chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
-                chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0,
-            }
+            # SEE-based fork safety check. Replaces the previous binary
+            # gate which only caught "no defender + cheaper attacker."
+            # Now uses real exchange evaluation — catches the
+            # one-defender cases where SEE is still negative (e.g.,
+            # knight on pawn-defended square with one defender =
+            # loses 2 net pawns).
+            from services.tactical_safety import fork_is_safe as _see_fork_is_safe
 
             def _fork_is_safe(fork_sq, mover_color, gives_check):
-                """Reject fork claims where the forker itself can be
-                captured for material gain. Tester reported claims
-                like 'Ne3 forks queen and rook' when e3 is defended by
-                a pawn (forker captured for 2 pawns net) and 'Qe8
-                forks queen and rook' when Qe8 hangs the queen.
-                """
-                forker = board_after_best.piece_at(fork_sq)
-                if forker is None:
-                    return False
-                forker_val = piece_values_local.get(forker.piece_type, 0)
-                attackers = board_after_best.attackers(not mover_color, fork_sq)
-                if not attackers:
-                    return True
-                defenders = board_after_best.attackers(mover_color, fork_sq)
-                cheapest = min(
-                    (piece_values_local.get(board_after_best.piece_at(a).piece_type, 0)
-                     for a in attackers if board_after_best.piece_at(a)),
-                    default=0,
+                return _see_fork_is_safe(
+                    board_after_best, fork_sq, mover_color, gives_check=gives_check
                 )
-                # Unsafe = opponent can capture cheaper than forker AND
-                # we don't have a defender to recapture. Check forces
-                # opponent to deal with it first, so allow that case.
-                if cheapest < forker_val and not defenders:
-                    return bool(gives_check)
-                return True
             
             moving_piece_name = piece_names.get(moving_piece.piece_type, "piece") if moving_piece else "piece"
             to_square_name = chess.square_name(best_chess_move.to_square)

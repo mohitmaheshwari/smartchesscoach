@@ -15,6 +15,8 @@ import chess
 from typing import Optional, Dict, List
 import logging
 
+from services.tactical_safety import fork_threat_is_real
+
 logger = logging.getLogger(__name__)
 
 PIECE_VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
@@ -370,33 +372,22 @@ def _find_opponent_threats(board: chess.Board, opp_color: chess.Color) -> List[s
             target = board.piece_at(sq)
             if target and target.color == user_color and target.piece_type != chess.PAWN:
                 attacked_targets.append(target.piece_type)
-
-        # SAFETY GATE — tester reported "Ne3 forks your queen and rook"
-        # warnings when e3 is defended by a pawn (knight gets captured
-        # for 2 net pawns). Same gate idea as coach_commentary.py
-        # _fork_is_safe: if user can capture the forker for material
-        # gain (cheapest user attacker < forker value AND no opp
-        # defender of the fork square), the fork "threat" isn't real.
-        # Check is gives_check, which forces user to deal with it
-        # before recapturing — still a real threat.
-        forker_safe = True
-        if len(attacked_targets) >= 2:
-            forker_value = PIECE_VALUES.get(piece.piece_type, 0)
-            user_attackers = board.attackers(user_color, move.to_square)
-            if user_attackers:
-                cheapest_user = min(
-                    (PIECE_VALUES.get(board.piece_at(a).piece_type, 0)
-                     for a in user_attackers if board.piece_at(a)),
-                    default=99,
-                )
-                opp_defenders = board.attackers(opp_color, move.to_square)
-                if cheapest_user < forker_value and not opp_defenders:
-                    # Forker hangs — only real threat if it gives check
-                    if not board.is_check():
-                        forker_safe = False
         board.pop()
 
-        if len(attacked_targets) >= 2 and forker_safe:
+        # SEE-based safety gate. Real exchange evaluation, not a binary
+        # "cheapest attacker < forker" heuristic. Tester reported
+        # "Ne3 forks your queen and rook" warnings when e3 is defended
+        # by a pawn — and even one-defender cases where SEE is still
+        # negative (knight on pawn-defended square + one defender =
+        # still loses 2 net pawns). The helper handles both. Check
+        # forces user to address the check first, so we keep those
+        # threats even when SEE says forker would die.
+        if len(attacked_targets) >= 2 and not fork_threat_is_real(
+            board, move, user_color
+        ):
+            continue
+
+        if len(attacked_targets) >= 2:
             piece_name = chess.piece_name(piece.piece_type)
             target_names = [chess.piece_name(t) for t in
                           sorted(attacked_targets,
