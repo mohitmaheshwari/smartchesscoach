@@ -83,18 +83,21 @@ async def dump_samples(limit: int, user_filter: str | None) -> None:
             print(f"result   : {g.get('result', '?')}  user_color: {g.get('user_color', '?')}")
             print(f"platform : {g.get('platform', '?')}  imported : {g.get('imported_at', '?')}")
 
-        decryption = ga.get("decryption_data") or {}
+        decryption = ga.get("decryption_data")
 
-        # decryption_data shape can vary across v4/v5. Common fields:
-        # - moves: list of per-move dicts with narrative, mistake_analysis, etc.
-        # - game_summary / overview: top-level text
-        for top_key in ("game_summary", "overview", "headline", "summary"):
-            if decryption.get(top_key):
-                print()
-                print(f"[{top_key}]")
-                print(_truncate(decryption[top_key], 500))
-
-        moves = decryption.get("moves") or decryption.get("move_data") or []
+        # decryption_data shape varies: sometimes a dict with "moves" inside,
+        # sometimes the list of moves directly. Handle both.
+        if isinstance(decryption, list):
+            moves = decryption
+        elif isinstance(decryption, dict):
+            for top_key in ("game_summary", "overview", "headline", "summary"):
+                if decryption.get(top_key):
+                    print()
+                    print(f"[{top_key}]")
+                    print(_truncate(decryption[top_key], 500))
+            moves = decryption.get("moves") or decryption.get("move_data") or []
+        else:
+            moves = []
         if not moves:
             print()
             print("(no per-move decryption present)")
