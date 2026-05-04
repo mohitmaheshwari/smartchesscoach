@@ -65,6 +65,74 @@ def _pattern_voice(pattern: str, form: str = "verb") -> str:
     return readable
 
 
+# ── Per-game card coach line ──────────────────────────────────────────
+# Replaces the raw "move N: played → best (−Ncp)" engine output on each
+# Lab card with one short Coach-Voice line. Per-row source for the card
+# breakdown sent to the frontend.
+
+# Map a critical_gap → short verb phrase describing what happened.
+# Used when outcome is "lost" (the gap was decisive).
+_CARD_LOSS_PHRASE_BY_GAP = {
+    "piece_safety":       "hung a piece",
+    "missed_tactic":      "missed a tactic",
+    "tactical_oversight": "missed a tactic",
+    "calculation_depth":  "stopped calculating early",
+    "king_safety":        "left the king exposed",
+    "piece_activity":     "let the pieces go passive",
+    "pawn_structure":     "damaged the pawn structure",
+    "endgame_technique":  "slipped in the endgame",
+    "opening_knowledge":  "drifted from the opening",
+    "time_pressure":      "rushed under the clock",
+    "ignore_threat":      "missed their threat",
+    "conversion":         "gave up a winning position",
+}
+
+
+def compute_card_coach_line(
+    outcome: Optional[str],
+    critical_gap: Optional[str],
+    critical_move_number: Optional[int],
+    was_winning: bool = False,
+) -> Optional[str]:
+    """Produce one short Coach Voice line for a Lab session card.
+
+    Returns None when there's no decisive moment to surface — caller
+    falls back to result-only display. Never returns engine output.
+    """
+    move = critical_move_number
+    move_chunk = f"move {move}" if move else None
+
+    if outcome == "won":
+        # We don't drag a win down with the slip. Quiet line, optional move.
+        if move_chunk:
+            return f"won despite a slip on {move_chunk}"
+        return "won cleanly"
+
+    if outcome == "drew":
+        # Could be "saved a worse position" or "let a win get away."
+        # was_winning is the strongest signal we have.
+        if was_winning:
+            return f"had it won; held the half-point on {move_chunk}" if move_chunk else "had it won; held the half-point"
+        return f"held the half-point" + (f" after {move_chunk}" if move_chunk else "")
+
+    # outcome == "lost" (or unknown)
+    if was_winning:
+        if move_chunk:
+            return f"had it won — gave it back on {move_chunk}"
+        return "had it won — gave it back"
+
+    phrase = _CARD_LOSS_PHRASE_BY_GAP.get((critical_gap or "").strip().lower())
+    if not phrase:
+        # No specific gap — generic loss line. Still no engine talk.
+        if move_chunk:
+            return f"lost it on {move_chunk}"
+        return None
+
+    if move_chunk:
+        return f"{phrase} on {move_chunk}"
+    return phrase
+
+
 async def _load_game_analysis(db, user_id: str, game_id: str) -> Dict:
     """Fetch the one game-analysis doc we need, returning the bits used by
     the mirror + the Lab session panel (gaps, accuracy, critical move
@@ -480,10 +548,12 @@ def _aggregate_verdict(
                 f"Last session was {voice}. {n} new games, none. You listened."
             )
         elif persisted:
-            voice = _pattern_voice(next(iter(persisted)))
-            listening = (
-                f"Same {voice} pattern as last session. Still happening."
-            )
+            # Use noun form so "Same {X} pattern" is grammatical. Verb
+            # form (e.g. "drifted from opening theory") slotted into a
+            # noun position produced "Same drifted from opening theory
+            # pattern" — voice violation flagged 2026-05-04.
+            voice = _pattern_voice(next(iter(persisted)), form="noun")
+            listening = f"Same {voice} pattern carried over from last session."
 
     if not repeated:
         # Clean window across all established patterns.
@@ -520,22 +590,27 @@ def _aggregate_verdict(
             f" Also {_pattern_voice(second_pattern)} in {second_count} of {n}."
         )
 
-    # Tone for the "clean" line — be honest. 37%+ recurrence isn't progress.
+    # Tone for the "clean" line — be honest, but end with a path forward,
+    # never a double-negative pile-on. Voice review 2026-05-04 flagged
+    # "showing up everywhere / still happening" as report-card, not coach.
     if fully_clean == 0:
-        clean_line = "No clean games — same patterns showing up everywhere."
+        clean_line = "No clean games yet on this pattern."
     elif top_count == n:
-        clean_line = "Same old."
+        clean_line = "Every game touched it."
     elif pct_repeat >= 0.5:
-        clean_line = (
-            f"{fully_clean} fully clean — but the pattern is still recurring."
-        )
+        clean_line = f"{fully_clean} fully clean. The other {n - fully_clean} touched it."
     elif pct_repeat >= 0.25:
-        clean_line = f"{fully_clean} fully clean — pattern is still showing up."
+        clean_line = f"{fully_clean} fully clean. Halfway there."
     else:
         # <25% recurrence is real partial progress.
-        clean_line = f"{fully_clean} fully clean — pattern is fading."
+        clean_line = f"{fully_clean} fully clean — the pattern is fading."
 
-    detail = f"{clean_line}{second_note}".strip()
+    # Forward action: name the pattern, point to the drill. Coach Voice
+    # rule 6 ("end with one specific thing").
+    drill_voice_noun = _pattern_voice(top_pattern, form="noun")
+    forward = f"Drill {drill_voice_noun} today."
+
+    detail = f"{clean_line}{second_note} {forward}".strip()
 
     return {
         "tone": "repeated",
@@ -656,9 +731,28 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
             "critical_best": g.get("critical_best"),
             "critical_cp": g.get("critical_cp"),
             "critical_gap": g.get("critical_gap"),
+            # Coach Voice one-liner that REPLACES the engine-style
+            # "move N: played → best (−Ncp)" rendering on the cards.
+            # Frontend should render this; the raw critical_* fields stay
+            # only for legacy callers and admin tools.
+            "coach_line": compute_card_coach_line(
+                outcome=g.get("outcome"),
+                critical_gap=g.get("critical_gap"),
+                critical_move_number=g.get("critical_move_number"),
+                was_winning=bool(g.get("was_winning")),
+            ),
         }
         for g in games_data[:_BREAKDOWN_MAX]
     ]
+
+    # Coach line for the featured game itself (used by Dashboard.jsx
+    # reasoning panel — replaces the "(−Ncp) — best was X" prose).
+    featured_coach_line = compute_card_coach_line(
+        outcome=thumb_game.get("outcome"),
+        critical_gap=thumb_game.get("critical_gap"),
+        critical_move_number=thumb_game.get("critical_move_number"),
+        was_winning=bool(thumb_game.get("was_winning")),
+    )
 
     return {
         # Backward-compat last_session shape (HomePage reads these):
@@ -670,6 +764,12 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
         "critical_fen": thumb_game.get("critical_fen"),
         "accuracy": thumb_game.get("accuracy"),
         "total_moves": thumb_game.get("total_moves"),
+        "critical_move": thumb_game.get("critical_move_number"),
+        "critical_played": thumb_game.get("critical_played"),
+        "critical_best": thumb_game.get("critical_best"),
+        "critical_gap": thumb_game.get("critical_gap"),
+        "was_winning": bool(thumb_game.get("was_winning")),
+        "coach_line": featured_coach_line,
         "story": story,
         # Window context:
         "window_size": len(games_data),

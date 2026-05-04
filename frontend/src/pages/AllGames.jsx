@@ -117,12 +117,15 @@ const AllGames = ({ user }) => {
             {g.coach_take && (
               <p className="text-xs text-foreground/80 italic mb-2">{g.coach_take}</p>
             )}
-            {g.critical_move && (
+            {g.coach_line ? (
               <p className="text-[11px] text-muted-foreground/60 mb-2">
-                Critical moment: move {g.critical_move}
-                {g.critical_best ? ` — best was ${g.critical_best}` : ""}
+                {g.coach_line.charAt(0).toUpperCase() + g.coach_line.slice(1)}.
               </p>
-            )}
+            ) : g.critical_move ? (
+              <p className="text-[11px] text-muted-foreground/60 mb-2">
+                Critical moment: move {g.critical_move}.
+              </p>
+            ) : null}
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/game/${g.game_id}`); }}
               className="text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition"

@@ -384,23 +384,13 @@ const Dashboard = ({ user }) => {
       note: "You were winning this one.",
     });
   }
-  if (
-    featuredGame?.critical_move &&
-    featuredGame?.critical_played &&
-    featuredGame?.critical_best
-  ) {
-    const cpChunk = featuredGame.critical_cp
-      ? ` (−${featuredGame.critical_cp}cp)`
-      : "";
+  // Coach Voice line replaces the engine arrow + cp output. Backend
+  // computes coach_line per game (game_mirror.compute_card_coach_line).
+  // Falls through silently when no decisive moment to surface.
+  if (featuredGame?.coach_line) {
     reasoningLines.push({
-      at: `Move ${featuredGame.critical_move}`,
-      note: `You played ${featuredGame.critical_played}${cpChunk} — best was ${featuredGame.critical_best}.`,
-    });
-  } else if (featuredGame?.critical_move && featuredGame?.critical_best) {
-    // We know the book move but not what the user played — still useful.
-    reasoningLines.push({
-      at: `Move ${featuredGame.critical_move}`,
-      note: `Best here was ${featuredGame.critical_best}.`,
+      at: featuredGame.critical_move ? `Move ${featuredGame.critical_move}` : "The moment",
+      note: featuredGame.coach_line.charAt(0).toUpperCase() + featuredGame.coach_line.slice(1) + ".",
     });
   }
   if (featuredGame?.coach_take) {
@@ -483,9 +473,10 @@ const Dashboard = ({ user }) => {
                       const opening = g.opening
                         ? String(g.opening).split(":")[0].trim()
                         : null;
-                      const criticalLine = g.critical_played && g.critical_best && g.critical_move_number
-                        ? `move ${g.critical_move_number}: ${g.critical_played} → ${g.critical_best}`
-                        : null;
+                      // Coach Voice line replaces the engine arrow.
+                      // Backend produces coach_line per card; raw
+                      // critical_* fields stay only for legacy callers.
+                      const coachLine = g.coach_line || null;
                       return (
                         <button
                           key={g.game_id}
@@ -513,10 +504,9 @@ const Dashboard = ({ user }) => {
                                 </span>
                               )}
                             </div>
-                            {criticalLine && (
-                              <div className="text-[11.5px] text-muted-foreground/80 mt-0.5 font-mono">
-                                {criticalLine}
-                                {g.critical_cp ? ` (−${g.critical_cp}cp)` : ""}
+                            {coachLine && (
+                              <div className="text-[11.5px] text-muted-foreground/80 mt-0.5">
+                                {coachLine}
                               </div>
                             )}
                           </div>
