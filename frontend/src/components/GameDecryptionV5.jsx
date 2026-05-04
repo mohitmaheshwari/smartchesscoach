@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
 import ClickableLine, { extractMovesFromText } from "@/components/ClickableLine";
+import TruthHeadline from "@/components/TruthHeadline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +130,8 @@ function _generateThoughtOptions(move, posCommentary) {
 const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName, coachReview, onPlayBestLine }) => {
   const [decryptionData, setDecryptionData] = useState(null);
   const [cctNarrative, setCctNarrative] = useState(null);
+  const [truthLine, setTruthLine] = useState(null);
+  const [decryptionBlock, setDecryptionBlock] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -210,6 +213,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       // strong CCT streak.
       if (data.cct_narrative) {
         setCctNarrative(data.cct_narrative);
+      }
+
+      // Truth + Decryption (post-game first screen). Both null when the
+      // user won — we don't render the surface in that case.
+      if (data.truth_line) {
+        setTruthLine(data.truth_line);
+      }
+      if (data.decryption_block) {
+        setDecryptionBlock(data.decryption_block);
       }
       
       // Pre-load acknowledged concepts
@@ -616,6 +628,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   );
 
   return (
+    <>
+      {/* Truth + Decryption — first thing the player sees post-game.
+          Hidden when user won (truthLine null). Decryption block is gated
+          behind "Show me why" inside TruthHeadline. */}
+      <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} />
+
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}
       <div className="lg:w-1/2 space-y-4">
@@ -766,6 +784,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         </div>
       </div>
     </div>
+    </>
   );
 };
 

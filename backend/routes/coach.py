@@ -803,7 +803,7 @@ async def get_game_decryption_v5(
         # Check for existing V5 data
         analysis = await db.game_analyses.find_one(
             {"game_id": game_id},
-            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1}
+            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "decryption_block": 1}
         )
         
         if not analysis or "game_id" not in analysis:
@@ -843,6 +843,12 @@ async def get_game_decryption_v5(
                 # CCT discipline narrative — null when no signal worth
                 # surfacing (silence > filler per voice rules).
                 "cct_narrative": analysis.get("cct_narrative"),
+                # Truth + Decryption layer (project_decryption_voice.md).
+                # truth_line: 3-line headline shown first.
+                # decryption_block: prose shown when user taps "Show me why".
+                # Both null when user won the game.
+                "truth_line": analysis.get("truth_line"),
+                "decryption_block": analysis.get("decryption_block"),
             }
         
         # Check if generation is in progress
@@ -931,6 +937,28 @@ async def get_game_decryption_v5(
                         except Exception as e:
                             logger.warning(f"Habits analysis failed (non-critical): {e}")
                         
+                        # Truth line + Decryption block for the post-game
+                        # screen. Orchestrator handles user-won skip,
+                        # scenario classification, LLM call + validation
+                        # + retry + fallback. Failure here is non-critical.
+                        truth_line = None
+                        decryption_block = None
+                        try:
+                            from services.decryption_voice.orchestrator import generate_post_game_voice
+                            truth_line, decryption_block = await generate_post_game_voice(
+                                decryption_v5_data=decryption_data,
+                                move_evaluations=move_evaluations,
+                                game_id=game_id,
+                                game_result=game.get("result", "*") or "*",
+                                user_color=user_color,
+                                termination=game.get("termination", "unknown"),
+                                accuracy=full_analysis.get("stockfish_analysis", {}).get("accuracy", 0),
+                            )
+                        except Exception as voice_err:
+                            logger.warning(
+                                f"[DECRYPTION] Truth/Decryption orchestration failed (non-critical): {voice_err}"
+                            )
+
                         await db.game_analyses.update_one(
                             {"game_id": game_id},
                             {"$set": {
@@ -940,6 +968,8 @@ async def get_game_decryption_v5(
                                 "decryption_v5_version": V5_COACHING_VERSION,
                                 "habits_report": habits_report,
                                 "cct_narrative": cct_narrative,
+                                "truth_line": truth_line,
+                                "decryption_block": decryption_block,
                             }}
                         )
                         logger.info(f"[DECRYPTION V5] Background generation complete for {game_id}")
