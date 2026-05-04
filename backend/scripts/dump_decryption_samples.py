@@ -49,15 +49,37 @@ async def dump_samples(limit: int, user_filter: str | None) -> None:
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
 
-    # Find game_analyses that have decryption_data populated. Sort by
-    # created_at desc so we get recent ones.
-    query = {"decryption_data": {"$exists": True, "$ne": None}}
+    # First, an inventory: how many games have V4 vs V5 data?
+    total = await db.game_analyses.count_documents({})
+    v4_count = await db.game_analyses.count_documents(
+        {"decryption_data": {"$exists": True, "$ne": None}}
+    )
+    v5_count = await db.game_analyses.count_documents(
+        {"decryption_v5_data": {"$exists": True, "$ne": None}}
+    )
+    print(f"INVENTORY: {total} game_analyses total | "
+          f"V4 populated: {v4_count} | V5 populated: {v5_count}")
+    print()
+
+    # Prefer V5 — that's the live system. Fall back to V4 if no V5 data exists.
+    if v5_count > 0:
+        query = {"decryption_v5_data": {"$exists": True, "$ne": None}}
+        active_field = "decryption_v5_data"
+        print(f"Using V5 ({active_field})")
+    else:
+        query = {"decryption_data": {"$exists": True, "$ne": None}}
+        active_field = "decryption_data"
+        print(f"No V5 data exists — falling back to V4 ({active_field})")
+
     if user_filter:
         query["user_id"] = user_filter
 
     cursor = db.game_analyses.find(query).sort("created_at", -1).limit(limit)
     games = []
     async for g in cursor:
+        # Normalize: copy the active field to "decryption_data" so the rest
+        # of the script reads from a single key.
+        g["decryption_data"] = g.get(active_field)
         games.append(g)
 
     if not games:
