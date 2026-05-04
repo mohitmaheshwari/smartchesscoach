@@ -24,6 +24,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
 const PrincipleFeedback = ({
   mistakeType,
@@ -31,7 +32,8 @@ const PrincipleFeedback = ({
   movePlayed,
   bestMove,
   autoFetch = true,
-  compact = true
+  compact = true,
+  gameId,
 }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -130,9 +132,23 @@ const PrincipleFeedback = ({
             </Badge>
           </div>
 
+          {(() => {
+            const flagCtx = {
+              source: "lab",
+              gameId,
+              fen: fen || "",
+              moveSan: movePlayed || null,
+              bestMove: bestMove || null,
+              component: "PrincipleFeedback",
+            };
+            return (
+            <>
           {/* Explanation */}
           <div className="p-3 rounded-lg bg-background/50 border border-border/50 mb-3">
-            <p className="text-sm text-foreground">{data.explanation}</p>
+            <p className="group text-sm text-foreground">
+              {data.explanation}
+              <InlineFlag section="principle_explanation" flaggedText={data.explanation} context={flagCtx} />
+            </p>
           </div>
 
           {/* Applied to Position */}
@@ -142,7 +158,10 @@ const PrincipleFeedback = ({
                 <AlertTriangle className="w-4 h-4 text-red-400" />
                 <span className="text-xs font-medium text-red-400">In This Position</span>
               </div>
-              <p className="text-sm text-red-200">{data.applied_to_position}</p>
+              <p className="group text-sm text-red-200">
+                {data.applied_to_position}
+                <InlineFlag section="principle_applied_to_position" flaggedText={data.applied_to_position} context={flagCtx} />
+              </p>
             </div>
           )}
 
@@ -152,7 +171,10 @@ const PrincipleFeedback = ({
               <Brain className="w-4 h-4 text-purple-400" />
               <span className="text-xs font-medium text-purple-400">Thinking Habit to Build</span>
             </div>
-            <p className="text-sm text-purple-200 italic">"{data.thinking_habit}"</p>
+            <p className="group text-sm text-purple-200 italic">
+              "{data.thinking_habit}"
+              <InlineFlag section="principle_thinking_habit" flaggedText={data.thinking_habit} context={flagCtx} />
+            </p>
           </div>
 
           {/* What to Do Instead */}
@@ -162,9 +184,15 @@ const PrincipleFeedback = ({
                 <CheckCircle2 className="w-4 h-4 text-green-400" />
                 <span className="text-xs font-medium text-green-400">What to Do Instead</span>
               </div>
-              <p className="text-sm text-green-200">{data.what_to_do_instead}</p>
+              <p className="group text-sm text-green-200">
+                {data.what_to_do_instead}
+                <InlineFlag section="principle_what_to_do_instead" flaggedText={data.what_to_do_instead} context={flagCtx} />
+              </p>
             </div>
           )}
+            </>
+            );
+          })()}
         </CardContent>
       </Card>
     </motion.div>

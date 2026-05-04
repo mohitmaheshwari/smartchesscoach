@@ -15,12 +15,16 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Eye, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
-const TrapAlert = ({ 
+const TrapAlert = ({
   trap,
   onShowLine,
   onDismiss,
-  autoHideAfter = 10000 // Auto-hide after 10 seconds
+  autoHideAfter = 10000, // Auto-hide after 10 seconds
+  sessionId,
+  gameId,
+  fen,
 }) => {
   const [visible, setVisible] = useState(true);
   
@@ -56,8 +60,17 @@ const TrapAlert = ({
             <p className="text-sm font-medium text-amber-500">
               Trap Alert
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="group text-xs text-muted-foreground mt-0.5">
               {trap.message || trap.name}
+              <InlineFlag
+                section="trap_alert_message"
+                flaggedText={trap.message || trap.name || ""}
+                context={{
+                  source: "play_with_coach",
+                  sessionId, gameId, fen: fen || "",
+                  component: "TrapAlert",
+                }}
+              />
             </p>
           </div>
           <button 

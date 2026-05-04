@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Eye, 
+import {
+  Eye,
   Target,
   TrendingDown,
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   ChevronUp,
   Lightbulb
 } from "lucide-react";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
 /**
  * KeyMomentCard - Shows a critical teaching moment with GM-style coaching
@@ -21,11 +22,12 @@ import {
  * 3. What to do instead (the correction)
  * 4. How to think (the lesson)
  */
-const KeyMomentCard = ({ 
-  moment, 
-  onViewOnBoard, 
+const KeyMomentCard = ({
+  moment,
+  onViewOnBoard,
   onTryAgain,
-  isActive = false 
+  isActive = false,
+  gameId,
 }) => {
   const [expanded, setExpanded] = useState(false);
   
@@ -146,20 +148,41 @@ const KeyMomentCard = ({
         </div>
 
         {/* Coach Explanation - The Key Part! */}
+        {(() => {
+          const flagCtx = {
+            source: "lab",
+            gameId, fen: fen || "",
+            moveSan: move || null,
+            moveNumber: moveNumber || null,
+            component: "KeyMomentCard",
+          };
+          return (
         <div className="space-y-2 mb-3">
           {/* What went wrong */}
-          <p className="text-sm">
+          <p className="group text-sm">
             {explanation.whatWentWrong || description}
+            <InlineFlag
+              section="key_moment_what_went_wrong"
+              flaggedText={explanation.whatWentWrong || description}
+              context={flagCtx}
+            />
           </p>
-          
+
           {/* Why it matters - The Lesson */}
           <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
             <Lightbulb className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-amber-200/90">
+            <p className="group text-xs text-amber-200/90">
               {explanation.whyItMatters}
+              <InlineFlag
+                section="key_moment_why_it_matters"
+                flaggedText={explanation.whyItMatters}
+                context={flagCtx}
+              />
             </p>
           </div>
         </div>
+          );
+        })()}
 
         {/* Expand for more details */}
         <button

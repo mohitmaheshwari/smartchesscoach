@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import { API } from "@/App";
 import { toast } from "sonner";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
-const CoachChat = ({ sessionId, disabled = false }) => {
+const CoachChat = ({ sessionId, disabled = false, gameId, fen }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -161,17 +162,48 @@ const CoachChat = ({ sessionId, disabled = false }) => {
                   : "bg-muted"
               }`}
             >
-              <p>{msg.content}</p>
-              
+              <p className="group">
+                {msg.content}
+                {msg.role === "coach" && !msg.isError && (
+                  <InlineFlag
+                    section="coach_chat_response"
+                    flaggedText={msg.content}
+                    context={{
+                      source: "play_with_coach",
+                      sessionId, gameId, fen: fen || "",
+                      component: "CoachChat",
+                    }}
+                  />
+                )}
+              </p>
+
               {msg.insight && (
-                <p className="mt-2 text-xs opacity-80 italic">
+                <p className="group mt-2 text-xs opacity-80 italic">
                   💡 {msg.insight}
+                  <InlineFlag
+                    section="coach_chat_insight"
+                    flaggedText={msg.insight}
+                    context={{
+                      source: "play_with_coach",
+                      sessionId, gameId, fen: fen || "",
+                      component: "CoachChat",
+                    }}
+                  />
                 </p>
               )}
-              
+
               {msg.plan && (
-                <p className="mt-2 text-xs opacity-80">
+                <p className="group mt-2 text-xs opacity-80">
                   📋 Plan: {msg.plan}
+                  <InlineFlag
+                    section="coach_chat_plan"
+                    flaggedText={msg.plan}
+                    context={{
+                      source: "play_with_coach",
+                      sessionId, gameId, fen: fen || "",
+                      component: "CoachChat",
+                    }}
+                  />
                 </p>
               )}
             </div>

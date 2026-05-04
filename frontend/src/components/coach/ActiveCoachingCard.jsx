@@ -14,6 +14,7 @@
 
 import { CLOCK_STATES } from "@/coachFlow/types";
 import { Clock, AlertTriangle, TrendingDown, Check, BookOpen } from "lucide-react";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
 const SEVERITY_STYLES = {
   high: {
@@ -48,7 +49,7 @@ const TYPE_LABELS = {
   consequence_warning: "Warning",
 };
 
-const ActiveCoachingCard = ({ moment, clockState, onClockTap }) => {
+const ActiveCoachingCard = ({ moment, clockState, onClockTap, sessionId, gameId, fen }) => {
   if (!moment) return null;
 
   const style = SEVERITY_STYLES[moment.severity] || SEVERITY_STYLES.medium;
@@ -57,6 +58,13 @@ const ActiveCoachingCard = ({ moment, clockState, onClockTap }) => {
 
   const isLocked = clockState === CLOCK_STATES.HOLD_LOCKED;
   const isReady = clockState === CLOCK_STATES.HOLD_READY;
+
+  const flagCtx = {
+    source: "play_with_coach",
+    sessionId, gameId, fen: fen || "",
+    severity: moment.severity || null,
+    component: "ActiveCoachingCard",
+  };
 
   return (
     <div className={`rounded-xl border-2 ${style.card} p-4 shadow-sm`}>
@@ -69,14 +77,24 @@ const ActiveCoachingCard = ({ moment, clockState, onClockTap }) => {
       </div>
 
       {/* Message */}
-      <p className={`text-sm font-medium ${style.textClass} leading-snug`}>
+      <p className={`group text-sm font-medium ${style.textClass} leading-snug`}>
         {moment.text}
+        <InlineFlag
+          section={`active_coaching_${moment.messageType || "message"}`}
+          flaggedText={moment.text}
+          context={flagCtx}
+        />
       </p>
 
       {/* Question */}
       {moment.question?.prompt && (
-        <p className={`text-xs ${style.textClass} opacity-70 mt-2 italic`}>
+        <p className={`group text-xs ${style.textClass} opacity-70 mt-2 italic`}>
           {moment.question.prompt}
+          <InlineFlag
+            section="active_coaching_question"
+            flaggedText={moment.question.prompt}
+            context={flagCtx}
+          />
         </p>
       )}
 

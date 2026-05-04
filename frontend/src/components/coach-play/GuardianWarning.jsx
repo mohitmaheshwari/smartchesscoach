@@ -14,15 +14,28 @@ import {
   Lightbulb 
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 
-const GuardianWarning = ({ 
-  intervention, 
-  pendingMove, 
-  onConfirm, 
+const GuardianWarning = ({
+  intervention,
+  pendingMove,
+  onConfirm,
   onCancel,
-  remainingInterventions 
+  remainingInterventions,
+  sessionId,
+  gameId,
+  fen,
 }) => {
   if (!intervention || !pendingMove) return null;
+
+  const flagCtx = {
+    source: "play_with_coach",
+    sessionId, gameId,
+    fen: fen || pendingMove.fenBefore || "",
+    moveSan: pendingMove.move || pendingMove.san || null,
+    severity: intervention.risk_level || null,
+    component: "GuardianWarning",
+  };
   
   const getRiskColor = (level) => {
     switch (level) {
@@ -82,14 +95,26 @@ const GuardianWarning = ({
             
             <CardContent className="space-y-4">
               {/* Warning Message */}
-              <p className="text-sm text-muted-foreground">
+              <p className="group text-sm text-muted-foreground">
                 {intervention.message || `Playing ${pendingMove.move} might not be the best choice here.`}
+                <InlineFlag
+                  section="guardian_warning_message"
+                  flaggedText={intervention.message || ""}
+                  context={flagCtx}
+                />
               </p>
-              
+
               {/* Explanation */}
               {intervention.explanation && (
                 <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-sm">{intervention.explanation}</p>
+                  <p className="group text-sm">
+                    {intervention.explanation}
+                    <InlineFlag
+                      section="guardian_warning_explanation"
+                      flaggedText={intervention.explanation}
+                      context={flagCtx}
+                    />
+                  </p>
                 </div>
               )}
               
