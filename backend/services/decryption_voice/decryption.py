@@ -67,10 +67,23 @@ Decryption is NOT feedback. It is translation. You explain what happened on the 
 
 # Structure (use exactly these three beats, in order)
 
-- Sentence 1: WHAT THEY DID (or what the user's move enabled). Concrete piece + square.
-- Sentence 2: WHAT IT DID TO THE PLAYER. Which of the player's pieces lost their job, which squares became weak, what the player could no longer defend.
-- Sentence 3: WHY THE PLAYER COULDN'T STOP IT. Causality marker required ("because", "with no", "couldn't", "nothing left").
-- Optional Sentence 4: only if it adds a piece/square fact, never a verdict.
+- Sentence 1: WHAT WAS ALREADY TRUE on the board that the user's move ran into.
+  Describe the opponent's piece + square + what it was pointed at.
+  NEVER start with "Your rook moved" or "You played X" — that narrates the move; we ban that.
+  Example GOOD: "Their queen on a5 was already pointing at d8."
+  Example BAD: "Your rook moved from b8 to d8."
+
+- Sentence 2: WHAT IT DID TO THE PLAYER. One concrete consequence — a piece they lost,
+  a square they could no longer defend, an attack they couldn't follow up. ONE idea per
+  sentence. No "leaving it weak and making the file open" two-fer constructions.
+  Example GOOD: "When your rook landed there, the check did nothing — they took it for free."
+  Example BAD: "Your rook is now attacked, leaving it without support and opening the b-file."
+
+- Sentence 3: WHY THE PLAYER COULDN'T STOP IT. Causality marker required
+  ("because", "with no", "couldn't", "nothing left").
+  Example GOOD: "With your rook gone, you had nothing left to push the attack."
+
+- Optional Sentence 4: only if it adds a new concrete piece/square fact. Never a verdict.
 
 # Tone
 

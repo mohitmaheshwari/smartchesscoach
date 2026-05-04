@@ -236,6 +236,22 @@ def _normalize(text: str) -> str:
     )
 
 
+# Sentence 1 in a Decryption block must NOT narrate the user's move
+# (banned by Decryption Voice rule 8: "Do NOT explain the move").
+# Common LLM slips: "Your rook moved from X to Y", "You played Rd8",
+# "You moved your rook to d8". Catch all three shapes.
+_MOVE_NARRATION_PATTERNS = [
+    re.compile(r"^\s*your\s+(king|queen|rook|bishop|knight|pawn|piece)\s+(moved|went|stepped|walked|landed)\b", re.IGNORECASE),
+    re.compile(r"^\s*you\s+(played|moved|pushed|captured|took|dropped)\b", re.IGNORECASE),
+    re.compile(r"^\s*you\s+sent\s+your\s+(king|queen|rook|bishop|knight|pawn|piece)\b", re.IGNORECASE),
+]
+
+
+def _first_sentence(text: str) -> str:
+    parts = re.split(r"[.!?]+", text, maxsplit=1)
+    return parts[0].strip() if parts else text
+
+
 def validate_decryption(text: str) -> Tuple[bool, str]:
     """Validate one Decryption block. Returns (ok, reason).
 
@@ -280,5 +296,15 @@ def validate_decryption(text: str) -> Tuple[bool, str]:
 
     if not _CAUSALITY_RE.search(text):
         return False, "no causality marker (why-it-worked check failed)"
+
+    # Sentence 1 must not be pure move narration — Decryption explains
+    # what the position was already doing, not what the user's piece did.
+    s1 = _first_sentence(text)
+    for pat in _MOVE_NARRATION_PATTERNS:
+        if pat.match(s1):
+            return False, (
+                "sentence 1 narrates the user's move "
+                "(decryption must describe what was already true on the board)"
+            )
 
     return True, ""
