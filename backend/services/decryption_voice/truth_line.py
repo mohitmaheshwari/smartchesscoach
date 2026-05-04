@@ -139,6 +139,27 @@ CATASTROPHIC_ANCHOR_PHRASES: List[str] = [
 ]
 
 
+# Threw-winning pivot anchors. In chess, white's Nth move and black's
+# Nth move share full-move number N, so the opp blunder + user pivot
+# frequently land on the SAME move number — using two distinct numbers
+# in that case reads as a typo. Two pools, picked by whether the
+# numbers match.
+
+# Same move number — back-to-back blunder phrasing.
+PIVOT_SAME_NUMBER_ANCHORS: List[str] = [
+    "Move {pivot_n} — they blundered, you blundered right back.",
+    "Move {pivot_n} — they slipped, you slipped right back.",
+    "Move {pivot_n} — the win was yours, then it wasn't.",
+]
+
+# Different move numbers — full two-move story.
+PIVOT_DIFF_NUMBER_ANCHORS: List[str] = [
+    "Move {opp_n} they blundered. Move {pivot_n} you gave it back.",
+    "Move {opp_n} the game was yours. Move {pivot_n} you handed it over.",
+    "Move {opp_n} they slipped. Move {pivot_n} {san} slipped right back.",
+]
+
+
 # ── Forward triggers (line 3 of Truth) ────────────────────────────────
 # Mutterable mid-game. Short — most under 7 words.
 
@@ -185,16 +206,37 @@ _pick_variant = pick_variant
 
 
 def _format_anchor(critical_move: Dict, scenario: str, game_id: str) -> str:
-    """Build line 2 — 'Move N — {scenario phrase}.'
+    """Build line 2 — the anchor.
 
-    critical_move: dict with at minimum move_number + move_san. When the
-    move's cp_loss is catastrophic (>= CATASTROPHIC_CP_LOSS), use the
-    decisive-tone pool regardless of scenario — the anchor must match
-    the consequence.
+    Three template paths in priority order:
+
+    1. Threw-winning pivot WITH a known opp preceding blunder →
+       two-move narrative anchor: "Move N they blundered. Move M you
+       gave it back." Captures the actual game pivot story.
+
+    2. Catastrophic cp_loss (>= CATASTROPHIC_CP_LOSS) without pivot →
+       decisive-tone pool ({san} ended the game on the spot, etc.).
+       Anchor intensity must match consequence.
+
+    3. Otherwise → scenario-specific pool.
     """
     move_num = critical_move.get("move_number") or critical_move.get("ply") or "?"
     move_san = critical_move.get("move_san") or "?"
     cp_loss = critical_move.get("cp_loss") or 0
+    is_pivot = critical_move.get("is_pivot", False)
+    opp_n = critical_move.get("opp_preceding_move_number")
+
+    # Path 1: pivot + we know the opp's preceding mistake → narrative anchor.
+    # Same move number (chess full-move pair) → back-to-back phrasing.
+    # Different numbers → two-move story.
+    if is_pivot and opp_n:
+        if opp_n == move_num:
+            pool = PIVOT_SAME_NUMBER_ANCHORS
+        else:
+            pool = PIVOT_DIFF_NUMBER_ANCHORS
+        phrase_template = _pick_variant(pool, game_id)
+        line = phrase_template.format(opp_n=opp_n, pivot_n=move_num, san=move_san)
+        return line
 
     if cp_loss >= CATASTROPHIC_CP_LOSS:
         pool = CATASTROPHIC_ANCHOR_PHRASES
@@ -227,15 +269,125 @@ def _shrink_to_budget(line: str, max_words: int = TRUTH_LINE_MAX_WORDS) -> str:
 
 # ── Public API ────────────────────────────────────────────────────────
 
-def pick_critical_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
-    """Find the user's most decisive losing move from V5 structural data.
+def _find_opp_preceding_mistake(
+    decryption_v5_data: List[Dict],
+    user_pivot_move: Dict,
+) -> Optional[Dict]:
+    """Find the opponent's mistake immediately before the user's pivot.
 
-    Note: we read ONLY structural fields (move_number, move_san, cp_loss,
-    severity, is_user_move). We do NOT read narrative, plan, or any V5
-    prose — Truth must not see Decryption inputs.
+    Walks back from the user's pivot move; returns the first opponent
+    move whose severity indicates an error (opp_blunder/opp_mistake/
+    blunder/mistake on a non-user move). Returns None if no such move
+    exists in the few moves before the pivot.
+    """
+    if not decryption_v5_data or not user_pivot_move:
+        return None
+    pivot_n = user_pivot_move.get("move_number")
+    pivot_san = user_pivot_move.get("move_san")
+    if pivot_n is None or pivot_san is None:
+        return None
+
+    # Locate pivot's index in the V5 list.
+    pivot_idx = None
+    for i, m in enumerate(decryption_v5_data):
+        if (m.get("is_user_move")
+                and m.get("move_number") == pivot_n
+                and m.get("move_san") == pivot_san):
+            pivot_idx = i
+            break
+    if pivot_idx is None:
+        return None
+
+    # Walk back at most 4 entries (covers user-good + opp-normal + opp-blunder + buffer).
+    for j in range(pivot_idx - 1, max(-1, pivot_idx - 5), -1):
+        m = decryption_v5_data[j]
+        if m.get("is_user_move"):
+            continue
+        sev = m.get("severity", "")
+        if sev in ("opp_blunder", "opp_mistake", "blunder", "mistake"):
+            return m
+    return None
+
+
+def detect_pivot_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
+    """Find the user move that flipped a winning position to losing.
+
+    Two stacked conditions must hold for a pivot to fire:
+
+      1. The current user move is a blunder/mistake with cp_loss >= 300
+         (a real, decisive error — not a small slip).
+
+      2. The PREVIOUS user move was good/best AND showed a big position
+         swing in the user's favor (cp_loss >= 1000 on a good user move
+         is the V5 signature of "the opponent blundered, user is now
+         winning"). This filters out generic good→blunder transitions
+         in games where the user was never actually winning — only fires
+         when the user was clearly handed a winning position and threw
+         it back.
+
+    Tested on Game 2085fc68 (Pirc, 1-0 black): correctly grabs move 31
+    Ka7 (the throw-back) instead of move 43 Reb8 (the bigger cp swing
+    later in the losing struggle).
     """
     if not decryption_v5_data:
         return None
+    user_moves = [m for m in decryption_v5_data if m.get("is_user_move")]
+    for i in range(1, len(user_moves)):
+        m = user_moves[i]
+        sev = m.get("severity")
+        cp_loss = m.get("cp_loss") or 0
+        if sev not in ("blunder", "mistake"):
+            continue
+        if cp_loss < 300:
+            continue
+        prev = user_moves[i - 1]
+        prev_sev = prev.get("severity")
+        prev_cp = prev.get("cp_loss") or 0
+        # Two conditions: prev was good AND big swing in user's favor.
+        # The cp_loss-on-good-move is V5's encoding of "position swung
+        # this much" — not the loss-vs-best interpretation (which would
+        # always be ~0 for a 'good' move).
+        if prev_sev in ("good", "best") and prev_cp >= 1000:
+            return m
+    return None
+
+
+def pick_critical_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
+    """Find the move that defines the game from V5 structural data.
+
+    Priority:
+      1. Pivot move (user had it, threw it) — narratively the game's
+         decisive moment, even when not the largest cp swing.
+      2. Otherwise, max cp_loss user mistake — biggest single error
+         when no clear pivot exists.
+
+    Returns only structural fields (move_number, move_san, cp_loss,
+    severity, is_pivot). We do NOT read narrative, plan, or any V5
+    prose — Truth must not see Decryption inputs.
+
+    is_pivot=True signals downstream generators (Truth, Player
+    Decryption) to route this game to the THREW scenario regardless
+    of what game_reason_classifier returned, because the in-game pivot
+    is the most reliable signal for "you had a winning position."
+    """
+    if not decryption_v5_data:
+        return None
+
+    pivot = detect_pivot_move(decryption_v5_data)
+    if pivot:
+        # For pivot games, also try to find the opponent's preceding
+        # mistake/blunder so the anchor can render "Move N they blundered.
+        # Move N+1 you gave it back" — the two-move story frame.
+        opp_preceding = _find_opp_preceding_mistake(decryption_v5_data, pivot)
+        return {
+            "move_number": pivot.get("move_number"),
+            "move_san": pivot.get("move_san"),
+            "cp_loss": pivot.get("cp_loss"),
+            "severity": pivot.get("severity"),
+            "is_pivot": True,
+            "opp_preceding_move_number": (opp_preceding.get("move_number") if opp_preceding else None),
+        }
+
     user_mistakes = [
         m for m in decryption_v5_data
         if m.get("is_user_move") and m.get("is_mistake")
@@ -245,13 +397,12 @@ def pick_critical_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
         return None
     user_mistakes.sort(key=lambda m: -(m.get("cp_loss") or 0))
     chosen = user_mistakes[0]
-    # Return only structural fields so Decryption-flavored prose can't
-    # leak into Truth via shared state.
     return {
         "move_number": chosen.get("move_number"),
         "move_san": chosen.get("move_san"),
         "cp_loss": chosen.get("cp_loss"),
         "severity": chosen.get("severity"),
+        "is_pivot": False,
     }
 
 
@@ -290,7 +441,13 @@ def generate_truth_line(
         if m.get("is_user_move") and m.get("severity") == "blunder"
     )
 
-    scenario = _classify_scenario(game_reason or "", blunder_count)
+    # Pivot detection overrides classifier output — the in-game flip
+    # from winning to losing is the most reliable "threw it" signal,
+    # more so than game_reason_classifier's heuristics.
+    if critical.get("is_pivot"):
+        scenario = SCENARIO_THREW
+    else:
+        scenario = _classify_scenario(game_reason or "", blunder_count)
 
     identity = _pick_variant(IDENTITY_BY_SCENARIO[scenario], game_id)
     anchor = _format_anchor(critical, scenario, game_id)

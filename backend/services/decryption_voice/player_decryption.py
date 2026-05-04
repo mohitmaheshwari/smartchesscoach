@@ -174,7 +174,12 @@ def build_player_decryption(
         1 for m in (decryption_v5_data or [])
         if m.get("is_user_move") and m.get("severity") == "blunder"
     )
-    scenario = classify_scenario(game_reason or "", blunder_count)
+    # Pivot beats the classifier — in-game flip from winning to losing
+    # is the strongest signal that this is a THREW scenario.
+    if critical.get("is_pivot"):
+        scenario = SCENARIO_THREW
+    else:
+        scenario = classify_scenario(game_reason or "", blunder_count)
 
     # Salt the game_id for each layer so the three lines don't all
     # come from the same pool index — feels less canned across games.

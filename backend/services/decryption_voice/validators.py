@@ -153,6 +153,11 @@ _CONCRETE_ACTION_TOKENS = {
     "mate", "mated", "mates", "mating",
     "ended", "ends", "ending",
     "gave", "gives", "giving",
+    "handed", "hands", "handing",
+    # plain chess-action verbs the player uses naturally
+    "blundered", "blunders", "blundering",
+    "slipped", "slips", "slipping",
+    "missed", "misses",  # already above; safe to repeat (set dedups)
 }
 
 _BOARD_REGION_TOKENS = {

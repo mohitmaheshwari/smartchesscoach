@@ -636,13 +636,16 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
   return (
     <>
-      {/* Voice layer, post-game. All hidden when user won.
-          1. Truth      — 3-line headline (mutterable)
-          2. Player     — Story / Pattern / Carry-forward (identity)
-          3. Plan       — Board-grounded prose, gated under "Show me why"
-                           inside TruthHeadline */}
+      {/* Voice layer, post-game. Hidden when user won.
+
+          Locked 2026-05-04 — collapsed from three sections to ONE:
+          Truth IS the post-game read, no Player Decryption block on
+          default surface (Story/Pattern/Carry-forward duplicated Truth's
+          beats and made the page feel like three rephrases of the same
+          thing). Plan Decryption stays gated under "Show me why".
+          Player Decryption data still ships in the API for a future
+          "Game breakdown" tab, just not rendered as default. */}
       <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} />
-      <PlayerDecryption playerDecryption={playerDecryption} />
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}
