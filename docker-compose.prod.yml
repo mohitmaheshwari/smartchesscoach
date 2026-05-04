@@ -17,9 +17,11 @@ services:
     environment:
       - MONGO_URL=${MONGO_URL}
       - DB_NAME=${DB_NAME}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
     depends_on:
       mongodb:
         condition: service_healthy
