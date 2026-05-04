@@ -815,17 +815,63 @@ class OpeningProgress:
     mastery_level: str = "unknown"  # unknown, learning, practiced, comfortable, mastered
 
 
+def _normalize_opening_key(opening_key: str) -> Optional[str]:
+    """Try several forms of the key against OPENING_DATABASE.
+
+    Tester reported "Failed to start practice session" on Queen's
+    Gambit Declined (Orthodox). Root cause: the page passed a
+    variation-laden slug (e.g., "queens-gambit-declined-orthodox") but
+    OPENING_DATABASE only has the base key ("queens-gambit"). 404 →
+    frontend shows the toast.
+
+    Strategy:
+      1. Try the literal key.
+      2. Hyphen <-> underscore swap (curriculum JSON uses underscores,
+         this DB uses hyphens — easy to mix up between callers).
+      3. Strip known variation suffixes (declined, accepted, orthodox,
+         classical, modern, exchange, etc.) and try the trimmed base.
+      4. Stop at the first match.
+    """
+    if not opening_key:
+        return None
+
+    candidates = [opening_key, opening_key.replace("_", "-"), opening_key.replace("-", "_")]
+
+    # Try each candidate as-is
+    for k in candidates:
+        if k in OPENING_DATABASE:
+            return k
+
+    # Strip variation suffixes — try shorter and shorter prefixes
+    base = opening_key.replace("_", "-")
+    parts = base.split("-")
+    while len(parts) > 1:
+        parts.pop()
+        candidate = "-".join(parts)
+        if candidate in OPENING_DATABASE:
+            return candidate
+
+    return None
+
+
 def get_opening_data(opening_key: str) -> Optional[Dict]:
-    """Get full opening data by key, including traps from the trap library."""
+    """Get full opening data by key, including traps from the trap library.
+    Tolerant to variation slugs (queens-gambit-declined-orthodox falls
+    back to queens-gambit) and to underscore/hyphen mismatches.
+    """
     from services.trap_library import get_traps_for_opening
-    
-    opening = OPENING_DATABASE.get(opening_key)
+
+    resolved_key = _normalize_opening_key(opening_key)
+    if resolved_key is None:
+        return None
+
+    opening = OPENING_DATABASE.get(resolved_key)
     if not opening:
         return None
-    
+
     # Get traps from the comprehensive trap library
-    traps = get_traps_for_opening(opening_key)
-    
+    traps = get_traps_for_opening(resolved_key)
+
     # Return opening with traps from the library
     return {
         **opening,
