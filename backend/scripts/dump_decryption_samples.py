@@ -103,39 +103,57 @@ async def dump_samples(limit: int, user_filter: str | None) -> None:
             print("(no per-move decryption present)")
             continue
 
-        # Filter to moves that have an LLM narrative (mistakes/blunders).
-        narrated = [
-            m for m in moves
-            if (m.get("mistake_analysis") or m.get("narrative")
-                or m.get("thinking_gap") or m.get("better_plan"))
-        ]
+        # Field-population audit — what's actually present in production data?
+        all_keys = set()
+        populated_count = {}
+        for m in moves:
+            if not isinstance(m, dict):
+                continue
+            for k, v in m.items():
+                all_keys.add(k)
+                if v not in (None, "", [], {}):
+                    populated_count[k] = populated_count.get(k, 0) + 1
 
-        if not narrated:
+        print()
+        print("Field population (% of moves with non-empty value):")
+        for k in sorted(all_keys):
+            pct = round(100 * populated_count.get(k, 0) / max(1, len(moves)))
+            print(f"  {k:30s} {pct}%  ({populated_count.get(k, 0)}/{len(moves)})")
+
+        # Find decisive moments: top 3 moves by cp_loss.
+        def _cp_loss(m):
+            try:
+                return float(m.get("cp_loss") or 0)
+            except (TypeError, ValueError):
+                return 0
+
+        ranked = sorted(moves, key=lambda m: -_cp_loss(m))
+        decisive = [m for m in ranked if _cp_loss(m) >= 50][:3]
+
+        if not decisive:
             print()
-            print("(no narrated moves — only deterministic placeholders)")
+            print("(no moves with cp_loss >= 50 — game had no real blunders to narrate)")
             continue
 
         print()
-        print(f"Narrated moves: {len(narrated)} of {len(moves)} total")
+        print(f"Top {len(decisive)} decisive moments (cp_loss >= 50):")
 
-        # Print up to 3 narrated moves per game so the dump stays readable.
-        for n, m in enumerate(narrated[:3], 1):
+        for n, m in enumerate(decisive, 1):
             print()
             print(SUBSEP)
-            print(f"MOVE {n}: ply={m.get('ply', '?')}  san={m.get('move_san', '?')}  "
-                  f"best={m.get('best_move_san', '?')}  cp_loss={m.get('cp_loss', '?')}")
-            for key in (
-                "narrative",
-                "mistake_analysis",
-                "thinking_gap",
-                "better_plan",
-                "principle",
-                "position_breakdown",
-            ):
+            print(f"DECISIVE {n}: san={m.get('move_san', '?')}  "
+                  f"best={m.get('best_move_san', '?')}  cp_loss={m.get('cp_loss', '?')}  "
+                  f"ply={m.get('ply', '?')}")
+            # Print every field that has content — don't pre-decide which matter.
+            for key in sorted(m.keys()):
                 v = m.get(key)
-                if v:
-                    print(f"\n[{key}]")
-                    print(_truncate(v, 600))
+                if v in (None, "", [], {}):
+                    continue
+                if key in ("move_san", "best_move_san", "cp_loss", "ply",
+                           "fen", "eval_before", "eval_after"):
+                    continue  # already shown above
+                print(f"\n[{key}]")
+                print(_truncate(v, 600))
 
     print()
     print(SEP)
