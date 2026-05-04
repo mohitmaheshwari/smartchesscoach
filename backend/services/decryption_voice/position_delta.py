@@ -332,9 +332,8 @@ def format_delta_for_prompt(delta: Dict) -> str:
     if majors:
         majors_desc = ", ".join(f"{p} on {s}" for p, s in majors)
         lines.append(
-            f"- User's other major pieces still on the board: {majors_desc}. "
-            f"Use these to be specific in sentence 3 — name a piece, "
-            f"not 'your other pieces'."
+            f"- User's other major pieces (context only — do NOT force one "
+            f"into the output unless it directly explains the failure): {majors_desc}."
         )
 
     return "\n".join(lines)

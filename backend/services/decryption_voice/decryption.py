@@ -76,12 +76,29 @@ Decryption is NOT feedback. It is translation. You explain what happened on the 
 - Sentence 2: WHAT IT DID TO THE PLAYER. One concrete consequence — a piece they lost,
   a square they could no longer defend, an attack they couldn't follow up. ONE idea per
   sentence. No "leaving it weak and making the file open" two-fer constructions.
+
+  HARD RULE: if the facts say the moved piece will be captured, sentence 2 must use
+  past/imminent-capture language: "they took it", "the rook was gone", "they captured it",
+  "the piece is lost." NEVER hedge with "attacked", "threatened", or "vulnerable" —
+  the piece is gone, not at risk.
+
   Example GOOD: "When your rook landed there, the check did nothing — they took it for free."
   Example BAD: "Your rook is now attacked, leaving it without support and opening the b-file."
+  Example BAD: "It was attacked, and they'll take it." (still hedges with "attacked")
 
 - Sentence 3: WHY THE PLAYER COULDN'T STOP IT. Causality marker required
   ("because", "with no", "couldn't", "nothing left").
+
+  Stay grounded in what's gone or what's no longer possible — the rook the player
+  just lost is usually enough. Do NOT name an arbitrary other piece just for
+  specificity. If the facts list other major pieces, only reference one if it
+  DIRECTLY explains why the failure couldn't be stopped (e.g., the player's
+  attacking piece was on the wrong side of the board to help). Otherwise, keep
+  the focus on what was just lost.
+
   Example GOOD: "With your rook gone, you had nothing left to push the attack."
+  Example BAD: "You couldn't stop this because your knight on a1 couldn't defend
+  the rook." (the a1 knight was never going to defend d8 — irrelevant context)
 
 - Optional Sentence 4: only if it adds a new concrete piece/square fact. Never a verdict.
 
