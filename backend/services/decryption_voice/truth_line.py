@@ -46,8 +46,12 @@ _REASON_TO_SCENARIO = {
 }
 
 
-def _classify_scenario(game_reason: str, blunder_count: int) -> str:
-    """Map game_reason_classifier output → Truth scenario."""
+def classify_scenario(game_reason: str, blunder_count: int) -> str:
+    """Map game_reason_classifier output → behavioral scenario.
+
+    Public so player_decryption.py can route to the same scenario as
+    Truth without duplicating the mapping.
+    """
     s = _REASON_TO_SCENARIO.get(game_reason or "")
     if s:
         return s
@@ -57,6 +61,10 @@ def _classify_scenario(game_reason: str, blunder_count: int) -> str:
     if blunder_count == 0:
         return SCENARIO_OUTPLAYED
     return SCENARIO_SQUEEZED
+
+
+# Backwards-compat alias for any in-module callers below.
+_classify_scenario = classify_scenario
 
 
 # ── Identity lines (line 1 of Truth) ──────────────────────────────────
@@ -158,15 +166,22 @@ TRIGGER_BY_SCENARIO: Dict[str, List[str]] = {
 }
 
 
-def _pick_variant(pool: List[str], game_id: str) -> str:
+def pick_variant(pool: List[str], game_id: str) -> str:
     """Deterministic pick — same game always yields the same variant.
     Hashing on game_id spreads variants across users so the same scenario
     doesn't always render the same phrasing on every screen.
+
+    Public so player_decryption.py can use the same hash strategy with
+    salted keys ("g123" + "p" / + "c") to vary lines across layers.
     """
     if not pool:
         return ""
     idx = hash(game_id or "") % len(pool)
     return pool[idx]
+
+
+# Backwards-compat alias for the existing in-module callers.
+_pick_variant = pick_variant
 
 
 def _format_anchor(critical_move: Dict, scenario: str, game_id: str) -> str:

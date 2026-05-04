@@ -14,6 +14,7 @@ import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
 import ClickableLine, { extractMovesFromText } from "@/components/ClickableLine";
 import TruthHeadline from "@/components/TruthHeadline";
+import PlayerDecryption from "@/components/PlayerDecryption";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -131,6 +132,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [decryptionData, setDecryptionData] = useState(null);
   const [cctNarrative, setCctNarrative] = useState(null);
   const [truthLine, setTruthLine] = useState(null);
+  const [playerDecryption, setPlayerDecryption] = useState(null);
   const [decryptionBlock, setDecryptionBlock] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -215,10 +217,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         setCctNarrative(data.cct_narrative);
       }
 
-      // Truth + Decryption (post-game first screen). Both null when the
-      // user won — we don't render the surface in that case.
+      // Voice layer (3 surfaces). All null when the user won.
+      // truth_line       — 3-line Coach Voice headline
+      // player_decryption — Story / Pattern / Carry-forward (identity)
+      // decryption_block  — Plan Decryption (board-grounded prose)
       if (data.truth_line) {
         setTruthLine(data.truth_line);
+      }
+      if (data.player_decryption) {
+        setPlayerDecryption(data.player_decryption);
       }
       if (data.decryption_block) {
         setDecryptionBlock(data.decryption_block);
@@ -629,10 +636,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
   return (
     <>
-      {/* Truth + Decryption — first thing the player sees post-game.
-          Hidden when user won (truthLine null). Decryption block is gated
-          behind "Show me why" inside TruthHeadline. */}
+      {/* Voice layer, post-game. All hidden when user won.
+          1. Truth      — 3-line headline (mutterable)
+          2. Player     — Story / Pattern / Carry-forward (identity)
+          3. Plan       — Board-grounded prose, gated under "Show me why"
+                           inside TruthHeadline */}
       <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} />
+      <PlayerDecryption playerDecryption={playerDecryption} />
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}

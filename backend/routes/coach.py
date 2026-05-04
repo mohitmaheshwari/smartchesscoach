@@ -803,7 +803,7 @@ async def get_game_decryption_v5(
         # Check for existing V5 data
         analysis = await db.game_analyses.find_one(
             {"game_id": game_id},
-            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "decryption_block": 1}
+            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1}
         )
         
         if not analysis or "game_id" not in analysis:
@@ -843,11 +843,13 @@ async def get_game_decryption_v5(
                 # CCT discipline narrative — null when no signal worth
                 # surfacing (silence > filler per voice rules).
                 "cct_narrative": analysis.get("cct_narrative"),
-                # Truth + Decryption layer (project_decryption_voice.md).
-                # truth_line: 3-line headline shown first.
-                # decryption_block: prose shown when user taps "Show me why".
-                # Both null when user won the game.
+                # Voice layer (project_decryption_voice.md).
+                # truth_line:        3-line headline (mutterable)
+                # player_decryption: story / pattern / carry-forward (identity)
+                # decryption_block:  Plan Decryption — board-grounded prose
+                # All three null when the user won the game.
                 "truth_line": analysis.get("truth_line"),
+                "player_decryption": analysis.get("player_decryption"),
                 "decryption_block": analysis.get("decryption_block"),
             }
         
@@ -942,10 +944,11 @@ async def get_game_decryption_v5(
                         # scenario classification, LLM call + validation
                         # + retry + fallback. Failure here is non-critical.
                         truth_line = None
+                        player_decryption = None
                         decryption_block = None
                         try:
                             from services.decryption_voice.orchestrator import generate_post_game_voice
-                            truth_line, decryption_block = await generate_post_game_voice(
+                            truth_line, player_decryption, decryption_block = await generate_post_game_voice(
                                 decryption_v5_data=decryption_data,
                                 move_evaluations=move_evaluations,
                                 game_id=game_id,
@@ -956,7 +959,7 @@ async def get_game_decryption_v5(
                             )
                         except Exception as voice_err:
                             logger.warning(
-                                f"[DECRYPTION] Truth/Decryption orchestration failed (non-critical): {voice_err}"
+                                f"[DECRYPTION] Voice orchestration failed (non-critical): {voice_err}"
                             )
 
                         await db.game_analyses.update_one(
@@ -969,6 +972,7 @@ async def get_game_decryption_v5(
                                 "habits_report": habits_report,
                                 "cct_narrative": cct_narrative,
                                 "truth_line": truth_line,
+                                "player_decryption": player_decryption,
                                 "decryption_block": decryption_block,
                             }}
                         )
