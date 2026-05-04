@@ -42,6 +42,26 @@ EMPTY_DESCRIPTORS = [
     "fortunately,", "unfortunately,", "sadly,",
 ]
 
+# Abstraction words that hide instead of explain. Whole-word bans —
+# Decryption must describe what was on the board, not name it with a
+# vague label. From voice review 2026-05-04.
+ABSTRACTION_WORDS = [
+    "pressure",
+    "initiative",
+    "advantage",
+    "compensation",
+    "strong move",
+    "good move",
+    "weak move",
+    "bad move",
+    "dynamic",
+    "harmonious",
+    "harmonized",
+    "harmony",
+    "active play",
+    "passive play",
+]
+
 
 # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -204,19 +224,33 @@ _PLAYER_REF_PATTERN = re.compile(r"\byou\b|\byour\b", re.IGNORECASE)
 _CAUSALITY_RE = re.compile("|".join(_CAUSALITY_PATTERNS), re.IGNORECASE)
 
 
+def _normalize(text: str) -> str:
+    """Normalize curly quotes / dashes so regexes work consistently.
+    The LLM emits smart quotes; we want one canonical form."""
+    return (
+        text
+        .replace("’", "'")  # right single quotation mark
+        .replace("‘", "'")  # left single quotation mark
+        .replace("“", '"').replace("”", '"')  # curly double quotes
+        .replace("—", "—").replace("–", "—")
+    )
+
+
 def validate_decryption(text: str) -> Tuple[bool, str]:
     """Validate one Decryption block. Returns (ok, reason).
 
     Enforces every rule from project_decryption_voice.md that can be
     checked mechanically:
       - word + sentence budget
-      - no engine-words / empty-descriptor leakage
+      - no engine-words / empty-descriptor / abstraction-word leakage
       - geometry: at least one piece/square/file mentioned
       - felt-experience: at least one "you/your" reference
       - why-it-worked: at least one causality marker
     """
     if not text or not text.strip():
         return False, "empty text"
+
+    text = _normalize(text)
 
     wc = _word_count(text)
     if wc > DECRYPTION_MAX_WORDS:
@@ -233,6 +267,10 @@ def validate_decryption(text: str) -> Tuple[bool, str]:
     for descriptor in EMPTY_DESCRIPTORS:
         if descriptor in lower:
             return False, f"contains empty descriptor: '{descriptor.strip()}'"
+    # Abstraction words via word-boundary regex (catches "initiative." too).
+    for word in ABSTRACTION_WORDS:
+        if re.search(r"\b" + re.escape(word) + r"\b", lower):
+            return False, f"contains abstraction word: '{word}'"
 
     if not (_PIECE_PATTERN.search(text) or _SQUARE_PATTERN.search(text) or _FILE_PATTERN.search(text)):
         return False, "no piece/square/file mentioned (geometry check failed)"
