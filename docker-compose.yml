@@ -58,6 +58,9 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_FROM_NAME=${SMTP_FROM_NAME}
+      # Razorpay — values come from the project-root .env (see scripts/set-env.sh)
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
     depends_on:
       mongodb:
         condition: service_healthy

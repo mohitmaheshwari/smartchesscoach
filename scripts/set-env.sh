@@ -33,9 +33,9 @@ EOF
     exit 1
 fi
 
-# Sanity: must be run from the repo root where docker-compose.prod.yml lives.
-if [ ! -f "docker-compose.prod.yml" ]; then
-    echo "Error: docker-compose.prod.yml not found in current directory." >&2
+# Sanity: must be run from the repo root where docker-compose.yml lives.
+if [ ! -f "docker-compose.yml" ]; then
+    echo "Error: docker-compose.yml not found in current directory." >&2
     echo "Run this script from the repo root (cd ~/repos/smartchesscoach)." >&2
     exit 1
 fi
@@ -89,8 +89,8 @@ done
 
 echo
 echo "Restarting Docker stack so new env vars take effect..."
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose up -d
 
 echo
 echo "Done. Verify with:"
-echo "  docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app env | grep -E 'RAZORPAY|OPENAI|GOOGLE'"
+echo "  docker compose exec backend env | grep -E 'RAZORPAY|OPENAI|GOOGLE'"
