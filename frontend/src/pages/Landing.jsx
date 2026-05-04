@@ -1,11 +1,13 @@
 import { useTheme } from "@/context/ThemeContext";
 import { ChevronRight, Code, Zap, Brain, Target, TrendingUp, MessageSquare, Crown, Eye, Swords, FlaskConical, BarChart3, ArrowRight, Check, X as XIcon, Shield, BookOpen, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import { API } from "@/App";
 
 const Landing = () => {
   const { theme } = useTheme();
+  const navigate = useNavigate();
   const [devMode, setDevMode] = useState(false);
   const [devLoading, setDevLoading] = useState(false);
 
@@ -72,7 +74,11 @@ const Landing = () => {
                   <Code className="w-3.5 h-3.5" />{devLoading ? "..." : "Dev"}
                 </button>
               )}
-              <button onClick={handleLogin} data-testid="login-button"
+              <button onClick={() => navigate("/login")} data-testid="signin-link"
+                className="hidden sm:inline-flex px-3 py-2 text-sm text-gray-400 hover:text-white transition-colors">
+                Sign in
+              </button>
+              <button onClick={() => navigate("/login")} data-testid="login-button"
                 className="px-5 py-2 text-sm font-semibold text-black rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 transition-all shadow-lg shadow-amber-500/20">
                 Get Started Free
               </button>

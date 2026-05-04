@@ -20,8 +20,14 @@ import uuid
 import httpx
 import logging
 
+from passlib.context import CryptContext
+
 # Config imports
 from config import SESSION_EXPIRY_DAYS, COOKIE_MAX_AGE_SECONDS
+
+# Password hashing context. bcrypt cost is the passlib default (12),
+# which is the right speed/security balance for an interactive login.
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +77,17 @@ class MobileAuthRequest(BaseModel):
 class DemoLoginRequest(BaseModel):
     """Request for demo login (testing only)"""
     email: str
+
+class RegisterRequest(BaseModel):
+    """Email + password signup."""
+    email: str
+    password: str
+    name: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    """Email + password login."""
+    email: str
+    password: str
 
 # ==================== AUTH HELPERS ====================
 
@@ -404,6 +421,101 @@ async def dev_login(response: Response):
     
     logger.info(f"Dev user logged in: {DEV_USER_ID}")
     return {"status": "ok", "user": dev_user, "message": "Dev login successful"}
+
+
+# ==================== EMAIL + PASSWORD AUTH ====================
+
+def _issue_session_cookie(response: Response, session_token: str) -> None:
+    """Apply the standard session cookie used by every auth path here."""
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=COOKIE_MAX_AGE_SECONDS,
+    )
+
+
+async def _create_session(user_id: str) -> str:
+    """Replace existing sessions for the user and return a fresh token."""
+    global db
+    await db.user_sessions.delete_many({"user_id": user_id})
+    session_token = f"session_{uuid.uuid4().hex}"
+    await db.user_sessions.insert_one({
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return session_token
+
+
+@router.post("/register")
+async def register(req: RegisterRequest, response: Response):
+    """Create a new user with email + password and log them in."""
+    global db
+
+    email = (req.email or "").strip().lower()
+    if "@" not in email or len(email) < 5:
+        raise HTTPException(status_code=400, detail="Valid email required")
+    if len(req.password or "") < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    existing = await db.users.find_one({"email": email}, {"_id": 0})
+    if existing:
+        if existing.get("password_hash"):
+            raise HTTPException(status_code=409, detail="Email already registered. Please log in.")
+        # Account exists from Google/demo path with no password set. Tell the
+        # user explicitly rather than silently overwriting or merging.
+        raise HTTPException(
+            status_code=409,
+            detail="This email is already linked to another login method. Use that to sign in.",
+        )
+
+    name = (req.name or "").strip() or email.split("@")[0]
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+
+    user_doc = {
+        "user_id": user_id,
+        "email": email,
+        "name": name,
+        "picture": None,
+        "password_hash": pwd_context.hash(req.password),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "chess_com_username": None,
+        "lichess_username": None,
+    }
+    await db.users.insert_one(user_doc)
+
+    session_token = await _create_session(user_id)
+    _issue_session_cookie(response, session_token)
+
+    user_doc.pop("password_hash", None)
+    return {"user": user_doc, "session_token": session_token}
+
+
+@router.post("/login")
+async def login(req: LoginRequest, response: Response):
+    """Log in with email + password."""
+    global db
+
+    email = (req.email or "").strip().lower()
+    user = await db.users.find_one({"email": email})
+    if not user or not user.get("password_hash"):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not pwd_context.verify(req.password or "", user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    user_id = user["user_id"]
+    session_token = await _create_session(user_id)
+    _issue_session_cookie(response, session_token)
+
+    user.pop("_id", None)
+    user.pop("password_hash", None)
+    return {"user": user, "session_token": session_token}
 
 
 @router.get("/status")
