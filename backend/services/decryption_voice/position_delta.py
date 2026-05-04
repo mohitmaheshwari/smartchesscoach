@@ -113,6 +113,61 @@ def _opened_lines(
     return lines
 
 
+_PIECE_VALUE = {
+    chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+    chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100,
+}
+
+
+def _likely_opponent_capture(
+    board_after: chess.Board,
+    to_square: int,
+    user_chess_color: chess.Color,
+) -> Optional[Dict]:
+    """If the user's moved piece is hanging on `to_square`, compute the
+    cheapest legal capture by the opponent. Returns SAN + attacker info,
+    or None if not hanging or no legal capture exists."""
+    opp_color = not user_chess_color
+    attackers = list(board_after.attackers(opp_color, to_square))
+    if not attackers:
+        return None
+    defenders = list(board_after.attackers(user_chess_color, to_square))
+    # If equally or better defended, opponent won't capture for free.
+    if len(attackers) <= len(defenders):
+        return None
+    # Cheapest attacker takes the piece.
+    attackers.sort(key=lambda sq: _PIECE_VALUE.get(board_after.piece_at(sq).piece_type, 99))
+    cheapest_sq = attackers[0]
+    cheapest_piece = board_after.piece_at(cheapest_sq)
+    capture_move = chess.Move(cheapest_sq, to_square)
+    # board_after has the wrong side-to-move (it's opp's turn). Use as-is.
+    if capture_move in board_after.legal_moves:
+        try:
+            san = board_after.san(capture_move)
+        except Exception:
+            san = None
+        return {
+            "san": san,
+            "attacker_piece": _piece_label(cheapest_piece),
+            "attacker_square": _square_name(cheapest_sq),
+            "target_square": _square_name(to_square),
+        }
+    return None
+
+
+def _user_remaining_majors(board: chess.Board, user_color: chess.Color) -> List[Tuple[str, str]]:
+    """List user's queens/rooks/bishops/knights still on the board.
+    Lets the Decryption sentence 3 name a specific other piece instead
+    of saying "your pieces were too far away" (the previous failure mode)."""
+    out = []
+    for sq, piece in board.piece_map().items():
+        if piece.color != user_color:
+            continue
+        if piece.piece_type in (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT):
+            out.append((_piece_label(piece), _square_name(sq)))
+    return out
+
+
 def compute_position_delta(
     fen_before: str,
     fen_after: str,
@@ -177,22 +232,46 @@ def compute_position_delta(
     # "you walked into a recapture" signal.
     moved_piece_now_attacked = False
     moved_piece_attackers: List[Tuple[str, str]] = []
+    likely_capture = None
     if move:
         attackers = _attackers_of(board_after, move.to_square, opp_color)
         defenders = _attackers_of(board_after, move.to_square, user_chess_color)
         if attackers and len(attackers) > len(defenders):
             moved_piece_now_attacked = True
             moved_piece_attackers = attackers
+            # If hanging, predict the opponent's actual capture move so
+            # the LLM can write "they took it" with concrete grounding.
+            likely_capture = _likely_opponent_capture(
+                board_after, move.to_square, user_chess_color
+            )
+
+    # User's other major pieces still on the board — lets sentence 3
+    # name a specific piece instead of vague "your other pieces".
+    remaining_majors = _user_remaining_majors(board_after, user_chess_color)
+    # Filter out the moved piece itself if it's still on the board.
+    if move and move.to_square is not None:
+        moved_to_label = (
+            _piece_label(board_after.piece_at(move.to_square))
+            if board_after.piece_at(move.to_square) else None
+        )
+        moved_to_sq_name = _square_name(move.to_square)
+        if moved_to_label:
+            remaining_majors = [
+                (p, s) for (p, s) in remaining_majors
+                if not (p == moved_to_label and s == moved_to_sq_name)
+            ]
 
     return {
         "move_described": move_described,
         "moved_piece_now_attacked": moved_piece_now_attacked,
         "moved_piece_attackers": moved_piece_attackers,
+        "likely_opponent_capture": likely_capture,
         "user_pieces_newly_hanging": newly_hanging,
         "opp_pieces_newly_hanging": opp_newly_hanging,
         "user_king_attackers_count": user_king_attackers_after,
         "user_king_attackers_added": max(0, king_pressure_delta),
         "opened_lines": opened,
+        "user_remaining_majors": remaining_majors,
     }
 
 
@@ -217,6 +296,18 @@ def format_delta_for_prompt(delta: Dict) -> str:
             atk_desc = ", ".join(f"{p} on {s}" for p, s in atk)
             lines.append(f"- The user's piece is now attacked by: {atk_desc}.")
 
+    cap = delta.get("likely_opponent_capture")
+    if cap:
+        san = cap.get("san") or "the capture"
+        atk_p = cap.get("attacker_piece", "piece")
+        atk_sq = cap.get("attacker_square", "?")
+        tgt_sq = cap.get("target_square", "?")
+        lines.append(
+            f"- The opponent's next move will capture the user's piece for free: "
+            f"{san} ({atk_p} on {atk_sq} takes on {tgt_sq}). "
+            f"Treat this piece as gone — not just attacked."
+        )
+
     nh = delta.get("user_pieces_newly_hanging") or []
     if nh:
         nh_desc = ", ".join(f"{p} on {s}" for p, s in nh)
@@ -236,5 +327,14 @@ def format_delta_for_prompt(delta: Dict) -> str:
     opened = delta.get("opened_lines") or []
     if opened:
         lines.append(f"- Lines opened by the move: {', '.join(opened)}.")
+
+    majors = delta.get("user_remaining_majors") or []
+    if majors:
+        majors_desc = ", ".join(f"{p} on {s}" for p, s in majors)
+        lines.append(
+            f"- User's other major pieces still on the board: {majors_desc}. "
+            f"Use these to be specific in sentence 3 — name a piece, "
+            f"not 'your other pieces'."
+        )
 
     return "\n".join(lines)
