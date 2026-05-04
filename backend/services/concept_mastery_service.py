@@ -1,32 +1,32 @@
 """
-Concept Mastery Service — surface "what you've learned" for Engine 2.
+Concept Mastery Service — surface "what you've studied" for Engine 2.
 
 The Engine 2 skill tree (data/coaching/skill_tree.json) tracks 24
 skills across 6 kinds: opening, trap_set, endgame, mate_pattern,
-concept, coached_play. The coach memory already records per-skill
-seen/correct/wrong counts and auto-promotes to a `learned_at`
-timestamp when the kind-aware graduation rule passes
-(SkillProgress.is_learned()).
+concept, coached_play. The coach memory records per-skill
+seen/correct/wrong counts and stamps `learned_at` when the kind-aware
+graduation rule passes (SkillProgress.is_learned()).
 
-What was missing: a USER-VISIBLE summary of all this. The system
-silently knows you've learned the rule of the square — it just
-doesn't tell you. This service rolls the per-user skill state into
-a four-state model the UI can render directly.
+Note on labelling: for knowledge skills (endgame/concept/mate_pattern)
+the current graduation rule is just "one correct attempt in a guided
+lesson". That proves you can follow the lesson, not that you've
+internalised the concept. The user-facing label here is therefore
+"studied", not "learned". Until in-game application detectors land,
+that's the honest word.
 
 States:
 
     unseen      Never recorded any outcome on this skill.
-    learning    Seen at least once but graduation rule not yet met.
-    learned     Graduated AND last reinforcement <= STALE_DAYS ago.
+    learning    Started but graduation rule not yet met.
+    studied     Graduated AND last reinforcement <= STALE_DAYS ago.
     stale       Graduated > STALE_DAYS ago AND no recent reinforcement.
-                Implies a refresher would help. The system still
-                considers the skill "known" but flags it for review.
+                Worth a refresher.
 
 Public API:
 
     summarize_mastery(memory) -> Dict
         {
-          "summary": {total_skills, learned, learning, unseen, stale},
+          "summary": {total_skills, studied, learning, unseen, stale},
           "by_kind": {
             "endgame": [<skill records>],
             "opening": [...],
@@ -34,9 +34,7 @@ Public API:
           }
         }
 
-This is read-only — it never mutates memory. The promotion logic
-already runs inside record_skill_outcome (coach_memory.py); we just
-inspect the resulting state.
+Read-only — never mutates memory.
 """
 
 from __future__ import annotations
@@ -101,10 +99,10 @@ def _progress_hint(skill, kind: str) -> str:
 
     if kind in ("mate_pattern", "endgame", "concept"):
         if correct == 0:
-            return "One correct attempt to graduate."
+            return "One correct attempt to clear the lesson."
         if "wrong" in last_two:
-            return "Recent stumble — get one clean to graduate."
-        return "Graduated."
+            return "Recent stumble — one clean attempt needed."
+        return "Lesson cleared."
     if kind in ("trap_set", "trap"):
         if seen < 1:
             return "Open the trap once."
@@ -112,7 +110,7 @@ def _progress_hint(skill, kind: str) -> str:
             return "Apply it correctly once."
         if "wrong" in last_two:
             return "Recent stumble — clean attempt needed."
-        return "Graduated."
+        return "Lesson cleared."
     if kind == "opening":
         if seen < 5:
             return f"Played {seen}/5 times."
@@ -120,49 +118,52 @@ def _progress_hint(skill, kind: str) -> str:
             return f"Played {seen} times, {correct}/3 correct."
         if "wrong" in last_two:
             return "Last two attempts had a slip — clean games needed."
-        return "Graduated."
+        return "Played enough to count as studied."
     if kind == "coached_play":
         if correct < 3:
             return f"{correct}/3 correct sessions."
         if "wrong" in last_three:
             return "Recent fail — 3 clean in a row needed."
-        return "Graduated."
+        return "Habit established."
     # Legacy / unknown
     if seen < 5:
         return f"Seen {seen}/5 times."
     if correct < 3:
         return f"{correct}/3 correct."
-    return "Graduated."
+    return "Studied."
 
 
 def _state_for_skill(skill, kind: str, *, now: Optional[datetime] = None) -> Tuple[str, Optional[int]]:
-    """Compute (state, days_since_learned) for a single SkillProgress entry.
+    """Compute (state, days_since_studied) for a single SkillProgress entry.
 
     State machine:
-      - learned_at set + recent reinforcement → "learned"
+      - learned_at set + recent reinforcement → "studied"
       - learned_at set + > STALE_DAYS old + no recent reinforcement → "stale"
-      - is_learned() true (just promoted, learned_at not yet set) → "learned"
+      - is_learned() true (just promoted, learned_at not yet set) → "studied"
       - SkillProgress exists, is_learned() false → "learning"
+
+    Note: SkillProgress's internal field is still called `learned_at` —
+    it represents the timestamp when the kind's graduation rule passed.
+    The user-facing state name is "studied" because for most kinds the
+    rule is "completed the guided lesson", not proof of retention.
     """
     n = now or datetime.now(timezone.utc)
 
-    is_learned_now = skill.is_learned()
-    days_learned = _days_since(skill.learned_at, now=n)
+    graduated_now = skill.is_learned()
+    days_graduated = _days_since(skill.learned_at, now=n)
     days_last_seen = _days_since(skill.last_seen, now=n)
 
-    # Recent reinforcement keeps a skill fresh even if learned_at is old.
     recently_reinforced = (
         days_last_seen is not None and days_last_seen <= RECENT_REINFORCEMENT_DAYS
     )
 
-    if days_learned is not None:
-        if days_learned > STALE_DAYS and not recently_reinforced:
-            return "stale", days_learned
-        return "learned", days_learned
+    if days_graduated is not None:
+        if days_graduated > STALE_DAYS and not recently_reinforced:
+            return "stale", days_graduated
+        return "studied", days_graduated
 
-    if is_learned_now:
-        # is_learned() true but learned_at not yet written (race / pre-promotion)
-        return "learned", None
+    if graduated_now:
+        return "studied", None
 
     return "learning", None
 
@@ -178,7 +179,7 @@ def summarize_mastery(memory) -> Dict:
             "total_skills": int,    # tree size
             "unseen": int,
             "learning": int,
-            "learned": int,
+            "studied": int,
             "stale": int,
           },
           "by_kind": {
@@ -194,19 +195,18 @@ def summarize_mastery(memory) -> Dict:
     Each skill_record:
         skill_id, label, kind, tier, state,
         seen, correct, wrong,
-        learned_at, days_since_learned,
+        learned_at, days_since_studied,
         progress_hint, fixes
     """
     tree = _load_tree()
     tree_skills = tree.get("skills", {})
 
-    # Index user's skill progress by skill_id for O(1) lookup
     user_skills_by_id = {
         s.skill_id: s for s in (getattr(memory.learning, "skills", []) or [])
     }
 
     by_kind: Dict[str, List[Dict]] = {}
-    counts = {"unseen": 0, "learning": 0, "learned": 0, "stale": 0}
+    counts = {"unseen": 0, "learning": 0, "studied": 0, "stale": 0}
     now = datetime.now(timezone.utc)
 
     for skill_id, node in tree_skills.items():
@@ -227,7 +227,7 @@ def summarize_mastery(memory) -> Dict:
                 "correct": 0,
                 "wrong": 0,
                 "learned_at": None,
-                "days_since_learned": None,
+                "days_since_studied": None,
                 "progress_hint": "Not started.",
             })
             counts["unseen"] += 1
@@ -239,21 +239,19 @@ def summarize_mastery(memory) -> Dict:
                 "correct": progress.correct,
                 "wrong": progress.wrong,
                 "learned_at": progress.learned_at,
-                "days_since_learned": days,
+                "days_since_studied": days,
                 "progress_hint": _progress_hint(progress, kind),
             })
             counts[state] += 1
 
         by_kind.setdefault(kind, []).append(record)
 
-    # Sort each kind: learned first (by days_since asc — freshest first),
-    # then learning (by seen desc — most attempted first), then unseen
-    # (by tier asc — easiest first), then stale.
-    state_order = {"learned": 0, "learning": 1, "stale": 2, "unseen": 3}
+    # Sort: studied (freshest) → learning (most attempted) → stale → unseen (easiest first)
+    state_order = {"studied": 0, "learning": 1, "stale": 2, "unseen": 3}
     for kind, records in by_kind.items():
         records.sort(key=lambda r: (
             state_order.get(r["state"], 99),
-            r.get("days_since_learned") or 0,
+            r.get("days_since_studied") or 0,
             -r.get("seen", 0),
             r.get("tier", 0),
         ))

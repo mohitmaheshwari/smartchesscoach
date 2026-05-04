@@ -1,12 +1,15 @@
 /**
- * MasteryPanel — what the user has learned across the Engine 2 skill tree.
+ * MasteryPanel — what the user has studied across the Engine 2 skill tree.
  *
  * Pairs with the "ledger" view (UnifiedProgress): that page tracks what
- * you're still working on (weakness patterns); this panel surfaces what
- * you've actually picked up (skills graduated by SkillProgress.is_learned()).
+ * you're still working on; this panel surfaces what you've cleared at
+ * least once. We say "studied" not "learned" on purpose — the current
+ * graduation rule for most kinds is "completed the guided lesson", which
+ * doesn't prove retention. In-game application detectors will upgrade
+ * specific skills to a real "learned" label once they ship.
  *
- * Reads GET /api/engine2/mastery-summary which returns the four-state
- * roll-up: learned | learning | stale | unseen.
+ * Reads GET /api/engine2/mastery-summary — four-state roll-up:
+ * studied | learning | stale | unseen.
  */
 
 import { useEffect, useState } from "react";
@@ -33,7 +36,7 @@ const KIND_ORDER = [
 ];
 
 function StateIcon({ state }) {
-  if (state === "learned") {
+  if (state === "studied") {
     return <Check className="h-3.5 w-3.5 text-emerald-500" strokeWidth={2.4} />;
   }
   if (state === "stale") {
@@ -46,18 +49,18 @@ function StateIcon({ state }) {
 }
 
 function meta(record) {
-  if (record.state === "learned") {
-    const d = record.days_since_learned;
-    if (d == null) return "Just learned";
-    if (d === 0) return "Learned today";
-    if (d === 1) return "Learned yesterday";
-    return `Learned ${d} days ago`;
+  if (record.state === "studied") {
+    const d = record.days_since_studied;
+    if (d == null) return "Just studied";
+    if (d === 0) return "Studied today";
+    if (d === 1) return "Studied yesterday";
+    return `Studied ${d} days ago`;
   }
   if (record.state === "stale") {
-    const d = record.days_since_learned;
+    const d = record.days_since_studied;
     return d != null
-      ? `Review recommended · ${d} days since last clean`
-      : "Review recommended";
+      ? `Worth a refresher · ${d} days since last clean`
+      : "Worth a refresher";
   }
   if (record.state === "learning") {
     return record.progress_hint || "In progress";
@@ -101,13 +104,13 @@ function KindSection({ kind, records }) {
       acc[r.state] = (acc[r.state] || 0) + 1;
       return acc;
     },
-    { learned: 0, learning: 0, stale: 0, unseen: 0 }
+    { studied: 0, learning: 0, stale: 0, unseen: 0 }
   );
 
   const summary = [
-    counts.learned && `${counts.learned} learned`,
+    counts.studied && `${counts.studied} studied`,
     counts.learning && `${counts.learning} in progress`,
-    counts.stale && `${counts.stale} to review`,
+    counts.stale && `${counts.stale} to refresh`,
     counts.unseen && `${counts.unseen} to explore`,
   ]
     .filter(Boolean)
@@ -173,17 +176,17 @@ export default function MasteryPanel() {
 
   const { summary, by_kind } = data;
   const hasAnyActivity =
-    summary.learned + summary.learning + summary.stale > 0;
+    summary.studied + summary.learning + summary.stale > 0;
 
   return (
     <section className="mb-16 md:mb-20" data-testid="mastery-panel">
       <div className="flex items-baseline justify-between mb-5 flex-wrap gap-2">
         <div className="text-[10.5px] uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-400 font-semibold">
-          Skills · what you've learned
+          Skills · what you've studied
         </div>
         <div className="text-[11px] text-muted-foreground tabular-nums">
-          {summary.learned} of {summary.total_skills} learned
-          {summary.stale > 0 && ` · ${summary.stale} due for review`}
+          {summary.studied} of {summary.total_skills} studied
+          {summary.stale > 0 && ` · ${summary.stale} to refresh`}
         </div>
       </div>
 
