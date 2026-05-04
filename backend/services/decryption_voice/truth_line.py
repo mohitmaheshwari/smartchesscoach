@@ -80,7 +80,7 @@ IDENTITY_BY_SCENARIO: Dict[str, List[str]] = {
     ],
     SCENARIO_OUTPLAYED: [
         "They outplayed you. There's no move to undo.",
-        "They were sharper. You played within your range.",
+        "You were playing moves. They were playing a plan.",
         "They saw a plan you didn't.",
     ],
 }
@@ -105,14 +105,30 @@ ANCHOR_PHRASES_BY_SCENARIO: Dict[str, List[str]] = {
     SCENARIO_SQUEEZED: [
         "you had no piece free to challenge them",
         "your pieces were already tied down",
-        "{san} was reactive — like every move before it",
+        "{san} was still defending",
     ],
     SCENARIO_OUTPLAYED: [
-        "their plan was already moving",
+        "their pieces were already converging",
         "their pieces had a direction yours didn't",
         "{san} answered their threat — not yours",
     ],
 }
+
+
+# ── Catastrophic anchors ─────────────────────────────────────────────
+# When the critical move was the one that ended the game (forced mate,
+# queen hangs the win, etc.), anchor intensity must match. The general
+# scenario pools sound too neutral for moves of this weight.
+# Threshold = cp_loss >= 1000 (covers forced-mate evaluations and the
+# full-piece-hangs-it-all class).
+
+CATASTROPHIC_CP_LOSS = 1000
+
+CATASTROPHIC_ANCHOR_PHRASES: List[str] = [
+    "{san} ended the game on the spot",
+    "{san} walked into a forced sequence",
+    "{san} gave away the game",
+]
 
 
 # ── Forward triggers (line 3 of Truth) ────────────────────────────────
@@ -156,12 +172,20 @@ def _pick_variant(pool: List[str], game_id: str) -> str:
 def _format_anchor(critical_move: Dict, scenario: str, game_id: str) -> str:
     """Build line 2 — 'Move N — {scenario phrase}.'
 
-    critical_move: dict with at minimum move_number + move_san.
+    critical_move: dict with at minimum move_number + move_san. When the
+    move's cp_loss is catastrophic (>= CATASTROPHIC_CP_LOSS), use the
+    decisive-tone pool regardless of scenario — the anchor must match
+    the consequence.
     """
     move_num = critical_move.get("move_number") or critical_move.get("ply") or "?"
     move_san = critical_move.get("move_san") or "?"
+    cp_loss = critical_move.get("cp_loss") or 0
 
-    pool = ANCHOR_PHRASES_BY_SCENARIO.get(scenario) or ANCHOR_PHRASES_BY_SCENARIO[SCENARIO_BLUNDERED]
+    if cp_loss >= CATASTROPHIC_CP_LOSS:
+        pool = CATASTROPHIC_ANCHOR_PHRASES
+    else:
+        pool = ANCHOR_PHRASES_BY_SCENARIO.get(scenario) or ANCHOR_PHRASES_BY_SCENARIO[SCENARIO_BLUNDERED]
+
     phrase_template = _pick_variant(pool, game_id)
     phrase = phrase_template.format(san=move_san)
 
@@ -269,9 +293,14 @@ def generate_truth_line(
             f" — falling back to safe variants"
         )
         identity = IDENTITY_BY_SCENARIO[scenario][0]
-        # Ultra-short anchor fallback that always fits the budget.
+        # Ultra-short anchor fallback that always fits the budget AND
+        # passes concreteness (uses "played" + the move SAN).
         move_num = critical.get("move_number") or "?"
-        anchor = f"Move {move_num} — your move was decisive."
+        move_san = critical.get("move_san") or ""
+        if move_san:
+            anchor = f"Move {move_num} — you played {move_san}."
+        else:
+            anchor = f"Move {move_num} — you missed their threat."
         trigger = TRIGGER_BY_SCENARIO[scenario][0]
         ok2, reason2 = validate_truth_block(identity, anchor, trigger)
         if not ok2:

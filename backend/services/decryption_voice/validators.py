@@ -73,12 +73,113 @@ def validate_truth_line(line: str) -> Tuple[bool, str]:
 
 
 def validate_truth_block(identity: str, anchor: str, trigger: str) -> Tuple[bool, str]:
-    """All three Truth lines must pass."""
+    """All three Truth lines must pass.
+
+    The anchor has an extra concreteness requirement on top of the
+    word-budget + ban-list checks. See validate_anchor_concreteness.
+    """
     for label, line in (("identity", identity), ("anchor", anchor), ("trigger", trigger)):
         ok, reason = validate_truth_line(line)
         if not ok:
             return False, f"{label}: {reason}"
+    ok, reason = validate_anchor_concreteness(anchor)
+    if not ok:
+        return False, f"anchor: {reason}"
     return True, ""
+
+
+# ── Anchor concreteness ──────────────────────────────────────────────
+# Per voice review 2026-05-04: anchors slip into "language shortcuts"
+# (e.g., "their plan was already moving") that name nothing on the
+# board. Hard rule: every anchor must reference a piece, a square/file,
+# or a concrete chess action.
+
+# Concrete chess action verbs — present-, past-, and -ing forms. Treated
+# as a single set for fast membership tests. Matches whole-word only.
+_CONCRETE_ACTION_TOKENS = {
+    # capture / exchange
+    "traded", "trade", "trades", "trading",
+    "captured", "captures", "capturing", "took", "takes", "taking",
+    "exchanged", "exchanges", "exchanging",
+    # movement / push
+    "pushed", "push", "pushes", "pushing",
+    "moved", "moves", "moving",
+    "played", "plays", "playing",
+    "walked", "walks", "walking",
+    "stepped", "steps", "stepping",
+    "left", "leave", "leaves", "leaving",
+    # tactical
+    "forked", "forks", "forking",
+    "pinned", "pins", "pinning",
+    "attacked", "attacks", "attacking",
+    "threatened", "threatens", "threatening",
+    "hung", "hangs", "hanging",
+    "sacrificed", "sacrifices", "sacrificing",
+    "missed", "misses", "missing",
+    # defensive
+    "defended", "defends", "defending",
+    "blocked", "blocks", "blocking",
+    "covered", "covers", "covering",
+    "guarded", "guards", "guarding",
+    # strategic
+    "simplified", "simplifies", "simplifying",
+    "developed", "develops", "developing",
+    "castled", "castles", "castling",
+    "opened", "opens",          # not "opening" — too generic (the phase)
+    "answered", "answers", "answering",
+    "allowed", "allows", "allowing",
+    # decisive
+    "checked", "checks",
+    "mate", "mated", "mates", "mating",
+    "ended", "ends", "ending",
+    "gave", "gives", "giving",
+}
+
+_BOARD_REGION_TOKENS = {
+    "kingside", "king-side", "king side",
+    "queenside", "queen-side", "queen side",
+    "back rank", "back-rank", "backrank",
+    "center", "centre",
+    "diagonal", "file", "rank",
+}
+
+
+def validate_anchor_concreteness(anchor: str) -> Tuple[bool, str]:
+    """Anchor must reference at least ONE of:
+       - a chess piece (king/queen/rook/bishop/knight/pawn)
+       - a square (a1–h8)
+       - a file/region (h-file, back rank, kingside, etc.)
+       - a concrete chess action verb (traded, pushed, walked into, ...)
+       - a move SAN (single-letter piece + file/rank, e.g., Rd8+, Qxe1)
+    """
+    if not anchor:
+        return False, "empty anchor"
+    text = anchor
+    lower = anchor.lower()
+
+    if _PIECE_PATTERN.search(text):
+        return True, ""
+    if _SQUARE_PATTERN.search(text):
+        return True, ""
+    if _FILE_PATTERN.search(text):
+        return True, ""
+    for region in _BOARD_REGION_TOKENS:
+        if region in lower:
+            return True, ""
+
+    # SAN tokens — leading uppercase piece letter + file/rank, optional
+    # capture x, optional + or # for check/mate. Catches Rd8+, Qxe1#,
+    # Nf3, etc. (Pawn SANs like "e4" are caught by _SQUARE_PATTERN.)
+    if re.search(r"\b[KQRBN][a-h]?[1-8]?x?[a-h][1-8][+#]?\b", text):
+        return True, ""
+
+    # Concrete action verb check (token-level, case-insensitive).
+    tokens = re.findall(r"[A-Za-z][A-Za-z'-]*", lower)
+    for t in tokens:
+        if t in _CONCRETE_ACTION_TOKENS:
+            return True, ""
+
+    return False, "no piece/square/file/action verb (concreteness check failed)"
 
 
 # ── Decryption validator ──────────────────────────────────────────────
@@ -96,7 +197,7 @@ _CAUSALITY_PATTERNS = [
     r"\bunable to\b",
 ]
 
-_PIECE_PATTERN = re.compile(r"\b(king|queen|rook|bishop|knight|pawn|kings?|queens?|rooks?|bishops?|knights?|pawns?)\b", re.IGNORECASE)
+_PIECE_PATTERN = re.compile(r"\b(king|queen|rook|bishop|knight|pawn|piece)s?\b", re.IGNORECASE)
 _SQUARE_PATTERN = re.compile(r"\b[a-h][1-8]\b")
 _FILE_PATTERN = re.compile(r"\b[a-h]-?file\b", re.IGNORECASE)
 _PLAYER_REF_PATTERN = re.compile(r"\byou\b|\byour\b", re.IGNORECASE)
