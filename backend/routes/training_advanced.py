@@ -3498,3 +3498,18 @@ async def engine2_skill_completed(
     if outcome not in ("correct", "wrong"):
         raise HTTPException(status_code=400, detail="outcome must be 'correct' or 'wrong'")
     return await _record_engine2_skill(user.user_id, req.skill_id, outcome)
+
+
+@router.get("/engine2/mastery-summary")
+async def engine2_mastery_summary(user: User = Depends(get_current_user)):
+    """User-facing mastery roll-up across the full Engine 2 skill tree.
+
+    Returns the four-state model (unseen/learning/learned/stale) per skill,
+    grouped by kind. Read-only — the underlying promotion logic runs inside
+    record_skill_outcome; this endpoint just inspects the resulting state.
+    """
+    from services.coach_memory import get_or_create_memory
+    from services.concept_mastery_service import summarize_mastery
+
+    memory = await get_or_create_memory(db, user.user_id)
+    return summarize_mastery(memory)

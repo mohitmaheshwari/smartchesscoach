@@ -35,6 +35,7 @@ import {
   Check,
   ArrowRight,
 } from "lucide-react";
+import MasteryPanel from "@/components/coach/MasteryPanel";
 
 // ─── Weakness → training-pattern key (same mapping Home uses) ───────────────
 
@@ -587,6 +588,9 @@ const UnifiedProgress = ({ user }) => {
             </div>
           </section>
         )}
+
+        {/* ─── Mastery — what you've learned ─── */}
+        <MasteryPanel />
 
         {/* ─── Empty-patterns fallback ─── */}
         {!derived.active && derived.tracked.length === 0 && (
