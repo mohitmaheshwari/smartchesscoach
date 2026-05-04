@@ -56,48 +56,92 @@ async def main(game_id: str) -> None:
     print()
 
     # Probe pivot detector directly.
-    from services.decryption_voice.truth_line import detect_pivot_move, pick_critical_move
+    from services.decryption_voice.truth_line import (
+        detect_pivot_move, pick_critical_move, generate_truth_line
+    )
     pivot = detect_pivot_move(v5)
     crit = pick_critical_move(v5)
     print(f"detect_pivot_move    -> {pivot.get('move_san') if pivot else 'NONE'}"
-          + (f" on move {pivot.get('move_number')}" if pivot else ""))
-    print(f"pick_critical_move   -> {crit}")
-    print()
+          + (f" on move {pivot.get('move_number')}" if pivot else ""), flush=True)
+    print(f"pick_critical_move   -> {crit}", flush=True)
+    print(flush=True)
 
-    # Run the full orchestrator.
-    from services.decryption_voice.orchestrator import generate_post_game_voice
-    truth, player, plan = await generate_post_game_voice(
-        decryption_v5_data=v5,
-        move_evaluations=move_evals,
-        game_id=game_id,
-        game_result=game_result,
-        user_color=user_color,
-        termination=game.get("termination", "unknown"),
-        accuracy=(analysis.get("stockfish_analysis") or {}).get("accuracy", 0),
-    )
+    # ── Phase 1: classifier (sync, fast) ─────────────────────────────
+    print("[1/4] classifier...", flush=True)
+    try:
+        from services.game_reason_classifier import classify_game_reason
+        reason_result = classify_game_reason(
+            move_evaluations=move_evals,
+            game_result=game_result,
+            user_color=user_color,
+            termination=game.get("termination", "unknown"),
+            accuracy=(analysis.get("stockfish_analysis") or {}).get("accuracy", 0),
+        )
+        game_reason = reason_result.get("category", "")
+        print(f"      game_reason = {game_reason}", flush=True)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        client.close()
+        return
 
-    print("─── ORCHESTRATOR LIVE OUTPUT ───")
-    print()
-    print("TRUTH:")
-    if truth:
-        for k, v in truth.items():
-            print(f"  {k}: {v}")
-    else:
-        print("  (None)")
-    print()
-    print("PLAYER DECRYPTION:")
-    if player:
-        for k, v in player.items():
-            print(f"  {k}: {v}")
-    else:
-        print("  (None)")
-    print()
-    print("PLAN DECRYPTION:")
-    if plan:
-        print(f"  text: {plan.get('text', '')}")
-        print(f"  source: {plan.get('source')}  attempts: {plan.get('attempts')}")
-    else:
-        print("  (None)")
+    # ── Phase 2: Truth (deterministic) ───────────────────────────────
+    print("[2/4] Truth (deterministic)...", flush=True)
+    try:
+        truth = generate_truth_line(
+            decryption_v5_data=v5, game_reason=game_reason, game_id=game_id, user_won=False
+        )
+        print(f"      identity : {truth.get('identity') if truth else None}", flush=True)
+        print(f"      anchor   : {truth.get('anchor') if truth else None}", flush=True)
+        print(f"      trigger  : {truth.get('trigger') if truth else None}", flush=True)
+        print(f"      scenario : {truth.get('scenario') if truth else None}", flush=True)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        client.close()
+        return
+
+    # ── Phase 3: Player Decryption (deterministic) ──────────────────
+    print("[3/4] Player Decryption (deterministic)...", flush=True)
+    try:
+        from services.decryption_voice.player_decryption import build_player_decryption
+        player = build_player_decryption(
+            decryption_v5_data=v5, game_reason=game_reason, game_id=game_id
+        )
+        if player:
+            print(f"      story         : {player.get('story')}", flush=True)
+            print(f"      pattern       : {player.get('pattern')}", flush=True)
+            print(f"      carry_forward : {player.get('carry_forward')}", flush=True)
+            print(f"      scenario      : {player.get('scenario')}", flush=True)
+        else:
+            print("      (None)", flush=True)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        client.close()
+        return
+
+    # ── Phase 4: Plan Decryption (LLM — may be slow) ────────────────
+    print("[4/4] Plan Decryption (LLM call, may take 5-15s)...", flush=True)
+    try:
+        from services.decryption_voice.orchestrator import generate_post_game_voice
+        _, _, plan = await generate_post_game_voice(
+            decryption_v5_data=v5,
+            move_evaluations=move_evals,
+            game_id=game_id,
+            game_result=game_result,
+            user_color=user_color,
+            termination=game.get("termination", "unknown"),
+            accuracy=(analysis.get("stockfish_analysis") or {}).get("accuracy", 0),
+        )
+        if plan:
+            print(f"      text: {plan.get('text', '')}", flush=True)
+            print(f"      source: {plan.get('source')}  attempts: {plan.get('attempts')}", flush=True)
+        else:
+            print("      (None)", flush=True)
+    except Exception:
+        import traceback
+        traceback.print_exc()
 
     client.close()
 
