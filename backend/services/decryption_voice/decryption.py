@@ -119,7 +119,11 @@ async def _call_llm(user_message: str) -> str:
         session_id=f"decryption-voice-{uuid.uuid4().hex[:8]}",
         system_message=DECRYPTION_SYSTEM_PROMPT,
     )
-    chat.with_model("openai", "gpt-4.1-mini")
+    # gpt-4o-mini is the canonical model in this stack (per CLAUDE.md).
+    # The previous gpt-4.1-mini reference was inherited from the legacy
+    # decryption service and isn't accessible on the production OpenAI
+    # project.
+    chat.with_model("openai", "gpt-4o-mini")
     return await chat.send_message(UserMessage(text=user_message))
 
 
