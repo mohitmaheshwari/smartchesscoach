@@ -128,6 +128,253 @@ def _detect_walked_into_mate(
     return None
 
 
+# ── Local detector — WALKED_INTO_CAPTURE ─────────────────────────────
+# Fires when the user's just-moved piece is attacked by a cheaper
+# opponent piece, or attacked and undefended. The chess_brain
+# hanging_piece detector covers "any user piece is hanging" but loses
+# the causal "this move did it" framing; walked_into_capture is
+# specifically scoped to the moved piece, which is what the player
+# experiences ("I just moved my bishop and now it dies").
+
+_PIECE_VALUE = {
+    chess.PAWN: 1,
+    chess.KNIGHT: 3,
+    chess.BISHOP: 3,
+    chess.ROOK: 5,
+    chess.QUEEN: 9,
+    chess.KING: 100,
+}
+
+_PIECE_NAME = {
+    chess.PAWN: "pawn",
+    chess.KNIGHT: "knight",
+    chess.BISHOP: "bishop",
+    chess.ROOK: "rook",
+    chess.QUEEN: "queen",
+    chess.KING: "king",
+}
+
+
+def _detect_walked_into_capture(
+    board: chess.Board,
+    user_move_san: str,
+    best_move_san: Optional[str],
+) -> Optional[Dict]:
+    """If user's move puts their moved piece on a square where it's
+    attacked-and-undefended OR attacked by something cheaper, return
+    facts; else None.
+
+    Limited to the moved piece (not all user pieces) — the framing is
+    "this move created the danger." For unrelated pre-existing hanging
+    pieces, the registry's hanging_piece detector handles it.
+    """
+    try:
+        moved_piece = None
+        dest_sq = None
+        b = board.copy()
+        m = b.parse_san(user_move_san)
+        moved_piece = board.piece_at(m.from_square)
+        dest_sq = m.to_square
+        b.push(m)
+    except Exception:
+        return None
+
+    if not moved_piece or moved_piece.piece_type == chess.KING:
+        return None
+    moved_value = _PIECE_VALUE.get(moved_piece.piece_type, 0)
+    user_color = moved_piece.color
+
+    # Find opponent attackers and user defenders of dest_sq on the
+    # post-move board (b).
+    attacker_squares = list(b.attackers(not user_color, dest_sq))
+    if not attacker_squares:
+        return None
+    defender_squares = list(b.attackers(user_color, dest_sq))
+
+    attacker_values = [
+        _PIECE_VALUE.get((b.piece_at(sq).piece_type if b.piece_at(sq) else None), 99)
+        for sq in attacker_squares
+    ]
+    cheapest_idx = min(range(len(attacker_values)), key=lambda i: attacker_values[i])
+    cheapest_attacker_sq = attacker_squares[cheapest_idx]
+    cheapest_attacker_piece = b.piece_at(cheapest_attacker_sq)
+    cheapest_attacker_value = attacker_values[cheapest_idx]
+
+    is_undefended = not defender_squares
+    is_undercut = cheapest_attacker_value < moved_value
+
+    if not (is_undefended or is_undercut):
+        return None
+
+    # Build the capturing move SAN (cheapest attacker takes).
+    capture_san = None
+    try:
+        cap_move = chess.Move(cheapest_attacker_sq, dest_sq)
+        if cap_move in b.legal_moves:
+            capture_san = b.san(cap_move)
+        else:
+            # Promotion edge case for pawn captures on back rank.
+            cap_move_q = chess.Move(cheapest_attacker_sq, dest_sq, promotion=chess.QUEEN)
+            if cap_move_q in b.legal_moves:
+                capture_san = b.san(cap_move_q)
+    except Exception:
+        capture_san = None
+
+    return {
+        "piece": _PIECE_NAME.get(moved_piece.piece_type, "piece"),
+        "square": chess.square_name(dest_sq),
+        "attacker_piece": _PIECE_NAME.get(
+            cheapest_attacker_piece.piece_type if cheapest_attacker_piece else 0, "piece"
+        ),
+        "attacker_square": chess.square_name(cheapest_attacker_sq),
+        "capture_san": capture_san,
+        "saving_move": best_move_san,
+        "moved_value": moved_value,
+        "attacker_value": cheapest_attacker_value,
+        "is_undefended": is_undefended,
+    }
+
+
+# ── Local detector — PAWN_RACE ───────────────────────────────────────
+# Fires in endgames when an opponent passed pawn is racing to promotion
+# and the user's king cannot catch it (square-of-the-pawn rule). The
+# Move 54 case from Game 4db4149b: Black king on c7 can't catch white's
+# e6-pawn (mate in 2 pushes), but Kd6 reaches e7 in time.
+
+def _is_passed_pawn(board: chess.Board, sq: int, color: chess.Color) -> bool:
+    """No enemy pawn on same or adjacent files ahead of this pawn."""
+    f = chess.square_file(sq)
+    r = chess.square_rank(sq)
+    direction = 1 if color == chess.WHITE else -1
+    nr = r + direction
+    while 0 <= nr <= 7:
+        for nf in (f - 1, f, f + 1):
+            if 0 <= nf <= 7:
+                p = board.piece_at(chess.square(nf, nr))
+                if p and p.piece_type == chess.PAWN and p.color != color:
+                    return False
+        nr += direction
+    return True
+
+
+def _king_catches_pawn(
+    king_sq: int,
+    pawn_sq: int,
+    pawn_color: chess.Color,
+    pawn_to_move: bool,
+) -> bool:
+    """Square-of-the-pawn rule with explicit interception simulation.
+    Returns True iff defending king can capture pawn (or block promotion
+    square) before promotion."""
+    pawn_file = chess.square_file(pawn_sq)
+    pawn_rank = chess.square_rank(pawn_sq)
+    king_file = chess.square_file(king_sq)
+    king_rank = chess.square_rank(king_sq)
+    direction = 1 if pawn_color == chess.WHITE else -1
+    promo_rank = 7 if pawn_color == chess.WHITE else 0
+    D = abs(promo_rank - pawn_rank)
+    if D <= 0:
+        return True
+
+    if pawn_to_move:
+        # King has D-1 moves before pawn promotes. Try interception
+        # at any path-square r_i for i ∈ [1, D-1] AND blocking promo.
+        for i in range(1, D):
+            target_rank = pawn_rank + i * direction
+            cheb = max(abs(target_rank - king_rank), abs(pawn_file - king_file))
+            if cheb <= i:
+                return True
+        # Block promo square — king can sit on it before pawn arrives.
+        cheb_promo = max(abs(promo_rank - king_rank), abs(pawn_file - king_file))
+        if cheb_promo <= D - 1:
+            return True
+        return False
+    else:
+        # Defender to move first — king has D moves (one extra).
+        for i in range(1, D + 1):
+            target_rank = pawn_rank + i * direction
+            cheb = max(abs(target_rank - king_rank), abs(pawn_file - king_file))
+            if cheb <= i:
+                return True
+        return False
+
+
+def _detect_pawn_race(
+    board: chess.Board,
+    user_move_san: str,
+    best_move_san: Optional[str],
+) -> Optional[Dict]:
+    """Endgame: opponent has a passed pawn the user's king cannot catch."""
+    try:
+        b = board.copy()
+        m = b.parse_san(user_move_san)
+        b.push(m)
+    except Exception:
+        return None
+
+    # Endgame gate — only fire when most pieces are off the board.
+    piece_count = sum(1 for sq in chess.SQUARES if b.piece_at(sq))
+    if piece_count > 12:
+        return None
+
+    user_color = not b.turn  # user just moved
+    opp_color = b.turn
+    user_king_sq = b.king(user_color)
+    if user_king_sq is None:
+        return None
+
+    threats = []
+    for sq in chess.SQUARES:
+        piece = b.piece_at(sq)
+        if not piece or piece.color != opp_color or piece.piece_type != chess.PAWN:
+            continue
+        if not _is_passed_pawn(b, sq, opp_color):
+            continue
+        # In our context the opp is always to-move (user just moved).
+        if _king_catches_pawn(user_king_sq, sq, opp_color, pawn_to_move=True):
+            continue
+        # Does any user non-king piece already attack a square on the
+        # pawn's path? If so, that piece can intercept and this isn't
+        # really a pure race — let the LLM or another detector handle it.
+        f = chess.square_file(sq)
+        r = chess.square_rank(sq)
+        direction = 1 if opp_color == chess.WHITE else -1
+        promo_rank = 7 if opp_color == chess.WHITE else 0
+        path_squares = []
+        nr = r + direction
+        while (direction > 0 and nr <= promo_rank) or (direction < 0 and nr >= promo_rank):
+            path_squares.append(chess.square(f, nr))
+            nr += direction
+        path_attacked_by_non_king = False
+        for psq in path_squares:
+            attackers = b.attackers(user_color, psq)
+            for asq in attackers:
+                ap = b.piece_at(asq)
+                if ap and ap.piece_type != chess.KING:
+                    path_attacked_by_non_king = True
+                    break
+            if path_attacked_by_non_king:
+                break
+        if path_attacked_by_non_king:
+            continue
+        D = abs(promo_rank - r)
+        threats.append({
+            "square": chess.square_name(sq),
+            "distance": D,
+        })
+
+    if not threats:
+        return None
+
+    threats.sort(key=lambda t: t["distance"])
+    closest = threats[0]
+    return {
+        "pawn_square": closest["square"],
+        "pawn_distance": closest["distance"],
+        "saving_move": best_move_san,
+    }
+
+
 # ── Severity scoring for dominant-pick ───────────────────────────────
 # Replaces "first detector by registry priority" with a function that
 # weights detections by actual decisiveness. A missed fork worth
@@ -163,6 +410,15 @@ def _severity_score(det: Dict) -> float:
     if pt == "hanging_piece":
         # Single hanging piece — value of that piece.
         return float(d.get("piece_value", 0))
+    if pt == "walked_into_capture":
+        # The user's move directly hung the piece — score above
+        # generic hanging_piece AND trapped_piece because the causal
+        # story is sharper than either descriptive detector.
+        return float(d.get("moved_value", 0)) * 2.0 + 4.0
+    if pt == "pawn_race":
+        # Decisive in endgame — opp pawn promotes if user can't catch.
+        # Higher than fork (~14-18) because mate-in-N follows promo.
+        return 30.0 - float(d.get("pawn_distance", 1))
     if pt == "trapped_piece":
         return 7.0
     if pt == "walked_into_fork":
@@ -300,6 +556,38 @@ def detect_concepts(
     except Exception as e:
         logger.warning(f"[concept_dispatcher] walked_into_mate detect failed: {e}")
 
+    # Local detector — WALKED_INTO_CAPTURE. Specifically scopes to the
+    # just-moved piece, which is the narrative the player needs.
+    try:
+        cap_facts = _detect_walked_into_capture(board, user_move_san, best_move_san)
+        if cap_facts:
+            out.append({
+                "pattern_type": "walked_into_capture",
+                "details": cap_facts,
+                "teaching_hook": "Moved piece is now under attack",
+                "key_squares": [cap_facts.get("square")] if cap_facts.get("square") else [],
+                "confidence": 0.95,
+                "category": "tactical",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] walked_into_capture detect failed: {e}")
+
+    # Local detector — PAWN_RACE. Endgame: opp passed pawn promotes
+    # because user-king is outside the square-of-the-pawn.
+    try:
+        race_facts = _detect_pawn_race(board, user_move_san, best_move_san)
+        if race_facts:
+            out.append({
+                "pattern_type": "pawn_race",
+                "details": race_facts,
+                "teaching_hook": "Opponent's pawn promotes",
+                "key_squares": [race_facts.get("pawn_square")] if race_facts.get("pawn_square") else [],
+                "confidence": 0.9,
+                "category": "strategic",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] pawn_race detect failed: {e}")
+
     return out
 
 
@@ -320,6 +608,27 @@ def pick_dominant_concept(detections: List[Dict]) -> Optional[Dict]:
     if not candidates:
         return None
     return max(candidates, key=_severity_score)
+
+
+def pick_dominant_renderable(detections: List[Dict]) -> Optional[Dict]:
+    """Like pick_dominant_concept but skips detections whose template
+    returns None due to missing details. Without this, a high-severity
+    detection (e.g., a fork detector firing without attacker_square)
+    can suppress a lower-severity detection (e.g., hanging_piece) that
+    would have rendered fine."""
+    from .concept_templates import render_caption
+    candidates = [d for d in detections if has_template(d.get("pattern_type"))]
+    if not candidates:
+        return None
+    candidates_sorted = sorted(candidates, key=_severity_score, reverse=True)
+    for d in candidates_sorted:
+        try:
+            caption = render_caption(d.get("pattern_type"), d.get("details") or {})
+        except Exception:
+            caption = None
+        if caption:
+            return d
+    return None
 
 
 def caption_for_moment(
@@ -343,7 +652,7 @@ def caption_for_moment(
         context=context,
         engine_mate_in_after=engine_mate_in_after,
     )
-    dominant = pick_dominant_concept(detections)
+    dominant = pick_dominant_renderable(detections)
     if not dominant:
         return None, None
 

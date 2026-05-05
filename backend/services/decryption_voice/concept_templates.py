@@ -100,6 +100,32 @@ def _render_missed_back_rank(details: Dict) -> Optional[str]:
     return f"You missed a back-rank mate: {move} ends the game."
 
 
+def _render_walked_into_capture(details: Dict) -> Optional[str]:
+    """User's just-moved piece is now hanging or in a losing trade."""
+    piece = details.get("piece")
+    sq = details.get("square")
+    capture_san = details.get("capture_san")
+    saving = details.get("saving_move")
+    is_undef = details.get("is_undefended")
+    if not piece or not sq:
+        return None
+
+    # Two flavours — undefended (hangs) or attacked-by-cheaper-piece.
+    if is_undef:
+        head = f"Your {piece} on {sq} has no defender."
+    else:
+        attacker = details.get("attacker_piece") or "piece"
+        head = f"Your {piece} on {sq} is attacked by their {attacker} for less."
+
+    if capture_san and saving:
+        return f"{head} {capture_san} wins it. {saving} was safer."
+    if capture_san:
+        return f"{head} {capture_san} wins it."
+    if saving:
+        return f"{head} {saving} was safer."
+    return head
+
+
 def _render_walked_into_mate(details: Dict) -> Optional[str]:
     """User's move allowed forced mate against them."""
     mate_in = details.get("mate_in", 1)
@@ -166,6 +192,19 @@ def _render_missed_removal(details: Dict) -> Optional[str]:
     )
 
 
+def _render_pawn_race(details: Dict) -> Optional[str]:
+    """Opponent's passed pawn races to promotion; user's king is outside
+    the square-of-the-pawn."""
+    sq = details.get("pawn_square")
+    saving = details.get("saving_move")
+    if not sq:
+        return None
+    head = f"Their pawn on {sq} runs to promotion. Your king is too far."
+    if saving:
+        return f"{head} {saving} catches it in time."
+    return head
+
+
 def _render_outside_passed_pawn(details: Dict) -> Optional[str]:
     outside = details.get("outside_passed") or []
     if outside:
@@ -200,12 +239,14 @@ _TEMPLATE_REGISTRY = {
     "missed_back_rank":   _render_missed_back_rank,
     "missed_discovery":   _render_missed_discovery,
     "walked_into_mate":   _render_walked_into_mate,
+    "walked_into_capture": _render_walked_into_capture,
     "missed_overload":    _render_missed_overload,
     "missed_removal":     _render_missed_removal,
     "walked_into_fork":   _render_walked_into_fork,
     "walked_into_pin":    _render_walked_into_pin,
     # Strategic / endgame — added incrementally
     "outside_passed_pawn": _render_outside_passed_pawn,
+    "pawn_race":          _render_pawn_race,
     "opposition":         _render_opposition,
 }
 
