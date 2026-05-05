@@ -220,7 +220,7 @@ async def generate_post_game_voice(
                 concept_text = None
                 concept_meta = None
                 try:
-                    from .concept_dispatcher import caption_for_moment
+                    from .concept_dispatcher import caption_for_moment, extract_mate_against_user
                     moment_v5 = next(
                         (mm for mm in decryption_v5_data
                          if mm.get("is_user_move")
@@ -229,10 +229,16 @@ async def generate_post_game_voice(
                         None,
                     )
                     best_san_for_dispatch = (moment_v5 or {}).get("best_move_san") or ""
+                    # Stockfish-truth mate detection — positive int means
+                    # forced mate against the user from this move.
+                    engine_mate = extract_mate_against_user(
+                        move_evaluations, mn, ms, user_color,
+                    )
                     concept_text, concept_meta = caption_for_moment(
                         fen_before=full_m["fen_before"],
                         user_move_san=ms,
                         best_move_san=best_san_for_dispatch,
+                        engine_mate_in_after=engine_mate,
                     )
                 except Exception as cd_err:
                     logger.warning(f"[orchestrator] concept_dispatcher failed for move {mn}: {cd_err}")
@@ -271,6 +277,8 @@ async def generate_post_game_voice(
                             move_number=mn,
                             decryption_v5_data=decryption_v5_data,
                             engine_caption=m_result.text,
+                            move_evaluations=move_evaluations,
+                            user_color=user_color,
                         )
                     except Exception as cb_err:
                         logger.warning(f"[orchestrator] candidate_builder failed for move {mn}: {cb_err}")

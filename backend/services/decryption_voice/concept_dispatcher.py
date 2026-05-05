@@ -35,10 +35,44 @@ def _detect_walked_into_mate(
     user_move_san: str,
     best_move_san: Optional[str],
     max_ply: int = 2,
+    engine_mate_in_after: Optional[int] = None,
 ) -> Optional[Dict]:
     """If user's move allows forced mate against them, return facts;
-    else None. max_ply=2 means look up to mate-in-2 (covers most
-    common cases at 600-1400)."""
+    else None.
+
+    Two-tier detection:
+
+    1. Engine truth — if Stockfish's mate_in_after is set and positive,
+       that's the truth. Trust the engine over local search; it covers
+       mate-in-3+ which our local mate-in-2 search misses.
+
+    2. Local search fallback — for moments where engine mate data isn't
+       available, search for mate-in-1 and mate-in-2 on the board.
+    """
+    # Stockfish-verified mate detection takes precedence.
+    if engine_mate_in_after is not None:
+        # mate_in_after is the ply count to forced mate from after the
+        # user's move, AGAINST the user (since they just moved).
+        # A positive number means mate is coming for the user.
+        if engine_mate_in_after > 0:
+            # We don't have opp_mate_move from engine — just play it
+            # out one ply for the SAN.
+            opp_mate_move_san = None
+            try:
+                bb = board.copy()
+                m = bb.parse_san(user_move_san)
+                bb.push(m)
+                # Best opp move (in mate-finding context) is whatever
+                # makes mate happen. We don't iterate; just leave None
+                # and the template handles missing opp_mate_move.
+            except Exception:
+                pass
+            return {
+                "mate_in": engine_mate_in_after,
+                "opp_mate_move": opp_mate_move_san,
+                "saving_move": best_move_san,
+                "source": "engine",
+            }
     try:
         b = board.copy()
         m = b.parse_san(user_move_san)
@@ -145,12 +179,49 @@ def _severity_score(det: Dict) -> float:
     return 1.0
 
 
+def extract_mate_against_user(
+    move_evaluations: Optional[List[Dict]],
+    move_number: int,
+    move_san: str,
+    user_color: str,
+) -> Optional[int]:
+    """Find Stockfish's mate_info.after for this move and convert to
+    user-perspective: positive int = ply-count to mate AGAINST the user.
+
+    Stockfish's mate_in_after is from White's perspective:
+        +N means White mates in N
+        -N means Black mates in N
+    So mate-against-user is +after when user is black and after > 0,
+    or -after when user is white and after < 0. Otherwise None (no
+    walk-into-mate from this move).
+    """
+    if not move_evaluations:
+        return None
+    user_is_white = (user_color or "").lower() == "white"
+    for entry in move_evaluations:
+        if entry.get("move_number") != move_number:
+            continue
+        if entry.get("move") != move_san:
+            continue
+        mate_info = entry.get("mate_info") or {}
+        after = mate_info.get("after")
+        if after is None:
+            return None
+        if user_is_white and after < 0:
+            return -after
+        if (not user_is_white) and after > 0:
+            return after
+        return None
+    return None
+
+
 def detect_concepts(
     *,
     fen_before: str,
     user_move_san: str,
     best_move_san: Optional[str] = None,
     context: Optional[Dict] = None,
+    engine_mate_in_after: Optional[int] = None,
 ) -> List[Dict]:
     """Run all chess_brain detectors against this moment.
 
@@ -158,6 +229,10 @@ def detect_concepts(
     DetectorResult: pattern_type, details, teaching_hook, key_squares,
     confidence, category) sorted by registration priority (already
     sorted in the registry).
+
+    Pass engine_mate_in_after when V5/move_evaluations has Stockfish's
+    pre-computed ply-to-mate after the user's move; this lets the
+    walked_into_mate detector catch mate-in-3+ that local search misses.
 
     Returns [] on any exception so callers can fall through gracefully.
     """
@@ -207,7 +282,12 @@ def detect_concepts(
     # opposite). We add it here so a Kc6 → e8=Q+ mate gets the
     # decisive "walked into mate" caption.
     try:
-        mate_facts = _detect_walked_into_mate(board, user_move_san, best_move_san)
+        mate_facts = _detect_walked_into_mate(
+            board,
+            user_move_san,
+            best_move_san,
+            engine_mate_in_after=engine_mate_in_after,
+        )
         if mate_facts:
             out.append({
                 "pattern_type": "walked_into_mate",
@@ -248,6 +328,7 @@ def caption_for_moment(
     user_move_san: str,
     best_move_san: Optional[str] = None,
     context: Optional[Dict] = None,
+    engine_mate_in_after: Optional[int] = None,
 ) -> Tuple[Optional[str], Optional[Dict]]:
     """Run detectors → pick dominant → render caption.
 
@@ -260,6 +341,7 @@ def caption_for_moment(
         user_move_san=user_move_san,
         best_move_san=best_move_san,
         context=context,
+        engine_mate_in_after=engine_mate_in_after,
     )
     dominant = pick_dominant_concept(detections)
     if not dominant:

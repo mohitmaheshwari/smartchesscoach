@@ -161,6 +161,8 @@ def build_candidates(
     move_number: int,
     decryption_v5_data: List[Dict],
     engine_caption: str = "",
+    move_evaluations: Optional[List[Dict]] = None,
+    user_color: Optional[str] = None,
 ) -> List[Dict]:
     """Build the 3 candidate moves for one critical moment.
 
@@ -210,11 +212,17 @@ def build_candidates(
     # for the common 600-1400 patterns; LLM only as last resort.
     concept_caption = None
     try:
-        from .concept_dispatcher import caption_for_moment
+        from .concept_dispatcher import caption_for_moment, extract_mate_against_user
+        engine_mate = None
+        if move_evaluations and user_color:
+            engine_mate = extract_mate_against_user(
+                move_evaluations, move_number, move_san, user_color,
+            )
         concept_caption, _meta = caption_for_moment(
             fen_before=fen_before,
             user_move_san=move_san,
             best_move_san=best_san,
+            engine_mate_in_after=engine_mate,
         )
     except Exception:
         concept_caption = None
