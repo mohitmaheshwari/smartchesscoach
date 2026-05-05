@@ -71,6 +71,7 @@ async def generate_post_game_voice(
         game_reason=game_reason,
         game_id=game_id,
         user_won=False,
+        user_color=user_color,
     )
     if not truth_line:
         # No critical move detected — no honest story to tell.
@@ -83,13 +84,14 @@ async def generate_post_game_voice(
         decryption_v5_data=decryption_v5_data,
         game_reason=game_reason,
         game_id=game_id,
+        user_color=user_color,
     )
 
     # 4. Pattern Evidence — board geometry for the visual evidence
     # surface. Independent of the LLM (uses python-chess), so it
     # ships even if the LLM call fails.
     pattern_evidence = None
-    critical = pick_critical_move(decryption_v5_data)
+    critical = pick_critical_move(decryption_v5_data, user_color=user_color)
     if critical:
         try:
             from services.pattern_evidence import extract_pattern_evidence
@@ -183,7 +185,12 @@ async def generate_post_game_voice(
     # for up to 4 key moments per game.
     moments_list = []
     try:
-        top_moments = detect_top_moments(decryption_v5_data, max_moments=4, min_separation=3)
+        top_moments = detect_top_moments(
+            decryption_v5_data,
+            max_moments=4,
+            min_separation=3,
+            user_color=user_color,
+        )
         for moment_struct in top_moments:
             mn = moment_struct.get("move_number")
             ms = moment_struct.get("move_san")
@@ -314,6 +321,7 @@ async def generate_post_game_voice(
                         "cp_loss": moment_struct.get("cp_loss"),
                         "severity": moment_struct.get("severity"),
                         "is_pivot": moment_struct.get("is_pivot", False),
+                        "pivot_tier": moment_struct.get("pivot_tier"),
                         "fen_before": full_m["fen_before"],
                         "fen_after": _fen_after,
                         "move_uci": _uci,

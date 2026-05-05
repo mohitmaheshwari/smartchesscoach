@@ -28,10 +28,23 @@ logger = logging.getLogger(__name__)
 # that drive Truth voice. Each archetype gets its own pool of identity,
 # anchor verb-phrase, and trigger lines.
 
-SCENARIO_BLUNDERED = "blundered"   # decisive blunder, was equal/winning
-SCENARIO_THREW = "threw"           # was winning, simplified/relaxed away
-SCENARIO_SQUEEZED = "squeezed"     # gradual passivity, no single moment
-SCENARIO_OUTPLAYED = "outplayed"   # opponent saw a plan; no clear failure
+SCENARIO_BLUNDERED = "blundered"     # decisive blunder, was equal/winning
+SCENARIO_THREW = "threw"             # was winning, simplified/relaxed away
+SCENARIO_EQUALIZED = "equalized"     # was losing, opp let you back in, you gave it back
+SCENARIO_SQUEEZED = "squeezed"       # gradual passivity, no single moment
+SCENARIO_OUTPLAYED = "outplayed"     # opponent saw a plan; no clear failure
+
+
+# Pivot tiers — different shades of "the game flipped on this move".
+# "won":      user was at-or-below equal, opp blunder pushed them to clearly
+#             winning, user then gave it back. The strongest narrative.
+# "equalized": user was clearly losing (eval ≤ -2 pawns from their POV), opp
+#             blunder brought them back to roughly even, user then sent it
+#             back to losing. Different felt experience — "I had a chance to
+#             come back, I didn't take it."
+
+PIVOT_TIER_WON = "won"
+PIVOT_TIER_EQUALIZED = "equalized"
 
 
 _REASON_TO_SCENARIO = {
@@ -81,6 +94,11 @@ IDENTITY_BY_SCENARIO: Dict[str, List[str]] = {
         "You didn't get outplayed. You stopped working when you started winning.",
         "You didn't lose to them. You traded the game away.",
     ],
+    SCENARIO_EQUALIZED: [
+        "You didn't lose this. You stopped working when you got back in it.",
+        "You fought back. Then you stopped fighting.",
+        "You didn't lose to them. You eased off when the comeback came.",
+    ],
     SCENARIO_SQUEEZED: [
         "You didn't lose to them. You let them run the game.",
         "You didn't get outplayed. You went passive.",
@@ -109,6 +127,11 @@ ANCHOR_PHRASES_BY_SCENARIO: Dict[str, List[str]] = {
         "you traded thinking the game was over",
         "you stopped pressing when {san} came",
         "{san} simplified into a lost position",
+    ],
+    SCENARIO_EQUALIZED: [
+        "{san} sent you straight back into trouble",
+        "{san} undid the comeback in one move",
+        "you'd just got back in — {san} sent you out",
     ],
     SCENARIO_SQUEEZED: [
         "you had no piece free to challenge them",
@@ -160,6 +183,25 @@ PIVOT_DIFF_NUMBER_ANCHORS: List[str] = [
 ]
 
 
+# ── Equalized-tier pivot anchors ─────────────────────────────────────
+# User was clearly losing, opp slipped, user came back to even, then
+# user sent it right back. NOT "the win was yours" — they were never
+# winning, just back in the game. Two pools matched to same/diff
+# move numbers, same as PIVOT_*_ANCHORS above.
+
+EQUALIZED_PIVOT_SAME_NUMBER_ANCHORS: List[str] = [
+    "Move {pivot_n} — they slipped, you slipped right back.",
+    "Move {pivot_n} — the door was open. You closed it on yourself.",
+    "Move {pivot_n} — back in the game, then straight back out.",
+]
+
+EQUALIZED_PIVOT_DIFF_NUMBER_ANCHORS: List[str] = [
+    "Move {opp_n} they slipped. Move {pivot_n} you sent it back.",
+    "Move {opp_n} the door opened. Move {pivot_n} you closed it.",
+    "Move {opp_n} they slipped. Move {pivot_n} {san} let it go.",
+]
+
+
 # ── Forward triggers (line 3 of Truth) ────────────────────────────────
 # Mutterable mid-game. Short — most under 7 words.
 
@@ -173,6 +215,11 @@ TRIGGER_BY_SCENARIO: Dict[str, List[str]] = {
         "Winning is when the work starts.",
         "When you're winning, slow down.",
         "Don't relax when you're winning.",
+    ],
+    SCENARIO_EQUALIZED: [
+        "After they slip, the work starts.",
+        "Don't ease off after a comeback.",
+        "Equal isn't over. Keep working.",
     ],
     SCENARIO_SQUEEZED: [
         "Find work for every piece.",
@@ -224,16 +271,19 @@ def _format_anchor(critical_move: Dict, scenario: str, game_id: str) -> str:
     move_san = critical_move.get("move_san") or "?"
     cp_loss = critical_move.get("cp_loss") or 0
     is_pivot = critical_move.get("is_pivot", False)
+    pivot_tier = critical_move.get("pivot_tier")
     opp_n = critical_move.get("opp_preceding_move_number")
 
     # Path 1: pivot + we know the opp's preceding mistake → narrative anchor.
+    # Tier picks pool: 'equalized' uses comeback-tone, 'won' (default) keeps
+    # the "win was yours, then it wasn't" tone.
     # Same move number (chess full-move pair) → back-to-back phrasing.
     # Different numbers → two-move story.
     if is_pivot and opp_n:
-        if opp_n == move_num:
-            pool = PIVOT_SAME_NUMBER_ANCHORS
+        if pivot_tier == PIVOT_TIER_EQUALIZED:
+            pool = EQUALIZED_PIVOT_SAME_NUMBER_ANCHORS if opp_n == move_num else EQUALIZED_PIVOT_DIFF_NUMBER_ANCHORS
         else:
-            pool = PIVOT_DIFF_NUMBER_ANCHORS
+            pool = PIVOT_SAME_NUMBER_ANCHORS if opp_n == move_num else PIVOT_DIFF_NUMBER_ANCHORS
         phrase_template = _pick_variant(pool, game_id)
         line = phrase_template.format(opp_n=opp_n, pivot_n=move_num, san=move_san)
         return line
@@ -313,6 +363,7 @@ def detect_top_moments(
     decryption_v5_data: List[Dict],
     max_moments: int = 4,
     min_separation: int = 3,
+    user_color: str = "white",
 ) -> List[Dict]:
     """Find the top N user mistakes/blunders that defined the game.
 
@@ -356,10 +407,10 @@ def detect_top_moments(
         if any(abs(mn - (p.get("move_number") or 0)) < min_separation for p in picked):
             continue
         # Promote pivots in the same way pick_critical_move does — they
-        # carry the threw-winning narrative even if cp_loss is smaller.
-        is_pivot = False
+        # carry the THREW or EQUALIZED narrative even when cp_loss is
+        # smaller. Tier ('won' vs 'equalized') drives downstream voice.
+        pivot_tier = None
         opp_preceding = None
-        # Cheap pivot test: was the previous user move good with big swing?
         idx = decryption_v5_data.index(m)
         user_prior = None
         for i in range(idx - 1, -1, -1):
@@ -367,9 +418,8 @@ def detect_top_moments(
                 user_prior = decryption_v5_data[i]
                 break
         if user_prior:
-            if (user_prior.get("severity") in ("good", "best")
-                    and (user_prior.get("cp_loss") or 0) >= 1000):
-                is_pivot = True
+            pivot_tier = _classify_pivot_tier(user_prior, m, user_color)
+            if pivot_tier:
                 opp_preceding = _find_opp_preceding_mistake(decryption_v5_data, m)
                 opp_preceding = (opp_preceding or {}).get("move_number") if opp_preceding else None
 
@@ -378,7 +428,8 @@ def detect_top_moments(
             "move_san": m.get("move_san"),
             "cp_loss": m.get("cp_loss"),
             "severity": m.get("severity"),
-            "is_pivot": is_pivot,
+            "is_pivot": pivot_tier is not None,
+            "pivot_tier": pivot_tier,
             "opp_preceding_move_number": opp_preceding,
         })
         if len(picked) >= max_moments:
@@ -389,25 +440,80 @@ def detect_top_moments(
     return picked
 
 
-def detect_pivot_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
-    """Find the user move that flipped a winning position to losing.
+def _user_eval(eval_white: Optional[int], user_color: str) -> Optional[int]:
+    """Convert white-perspective centipawn eval to user-perspective.
+    Engine evals come from white's POV; flip for black users so positive
+    always means 'better for the user'."""
+    if eval_white is None:
+        return None
+    return int(eval_white) if (user_color or "").lower() == "white" else -int(eval_white)
 
-    Two stacked conditions must hold for a pivot to fire:
+
+def _classify_pivot_tier(
+    user_prior: Dict,
+    current: Dict,
+    user_color: str,
+) -> Optional[str]:
+    """Classify the eval swing on opp's preceding move into a pivot tier.
+
+    Inputs:
+      user_prior: the V5 record for the user move BEFORE the current
+                  blunder. Its eval_after is the eval just before opp
+                  moved (i.e., the user-side starting point).
+      current:    the V5 record for the user blunder being evaluated.
+                  Its eval_before is the eval just AFTER opp's move
+                  (i.e., the post-opp-blunder position the user faced).
+      user_color: 'white' | 'black' — used to flip eval polarity.
+
+    Returns:
+      "won":       opp blunder put user from non-winning to clearly winning
+                   (≥ +1.5 pawns) AND swing in user's favor ≥ 3 pawns.
+      "equalized": user was clearly losing (≤ -2 pawns) and opp blunder
+                   brought them to roughly even (-2 ≤ eval ≤ +2) with
+                   swing ≥ 2.5 pawns.
+      None:        no qualifying swing.
+
+    Falls back to the legacy cp_loss-on-good-move heuristic when eval
+    data is missing on either record (treats it as "won" tier).
+    """
+    pre_eval = _user_eval(user_prior.get("eval_after"), user_color)
+    post_eval = _user_eval(current.get("eval_before"), user_color)
+
+    if pre_eval is not None and post_eval is not None:
+        swing = post_eval - pre_eval
+        # WON: opp blunder pushed user into a winning position.
+        if post_eval >= 150 and pre_eval < 150 and swing >= 300:
+            return PIVOT_TIER_WON
+        # EQUALIZED: user was clearly losing, came back to roughly even.
+        if -200 <= post_eval <= 200 and pre_eval <= -200 and swing >= 250:
+            return PIVOT_TIER_EQUALIZED
+        return None
+
+    # Legacy fallback when eval data isn't available — V5 overloaded
+    # cp_loss on good moves to encode swing magnitude.
+    prev_sev = user_prior.get("severity")
+    prev_cp = user_prior.get("cp_loss") or 0
+    if prev_sev in ("good", "best") and prev_cp >= 1000:
+        return PIVOT_TIER_WON
+    return None
+
+
+def detect_pivot_move(
+    decryption_v5_data: List[Dict],
+    user_color: str = "white",
+) -> Optional[Dict]:
+    """Find the user move that flipped the game.
+
+    Two stacked conditions must hold:
 
       1. The current user move is a blunder/mistake with cp_loss >= 300
          (a real, decisive error — not a small slip).
 
-      2. The PREVIOUS user move was good/best AND showed a big position
-         swing in the user's favor (cp_loss >= 1000 on a good user move
-         is the V5 signature of "the opponent blundered, user is now
-         winning"). This filters out generic good→blunder transitions
-         in games where the user was never actually winning — only fires
-         when the user was clearly handed a winning position and threw
-         it back.
+      2. The eval swing on opp's preceding move qualifies for a pivot
+         tier ('won' or 'equalized'). See _classify_pivot_tier.
 
-    Tested on Game 2085fc68 (Pirc, 1-0 black): correctly grabs move 31
-    Ka7 (the throw-back) instead of move 43 Reb8 (the bigger cp swing
-    later in the losing struggle).
+    Returns the move dict augmented with `pivot_tier` ('won' or
+    'equalized'). Returns None when no qualifying pivot exists.
     """
     if not decryption_v5_data:
         return None
@@ -421,18 +527,15 @@ def detect_pivot_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
         if cp_loss < 300:
             continue
         prev = user_moves[i - 1]
-        prev_sev = prev.get("severity")
-        prev_cp = prev.get("cp_loss") or 0
-        # Two conditions: prev was good AND big swing in user's favor.
-        # The cp_loss-on-good-move is V5's encoding of "position swung
-        # this much" — not the loss-vs-best interpretation (which would
-        # always be ~0 for a 'good' move).
-        if prev_sev in ("good", "best") and prev_cp >= 1000:
-            return m
+        tier = _classify_pivot_tier(prev, m, user_color)
+        if tier:
+            out = dict(m)
+            out["pivot_tier"] = tier
+            return out
     return None
 
 
-def pick_critical_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
+def pick_critical_move(decryption_v5_data: List[Dict], user_color: str = "white") -> Optional[Dict]:
     """Find the move that defines the game from V5 structural data.
 
     Priority:
@@ -453,7 +556,7 @@ def pick_critical_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
     if not decryption_v5_data:
         return None
 
-    pivot = detect_pivot_move(decryption_v5_data)
+    pivot = detect_pivot_move(decryption_v5_data, user_color=user_color)
     if pivot:
         # For pivot games, also try to find the opponent's preceding
         # mistake/blunder so the anchor can render "Move N they blundered.
@@ -465,6 +568,7 @@ def pick_critical_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
             "cp_loss": pivot.get("cp_loss"),
             "severity": pivot.get("severity"),
             "is_pivot": True,
+            "pivot_tier": pivot.get("pivot_tier"),
             "opp_preceding_move_number": (opp_preceding.get("move_number") if opp_preceding else None),
         }
 
@@ -492,6 +596,7 @@ def generate_truth_line(
     game_reason: str,
     game_id: str,
     user_won: bool = False,
+    user_color: str = "white",
 ) -> Optional[Dict[str, str]]:
     """Build the 3-line Truth headline for a finished game.
 
@@ -512,7 +617,7 @@ def generate_truth_line(
     if user_won:
         return None
 
-    critical = pick_critical_move(decryption_v5_data)
+    critical = pick_critical_move(decryption_v5_data, user_color=user_color)
     if not critical:
         return None
 
@@ -521,10 +626,14 @@ def generate_truth_line(
         if m.get("is_user_move") and m.get("severity") == "blunder"
     )
 
-    # Pivot detection overrides classifier output — the in-game flip
-    # from winning to losing is the most reliable "threw it" signal,
-    # more so than game_reason_classifier's heuristics.
-    if critical.get("is_pivot"):
+    # Pivot detection overrides classifier output — the in-game flip is
+    # the most reliable signal. Tier picks scenario: 'won' → THREW (you
+    # had a winning position), 'equalized' → EQUALIZED (you got back to
+    # even and gave it back).
+    pivot_tier = critical.get("pivot_tier")
+    if pivot_tier == PIVOT_TIER_EQUALIZED:
+        scenario = SCENARIO_EQUALIZED
+    elif critical.get("is_pivot"):
         scenario = SCENARIO_THREW
     else:
         scenario = _classify_scenario(game_reason or "", blunder_count)

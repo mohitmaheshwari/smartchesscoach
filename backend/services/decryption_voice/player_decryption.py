@@ -32,8 +32,10 @@ from typing import Dict, List, Optional
 from .truth_line import (
     SCENARIO_BLUNDERED,
     SCENARIO_THREW,
+    SCENARIO_EQUALIZED,
     SCENARIO_SQUEEZED,
     SCENARIO_OUTPLAYED,
+    PIVOT_TIER_EQUALIZED,
     classify_scenario,
     pick_critical_move,
     pick_variant,
@@ -54,6 +56,11 @@ STORY_BY_SCENARIO: Dict[str, List[str]] = {
         "You played to win. You got winning. Then you stopped playing.",
         "You built a winning position. Then you handed it over.",
         "It was yours. You stopped working at the wrong time.",
+    ],
+    SCENARIO_EQUALIZED: [
+        "You climbed back in. Move {move_n} sent you back out.",
+        "You'd fought your way back. You didn't keep fighting.",
+        "It was even again. You let it slip.",
     ],
     SCENARIO_SQUEEZED: [
         "You started solid. By the middlegame you'd lost the initiative without noticing. By move {move_n}, you were just answering their questions.",
@@ -82,6 +89,11 @@ PATTERN_BY_SCENARIO: Dict[str, List[str]] = {
         "Winning makes you careless. The work isn't done; you act like it is.",
         "You celebrate too early. Your opponent doesn't.",
     ],
+    SCENARIO_EQUALIZED: [
+        "When the chance comes, you stop working before you finish the job.",
+        "You ease off after equalizing — that's the second mistake.",
+        "You celebrate the comeback before you complete it.",
+    ],
     SCENARIO_SQUEEZED: [
         "You keep reacting instead of pushing back. When they take space, you defend instead of challenging it.",
         "You let them set the agenda. Once you're defending, you stay defending.",
@@ -107,6 +119,11 @@ CARRY_FORWARD_BY_SCENARIO: Dict[str, List[str]] = {
         "Don't relax when you're winning.",
         "Stay sharp until they resign.",
         "When you're ahead, slow down.",
+    ],
+    SCENARIO_EQUALIZED: [
+        "Equalizing isn't winning. Keep working.",
+        "After they slip, your work begins.",
+        "The comeback ends when the position ends.",
     ],
     SCENARIO_SQUEEZED: [
         "Don't just react — push back.",
@@ -139,6 +156,8 @@ def _format_story(template: str, critical_move: Optional[Dict]) -> str:
                      "It got given away in one stroke.")
             .replace("Move {move_n} broke it. One move did the damage.",
                      "One move broke it.")
+            .replace("Move {move_n} sent you back out.",
+                     "You got sent back out.")
             .replace(" By move {move_n}, you were just answering their questions.",
                      " You were just answering their questions.")
             .replace("{move_n}", "—")
@@ -151,6 +170,7 @@ def build_player_decryption(
     decryption_v5_data: List[Dict],
     game_reason: str,
     game_id: str,
+    user_color: str = "white",
 ) -> Optional[Dict]:
     """Build the Player Decryption block: story + pattern + carry_forward.
 
@@ -166,7 +186,7 @@ def build_player_decryption(
         no decisive moment exists (e.g., user won — caller skips this
         surface entirely).
     """
-    critical = pick_critical_move(decryption_v5_data)
+    critical = pick_critical_move(decryption_v5_data, user_color=user_color)
     if not critical:
         return None
 
@@ -174,9 +194,13 @@ def build_player_decryption(
         1 for m in (decryption_v5_data or [])
         if m.get("is_user_move") and m.get("severity") == "blunder"
     )
-    # Pivot beats the classifier — in-game flip from winning to losing
-    # is the strongest signal that this is a THREW scenario.
-    if critical.get("is_pivot"):
+    # Pivot tier picks scenario: 'won' → THREW (had a winning position),
+    # 'equalized' → EQUALIZED (came back to even, gave it back). Falls
+    # through to game_reason classification when no pivot fires.
+    pivot_tier = critical.get("pivot_tier")
+    if pivot_tier == PIVOT_TIER_EQUALIZED:
+        scenario = SCENARIO_EQUALIZED
+    elif critical.get("is_pivot"):
         scenario = SCENARIO_THREW
     else:
         scenario = classify_scenario(game_reason or "", blunder_count)
