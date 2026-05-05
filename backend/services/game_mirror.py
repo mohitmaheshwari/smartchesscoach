@@ -590,20 +590,20 @@ def _aggregate_verdict(
             f" Also {_pattern_voice(second_pattern)} in {second_count} of {n}."
         )
 
-    # Tone for the "clean" line — be honest, but end with a path forward,
-    # never a double-negative pile-on. Voice review 2026-05-04 flagged
-    # "showing up everywhere / still happening" as report-card, not coach.
-    if fully_clean == 0:
-        clean_line = "No clean games yet on this pattern."
-    elif top_count == n:
+    # Phrase the count in terms of the named top pattern — "clean" was
+    # ambiguous to a 1200 (does it mean no blunders? no mistakes? no
+    # tracked patterns?). Saying "X games without it" anchors the count
+    # to the pattern just named in the headline. Voice review 2026-05-05.
+    top_clean = n - top_count
+    if top_count == n:
         clean_line = "Every game touched it."
     elif pct_repeat >= 0.5:
-        clean_line = f"{fully_clean} fully clean. The other {n - fully_clean} touched it."
+        clean_line = f"{top_clean} of {n} games without it. Most still had it."
     elif pct_repeat >= 0.25:
-        clean_line = f"{fully_clean} fully clean. Halfway there."
+        clean_line = f"{top_clean} of {n} games without it. Halfway there."
     else:
         # <25% recurrence is real partial progress.
-        clean_line = f"{fully_clean} fully clean — the pattern is fading."
+        clean_line = f"{top_clean} of {n} games without it — the pattern is fading."
 
     # Forward action: name the pattern, point to the drill. Coach Voice
     # rule 6 ("end with one specific thing").
