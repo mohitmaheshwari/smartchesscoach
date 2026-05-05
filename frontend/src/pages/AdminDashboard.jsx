@@ -14,7 +14,9 @@ import {
   Loader2, Users, BarChart3, MessageSquareWarning, Search,
   UserPlus, ShieldCheck, Shield, User as UserIcon, ChevronRight,
   ArrowLeft, Flag, X, Clock, Eye, Gamepad2, Brain, BookOpen, Download, Copy, Check,
+  Sparkles,
 } from "lucide-react";
+import { Chessboard } from "react-chessboard";
 
 const WINE = "#722F37";
 const GOLD_TEXT = "#8B6F1F";
@@ -44,6 +46,7 @@ export default function AdminDashboard({ user }) {
     { key: "overview", label: "Overview", icon: <BarChart3 className="w-3.5 h-3.5" /> },
     { key: "users", label: "Users", icon: <Users className="w-3.5 h-3.5" /> },
     { key: "feedback", label: "Feedback", icon: <MessageSquareWarning className="w-3.5 h-3.5" /> },
+    { key: "review", label: "Review", icon: <Sparkles className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -76,6 +79,7 @@ export default function AdminDashboard({ user }) {
         {activeTab === "overview" && <OverviewTab />}
         {activeTab === "users" && <UsersTab currentUser={user} />}
         {activeTab === "feedback" && <FeedbackTab />}
+        {activeTab === "review" && <DecryptionReviewTab />}
       </div>
     </Layout>
   );
@@ -1296,3 +1300,286 @@ const formatDate = (dateStr) => {
     return "—";
   }
 };
+
+
+/* ============================================================
+ * DECRYPTION REVIEW TAB
+ * Auto-flagged commentaries (confidence < 0.8). Coach reviews
+ * each, writes an override, save logs to coach_overrides for
+ * offline improvement work — does NOT patch the live moment.
+ * ============================================================ */
+function DecryptionReviewTab() {
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [overrideText, setOverrideText] = useState("");
+  const [coachNote, setCoachNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [includeOverridden, setIncludeOverridden] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await API.get("/admin/decryption-review", {
+        params: { limit: 100, include_overridden: includeOverridden },
+      });
+      setItems(res.data?.items || []);
+      setTotal(res.data?.total || 0);
+    } catch (e) {
+      console.error("decryption-review load failed", e);
+      setItems([]);
+    }
+    setLoading(false);
+  }, [includeOverridden]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const onSelect = (row) => {
+    setSelected(row);
+    setOverrideText(row?.override?.text || "");
+    setCoachNote("");
+    setSavedFlash(false);
+  };
+
+  const onSave = async () => {
+    if (!selected || !overrideText.trim()) return;
+    setSaving(true);
+    try {
+      await API.post("/admin/decryption-review/override", {
+        game_id: selected.game_id,
+        move_number: selected.move_number,
+        move_san: selected.move_san,
+        override_text: overrideText.trim(),
+        coach_note: coachNote.trim() || null,
+      });
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1800);
+      await load();
+    } catch (e) {
+      console.error("override save failed", e);
+      alert("Save failed — check console.");
+    }
+    setSaving(false);
+  };
+
+  if (loading) return <Spinner />;
+
+  if (selected) {
+    return (
+      <DecryptionReviewDetail
+        row={selected}
+        overrideText={overrideText}
+        setOverrideText={setOverrideText}
+        coachNote={coachNote}
+        setCoachNote={setCoachNote}
+        saving={saving}
+        savedFlash={savedFlash}
+        onSave={onSave}
+        onBack={() => setSelected(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="decryption-review-tab">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground">
+            {items.length} of {total} flagged moments (confidence &lt; 0.8)
+          </p>
+        </div>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+          <input
+            type="checkbox"
+            checked={includeOverridden}
+            onChange={(e) => setIncludeOverridden(e.target.checked)}
+          />
+          Show overridden
+        </label>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="text-center py-12 text-sm text-muted-foreground">
+          {includeOverridden
+            ? "No flagged moments."
+            : "Queue is clear. ✨"}
+        </div>
+      ) : (
+        <div className="border rounded" style={{ borderColor: BORDER }}>
+          {items.map((row, i) => (
+            <button
+              key={`${row.game_id}-${row.move_number}-${row.move_san}`}
+              onClick={() => onSelect(row)}
+              className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition"
+              style={{
+                borderBottom: i < items.length - 1 ? `1px solid ${BORDER}` : "none",
+              }}
+              data-testid={`review-row-${i}`}
+            >
+              <div className="w-12 text-center">
+                <div className="text-base font-medium" style={{ color: WINE }}>
+                  {(row.confidence ?? 0).toFixed(2)}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-mono">M{row.move_number} {row.move_san}</span>
+                  <span className="text-xs text-muted-foreground">
+                    cp_loss {row.cp_loss}
+                  </span>
+                  <span
+                    className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded"
+                    style={{ background: GOLD_BG, color: GOLD_TEXT }}
+                  >
+                    {(row.source || "").replace("template:", "")}
+                  </span>
+                  {row.override && (
+                    <span className="text-[10px] text-green-700">✓ overridden</span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground truncate mt-0.5">
+                  {row.text}
+                </div>
+                <div className="text-[10px] text-muted-foreground/70 mt-0.5 font-mono">
+                  game {row.game_id?.slice(0, 8)}…
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function DecryptionReviewDetail({
+  row, overrideText, setOverrideText, coachNote, setCoachNote,
+  saving, savedFlash, onSave, onBack,
+}) {
+  const bd = row.confidence_breakdown || {};
+  return (
+    <div className="space-y-4" data-testid="decryption-review-detail">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" /> Back to queue
+      </button>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Board */}
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">
+            Position before <span className="font-mono">{row.move_san}</span>
+          </div>
+          <div style={{ maxWidth: 360 }}>
+            <Chessboard
+              position={row.fen_before}
+              arePiecesDraggable={false}
+              boardOrientation={
+                (row.fen_before || "").split(" ")[1] === "b" ? "white" : "black"
+              }
+            />
+          </div>
+          <div className="text-[10px] text-muted-foreground/70 break-all font-mono">
+            {row.fen_before}
+          </div>
+        </div>
+
+        {/* Facts */}
+        <div className="space-y-2 text-sm">
+          <FactRow label="Game" value={row.game_id} mono />
+          <FactRow label="User" value={row.user_id} mono />
+          <FactRow label="Move" value={`#${row.move_number}  ${row.move_san}`} mono />
+          <FactRow label="Best move" value={row.best_move_san || "—"} mono highlight />
+          <FactRow label="cp_loss" value={row.cp_loss} />
+          <FactRow label="Severity" value={row.severity} />
+          <FactRow label="Source" value={row.source} mono />
+          <FactRow label="Attempts" value={row.attempts ?? 0} />
+          <div className="pt-2 border-t" style={{ borderColor: BORDER }}>
+            <div className="text-xs text-muted-foreground">Confidence</div>
+            <div className="text-lg font-medium" style={{ color: WINE }}>
+              {(row.confidence ?? 0).toFixed(3)}
+            </div>
+            <div className="text-[10px] text-muted-foreground space-y-0.5 mt-1">
+              <div>source: {bd.source}</div>
+              <div>detector: {bd.detector}</div>
+              <div>engine_corroboration: {bd.engine_corroboration}</div>
+              <div>cp_loss_certainty: {bd.cp_loss_certainty}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Original */}
+      <div className="space-y-1">
+        <div className="text-xs text-muted-foreground">Generated commentary</div>
+        <div
+          className="p-3 rounded text-sm"
+          style={{ background: GOLD_BG, color: GOLD_TEXT }}
+        >
+          {row.text || "—"}
+        </div>
+      </div>
+
+      {/* Override */}
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">
+          Coach override (replacement text)
+        </label>
+        <textarea
+          value={overrideText}
+          onChange={(e) => setOverrideText(e.target.value)}
+          rows={3}
+          className="w-full p-2 rounded border text-sm"
+          style={{ borderColor: BORDER }}
+          placeholder="Write the better explanation in plain Indian English..."
+        />
+        <label className="text-xs text-muted-foreground">
+          Coach note (optional — what was wrong / what should the template do)
+        </label>
+        <textarea
+          value={coachNote}
+          onChange={(e) => setCoachNote(e.target.value)}
+          rows={2}
+          className="w-full p-2 rounded border text-sm"
+          style={{ borderColor: BORDER }}
+          placeholder="e.g. should detect 'protected by counter-attack on h6' — not just 'hanging'"
+        />
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            onClick={onSave}
+            disabled={saving || !overrideText.trim()}
+            className="px-3 py-1.5 rounded text-sm font-medium disabled:opacity-50"
+            style={{ background: WINE, color: "white" }}
+          >
+            {saving ? "Saving…" : "Save override"}
+          </button>
+          {savedFlash && (
+            <span className="text-xs text-green-700 flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> Saved
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FactRow({ label, value, mono, highlight }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-xs text-muted-foreground w-20 shrink-0">{label}</span>
+      <span
+        className={mono ? "font-mono text-xs" : "text-sm"}
+        style={highlight ? { color: WINE, fontWeight: 500 } : undefined}
+      >
+        {value === undefined || value === null || value === "" ? "—" : String(value)}
+      </span>
+    </div>
+  );
+}

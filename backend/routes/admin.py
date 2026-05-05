@@ -837,3 +837,205 @@ async def admin_download_feedback_file(filename: str):
         filename=filename,
         media_type="application/octet-stream",
     )
+
+
+# ==================== DECRYPTION REVIEW QUEUE ====================
+# Auto-flagged moments from game_analyses.decryption_block.moments[]
+# where confidence < 0.8. The coach reviews each, writes an override
+# string, and the override is logged to coach_overrides for offline
+# improvement work — no live patching of player-facing data.
+
+class DecryptionOverrideRequest(BaseModel):
+    game_id: str
+    move_number: int
+    move_san: str
+    override_text: str
+    coach_note: Optional[str] = None
+
+
+@router.get("/admin/decryption-review")
+async def admin_decryption_review(
+    limit: int = 100,
+    skip: int = 0,
+    include_overridden: bool = False,
+    user: User = Depends(require_admin),
+):
+    """List moments flagged for review (confidence < 0.8) across all games."""
+    pipeline = [
+        {"$match": {"decryption_block.moments": {"$exists": True, "$ne": []}}},
+        {"$unwind": "$decryption_block.moments"},
+        {"$match": {"decryption_block.moments.needs_review": True}},
+        {"$project": {
+            "_id": 0,
+            "game_id": 1,
+            "user_id": 1,
+            "moment": "$decryption_block.moments",
+        }},
+        {"$sort": {"moment.confidence": 1, "game_id": 1}},
+        {"$skip": skip},
+        {"$limit": limit},
+    ]
+    rows = []
+    async for doc in db.game_analyses.aggregate(pipeline):
+        m = doc.get("moment") or {}
+        rows.append({
+            "game_id": doc.get("game_id"),
+            "user_id": doc.get("user_id"),
+            "move_number": m.get("move_number"),
+            "move_san": m.get("move_san"),
+            "move_uci": m.get("move_uci"),
+            "fen_before": m.get("fen_before"),
+            "fen_after": m.get("fen_after"),
+            "cp_loss": m.get("cp_loss"),
+            "severity": m.get("severity"),
+            "source": m.get("source"),
+            "attempts": m.get("attempts"),
+            "text": m.get("text"),
+            "confidence": m.get("confidence"),
+            "confidence_breakdown": m.get("confidence_breakdown"),
+            "candidates": m.get("candidates") or [],
+            "best_move_san": next(
+                (c.get("san") for c in (m.get("candidates") or []) if c.get("isCorrect")),
+                None,
+            ),
+        })
+
+    # Total count of flagged moments (for pagination UI).
+    total_pipeline = [
+        {"$match": {"decryption_block.moments": {"$exists": True, "$ne": []}}},
+        {"$unwind": "$decryption_block.moments"},
+        {"$match": {"decryption_block.moments.needs_review": True}},
+        {"$count": "total"},
+    ]
+    total = 0
+    async for d in db.game_analyses.aggregate(total_pipeline):
+        total = d.get("total", 0)
+
+    # Mark which rows already have an override.
+    if rows:
+        keys = [
+            (r["game_id"], r["move_number"], r["move_san"])
+            for r in rows
+        ]
+        override_map = {}
+        async for ov in db.coach_overrides.find(
+            {"game_id": {"$in": [k[0] for k in keys]}},
+            {"_id": 0, "game_id": 1, "move_number": 1, "move_san": 1, "override_text": 1, "created_at": 1},
+        ):
+            override_map[(ov["game_id"], ov["move_number"], ov["move_san"])] = ov
+        for r in rows:
+            ov = override_map.get((r["game_id"], r["move_number"], r["move_san"]))
+            if ov:
+                r["override"] = {
+                    "text": ov.get("override_text"),
+                    "created_at": ov.get("created_at"),
+                }
+            else:
+                r["override"] = None
+
+    if not include_overridden:
+        rows = [r for r in rows if not r.get("override")]
+
+    return {"items": rows, "total": total}
+
+
+@router.post("/admin/decryption-review/override")
+async def admin_save_decryption_override(
+    req: DecryptionOverrideRequest,
+    user: User = Depends(require_admin),
+):
+    """Save the coach's override for one flagged moment.
+
+    Logs to coach_overrides only — does NOT patch the live moment text.
+    Overrides feed offline improvement work (write a missing template,
+    refine the prompt, etc.). Re-saving the same key updates the
+    existing override.
+    """
+    text = (req.override_text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="override_text required")
+
+    # Pull the original moment so we capture full context.
+    analysis = await db.game_analyses.find_one(
+        {"game_id": req.game_id},
+        {"_id": 0, "user_id": 1, "decryption_block": 1},
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="game_analyses not found")
+
+    moments = ((analysis.get("decryption_block") or {}).get("moments") or [])
+    target = next(
+        (m for m in moments
+         if m.get("move_number") == req.move_number and m.get("move_san") == req.move_san),
+        None,
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="moment not found")
+
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "game_id": req.game_id,
+        "user_id": analysis.get("user_id"),
+        "move_number": req.move_number,
+        "move_san": req.move_san,
+        "move_uci": target.get("move_uci"),
+        "fen_before": target.get("fen_before"),
+        "fen_after": target.get("fen_after"),
+        "cp_loss": target.get("cp_loss"),
+        "severity": target.get("severity"),
+        "source": target.get("source"),
+        "pattern_type": (
+            target.get("source", "").split(":", 1)[1]
+            if target.get("source", "").startswith("template:") else None
+        ),
+        "best_move_san": next(
+            (c.get("san") for c in (target.get("candidates") or []) if c.get("isCorrect")),
+            None,
+        ),
+        "original_text": target.get("text"),
+        "override_text": text,
+        "coach_note": req.coach_note,
+        "confidence": target.get("confidence"),
+        "confidence_breakdown": target.get("confidence_breakdown"),
+        "coach_user_id": user.user_id,
+        "coach_email": getattr(user, "email", None),
+        "updated_at": now,
+    }
+
+    # Upsert keyed on (game_id, move_number, move_san).
+    res = await db.coach_overrides.update_one(
+        {
+            "game_id": req.game_id,
+            "move_number": req.move_number,
+            "move_san": req.move_san,
+        },
+        {
+            "$set": doc,
+            "$setOnInsert": {
+                "override_id": f"ov_{uuid.uuid4().hex[:12]}",
+                "created_at": now,
+            },
+        },
+        upsert=True,
+    )
+    return {
+        "saved": True,
+        "created": res.upserted_id is not None,
+        "game_id": req.game_id,
+        "move_number": req.move_number,
+        "move_san": req.move_san,
+    }
+
+
+@router.get("/admin/decryption-review/overrides")
+async def admin_list_decryption_overrides(
+    limit: int = 100,
+    skip: int = 0,
+    user: User = Depends(require_admin),
+):
+    """List all saved overrides — the dataset to fix templates/prompts from."""
+    rows = []
+    async for ov in db.coach_overrides.find({}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit):
+        rows.append(ov)
+    total = await db.coach_overrides.count_documents({})
+    return {"items": rows, "total": total}
