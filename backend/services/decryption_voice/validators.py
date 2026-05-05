@@ -210,16 +210,49 @@ def validate_anchor_concreteness(anchor: str) -> Tuple[bool, str]:
 # ── Decryption validator ──────────────────────────────────────────────
 
 # Causality markers — at least one must appear so the decryption answers
-# "why couldn't the player stop it?". This is the rule-4 enforcement.
+# WHY (the missed move's saving effect, or why the played move failed).
+# Updated 2026-05-05 after live test on Game 4db4149b: the LLM was
+# producing prose like "Kd6 would have used the d-file. Your king
+# reaches e7 next move and stops their pawn from promoting." — pure
+# causality, but our list missed "stops" and "would have", so the
+# whole rescue-line beat got rejected. Expanded to cover the natural
+# English ways coaches express counterfactual cause.
 _CAUSALITY_PATTERNS = [
+    # Direct causal connectors
     r"\bbecause\b",
-    r"\bcouldn'?t\b",
-    r"\bno (piece|defender|response|way)\b",
-    r"\bnothing (left|to)\b",
     r"\bso\b",
     r"\bthat'?s why\b",
-    r"\bwith no\b",
+    # Counterfactual constructions — the way coaches name the missed move's effect
+    r"\bwould have\b",
+    r"\bcould have\b",
+    r"\bif you\b",
+    r"\bif your\b",
+    # Effect verbs — the missed move's outcome
+    r"\bstops?\b",
+    r"\bstopped\b",
+    r"\bstopping\b",
+    r"\bblocks?\b",
+    r"\bblocked\b",
+    r"\bblocking\b",
+    r"\bprevents?\b",
+    r"\bprevented\b",
+    r"\bpreventing\b",
+    r"\bsaves?\b",
+    r"\bsaved\b",
+    r"\bsaving\b",
+    r"\bdefends?\b",
+    r"\bdefended\b",
+    # Inability constructions — why the played move failed
+    r"\bcouldn'?t\b",
+    r"\bcan'?t\b",
+    r"\bcannot\b",
+    r"\bcould not\b",
+    r"\bcan not\b",
     r"\bunable to\b",
+    # Absence patterns — "no piece left", "nothing to defend"
+    r"\bno (piece|defender|response|way|piece left)\b",
+    r"\bnothing (left|to)\b",
+    r"\bwith no\b",
 ]
 
 _PIECE_PATTERN = re.compile(r"\b(king|queen|rook|bishop|knight|pawn|piece)s?\b", re.IGNORECASE)
