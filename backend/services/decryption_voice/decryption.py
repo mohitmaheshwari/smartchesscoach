@@ -23,7 +23,7 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .position_delta import compute_position_delta, format_delta_for_prompt
 from .validators import validate_decryption
@@ -199,6 +199,10 @@ class DecryptionResult:
     source: str          # "llm" | "fallback_template"
     attempts: int
     delta_present: bool
+    # Diagnostic — only populated when fallback fired. Captures every
+    # LLM attempt that failed validation + the reason it was rejected,
+    # so we can audit voice drift without grepping container logs.
+    failed_attempts: Optional[List[Dict]] = None
 
 
 async def generate_decryption(
@@ -233,11 +237,13 @@ async def generate_decryption(
 
     last_reason = ""
     text = ""
+    failed_attempts: List[Dict] = []
     for attempt in range(1, MAX_RETRIES + 2):  # initial + MAX_RETRIES
         try:
             text = await _call_llm(user_msg)
         except Exception as e:
             logger.warning(f"[decryption] LLM call failed on attempt {attempt}: {e}")
+            failed_attempts.append({"attempt": attempt, "text": "", "reason": f"LLM error: {e}"})
             break
 
         # Strip any wrapping quotes / markdown the model might add.
@@ -250,6 +256,7 @@ async def generate_decryption(
             )
 
         last_reason = reason
+        failed_attempts.append({"attempt": attempt, "text": text, "reason": reason})
         logger.info(
             f"[decryption] attempt {attempt} rejected: {reason} | text='{text[:120]}...'"
         )
@@ -272,5 +279,9 @@ async def generate_decryption(
         return None
 
     return DecryptionResult(
-        text=fallback, source="fallback_template", attempts=MAX_RETRIES + 1, delta_present=True
+        text=fallback,
+        source="fallback_template",
+        attempts=MAX_RETRIES + 1,
+        delta_present=True,
+        failed_attempts=failed_attempts,
     )

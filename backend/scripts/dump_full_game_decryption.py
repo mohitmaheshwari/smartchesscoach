@@ -106,6 +106,15 @@ async def dump_game(game_id: str, moves_filter: str) -> None:
         print(f"  text          : {_truncate(pb.get('text', ''), 800)}")
         print(f"  source        : {pb.get('source', '?')}    attempts: {pb.get('attempts', '?')}")
         print(f"  critical_move : {pb.get('critical_move_san', '?')} on move {pb.get('critical_move_number', '?')}")
+        # When we fell back to template, dump the rejected LLM attempts
+        # so we can see voice drift / validator misses.
+        failed = pb.get("failed_attempts") or []
+        if failed:
+            print()
+            print(f"  REJECTED LLM ATTEMPTS ({len(failed)}):")
+            for f in failed:
+                print(f"    [attempt {f.get('attempt')}] reason: {f.get('reason')}")
+                print(f"      text: {_truncate(f.get('text', ''), 500)}")
     else:
         print("  (no decryption_block — likely cached game without new fields)")
     print()

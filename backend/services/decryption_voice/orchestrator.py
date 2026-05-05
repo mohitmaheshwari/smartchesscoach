@@ -170,6 +170,10 @@ async def generate_post_game_voice(
                 "fen_before": full_move["fen_before"],
                 "fen_after": fen_after,
                 "move_uci": move_uci,
+                # Diagnostic — populated only when we fell back to the
+                # template. Stores the rejected LLM attempts + reasons
+                # so we can audit voice drift without server logs.
+                "failed_attempts": result.failed_attempts,
             }
     except Exception as e:
         logger.warning(f"[orchestrator] decryption generation failed: {e}")
