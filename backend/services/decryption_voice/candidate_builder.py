@@ -223,6 +223,8 @@ def build_candidates(
             user_move_san=move_san,
             best_move_san=best_san,
             engine_mate_in_after=engine_mate,
+            pv_after_best=user_v5.get("pv_after_best") or [],
+            user_color=user_color,
         )
     except Exception:
         concept_caption = None

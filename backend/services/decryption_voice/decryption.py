@@ -60,6 +60,7 @@ async def generate_decryption(
     user_color: str,
     moment_context: Optional[Dict] = None,
     best_move_san: Optional[str] = None,
+    pv_after_best: Optional[List[str]] = None,
 ) -> Optional[DecryptionResult]:
     """Build a Decryption block for one critical move.
 
@@ -107,6 +108,8 @@ async def generate_decryption(
                 fen_before=fen_before,
                 user_move_san=user_san,
                 best_move_san=best_move_san,
+                pv_after_best=pv_after_best,
+                user_color=user_color,
             )
             if caption:
                 pattern = (meta or {}).get("pattern_type") or "concept"

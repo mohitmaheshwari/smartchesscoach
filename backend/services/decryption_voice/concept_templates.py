@@ -100,6 +100,58 @@ def _render_missed_back_rank(details: Dict) -> Optional[str]:
     return f"You missed a back-rank mate: {move} ends the game."
 
 
+def _render_combination(details: Dict) -> Optional[str]:
+    """Render the PV-walked combination chain. Variants by chain length
+    and by whether the climax was mate or a fork."""
+    chain = details.get("chain") or []
+    if not chain:
+        return None
+    climax_tactic = details.get("climax_tactic")
+    climax_details = details.get("climax_details") or {}
+    forced = details.get("forced_reply", False)
+
+    # 1-ply combination (mate-in-1)
+    if climax_tactic == "mate" and len(chain) == 1:
+        return f"You missed mate in 1: {chain[0]} ends the game."
+
+    # 2-ply combination (best move + opp reply, climax is the opp reply
+    # i.e., walking into mate)
+    if climax_tactic == "mate" and len(chain) >= 2:
+        # 3-or-more ply mate
+        if len(chain) >= 3:
+            return f"You missed a forced mate: {chain[0]} forces {chain[1]}, then {chain[2]} ends the game."
+        return f"You missed a forced mate starting with {chain[0]}."
+
+    # Fork at the climax (most common case — sacrificial forks etc.)
+    if climax_tactic == "fork" and len(chain) >= 3:
+        attacker = climax_details.get("attacker_piece", "piece")
+        attacker_sq = climax_details.get("attacker_square", "")
+        targets = climax_details.get("targets") or []
+        is_check = climax_details.get("is_check_fork", False)
+        first = chain[0]
+        opp_reply = chain[1]
+        climax_move = chain[2]
+
+        force_word = "must play" if forced else "play"
+        if is_check and targets:
+            target_piece = targets[0].get("piece", "piece")
+            target_sq = targets[0].get("square", "")
+            tail = (
+                f"Then {climax_move} forks the king and the {target_piece} on {target_sq}."
+                if target_sq else
+                f"Then {climax_move} forks the king and the {target_piece}."
+            )
+        elif len(targets) >= 2:
+            t1 = targets[0].get("piece", "piece")
+            t2 = targets[1].get("piece", "piece")
+            tail = f"Then {climax_move} forks the {t1} and the {t2}."
+        else:
+            tail = f"Then {climax_move} wins material."
+        return f"You missed {first}. They {force_word} {opp_reply}. {tail}"
+
+    return None
+
+
 def _render_walked_into_capture(details: Dict) -> Optional[str]:
     """User's just-moved piece is now hanging or in a losing trade."""
     piece = details.get("piece")
@@ -230,6 +282,7 @@ def _render_opposition(details: Dict) -> Optional[str]:
 # StrategicConcept enum values + advanced_detectors pattern_types.
 _TEMPLATE_REGISTRY = {
     # Tactical — high priority, common at 600-1400
+    "combination":        _render_combination,
     "hanging_piece":      _render_hanging_piece,
     "trapped_piece":      _render_trapped_piece,
     "missed_mate":        _render_missed_mate,

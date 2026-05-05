@@ -375,6 +375,171 @@ def _detect_pawn_race(
     }
 
 
+# ── Local detector — COMBINATION (PV chain) ──────────────────────────
+# Walks Stockfish's principal variation ply by ply. After every USER
+# follow-up move in the chain, runs tactic geometry on the resulting
+# position. The first ply where a winning pattern fires is the
+# climax — that's where "the plan succeeds." Returns the chain leading
+# to climax + which tactic fired.
+#
+# This unlocks sacrificial forks, mate-in-N with explicit lines,
+# decoy + win, and removal-of-guard chains — all from ONE detector
+# that reuses the same fork / mate / hanging-take geometry on each
+# PV position. We were previously only looking at move 1 and missing
+# the deeper plan.
+
+def _is_forced_reply(board_after_user: chess.Board, opp_move_uci: str) -> bool:
+    """Is opp's PV reply effectively forced? Conservative — only true
+    when opp has 1 or 2 legal moves total, OR they're in check (must
+    address it)."""
+    legal = list(board_after_user.legal_moves)
+    if len(legal) <= 1:
+        return True
+    if board_after_user.is_check():
+        return len(legal) <= 2
+    return False
+
+
+def _find_winning_tactic_after_move(
+    board: chess.Board,
+    user_color: chess.Color,
+) -> Optional[Dict]:
+    """Position is AFTER the user's move; opp is to move. Did the
+    just-played user piece create a winning tactic?
+
+    Checks (in priority order):
+      1. checkmate
+      2. fork — moved piece attacks king + valuable piece (check fork),
+         OR attacks 2+ undefended/under-defended pieces
+    """
+    if board.is_checkmate():
+        return {"type": "mate", "details": {}}
+
+    if not board.move_stack:
+        return None
+    last_move = board.move_stack[-1]
+    moved_to = last_move.to_square
+    moved_piece = board.piece_at(moved_to)
+    if not moved_piece or moved_piece.color != user_color:
+        return None
+
+    attacker_value = _PIECE_VALUE.get(moved_piece.piece_type, 0)
+    attacks_from_here = board.attacks(moved_to)
+
+    enemy_targets = []
+    enemy_king_attacked = False
+    for sq in attacks_from_here:
+        p = board.piece_at(sq)
+        if not p or p.color == user_color:
+            continue
+        if p.piece_type == chess.KING:
+            enemy_king_attacked = True
+            continue
+        target_value = _PIECE_VALUE.get(p.piece_type, 0)
+        # Defenders = enemy's OWN pieces guarding the target (i.e., not
+        # user_color). Earlier bug used user_color which returned our
+        # own attackers (including the just-moved piece) and made every
+        # target look "defended" so the fork never fired.
+        defenders = board.attackers(not user_color, sq)
+        # Trade analysis (simplified): target counts as winnable if
+        # undefended OR worth more than the attacker.
+        if not defenders or target_value > attacker_value:
+            enemy_targets.append({
+                "piece": _PIECE_NAME.get(p.piece_type, "piece"),
+                "square": chess.square_name(sq),
+                "value": target_value,
+            })
+
+    if enemy_king_attacked and enemy_targets:
+        # Check fork — opp must move king, then we take the other piece
+        target = max(enemy_targets, key=lambda t: t["value"])
+        return {
+            "type": "fork",
+            "details": {
+                "attacker_piece": _PIECE_NAME.get(moved_piece.piece_type, "piece"),
+                "attacker_square": chess.square_name(moved_to),
+                "targets": [target],
+                "is_check_fork": True,
+            },
+        }
+    if len(enemy_targets) >= 2:
+        enemy_targets.sort(key=lambda t: -t["value"])
+        return {
+            "type": "fork",
+            "details": {
+                "attacker_piece": _PIECE_NAME.get(moved_piece.piece_type, "piece"),
+                "attacker_square": chess.square_name(moved_to),
+                "targets": enemy_targets[:2],
+                "is_check_fork": False,
+            },
+        }
+
+    return None
+
+
+def _detect_combination_chain(
+    board: chess.Board,
+    best_move_san: Optional[str],
+    pv_after_best: Optional[List[str]],
+    user_color_name: str,
+    max_plies: int = 5,
+) -> Optional[Dict]:
+    """Walk best_move + pv_after_best, run tactic detection at each
+    user follow-up. Return facts about the climax + the chain."""
+    if not best_move_san or not pv_after_best:
+        return None
+    user_color = chess.WHITE if (user_color_name or "").lower() == "white" else chess.BLACK
+
+    b = board.copy()
+    chain_san: List[str] = []
+    try:
+        bm = b.parse_san(best_move_san)
+        b.push(bm)
+        chain_san.append(best_move_san)
+    except Exception:
+        return None
+
+    # If best_move itself is mate, that's a single-ply combination.
+    if b.is_checkmate():
+        return {
+            "chain": chain_san,
+            "climax_ply": 0,
+            "climax_tactic": "mate",
+            "climax_details": {},
+            "forced_reply": True,
+        }
+
+    forced_reply = None
+    for i, uci in enumerate(pv_after_best[:max_plies]):
+        try:
+            mv = chess.Move.from_uci(uci)
+            if mv not in b.legal_moves:
+                break
+            san = b.san(mv)
+            if i == 0:
+                forced_reply = _is_forced_reply(b, uci)
+            b.push(mv)
+            chain_san.append(san)
+        except Exception:
+            break
+
+        # Indices in pv_after_best: 0 = opp reply, 1 = user follow-up,
+        # 2 = opp, 3 = user, ...  Run tactic detection after every USER
+        # follow-up move.
+        if i % 2 == 1:
+            tactic = _find_winning_tactic_after_move(b, user_color)
+            if tactic:
+                return {
+                    "chain": chain_san.copy(),
+                    "climax_ply": i + 1,  # +1 because chain_san[0] is best_move
+                    "climax_tactic": tactic["type"],
+                    "climax_details": tactic["details"],
+                    "forced_reply": forced_reply,
+                }
+
+    return None
+
+
 # ── Severity scoring for dominant-pick ───────────────────────────────
 # Replaces "first detector by registry priority" with a function that
 # weights detections by actual decisiveness. A missed fork worth
@@ -393,6 +558,19 @@ def _severity_score(det: Dict) -> float:
         return 950
 
     # Material-loss patterns weighted by piece value or fork total.
+    if pt == "combination":
+        # PV-walked combination beats single-move detectors because it
+        # explains the full plan (forces, climax, gain). Score by the
+        # value won at the climax + a base for "the chain made sense."
+        climax = d.get("climax_tactic")
+        if climax == "mate":
+            return 970.0  # just below missed_mate (950) and walked_into_mate
+        # Fork at climax — value = best target's piece value
+        targets = (d.get("climax_details") or {}).get("targets") or []
+        if targets:
+            top = max(targets, key=lambda t: t.get("value", 0))
+            return float(top.get("value", 0)) * 3.0 + 6.0
+        return 8.0
     if pt == "missed_fork":
         return float(d.get("total_value", 0)) * 2.0  # forks compound
     if pt == "missed_pin":
@@ -478,6 +656,8 @@ def detect_concepts(
     best_move_san: Optional[str] = None,
     context: Optional[Dict] = None,
     engine_mate_in_after: Optional[int] = None,
+    pv_after_best: Optional[List[str]] = None,
+    user_color: Optional[str] = None,
 ) -> List[Dict]:
     """Run all chess_brain detectors against this moment.
 
@@ -572,6 +752,28 @@ def detect_concepts(
     except Exception as e:
         logger.warning(f"[concept_dispatcher] walked_into_capture detect failed: {e}")
 
+    # Local detector — COMBINATION (walks Stockfish PV). Reuses tactic
+    # geometry on each user-follow-up position, so sacrificial forks +
+    # mate-in-N + decoys all surface here without separate detectors.
+    try:
+        combo_facts = _detect_combination_chain(
+            board,
+            best_move_san,
+            pv_after_best,
+            (user_color or "white"),
+        )
+        if combo_facts:
+            out.append({
+                "pattern_type": "combination",
+                "details": combo_facts,
+                "teaching_hook": "Multi-move winning plan",
+                "key_squares": [],
+                "confidence": 0.95,
+                "category": "tactical",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] combination detect failed: {e}")
+
     # Local detector — PAWN_RACE. Endgame: opp passed pawn promotes
     # because user-king is outside the square-of-the-pawn.
     try:
@@ -638,6 +840,8 @@ def caption_for_moment(
     best_move_san: Optional[str] = None,
     context: Optional[Dict] = None,
     engine_mate_in_after: Optional[int] = None,
+    pv_after_best: Optional[List[str]] = None,
+    user_color: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[Dict]]:
     """Run detectors → pick dominant → render caption.
 
@@ -651,6 +855,8 @@ def caption_for_moment(
         best_move_san=best_move_san,
         context=context,
         engine_mate_in_after=engine_mate_in_after,
+        pv_after_best=pv_after_best,
+        user_color=user_color,
     )
     dominant = pick_dominant_renderable(detections)
     if not dominant:
