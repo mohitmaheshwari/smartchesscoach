@@ -95,9 +95,9 @@ IDENTITY_BY_SCENARIO: Dict[str, List[str]] = {
         "You didn't lose to them. You traded the game away.",
     ],
     SCENARIO_EQUALIZED: [
-        "You didn't lose this. You stopped working when you got back in it.",
+        "You didn't lose this. You eased off after the comeback.",
         "You fought back. Then you stopped fighting.",
-        "You didn't lose to them. You eased off when the comeback came.",
+        "You didn't lose to them. You stopped after equalizing.",
     ],
     SCENARIO_SQUEEZED: [
         "You didn't lose to them. You let them run the game.",
@@ -172,7 +172,7 @@ CATASTROPHIC_ANCHOR_PHRASES: List[str] = [
 PIVOT_SAME_NUMBER_ANCHORS: List[str] = [
     "Move {pivot_n} — they blundered, you blundered right back.",
     "Move {pivot_n} — they slipped, you slipped right back.",
-    "Move {pivot_n} — the win was yours, then it wasn't.",
+    "Move {pivot_n} — they handed you the game, you gave it back.",
 ]
 
 # Different move numbers — full two-move story.
@@ -191,8 +191,8 @@ PIVOT_DIFF_NUMBER_ANCHORS: List[str] = [
 
 EQUALIZED_PIVOT_SAME_NUMBER_ANCHORS: List[str] = [
     "Move {pivot_n} — they slipped, you slipped right back.",
-    "Move {pivot_n} — the door was open. You closed it on yourself.",
-    "Move {pivot_n} — back in the game, then straight back out.",
+    "Move {pivot_n} — they opened the door, you closed it yourself.",
+    "Move {pivot_n} — they slipped, then you slipped back out.",
 ]
 
 EQUALIZED_PIVOT_DIFF_NUMBER_ANCHORS: List[str] = [

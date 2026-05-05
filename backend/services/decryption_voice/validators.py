@@ -157,6 +157,8 @@ _CONCRETE_ACTION_TOKENS = {
     # plain chess-action verbs the player uses naturally
     "blundered", "blunders", "blundering",
     "slipped", "slips", "slipping",
+    "closed", "closes", "closing",
+    "sent", "sends", "sending",
     "missed", "misses",  # already above; safe to repeat (set dedups)
 }
 
