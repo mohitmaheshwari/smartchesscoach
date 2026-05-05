@@ -201,7 +201,29 @@ def build_candidates(
     best_line = _pv_to_sans(fen_before, best_uci, pv, max_ply=3)
     if not best_line:
         best_line = [best_san]
-    correct_caption = engine_caption or "This is the move. It holds the position."
+
+    # Concept-driven caption — runs the chess_brain detector registry
+    # against this position, picks the dominant tactical/strategic
+    # pattern, renders a deterministic caption from a template. Falls
+    # back to engine_caption (LLM-generated text) when no template
+    # matches, then to a generic line. Goal: zero-hallucination captions
+    # for the common 600-1400 patterns; LLM only as last resort.
+    concept_caption = None
+    try:
+        from .concept_dispatcher import caption_for_moment
+        concept_caption, _meta = caption_for_moment(
+            fen_before=fen_before,
+            user_move_san=move_san,
+            best_move_san=best_san,
+        )
+    except Exception:
+        concept_caption = None
+
+    correct_caption = (
+        concept_caption
+        or engine_caption
+        or "This is the move. It holds the position."
+    )
 
     # 3. DISTRACTOR — wrong, plausible
     distractor = _pick_distractor(fen_before, [move_uci, best_uci])
