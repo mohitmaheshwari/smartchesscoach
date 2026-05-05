@@ -212,13 +212,53 @@ async def generate_post_game_voice(
                     user_color=user_color,
                 )
 
-                m_result = await generate_decryption(
-                    fen_before=full_m["fen_before"],
-                    fen_after=_fen_after,
-                    move_uci=_uci,
-                    user_color=user_color,
-                    moment_context=m_ctx,
-                )
+                # ── Concept dispatcher FIRST (deterministic, zero
+                # hallucination). Try the chess_brain detector
+                # registry; if a tactical/strategic template fires, use
+                # its rendered caption as the moment text and skip the
+                # LLM entirely. LLM only runs when no template matches.
+                concept_text = None
+                concept_meta = None
+                try:
+                    from .concept_dispatcher import caption_for_moment
+                    moment_v5 = next(
+                        (mm for mm in decryption_v5_data
+                         if mm.get("is_user_move")
+                         and mm.get("move_number") == mn
+                         and mm.get("move_san") == ms),
+                        None,
+                    )
+                    best_san_for_dispatch = (moment_v5 or {}).get("best_move_san") or ""
+                    concept_text, concept_meta = caption_for_moment(
+                        fen_before=full_m["fen_before"],
+                        user_move_san=ms,
+                        best_move_san=best_san_for_dispatch,
+                    )
+                except Exception as cd_err:
+                    logger.warning(f"[orchestrator] concept_dispatcher failed for move {mn}: {cd_err}")
+
+                m_result = None
+                if concept_text:
+                    # Templated, deterministic. Build a fake DecryptionResult-shape.
+                    from .decryption import DecryptionResult
+                    pattern_label = (concept_meta or {}).get("pattern_type") or "concept"
+                    m_result = DecryptionResult(
+                        text=concept_text,
+                        source=f"template:{pattern_label}",
+                        attempts=0,
+                        delta_present=True,
+                        failed_attempts=None,
+                    )
+                else:
+                    # No template hit — fall back to LLM with the
+                    # existing grounding rules + retry loop.
+                    m_result = await generate_decryption(
+                        fen_before=full_m["fen_before"],
+                        fen_after=_fen_after,
+                        move_uci=_uci,
+                        user_color=user_color,
+                        moment_context=m_ctx,
+                    )
                 if m_result:
                     # Build the 3 interactive candidates for this moment.
                     # Empty list = fall through to static prose card.

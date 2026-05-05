@@ -129,6 +129,16 @@ async def dump_game(game_id: str, moves_filter: str) -> None:
                     for f in fa:
                         print(f"        rejected[{f.get('attempt')}]: {f.get('reason')}")
                         print(f"          text: {_truncate(f.get('text',''), 300)}")
+                # Candidates — the InteractiveMoment buttons. Useful to
+                # verify the concept dispatcher is firing on these too.
+                cands = m.get("candidates") or []
+                if cands:
+                    print(f"        candidates ({len(cands)}):")
+                    for c in cands:
+                        marker = "[CORRECT]" if c.get("isCorrect") else "        "
+                        line_str = " → ".join(c.get("line") or [])
+                        print(f"          {marker} {c.get('san')}  line=[{line_str}]")
+                        print(f"            caption: {_truncate(c.get('caption',''), 300)}")
                 print()
     else:
         print("  (no decryption_block — likely cached game without new fields)")
