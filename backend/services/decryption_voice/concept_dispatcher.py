@@ -665,4 +665,8 @@ def caption_for_moment(
         "category": dominant["category"],
         "key_squares": dominant["key_squares"],
         "confidence": dominant["confidence"],
+        # Pass through the raw detector details so callers can tell
+        # engine-verified mate from local-search mate (etc.) when
+        # computing per-commentary confidence scores.
+        "details": dominant.get("details") or {},
     }

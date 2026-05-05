@@ -217,17 +217,19 @@ async def generate_post_game_voice(
                 # registry; if a tactical/strategic template fires, use
                 # its rendered caption as the moment text and skip the
                 # LLM entirely. LLM only runs when no template matches.
+                # Look up the V5 record once — used by dispatcher AND
+                # by per-commentary confidence scoring below.
+                moment_v5 = next(
+                    (mm for mm in decryption_v5_data
+                     if mm.get("is_user_move")
+                     and mm.get("move_number") == mn
+                     and mm.get("move_san") == ms),
+                    None,
+                )
                 concept_text = None
                 concept_meta = None
                 try:
                     from .concept_dispatcher import caption_for_moment, extract_mate_against_user
-                    moment_v5 = next(
-                        (mm for mm in decryption_v5_data
-                         if mm.get("is_user_move")
-                         and mm.get("move_number") == mn
-                         and mm.get("move_san") == ms),
-                        None,
-                    )
                     best_san_for_dispatch = (moment_v5 or {}).get("best_move_san") or ""
                     # Stockfish-truth mate detection — positive int means
                     # forced mate against the user from this move.
@@ -284,6 +286,28 @@ async def generate_post_game_voice(
                         logger.warning(f"[orchestrator] candidate_builder failed for move {mn}: {cb_err}")
                         m_candidates = []
 
+                    # Per-commentary confidence score. Below 0.8 the
+                    # caption is flagged for human review.
+                    try:
+                        from .confidence_score import compute_moment_confidence
+                        pt = None
+                        if m_result.source.startswith("template:"):
+                            pt = m_result.source.split(":", 1)[1]
+                        score = compute_moment_confidence(
+                            source=m_result.source,
+                            pattern_type=pt,
+                            detector_details=(concept_meta or {}).get("details") if concept_text else None,
+                            detector_confidence=(concept_meta or {}).get("confidence") if concept_text else None,
+                            attempts=m_result.attempts or 0,
+                            failed_attempts=m_result.failed_attempts,
+                            cp_loss=moment_struct.get("cp_loss"),
+                            best_move_san=(moment_v5 or {}).get("best_move_san"),
+                            text=m_result.text or "",
+                        )
+                    except Exception as conf_err:
+                        logger.warning(f"[orchestrator] confidence_score failed for move {mn}: {conf_err}")
+                        score = {"confidence": 0.5, "needs_review": True, "breakdown": {}}
+
                     moments_list.append({
                         "move_number": mn,
                         "move_san": ms,
@@ -298,6 +322,9 @@ async def generate_post_game_voice(
                         "attempts": m_result.attempts,
                         "failed_attempts": m_result.failed_attempts,
                         "candidates": m_candidates,
+                        "confidence": score.get("confidence"),
+                        "needs_review": score.get("needs_review"),
+                        "confidence_breakdown": score.get("breakdown"),
                     })
             except Exception as ex:
                 logger.warning(f"[orchestrator] moment {mn} failed: {ex}")

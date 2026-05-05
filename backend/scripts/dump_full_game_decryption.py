@@ -124,6 +124,14 @@ async def dump_game(game_id: str, moves_filter: str) -> None:
                 print(f"    [{i}] move {m.get('move_number')}  {m.get('move_san')}  cp_loss={m.get('cp_loss')}  pivot={m.get('is_pivot')}")
                 print(f"        text: {_truncate(m.get('text', ''), 500)}")
                 print(f"        source: {m.get('source')}    attempts: {m.get('attempts')}")
+                conf = m.get("confidence")
+                needs = m.get("needs_review")
+                if conf is not None:
+                    flag = "  ⚠ NEEDS REVIEW" if needs else "  ✓ ship"
+                    print(f"        confidence: {conf:.3f}{flag}")
+                    bd = m.get("confidence_breakdown") or {}
+                    if bd:
+                        print(f"          breakdown: source={bd.get('source')}  detector={bd.get('detector')}  engine={bd.get('engine_corroboration')}  cp_loss={bd.get('cp_loss_certainty')}")
                 fa = m.get("failed_attempts") or []
                 if fa:
                     for f in fa:
