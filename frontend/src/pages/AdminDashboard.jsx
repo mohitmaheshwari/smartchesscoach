@@ -1482,6 +1482,11 @@ function DecryptionReviewDetail({
   saving, savedFlash, onSave, onBack,
 }) {
   const bd = row.confidence_breakdown || {};
+  // Side to move in fen_before == the user's color (the moment is their
+  // about-to-move position). Translates to who is on the move.
+  const sideToMove = (row.fen_before || "").split(" ")[1] === "w" ? "white" : "black";
+  const userColorLabel = sideToMove === "white" ? "White" : "Black";
+  const orientation = sideToMove; // board faces the side that moves
   return (
     <div className="space-y-4" data-testid="decryption-review-detail">
       <button
@@ -1491,19 +1496,45 @@ function DecryptionReviewDetail({
         <ArrowLeft className="w-3.5 h-3.5" /> Back to queue
       </button>
 
+      {/* Big header — whose move + which move + verdict, leading. */}
+      <div
+        className="rounded p-4 space-y-1"
+        style={{ background: GOLD_BG, borderLeft: `3px solid ${WINE}` }}
+      >
+        <div className="text-xs uppercase tracking-wide" style={{ color: GOLD_TEXT }}>
+          User's move ({userColorLabel}) — move {row.move_number}
+        </div>
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">They played</div>
+            <div className="text-2xl font-mono" style={{ color: WINE }}>{row.move_san}</div>
+          </div>
+          <div className="text-2xl text-muted-foreground/40">→</div>
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Engine wanted</div>
+            <div className="text-2xl font-mono text-green-700">{row.best_move_san || "—"}</div>
+          </div>
+          <div className="ml-auto text-right">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">cp_loss / severity</div>
+            <div className="text-base font-medium">
+              {row.cp_loss}cp · <span className="text-muted-foreground">{row.severity}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Board */}
+        {/* Board — orientation faces the user. */}
         <div className="space-y-2">
           <div className="text-xs text-muted-foreground">
-            Position before <span className="font-mono">{row.move_san}</span>
+            Position right before <span className="font-mono">{row.move_san}</span>
+            {" "}({userColorLabel} to move)
           </div>
           <div style={{ maxWidth: 360 }}>
             <Chessboard
               position={row.fen_before}
               arePiecesDraggable={false}
-              boardOrientation={
-                (row.fen_before || "").split(" ")[1] === "b" ? "white" : "black"
-              }
+              boardOrientation={orientation}
             />
           </div>
           <div className="text-[10px] text-muted-foreground/70 break-all font-mono">
@@ -1511,16 +1542,25 @@ function DecryptionReviewDetail({
           </div>
         </div>
 
-        {/* Facts */}
+        {/* Facts column — supporting detail, less prominent now that the
+            big header carries the move identity. */}
         <div className="space-y-2 text-sm">
           <FactRow label="Game" value={row.game_id} mono />
-          <FactRow label="User" value={row.user_id} mono />
-          <FactRow label="Move" value={`#${row.move_number}  ${row.move_san}`} mono />
-          <FactRow label="Best move" value={row.best_move_san || "—"} mono highlight />
-          <FactRow label="cp_loss" value={row.cp_loss} />
-          <FactRow label="Severity" value={row.severity} />
+          <FactRow label="User ID" value={row.user_id} mono />
           <FactRow label="Source" value={row.source} mono />
           <FactRow label="Attempts" value={row.attempts ?? 0} />
+          {row.candidates && row.candidates.length > 0 && (
+            <div className="pt-2 border-t" style={{ borderColor: BORDER }}>
+              <div className="text-xs text-muted-foreground mb-1">Candidate lines</div>
+              {row.candidates.map((c, i) => (
+                <div key={i} className="text-xs font-mono py-0.5">
+                  {c.isCorrect ? <span className="text-green-700">✓</span> : <span className="text-muted-foreground">·</span>}
+                  {" "}
+                  {(c.line || []).join(" → ") || c.san}
+                </div>
+              ))}
+            </div>
+          )}
           <div className="pt-2 border-t" style={{ borderColor: BORDER }}>
             <div className="text-xs text-muted-foreground">Confidence</div>
             <div className="text-lg font-medium" style={{ color: WINE }}>
