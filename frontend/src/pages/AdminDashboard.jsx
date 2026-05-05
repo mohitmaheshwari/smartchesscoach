@@ -27,11 +27,20 @@ export default function AdminDashboard({ user }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
 
-  if (user && user.role !== "super_admin" && user.role !== "admin") {
+  // Admin surface is locked to the owner email — defence-in-depth on
+  // top of the role check the API enforces.
+  const ADMIN_EMAILS = new Set(["bhutramohit@gmail.com"]);
+  const userEmail = (user?.email || "").trim().toLowerCase();
+  const isAdminUser =
+    user
+    && (user.role === "super_admin" || user.role === "admin")
+    && ADMIN_EMAILS.has(userEmail);
+
+  if (user && !isAdminUser) {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]" data-testid="admin-forbidden">
-          <p className="text-sm" style={{ color: WINE }}>Access denied. Admin privileges required.</p>
+          <p className="text-sm" style={{ color: WINE }}>Access denied.</p>
         </div>
       </Layout>
     );

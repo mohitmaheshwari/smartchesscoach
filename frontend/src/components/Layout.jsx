@@ -126,7 +126,12 @@ const Layout = ({ children, user }) => {
     { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
 
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+  // Admin nav is locked to the owner email on top of the role check.
+  // Server enforces the same rule.
+  const ADMIN_EMAILS = new Set(['bhutramohit@gmail.com']);
+  const isAdmin =
+    (user?.role === 'super_admin' || user?.role === 'admin')
+    && ADMIN_EMAILS.has((user?.email || '').trim().toLowerCase());
   const isActive = (href) => location.pathname === href ||
     (href === '/lab' && location.pathname.startsWith('/game/')) ||
     (href === '/lab' && location.pathname.startsWith('/lab/')) ||

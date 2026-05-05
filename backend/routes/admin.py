@@ -44,18 +44,33 @@ from routes.auth import User, get_current_user
 
 
 # ==================== AUTH DEPENDENCIES ====================
+# All admin endpoints are locked to a single owner email. The role
+# check is kept as defence-in-depth — both must hold.
+# To extend to multiple owners later, swap _ADMIN_EMAILS to read an
+# env var like os.environ.get("ADMIN_EMAILS", "...").split(",").
+
+_ADMIN_EMAILS = {"bhutramohit@gmail.com"}
+
+
+def _is_admin_email(email: Optional[str]) -> bool:
+    return (email or "").strip().lower() in _ADMIN_EMAILS
+
 
 async def require_admin(user: User = Depends(get_current_user)):
-    """Dependency that requires super_admin or admin role."""
+    """Admin gate — requires admin/super_admin role AND owner email."""
     if user.role not in ("super_admin", "admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
+    if not _is_admin_email(getattr(user, "email", None)):
+        raise HTTPException(status_code=403, detail="Admin access restricted")
     return user
 
 
 async def require_super_admin(user: User = Depends(get_current_user)):
-    """Dependency that requires super_admin role."""
+    """Super-admin gate — requires super_admin role AND owner email."""
     if user.role != "super_admin":
         raise HTTPException(status_code=403, detail="Super admin access required")
+    if not _is_admin_email(getattr(user, "email", None)):
+        raise HTTPException(status_code=403, detail="Super admin access restricted")
     return user
 
 
