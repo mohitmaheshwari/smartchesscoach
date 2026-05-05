@@ -1331,11 +1331,17 @@ function DecryptionReviewTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await API.get("/admin/decryption-review", {
-        params: { limit: 100, include_overridden: includeOverridden },
+      const params = new URLSearchParams({
+        limit: "100",
+        include_overridden: includeOverridden ? "true" : "false",
       });
-      setItems(res.data?.items || []);
-      setTotal(res.data?.total || 0);
+      const res = await fetch(`${API}/admin/decryption-review?${params}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setItems(data?.items || []);
+      setTotal(data?.total || 0);
     } catch (e) {
       console.error("decryption-review load failed", e);
       setItems([]);
@@ -1356,13 +1362,19 @@ function DecryptionReviewTab() {
     if (!selected || !overrideText.trim()) return;
     setSaving(true);
     try {
-      await API.post("/admin/decryption-review/override", {
-        game_id: selected.game_id,
-        move_number: selected.move_number,
-        move_san: selected.move_san,
-        override_text: overrideText.trim(),
-        coach_note: coachNote.trim() || null,
+      const res = await fetch(`${API}/admin/decryption-review/override`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          game_id: selected.game_id,
+          move_number: selected.move_number,
+          move_san: selected.move_san,
+          override_text: overrideText.trim(),
+          coach_note: coachNote.trim() || null,
+        }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1800);
       await load();
