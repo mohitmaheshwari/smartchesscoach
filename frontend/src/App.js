@@ -45,6 +45,9 @@ import ApplyMode from "@/pages/ApplyMode";
 import OpeningsIndex from "@/pages/OpeningsIndex";
 import OpeningGuide from "@/pages/OpeningGuide";
 
+// Prototype/demo pages — for design review, not feature surfaces
+import PrototypeInteractiveMoment from "@/pages/PrototypeInteractiveMoment";
+
 // Components
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -174,6 +177,7 @@ function AppRouter() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/prototype/interactive-moment" element={<PrototypeInteractiveMoment />} />
 
       {/* Public SEO routes — no auth required. Indexed by crawlers,
           served to cold visitors as marketing/teaching content. */}
