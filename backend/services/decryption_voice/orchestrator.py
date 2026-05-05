@@ -139,26 +139,17 @@ async def generate_post_game_voice(
             board.push(move_obj)
             fen_after = board.fen()
 
-        # Build the richer moment context so the LLM can name the
-        # opponent's plan, the user's missed move, and the saving line.
-        moment_ctx = None
-        try:
-            from .moment_context import build_moment_context
-            moment_ctx = build_moment_context(
-                decryption_v5_data=decryption_v5_data,
-                move_evaluations=move_evaluations,
-                critical_move_number=critical.get("move_number"),
-                user_color=user_color,
-            )
-        except Exception as ctx_err:
-            logger.warning(f"[orchestrator] moment_context failed: {ctx_err}")
+        # Best move SAN for the dispatcher and engine fallback. We
+        # don't build moment_context anymore (was an LLM input) but we
+        # do need the engine's recommended move SAN.
+        best_san_for_critical = (full_move or {}).get("best_move_san")
 
         result = await generate_decryption(
             fen_before=full_move["fen_before"],
             fen_after=fen_after,
             move_uci=move_uci,
             user_color=user_color,
-            moment_context=moment_ctx,
+            best_move_san=best_san_for_critical,
         )
         if result:
             decryption_block = {
@@ -167,14 +158,10 @@ async def generate_post_game_voice(
                 "attempts": result.attempts,
                 "critical_move_number": critical.get("move_number"),
                 "critical_move_san": critical.get("move_san"),
-                # Board context for the frontend "Show me why" view —
-                # without these the prose has nothing to point at.
+                # Board context for the frontend "Show me why" view.
                 "fen_before": full_move["fen_before"],
                 "fen_after": fen_after,
                 "move_uci": move_uci,
-                # Diagnostic — populated only when we fell back to the
-                # template. Stores the rejected LLM attempts + reasons
-                # so we can audit voice drift without server logs.
                 "failed_attempts": result.failed_attempts,
             }
     except Exception as e:
@@ -211,19 +198,9 @@ async def generate_post_game_voice(
                     _board.push(_move_obj)
                     _fen_after = _board.fen()
 
-                from .moment_context import build_moment_context
-                m_ctx = build_moment_context(
-                    decryption_v5_data=decryption_v5_data,
-                    move_evaluations=move_evaluations,
-                    critical_move_number=mn,
-                    user_color=user_color,
-                )
-
                 # ── Concept dispatcher FIRST (deterministic, zero
-                # hallucination). Try the chess_brain detector
-                # registry; if a tactical/strategic template fires, use
-                # its rendered caption as the moment text and skip the
-                # LLM entirely. LLM only runs when no template matches.
+                # hallucination). If no template fires we fall back to
+                # the engine-fact line — there is NO LLM path anymore.
                 # Look up the V5 record once — used by dispatcher AND
                 # by per-commentary confidence scoring below.
                 moment_v5 = next(
@@ -265,14 +242,16 @@ async def generate_post_game_voice(
                         failed_attempts=None,
                     )
                 else:
-                    # No template hit — fall back to LLM with the
-                    # existing grounding rules + retry loop.
+                    # No template fired — fall back to the deterministic
+                    # engine-fact line ("The engine prefers X here.").
+                    # ZERO LLM. Confidence score will mark this moment
+                    # needs_review so the coach overrides via the queue.
                     m_result = await generate_decryption(
                         fen_before=full_m["fen_before"],
                         fen_after=_fen_after,
                         move_uci=_uci,
                         user_color=user_color,
-                        moment_context=m_ctx,
+                        best_move_san=best_san_for_dispatch,
                     )
                 if m_result:
                     # Build the 3 interactive candidates for this moment.

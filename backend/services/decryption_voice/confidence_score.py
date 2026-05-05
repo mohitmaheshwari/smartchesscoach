@@ -56,12 +56,19 @@ def _source_weight(
         return 0.85  # chess_brain registry-backed templates
 
     if source == "llm":
-        # Clean first attempt, no rejections → modest trust.
+        # Legacy — kept for back-compat with already-saved data. New
+        # captions never use this source (LLM was removed).
         if attempts <= 1 and not failed_attempts:
             return 0.65
         if attempts == 2:
             return 0.50
         return 0.30
+
+    if source == "engine_fallback":
+        # Deterministic single-sentence fallback when no template fires.
+        # Always flag for coach review — the prose surface is empty for
+        # this position until we either build a template or override it.
+        return 0.40
 
     return 0.50  # unknown source — middle of the road
 
