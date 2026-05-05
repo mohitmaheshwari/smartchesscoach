@@ -150,6 +150,11 @@ async def generate_post_game_voice(
                 "attempts": result.attempts,
                 "critical_move_number": critical.get("move_number"),
                 "critical_move_san": critical.get("move_san"),
+                # Board context for the frontend "Show me why" view —
+                # without these the prose has nothing to point at.
+                "fen_before": full_move["fen_before"],
+                "fen_after": fen_after,
+                "move_uci": move_uci,
             }
     except Exception as e:
         logger.warning(f"[orchestrator] decryption generation failed: {e}")

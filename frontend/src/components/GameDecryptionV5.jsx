@@ -649,7 +649,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           Pattern Evidence (visual proof on a mini board) shipped
           2026-05-05 — rendered when the game has tracked-pattern
           evidence (king-safety / piece-safety so far). */}
-      <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} />
+      <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} userColor={userColor} />
       <PatternEvidence patternEvidence={patternEvidence} userColor={userColor} />
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
