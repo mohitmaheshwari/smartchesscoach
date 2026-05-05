@@ -57,7 +57,12 @@ def _uci_to_san(fen: str, uci: str) -> Optional[str]:
 
 
 def _describe_move(fen: str, uci: str) -> Optional[Dict]:
-    """Return {san, piece, from_square, to_square} for a UCI move."""
+    """Return {san, piece, from_square, to_square, captures, gives_check}
+    for a UCI move. `captures` is the captured piece's NAME (e.g.
+    "bishop") or None — without this fact the LLM guesses what a move
+    captures and produces hallucinated prose like "you take their queen"
+    when the move is actually capturing a bishop.
+    """
     if not fen or not uci or len(uci) < 4:
         return None
     try:
@@ -66,17 +71,37 @@ def _describe_move(fen: str, uci: str) -> Optional[Dict]:
         moving_piece = board.piece_at(move.from_square)
         if moving_piece is None:
             return None
+
+        # Capture detection — both normal and en-passant.
+        target = board.piece_at(move.to_square)
+        captured_name = None
+        if target is not None and target.color != moving_piece.color:
+            captured_name = _piece_name(target)
+        else:
+            try:
+                if move in board.legal_moves and board.is_en_passant(move):
+                    captured_name = "pawn"
+            except Exception:
+                pass
+
         san = None
+        gives_check = False
         try:
             if move in board.legal_moves:
                 san = board.san(move)
+                tmp = board.copy()
+                tmp.push(move)
+                gives_check = tmp.is_check()
         except Exception:
             pass
+
         return {
             "san": san or uci,
             "piece": _piece_name(moving_piece),
             "from_square": chess.square_name(move.from_square),
             "to_square": chess.square_name(move.to_square),
+            "captures": captured_name,
+            "gives_check": gives_check,
         }
     except Exception:
         return None
@@ -270,35 +295,41 @@ def format_moment_context_for_prompt(ctx: Dict) -> str:
             f"{p['piece']} on {p['square']}" for p in opp_pieces
         ))
 
+    def _move_desc(label: str, m: Dict) -> str:
+        """Inline helper — render a move with EXPLICIT capture/check info."""
+        captures = m.get("captures")
+        gives_check = m.get("gives_check")
+        extras = []
+        if captures:
+            extras.append(f"CAPTURES the opponent's {captures} on {m['to_square']}")
+        else:
+            extras.append("does NOT capture anything")
+        if gives_check:
+            extras.append("gives check")
+        extra = "; " + "; ".join(extras) if extras else ""
+        return (
+            f"{label}: {m.get('piece')} from {m.get('from_square')} to {m.get('to_square')} "
+            f"({m.get('san', '?')}){extra}"
+        )
+
     opp = ctx.get("opp_just_played")
     if opp:
-        descriptor = (
-            f"OPPONENT just played: {opp['piece']} from {opp['from_square']} to {opp['to_square']} "
-            f"({opp.get('san', '?')})"
-        )
-        lines.append("- " + descriptor)
+        lines.append("- " + _move_desc("OPPONENT just played", opp))
         if opp.get("opp_missed_move"):
             m = opp["opp_missed_move"]
             verdict = "actually a slip" if opp.get("was_mistake") else "the move worked, but a sharper plan was"
-            lines.append(
-                f"- Opponent's better alternative ({verdict}): "
-                f"{m['san']} ({m['piece']} → {m['to_square']})"
-            )
+            lines.append(f"- Opponent's better alternative ({verdict}): "
+                         f"{m['san']} ({m['piece']} → {m['to_square']})")
 
     user_played = ctx.get("user_move") or {}
     if user_played.get("from_square") and user_played.get("to_square"):
-        lines.append(
-            f"- USER played: {user_played.get('piece')} from {user_played['from_square']} to {user_played['to_square']} "
-            f"({user_played.get('san', '?')})"
-        )
+        lines.append("- " + _move_desc("USER played", user_played))
 
     miss = ctx.get("user_missed_move")
     if miss and miss.get("from_square"):
-        lines.append(
-            f"- USER's MISSED MOVE (the saving / winning move): "
-            f"{miss['piece']} from {miss['from_square']} to {miss['to_square']} "
-            f"({miss.get('san', '?')})"
-        )
+        lines.append("- " + _move_desc(
+            "USER's MISSED MOVE (the saving / winning move)", miss
+        ))
 
     line = ctx.get("user_missed_line") or []
     if line:
