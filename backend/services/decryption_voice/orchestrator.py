@@ -38,8 +38,9 @@ async def generate_post_game_voice(
     user_color: str,
     termination: str = "unknown",
     accuracy: float = 0,
-) -> Tuple[Optional[Dict], Optional[Dict], Optional[Dict]]:
-    """Build (truth_line, player_decryption, decryption_block) for a finished game."""
+) -> Tuple[Optional[Dict], Optional[Dict], Optional[Dict], Optional[Dict]]:
+    """Build (truth_line, player_decryption, decryption_block, pattern_evidence)
+    for a finished game."""
 
     # Skip wins — these surfaces are for losses and draws.
     user_won = (
@@ -47,7 +48,7 @@ async def generate_post_game_voice(
         or (user_color == "black" and game_result == "0-1")
     )
     if user_won:
-        return (None, None, None)
+        return (None, None, None, None)
 
     # 1. Scenario classification — drives Truth + Player templates
     game_reason = ""
@@ -73,7 +74,7 @@ async def generate_post_game_voice(
     )
     if not truth_line:
         # No critical move detected — no honest story to tell.
-        return (None, None, None)
+        return (None, None, None, None)
 
     # 3. Player Decryption — Story / Pattern / Carry-forward.
     # Deterministic templates (Pattern voice locked — LLM cannot match
@@ -84,11 +85,35 @@ async def generate_post_game_voice(
         game_id=game_id,
     )
 
-    # 4. Plan Decryption — LLM prose, validated, retried, fallback-safe.
-    decryption_block = None
+    # 4. Pattern Evidence — board geometry for the visual evidence
+    # surface. Independent of the LLM (uses python-chess), so it
+    # ships even if the LLM call fails.
+    pattern_evidence = None
     critical = pick_critical_move(decryption_v5_data)
+    if critical:
+        try:
+            from services.pattern_evidence import extract_pattern_evidence
+            # Find the critical_gap from the V5 move record.
+            target_move_n = critical.get("move_number")
+            crit_gap = None
+            for m in decryption_v5_data:
+                if (m.get("is_user_move")
+                        and m.get("move_number") == target_move_n):
+                    crit_gap = m.get("cognitive_gap")
+                    break
+            pattern_evidence = extract_pattern_evidence(
+                decryption_v5_data=decryption_v5_data,
+                user_color=user_color,
+                critical_move_number=target_move_n,
+                critical_gap=crit_gap,
+            )
+        except Exception as e:
+            logger.warning(f"[orchestrator] pattern_evidence failed: {e}")
+
+    # 5. Plan Decryption — LLM prose, validated, retried, fallback-safe.
+    decryption_block = None
     if not critical:
-        return (truth_line, player_decryption, None)
+        return (truth_line, player_decryption, None, pattern_evidence)
 
     full_move = next(
         (
@@ -99,7 +124,7 @@ async def generate_post_game_voice(
         None,
     )
     if not full_move or not full_move.get("fen_before"):
-        return (truth_line, player_decryption, None)
+        return (truth_line, player_decryption, None, pattern_evidence)
 
     try:
         import chess
@@ -129,4 +154,4 @@ async def generate_post_game_voice(
     except Exception as e:
         logger.warning(f"[orchestrator] decryption generation failed: {e}")
 
-    return (truth_line, player_decryption, decryption_block)
+    return (truth_line, player_decryption, decryption_block, pattern_evidence)

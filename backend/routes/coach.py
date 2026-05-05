@@ -803,7 +803,7 @@ async def get_game_decryption_v5(
         # Check for existing V5 data
         analysis = await db.game_analyses.find_one(
             {"game_id": game_id},
-            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1}
+            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1, "decryption_v5_version": 1, "habits_report": 1, "cct_narrative": 1, "truth_line": 1, "player_decryption": 1, "decryption_block": 1, "pattern_evidence": 1}
         )
         
         if not analysis or "game_id" not in analysis:
@@ -851,6 +851,10 @@ async def get_game_decryption_v5(
                 "truth_line": analysis.get("truth_line"),
                 "player_decryption": analysis.get("player_decryption"),
                 "decryption_block": analysis.get("decryption_block"),
+                # pattern_evidence: structured board geometry per pattern
+                # (king square + exposed zone + threat arrows + caption)
+                # for the visual evidence surface on the post-game page.
+                "pattern_evidence": analysis.get("pattern_evidence"),
             }
         
         # Check if generation is in progress
@@ -946,9 +950,10 @@ async def get_game_decryption_v5(
                         truth_line = None
                         player_decryption = None
                         decryption_block = None
+                        pattern_evidence = None
                         try:
                             from services.decryption_voice.orchestrator import generate_post_game_voice
-                            truth_line, player_decryption, decryption_block = await generate_post_game_voice(
+                            truth_line, player_decryption, decryption_block, pattern_evidence = await generate_post_game_voice(
                                 decryption_v5_data=decryption_data,
                                 move_evaluations=move_evaluations,
                                 game_id=game_id,
@@ -974,6 +979,7 @@ async def get_game_decryption_v5(
                                 "truth_line": truth_line,
                                 "player_decryption": player_decryption,
                                 "decryption_block": decryption_block,
+                                "pattern_evidence": pattern_evidence,
                             }}
                         )
                         logger.info(f"[DECRYPTION V5] Background generation complete for {game_id}")

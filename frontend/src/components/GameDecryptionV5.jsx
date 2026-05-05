@@ -15,6 +15,7 @@ import LichessBoard from "@/components/LichessBoard";
 import ClickableLine, { extractMovesFromText } from "@/components/ClickableLine";
 import TruthHeadline from "@/components/TruthHeadline";
 import PlayerDecryption from "@/components/PlayerDecryption";
+import PatternEvidence from "@/components/PatternEvidence";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -134,6 +135,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [truthLine, setTruthLine] = useState(null);
   const [playerDecryption, setPlayerDecryption] = useState(null);
   const [decryptionBlock, setDecryptionBlock] = useState(null);
+  const [patternEvidence, setPatternEvidence] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -229,6 +231,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       }
       if (data.decryption_block) {
         setDecryptionBlock(data.decryption_block);
+      }
+      if (data.pattern_evidence) {
+        setPatternEvidence(data.pattern_evidence);
       }
       
       // Pre-load acknowledged concepts
@@ -640,12 +645,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
           Locked 2026-05-04 — collapsed from three sections to ONE:
           Truth IS the post-game read, no Player Decryption block on
-          default surface (Story/Pattern/Carry-forward duplicated Truth's
-          beats and made the page feel like three rephrases of the same
-          thing). Plan Decryption stays gated under "Show me why".
-          Player Decryption data still ships in the API for a future
-          "Game breakdown" tab, just not rendered as default. */}
+          default surface. Plan Decryption stays gated under "Show me why".
+          Pattern Evidence (visual proof on a mini board) shipped
+          2026-05-05 — rendered when the game has tracked-pattern
+          evidence (king-safety / piece-safety so far). */}
       <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} />
+      <PatternEvidence patternEvidence={patternEvidence} userColor={userColor} />
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}

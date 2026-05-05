@@ -55,7 +55,7 @@ async def main(game_id: str) -> None:
     print(f"Regenerating voice for {game_id} (v5 has {len(v5)} moves)...", flush=True)
 
     from services.decryption_voice.orchestrator import generate_post_game_voice
-    truth, player, plan = await generate_post_game_voice(
+    truth, player, plan, evidence = await generate_post_game_voice(
         decryption_v5_data=v5,
         move_evaluations=move_evals,
         game_id=game_id,
@@ -68,6 +68,7 @@ async def main(game_id: str) -> None:
     print(f"  truth_line       : {'OK' if truth else 'None'}", flush=True)
     print(f"  player_decryption: {'OK' if player else 'None'}", flush=True)
     print(f"  decryption_block : {'OK' if plan else 'None'}", flush=True)
+    print(f"  pattern_evidence : {'OK' if evidence else 'None'}", flush=True)
 
     result = await db.game_analyses.update_one(
         {"game_id": game_id},
@@ -75,6 +76,7 @@ async def main(game_id: str) -> None:
             "truth_line": truth,
             "player_decryption": player,
             "decryption_block": plan,
+            "pattern_evidence": evidence,
             "voice_regenerated_at": datetime.now(timezone.utc).isoformat(),
         }},
     )
