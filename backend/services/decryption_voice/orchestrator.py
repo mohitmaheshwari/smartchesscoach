@@ -137,11 +137,26 @@ async def generate_post_game_voice(
             board.push(move_obj)
             fen_after = board.fen()
 
+        # Build the richer moment context so the LLM can name the
+        # opponent's plan, the user's missed move, and the saving line.
+        moment_ctx = None
+        try:
+            from .moment_context import build_moment_context
+            moment_ctx = build_moment_context(
+                decryption_v5_data=decryption_v5_data,
+                move_evaluations=move_evaluations,
+                critical_move_number=critical.get("move_number"),
+                user_color=user_color,
+            )
+        except Exception as ctx_err:
+            logger.warning(f"[orchestrator] moment_context failed: {ctx_err}")
+
         result = await generate_decryption(
             fen_before=full_move["fen_before"],
             fen_after=fen_after,
             move_uci=move_uci,
             user_color=user_color,
+            moment_context=moment_ctx,
         )
         if result:
             decryption_block = {

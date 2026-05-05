@@ -39,9 +39,14 @@ MAX_RETRIES = 2
 # Prompt discipline alone does not hold (we hard-validate after).
 # But the prompt encodes the rules so the first attempt is usually clean.
 
-DECRYPTION_SYSTEM_PROMPT = """You write short chess decryptions for players rated 600–1500.
+DECRYPTION_SYSTEM_PROMPT = """You write short chess decryptions for players rated 600–1500, mostly in India. Easy spoken English. Short sentences. No idioms.
 
-Decryption is NOT feedback. It is translation. You explain what happened on the board so the player understands why the position decided. You never tell them what they did wrong — you describe what was being done to them.
+You are a coach naming three things:
+  1. What the opponent's plan was.
+  2. What move the player missed (the saving / winning move).
+  3. What that missed move would have done — name the next move or two of the line.
+
+You NEVER tell the player what they did wrong. You describe what was happening on the board, and the rescue line they didn't see.
 
 # Hard rules (every output must satisfy ALL):
 
@@ -49,17 +54,17 @@ Decryption is NOT feedback. It is translation. You explain what happened on the 
 
 2. Name a specific piece, square, or file. Use real geometry (their bishop on g5, the d-file, your king on h1).
 
-3. Explain why the player couldn't stop it. Every output must answer: why did the player have no response? Use words like "because", "couldn't", "no piece left", "nothing to challenge it", "with no defender".
+3. NAME THE MISSED LINE. If the facts give you the user's missed move and the line that follows, USE IT. "Kd6 would have used it: your king reaches e7 next move and parks in front of their pawn." This is the difference between a chess.com clone and real coaching.
 
-4. Show what the player lost the ability to do. Not "they attacked" — "their pawn push opened the diagonal toward your king, and your knight had to move, leaving nothing on the back rank."
+4. Easy Indian English. Short subject-verb-object sentences (max ~12 words). NO American idioms ("dies on the board", "smell a win", "run with it", "off the rails", "clean game", "got hosed"). Plain spoken words.
 
-5. Each sentence must advance the position. No filler. No rephrasing. If a sentence doesn't add a new fact about pieces, squares, or causality — cut it.
+5. Each sentence must advance the position. No filler. No rephrasing. If a sentence doesn't add a new fact about pieces, squares, plans, or lines — cut it.
 
-6. Plain spoken words a 1100 player uses. No "tactically", "positionally", "strategically", "compensation", "initiative", "pressure", "advantage", "strong move", "dynamic", "harmonious".
+6. Plain words a 1100 player uses. No "tactically", "positionally", "strategically", "compensation", "initiative", "pressure", "advantage", "strong move", "dynamic", "harmonious".
 
 7. End on the cause, not the verdict. Don't say "and that's why you lost." Say what made it inevitable.
 
-8. Do NOT explain the move. Explain what it did to the position.
+8. Do NOT explain the move the user played. Explain what was happening, what the line was, what they missed.
 
 # Length
 
@@ -67,38 +72,32 @@ Decryption is NOT feedback. It is translation. You explain what happened on the 
 
 # Structure (use exactly these three beats, in order)
 
-- Sentence 1: WHAT WAS ALREADY TRUE on the board that the user's move ran into.
-  Describe the opponent's piece + square + what it was pointed at.
+- Sentence 1: WHAT WAS HAPPENING on the board that the user's move ran into.
+  Describe the opponent's piece + square + what it was pointed at, OR what
+  the opponent JUST played and what it threatens. Plain Indian English, no idioms.
   NEVER start with "Your rook moved" or "You played X" — that narrates the move; we ban that.
   Example GOOD: "Their queen on a5 was already pointing at d8."
+  Example GOOD: "Their pawn pushed to e6 to attack your king."
   Example BAD: "Your rook moved from b8 to d8."
 
-- Sentence 2: WHAT IT DID TO THE PLAYER. One concrete consequence — a piece they lost,
-  a square they could no longer defend, an attack they couldn't follow up. ONE idea per
-  sentence. No "leaving it weak and making the file open" two-fer constructions.
+- Sentence 2: NAME THE MISSED MOVE AND THE LINE.
+  If the facts list a "USER's MISSED MOVE" — name it. If they list "the line
+  that would have followed" — name the next move or two of that line. This is
+  the rescue plan the player didn't see.
 
-  HARD RULE: if the facts say the moved piece will be captured, sentence 2 must use
-  past/imminent-capture language: "they took it", "the rook was gone", "they captured it",
-  "the piece is lost." NEVER hedge with "attacked", "threatened", or "vulnerable" —
-  the piece is gone, not at risk.
+  Example GOOD: "Kd6 would have used the open d-file. Your king reaches e7 next move
+  and stops their pawn."
+  Example GOOD: "Qb6+ was sitting there. After the check, you trade queens and you're up a rook."
+  Example BAD: "Your rook was attacked." (no missed move, no rescue line)
+  Example BAD: "A better move was available." (vague — name it)
 
-  Example GOOD: "When your rook landed there, the check did nothing — they took it for free."
-  Example BAD: "Your rook is now attacked, leaving it without support and opening the b-file."
-  Example BAD: "It was attacked, and they'll take it." (still hedges with "attacked")
+- Sentence 3: WHY THE MISSED MOVE WORKED, OR WHY THE PLAYED MOVE FAILED.
+  Causality required ("because", "with no", "couldn't", "stops", "blocks", "they could not").
+  Stay grounded in what's on the board.
 
-- Sentence 3: WHY THE PLAYER COULDN'T STOP IT. Causality marker required
-  ("because", "with no", "couldn't", "nothing left").
-
-  Stay grounded in what's gone or what's no longer possible — the rook the player
-  just lost is usually enough. Do NOT name an arbitrary other piece just for
-  specificity. If the facts list other major pieces, only reference one if it
-  DIRECTLY explains why the failure couldn't be stopped (e.g., the player's
-  attacking piece was on the wrong side of the board to help). Otherwise, keep
-  the focus on what was just lost.
-
-  Example GOOD: "With your rook gone, you had nothing left to push the attack."
-  Example BAD: "You couldn't stop this because your knight on a1 couldn't defend
-  the rook." (the a1 knight was never going to defend d8 — irrelevant context)
+  Example GOOD: "With your king on e7, their pawn cannot promote without a defender."
+  Example GOOD: "Their king was on the wrong side, so they could not catch your pawn."
+  Example BAD: "The move was strong because it was strong." (circular)
 
 - Optional Sentence 4: only if it adds a new concrete piece/square fact. Never a verdict.
 
@@ -157,18 +156,38 @@ async def _call_llm(user_message: str) -> str:
     return await chat.send_message(UserMessage(text=user_message))
 
 
-def _build_user_message(delta: Dict, fen_before: str, user_color: str) -> str:
+def _build_user_message(
+    delta: Dict,
+    fen_before: str,
+    user_color: str,
+    moment_context: Optional[Dict] = None,
+) -> str:
     """Build the user-message payload. Facts only — no engine evals,
-    no best-move suggestion, no narrative hints."""
+    no best-move suggestion, no narrative hints. When moment_context
+    is present, include the richer context (opponent's just-played
+    move, user's missed move, the saving line) so the LLM can write
+    real coaching prose instead of just describing one piece's fate.
+    """
     parts = [
         f"User color: {user_color}",
         f"Position before the move (FEN): {fen_before}",
         "",
-        "Concrete facts about what changed (use these — do NOT invent pieces or squares):",
+        "Concrete delta facts (what changed):",
         format_delta_for_prompt(delta),
-        "",
-        "Write the decryption now (3 sentences, ≤80 words, the 3-beat structure).",
     ]
+    if moment_context:
+        from .moment_context import format_moment_context_for_prompt
+        ctx_text = format_moment_context_for_prompt(moment_context)
+        if ctx_text:
+            parts.extend([
+                "",
+                "Full moment context (USE these — name the opponent's plan, the missed move, and the line it would have led to):",
+                ctx_text,
+            ])
+    parts.extend([
+        "",
+        "Write the decryption now (3 sentences, ≤80 words, the 3-beat structure). Easy spoken Indian English. Name the missed move and the line.",
+    ])
     return "\n".join(parts)
 
 
@@ -188,6 +207,7 @@ async def generate_decryption(
     fen_after: str,
     move_uci: str,
     user_color: str,
+    moment_context: Optional[Dict] = None,
 ) -> Optional[DecryptionResult]:
     """Build a Decryption block for one critical move.
 
@@ -196,6 +216,11 @@ async def generate_decryption(
         fen_after:  position after the user's move.
         move_uci:   the user's move in UCI form (e.g., "b8d8").
         user_color: "white" or "black".
+        moment_context: optional richer context (opponent's just-played
+            move, user's missed move, the saving line — see
+            moment_context.build_moment_context). When present, the
+            prompt produces real coaching prose instead of one-piece
+            description.
 
     Returns:
         DecryptionResult or None if delta cannot be computed.
@@ -204,7 +229,7 @@ async def generate_decryption(
     if not delta:
         return None
 
-    user_msg = _build_user_message(delta, fen_before, user_color)
+    user_msg = _build_user_message(delta, fen_before, user_color, moment_context)
 
     last_reason = ""
     text = ""
