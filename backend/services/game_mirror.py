@@ -65,6 +65,82 @@ def _pattern_voice(pattern: str, form: str = "verb") -> str:
     return readable
 
 
+# ── Per-game pattern chips ────────────────────────────────────────────
+# Short human labels for cognitive_gap tags rendered as chips on each
+# Lab card. Up to 2 chips per card; the most-decisive gap goes first
+# (and gets the "urgent" flag when the game was lost from it).
+
+PATTERN_CHIP_LABELS = {
+    "piece_safety":       "piece safety",
+    "king_safety":        "king safety",
+    "tactical_oversight": "missed tactics",
+    "missed_tactic":      "missed tactics",
+    "calculation_depth":  "shallow calculation",
+    "opening_knowledge":  "opening drift",
+    "piece_activity":     "passive pieces",
+    "pawn_structure":     "pawn structure",
+    "endgame_technique":  "endgame technique",
+    "time_pressure":      "time pressure",
+    "ignore_threat":      "missed threat",
+    "conversion":         "conversion",
+    "one_move_blunder":   "piece safety",
+    "tactical_miss":      "missed tactics",
+    "calculation_error":  "shallow calculation",
+    "endgame_collapse":   "endgame technique",
+}
+
+
+def _chip_label(gap_key: str) -> str:
+    """Short human label for a cognitive_gap chip."""
+    if not gap_key:
+        return ""
+    return PATTERN_CHIP_LABELS.get(gap_key, gap_key.replace("_", " "))
+
+
+def _build_pattern_chips(game: Dict, established: List[str]) -> Tuple[List[Dict], bool]:
+    """Build pattern chips for a game's Lab card.
+
+    Returns (chips, is_urgent). Up to 2 chips ranked by relevance:
+      1. critical_gap first — the decisive move's gap; URGENT when the
+         game was lost AND this gap is one the user keeps repeating.
+      2. One additional chip from established patterns also active in
+         the game (not flagged urgent — context, not lead alarm).
+    """
+    gaps = game.get("gaps") or []
+    critical_gap = game.get("critical_gap")
+    outcome = game.get("outcome")
+    established_set = set(established or [])
+
+    chips: List[Dict] = []
+    seen = set()
+    is_urgent = False
+
+    if critical_gap:
+        urgent = (outcome == "lost") and (critical_gap in established_set)
+        chips.append({
+            "key": critical_gap,
+            "label": _chip_label(critical_gap),
+            "urgent": urgent,
+        })
+        seen.add(critical_gap)
+        if urgent:
+            is_urgent = True
+
+    for gap in gaps:
+        if not gap or gap in seen:
+            continue
+        if gap in established_set:
+            chips.append({
+                "key": gap,
+                "label": _chip_label(gap),
+                "urgent": False,
+            })
+            seen.add(gap)
+            break
+
+    return chips[:2], is_urgent
+
+
 # ── Per-game card coach line ──────────────────────────────────────────
 # Replaces the raw "move N: played → best (−Ncp)" engine output on each
 # Lab card with one short Coach-Voice line. Per-row source for the card
@@ -716,8 +792,10 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
     # ordering follows the upstream sort. Capped at _BREAKDOWN_MAX so
     # large windows don't dump 8+ buttons on the user. Voice/stats
     # below still use the full window.
-    games_breakdown = [
-        {
+    games_breakdown = []
+    for g in games_data[:_BREAKDOWN_MAX]:
+        chips, is_urgent = _build_pattern_chips(g, established)
+        games_breakdown.append({
             "game_id": g["game_id"],
             "opponent": g.get("opponent"),
             "opening": g.get("opening"),
@@ -741,9 +819,13 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
                 critical_move_number=g.get("critical_move_number"),
                 was_winning=bool(g.get("was_winning")),
             ),
-        }
-        for g in games_data[:_BREAKDOWN_MAX]
-    ]
+            # Pattern chips — up to 2 cognitive-gap chips per card.
+            # `urgent: true` on a chip means the game was LOST from it
+            # AND the gap is one the user keeps repeating. Frontend
+            # styles those red.
+            "pattern_chips": chips,
+            "is_urgent": is_urgent,
+        })
 
     # Coach line for the featured game itself (used by Dashboard.jsx
     # reasoning panel — replaces the "(−Ncp) — best was X" prose).

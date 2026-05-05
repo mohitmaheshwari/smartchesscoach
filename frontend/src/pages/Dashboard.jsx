@@ -477,11 +477,17 @@ const Dashboard = ({ user }) => {
                       // Backend produces coach_line per card; raw
                       // critical_* fields stay only for legacy callers.
                       const coachLine = g.coach_line || null;
+                      const chips = g.pattern_chips || [];
+                      const isUrgent = !!g.is_urgent;
                       return (
                         <button
                           key={g.game_id}
                           onClick={() => navigate(`/game/${g.game_id}`)}
-                          className="w-full text-left flex items-baseline gap-3 text-[13px] py-2 px-2 rounded hover:bg-amber-500/10 transition-colors"
+                          className={`w-full text-left flex items-baseline gap-3 text-[13px] py-2 px-2 rounded transition-colors ${
+                            isUrgent
+                              ? "border-l-2 border-rose-500/70 bg-rose-500/[0.03] hover:bg-rose-500/[0.06]"
+                              : "hover:bg-amber-500/10"
+                          }`}
                         >
                           <span className="text-muted-foreground tabular-nums w-[24px] shrink-0">
                             {i + 1}.
@@ -501,6 +507,23 @@ const Dashboard = ({ user }) => {
                               {opening && (
                                 <span className="text-muted-foreground">
                                   · {opening}
+                                </span>
+                              )}
+                              {chips.map((c) => (
+                                <span
+                                  key={c.key}
+                                  className={
+                                    c.urgent
+                                      ? "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-300 font-semibold"
+                                      : "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-muted/40 border border-border/50 text-muted-foreground/90"
+                                  }
+                                >
+                                  {c.label}
+                                </span>
+                              ))}
+                              {isUrgent && (
+                                <span className="text-[10px] uppercase tracking-wider text-rose-500 font-semibold">
+                                  · cost the game
                                 </span>
                               )}
                             </div>
