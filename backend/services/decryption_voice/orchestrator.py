@@ -220,6 +220,22 @@ async def generate_post_game_voice(
                     moment_context=m_ctx,
                 )
                 if m_result:
+                    # Build the 3 interactive candidates for this moment.
+                    # Empty list = fall through to static prose card.
+                    try:
+                        from .candidate_builder import build_candidates
+                        m_candidates = build_candidates(
+                            fen_before=full_m["fen_before"],
+                            move_uci=_uci,
+                            move_san=ms,
+                            move_number=mn,
+                            decryption_v5_data=decryption_v5_data,
+                            engine_caption=m_result.text,
+                        )
+                    except Exception as cb_err:
+                        logger.warning(f"[orchestrator] candidate_builder failed for move {mn}: {cb_err}")
+                        m_candidates = []
+
                     moments_list.append({
                         "move_number": mn,
                         "move_san": ms,
@@ -233,6 +249,7 @@ async def generate_post_game_voice(
                         "source": m_result.source,
                         "attempts": m_result.attempts,
                         "failed_attempts": m_result.failed_attempts,
+                        "candidates": m_candidates,
                     })
             except Exception as ex:
                 logger.warning(f"[orchestrator] moment {mn} failed: {ex}")

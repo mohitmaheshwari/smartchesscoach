@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import LichessBoard from "@/components/LichessBoard";
+import InteractiveMoment from "@/components/InteractiveMoment";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 function MomentCard({ moment, userColor, defaultOpen }) {
@@ -58,24 +59,34 @@ function MomentCard({ moment, userColor, defaultOpen }) {
         )}
       </button>
 
-      {/* Body — board + prose, revealed on tap */}
+      {/* Body — interactive puzzle when candidates are available,
+          static board+prose fallback otherwise. */}
       {open && (
         <div className="px-4 pb-5 md:px-5 md:pb-6">
-          <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-5 md:gap-6 items-start">
-            <div className="aspect-square w-full max-w-[200px] mx-auto md:mx-0">
-              <LichessBoard
-                fen={moment.fen_before}
-                orientation={orientation}
-                viewOnly={true}
-                arrows={arrows}
-              />
+          {moment.candidates && moment.candidates.length >= 2 ? (
+            <InteractiveMoment
+              fen={moment.fen_before}
+              userColor={userColor}
+              moveNumber={moment.move_number}
+              candidates={moment.candidates}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-5 md:gap-6 items-start">
+              <div className="aspect-square w-full max-w-[200px] mx-auto md:mx-0">
+                <LichessBoard
+                  fen={moment.fen_before}
+                  orientation={orientation}
+                  viewOnly={true}
+                  arrows={arrows}
+                />
+              </div>
+              <div className="self-center">
+                <p className="text-[14.5px] md:text-[15px] text-foreground/90 leading-relaxed">
+                  {moment.text}
+                </p>
+              </div>
             </div>
-            <div className="self-center">
-              <p className="text-[14.5px] md:text-[15px] text-foreground/90 leading-relaxed">
-                {moment.text}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>
