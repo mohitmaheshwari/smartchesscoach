@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Chessboard } from "react-chessboard";
+import { Chess } from "chess.js";
 
 const WINE = "#722F37";
 const GOLD_TEXT = "#8B6F1F";
@@ -1487,6 +1488,28 @@ function DecryptionReviewDetail({
   const sideToMove = (row.fen_before || "").split(" ")[1] === "w" ? "white" : "black";
   const userColorLabel = sideToMove === "white" ? "White" : "Black";
   const orientation = sideToMove; // board faces the side that moves
+
+  // Build arrows for the chessboard:
+  //   red    = user's actual (wrong) move
+  //   green  = engine's best move (the move the user should have played)
+  // User move comes from the stored UCI; best move requires SAN→UCI
+  // via chess.js because we only persist SAN for candidates.
+  const customArrows = (() => {
+    const arrows = [];
+    const RED = "rgb(220, 38, 38)";
+    const GREEN = "rgb(22, 163, 74)";
+    if (row.move_uci && row.move_uci.length >= 4) {
+      arrows.push([row.move_uci.slice(0, 2), row.move_uci.slice(2, 4), RED]);
+    }
+    if (row.best_move_san && row.fen_before) {
+      try {
+        const c = new Chess(row.fen_before);
+        const m = c.move(row.best_move_san, { sloppy: true });
+        if (m) arrows.push([m.from, m.to, GREEN]);
+      } catch (e) { /* invalid SAN — skip the green arrow */ }
+    }
+    return arrows;
+  })();
   return (
     <div className="space-y-4" data-testid="decryption-review-detail">
       <button
@@ -1535,7 +1558,12 @@ function DecryptionReviewDetail({
               position={row.fen_before}
               arePiecesDraggable={false}
               boardOrientation={orientation}
+              customArrows={customArrows}
             />
+          </div>
+          <div className="text-[10px] text-muted-foreground flex gap-3">
+            <span><span className="inline-block w-3 h-3 align-middle mr-1" style={{ background: "rgb(220, 38, 38)" }} /> played</span>
+            <span><span className="inline-block w-3 h-3 align-middle mr-1" style={{ background: "rgb(22, 163, 74)" }} /> engine</span>
           </div>
           <div className="text-[10px] text-muted-foreground/70 break-all font-mono">
             {row.fen_before}
