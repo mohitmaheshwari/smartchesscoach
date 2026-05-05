@@ -100,6 +100,20 @@ def _render_missed_back_rank(details: Dict) -> Optional[str]:
     return f"You missed a back-rank mate: {move} ends the game."
 
 
+def _render_walked_into_mate(details: Dict) -> Optional[str]:
+    """User's move allowed forced mate against them."""
+    mate_in = details.get("mate_in", 1)
+    opp_move = details.get("opp_mate_move")
+    saving_move = details.get("saving_move")
+    if mate_in == 1 and opp_move and saving_move:
+        return f"This allows mate. {opp_move} ends the game. {saving_move} was the only move that holds."
+    if mate_in == 1 and opp_move:
+        return f"This allows mate. {opp_move} ends the game."
+    if saving_move:
+        return f"This allows a forced mate. {saving_move} was the only move that holds."
+    return "This allows a forced mate."
+
+
 def _render_missed_discovery(details: Dict) -> Optional[str]:
     moving = details.get("moving_piece") or details.get("attacker")
     revealed = details.get("revealed_piece") or details.get("revealed")
@@ -185,6 +199,7 @@ _TEMPLATE_REGISTRY = {
     "missed_skewer":      _render_missed_skewer,
     "missed_back_rank":   _render_missed_back_rank,
     "missed_discovery":   _render_missed_discovery,
+    "walked_into_mate":   _render_walked_into_mate,
     "missed_overload":    _render_missed_overload,
     "missed_removal":     _render_missed_removal,
     "walked_into_fork":   _render_walked_into_fork,

@@ -24,6 +24,127 @@ from .concept_templates import render_caption, has_template
 logger = logging.getLogger(__name__)
 
 
+# ── Local detector — WALKED_INTO_MATE ────────────────────────────────
+# Fires when the user's move allows the opponent forced mate in 1-2.
+# Lives in the dispatcher (not chess_brain registry) because it needs
+# the user's move to detect mate-AGAINST-the-user; the registry's
+# missed_mate detector is the inverse (user MISSED mate FOR them).
+
+def _detect_walked_into_mate(
+    board: chess.Board,
+    user_move_san: str,
+    best_move_san: Optional[str],
+    max_ply: int = 2,
+) -> Optional[Dict]:
+    """If user's move allows forced mate against them, return facts;
+    else None. max_ply=2 means look up to mate-in-2 (covers most
+    common cases at 600-1400)."""
+    try:
+        b = board.copy()
+        m = b.parse_san(user_move_san)
+        b.push(m)
+    except Exception:
+        return None
+
+    # Mate-in-1: any opponent legal move is checkmate.
+    for opp_move in b.legal_moves:
+        bb = b.copy()
+        bb.push(opp_move)
+        if bb.is_checkmate():
+            return {
+                "mate_in": 1,
+                "opp_mate_move": b.san(opp_move),
+                "saving_move": best_move_san,
+            }
+
+    if max_ply < 2:
+        return None
+
+    # Mate-in-2: find any opp move that gives check AND every user
+    # response leads to checkmate.
+    for opp_move in b.legal_moves:
+        bb = b.copy()
+        bb.push(opp_move)
+        if not bb.is_check():
+            continue
+        # Every user reply must lead to mate.
+        all_mate = True
+        any_reply = False
+        for user_reply in bb.legal_moves:
+            any_reply = True
+            bbb = bb.copy()
+            bbb.push(user_reply)
+            mate_found = False
+            for opp_final in bbb.legal_moves:
+                bbbb = bbb.copy()
+                bbbb.push(opp_final)
+                if bbbb.is_checkmate():
+                    mate_found = True
+                    break
+            if not mate_found:
+                all_mate = False
+                break
+        if any_reply and all_mate:
+            return {
+                "mate_in": 2,
+                "opp_mate_move": b.san(opp_move),
+                "saving_move": best_move_san,
+            }
+
+    return None
+
+
+# ── Severity scoring for dominant-pick ───────────────────────────────
+# Replaces "first detector by registry priority" with a function that
+# weights detections by actual decisiveness. A missed fork worth
+# 9 + 5 = 14 should beat a hanging pawn worth 1.
+
+def _severity_score(det: Dict) -> float:
+    pt = det.get("pattern_type") or ""
+    d = det.get("details") or {}
+
+    # Mate is always max — nothing else compares.
+    if pt == "walked_into_mate":
+        # Weight by mate proximity (mate-in-1 most decisive).
+        mate_in = d.get("mate_in", 1)
+        return 1000 - mate_in  # 999 for mate-in-1, 998 for mate-in-2
+    if pt == "missed_mate":
+        return 950
+
+    # Material-loss patterns weighted by piece value or fork total.
+    if pt == "missed_fork":
+        return float(d.get("total_value", 0)) * 2.0  # forks compound
+    if pt == "missed_pin":
+        return 12.0  # pins are decisive but not always material
+    if pt == "missed_skewer":
+        return 12.0
+    if pt == "missed_discovery":
+        return 12.0
+    if pt == "missed_overload":
+        return 10.0
+    if pt == "missed_removal":
+        return 11.0
+    if pt == "missed_back_rank":
+        return 50.0  # back-rank is mate-flavored
+    if pt == "hanging_piece":
+        # Single hanging piece — value of that piece.
+        return float(d.get("piece_value", 0))
+    if pt == "trapped_piece":
+        return 7.0
+    if pt == "walked_into_fork":
+        return 14.0
+    if pt == "walked_into_pin":
+        return 10.0
+
+    # Strategic / endgame patterns — lower default unless decisive.
+    if pt == "outside_passed_pawn":
+        return 6.0
+    if pt == "opposition":
+        return 4.0
+
+    return 1.0
+
+
 def detect_concepts(
     *,
     fen_before: str,
@@ -66,12 +187,8 @@ def detect_concepts(
         )
     except Exception as e:
         logger.warning(f"[concept_dispatcher] detector run failed: {e}")
-        return []
+        tactical, strategic, behavioral = [], [], []
 
-    # Tactical first (already priority-sorted), then strategic, then
-    # behavioral. Behavioral is rarely the source of a caption — it's
-    # meta (time trouble, tilt) and not what the player needs to see
-    # in a "what would you play here?" card.
     out: List[Dict] = []
     for r in tactical + strategic + behavioral:
         if not r.detected:
@@ -84,22 +201,45 @@ def detect_concepts(
             "confidence": r.confidence,
             "category": r.category,
         })
+
+    # Local detector — WALKED_INTO_MATE. Not in the chess_brain
+    # registry (that one detects MISSED_MATE for the user, the
+    # opposite). We add it here so a Kc6 → e8=Q+ mate gets the
+    # decisive "walked into mate" caption.
+    try:
+        mate_facts = _detect_walked_into_mate(board, user_move_san, best_move_san)
+        if mate_facts:
+            out.append({
+                "pattern_type": "walked_into_mate",
+                "details": mate_facts,
+                "teaching_hook": "Allows forced mate",
+                "key_squares": [],
+                "confidence": 1.0,
+                "category": "tactical",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] walked_into_mate detect failed: {e}")
+
     return out
 
 
 def pick_dominant_concept(detections: List[Dict]) -> Optional[Dict]:
-    """Pick the highest-priority detection that ALSO has a caption
-    template. If none has a template, return None — caller falls
-    through to a generic caption.
+    """Pick the most decisive detection that also has a caption template.
 
-    Detections are already priority-ordered (tactical first, sorted
-    by detector priority). We walk the list and take the first one
-    we can render.
+    Updated 2026-05-05: registry-priority ordering picked hanging-pawn
+    over missed-fork on Game 4db4149b move 21 because the registry has
+    hanging_piece at priority 95 vs fork at 90. The ACTUAL decisiveness
+    flipped the call — a missed fork worth 14 material points is
+    obviously bigger than a hanging pawn worth 1.
+
+    New rule: among detections with templates, pick the one with the
+    highest _severity_score. Mate beats forks beats hanging pieces
+    beats endgame patterns. Score function lives next door.
     """
-    for det in detections:
-        if has_template(det.get("pattern_type")):
-            return det
-    return None
+    candidates = [d for d in detections if has_template(d.get("pattern_type"))]
+    if not candidates:
+        return None
+    return max(candidates, key=_severity_score)
 
 
 def caption_for_moment(
