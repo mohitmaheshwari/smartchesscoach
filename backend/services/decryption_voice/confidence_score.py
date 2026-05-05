@@ -80,13 +80,21 @@ def _detector_weight(
 ) -> float:
     if detector_confidence is not None:
         try:
-            return max(0.0, min(1.0, float(detector_confidence)))
+            raw = max(0.0, min(1.0, float(detector_confidence)))
+            # Floor for template sources: detectors sometimes encode
+            # SEVERITY into their confidence (e.g., chess_brain
+            # hanging_piece returns piece_value/5 — 0.2 for a pawn).
+            # That's not the right axis for "is this caption correct?".
+            # Templates only render when geometry checks out, so floor
+            # at 0.85 for template-source rows.
+            if source.startswith("template:"):
+                return max(0.85, raw)
+            return raw
         except Exception:
             pass
     if source == "llm":
-        # Validator pass on first try → 0.7; retries → 0.5.
         return 0.7 if not failed_attempts else 0.5
-    return 0.8  # template fallback
+    return 0.8
 
 
 def _engine_corroboration(
