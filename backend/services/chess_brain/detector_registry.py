@@ -501,70 +501,93 @@ def detect_pin(
     try:
         move = board.parse_san(best_move)
         piece = board.piece_at(move.from_square)
-        
-        # Pins are created by sliding pieces (bishop, rook, queen)
+
+        # Pins are created by sliding pieces (bishop, rook, queen).
         if not piece or piece.piece_type not in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
             return result
-        
+
         board_after = board.copy()
         board_after.push(move)
-        
-        # Check if this creates a pin along a ray
         attacker_sq = move.to_square
-        attacker = board_after.piece_at(attacker_sq)
-        
-        # Look along attack rays
-        for direction in chess.BB_RAYS.get(attacker_sq, []):
-            pieces_on_ray = []
-            
-            # Find pieces along this ray
-            for sq in chess.SquareSet(direction):
+        attacker_color = piece.color
+
+        # Iterate the actual sliding-piece directions. The previous
+        # implementation iterated chess.BB_RAYS[sq] which returns 64
+        # bitboards of squares-between-this-and-other, not directions —
+        # geometrically wrong, so the detector never fired.
+        if piece.piece_type == chess.BISHOP:
+            directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+        elif piece.piece_type == chess.ROOK:
+            directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        else:  # QUEEN
+            directions = [
+                (0, 1), (0, -1), (1, 0), (-1, 0),
+                (1, 1), (1, -1), (-1, 1), (-1, -1),
+            ]
+
+        piece_values = {
+            chess.KING: 100, chess.QUEEN: 9, chess.ROOK: 5,
+            chess.BISHOP: 3, chess.KNIGHT: 3, chess.PAWN: 1,
+        }
+
+        attacker_file = chess.square_file(attacker_sq)
+        attacker_rank = chess.square_rank(attacker_sq)
+
+        for df, dr in directions:
+            front = None
+            back = None
+            f, r = attacker_file + df, attacker_rank + dr
+            while 0 <= f <= 7 and 0 <= r <= 7:
+                sq = chess.square(f, r)
                 p = board_after.piece_at(sq)
                 if p:
-                    pieces_on_ray.append((sq, p))
-                    if len(pieces_on_ray) >= 2:
+                    if front is None:
+                        front = (sq, p)
+                    else:
+                        back = (sq, p)
                         break
-            
-            # Check if we have: enemy piece, then more valuable enemy piece (like king)
-            if len(pieces_on_ray) >= 2:
-                first = pieces_on_ray[0]
-                second = pieces_on_ray[1]
-                
-                if (first[1].color != attacker.color and 
-                    second[1].color != attacker.color):
-                    # Both enemy pieces - check if second is more valuable
-                    piece_values = {
-                        chess.KING: 100,
-                        chess.QUEEN: 9,
-                        chess.ROOK: 5,
-                        chess.BISHOP: 3,
-                        chess.KNIGHT: 3,
-                        chess.PAWN: 1
-                    }
-                    
-                    first_val = piece_values.get(first[1].piece_type, 0)
-                    second_val = piece_values.get(second[1].piece_type, 0)
-                    
-                    if second_val > first_val:
-                        result.detected = True
-                        result.confidence = 0.8
-                        result.details = {
-                            "pinned_piece": chess.piece_name(first[1].piece_type),
-                            "pinned_square": chess.square_name(first[0]),
-                            "protected_piece": chess.piece_name(second[1].piece_type),
-                            "attacker": chess.piece_name(attacker.piece_type)
-                        }
-                        result.key_squares = [
-                            chess.square_name(attacker_sq),
-                            chess.square_name(first[0]),
-                            chess.square_name(second[0])
-                        ]
-                        result.teaching_hook = f"Pin the {chess.piece_name(first[1].piece_type)} to the {chess.piece_name(second[1].piece_type)}"
-                        return result
-    
+                f += df
+                r += dr
+
+            if not (front and back):
+                continue
+            if front[1].color == attacker_color or back[1].color == attacker_color:
+                continue
+
+            front_val = piece_values.get(front[1].piece_type, 0)
+            back_val = piece_values.get(back[1].piece_type, 0)
+            if back_val <= front_val:
+                continue
+
+            # Real pin: attacker → enemy front piece → enemy more-valuable
+            # back piece. Front piece is "pinned" — moving it exposes back.
+            result.detected = True
+            result.confidence = 0.9
+            result.details = {
+                "pinning_piece": chess.piece_name(piece.piece_type),
+                "pinned_piece": chess.piece_name(front[1].piece_type),
+                "pinned_square": chess.square_name(front[0]),
+                "back_piece": chess.piece_name(back[1].piece_type),
+                "back_square": chess.square_name(back[0]),
+                # Legacy field names some old templates may still read.
+                "attacker": chess.piece_name(piece.piece_type),
+                "target": chess.piece_name(front[1].piece_type),
+                "protected_piece": chess.piece_name(back[1].piece_type),
+            }
+            result.key_squares = [
+                chess.square_name(attacker_sq),
+                chess.square_name(front[0]),
+                chess.square_name(back[0]),
+            ]
+            result.teaching_hook = (
+                f"Pin the {chess.piece_name(front[1].piece_type)} "
+                f"to the {chess.piece_name(back[1].piece_type)}"
+            )
+            return result
+
     except Exception as e:
         logger.debug(f"Pin detection error: {e}")
-    
+
     return result
 
 
