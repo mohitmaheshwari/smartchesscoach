@@ -106,8 +106,6 @@ async def dump_game(game_id: str, moves_filter: str) -> None:
         print(f"  text          : {_truncate(pb.get('text', ''), 800)}")
         print(f"  source        : {pb.get('source', '?')}    attempts: {pb.get('attempts', '?')}")
         print(f"  critical_move : {pb.get('critical_move_san', '?')} on move {pb.get('critical_move_number', '?')}")
-        # When we fell back to template, dump the rejected LLM attempts
-        # so we can see voice drift / validator misses.
         failed = pb.get("failed_attempts") or []
         if failed:
             print()
@@ -115,6 +113,23 @@ async def dump_game(game_id: str, moves_filter: str) -> None:
             for f in failed:
                 print(f"    [attempt {f.get('attempt')}] reason: {f.get('reason')}")
                 print(f"      text: {_truncate(f.get('text', ''), 500)}")
+
+        # Multi-moment list — the post-game page renders one block per
+        # moment so the user sees ALL turning points, not just one.
+        moments = pb.get("moments") or []
+        if moments:
+            print()
+            print(f"  MOMENTS ({len(moments)} turning points):")
+            for i, m in enumerate(moments, 1):
+                print(f"    [{i}] move {m.get('move_number')}  {m.get('move_san')}  cp_loss={m.get('cp_loss')}  pivot={m.get('is_pivot')}")
+                print(f"        text: {_truncate(m.get('text', ''), 500)}")
+                print(f"        source: {m.get('source')}    attempts: {m.get('attempts')}")
+                fa = m.get("failed_attempts") or []
+                if fa:
+                    for f in fa:
+                        print(f"        rejected[{f.get('attempt')}]: {f.get('reason')}")
+                        print(f"          text: {_truncate(f.get('text',''), 300)}")
+                print()
     else:
         print("  (no decryption_block — likely cached game without new fields)")
     print()

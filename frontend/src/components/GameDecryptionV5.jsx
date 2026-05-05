@@ -16,6 +16,7 @@ import ClickableLine, { extractMovesFromText } from "@/components/ClickableLine"
 import TruthHeadline from "@/components/TruthHeadline";
 import PlayerDecryption from "@/components/PlayerDecryption";
 import PatternEvidence from "@/components/PatternEvidence";
+import GameMoments from "@/components/GameMoments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -651,6 +652,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           evidence (king-safety / piece-safety so far). */}
       <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} userColor={userColor} />
       <PatternEvidence patternEvidence={patternEvidence} userColor={userColor} />
+      <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} />
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}

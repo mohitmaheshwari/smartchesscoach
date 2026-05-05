@@ -309,6 +309,86 @@ def _find_opp_preceding_mistake(
     return None
 
 
+def detect_top_moments(
+    decryption_v5_data: List[Dict],
+    max_moments: int = 4,
+    min_separation: int = 3,
+) -> List[Dict]:
+    """Find the top N user mistakes/blunders that defined the game.
+
+    Real coaching shows multiple turning points. We don't pick "the
+    one critical moment" — we pick up to `max_moments` user errors
+    ranked by cp_loss, with an anti-clustering rule so two adjacent
+    blunders don't both surface (we want the king march, the queen
+    blunder, the throw-back, the final mate — not all four moves of
+    one cluster).
+
+    Args:
+        decryption_v5_data: V5 per-move records.
+        max_moments: cap on returned moments (default 4).
+        min_separation: minimum move-number gap between two picked
+            moments (default 3 — adjacent moves like 54 and 55 won't
+            both fire; eg 14 and 21 will).
+
+    Returns:
+        Sorted by move_number ascending. Each item has the same
+        structural fields as pick_critical_move output: move_number,
+        move_san, cp_loss, severity, is_pivot, opp_preceding_move_number.
+    """
+    if not decryption_v5_data:
+        return []
+
+    candidates = [
+        m for m in decryption_v5_data
+        if m.get("is_user_move")
+        and m.get("severity") in ("blunder", "mistake")
+        and (m.get("cp_loss") or 0) >= 200
+    ]
+    if not candidates:
+        return []
+
+    # Rank by cp_loss desc, then walk and apply anti-clustering filter.
+    candidates.sort(key=lambda m: -(m.get("cp_loss") or 0))
+    picked: List[Dict] = []
+    for m in candidates:
+        mn = m.get("move_number") or 0
+        # Skip if too close to an already-picked moment.
+        if any(abs(mn - (p.get("move_number") or 0)) < min_separation for p in picked):
+            continue
+        # Promote pivots in the same way pick_critical_move does — they
+        # carry the threw-winning narrative even if cp_loss is smaller.
+        is_pivot = False
+        opp_preceding = None
+        # Cheap pivot test: was the previous user move good with big swing?
+        idx = decryption_v5_data.index(m)
+        user_prior = None
+        for i in range(idx - 1, -1, -1):
+            if decryption_v5_data[i].get("is_user_move"):
+                user_prior = decryption_v5_data[i]
+                break
+        if user_prior:
+            if (user_prior.get("severity") in ("good", "best")
+                    and (user_prior.get("cp_loss") or 0) >= 1000):
+                is_pivot = True
+                opp_preceding = _find_opp_preceding_mistake(decryption_v5_data, m)
+                opp_preceding = (opp_preceding or {}).get("move_number") if opp_preceding else None
+
+        picked.append({
+            "move_number": m.get("move_number"),
+            "move_san": m.get("move_san"),
+            "cp_loss": m.get("cp_loss"),
+            "severity": m.get("severity"),
+            "is_pivot": is_pivot,
+            "opp_preceding_move_number": opp_preceding,
+        })
+        if len(picked) >= max_moments:
+            break
+
+    # Return chronological so the page reads start-to-end.
+    picked.sort(key=lambda p: p.get("move_number") or 0)
+    return picked
+
+
 def detect_pivot_move(decryption_v5_data: List[Dict]) -> Optional[Dict]:
     """Find the user move that flipped a winning position to losing.
 

@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional, Tuple
 
-from .truth_line import generate_truth_line, pick_critical_move
+from .truth_line import generate_truth_line, pick_critical_move, detect_top_moments
 from .player_decryption import build_player_decryption
 from .decryption import generate_decryption
 
@@ -177,5 +177,75 @@ async def generate_post_game_voice(
             }
     except Exception as e:
         logger.warning(f"[orchestrator] decryption generation failed: {e}")
+
+    # 6. Multi-pivot moments — real coaching shows multiple turning
+    # points, not just the one with biggest cp_loss. Generate decryption
+    # for up to 4 key moments per game.
+    moments_list = []
+    try:
+        top_moments = detect_top_moments(decryption_v5_data, max_moments=4, min_separation=3)
+        for moment_struct in top_moments:
+            mn = moment_struct.get("move_number")
+            ms = moment_struct.get("move_san")
+            full_m = next(
+                (m for m in decryption_v5_data
+                 if m.get("is_user_move") and m.get("move_number") == mn and m.get("move_san") == ms),
+                None,
+            )
+            if not full_m or not full_m.get("fen_before"):
+                continue
+            try:
+                import chess as _chess
+                _board = _chess.Board(full_m["fen_before"])
+                _move_obj = _board.parse_san(ms)
+                _uci = _move_obj.uci()
+                _fen_after = full_m.get("fen_after")
+                if not _fen_after:
+                    _board.push(_move_obj)
+                    _fen_after = _board.fen()
+
+                from .moment_context import build_moment_context
+                m_ctx = build_moment_context(
+                    decryption_v5_data=decryption_v5_data,
+                    move_evaluations=move_evaluations,
+                    critical_move_number=mn,
+                    user_color=user_color,
+                )
+
+                m_result = await generate_decryption(
+                    fen_before=full_m["fen_before"],
+                    fen_after=_fen_after,
+                    move_uci=_uci,
+                    user_color=user_color,
+                    moment_context=m_ctx,
+                )
+                if m_result:
+                    moments_list.append({
+                        "move_number": mn,
+                        "move_san": ms,
+                        "cp_loss": moment_struct.get("cp_loss"),
+                        "severity": moment_struct.get("severity"),
+                        "is_pivot": moment_struct.get("is_pivot", False),
+                        "fen_before": full_m["fen_before"],
+                        "fen_after": _fen_after,
+                        "move_uci": _uci,
+                        "text": m_result.text,
+                        "source": m_result.source,
+                        "attempts": m_result.attempts,
+                        "failed_attempts": m_result.failed_attempts,
+                    })
+            except Exception as ex:
+                logger.warning(f"[orchestrator] moment {mn} failed: {ex}")
+    except Exception as e:
+        logger.warning(f"[orchestrator] multi-pivot moments failed: {e}")
+
+    # Stash the moments list on decryption_block so the frontend can
+    # access them without a separate API field. Keep singleton fields
+    # for backward compat.
+    if decryption_block is not None:
+        decryption_block["moments"] = moments_list
+    elif moments_list:
+        # No singleton block but we have moments — surface them anyway.
+        decryption_block = {"moments": moments_list}
 
     return (truth_line, player_decryption, decryption_block, pattern_evidence)
