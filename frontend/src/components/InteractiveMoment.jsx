@@ -24,11 +24,113 @@
 import { useState } from "react";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
-import { Check, X, RotateCw } from "lucide-react";
+import { API } from "@/App";
+import { Check, X, RotateCw, Flag } from "lucide-react";
 
 const ANIMATION_DELAY_MS = 750;
 
-export default function InteractiveMoment({ fen, userColor, moveNumber, candidates }) {
+
+/**
+ * Inline flag widget — shown after the puzzle reveals its result.
+ * Posts to /feedback/flag (existing endpoint, move_feedback collection)
+ * with full position context so the coach can review the complaint
+ * with the FEN, the played move, and the caption that was shown.
+ */
+function FlagFeedback({ gameId, moveNumber, moveSan, fen, coachingText, chosenSan }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const submit = async () => {
+    if (!note.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/feedback/flag`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "decryption_moment",
+          game_id: gameId,
+          move_number: moveNumber,
+          fen: fen,
+          move_san: moveSan,
+          coaching_text: coachingText,
+          // user_note carries both the user's complaint and which
+          // candidate's caption was on screen — without that the
+          // coach can't tell what was being flagged.
+          user_note: chosenSan
+            ? `[viewing ${chosenSan}] ${note.trim()}`
+            : note.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSaved(true);
+      setNote("");
+      setTimeout(() => { setOpen(false); setSaved(false); }, 1800);
+    } catch (e) {
+      console.error("flag failed", e);
+      alert("Flag failed — check console.");
+    }
+    setSaving(false);
+  };
+
+  if (saved) {
+    return (
+      <p className="text-[12px] text-emerald-600 dark:text-emerald-400 mt-3">
+        ✓ Flagged. Thanks — we'll review.
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-4 text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 inline-flex items-center gap-1.5 font-semibold transition-colors"
+      >
+        <Flag className="w-3 h-3" strokeWidth={2.4} />
+        Flag this explanation
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-2 border-t border-border/40 pt-3">
+      <label className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+        What's wrong or missing?
+      </label>
+      <textarea
+        autoFocus
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={3}
+        placeholder="e.g. it doesn't mention the king must take and then queen forks..."
+        className="w-full text-[13.5px] p-2 rounded border border-border/50 bg-background"
+      />
+      <div className="flex gap-2 items-center">
+        <button
+          onClick={submit}
+          disabled={saving || !note.trim()}
+          className="px-3 py-1.5 text-[12px] font-semibold rounded text-white disabled:opacity-50"
+          style={{ background: "rgb(159 18 57)" }}
+        >
+          {saving ? "Sending..." : "Send"}
+        </button>
+        <button
+          onClick={() => { setOpen(false); setNote(""); }}
+          className="px-3 py-1.5 text-[12px] text-muted-foreground hover:text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+export default function InteractiveMoment({ fen, userColor, moveNumber, candidates, gameId, moveSan }) {
   const [chosenIdx, setChosenIdx] = useState(null);
   const [currentFen, setCurrentFen] = useState(fen);
   const [arrows, setArrows] = useState([]);
@@ -157,6 +259,16 @@ export default function InteractiveMoment({ fen, userColor, moveNumber, candidat
                   <RotateCw className="w-3 h-3" strokeWidth={2.4} />
                   Try another
                 </button>
+                {gameId && (
+                  <FlagFeedback
+                    gameId={gameId}
+                    moveNumber={moveNumber}
+                    moveSan={moveSan}
+                    fen={fen}
+                    coachingText={chosen.caption}
+                    chosenSan={chosen.san}
+                  />
+                )}
               </>
             )
           )}

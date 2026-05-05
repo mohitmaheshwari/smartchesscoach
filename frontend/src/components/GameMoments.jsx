@@ -15,7 +15,7 @@ import LichessBoard from "@/components/LichessBoard";
 import InteractiveMoment from "@/components/InteractiveMoment";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-function MomentCard({ moment, userColor, defaultOpen }) {
+function MomentCard({ moment, userColor, defaultOpen, gameId }) {
   const [open, setOpen] = useState(!!defaultOpen);
 
   const moveUci = moment?.move_uci;
@@ -69,6 +69,8 @@ function MomentCard({ moment, userColor, defaultOpen }) {
               userColor={userColor}
               moveNumber={moment.move_number}
               candidates={moment.candidates}
+              gameId={gameId}
+              moveSan={moment.move_san}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-5 md:gap-6 items-start">
@@ -93,7 +95,7 @@ function MomentCard({ moment, userColor, defaultOpen }) {
   );
 }
 
-export default function GameMoments({ moments, userColor }) {
+export default function GameMoments({ moments, userColor, gameId }) {
   if (!moments || moments.length === 0) return null;
 
   return (
@@ -112,6 +114,7 @@ export default function GameMoments({ moments, userColor }) {
             moment={m}
             userColor={userColor}
             defaultOpen={i === 0}
+            gameId={gameId}
           />
         ))}
       </div>

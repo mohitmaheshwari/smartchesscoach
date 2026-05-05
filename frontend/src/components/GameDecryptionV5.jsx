@@ -652,7 +652,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           evidence (king-safety / piece-safety so far). */}
       <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} userColor={userColor} />
       <PatternEvidence patternEvidence={patternEvidence} userColor={userColor} />
-      <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} />
+      <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} gameId={gameId} />
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}
