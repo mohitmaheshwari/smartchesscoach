@@ -81,13 +81,63 @@ def _pronouns(is_user_move: bool):
     return ("They", "their", "your")
 
 
+def _is_check_san(move_san: str) -> bool:
+    """SAN ends in '+' (check) or '#' (mate), ignoring annotation marks."""
+    s = move_san.rstrip("!?")
+    return s.endswith("+") or s.endswith("#")
+
+
+def _is_mate_san(move_san: str) -> bool:
+    return move_san.rstrip("!?").endswith("#")
+
+
+def _check_tail(move_san: str, is_user_move: bool) -> str:
+    """Returns ' Check!' / ' Checkmate!' / '' to append to a base caption."""
+    if _is_mate_san(move_san):
+        return " Checkmate!"
+    if _is_check_san(move_san):
+        return " Check!" if is_user_move else " Check."
+    return ""
+
+
 def _castle_caption(move_san: str, is_user_move: bool) -> Optional[str]:
     if move_san not in ("O-O", "O-O-O", "O-O+", "O-O-O+", "O-O#", "O-O-O#"):
         return None
     side = "kingside" if move_san.startswith("O-O") and not move_san.startswith("O-O-O") else "queenside"
     if is_user_move:
-        return f"Castled {side}. Your king is safer and your rook joins the game."
-    return f"They castle {side}, tucking their king and connecting rooks."
+        base = f"Castled {side}. Your king is safer and your rook joins the game."
+    else:
+        base = f"They castle {side}, tucking their king and connecting rooks."
+    return base + _check_tail(move_san, is_user_move)
+
+
+def _check_caption(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_san: str,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Caption for a non-capture, non-castling move that gives check or
+    delivers mate. Captures are handled by _capture_caption with a check
+    tail; castle by _castle_caption. Catches the queen/rook check moves
+    that flooded good_generic in the audit (~1,560 hits)."""
+    if not _is_check_san(move_san):
+        return None
+    if board_before.is_capture(move):
+        return None
+    if move_san.startswith("O-O"):
+        return None
+    piece_name = _PIECE_NAME.get(moving_piece.piece_type, "piece")
+    sq_name = chess.square_name(move.to_square)
+    if _is_mate_san(move_san):
+        if is_user_move:
+            return f"Checkmate! {piece_name.capitalize()} to {sq_name} — game over."
+        return f"They mate with the {piece_name} on {sq_name}."
+    # Plain check
+    if is_user_move:
+        return f"{piece_name.capitalize()} to {sq_name} — check. Forces them to respond."
+    return f"Check from the {piece_name} on {sq_name}. You must address it first."
 
 
 def _development_caption(
@@ -144,16 +194,27 @@ def _capture_caption(
     move: chess.Move,
     moving_piece: chess.Piece,
     is_user_move: bool,
+    move_san: str = "",
 ) -> Optional[str]:
     if not board_before.is_capture(move):
         return None
     sq_name = chess.square_name(move.to_square)
+    tail = _check_tail(move_san, is_user_move)
+    # Mate trumps material talk — a mating sacrifice is good regardless
+    # of piece value. Short-circuit to a clean caption.
+    if _is_mate_san(move_san):
+        captured = board_before.piece_at(move.to_square)
+        captured_name = _PIECE_NAME.get(captured.piece_type, "piece") if captured else "piece"
+        if is_user_move:
+            return f"Takes the {captured_name} on {sq_name}. Checkmate!"
+        return f"They take the {captured_name} on {sq_name}. Checkmate."
     if board_before.is_en_passant(move):
-        return (
+        base = (
             f"Takes the pawn en passant on {sq_name}."
             if is_user_move
             else f"They take the pawn en passant on {sq_name}."
         )
+        return base + tail
     captured = board_before.piece_at(move.to_square)
     if not captured:
         return None
@@ -168,20 +229,22 @@ def _capture_caption(
 
     if is_user_move:
         if not enemy_attackers:
-            return f"Takes the {captured_name} on {sq_name}. Nothing recaptures, so it's free."
-        if captured_value > moving_value:
-            return f"Takes the {captured_name} on {sq_name}. You win material — {captured_name} for {moving_name}."
-        if captured_value == moving_value:
-            return f"Takes the {captured_name} on {sq_name}. Equal trade."
-        return f"Takes the {captured_name} on {sq_name}, but you lose more than you win."
+            base = f"Takes the {captured_name} on {sq_name}. Nothing recaptures, so it's free."
+        elif captured_value > moving_value:
+            base = f"Takes the {captured_name} on {sq_name}. You win material — {captured_name} for {moving_name}."
+        elif captured_value == moving_value:
+            base = f"Takes the {captured_name} on {sq_name}. Equal trade."
+        else:
+            base = f"Takes the {captured_name} on {sq_name}, but you lose more than you win."
+        return base + tail
     # opp's capture
     if not enemy_attackers:
-        return f"They take the {captured_name} on {sq_name} for free."
+        return f"They take the {captured_name} on {sq_name} for free." + tail
     if captured_value > moving_value:
-        return f"They take the {captured_name} on {sq_name} — wins material."
+        return f"They take the {captured_name} on {sq_name} — wins material." + tail
     if captured_value == moving_value:
-        return f"They take the {captured_name} on {sq_name}. Equal trade."
-    return f"They take the {captured_name} on {sq_name}, but lose more than they win."
+        return f"They take the {captured_name} on {sq_name}. Equal trade." + tail
+    return f"They take the {captured_name} on {sq_name}, but lose more than they win." + tail
 
 
 def _prophylactic_caption(
@@ -263,9 +326,15 @@ def detect_good_move(
     if cap:
         return CaptionResult(cap, "good_castle", 0.95)
 
-    cap = _capture_caption(board_before, move, moving_piece, is_user_move)
+    # Capture handles its own check tail; check_caption handles all other
+    # check moves (queen / rook / minor giving check without capturing).
+    cap = _capture_caption(board_before, move, moving_piece, is_user_move, move_san)
     if cap:
         return CaptionResult(cap, "good_capture", 0.95)
+
+    cap = _check_caption(board_before, move, moving_piece, move_san, is_user_move)
+    if cap:
+        return CaptionResult(cap, "good_check", 0.95)
 
     cap = _central_pawn_caption(board_before, move, moving_piece, move_number, is_user_move)
     if cap:

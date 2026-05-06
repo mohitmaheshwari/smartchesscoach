@@ -643,14 +643,14 @@ def _detect_central_knight_redeployment(
     is_user_move: bool,
 ) -> Optional[str]:
     """Knight moves to a central square (c4/c5/d4/d5/e4/e5/f4/f5) past
-    the development phase (move > 12). Knight_outpost requires pawn
+    the development phase (move > 8). Knight_outpost requires pawn
     support AND no enemy pawn can chase; this fires on central knight
     moves that don't meet that strict bar but are still good
     repositioning."""
     if moving_piece.piece_type != chess.KNIGHT:
         return None
-    if move_number <= 12:
-        return None  # development phase handled elsewhere
+    if move_number <= 8:
+        return None  # earliest development handled by good_development
     to_file = chess.square_file(move.to_square)
     to_rank = chess.square_rank(move.to_square)
     if to_file not in (2, 3, 4, 5):  # c, d, e, f
@@ -804,10 +804,10 @@ def _detect_bishop_activation(
     """Bishop moves past the development phase to an active diagonal —
     common destinations: b4/c4/h5 (white) or b5/c5/h4 (black). Catches
     bishop redeployments that weren't caught by good_development
-    (move > 14) or fianchetto."""
+    (move > 10) or fianchetto."""
     if moving_piece.piece_type != chess.BISHOP:
         return None
-    if move_number <= 14:
+    if move_number <= 10:
         return None
     if board_before.is_capture(move):
         return None
