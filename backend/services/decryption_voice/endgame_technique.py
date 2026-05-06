@@ -272,6 +272,32 @@ def _detect_wrong_color_bishop_draw(
     )
 
 
+def _detect_king_repositioning(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+) -> Optional[str]:
+    """King move in endgame that ISN'T activation — sideways or back.
+    Often the user is shielding a passed pawn, dodging a check, or
+    walking to a defensive square. Catches the K→d1/g2/e1/c1 cases
+    where activation pattern doesn't fire."""
+    if moving_piece.piece_type != chess.KING:
+        return None
+    if not _is_endgame(board_before):
+        return None
+    to_rank = chess.square_rank(move.to_square)
+    from_rank = chess.square_rank(move.from_square)
+    # If activation would fire (king moving forward toward centre), let it.
+    if moving_piece.color == chess.WHITE and to_rank > from_rank and to_rank >= 2:
+        return None
+    if moving_piece.color == chess.BLACK and to_rank < from_rank and to_rank <= 5:
+        return None
+    sq_name = chess.square_name(move.to_square)
+    if to_rank == from_rank:
+        return f"King to {sq_name} — sidesteps to a safer square."
+    return f"King to {sq_name} — repositions for defence."
+
+
 def detect_endgame_technique(
     board_before: chess.Board,
     move_san: str,
@@ -315,5 +341,9 @@ def detect_endgame_technique(
     cap = _detect_king_activation(board_before, move, moving_piece)
     if cap:
         return {"name": "king_activation", "caption": cap}
+
+    cap = _detect_king_repositioning(board_before, move, moving_piece)
+    if cap:
+        return {"name": "king_repositioning", "caption": cap}
 
     return None

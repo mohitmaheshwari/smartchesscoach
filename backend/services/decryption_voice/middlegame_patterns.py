@@ -532,6 +532,144 @@ def _detect_doubled_pawn_recapture(
     return f"They recapture on {chess.square_name(move.to_square)}, doubling pawns on the {file_letter}-file."
 
 
+def _detect_luft_push(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """One-square pawn push that creates luft for the user's castled
+    king (h2-h3, g2-g3, h7-h6, g7-g6, a2-a3, a7-a6 with king on the
+    relevant flank). Distinguishes from standard pawn moves by the
+    geometry: king is on castled square, pawn is in front."""
+    if moving_piece.piece_type != chess.PAWN:
+        return None
+    if move_number < 8:
+        return None  # in opening, pawn moves usually have other purposes
+    user_color = moving_piece.color
+    from_rank = chess.square_rank(move.from_square)
+    to_rank = chess.square_rank(move.to_square)
+    from_file = chess.square_file(move.from_square)
+    to_file = chess.square_file(move.to_square)
+
+    # Single-square advance, same file
+    if from_file != to_file:
+        return None
+    starting_rank = 1 if user_color == chess.WHITE else 6
+    if from_rank != starting_rank:
+        return None
+    expected_to_rank = 2 if user_color == chess.WHITE else 5
+    if to_rank != expected_to_rank:
+        return None
+
+    # Must be on a/g/h file (luft files for castled king)
+    if to_file not in (0, 6, 7):
+        return None
+
+    # User's king on the relevant flank
+    king_sq = board_before.king(user_color)
+    if king_sq is None:
+        return None
+    king_file = chess.square_file(king_sq)
+    king_rank = chess.square_rank(king_sq)
+    castled_rank = 0 if user_color == chess.WHITE else 7
+    if king_rank != castled_rank:
+        return None
+    # Kingside luft (h3/g3 or h6/g6) requires king on f/g/h
+    # Queenside luft (a3/a6) requires king on a/b/c
+    if to_file in (6, 7) and king_file < 5:
+        return None
+    if to_file == 0 and king_file > 2:
+        return None
+
+    sq_name = chess.square_name(move.to_square)
+    if is_user_move:
+        return f"Pawn to {sq_name} — gives the king luft. No back-rank surprises now."
+    return f"They push {sq_name}, giving their king luft."
+
+
+def _detect_opening_pawn_prep(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Quiet supporting pawn move in the opening (c6, e6, d6, c3, d3,
+    e3) that prepares ...d5 / ...e5 / supports a central pawn or
+    opens a development square. Common at 600-1500 rating where the
+    user is making structurally sensible but unspectacular moves."""
+    if moving_piece.piece_type != chess.PAWN:
+        return None
+    if move_number > 12:
+        return None
+    if board_before.is_capture(move):
+        return None
+    user_color = moving_piece.color
+    from_rank = chess.square_rank(move.from_square)
+    to_rank = chess.square_rank(move.to_square)
+    to_file = chess.square_file(move.to_square)
+
+    # Single-square push only (e.g., e7-e6, c2-c3)
+    expected_diff = 1 if user_color == chess.WHITE else -1
+    if to_rank - from_rank != expected_diff:
+        return None
+    # Files c, d, e (indices 2, 3, 4)
+    if to_file not in (2, 3, 4):
+        return None
+    # Starting rank must be the pawn's home rank
+    starting_rank = 1 if user_color == chess.WHITE else 6
+    if from_rank != starting_rank:
+        return None
+
+    sq_name = chess.square_name(move.to_square)
+    file_letter = chr(ord("a") + to_file)
+    # Frame based on file
+    if file_letter in ("c", "e"):
+        prep = f"prepares ...d{5 if user_color == chess.WHITE else 5}" if user_color == chess.BLACK else "prepares d4 or supports the centre"
+    else:
+        prep = "frees the queen and supports the centre"
+    if is_user_move:
+        return f"Pawn to {sq_name} — quiet structural move. Solid setup."
+    return f"They play {sq_name} — solid structural move."
+
+
+def _detect_central_knight_redeployment(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Knight moves to a central square (c4/c5/d4/d5/e4/e5/f4/f5) past
+    the development phase (move > 12). Knight_outpost requires pawn
+    support AND no enemy pawn can chase; this fires on central knight
+    moves that don't meet that strict bar but are still good
+    repositioning."""
+    if moving_piece.piece_type != chess.KNIGHT:
+        return None
+    if move_number <= 12:
+        return None  # development phase handled elsewhere
+    to_file = chess.square_file(move.to_square)
+    to_rank = chess.square_rank(move.to_square)
+    if to_file not in (2, 3, 4, 5):  # c, d, e, f
+        return None
+    if to_rank not in (3, 4):  # ranks 4-5 in 1-indexed (centre ranks)
+        return None
+
+    # Must not be a capture (capture detector handles those)
+    if board_before.is_capture(move):
+        return None
+
+    # Must not already be in knight_outpost territory — re-check that
+    # the strict version doesn't fire (we want this as fallback).
+    sq_name = chess.square_name(move.to_square)
+    if is_user_move:
+        return f"Knight to {sq_name} — central post. Eyes both sides of the board."
+    return f"Their knight redeploys to {sq_name}."
+
+
 def detect_middlegame_pattern(
     board_before: chess.Board,
     move: chess.Move,
@@ -548,6 +686,12 @@ def detect_middlegame_pattern(
     cap = _detect_knight_outpost(board_before, move, moving_piece, move_number, is_user_move)
     if cap:
         return {"name": "knight_outpost", "caption": cap}
+
+    # Central knight redeployment is the looser fallback for knight moves
+    # to central squares past the opening that don't meet outpost bar.
+    cap = _detect_central_knight_redeployment(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "knight_central", "caption": cap}
 
     cap = _detect_rook_to_seventh_middlegame(board_before, move, moving_piece, move_number, is_user_move)
     if cap:
@@ -586,5 +730,17 @@ def detect_middlegame_pattern(
     cap = _detect_prophylactic_king_tuck(board_before, move, moving_piece, move_number, is_user_move)
     if cap:
         return {"name": "king_tuck", "caption": cap}
+
+    # Luft pushes — h3/g3/h6/g6/a3/a6 with king on the matching flank.
+    cap = _detect_luft_push(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "luft", "caption": cap}
+
+    # Opening structural pawn prep (c6, e6, d6, c3, d3, e3) — only fires
+    # in moves 3-12, last in the chain so other openings/development
+    # detectors get first crack.
+    cap = _detect_opening_pawn_prep(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "pawn_prep", "caption": cap}
 
     return None

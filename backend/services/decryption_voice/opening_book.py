@@ -252,6 +252,36 @@ _OPENINGS = [
         "name": "scandinavian_modern",
         "caption": "Modern Scandinavian. Black delays the queen recapture for piece development.",
     },
+    {
+        "moves": ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5"],
+        "name": "scandinavian_mieses_kotroc",
+        "caption": "Scandinavian, Mieses-Kotroc. Black sidesteps the queen to a5, eyeing the c3 knight and pinning along the diagonal.",
+    },
+    {
+        "moves": ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5", "d4"],
+        "name": "scandinavian_mieses_kotroc_d4",
+        "caption": "Mieses-Kotroc main line. White takes the centre with d4 while Black prepares ...c6 and ...Nf6 for a solid setup.",
+    },
+    {
+        "moves": ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5", "d4", "c6"],
+        "name": "scandinavian_mieses_kotroc_c6",
+        "caption": "Scandinavian Mieses-Kotroc with ...c6. Black builds a solid pawn chain and prepares ...Bf5 or ...Nf6.",
+    },
+    {
+        "moves": ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5", "d4", "c6", "Nf3"],
+        "name": "scandinavian_mieses_kotroc_nf3",
+        "caption": "Mieses-Kotroc, classical setup. White develops naturally; Black aims for ...Bf5 and queenside castling.",
+    },
+    {
+        "moves": ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qd6"],
+        "name": "scandinavian_bronstein_larsen",
+        "caption": "Scandinavian, Bronstein-Larsen Variation. The queen tucks to d6 — modern, less common than Qa5.",
+    },
+    {
+        "moves": ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qd8"],
+        "name": "scandinavian_ilundain",
+        "caption": "Scandinavian, Ilundain Variation. Black retreats all the way to d8 to keep the queen safe and develops normally.",
+    },
     # === d4 variations (deeper) ===
     {
         "moves": ["d4", "d5", "c4", "c6"],
