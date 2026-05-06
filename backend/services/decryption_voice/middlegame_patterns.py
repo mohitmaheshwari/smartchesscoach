@@ -332,6 +332,206 @@ def _detect_minority_attack_push(
     return f"They push {sq_name} on the queenside — minority attack idea."
 
 
+def _detect_fianchetto_complete(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Bishop completes a fianchetto: lands on g2/b2 (white) or g7/b7
+    (black) with the matching pawn already pushed to g3/b3 or g6/b6.
+    Not middlegame-gated — fianchettos happen in the opening."""
+    if moving_piece.piece_type != chess.BISHOP:
+        return None
+    user_color = moving_piece.color
+    to_sq_name = chess.square_name(move.to_square)
+
+    fianchetto_targets = {
+        chess.WHITE: {"g2": "g3", "b2": "b3"},
+        chess.BLACK: {"g7": "g6", "b7": "b6"},
+    }
+    target_map = fianchetto_targets.get(user_color, {})
+    if to_sq_name not in target_map:
+        return None
+    pawn_sq_name = target_map[to_sq_name]
+    pawn_sq = chess.parse_square(pawn_sq_name)
+    p = board_before.piece_at(pawn_sq)
+    if not p or p.piece_type != chess.PAWN or p.color != user_color:
+        return None
+
+    # Long diagonal description varies by square.
+    diag = "a1-h8 diagonal" if to_sq_name in ("g2", "b7") else "a8-h1 diagonal"
+    if is_user_move:
+        return f"Fianchetto — bishop to {to_sq_name}. Eyes the {diag}."
+    return f"They fianchetto the bishop to {to_sq_name}, claiming the {diag}."
+
+
+def _has_isolated_queen_pawn(board: chess.Board, color: bool) -> bool:
+    """True if `color` has a d-pawn (white d4-d5; black d4-d5) with no
+    own pawns on c-file or e-file."""
+    d_files = [chess.D1, chess.D2, chess.D3, chess.D4, chess.D5, chess.D6, chess.D7, chess.D8]
+    has_d_pawn = False
+    for sq in d_files:
+        p = board.piece_at(sq)
+        if p and p.piece_type == chess.PAWN and p.color == color:
+            has_d_pawn = True
+            break
+    if not has_d_pawn:
+        return False
+    # Any c-pawn or e-pawn of same colour?
+    for f_idx in (2, 4):  # c-file = 2, e-file = 4
+        for r in range(8):
+            p = board.piece_at(chess.square(f_idx, r))
+            if p and p.piece_type == chess.PAWN and p.color == color:
+                return False
+    return True
+
+
+def _detect_isolated_queen_pawn_play(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """User has an IQP and the move is one of the textbook IQP-friendly
+    piece manoeuvres (knight to e5/e4, bishop to attacking diagonal)."""
+    if not _is_middlegame(board_before, move_number):
+        return None
+    user_color = moving_piece.color
+    if not _has_isolated_queen_pawn(board_before, user_color):
+        return None
+
+    to_sq_name = chess.square_name(move.to_square)
+
+    if moving_piece.piece_type == chess.KNIGHT:
+        ideal = "e5" if user_color == chess.WHITE else "e4"
+        if to_sq_name != ideal:
+            return None
+        if is_user_move:
+            return f"Knight to {to_sq_name} — the IQP outpost. Your isolated d-pawn supports a strong square."
+        return f"Their knight lands on {to_sq_name} — IQP outpost."
+
+    if moving_piece.piece_type == chess.BISHOP:
+        if user_color == chess.WHITE and to_sq_name not in ("b3", "c4", "d3"):
+            return None
+        if user_color == chess.BLACK and to_sq_name not in ("b6", "c5", "d6"):
+            return None
+        if is_user_move:
+            return f"Bishop to {to_sq_name} — joins the IQP attack. Your d-pawn pays for itself with active pieces."
+        return f"Their bishop to {to_sq_name} — typical IQP attacker."
+
+    return None
+
+
+def _opp_king_lacks_luft(board: chess.Board, opp_color: bool) -> bool:
+    """Opp king sits on its back rank and the three squares directly in
+    front are all blocked by own pawns — classic back-rank weakness."""
+    king_sq = board.king(opp_color)
+    if king_sq is None:
+        return False
+    back_rank = 7 if opp_color == chess.BLACK else 0
+    if chess.square_rank(king_sq) != back_rank:
+        return False
+    front_rank = back_rank - 1 if opp_color == chess.BLACK else back_rank + 1
+    if not (0 <= front_rank <= 7):
+        return False
+    king_file = chess.square_file(king_sq)
+    blocked = 0
+    relevant = 0
+    for df in (-1, 0, 1):
+        nf = king_file + df
+        if not (0 <= nf <= 7):
+            continue
+        relevant += 1
+        sq = chess.square(nf, front_rank)
+        p = board.piece_at(sq)
+        if p and p.piece_type == chess.PAWN and p.color == opp_color:
+            blocked += 1
+    return blocked >= relevant - 0  # all relevant squares must be opp pawns
+
+
+def _detect_back_rank_pressure(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """User's rook or queen lands on a file/rank that targets opp's
+    back rank when opp's king has no luft. Conservative: requires
+    (a) opp king on back rank with all 3 luft-squares blocked by own
+    pawns, (b) our piece is rook/queen, (c) our piece's file or rank
+    intersects opp's back rank with a clear line."""
+    if moving_piece.piece_type not in (chess.ROOK, chess.QUEEN):
+        return None
+    if not _is_middlegame(board_before, move_number):
+        return None
+
+    user_color = moving_piece.color
+    opp_color = not user_color
+    if not _opp_king_lacks_luft(board_before, opp_color):
+        return None
+
+    # Apply the move.
+    b = board_before.copy()
+    b.push(move)
+
+    # Does our piece attack any back-rank square where opp's king sits or
+    # could sit? Check direct attacks from the moved piece.
+    opp_back_rank = 7 if opp_color == chess.BLACK else 0
+    attacked_squares = b.attacks(move.to_square)
+    threatens_back_rank = any(
+        chess.square_rank(sq) == opp_back_rank for sq in attacked_squares
+    )
+    if not threatens_back_rank:
+        return None
+
+    sq_name = chess.square_name(move.to_square)
+    if is_user_move:
+        return (
+            f"Heavy piece to {sq_name} — eyes their back rank. Their king has no luft."
+        )
+    return f"Their {_PIECE_NAME[moving_piece.piece_type]} to {sq_name} — back-rank pressure."
+
+
+def _detect_doubled_pawn_recapture(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Pawn capture that creates doubled pawns on the destination file.
+    Often an acceptable structural choice (opens lines, gains tempo)
+    but worth naming so the player notices the trade-off."""
+    if moving_piece.piece_type != chess.PAWN:
+        return None
+    if not board_before.is_capture(move):
+        return None
+
+    user_color = moving_piece.color
+    to_file = chess.square_file(move.to_square)
+
+    b = board_before.copy()
+    b.push(move)
+
+    pawn_count_on_file = 0
+    for r in range(8):
+        p = b.piece_at(chess.square(to_file, r))
+        if p and p.piece_type == chess.PAWN and p.color == user_color:
+            pawn_count_on_file += 1
+    if pawn_count_on_file < 2:
+        return None
+
+    file_letter = chr(ord("a") + to_file)
+    if is_user_move:
+        return (
+            f"Recaptures on {chess.square_name(move.to_square)} — doubles your "
+            f"{file_letter}-pawns. Opens a file for your rook in return."
+        )
+    return f"They recapture on {chess.square_name(move.to_square)}, doubling pawns on the {file_letter}-file."
+
+
 def detect_middlegame_pattern(
     board_before: chess.Board,
     move: chess.Move,
@@ -340,6 +540,11 @@ def detect_middlegame_pattern(
     is_user_move: bool,
 ) -> Optional[Dict]:
     """Run middlegame detectors. Returns first match {name, caption}."""
+    # Fianchetto first — works in opening too (not middlegame-gated).
+    cap = _detect_fianchetto_complete(board_before, move, moving_piece, is_user_move)
+    if cap:
+        return {"name": "fianchetto", "caption": cap}
+
     cap = _detect_knight_outpost(board_before, move, moving_piece, move_number, is_user_move)
     if cap:
         return {"name": "knight_outpost", "caption": cap}
@@ -347,6 +552,12 @@ def detect_middlegame_pattern(
     cap = _detect_rook_to_seventh_middlegame(board_before, move, moving_piece, move_number, is_user_move)
     if cap:
         return {"name": "rook_seventh", "caption": cap}
+
+    # Back-rank pressure pre-empts generic open-file caption when opp
+    # king has no luft — it's more specific and more decisive.
+    cap = _detect_back_rank_pressure(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "back_rank_pressure", "caption": cap}
 
     cap = _detect_rook_to_open_file(board_before, move, moving_piece, is_user_move)
     if cap:
@@ -363,6 +574,14 @@ def detect_middlegame_pattern(
     cap = _detect_minority_attack_push(board_before, move, moving_piece, move_number, is_user_move)
     if cap:
         return {"name": "minority_attack", "caption": cap}
+
+    cap = _detect_isolated_queen_pawn_play(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "iqp_play", "caption": cap}
+
+    cap = _detect_doubled_pawn_recapture(board_before, move, moving_piece, is_user_move)
+    if cap:
+        return {"name": "doubled_pawn_recapture", "caption": cap}
 
     cap = _detect_prophylactic_king_tuck(board_before, move, moving_piece, move_number, is_user_move)
     if cap:
