@@ -605,6 +605,37 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   // covers ~4 critical moments per game; for non-matched moves we fall
   // back to V5 narrative so analysis pages still have prose for every
   // move.
+  // Defensive filter for V5 text fields. Returns true when the string
+  // matches a known-bad pattern surfaced in Parth Gilda's May 2026
+  // review (77 issues across narrative / consequence / better_approach
+  // / your_plan_now / candidate_moves). Most of these patterns come
+  // from older V5 code that's been replaced — but the strings live on
+  // in cached game_analyses records. Frontend filter is the cheapest
+  // defensive layer.
+  const _isV5TextStale = (text, cpLoss) => {
+    const n = (text || "").trim();
+    if (!n) return false;
+    const lower = n.toLowerCase();
+    return (
+      // Cutesy piece names from older code.
+      /\b(horsey|slicey|naughty knight|little soldier|boss knight)\b/i.test(n)
+      // 'Sneaky! X creates a threat' overuse — fires on neutral moves.
+      || /^sneaky!\s/i.test(n)
+      // 'BOSS KNIGHT! ... monster ... hard to kick out' — childish framing.
+      || (/\b(monster|boss)\b/i.test(n) && /hard to kick/i.test(n))
+      // 'damn bad shit' — committed once.
+      || /\bdamn bad\b/i.test(n)
+      // 'X allows checkmate' when there's no actual forced mate.
+      || (lower.includes("allows checkmate") && cpLoss != null && cpLoss < 1000)
+      // Negative cp_loss + 'passive' — the move was actually good.
+      || (cpLoss != null && cpLoss < 0 && lower.includes("passive"))
+      // Generic context-blind platitudes.
+      || /^make sure your pieces aren't on that diagonal/i.test(n)
+      || /^recapture\? check if it's worth it first/i.test(n)
+      || /^keep developing! castle if you haven't/i.test(n)
+    );
+  };
+
   const currentMove = useMemo(() => {
     if (!rawCurrentMove) return null;
     const moments = decryptionBlock?.moments || [];
@@ -615,13 +646,57 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         && m.text,
     );
     if (matched) {
+      // We have an authoritative override from the new pipeline.
+      // Replace the V5 narrative AND suppress the V5 supplementary
+      // text fields (consequence / better_approach / your_plan_now /
+      // candidate_move idea text), which Parth flagged repeatedly as
+      // wrong / generic / overconfident. Keep candidate_move SANs so
+      // the click-to-see-line UI still works — only suppress the
+      // misleading prose attached to them.
+      const cleanedPlan = rawCurrentMove.plan
+        ? {
+            ...rawCurrentMove.plan,
+            consequence: null,
+            better_approach: null,
+            candidate_moves: (rawCurrentMove.plan.candidate_moves || []).map(c => ({
+              ...c,
+              idea: null,    // strip buggy "X is a strong move here" text
+            })),
+          }
+        : rawCurrentMove.plan;
       return {
         ...rawCurrentMove,
         narrative: matched.text,
-        _narrative_source: matched.source,    // for diagnostics
+        plan: cleanedPlan,
+        your_plan_now: null,
+        _narrative_source: matched.source,
       };
     }
-    return rawCurrentMove;
+
+    // No override — apply defensive filters per-field.
+    const cp = rawCurrentMove.cp_loss;
+    const filteredPlan = rawCurrentMove.plan
+      ? {
+          ...rawCurrentMove.plan,
+          consequence: _isV5TextStale(rawCurrentMove.plan.consequence, cp)
+            ? null : rawCurrentMove.plan.consequence,
+          better_approach: _isV5TextStale(rawCurrentMove.plan.better_approach, cp)
+            ? null : rawCurrentMove.plan.better_approach,
+          candidate_moves: (rawCurrentMove.plan.candidate_moves || []).map(c => ({
+            ...c,
+            idea: _isV5TextStale(c.idea, cp) ? null : c.idea,
+          })),
+        }
+      : rawCurrentMove.plan;
+
+    return {
+      ...rawCurrentMove,
+      narrative: _isV5TextStale(rawCurrentMove.narrative, cp) ? "" : rawCurrentMove.narrative,
+      plan: filteredPlan,
+      your_plan_now: _isV5TextStale(rawCurrentMove.your_plan_now, cp)
+        ? null : rawCurrentMove.your_plan_now,
+      _narrative_source: _isV5TextStale(rawCurrentMove.narrative, cp) ? "v5_suppressed" : "v5",
+    };
   }, [rawCurrentMove, decryptionBlock]);
 
   const orientation = userColor === "black" ? "black" : "white";
