@@ -365,6 +365,94 @@ def detect_good_move(
     )
 
 
+# ── Engine-preference interpreter ────────────────────────────────────
+# Replaces the "The engine prefers X here." fallback with a richer
+# descriptive caption. We compare the played move and the engine's best
+# along several axes (capture / check / castle / same-piece-different-
+# square / different-piece) and produce the most specific honest
+# comparison. Doesn't claim to know WHY — just describes the difference.
+
+def _strip_san_ann(san: str) -> str:
+    """Drop annotation marks (!?+#) for shape comparisons."""
+    return san.rstrip("!?").rstrip("+#")
+
+
+def _interpret_engine_preference(
+    *,
+    fen_before: str,
+    played_san: str,
+    best_san: str,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Produce a richer caption when engine_fallback would fire.
+    Returns None if no comparative interpretation applies (caller
+    falls back to the generic 'engine prefers X' line)."""
+    if not best_san or not played_san:
+        return None
+    try:
+        board = chess.Board(fen_before)
+        played_move = board.parse_san(played_san)
+        best_move = board.parse_san(best_san)
+    except Exception:
+        return None
+
+    played_piece = board.piece_at(played_move.from_square)
+    best_piece = board.piece_at(best_move.from_square)
+    if not played_piece or not best_piece:
+        return None
+
+    played_is_capture = board.is_capture(played_move)
+    best_is_capture = board.is_capture(best_move)
+    played_is_check = _is_check_san(played_san)
+    best_is_check = _is_check_san(best_san)
+    played_is_castle = played_san.startswith("O-O")
+    best_is_castle = best_san.startswith("O-O")
+
+    pron = "you" if is_user_move else "they"
+
+    # 1. Engine wanted a CAPTURE the user didn't play
+    if best_is_capture and not played_is_capture:
+        captured = board.piece_at(best_move.to_square)
+        # En passant: piece_at(to) is empty
+        if not captured and board.is_en_passant(best_move):
+            return f"Engine prefers {best_san} — an en passant capture."
+        if captured:
+            captured_name = _PIECE_NAME.get(captured.piece_type, "piece")
+            return f"Engine prefers {best_san} — wins the {captured_name}."
+        return f"Engine prefers {best_san} — a capture."
+
+    # 2. Engine wanted a CHECK the user didn't play
+    if best_is_check and not played_is_check:
+        return f"Engine prefers {best_san} — a check that forces a response."
+
+    # 3. Engine wanted to CASTLE
+    if best_is_castle and not played_is_castle:
+        side = "kingside" if "O-O-O" not in best_san else "queenside"
+        return f"Engine prefers castling {side} — keeps the king safer."
+
+    # 4. SAME PIECE, different destination square (positional preference)
+    if played_piece.piece_type == best_piece.piece_type:
+        played_to = chess.square_name(played_move.to_square)
+        best_to = chess.square_name(best_move.to_square)
+        if played_to != best_to:
+            piece_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
+            return (
+                f"{piece_name.capitalize()} to {played_to} — engine prefers "
+                f"{best_san}, a stronger square for the same {piece_name}."
+            )
+
+    # 5. DIFFERENT piece type — different idea entirely
+    played_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
+    best_name = _PIECE_NAME.get(best_piece.piece_type, "piece")
+    if played_name == best_name:
+        # Fallback when piece types match but our same-square branch missed
+        return f"Engine prefers {best_san} over {played_san}."
+    return (
+        f"Engine prefers {best_san} — switches to a {best_name} move "
+        f"instead of the {played_name}."
+    )
+
+
 # ── Public API ───────────────────────────────────────────────────────
 
 def caption_for_move(
@@ -450,7 +538,25 @@ def caption_for_move(
         return detect_good_move(board_before, move_san, move_number, is_user_move)
 
     # 5. Engine fallback for mistake/blunder when nothing specific matched.
+    #    Try the shape-aware interpreter first (capture / check / castle /
+    #    same-piece-different-square / different-piece-type) before
+    #    falling back to the generic "engine prefers X" line.
     if severity in ("mistake", "blunder", "inaccuracy") and best_move_san:
+        interp = _interpret_engine_preference(
+            fen_before=fen_before,
+            played_san=move_san,
+            best_san=best_move_san,
+            is_user_move=is_user_move,
+        )
+        if interp:
+            # Distinct source labels make the audit see what's working
+            label = "engine_better:capture" if " wins the " in interp or "en passant" in interp else (
+                "engine_better:check" if "check" in interp.lower() else (
+                "engine_better:castle" if "castling" in interp else (
+                "engine_better:same_piece" if "stronger square" in interp else
+                "engine_better:different_piece"
+            )))
+            return CaptionResult(interp, label, 0.6)
         return CaptionResult(
             f"The engine prefers {best_move_san} here.",
             "engine_fallback",
