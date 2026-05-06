@@ -167,6 +167,184 @@ _OPENINGS = [
         "name": "nimzowitsch_defense",
         "caption": "Nimzowitsch Defense. Black develops the queen's knight first — flexible and slightly offbeat.",
     },
+    # === Sicilian variations (deeper) ===
+    {
+        "moves": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6"],
+        "name": "sicilian_najdorf",
+        "caption": "Sicilian Najdorf. Black plays a6 to control b5 and prepare flexible queenside expansion. One of the sharpest openings in chess.",
+    },
+    {
+        "moves": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "g6"],
+        "name": "sicilian_dragon",
+        "caption": "Sicilian Dragon. Black fianchettos the bishop on g7, eyeing the long diagonal. Both sides race for kingside attacks in opposite directions.",
+    },
+    {
+        "moves": ["e4", "c5", "c3"],
+        "name": "alapin_sicilian",
+        "caption": "Alapin Sicilian. White avoids the open Sicilian and prepares d4 with pawn support.",
+    },
+    {
+        "moves": ["e4", "c5", "Nc3"],
+        "name": "closed_sicilian",
+        "caption": "Closed Sicilian. White avoids early piece exchanges and prepares slow positional play.",
+    },
+    # === Caro-Kann variations ===
+    {
+        "moves": ["e4", "c6", "d4", "d5", "Nc3"],
+        "name": "caro_kann_classical_main",
+        "caption": "Caro-Kann classical. Standard development; Black trades centre pawns for piece activity.",
+    },
+    {
+        "moves": ["e4", "c6", "d4", "d5", "exd5", "cxd5"],
+        "name": "caro_kann_exchange",
+        "caption": "Caro-Kann Exchange. Symmetric pawn structure, slow positional play favouring whoever activates pieces first.",
+    },
+    {
+        "moves": ["e4", "c6", "d4", "d5", "e5"],
+        "name": "caro_kann_advance",
+        "caption": "Caro-Kann Advance. White locks the centre and gains space; Black usually challenges with ...c5 later.",
+    },
+    # === French variations ===
+    {
+        "moves": ["e4", "e6", "d4", "d5"],
+        "name": "french_main",
+        "caption": "French Defense main line. Black aims for a solid pawn chain and counterplay against White's centre.",
+    },
+    {
+        "moves": ["e4", "e6", "d4", "d5", "e5"],
+        "name": "french_advance",
+        "caption": "French Advance. White gains space; Black pressures the e5 pawn and prepares ...c5.",
+    },
+    {
+        "moves": ["e4", "e6", "d4", "d5", "Nc3", "Nf6"],
+        "name": "french_classical",
+        "caption": "French Classical. Both sides develop calmly; play often centres on the e5 push and counter-pressure.",
+    },
+    {
+        "moves": ["e4", "e6", "d4", "d5", "exd5", "exd5"],
+        "name": "french_exchange",
+        "caption": "French Exchange. Symmetric structure; play depends on who develops more actively.",
+    },
+    # === Pirc / Modern ===
+    {
+        "moves": ["e4", "d6"],
+        "name": "pirc_or_modern_setup",
+        "caption": "Pirc / Modern setup. Black plans a fianchetto with ...g6 and ...Bg7, letting White take the centre and counter-attacking later.",
+    },
+    {
+        "moves": ["e4", "g6"],
+        "name": "modern_defense",
+        "caption": "Modern Defense. Black fianchettos right away, conceding the centre to attack it from a distance.",
+    },
+    {
+        "moves": ["e4", "Nf6"],
+        "name": "alekhine_defense",
+        "caption": "Alekhine's Defense. Black provokes White's pawns forward, hoping they become weak targets.",
+    },
+    # === Scandinavian variations ===
+    {
+        "moves": ["e4", "d5", "exd5", "Qxd5"],
+        "name": "scandinavian_main",
+        "caption": "Scandinavian Defense main line. Black recaptures with the queen and accepts losing time to find a target on c3.",
+    },
+    {
+        "moves": ["e4", "d5", "exd5", "Nf6"],
+        "name": "scandinavian_modern",
+        "caption": "Modern Scandinavian. Black delays the queen recapture for piece development.",
+    },
+    # === d4 variations (deeper) ===
+    {
+        "moves": ["d4", "d5", "c4", "c6"],
+        "name": "slav_defense",
+        "caption": "Slav Defense. Black supports d5 with the c-pawn instead of e6, keeping the c8 bishop's diagonal open.",
+    },
+    {
+        "moves": ["d4", "d5", "c4", "c6", "Nf3", "Nf6", "Nc3", "dxc4"],
+        "name": "slav_main_dxc4",
+        "caption": "Slav main line. Black takes on c4 and plans ...b5 to hold the pawn — sharp positions.",
+    },
+    {
+        "moves": ["d4", "Nf6", "c4", "e6"],
+        "name": "queens_indian_or_nimzo_setup",
+        "caption": "Queen's Indian / Nimzo-Indian setup. Black keeps it flexible — can go ...Bb4 (Nimzo) or ...b6 (Queen's Indian).",
+    },
+    {
+        "moves": ["d4", "Nf6", "c4", "e6", "Nc3", "Bb4"],
+        "name": "nimzo_indian",
+        "caption": "Nimzo-Indian Defense. Black pins the c3 knight, threatening to double White's pawns and fight for the dark squares.",
+    },
+    {
+        "moves": ["d4", "Nf6", "c4", "e6", "Nf3", "b6"],
+        "name": "queens_indian",
+        "caption": "Queen's Indian Defense. Black fianchettos the queen's bishop to fight for the long diagonal.",
+    },
+    {
+        "moves": ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7"],
+        "name": "kings_indian_main",
+        "caption": "King's Indian main line. Black builds a fianchetto setup and plans ...e5 or ...c5 to challenge White's centre.",
+    },
+    {
+        "moves": ["d4", "Nf6", "c4", "g6", "Nc3", "d5"],
+        "name": "grunfeld_defense",
+        "caption": "Grünfeld Defense. Black gives up the centre temporarily to attack it with pieces — sharp, double-edged play.",
+    },
+    {
+        "moves": ["d4", "Nf6", "c4", "c5"],
+        "name": "benoni_defense",
+        "caption": "Benoni Defense. Black challenges the centre with c5, accepting a slightly cramped but counterattacking structure.",
+    },
+    {
+        "moves": ["d4", "Nf6", "Nf3", "e6", "g3"],
+        "name": "catalan",
+        "caption": "Catalan Opening. White fianchettos the king's bishop, combining queen's pawn play with hypermodern long-diagonal pressure.",
+    },
+    # === e4 e5 deeper ===
+    {
+        "moves": ["e4", "e5", "Nf3", "Nf6", "Nxe5"],
+        "name": "petrov_main",
+        "caption": "Petrov main line. White takes the e-pawn; Black recovers it and aims for symmetric, balanced play.",
+    },
+    {
+        "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6"],
+        "name": "ruy_lopez_morphy",
+        "caption": "Ruy Lopez, Morphy Defense. Black challenges the bishop with ...a6 — the main line of the Spanish Opening.",
+    },
+    {
+        "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4"],
+        "name": "ruy_lopez_morphy_main",
+        "caption": "Ruy Lopez, Morphy main line. White retreats the bishop along the a4-e8 diagonal, keeping pressure on c6.",
+    },
+    {
+        "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6"],
+        "name": "ruy_lopez_berlin",
+        "caption": "Ruy Lopez, Berlin Defense. Black skips ...a6 and goes straight for piece play. Famously hard to crack.",
+    },
+    # === Common gambits / sidelines ===
+    {
+        "moves": ["b3"],
+        "name": "larsens_opening",
+        "caption": "Larsen's Opening. White fianchettos the queen's bishop — flexible, can transpose to many setups.",
+    },
+    {
+        "moves": ["g3"],
+        "name": "kings_fianchetto_opening",
+        "caption": "King's Fianchetto Opening. White prepares Bg2 — a flexible, hypermodern start.",
+    },
+    {
+        "moves": ["e4", "e5", "Nc3"],
+        "name": "vienna_game",
+        "caption": "Vienna Game. White develops the queen's knight first, often planning f4 with extra support.",
+    },
+    {
+        "moves": ["e4", "e5", "d4"],
+        "name": "centre_game",
+        "caption": "Centre Game. White challenges immediately — tends toward open, tactical positions.",
+    },
+    {
+        "moves": ["d4", "f5"],
+        "name": "dutch_defense",
+        "caption": "Dutch Defense. Black fights for control of e4 with the f-pawn — committal but ambitious.",
+    },
 ]
 
 

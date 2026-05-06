@@ -174,6 +174,104 @@ def _detect_king_blockades_passed_pawn(
     )
 
 
+def _detect_connected_passed_pawns_advance(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+) -> Optional[str]:
+    """User's pawn move where the resulting position has TWO connected
+    passed pawns (adjacent files, both passed)."""
+    if moving_piece.piece_type != chess.PAWN:
+        return None
+    if not _is_endgame(board_before):
+        return None
+    user_color = moving_piece.color
+    b = board_before.copy()
+    b.push(move)
+
+    # Find all our passed pawns.
+    passed_files = set()
+    promo_rank = 7 if user_color == chess.WHITE else 0
+    direction = 1 if user_color == chess.WHITE else -1
+    for sq in chess.SQUARES:
+        p = b.piece_at(sq)
+        if not p or p.piece_type != chess.PAWN or p.color != user_color:
+            continue
+        f = chess.square_file(sq)
+        r = chess.square_rank(sq)
+        is_passed = True
+        nr = r + direction
+        while 0 <= nr <= 7:
+            for nf in (f - 1, f, f + 1):
+                if 0 <= nf <= 7:
+                    pp = b.piece_at(chess.square(nf, nr))
+                    if pp and pp.piece_type == chess.PAWN and pp.color != user_color:
+                        is_passed = False
+                        break
+            if not is_passed:
+                break
+            nr += direction
+        if is_passed:
+            passed_files.add(f)
+
+    # Connected = two adjacent files in the passed set.
+    for f in passed_files:
+        if (f + 1) in passed_files:
+            return (
+                "Connected passed pawns. Push them together — they protect each other and either promotes."
+            )
+    return None
+
+
+def _detect_wrong_color_bishop_draw(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+) -> Optional[str]:
+    """User has K + B + rook pawn vs K, AND the bishop is the WRONG
+    colour to control the queening square. The position is theoretically
+    drawn even though the user is up a piece. Recognise it so we don't
+    falsely tell the user they're winning."""
+    if not _is_endgame(board_before):
+        return None
+    # Quick gate: both sides have only K + maybe pawns + maybe one bishop
+    pieces = []
+    for sq in chess.SQUARES:
+        p = board_before.piece_at(sq)
+        if not p:
+            continue
+        pieces.append((sq, p))
+    if len(pieces) > 6:
+        return None
+    user_color = moving_piece.color
+    user_pieces = [p for _, p in pieces if p.color == user_color]
+    enemy_pieces = [p for _, p in pieces if p.color != user_color]
+    user_pawns = [p for p in user_pieces if p.piece_type == chess.PAWN]
+    user_bishops = [p for p in user_pieces if p.piece_type == chess.BISHOP]
+    enemy_pawns = [p for p in enemy_pieces if p.piece_type == chess.PAWN]
+    enemy_other = [p for p in enemy_pieces if p.piece_type not in (chess.KING, chess.PAWN)]
+    if len(user_bishops) != 1 or len(user_pawns) == 0 or enemy_other or enemy_pawns:
+        return None
+    # Find the user pawn — must all be on a-file or h-file (rook pawns).
+    pawn_sqs = [sq for sq, p in pieces if p.color == user_color and p.piece_type == chess.PAWN]
+    pawn_files = {chess.square_file(sq) for sq in pawn_sqs}
+    if pawn_files not in ({0}, {7}):  # all a-file or all h-file
+        return None
+    # Promotion square colour
+    file_idx = 0 if pawn_files == {0} else 7
+    promo_rank = 7 if user_color == chess.WHITE else 0
+    promo_sq = chess.square(file_idx, promo_rank)
+    promo_is_light = (file_idx + promo_rank) % 2 == 0  # standard chess colouring
+    bishop_sq = next(sq for sq, p in pieces if p.color == user_color and p.piece_type == chess.BISHOP)
+    bishop_is_light = (chess.square_file(bishop_sq) + chess.square_rank(bishop_sq)) % 2 == 0
+    if promo_is_light == bishop_is_light:
+        return None  # bishop is the right colour
+    return (
+        "Wrong-colour bishop with a rook pawn. The defending king can hold the corner — "
+        "this is a theoretical draw despite the extra piece."
+    )
+
+
 def detect_endgame_technique(
     board_before: chess.Board,
     move_san: str,
@@ -205,6 +303,14 @@ def detect_endgame_technique(
     cap = _detect_king_blockades_passed_pawn(board_before, move, moving_piece)
     if cap:
         return {"name": "king_blockades_pawn", "caption": cap}
+
+    cap = _detect_connected_passed_pawns_advance(board_before, move, moving_piece)
+    if cap:
+        return {"name": "connected_passed_pawns", "caption": cap}
+
+    cap = _detect_wrong_color_bishop_draw(board_before, move, moving_piece)
+    if cap:
+        return {"name": "wrong_color_bishop_drawn", "caption": cap}
 
     cap = _detect_king_activation(board_before, move, moving_piece)
     if cap:
