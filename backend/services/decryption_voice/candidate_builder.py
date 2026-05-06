@@ -224,6 +224,7 @@ def build_candidates(
             best_move_san=best_san,
             engine_mate_in_after=engine_mate,
             pv_after_best=user_v5.get("pv_after_best") or [],
+            pv_after_played=user_v5.get("pv_after_played") or [],
             user_color=user_color,
         )
     except Exception:

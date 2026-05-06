@@ -139,11 +139,13 @@ async def generate_post_game_voice(
             board.push(move_obj)
             fen_after = board.fen()
 
-        # Best move + PV for the dispatcher / engine fallback. PV
-        # powers the combination-chain detector ("X forces Y, then Z
-        # wins the bishop") which needs to walk multiple plies.
+        # Best move + both PVs for the dispatcher / engine fallback.
+        # pv_after_best powers combination-chain (user's tactical line);
+        # pv_after_played powers walked_into_attack (opp's tactical
+        # line after the user's wrong move — Greek Gift, etc.).
         best_san_for_critical = (full_move or {}).get("best_move_san")
         pv_for_critical = (full_move or {}).get("pv_after_best") or []
+        pv_played_for_critical = (full_move or {}).get("pv_after_played") or []
 
         result = await generate_decryption(
             fen_before=full_move["fen_before"],
@@ -152,6 +154,7 @@ async def generate_post_game_voice(
             user_color=user_color,
             best_move_san=best_san_for_critical,
             pv_after_best=pv_for_critical,
+            pv_after_played=pv_played_for_critical,
         )
         if result:
             decryption_block = {
@@ -218,6 +221,7 @@ async def generate_post_game_voice(
                     from .concept_dispatcher import caption_for_moment, extract_mate_against_user
                     best_san_for_dispatch = (moment_v5 or {}).get("best_move_san") or ""
                     pv_for_dispatch = (moment_v5 or {}).get("pv_after_best") or []
+                    pv_played_for_dispatch = (moment_v5 or {}).get("pv_after_played") or []
                     # Stockfish-truth mate detection — positive int means
                     # forced mate against the user from this move.
                     engine_mate = extract_mate_against_user(
@@ -229,6 +233,7 @@ async def generate_post_game_voice(
                         best_move_san=best_san_for_dispatch,
                         engine_mate_in_after=engine_mate,
                         pv_after_best=pv_for_dispatch,
+                        pv_after_played=pv_played_for_dispatch,
                         user_color=user_color,
                     )
                 except Exception as cd_err:
@@ -258,6 +263,7 @@ async def generate_post_game_voice(
                         user_color=user_color,
                         best_move_san=best_san_for_dispatch,
                         pv_after_best=pv_for_dispatch,
+                        pv_after_played=pv_played_for_dispatch,
                     )
                 if m_result:
                     # Build the 3 interactive candidates for this moment.

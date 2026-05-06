@@ -152,6 +152,80 @@ def _render_combination(details: Dict) -> Optional[str]:
     return None
 
 
+def _render_walked_into_attack(details: Dict) -> Optional[str]:
+    """Opp's tactical sequence after user's wrong move (Greek Gift etc).
+
+    chain[0] is the user's wrong move. chain[1] is opp's threat reply.
+    chain[2..] is the rest of opp's winning line. Caption names the
+    threat in the head, then walks the line FROM chain[2] onward (no
+    duplication), then describes the climax against the user's pieces.
+    """
+    chain = details.get("chain") or []
+    saving = details.get("saving_move")
+    climax_tactic = details.get("climax_tactic")
+    climax_details = details.get("climax_details") or {}
+    if len(chain) < 2:
+        return None
+    threat = chain[1]  # opp's first move — the threat
+
+    # Build the "what they win" tail. Targets in walked_into_attack are
+    # user's own pieces, so 'your X' is the right framing.
+    tail = ""
+    if climax_tactic == "mate":
+        tail = "the king is mated."
+    elif climax_tactic == "fork":
+        attacker = climax_details.get("attacker_piece", "piece")
+        targets = climax_details.get("targets") or []
+        if targets and climax_details.get("is_check_fork"):
+            t0 = targets[0]
+            piece = t0.get("piece", "piece")
+            sq = t0.get("square", "")
+            tail = (
+                f"their {attacker} forks your king and your {piece} on {sq}."
+                if sq else f"their {attacker} forks your king and your {piece}."
+            )
+        elif len(targets) >= 2:
+            t1 = targets[0].get("piece", "piece")
+            t2 = targets[1].get("piece", "piece")
+            tail = f"their {attacker} forks your {t1} and your {t2}."
+
+    head = f"{threat} was coming."
+    # Line starts from chain[2] (after the threat, what's the forced
+    # exchange leading to the climax). Skip if too short.
+    if len(chain) >= 4:
+        line_text = f"After {chain[2]} {chain[3]},"
+    elif len(chain) >= 3:
+        line_text = f"After {chain[2]},"
+    else:
+        line_text = ""
+
+    if line_text and tail:
+        body = f"{line_text} {tail}"
+    elif line_text:
+        body = f"{line_text} you lose material."
+    elif tail:
+        body = tail.capitalize()
+    else:
+        body = "You lose material."
+
+    out = f"{head} {body}"
+    if saving:
+        out = f"{out} {saving} prevents it."
+    return out
+
+
+def _render_missed_attack_on_high_value(details: Dict) -> Optional[str]:
+    """Best move attacks a heavier enemy piece without capturing."""
+    best = details.get("best_move")
+    target = details.get("target_piece")
+    sq = details.get("target_square")
+    if not best or not target:
+        return None
+    if sq:
+        return f"{best} attacks their {target} on {sq}. They have to move it, and you gain time."
+    return f"{best} attacks their {target}. They have to move it, and you gain time."
+
+
 def _render_missed_check(details: Dict) -> Optional[str]:
     """Best move was a check; user played a non-check."""
     best = details.get("best_move")
@@ -319,6 +393,8 @@ def _render_opposition(details: Dict) -> Optional[str]:
 _TEMPLATE_REGISTRY = {
     # Tactical — high priority, common at 600-1400
     "combination":        _render_combination,
+    "walked_into_attack": _render_walked_into_attack,
+    "missed_attack_on_high_value": _render_missed_attack_on_high_value,
     "missed_check":       _render_missed_check,
     "missed_castle":      _render_missed_castle,
     "missed_capture":     _render_missed_capture,

@@ -540,6 +540,70 @@ def _detect_combination_chain(
     return None
 
 
+# ── Local detector — WALKED_INTO_ATTACK ──────────────────────────────
+# Mirror of combination_chain but for OPP's tactical sequence after the
+# user's wrong move. Walks pv_after_played and runs tactic geometry on
+# each OPP move position. The first ply where opp creates a winning
+# pattern is the climax — that's the threat the user walked into.
+#
+# Canonical case: Greek Gift (Bxh7+ Kxh7 Qh5+ Kg8 Qxg5). User's Bb4 was
+# wrong because pv_after_played starts with Bxh7+ and at ply 4 white
+# captures the queen.
+
+def _detect_walked_into_attack(
+    board: chess.Board,
+    user_move_san: str,
+    pv_after_played: Optional[List[str]],
+    user_color_name: str,
+    best_move_san: Optional[str] = None,
+    max_plies: int = 5,
+) -> Optional[Dict]:
+    """Walk pv_after_played from opp's POV. Find the first opp move
+    that creates a winning fork / mate / capture against the user."""
+    if not user_move_san or not pv_after_played:
+        return None
+    user_is_white = (user_color_name or "").lower() == "white"
+    user_color = chess.WHITE if user_is_white else chess.BLACK
+    opp_color = not user_color
+
+    b = board.copy()
+    chain_san: List[str] = []
+    try:
+        m = b.parse_san(user_move_san)
+        b.push(m)
+        chain_san.append(user_move_san)
+    except Exception:
+        return None
+
+    for i, uci in enumerate(pv_after_played[:max_plies]):
+        try:
+            mv = chess.Move.from_uci(uci)
+            if mv not in b.legal_moves:
+                break
+            san = b.san(mv)
+            b.push(mv)
+            chain_san.append(san)
+        except Exception:
+            break
+
+        # Indices: i=0 is opp's reply, i=1 is user's forced response,
+        # i=2 is opp's follow-up, i=3 user, i=4 opp...
+        # Run tactic detection ON OPP's perspective at indices 0, 2, 4.
+        if i % 2 == 0:
+            tactic = _find_winning_tactic_after_move(b, opp_color)
+            if tactic:
+                return {
+                    "chain": chain_san.copy(),
+                    "climax_ply": i + 1,  # +1 because chain[0] is user move
+                    "climax_tactic": tactic["type"],
+                    "climax_details": tactic["details"],
+                    "first_threat_san": chain_san[1] if len(chain_san) > 1 else None,
+                    "saving_move": best_move_san,
+                }
+
+    return None
+
+
 # ── Local detectors — MISSED_CHECK / MISSED_CASTLE / MISSED_CAPTURE ──
 # Three patterns that surfaced repeatedly in the May 2026 review queue.
 # All are "best move was X but user played Y" — high signal because
@@ -704,6 +768,76 @@ def _detect_missed_capture(
     return None
 
 
+# ── Local detector — MISSED_ATTACK_ON_HIGH_VALUE ─────────────────────
+# Best move (NOT a check, NOT a capture) attacks an enemy piece worth
+# more than the attacker. The attacked piece must move (or it gets
+# captured next move at a loss). User played a different move and
+# missed the tempo gain.
+#
+# Cases this catches: Re2 attacks queen on f2; a6 attacks queen on b5;
+# b5 attacks bishop on c4. Mostly pawn pushes attacking heavier pieces
+# and rook lifts attacking exposed queens.
+
+def _detect_missed_attack_on_high_value(
+    board: chess.Board,
+    user_move_san: str,
+    best_move_san: Optional[str],
+) -> Optional[Dict]:
+    """Best move is a non-capture, non-check attack on an enemy piece
+    worth more than the attacker. Returns facts for the template."""
+    if not best_move_san or not user_move_san:
+        return None
+    bs = best_move_san.replace("!", "").replace("?", "")
+    if "x" in bs:
+        return None  # captures are missed_capture territory
+    if bs.endswith("+") or bs.endswith("#"):
+        return None  # checks are missed_check territory
+
+    try:
+        b = board.copy()
+        m = b.parse_san(best_move_san)
+        moving_piece = b.piece_at(m.from_square)
+        if not moving_piece:
+            return None
+        b.push(m)
+    except Exception:
+        return None
+
+    user_color = moving_piece.color
+    moved_to = m.to_square
+    attacker_value = _PIECE_VALUE.get(moving_piece.piece_type, 0)
+
+    # Find the highest-value enemy piece this move now attacks.
+    best_target = None
+    for sq in b.attacks(moved_to):
+        p = b.piece_at(sq)
+        if not p or p.color == user_color:
+            continue
+        if p.piece_type == chess.KING:
+            continue  # checks are caught elsewhere
+        target_value = _PIECE_VALUE.get(p.piece_type, 0)
+        if target_value <= attacker_value:
+            continue  # only fire when target is strictly more valuable
+        if best_target is None or target_value > best_target["value"]:
+            best_target = {
+                "piece": _PIECE_NAME.get(p.piece_type, "piece"),
+                "square": chess.square_name(sq),
+                "value": target_value,
+            }
+
+    if not best_target:
+        return None
+
+    return {
+        "best_move": best_move_san,
+        "attacker_piece": _PIECE_NAME.get(moving_piece.piece_type, "piece"),
+        "attacker_value": attacker_value,
+        "target_piece": best_target["piece"],
+        "target_square": best_target["square"],
+        "target_value": best_target["value"],
+    }
+
+
 # ── Severity scoring for dominant-pick ───────────────────────────────
 # Replaces "first detector by registry priority" with a function that
 # weights detections by actual decisiveness. A missed fork worth
@@ -735,6 +869,21 @@ def _severity_score(det: Dict) -> float:
             top = max(targets, key=lambda t: t.get("value", 0))
             return float(top.get("value", 0)) * 3.0 + 6.0
         return 8.0
+    if pt == "walked_into_attack":
+        # Opp's tactical sequence after user's wrong move. Climax tactic
+        # value drives the score; mate climax is high.
+        climax = d.get("climax_tactic")
+        if climax == "mate":
+            return 940.0  # just below missed_mate (950) and walked_into_mate
+        targets = (d.get("climax_details") or {}).get("targets") or []
+        if targets:
+            top = max(targets, key=lambda t: t.get("value", 0))
+            return float(top.get("value", 0)) * 3.0 + 10.0
+        return 12.0
+    if pt == "missed_attack_on_high_value":
+        # Tempo gain — scaled by what's attacked vs attacker.
+        gap = float(d.get("target_value", 0)) - float(d.get("attacker_value", 0))
+        return 6.0 + gap  # pawn-attacks-bishop = 8, pawn-attacks-queen = 14
     if pt == "missed_check":
         # Checks force opponent's response. Side-attacks add weight.
         sides = d.get("side_attacks") or []
@@ -834,6 +983,7 @@ def detect_concepts(
     context: Optional[Dict] = None,
     engine_mate_in_after: Optional[int] = None,
     pv_after_best: Optional[List[str]] = None,
+    pv_after_played: Optional[List[str]] = None,
     user_color: Optional[str] = None,
 ) -> List[Dict]:
     """Run all chess_brain detectors against this moment.
@@ -951,6 +1101,41 @@ def detect_concepts(
     except Exception as e:
         logger.warning(f"[concept_dispatcher] combination detect failed: {e}")
 
+    # Local detector — WALKED_INTO_ATTACK. Walks pv_after_played for
+    # opp's tactical sequence (Greek Gift, Bxh7-style attacks, etc.).
+    try:
+        atk = _detect_walked_into_attack(
+            board, user_move_san, pv_after_played,
+            (user_color or "white"), best_move_san,
+        )
+        if atk:
+            out.append({
+                "pattern_type": "walked_into_attack",
+                "details": atk,
+                "teaching_hook": "Walked into a tactical attack",
+                "key_squares": [],
+                "confidence": 0.95,
+                "category": "tactical",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] walked_into_attack detect failed: {e}")
+
+    # Local detector — MISSED_ATTACK_ON_HIGH_VALUE. Best move attacks
+    # an enemy queen / rook / bishop without capturing or checking.
+    try:
+        ah = _detect_missed_attack_on_high_value(board, user_move_san, best_move_san)
+        if ah:
+            out.append({
+                "pattern_type": "missed_attack_on_high_value",
+                "details": ah,
+                "teaching_hook": "Missed an attack on a heavier piece",
+                "key_squares": [ah.get("target_square")] if ah.get("target_square") else [],
+                "confidence": 0.95,
+                "category": "tactical",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] missed_attack_on_high_value detect failed: {e}")
+
     # Local detectors — MISSED_CHECK / MISSED_CASTLE / MISSED_CAPTURE.
     # All three are best-move-shape patterns that surfaced repeatedly
     # in the May 2026 review queue (~17 of 31 flagged moments).
@@ -1061,6 +1246,7 @@ def caption_for_moment(
     context: Optional[Dict] = None,
     engine_mate_in_after: Optional[int] = None,
     pv_after_best: Optional[List[str]] = None,
+    pv_after_played: Optional[List[str]] = None,
     user_color: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[Dict]]:
     """Run detectors → pick dominant → render caption.
@@ -1076,6 +1262,7 @@ def caption_for_moment(
         context=context,
         engine_mate_in_after=engine_mate_in_after,
         pv_after_best=pv_after_best,
+        pv_after_played=pv_after_played,
         user_color=user_color,
     )
     dominant = pick_dominant_renderable(detections)
