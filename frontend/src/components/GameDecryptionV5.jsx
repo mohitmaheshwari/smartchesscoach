@@ -9,7 +9,7 @@
  * - Simple, 1200-friendly language
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
 import ClickableLine, { extractMovesFromText } from "@/components/ClickableLine";
@@ -593,7 +593,37 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     }
   };
 
-  const currentMove = currentMoveIndex >= 0 ? decryptionData?.[currentMoveIndex] : null;
+  const rawCurrentMove = currentMoveIndex >= 0 ? decryptionData?.[currentMoveIndex] : null;
+
+  // Hybrid narrative source: prefer decryption_block.moments[].text over
+  // the V5 per-move narrative when available. The decryption pipeline
+  // produces deterministic, correctly-attributed captions (templates +
+  // coach overrides) while the V5 narrative sometimes mis-attributes
+  // the SAN — e.g., showing 'wins the bishop' on the played move when
+  // it actually describes the engine's best move. See feedback
+  // fb_2b99199d5617 (Parth Gilda, Rf8 vs Rxd8). decryption_block only
+  // covers ~4 critical moments per game; for non-matched moves we fall
+  // back to V5 narrative so analysis pages still have prose for every
+  // move.
+  const currentMove = useMemo(() => {
+    if (!rawCurrentMove) return null;
+    const moments = decryptionBlock?.moments || [];
+    const matched = moments.find(
+      (m) =>
+        m.move_number === rawCurrentMove.move_number
+        && m.move_san === rawCurrentMove.move_san
+        && m.text,
+    );
+    if (matched) {
+      return {
+        ...rawCurrentMove,
+        narrative: matched.text,
+        _narrative_source: matched.source,    // for diagnostics
+      };
+    }
+    return rawCurrentMove;
+  }, [rawCurrentMove, decryptionBlock]);
+
   const orientation = userColor === "black" ? "black" : "white";
 
   // Fetch position commentary for mistake moves (lazy, one at a time)
