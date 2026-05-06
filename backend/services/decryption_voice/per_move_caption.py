@@ -377,16 +377,237 @@ def _strip_san_ann(san: str) -> str:
     return san.rstrip("!?").rstrip("+#")
 
 
+# ── WHY-derivation helpers ───────────────────────────────────────────
+# Each helper looks at one specific signal (attack diff, defense diff,
+# evasion, PV payoff). Returns a substantive caption only when the
+# signal is unambiguous — otherwise None, and the caller leaves the
+# move uncaptioned (low confidence → admin review tab).
+
+def _attacks_minor_or_higher(board: chess.Board, from_sq: int, attacker_color: bool) -> set:
+    """Return set of squares occupied by enemy pieces of value >=3 (minor
+    piece, rook, queen, king) attacked by the piece on from_sq."""
+    out = set()
+    for sq in board.attacks(from_sq):
+        p = board.piece_at(sq)
+        if not p or p.color == attacker_color:
+            continue
+        if p.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING):
+            out.add(sq)
+    return out
+
+
+def _is_safely_placed(board: chess.Board, sq: int, our_color: bool) -> bool:
+    """A piece on sq is 'safely placed' if it has at least as many
+    defenders as attackers (cheap proxy — ignores piece values)."""
+    attackers = board.attackers(not our_color, sq)
+    if not attackers:
+        return True
+    defenders = board.attackers(our_color, sq)
+    return len(defenders) >= len(attackers)
+
+
+def _why_attacks_more_material(
+    board_before: chess.Board, played: chess.Move, best: chess.Move, is_user_move: bool,
+) -> Optional[str]:
+    """Engine's destination square attacks an enemy minor/rook/queen/
+    king that the played destination doesn't attack. AND the attacker
+    is safely placed there. → high-confidence 'attacks the X' caption."""
+    user_color = board_before.piece_at(best.from_square).color
+    # Apply best move and inspect attacks from new square
+    b_best = board_before.copy()
+    b_best.push(best)
+    best_attacks = _attacks_minor_or_higher(b_best, best.to_square, user_color)
+    if not best_attacks:
+        return None
+    # Apply played move and inspect attacks from played's destination
+    b_played = board_before.copy()
+    try:
+        b_played.push(played)
+    except Exception:
+        return None
+    played_attacks = _attacks_minor_or_higher(b_played, played.to_square, user_color)
+    new_attacks = best_attacks - played_attacks
+    if not new_attacks:
+        return None
+    # Engine's piece must be safely placed on best.to_square — otherwise
+    # "attacks the bishop" is misleading if it's hanging there.
+    if not _is_safely_placed(b_best, best.to_square, user_color):
+        return None
+    # Pick highest-value attacked piece for the caption
+    target_sq = max(new_attacks, key=lambda s: _PIECE_VALUE.get(b_best.piece_at(s).piece_type, 0))
+    target_piece = b_best.piece_at(target_sq)
+    target_name = _PIECE_NAME.get(target_piece.piece_type, "piece")
+    target_sq_name = chess.square_name(target_sq)
+    if is_user_move:
+        return f"attacks the {target_name} on {target_sq_name}"
+    return f"attacks your {target_name} on {target_sq_name}"
+
+
+def _why_defends_attacked_piece(
+    board_before: chess.Board, played: chess.Move, best: chess.Move, is_user_move: bool,
+) -> Optional[str]:
+    """Best move adds a defender to an own piece that's currently
+    attacked AND undefended (or under-defended). Played move doesn't
+    add this defense."""
+    user_color = board_before.piece_at(best.from_square).color
+    # Find own pieces (≥minor) that are attacked-and-hanging in fen_before
+    hanging = []
+    for sq in chess.SQUARES:
+        p = board_before.piece_at(sq)
+        if not p or p.color != user_color:
+            continue
+        if p.piece_type in (chess.PAWN, chess.KING):
+            continue
+        attackers = board_before.attackers(not user_color, sq)
+        if not attackers:
+            continue
+        defenders = board_before.attackers(user_color, sq)
+        if len(defenders) < len(attackers):
+            hanging.append(sq)
+    if not hanging:
+        return None
+    # Apply best move; check if any hanging piece is now adequately defended
+    b_best = board_before.copy()
+    b_best.push(best)
+    b_played = board_before.copy()
+    try:
+        b_played.push(played)
+    except Exception:
+        return None
+    for sq in hanging:
+        # Piece may have moved (e.g., it WAS the played/best piece).
+        p_best = b_best.piece_at(sq)
+        if not p_best or p_best.color != user_color:
+            continue
+        defenders_best = b_best.attackers(user_color, sq)
+        attackers_best = b_best.attackers(not user_color, sq)
+        if len(defenders_best) < len(attackers_best):
+            continue
+        # Best fixes the hang. Did played also fix it?
+        p_played = b_played.piece_at(sq)
+        if p_played and p_played.color == user_color:
+            defenders_played = b_played.attackers(user_color, sq)
+            attackers_played = b_played.attackers(not user_color, sq)
+            if len(defenders_played) >= len(attackers_played):
+                continue  # played also fixed; not a differentiator
+        piece_name = _PIECE_NAME.get(p_best.piece_type, "piece")
+        sq_name = chess.square_name(sq)
+        if is_user_move:
+            return f"defends your {piece_name} on {sq_name} which was hanging"
+        return f"defends their {piece_name} on {sq_name} which was hanging"
+    return None
+
+
+def _why_evades_attack(
+    board_before: chess.Board, played: chess.Move, best: chess.Move, is_user_move: bool,
+) -> Optional[str]:
+    """The piece that engine moves was attacked at its origin square,
+    AND the played move didn't move that piece (or moved it to a
+    worse-attacked square). Engine's move evades a hanging-piece situation."""
+    user_color = board_before.piece_at(best.from_square).color
+    # The piece engine moves
+    moving_piece = board_before.piece_at(best.from_square)
+    if not moving_piece or moving_piece.piece_type in (chess.PAWN, chess.KING):
+        return None
+    from_sq = best.from_square
+    attackers = board_before.attackers(not user_color, from_sq)
+    if not attackers:
+        return None
+    defenders = board_before.attackers(user_color, from_sq)
+    if len(defenders) >= len(attackers):
+        return None  # not actually hanging
+    # Engine's destination must be safe
+    b_best = board_before.copy()
+    b_best.push(best)
+    if not _is_safely_placed(b_best, best.to_square, user_color):
+        return None
+    # Played didn't fix the hang? Either played was a different piece or
+    # the original piece is still hanging after played.
+    if played.from_square == from_sq:
+        return None  # both moves move the same piece — handled by other helper
+    piece_name = _PIECE_NAME.get(moving_piece.piece_type, "piece")
+    from_sq_name = chess.square_name(from_sq)
+    if is_user_move:
+        return f"saves your {piece_name} on {from_sq_name} which was hanging"
+    return f"saves their {piece_name} on {from_sq_name} which was hanging"
+
+
+def _why_pv_tactical_payoff(
+    board_before: chess.Board, best: chess.Move, best_san: str,
+    pv_after_best: Optional[list], is_user_move: bool,
+) -> Optional[str]:
+    """Look 2-3 plies into pv_after_best. If user's follow-up (ply 2)
+    is a clean capture or check, that's the engine's tactical payoff."""
+    if not pv_after_best or len(pv_after_best) < 3:
+        return None
+    # pv_after_best[0] is the engine's best move (might already include).
+    # We want the user's follow-up, which is at index 2 (after opp response
+    # at index 1).
+    follow_up_san = pv_after_best[2] if len(pv_after_best) > 2 else None
+    if not follow_up_san:
+        return None
+    # Concrete payoffs we can name:
+    is_capture = "x" in follow_up_san
+    is_check = follow_up_san.rstrip("!?").endswith("+") or follow_up_san.rstrip("!?").endswith("#")
+    is_mate = follow_up_san.rstrip("!?").endswith("#")
+    if not (is_capture or is_check):
+        return None
+    if is_mate:
+        if is_user_move:
+            return f"sets up {follow_up_san} — checkmate"
+        return f"threatens {follow_up_san} — checkmate"
+    if is_capture and is_check:
+        if is_user_move:
+            return f"sets up {follow_up_san} — capture with check"
+        return f"threatens {follow_up_san} — capture with check"
+    if is_capture:
+        if is_user_move:
+            return f"sets up {follow_up_san} — winning material"
+        return f"threatens {follow_up_san} — winning material"
+    # is_check
+    if is_user_move:
+        return f"sets up {follow_up_san} — a forcing check"
+    return f"threatens {follow_up_san} — a forcing check"
+
+
+def _derive_engine_preference_why(
+    *, fen_before: str, played_san: str, best_san: str,
+    pv_after_best: Optional[list], is_user_move: bool,
+) -> Optional[str]:
+    """Try each WHY-derivation in priority order. Returns a half-sentence
+    fragment ('attacks the bishop on c5') that the caller stitches into
+    a full caption. Returns None when no high-confidence signal exists."""
+    try:
+        board = chess.Board(fen_before)
+        played = board.parse_san(played_san)
+        best = board.parse_san(best_san)
+    except Exception:
+        return None
+    return (
+        _why_evades_attack(board, played, best, is_user_move)
+        or _why_attacks_more_material(board, played, best, is_user_move)
+        or _why_defends_attacked_piece(board, played, best, is_user_move)
+        or _why_pv_tactical_payoff(board, best, best_san, pv_after_best, is_user_move)
+    )
+
+
 def _interpret_engine_preference(
     *,
     fen_before: str,
     played_san: str,
     best_san: str,
+    pv_after_best: Optional[list],
     is_user_move: bool,
 ) -> Optional[str]:
-    """Produce a richer caption when engine_fallback would fire.
-    Returns None if no comparative interpretation applies (caller
-    falls back to the generic 'engine prefers X' line)."""
+    """Produce a substantive caption explaining WHY engine prefers its
+    move. Concrete 'why' is required — capture/castle (material/king
+    safety) OR a derived signal from attack/defense/PV lookahead.
+
+    Returns None when no high-confidence signal exists. Caller leaves
+    the move uncaptioned so the human coach can address it via the
+    review tab — better than padding with hollow descriptions like
+    'different pawn, different idea'.
+    """
     if not best_san or not played_san:
         return None
     try:
@@ -408,56 +629,42 @@ def _interpret_engine_preference(
     played_is_castle = played_san.startswith("O-O")
     best_is_castle = best_san.startswith("O-O")
 
-    pron = "you" if is_user_move else "they"
+    # ── Concrete cases (intrinsic WHY: material / king safety) ──
 
     # 1. Engine wanted a CAPTURE the user didn't play
     if best_is_capture and not played_is_capture:
         captured = board.piece_at(best_move.to_square)
-        # En passant: piece_at(to) is empty
         if not captured and board.is_en_passant(best_move):
             return f"Engine prefers {best_san} — an en passant capture."
         if captured:
             captured_name = _PIECE_NAME.get(captured.piece_type, "piece")
             return f"Engine prefers {best_san} — wins the {captured_name}."
-        return f"Engine prefers {best_san} — a capture."
+        return None  # Promotion-capture edge case; let coach review
 
-    # 2. Engine wanted a CHECK the user didn't play
-    if best_is_check and not played_is_check:
-        return f"Engine prefers {best_san} — a check that forces a response."
-
-    # 3. Engine wanted to CASTLE
+    # 2. Engine wanted to CASTLE — concrete (king safety)
     if best_is_castle and not played_is_castle:
         side = "kingside" if "O-O-O" not in best_san else "queenside"
         return f"Engine prefers castling {side} — keeps the king safer."
 
-    # 4. SAME PIECE (same from_square), different destination
-    if (
-        played_piece.piece_type == best_piece.piece_type
-        and played_move.from_square == best_move.from_square
-    ):
-        played_to = chess.square_name(played_move.to_square)
-        piece_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
-        return (
-            f"{piece_name.capitalize()} to {played_to} — engine prefers "
-            f"{best_san}, a stronger square for that {piece_name}."
-        )
+    # ── Derived cases — require a concrete signal ──
+    # For every other case (check, same piece, different piece etc.),
+    # we need the WHY-derivation to find an actual reason. If none,
+    # return None and let the human coach handle it in the review tab.
 
-    # 5. Same piece TYPE but different physical piece (e.g., two
-    #    different pawns or two different knights) — describe neutrally.
-    if played_piece.piece_type == best_piece.piece_type:
-        piece_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
-        return (
-            f"Engine prefers {best_san} over {played_san} — different "
-            f"{piece_name}, different idea."
-        )
-
-    # 6. DIFFERENT piece type — different idea entirely
-    played_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
-    best_name = _PIECE_NAME.get(best_piece.piece_type, "piece")
-    return (
-        f"Engine prefers {best_san} — switches to a {best_name} move "
-        f"instead of the {played_name}."
+    why = _derive_engine_preference_why(
+        fen_before=fen_before,
+        played_san=played_san,
+        best_san=best_san,
+        pv_after_best=pv_after_best,
+        is_user_move=is_user_move,
     )
+    if not why:
+        return None
+
+    # Stitch the WHY fragment into a complete caption.
+    if best_is_check:
+        return f"Engine prefers {best_san} — a check that {why}."
+    return f"Engine prefers {best_san} — {why}."
 
 
 # ── Public API ───────────────────────────────────────────────────────
@@ -544,36 +751,40 @@ def caption_for_move(
     if severity in ("good", "best", "book") or severity is None:
         return detect_good_move(board_before, move_san, move_number, is_user_move)
 
-    # 5. Engine fallback for mistake/blunder when nothing specific matched.
-    #    Try the shape-aware interpreter first (capture / check / castle /
-    #    same-piece-different-square / different-piece-type) before
-    #    falling back to the generic "engine prefers X" line.
+    # 5. Engine prefers a different move. Two paths:
+    #    a) A concrete WHY derivable from position/PV → ship a substantive
+    #       caption with high confidence.
+    #    b) No concrete WHY → return None. The move shows uncaptioned
+    #       and the human coach can write proper text via the review tab.
+    #       Better than padding with "different idea" / "stronger square"
+    #       which sounds informative but teaches nothing.
     if severity in ("mistake", "blunder", "inaccuracy") and best_move_san:
         interp = _interpret_engine_preference(
             fen_before=fen_before,
             played_san=move_san,
             best_san=best_move_san,
+            pv_after_best=pv_after_best,
             is_user_move=is_user_move,
         )
         if interp:
-            # Distinct source labels make the audit see what's working
             if " wins the " in interp or "en passant" in interp:
                 label = "engine_better:capture"
-            elif "a check" in interp.lower():
-                label = "engine_better:check"
             elif "castling" in interp:
                 label = "engine_better:castle"
-            elif "stronger square for that" in interp:
-                label = "engine_better:same_piece"
-            elif "different idea" in interp:
-                label = "engine_better:same_type_diff_piece"
+            elif "saves your" in interp or "saves their" in interp:
+                label = "engine_better:evades_attack"
+            elif "attacks the" in interp or "attacks your" in interp:
+                label = "engine_better:attacks_material"
+            elif "defends your" in interp or "defends their" in interp:
+                label = "engine_better:defends_piece"
+            elif "sets up" in interp or "threatens" in interp:
+                label = "engine_better:pv_payoff"
             else:
-                label = "engine_better:different_piece"
-            return CaptionResult(interp, label, 0.6)
-        return CaptionResult(
-            f"The engine prefers {best_move_san} here.",
-            "engine_fallback",
-            0.5,
-        )
+                label = "engine_better:other"
+            return CaptionResult(interp, label, 0.85)
+        # No high-confidence WHY available — leave uncaptioned for review.
+        # Tag with a low-confidence source label so the audit can count
+        # how many flagged-for-review moves we have.
+        return CaptionResult("", "engine_review_needed", 0.2)
 
     return None
