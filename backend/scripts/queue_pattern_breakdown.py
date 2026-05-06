@@ -33,8 +33,14 @@ async def main() -> None:
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
 
+    # Pre-load overrides so we can mark moments as 'overridden'.
+    override_keys = set()
+    async for ov in db.coach_overrides.find({}, {"_id": 0, "game_id": 1, "move_number": 1, "move_san": 1}):
+        override_keys.add((ov.get("game_id"), ov.get("move_number"), ov.get("move_san")))
+
     source_counts = Counter()
-    flagged_count = 0
+    flagged_visible_count = 0     # needs_review AND no override (visible in /admin queue)
+    flagged_overridden_count = 0  # needs_review BUT overridden (hidden from queue)
     shipped_count = 0
     total = 0
     flagged_samples_by_source = defaultdict(list)
@@ -50,30 +56,39 @@ async def main() -> None:
             total += 1
             src = m.get("source") or "unknown"
             source_counts[src] += 1
+            mn = m.get("move_number")
+            ms = m.get("move_san")
+            has_override = (gid, mn, ms) in override_keys
             if m.get("needs_review"):
-                flagged_count += 1
-                if len(flagged_samples_by_source[src]) < 5:
-                    flagged_samples_by_source[src].append({
-                        "game_id": gid,
-                        "move": f"{m.get('move_number')} {m.get('move_san')}",
-                        "cp_loss": m.get("cp_loss"),
-                        "text": (m.get("text") or "")[:80],
-                    })
+                if has_override:
+                    flagged_overridden_count += 1
+                else:
+                    flagged_visible_count += 1
+                    if len(flagged_samples_by_source[src]) < 5:
+                        flagged_samples_by_source[src].append({
+                            "game_id": gid,
+                            "move": f"{mn} {ms}",
+                            "cp_loss": m.get("cp_loss"),
+                            "text": (m.get("text") or "")[:80],
+                        })
             else:
                 shipped_count += 1
                 if len(shipped_samples_by_source[src]) < 3:
                     shipped_samples_by_source[src].append({
                         "game_id": gid,
-                        "move": f"{m.get('move_number')} {m.get('move_san')}",
+                        "move": f"{mn} {ms}",
                         "text": (m.get("text") or "")[:80],
                     })
 
     print("=" * 78)
     print("QUEUE PATTERN BREAKDOWN")
     print("=" * 78)
-    print(f"  total moments:    {total}")
-    print(f"  shipped (✓):      {shipped_count}")
-    print(f"  flagged (⚠):      {flagged_count}")
+    flagged_total = flagged_visible_count + flagged_overridden_count
+    print(f"  total moments:                {total}")
+    print(f"  template-shipped (✓):         {shipped_count}")
+    print(f"  flagged-but-overridden (✓):   {flagged_overridden_count}    (hidden from /admin queue)")
+    print(f"  flagged-VISIBLE (⚠ review):   {flagged_visible_count}    (still in /admin queue)")
+    print(f"  flagged total (raw):          {flagged_total}")
     print()
     print("BY SOURCE (most common first):")
     for src, n in source_counts.most_common():
