@@ -47,16 +47,20 @@ def _adapt_stockfish_record(me: dict, user_color: str) -> dict:
     best_san = me.get("best_move_san") or me.get("best_move") or ""
     fen_before = me.get("fen_before") or ""
 
-    # Derive is_user_move from the side-to-move in fen_before vs user_color.
-    is_user_move = False
-    if fen_before:
-        try:
-            import chess
-            b = chess.Board(fen_before)
-            mover = "white" if b.turn else "black"
-            is_user_move = (mover == (user_color or "white"))
-        except Exception:
-            pass
+    # Prefer the record's own is_user_move if analysis_worker set it;
+    # fall back to FEN side-to-move parsing.
+    if "is_user_move" in me:
+        is_user_move = bool(me.get("is_user_move"))
+    else:
+        is_user_move = False
+        if fen_before:
+            try:
+                import chess
+                b = chess.Board(fen_before)
+                mover = "white" if b.turn else "black"
+                is_user_move = (mover == (user_color or "white"))
+            except Exception:
+                pass
 
     # severity = MoveClassification string already lower-case ("blunder",
     # "mistake", "inaccuracy", "good", "excellent", "best"); map
@@ -125,6 +129,14 @@ async def main(args) -> None:
         cursor = cursor.limit(args.limit)
     games_from_v5 = 0
     games_from_stockfish = 0
+    # Diagnostics for the opening_book fire rate
+    diag = {
+        "ob_attempts": 0,        # times caption_for_move was invoked with mn<=12
+        "ob_no_history": 0,      # invocations where history_san was empty
+        "ob_empty_san": 0,       # records skipped due to empty san
+        "ob_no_fen": 0,          # records skipped due to empty fen_before
+        "first_stockfish_dump": True,
+    }
 
     # Cache user_color per game.
     user_colors = {}
@@ -153,6 +165,17 @@ async def main(args) -> None:
             sf = (ga.get("stockfish_analysis") or {}).get("move_evaluations") or []
             if not sf:
                 continue
+            # Dump first stockfish game's first 3 raw records to surface
+            # whatever schema differences are killing opening_book fires.
+            if diag["first_stockfish_dump"]:
+                diag["first_stockfish_dump"] = False
+                print(f"[DIAG] First stockfish game: {gid}, user_color={user_color}", flush=True)
+                for i, raw in enumerate(sf[:3]):
+                    keys = sorted(raw.keys())
+                    print(f"[DIAG]  rec[{i}] keys: {keys}", flush=True)
+                    print(f"[DIAG]  rec[{i}] move={raw.get('move')!r} move_san={raw.get('move_san')!r} "
+                          f"is_user_move={raw.get('is_user_move')!r} mn={raw.get('move_number')!r} "
+                          f"fen_before={(raw.get('fen_before') or '')[:30]!r} eval={raw.get('evaluation')!r}", flush=True)
             v5 = [_adapt_stockfish_record(me, user_color) for me in sf]
             games_from_stockfish += 1
         moments_index = {}
@@ -164,6 +187,8 @@ async def main(args) -> None:
             san = rec.get("move_san")
             mn = rec.get("move_number")
             if not san or mn is None:
+                if not san:
+                    diag["ob_empty_san"] += 1
                 history_san.append(san or "")
                 continue
             is_user_move = bool(rec.get("is_user_move"))
@@ -191,6 +216,12 @@ async def main(args) -> None:
                 source = override.get("source", "decryption_block")
                 sample_text = override.get("text", "")
             else:
+                if mn <= 12:
+                    diag["ob_attempts"] += 1
+                    if not history_san:
+                        diag["ob_no_history"] += 1
+                if not fen_before:
+                    diag["ob_no_fen"] += 1
                 try:
                     result = caption_for_move(
                         fen_before=fen_before,
@@ -256,6 +287,12 @@ async def main(args) -> None:
     lines.append(f"    via V5 data:    {games_from_v5}")
     lines.append(f"    via stockfish:  {games_from_stockfish}")
     lines.append(f"  user moves total: {moves_processed}")
+    lines.append("")
+    lines.append("DIAGNOSTICS:")
+    lines.append(f"  opening_book attempts (mn<=12):  {diag['ob_attempts']}")
+    lines.append(f"  attempts with empty history:     {diag['ob_no_history']}")
+    lines.append(f"  records with empty fen_before:   {diag['ob_no_fen']}")
+    lines.append(f"  records with empty move_san:     {diag['ob_empty_san']}")
     lines.append("")
 
     # Coverage table
