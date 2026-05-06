@@ -670,6 +670,207 @@ def _detect_central_knight_redeployment(
     return f"Their knight redeploys to {sq_name}."
 
 
+def _detect_wing_pawn_expansion(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Pawn push on a flank file (a/b on queenside or g/h on kingside)
+    past the opening — typical pawn-storm or space-grab move. Distinct
+    from luft (which is a single 1-square h/g/a-file push toward the
+    castled king's flank); this fires on 2-square pushes or pushes
+    that aren't tied to king luft."""
+    if moving_piece.piece_type != chess.PAWN:
+        return None
+    if move_number < 8:
+        return None
+    if board_before.is_capture(move):
+        return None
+    user_color = moving_piece.color
+    to_file = chess.square_file(move.to_square)
+    to_rank = chess.square_rank(move.to_square)
+    from_rank = chess.square_rank(move.from_square)
+    from_file = chess.square_file(move.from_square)
+
+    # Wing files: a, b (queenside) or g, h (kingside)
+    if to_file not in (0, 1, 6, 7):
+        return None
+    if from_file != to_file:
+        return None  # not a straight push (would be a capture)
+
+    # Determine flank
+    flank = "queenside" if to_file in (0, 1) else "kingside"
+
+    # User pieces on the relevant flank? Quick proxy: count user heavy
+    # pieces (R, Q, K) on that side.
+    side_files = (0, 1, 2, 3) if flank == "queenside" else (4, 5, 6, 7)
+    own_heavy_on_side = sum(
+        1
+        for sq in chess.SQUARES
+        if (p := board_before.piece_at(sq))
+        and p.color == user_color
+        and p.piece_type in (chess.ROOK, chess.QUEEN, chess.KING)
+        and chess.square_file(sq) in side_files
+    )
+    if own_heavy_on_side == 0:
+        return None  # not really an attack/expansion
+
+    sq_name = chess.square_name(move.to_square)
+    framing = "kingside attack" if flank == "kingside" else "queenside expansion"
+    if is_user_move:
+        return f"Pawn to {sq_name} — {framing}. Gains space on the wing."
+    return f"They push {sq_name} — {framing}."
+
+
+def _detect_late_central_pawn(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Central pawn move past the opening that didn't fire pawn_break
+    or minority_attack — typically c4/d4/e4/f4 (or c5/d5/e5/f5 for
+    black) from rank 2 (or 7), claiming central space late."""
+    if moving_piece.piece_type != chess.PAWN:
+        return None
+    if move_number < 8:
+        return None  # opening handled by central_pawn_caption
+    if board_before.is_capture(move):
+        return None
+    user_color = moving_piece.color
+    to_file = chess.square_file(move.to_square)
+    to_rank = chess.square_rank(move.to_square)
+    if to_file not in (2, 3, 4, 5):  # c, d, e, f
+        return None
+    # Must land on rank 4 (white) or rank 5 (black) — i.e., centre ranks
+    expected_rank = 3 if user_color == chess.WHITE else 4
+    if to_rank != expected_rank:
+        return None
+
+    sq_name = chess.square_name(move.to_square)
+    if is_user_move:
+        return f"Pawn to {sq_name} — claims central space. Better late than never."
+    return f"They push to {sq_name}, claiming the centre."
+
+
+def _detect_defensive_pawn_shield(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """f-pawn push (f3/f6) with user's king on the kingside —
+    typically closes a diagonal toward the king or supports e-pawn."""
+    if moving_piece.piece_type != chess.PAWN:
+        return None
+    if move_number < 8:
+        return None
+    user_color = moving_piece.color
+    to_file = chess.square_file(move.to_square)
+    to_rank = chess.square_rank(move.to_square)
+    from_rank = chess.square_rank(move.from_square)
+    if to_file != 5:  # f-file only
+        return None
+    # Single-square push from starting rank
+    starting_rank = 1 if user_color == chess.WHITE else 6
+    expected_to = 2 if user_color == chess.WHITE else 5
+    if from_rank != starting_rank or to_rank != expected_to:
+        return None
+
+    # User's king on kingside?
+    king_sq = board_before.king(user_color)
+    if king_sq is None:
+        return None
+    if chess.square_file(king_sq) < 4:
+        return None
+
+    sq_name = chess.square_name(move.to_square)
+    if is_user_move:
+        return f"Pawn to {sq_name} — shores up the kingside. Closes the long diagonal."
+    return f"They play {sq_name}, shoring up their king."
+
+
+def _detect_bishop_activation(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Bishop moves past the development phase to an active diagonal —
+    common destinations: b4/c4/h5 (white) or b5/c5/h4 (black). Catches
+    bishop redeployments that weren't caught by good_development
+    (move > 14) or fianchetto."""
+    if moving_piece.piece_type != chess.BISHOP:
+        return None
+    if move_number <= 14:
+        return None
+    if board_before.is_capture(move):
+        return None
+    to_sq_name = chess.square_name(move.to_square)
+    user_color = moving_piece.color
+    active_squares_white = {"b4", "b5", "c4", "d3", "d5", "e3", "f4", "g5", "h4", "h5"}
+    active_squares_black = {"b4", "b5", "c5", "d4", "d6", "e6", "f5", "g4", "h4", "h5"}
+    target_set = active_squares_white if user_color == chess.WHITE else active_squares_black
+    if to_sq_name not in target_set:
+        return None
+
+    if is_user_move:
+        return f"Bishop to {to_sq_name} — activates on a fresh diagonal."
+    return f"Their bishop swings to {to_sq_name} — eyes a new diagonal."
+
+
+def _detect_middlegame_king_walk(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """King move past move 14 in middlegame (piece count > 14, so
+    endgame king_repositioning won't fire). Captures Kg2/Kg7 sidesteps
+    that aren't the strict prophylactic_king_tuck pattern."""
+    if moving_piece.piece_type != chess.KING:
+        return None
+    if move_number <= 14:
+        return None
+    piece_count = sum(1 for sq in chess.SQUARES if board_before.piece_at(sq))
+    if piece_count <= 14:
+        return None  # endgame — handled elsewhere
+    sq_name = chess.square_name(move.to_square)
+    if is_user_move:
+        return f"King to {sq_name} — sidesteps. Avoids checks and pins."
+    return f"They walk the king to {sq_name}."
+
+
+def _detect_piece_maneuver(
+    board_before: chess.Board,
+    move: chess.Move,
+    moving_piece: chess.Piece,
+    move_number: int,
+    is_user_move: bool,
+) -> Optional[str]:
+    """Last-resort fallback for minor piece moves past move 14 that
+    didn't match any other detector. Catches knight/bishop
+    repositioning that's reasonable but not specifically captured.
+    Frame neutrally as 'repositions'."""
+    if moving_piece.piece_type not in (chess.KNIGHT, chess.BISHOP):
+        return None
+    if move_number <= 14:
+        return None
+    if board_before.is_capture(move):
+        return None
+    sq_name = chess.square_name(move.to_square)
+    piece_name = _PIECE_NAME[moving_piece.piece_type]
+    if is_user_move:
+        return f"{piece_name.capitalize()} to {sq_name} — repositions."
+    return f"They reposition the {piece_name} to {sq_name}."
+
+
 def detect_middlegame_pattern(
     board_before: chess.Board,
     move: chess.Move,
@@ -742,5 +943,32 @@ def detect_middlegame_pattern(
     cap = _detect_opening_pawn_prep(board_before, move, moving_piece, move_number, is_user_move)
     if cap:
         return {"name": "pawn_prep", "caption": cap}
+
+    # Wave 3 — late-phase pawn moves and piece manoeuvres
+    cap = _detect_late_central_pawn(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "late_central_pawn", "caption": cap}
+
+    cap = _detect_defensive_pawn_shield(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "pawn_shield", "caption": cap}
+
+    cap = _detect_wing_pawn_expansion(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "wing_expansion", "caption": cap}
+
+    cap = _detect_bishop_activation(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "bishop_activation", "caption": cap}
+
+    cap = _detect_middlegame_king_walk(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "king_walk", "caption": cap}
+
+    # Last-resort fallback for minor pieces past move 14 — better than
+    # falling all the way through to good_generic.
+    cap = _detect_piece_maneuver(board_before, move, moving_piece, move_number, is_user_move)
+    if cap:
+        return {"name": "piece_maneuver", "caption": cap}
 
     return None

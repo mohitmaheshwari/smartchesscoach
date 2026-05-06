@@ -104,10 +104,15 @@ async def main(args) -> None:
             pv_played = rec.get("pv_after_played") or []
             fen_before = rec.get("fen_before") or ""
 
-            # Override path
+            # Reset per-iteration so a stale `result` from the previous
+            # move doesn't leak into the override-path sample text.
+            result = None
+            sample_text = ""
+
             override = moments_index.get((mn, san))
             if override and override.get("text"):
                 source = override.get("source", "decryption_block")
+                sample_text = override.get("text", "")
             else:
                 try:
                     result = caption_for_move(
@@ -125,6 +130,7 @@ async def main(args) -> None:
                 except Exception:
                     result = None
                 source = result.source if result else "silent"
+                sample_text = result.text if result else ""
 
             source_counts[source] += 1
             severity_x_source[severity][source] += 1
@@ -136,7 +142,7 @@ async def main(args) -> None:
                     "game_id": gid,
                     "move": f"M{mn} {san}",
                     "fen": fen_before,
-                    "text": (result.text if 'result' in locals() and result else override.get("text") if override else "")[:80],
+                    "text": (sample_text or "")[:80],
                 })
 
             # Hot-spot mining for good_generic — group by (piece-letter,
