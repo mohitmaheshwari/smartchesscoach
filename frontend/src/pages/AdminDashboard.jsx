@@ -1025,6 +1025,72 @@ const FeedbackTab = () => {
   const [exportJson, setExportJson] = useState(null);
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Per-row copy state — which feedback_id was just copied. The button
+  // formats one feedback as a markdown packet (FEN + diagnostics + user
+  // note) so the coach can paste it into a Claude Code chat to debug.
+  const [copiedFeedbackId, setCopiedFeedbackId] = useState(null);
+
+  const copySingleFeedback = async (fb) => {
+    const d = fb.diagnostics || {};
+    const lines = [
+      `# Feedback ${fb.feedback_id}`,
+      "",
+      "## Identification",
+      `- **Feedback ID**: \`${fb.feedback_id}\``,
+      `- **Source**: ${fb.source}`,
+      `- **Status**: ${fb.status}`,
+      `- **Created**: ${fb.created_at}`,
+      fb.game_id ? `- **Game ID**: \`${fb.game_id}\`` : null,
+      fb.session_id ? `- **Session ID**: \`${fb.session_id}\`` : null,
+      fb.move_number != null ? `- **Move**: #${fb.move_number}${fb.move_san ? ` ${fb.move_san}` : ""}` : null,
+      "",
+      "## User",
+      `- **Name**: ${fb.user_name || "—"}`,
+      `- **User ID**: \`${fb.user_id}\``,
+      fb.user_rating ? `- **Rating**: ${fb.user_rating}` : null,
+      "",
+      "## Position",
+      fb.fen ? `- **FEN**: \`${fb.fen}\`` : "- **FEN**: (not captured)",
+      "",
+      "## What was shown to the user",
+      fb.coaching_text ? `> ${fb.coaching_text}` : "_(no coaching text recorded)_",
+      "",
+      "## User's complaint",
+      `> ${fb.user_note || "(no note)"}`,
+      "",
+      "## Stockfish diagnostics",
+      d.severity ? `- **severity**: ${d.severity}` : null,
+      d.cp_loss != null ? `- **cp_loss**: ${d.cp_loss}` : null,
+      d.best_move ? `- **best_move**: \`${d.best_move}\`` : null,
+      d.eval_before != null ? `- **eval_before**: ${d.eval_before}` : null,
+      d.eval_after != null ? `- **eval_after**: ${d.eval_after}` : null,
+      d.phase ? `- **phase**: ${d.phase}` : null,
+      d.component ? `- **component**: ${d.component}` : null,
+      d.concept_id ? `- **concept_id**: ${d.concept_id}` : null,
+      "",
+      "## V5 plan fields (if any)",
+      d.goal ? `- **goal**: ${d.goal}` : null,
+      d.consequence ? `- **consequence**: ${d.consequence}` : null,
+      d.better_approach ? `- **better_approach**: ${d.better_approach}` : null,
+      d.your_plan_now ? `- **your_plan_now**: ${d.your_plan_now}` : null,
+      "",
+      "## Admin notes",
+      fb.admin_notes ? fb.admin_notes : "_(none)_",
+      "",
+      "---",
+      "",
+      "**Instructions for Claude**: Walk the position from the FEN. The user flagged this caption as wrong or incomplete. Identify what's actually happening tactically/positionally, then propose either (a) an override caption in humanized Indian English voice, or (b) a detector + template change if this is a recurring pattern.",
+    ].filter(Boolean);
+
+    const md = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopiedFeedbackId(fb.feedback_id);
+      setTimeout(() => setCopiedFeedbackId(null), 2000);
+    } catch (e) {
+      alert("Copy failed — clipboard permission denied?");
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -1228,6 +1294,24 @@ const FeedbackTab = () => {
                           <span>{fb.admin_notes}</span>
                         </div>
                       )}
+
+                      {/* Copy-for-Claude button — formats FEN + diagnostics
+                          + user complaint as a markdown packet ready to
+                          paste into a Claude Code chat for debugging. */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); copySingleFeedback(fb); }}
+                        className="text-[10.5px] uppercase tracking-[0.18em] inline-flex items-center gap-1.5 font-semibold transition-colors"
+                        style={{
+                          color: copiedFeedbackId === fb.feedback_id ? "#16a34a" : GOLD_TEXT,
+                        }}
+                        data-testid={`copy-feedback-${fb.feedback_id}`}
+                      >
+                        {copiedFeedbackId === fb.feedback_id ? (
+                          <><Check className="w-3 h-3" strokeWidth={2.4} /> Copied — paste into Claude</>
+                        ) : (
+                          <><Copy className="w-3 h-3" strokeWidth={2.4} /> Copy for Claude</>
+                        )}
+                      </button>
 
                       {/* Action buttons */}
                       <div className="flex items-center gap-2 pt-1">
