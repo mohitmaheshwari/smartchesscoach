@@ -1,27 +1,117 @@
 """
 Caption templates per chess concept.
 
+Voice goal: every caption reads like a coach speaking to a 1200-rated
+player, not like Stockfish output. Don't paste SAN tokens (Kxh7, Qh5+)
+into prose. Translate each move into a plain phrase ('you take with
+the king', 'their queen comes to h5 with check'). SAN is fine for the
+SAVING move (short, clear, the one move worth remembering) but not for
+narrating an opponent's forcing line.
+
 Each detector in services/chess_brain/detector_registry.py +
-advanced_detectors.py returns a DetectorResult with:
-  - pattern_type:  enum value (e.g., "hanging_piece", "missed_mate")
-  - details:       structured facts dict (varies per pattern)
-  - teaching_hook: pre-built short phrase
-
-This module turns those structured facts into short coaching captions
-in locked Indian English voice. No LLM. No hallucination — every word
-comes from the deterministic detector output or a template constant.
-
-Templates intentionally short (≤ 2 sentences) for the post-game
-"What would you play?" interactive cards. The board does the visual
-work; the caption confirms what just happened.
+advanced_detectors.py returns a DetectorResult with structured facts.
+This module turns those facts into short coaching captions in locked
+Indian English voice. No LLM. No hallucination. Every word comes from
+the deterministic detector output or a template constant.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
+
+import chess
 
 logger = logging.getLogger(__name__)
+
+
+_PIECE_NAME = {
+    chess.PAWN: "pawn",
+    chess.KNIGHT: "knight",
+    chess.BISHOP: "bishop",
+    chess.ROOK: "rook",
+    chess.QUEEN: "queen",
+    chess.KING: "king",
+}
+
+
+def _humanize_move(
+    board_before: chess.Board,
+    san: str,
+    user_color: chess.Color,
+) -> str:
+    """Render one SAN move as a short plain-English phrase from the
+    user's perspective. 'their queen comes to h5 with check', 'you
+    take with the king', etc. Falls back to the raw SAN if parsing
+    fails — caller can still ship something readable.
+    """
+    try:
+        m = board_before.parse_san(san)
+        moving = board_before.piece_at(m.from_square)
+        if not moving:
+            return san
+    except Exception:
+        return san
+
+    is_user = (moving.color == user_color)
+    side_poss = "your" if is_user else "their"
+    piece = _PIECE_NAME.get(moving.piece_type, "piece")
+    to_sq = chess.square_name(m.to_square)
+
+    # Detect check/mate after the move.
+    after = board_before.copy()
+    is_capture = board_before.is_capture(m)
+    captured_name = None
+    if is_capture:
+        if board_before.is_en_passant(m):
+            captured_name = "pawn"
+        else:
+            cap_p = board_before.piece_at(m.to_square)
+            if cap_p:
+                captured_name = _PIECE_NAME.get(cap_p.piece_type, "piece")
+    after.push(m)
+    if after.is_checkmate():
+        suffix = ", mate"
+    elif after.is_check():
+        suffix = " with check"
+    else:
+        suffix = ""
+
+    # King recapture phrasing — common in sacrifice lines, deserves the
+    # natural 'you take with the king' rendering.
+    if is_capture and moving.piece_type == chess.KING and is_user:
+        return f"you take with the king{suffix}"
+    if is_capture and moving.piece_type == chess.KING and not is_user:
+        return f"their king takes{suffix}"
+
+    if is_capture:
+        cap = captured_name or "piece"
+        return f"{side_poss} {piece} takes the {cap} on {to_sq}{suffix}"
+
+    return f"{side_poss} {piece} comes to {to_sq}{suffix}"
+
+
+def _humanize_chain(
+    fen_before: str,
+    chain_san: List[str],
+    user_color_name: str,
+) -> List[str]:
+    """Walk a SAN chain from fen_before, return one humanized phrase
+    per move. Skips entries that fail to parse."""
+    out: List[str] = []
+    user_color = chess.WHITE if (user_color_name or "").lower() == "white" else chess.BLACK
+    try:
+        board = chess.Board(fen_before)
+    except Exception:
+        return [s for s in chain_san]
+    for san in chain_san:
+        out.append(_humanize_move(board, san, user_color))
+        try:
+            m = board.parse_san(san)
+            board.push(m)
+        except Exception:
+            break
+    return out
 
 
 # ── Per-pattern template renderers ────────────────────────────────────
@@ -101,38 +191,59 @@ def _render_missed_back_rank(details: Dict) -> Optional[str]:
 
 
 def _render_combination(details: Dict) -> Optional[str]:
-    """Render the PV-walked combination chain. Variants by chain length
-    and by whether the climax was mate or a fork."""
+    """Render the PV-walked combination chain.
+
+    Voice rule: keep SAN for the moves the player should REMEMBER —
+    the missed move (chain[0]) and the climax move (chain[2]) — but
+    humanize the opp's forced reply in between (chain[1]) so it reads
+    like a coach explaining the line, not Stockfish PV.
+    """
     chain = details.get("chain") or []
     if not chain:
         return None
     climax_tactic = details.get("climax_tactic")
     climax_details = details.get("climax_details") or {}
     forced = details.get("forced_reply", False)
+    fen_before = details.get("fen_before")
+    user_color_name = details.get("user_color")
 
     # 1-ply combination (mate-in-1)
     if climax_tactic == "mate" and len(chain) == 1:
         return f"You missed mate in 1: {chain[0]} ends the game."
 
-    # 2-ply combination (best move + opp reply, climax is the opp reply
-    # i.e., walking into mate)
+    # 2+-ply mate sequence
     if climax_tactic == "mate" and len(chain) >= 2:
-        # 3-or-more ply mate
         if len(chain) >= 3:
-            return f"You missed a forced mate: {chain[0]} forces {chain[1]}, then {chain[2]} ends the game."
+            return f"You missed a forced mate: {chain[0]} forces the line, ending with {chain[2]}."
         return f"You missed a forced mate starting with {chain[0]}."
 
     # Fork at the climax (most common case — sacrificial forks etc.)
     if climax_tactic == "fork" and len(chain) >= 3:
         attacker = climax_details.get("attacker_piece", "piece")
-        attacker_sq = climax_details.get("attacker_square", "")
         targets = climax_details.get("targets") or []
         is_check = climax_details.get("is_check_fork", False)
         first = chain[0]
-        opp_reply = chain[1]
+        opp_reply_san = chain[1]
         climax_move = chain[2]
 
-        force_word = "must play" if forced else "play"
+        # Humanize opp's reply ('their king takes', 'they have to take').
+        opp_reply_phrase = opp_reply_san
+        if fen_before and user_color_name:
+            try:
+                humanized = _humanize_chain(fen_before, chain[:2], user_color_name)
+                if len(humanized) > 1:
+                    opp_reply_phrase = humanized[1]
+            except Exception:
+                pass
+
+        # If forced, lead with 'is forced to'; otherwise plain 'they'.
+        if forced:
+            mid = f"Their reply is forced — {opp_reply_phrase}."
+        else:
+            # Capitalize the humanized phrase to start a sentence.
+            cap = opp_reply_phrase[:1].upper() + opp_reply_phrase[1:]
+            mid = f"{cap}."
+
         if is_check and targets:
             target_piece = targets[0].get("piece", "piece")
             target_sq = targets[0].get("square", "")
@@ -147,7 +258,8 @@ def _render_combination(details: Dict) -> Optional[str]:
             tail = f"Then {climax_move} forks the {t1} and the {t2}."
         else:
             tail = f"Then {climax_move} wins material."
-        return f"You missed {first}. They {force_word} {opp_reply}. {tail}"
+
+        return f"You missed {first}. {mid} {tail}"
 
     return None
 
@@ -155,24 +267,49 @@ def _render_combination(details: Dict) -> Optional[str]:
 def _render_walked_into_attack(details: Dict) -> Optional[str]:
     """Opp's tactical sequence after user's wrong move (Greek Gift etc).
 
-    chain[0] is the user's wrong move. chain[1] is opp's threat reply.
-    chain[2..] is the rest of opp's winning line. Caption names the
-    threat in the head, then walks the line FROM chain[2] onward (no
-    duplication), then describes the climax against the user's pieces.
+    Voice rule: don't paste SAN tokens (Kxh7, Qh5+) into prose — these
+    read like Stockfish to a 1200 player. Translate each move into a
+    short plain phrase via _humanize_chain. SAN is kept ONLY for the
+    saving move (short, clear, the one move worth remembering).
+
+    Structure:
+      Sentence 1 — the threat: 'Their {piece} was coming to {square}.'
+      Sentence 2 — the forced trade(s): 'After [humanized line],'
+      Sentence 3 — the climax: 'their {piece} {forks/wins} your {x}.'
+      Sentence 4 — the defense: '{saving_move} prevents it.'
     """
     chain = details.get("chain") or []
+    fen_before = details.get("fen_before")  # may be missing
+    user_color_name = details.get("user_color")  # may be missing
     saving = details.get("saving_move")
     climax_tactic = details.get("climax_tactic")
     climax_details = details.get("climax_details") or {}
     if len(chain) < 2:
         return None
-    threat = chain[1]  # opp's first move — the threat
 
-    # Build the "what they win" tail. Targets in walked_into_attack are
-    # user's own pieces, so 'your X' is the right framing.
-    tail = ""
+    # Try to humanize the chain. If we don't have FEN/color, fall back
+    # to the SAN tokens (still readable, less natural).
+    humanized: List[str] = []
+    if fen_before and user_color_name:
+        try:
+            humanized = _humanize_chain(fen_before, chain, user_color_name)
+        except Exception:
+            humanized = []
+    if not humanized:
+        humanized = chain
+
+    # Sentence 1 — the threat (chain[1] is opp's first move).
+    threat_phrase = humanized[1] if len(humanized) > 1 else chain[1]
+    s1 = threat_phrase[:1].upper() + threat_phrase[1:] + "."
+
+    # Sentence 2 — the user's first forced response merged with what
+    # opp wins. We skip describing intermediate forcing moves (Qh5+
+    # Kg8 etc.) — for a 1200 player, the threat + climax is what
+    # matters; the middle ply is implicit in 'ends up'.
+    first_forced = humanized[2] if len(humanized) > 2 else ""
+    tail_clause = ""
     if climax_tactic == "mate":
-        tail = "the king is mated."
+        tail_clause = "their attack ends in mate"
     elif climax_tactic == "fork":
         attacker = climax_details.get("attacker_piece", "piece")
         targets = climax_details.get("targets") or []
@@ -180,38 +317,30 @@ def _render_walked_into_attack(details: Dict) -> Optional[str]:
             t0 = targets[0]
             piece = t0.get("piece", "piece")
             sq = t0.get("square", "")
-            tail = (
-                f"their {attacker} forks your king and your {piece} on {sq}."
-                if sq else f"their {attacker} forks your king and your {piece}."
+            tail_clause = (
+                f"their {attacker} ends up forking your king and your {piece} on {sq}"
+                if sq else f"their {attacker} ends up forking your king and your {piece}"
             )
         elif len(targets) >= 2:
             t1 = targets[0].get("piece", "piece")
             t2 = targets[1].get("piece", "piece")
-            tail = f"their {attacker} forks your {t1} and your {t2}."
+            tail_clause = f"their {attacker} ends up forking your {t1} and your {t2}"
 
-    head = f"{threat} was coming."
-    # Line starts from chain[2] (after the threat, what's the forced
-    # exchange leading to the climax). Skip if too short.
-    if len(chain) >= 4:
-        line_text = f"After {chain[2]} {chain[3]},"
-    elif len(chain) >= 3:
-        line_text = f"After {chain[2]},"
+    if first_forced and tail_clause:
+        # Capitalize the first forced response and join with 'and'
+        ff = first_forced[:1].upper() + first_forced[1:]
+        s2 = f"{ff}, and {tail_clause}."
+    elif tail_clause:
+        s2 = tail_clause[:1].upper() + tail_clause[1:] + "."
+    elif first_forced:
+        s2 = first_forced[:1].upper() + first_forced[1:] + ", and you lose material."
     else:
-        line_text = ""
+        s2 = "You lose material."
 
-    if line_text and tail:
-        body = f"{line_text} {tail}"
-    elif line_text:
-        body = f"{line_text} you lose material."
-    elif tail:
-        body = tail.capitalize()
-    else:
-        body = "You lose material."
-
-    out = f"{head} {body}"
+    out_parts = [s1, s2]
     if saving:
-        out = f"{out} {saving} prevents it."
-    return out
+        out_parts.append(f"{saving} prevents it.")
+    return " ".join(out_parts)
 
 
 def _render_missed_attack_on_high_value(details: Dict) -> Optional[str]:

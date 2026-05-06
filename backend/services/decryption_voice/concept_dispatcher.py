@@ -507,6 +507,8 @@ def _detect_combination_chain(
             "climax_tactic": "mate",
             "climax_details": {},
             "forced_reply": True,
+            "fen_before": board.fen(),
+            "user_color": user_color_name,
         }
 
     forced_reply = None
@@ -535,6 +537,10 @@ def _detect_combination_chain(
                     "climax_tactic": tactic["type"],
                     "climax_details": tactic["details"],
                     "forced_reply": forced_reply,
+                    # Passed through to the template for humanizing the
+                    # forced reply ('their king takes' vs 'Kxf7').
+                    "fen_before": board.fen(),
+                    "user_color": user_color_name,
                 }
 
     return None
@@ -599,6 +605,10 @@ def _detect_walked_into_attack(
                     "climax_details": tactic["details"],
                     "first_threat_san": chain_san[1] if len(chain_san) > 1 else None,
                     "saving_move": best_move_san,
+                    # Passed through to the template so it can humanize
+                    # the chain ('you take with the king' instead of 'Kxh7').
+                    "fen_before": board.fen(),
+                    "user_color": user_color_name,
                 }
 
     return None
