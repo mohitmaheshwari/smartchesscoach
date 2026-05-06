@@ -430,23 +430,30 @@ def _interpret_engine_preference(
         side = "kingside" if "O-O-O" not in best_san else "queenside"
         return f"Engine prefers castling {side} — keeps the king safer."
 
-    # 4. SAME PIECE, different destination square (positional preference)
-    if played_piece.piece_type == best_piece.piece_type:
+    # 4. SAME PIECE (same from_square), different destination
+    if (
+        played_piece.piece_type == best_piece.piece_type
+        and played_move.from_square == best_move.from_square
+    ):
         played_to = chess.square_name(played_move.to_square)
-        best_to = chess.square_name(best_move.to_square)
-        if played_to != best_to:
-            piece_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
-            return (
-                f"{piece_name.capitalize()} to {played_to} — engine prefers "
-                f"{best_san}, a stronger square for the same {piece_name}."
-            )
+        piece_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
+        return (
+            f"{piece_name.capitalize()} to {played_to} — engine prefers "
+            f"{best_san}, a stronger square for that {piece_name}."
+        )
 
-    # 5. DIFFERENT piece type — different idea entirely
+    # 5. Same piece TYPE but different physical piece (e.g., two
+    #    different pawns or two different knights) — describe neutrally.
+    if played_piece.piece_type == best_piece.piece_type:
+        piece_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
+        return (
+            f"Engine prefers {best_san} over {played_san} — different "
+            f"{piece_name}, different idea."
+        )
+
+    # 6. DIFFERENT piece type — different idea entirely
     played_name = _PIECE_NAME.get(played_piece.piece_type, "piece")
     best_name = _PIECE_NAME.get(best_piece.piece_type, "piece")
-    if played_name == best_name:
-        # Fallback when piece types match but our same-square branch missed
-        return f"Engine prefers {best_san} over {played_san}."
     return (
         f"Engine prefers {best_san} — switches to a {best_name} move "
         f"instead of the {played_name}."
@@ -550,12 +557,18 @@ def caption_for_move(
         )
         if interp:
             # Distinct source labels make the audit see what's working
-            label = "engine_better:capture" if " wins the " in interp or "en passant" in interp else (
-                "engine_better:check" if "check" in interp.lower() else (
-                "engine_better:castle" if "castling" in interp else (
-                "engine_better:same_piece" if "stronger square" in interp else
-                "engine_better:different_piece"
-            )))
+            if " wins the " in interp or "en passant" in interp:
+                label = "engine_better:capture"
+            elif "a check" in interp.lower():
+                label = "engine_better:check"
+            elif "castling" in interp:
+                label = "engine_better:castle"
+            elif "stronger square for that" in interp:
+                label = "engine_better:same_piece"
+            elif "different idea" in interp:
+                label = "engine_better:same_type_diff_piece"
+            else:
+                label = "engine_better:different_piece"
             return CaptionResult(interp, label, 0.6)
         return CaptionResult(
             f"The engine prefers {best_move_san} here.",
