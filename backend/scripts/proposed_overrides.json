@@ -106,6 +106,13 @@
   },
   {
     "game_id": "dd25a753-a241-493c-ac70-b2884e36e052",
+    "move_number": 10,
+    "move_san": "h5",
+    "override_text": "Nxg3 wins the bishop on g3. Your knight on e4 takes for free, then their h-pawn or f-pawn recaptures and gives them broken pawns near their king. h5 just weakens your own king.",
+    "coach_note": "Equal-piece capture (knight=3, bishop=3) where the value comes from doubling enemy pawns. missed_capture detector skipped this because captured_value == moving_value. Future refinement: bonus value when capturing piece is defended by king-side pawns (hxg3 or fxg3 doubles)."
+  },
+  {
+    "game_id": "dd25a753-a241-493c-ac70-b2884e36e052",
     "move_number": 20,
     "move_san": "Kb8",
     "override_text": "a6 attacks their queen on b5. They have to move the queen, and you keep your structure. Kb8 doesn't address the queen.",
