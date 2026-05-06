@@ -236,30 +236,39 @@ def _render_combination(details: Dict) -> Optional[str]:
             except Exception:
                 pass
 
-        # If forced, lead with 'is forced to'; otherwise plain 'they'.
+        # If the reply is strictly forced, state it as fact. Otherwise
+        # use 'If they...' framing — the engine's best reply isn't the
+        # only legal one and we shouldn't overstate it. Critical for
+        # honest coaching: a 1200 player who plays Bxf7+ might face Kf8
+        # or Ke7 instead, and the line becomes different.
         if forced:
             mid = f"Their reply is forced — {opp_reply_phrase}."
         else:
-            # Capitalize the humanized phrase to start a sentence.
-            cap = opp_reply_phrase[:1].upper() + opp_reply_phrase[1:]
-            mid = f"{cap}."
+            # 'their king takes' → 'if their king takes'
+            mid = f"If {opp_reply_phrase},"
 
         if is_check and targets:
             target_piece = targets[0].get("piece", "piece")
             target_sq = targets[0].get("square", "")
-            tail = (
-                f"Then {climax_move} forks the king and the {target_piece} on {target_sq}."
+            tail_core = (
+                f"{climax_move} forks the king and the {target_piece} on {target_sq}"
                 if target_sq else
-                f"Then {climax_move} forks the king and the {target_piece}."
+                f"{climax_move} forks the king and the {target_piece}"
             )
         elif len(targets) >= 2:
             t1 = targets[0].get("piece", "piece")
             t2 = targets[1].get("piece", "piece")
-            tail = f"Then {climax_move} forks the {t1} and the {t2}."
+            tail_core = f"{climax_move} forks the {t1} and the {t2}"
         else:
-            tail = f"Then {climax_move} wins material."
+            tail_core = f"{climax_move} wins material"
 
-        return f"You missed {first}. {mid} {tail}"
+        # Join mid + tail. If mid ends with comma (the 'If they take,'
+        # variant) the tail flows directly. Otherwise tail starts a new
+        # sentence with 'Then {climax}.'
+        if forced:
+            return f"You missed {first}. {mid} Then {tail_core}."
+        else:
+            return f"You missed {first}. {mid} {tail_core}."
 
     return None
 
