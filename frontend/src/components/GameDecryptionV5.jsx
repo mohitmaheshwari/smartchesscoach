@@ -204,8 +204,39 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         setError(data.error || "Decryption data not available");
         return;
       }
-      
-      setDecryptionData(data.decryption_data);
+
+      // Path B: fetch per-move deterministic captions from the new
+      // pipeline. We merge them into decryption_data, replacing the V5
+      // `narrative` field so the rest of the UI (which reads
+      // move.narrative) gets the deterministic caption automatically.
+      // Same principle as Option B (decryption_block override) but
+      // applied to EVERY move, not just critical moments.
+      let perMoveData = data.decryption_data;
+      try {
+        const pmRes = await fetch(`${API}/coach/decryption/per-move/${gameId}`, { credentials: "include" });
+        if (pmRes.ok) {
+          const pmJson = await pmRes.json();
+          const captionByKey = new Map();
+          for (const c of (pmJson.captions || [])) {
+            captionByKey.set(`${c.move_number}|${c.move_san}`, c);
+          }
+          perMoveData = data.decryption_data.map((m) => {
+            const cap = captionByKey.get(`${m.move_number}|${m.move_san}`);
+            if (cap && cap.text) {
+              return { ...m, narrative: cap.text, _caption_source: cap.source };
+            }
+            // Empty caption from per-move endpoint = honest 'no comment'.
+            // Drop the V5 narrative entirely (it's been suppressed).
+            if (cap && !cap.text) {
+              return { ...m, narrative: "", _caption_source: "silent" };
+            }
+            return m;
+          });
+        }
+      } catch (e) {
+        console.warn("Per-move caption fetch failed; falling back to V5 narrative:", e);
+      }
+      setDecryptionData(perMoveData);
 
       // Store habits report if available
       if (data.habits_report) {
