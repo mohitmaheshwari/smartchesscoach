@@ -17,8 +17,8 @@
     "game_id": "5adca621-3141-4f1e-9c97-87222e42893a",
     "move_number": 14,
     "move_san": "Bb4",
-    "override_text": "Bxh7+ was coming. Their bishop on e4 had a clear path to h7. After Bxh7+ Kxh7 Qh5+ Kg8, your queen on g5 falls to Qxg5. g6 blocks the diagonal and stops the sacrifice.",
-    "coach_note": "Greek Gift defense. Build walked_into_attack detector that walks pv_after_played for opp sacrifices on king-side squares."
+    "override_text": "Their bishop on e4 was aimed at h7, right next to your king. After they sacrifice with check, you take with the king and their queen swings to h5 with check. Their queen ends up winning your queen on g5. g6 blocks the diagonal and stops the whole thing.",
+    "coach_note": "Greek Gift defense. walked_into_attack detector exists but didn't fire here because pv_after_played in the V5 record is only one move long. Investigate why Stockfish output isn't preserving the multi-ply line."
   },
   {
     "game_id": "coach_df9abda8-645",
