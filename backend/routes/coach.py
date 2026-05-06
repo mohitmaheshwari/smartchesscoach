@@ -1024,6 +1024,145 @@ async def get_game_decryption_v5(
         return {"error": str(e), "decryption_data": None}
 
 
+@router.get("/decryption/per-move/{game_id}")
+async def get_per_move_captions(
+    game_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Path B: per-move deterministic captions.
+
+    For each move in the game's V5 data, run the new caption pipeline
+    (concept_dispatcher → opening_book → endgame_technique → good_move →
+    engine_fallback) and return one caption per move. Replaces the V5
+    narrative as the source of move-by-move analysis text.
+
+    Returns:
+        {
+          "captions": [
+            {"move_number": 1, "move_san": "e4", "is_user_move": true,
+             "text": "Pushes to e4, claiming central space.",
+             "source": "good_central_pawn"},
+            ...
+          ],
+          "total": 42,
+          "version": 1
+        }
+
+    Source labels:
+        template:<pattern>      — concept_dispatcher fired (e.g., template:missed_fork)
+        opening:<name>          — opening_book matched (e.g., opening:italian_game)
+        endgame:<name>          — endgame_technique fired (e.g., endgame:king_activation)
+        good_castle / good_capture / good_development / good_central_pawn /
+            good_defend / good_generic — good-move sub-detectors
+        engine_fallback         — last resort
+    """
+    global db
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id},
+        {
+            "_id": 0,
+            "game_id": 1,
+            "decryption_v5_data": 1,
+            "decryption_block": 1,
+            "user_id": 1,
+        },
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="game_analyses not found")
+
+    game = await db.games.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "user_color": 1},
+    )
+    user_color = (game or {}).get("user_color", "white")
+
+    v5 = analysis.get("decryption_v5_data") or []
+    if not v5:
+        return {"captions": [], "total": 0, "version": 1}
+
+    decryption_block = analysis.get("decryption_block") or {}
+    moments_index = {}
+    for m in (decryption_block.get("moments") or []):
+        key = (m.get("move_number"), m.get("move_san"))
+        moments_index[key] = m
+
+    # Walk V5 records in order, accumulating SAN history for opening
+    # recognition. Note: V5 has BOTH user and opp moves — both go into
+    # history.
+    from services.decryption_voice.per_move_caption import caption_for_move
+    history_san: List[str] = []
+    out_captions = []
+    for rec in v5:
+        san = rec.get("move_san")
+        mn = rec.get("move_number")
+        if not san or mn is None:
+            history_san.append(san or "")
+            continue
+
+        is_user_move = bool(rec.get("is_user_move"))
+        severity = rec.get("severity")
+        best_san = rec.get("best_move_san")
+        pv_best = rec.get("pv_after_best") or []
+        pv_played = rec.get("pv_after_played") or []
+        fen_before = rec.get("fen_before") or ""
+
+        # Override path: if decryption_block has this moment, use its
+        # text directly (coach-approved or template-shipped).
+        override = moments_index.get((mn, san))
+        if override and override.get("text"):
+            out_captions.append({
+                "move_number": mn,
+                "move_san": san,
+                "is_user_move": is_user_move,
+                "text": override["text"],
+                "source": override.get("source") or "decryption_block",
+            })
+            history_san.append(san)
+            continue
+
+        try:
+            result = caption_for_move(
+                fen_before=fen_before,
+                move_san=san,
+                move_number=mn,
+                severity=severity,
+                best_move_san=best_san,
+                pv_after_best=pv_best,
+                pv_after_played=pv_played,
+                user_color=user_color,
+                is_user_move=is_user_move,
+                move_history_san=list(history_san),
+            )
+        except Exception as e:
+            logger.warning(f"[per-move] caption_for_move failed for {game_id} M{mn} {san}: {e}")
+            result = None
+
+        if result:
+            out_captions.append({
+                "move_number": mn,
+                "move_san": san,
+                "is_user_move": is_user_move,
+                "text": result.text,
+                "source": result.source,
+            })
+        else:
+            # No caption generated — analysis page will show silent slot.
+            out_captions.append({
+                "move_number": mn,
+                "move_san": san,
+                "is_user_move": is_user_move,
+                "text": "",
+                "source": "silent",
+            })
+        history_san.append(san)
+
+    return {
+        "captions": out_captions,
+        "total": len(out_captions),
+        "version": 1,
+    }
+
+
 class ConceptAcknowledgmentRequest(BaseModel):
     concept_id: str
 
