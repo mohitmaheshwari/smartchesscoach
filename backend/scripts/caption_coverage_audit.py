@@ -39,6 +39,88 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
 
 
+def _build_v5_from_pgn_and_stockfish(pgn: str, stockfish_moves: list, user_color: str) -> list:
+    """Walk the full PGN to build a list of v5-shaped records covering
+    BOTH colours' moves. Stockfish's move_evaluations only stores the
+    user's own moves, so without this the opp moves are missing from
+    history_san and opening_book can never match.
+
+    For each ply:
+      - san, fen_before, move_number derived from python-chess walk
+      - is_user_move from ply parity vs user_color
+      - if it's a user move, attach severity/best_move/pv from the
+        matching stockfish record (matched by SAN + move_number)
+      - if it's an opp move, mark as severity="best" so it just
+        contributes to history_san without triggering caption logic
+    """
+    if not pgn:
+        return []
+    try:
+        import io
+        import chess
+        import chess.pgn
+        game = chess.pgn.read_game(io.StringIO(pgn))
+        if not game:
+            return []
+    except Exception:
+        return []
+
+    # Index user-move stockfish records by (move_number, move_san) for fast lookup
+    sf_index = {}
+    for me in stockfish_moves:
+        san = me.get("move_san") or me.get("move") or ""
+        mn = me.get("move_number")
+        if san and mn is not None:
+            sf_index[(mn, san)] = me
+
+    out = []
+    board = game.board()
+    ply = 0
+    for move in game.mainline_moves():
+        ply += 1
+        is_white_move = board.turn == chess.WHITE
+        san = board.san(move)
+        fen_before = board.fen()
+        full_move_number = (ply + 1) // 2  # ply 1,2 → mn 1; ply 3,4 → mn 2
+        is_user_move = (
+            (user_color == "white" and is_white_move)
+            or (user_color == "black" and not is_white_move)
+        )
+        rec = {
+            "move_number": full_move_number,
+            "move_san": san,
+            "is_user_move": is_user_move,
+            "fen_before": fen_before,
+        }
+        if is_user_move:
+            me = sf_index.get((full_move_number, san)) or {}
+            raw_eval = (me.get("evaluation") or "good").lower()
+            severity_map = {
+                "best": "best", "brilliant": "best", "excellent": "best",
+                "good": "good", "inaccuracy": "inaccuracy",
+                "mistake": "mistake", "blunder": "blunder",
+            }
+            rec["severity"] = severity_map.get(raw_eval, "good")
+            rec["best_move_san"] = me.get("best_move_san") or me.get("best_move") or ""
+            rec["pv_after_best"] = me.get("pv_after_best") or []
+            rec["pv_after_played"] = me.get("pv_after_played") or []
+        else:
+            rec["severity"] = "best"
+            rec["best_move_san"] = ""
+            rec["pv_after_best"] = []
+            rec["pv_after_played"] = []
+        # Phase
+        if full_move_number <= 12:
+            rec["phase"] = "opening"
+        elif full_move_number <= 30:
+            rec["phase"] = "middlegame"
+        else:
+            rec["phase"] = "endgame"
+        out.append(rec)
+        board.push(move)
+    return out
+
+
 def _adapt_stockfish_record(me: dict, user_color: str) -> dict:
     """Convert one stockfish_analysis.move_evaluations record to the
     V5-shaped record the audit pipeline expects. Field-name and
@@ -161,22 +243,21 @@ async def main(args) -> None:
         if v5:
             games_from_v5 += 1
         else:
-            # Fall back to stockfish_analysis.move_evaluations
+            # Fall back to stockfish_analysis.move_evaluations. CRITICAL:
+            # stockfish only stores the USER's moves, so we have to walk
+            # the PGN to recover the opp moves — otherwise history_san
+            # is half-empty and opening_book can never match.
             sf = (ga.get("stockfish_analysis") or {}).get("move_evaluations") or []
             if not sf:
                 continue
-            # Dump first stockfish game's first 3 raw records to surface
-            # whatever schema differences are killing opening_book fires.
-            if diag["first_stockfish_dump"]:
-                diag["first_stockfish_dump"] = False
-                print(f"[DIAG] First stockfish game: {gid}, user_color={user_color}", flush=True)
-                for i, raw in enumerate(sf[:3]):
-                    keys = sorted(raw.keys())
-                    print(f"[DIAG]  rec[{i}] keys: {keys}", flush=True)
-                    print(f"[DIAG]  rec[{i}] move={raw.get('move')!r} move_san={raw.get('move_san')!r} "
-                          f"is_user_move={raw.get('is_user_move')!r} mn={raw.get('move_number')!r} "
-                          f"fen_before={(raw.get('fen_before') or '')[:30]!r} eval={raw.get('evaluation')!r}", flush=True)
-            v5 = [_adapt_stockfish_record(me, user_color) for me in sf]
+            # Need PGN to interleave opp moves
+            game_doc = await db.games.find_one({"game_id": gid}, {"_id": 0, "pgn": 1})
+            pgn = (game_doc or {}).get("pgn") or ""
+            v5 = _build_v5_from_pgn_and_stockfish(pgn, sf, user_color)
+            if not v5:
+                # No PGN — fall back to user-only adapter (history will be
+                # incomplete but at least we get something).
+                v5 = [_adapt_stockfish_record(me, user_color) for me in sf]
             games_from_stockfish += 1
         moments_index = {}
         for m in ((ga.get("decryption_block") or {}).get("moments") or []):
