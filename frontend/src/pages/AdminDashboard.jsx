@@ -1482,6 +1482,43 @@ function DecryptionReviewDetail({
   row, overrideText, setOverrideText, coachNote, setCoachNote,
   saving, savedFlash, onSave, onBack,
 }) {
+  // Claude analysis state — dev-time pattern proposal. Output is shown
+  // to the coach for review; never reaches the player surface.
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [analyzeError, setAnalyzeError] = useState(null);
+
+  const onAnalyze = async () => {
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await fetch(`${API}/admin/decryption-review/analyze`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          game_id: row.game_id,
+          move_number: row.move_number,
+          move_san: row.move_san,
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 200)}`);
+      }
+      const data = await res.json();
+      setAnalysis(data);
+    } catch (e) {
+      console.error("analyze failed", e);
+      setAnalyzeError(e.message || String(e));
+    }
+    setAnalyzing(false);
+  };
+
+  const useProposedCaption = () => {
+    const cap = analysis?.proposal?.proposed_caption;
+    if (cap) setOverrideText(cap);
+  };
   const bd = row.confidence_breakdown || {};
   // Side to move in fen_before == the user's color (the moment is their
   // about-to-move position). Translates to who is on the move.
@@ -1613,6 +1650,110 @@ function DecryptionReviewDetail({
         >
           {row.text || "—"}
         </div>
+      </div>
+
+      {/* Analyze with Claude — dev-time pattern proposal. Output is for
+          the coach to review; never reaches the player surface directly. */}
+      <div className="space-y-2 border rounded p-3" style={{ borderColor: BORDER }}>
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            Analyze with Claude
+            <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/60">
+              dev tool · output stays on this page
+            </span>
+          </div>
+          <button
+            onClick={onAnalyze}
+            disabled={analyzing}
+            className="px-3 py-1 text-xs rounded font-medium disabled:opacity-50"
+            style={{ background: GOLD_BG, color: GOLD_TEXT, border: `1px solid ${BORDER}` }}
+            data-testid="analyze-with-claude"
+          >
+            {analyzing ? "Analyzing..." : (analysis ? "Re-analyze" : "Analyze")}
+          </button>
+        </div>
+
+        {analyzeError && (
+          <div className="text-xs text-rose-600 dark:text-rose-400 break-all">
+            {analyzeError}
+          </div>
+        )}
+
+        {analysis?.proposal && (
+          <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-x-3 gap-y-1.5">
+              <span className="text-xs text-muted-foreground">Pattern</span>
+              <span className="font-mono text-xs">
+                {analysis.proposal.pattern_name}
+                {analysis.proposal.pattern_category && (
+                  <span className="text-muted-foreground/70">
+                    {" "}· {analysis.proposal.pattern_category}
+                  </span>
+                )}
+                {analysis.proposal.is_templatable === false && (
+                  <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-600">
+                    not templatable
+                  </span>
+                )}
+              </span>
+
+              <span className="text-xs text-muted-foreground">Summary</span>
+              <span>{analysis.proposal.pattern_summary}</span>
+
+              {analysis.proposal.threat_explanation && (
+                <>
+                  <span className="text-xs text-muted-foreground">Threat</span>
+                  <span>{analysis.proposal.threat_explanation}</span>
+                </>
+              )}
+
+              {analysis.proposal.missed_idea && (
+                <>
+                  <span className="text-xs text-muted-foreground">Missed idea</span>
+                  <span>{analysis.proposal.missed_idea}</span>
+                </>
+              )}
+
+              {analysis.proposal.proposed_caption && (
+                <>
+                  <span className="text-xs text-muted-foreground">Caption</span>
+                  <div className="space-y-1">
+                    <div
+                      className="p-2 rounded text-sm"
+                      style={{ background: GOLD_BG, color: GOLD_TEXT }}
+                    >
+                      {analysis.proposal.proposed_caption}
+                    </div>
+                    <button
+                      onClick={useProposedCaption}
+                      className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground font-semibold"
+                    >
+                      ↓ Use as override
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {analysis.proposal.detector_logic && (
+                <>
+                  <span className="text-xs text-muted-foreground">Detector</span>
+                  <pre className="text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-words p-2 rounded border" style={{ borderColor: BORDER }}>
+                    {analysis.proposal.detector_logic}
+                  </pre>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {analysis && !analysis.proposal && (
+          <div className="text-xs text-muted-foreground">
+            Couldn't parse Claude's response — raw text below.
+            <pre className="mt-1 text-[11px] whitespace-pre-wrap break-words">
+              {analysis.raw_text}
+            </pre>
+          </div>
+        )}
       </div>
 
       {/* Override */}

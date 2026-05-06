@@ -1054,3 +1054,251 @@ async def admin_list_decryption_overrides(
         rows.append(ov)
     total = await db.coach_overrides.count_documents({})
     return {"items": rows, "total": total}
+
+
+# ==================== ANALYZE WITH CLAUDE (DEV-TIME) ====================
+# When the coach reviews a flagged moment and clicks "Analyze with Claude",
+# we send the position + best_move + PVs + cp_loss to Claude (Anthropic
+# API) and get back: pattern name, threat explanation, missed idea,
+# detector pseudocode, and a proposed caption. The output is shown to
+# the coach for review — it never reaches the player surface directly.
+#
+# This is offline LLM use (dev tool). The runtime path is still 100%
+# deterministic templates + engine fallback.
+
+class AnalyzeMomentRequest(BaseModel):
+    game_id: str
+    move_number: int
+    move_san: str
+
+
+_ANALYZE_PROMPT = """You are a chess coaching pattern analyst. You look at ONE position where a player made a wrong move and propose a deterministic detector + caption template.
+
+Position (FEN): {fen}
+Player to move (the side that moved wrongly): {user_color}
+Player played: {played_san}  (cp_loss = {cp_loss}, severity = {severity})
+Engine's best move: {best_san}
+Engine line if best had been played (SAN sequence): {pv_after_best}
+Engine line that follows the played move (SAN sequence): {pv_after_played}
+{opening_context}{override_context}
+Analyze the position. What chess pattern is at play? What does the engine's best move accomplish that the player's move missed? Walk through the threat / opportunity geometrically.
+
+Output a JSON object (and ONLY the JSON, no markdown fence) with these keys:
+
+{{
+  "pattern_name": "snake_case label, e.g., greek_gift_defense, missed_pin, walked_into_check, missed_capture, rook_lift, removal_of_guard",
+  "pattern_category": "tactical | positional | endgame | defensive | development",
+  "pattern_summary": "ONE sentence: why best move is best, in plain English",
+  "threat_explanation": "what opponent threatens after the WRONG move, naming squares and pieces from the FEN. Empty string if not a threat-driven mistake.",
+  "missed_idea": "what the BEST move accomplishes geometrically",
+  "detector_logic": "step-by-step deterministic criteria using python-chess primitives (board.attackers, board.attacks, board.is_check, piece.piece_type, square_file/rank, etc.). The function should take (board, user_move_san, best_move_san, pv_after_best, pv_after_played) and return either None or a dict of facts.",
+  "proposed_caption": "1-2 sentence Indian English caption. Short SVO sentences, no idioms, no engine-speak. Names pieces and squares ONLY from the FEN/PVs. Match this style: 'Bxh7+ was coming. After Kxh7 Qh5+, you lose the queen on g5. g6 blocks the diagonal.'",
+  "is_templatable": true | false
+}}
+
+CRITICAL rules:
+1. Only name pieces and squares present in the FEN. Do NOT invent moves that aren't in the PVs.
+2. The caption must follow Easy Indian English voice: short subject-verb-object sentences, plain words, no American idioms (don't use 'dies on the board', 'walked away', 'in trouble').
+3. The detector must be expressible as deterministic python-chess geometry — never 'the LLM thinks' or 'roughly when'.
+4. If the pattern is purely positional and not deterministically pattern-detectable (e.g., 'engine prefers a more active square'), set is_templatable = false and proposed_caption = "" — that case stays in coach review.
+5. Prefer reusing existing pattern names if applicable: missed_fork, missed_pin, missed_skewer, missed_back_rank, missed_discovery, missed_overload, missed_removal, hanging_piece, trapped_piece, walked_into_fork, walked_into_pin, walked_into_capture, walked_into_mate, pawn_race, combination, opposition, outside_passed_pawn.
+
+Output ONLY the JSON object. No prose before or after."""
+
+
+def _format_pv_as_san(fen_before: str, played_san: str, pv_uci: List[str], played_first: bool, max_ply: int = 6) -> str:
+    """Convert a UCI PV list to a SAN string starting from fen_before.
+    If played_first, apply the played move first; otherwise apply
+    best_move (caller must adjust). For our purposes we always pass
+    pv_after_played with played_first=True, and pv_after_best with
+    played_first=False (and best_move applied separately by caller)."""
+    try:
+        import chess
+        board = chess.Board(fen_before)
+        sans: List[str] = []
+        if played_first:
+            try:
+                m = board.parse_san(played_san)
+                board.push(m)
+                sans.append(played_san)
+            except Exception:
+                return ""
+        for uci in (pv_uci or [])[:max_ply]:
+            try:
+                mv = chess.Move.from_uci(uci)
+                if mv not in board.legal_moves:
+                    break
+                sans.append(board.san(mv))
+                board.push(mv)
+            except Exception:
+                break
+        return " ".join(sans)
+    except Exception:
+        return ""
+
+
+@router.post("/admin/decryption-review/analyze")
+async def admin_analyze_moment(
+    req: AnalyzeMomentRequest,
+    user: User = Depends(require_admin),
+):
+    """Send one flagged moment to Claude for pattern analysis. Returns
+    a structured proposal (pattern + caption + detector logic) for the
+    coach to review. Output never reaches the player surface directly —
+    the coach approves and we ship the detector through normal git."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="ANTHROPIC_API_KEY not set on the backend. Add it to .env and restart.",
+        )
+
+    # Pull the moment + V5 record
+    analysis = await db.game_analyses.find_one(
+        {"game_id": req.game_id},
+        {"_id": 0, "user_id": 1, "decryption_block": 1, "decryption_v5_data": 1},
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="game_analyses not found")
+    moments = ((analysis.get("decryption_block") or {}).get("moments") or [])
+    moment = next(
+        (m for m in moments
+         if m.get("move_number") == req.move_number and m.get("move_san") == req.move_san),
+        None,
+    )
+    if not moment:
+        raise HTTPException(status_code=404, detail="moment not found")
+
+    v5 = next(
+        (m for m in (analysis.get("decryption_v5_data") or [])
+         if m.get("is_user_move")
+         and m.get("move_number") == req.move_number
+         and m.get("move_san") == req.move_san),
+        None,
+    )
+
+    fen = moment.get("fen_before") or ""
+    user_color = "white" if (fen.split(" ") or [""])[1] == "w" else "black"
+    best_san = (v5 or {}).get("best_move_san") or next(
+        (c.get("san") for c in (moment.get("candidates") or []) if c.get("isCorrect")),
+        "",
+    )
+    pv_after_best_uci = (v5 or {}).get("pv_after_best") or []
+    pv_after_played_uci = (v5 or {}).get("pv_after_played") or []
+
+    # Build SAN sequences for prompt readability.
+    pv_after_best_san = _format_pv_as_san(
+        fen, best_san, pv_after_best_uci, played_first=True,
+    ) if best_san else ""
+    pv_after_played_san = _format_pv_as_san(
+        fen, req.move_san, pv_after_played_uci, played_first=True,
+    )
+
+    # Optional context (opening, existing override).
+    game = await db.games.find_one({"game_id": req.game_id}, {"_id": 0, "opening": 1})
+    opening_line = ""
+    if game and game.get("opening"):
+        opening_line = f"Opening context: {game['opening']}\n"
+
+    override = await db.coach_overrides.find_one(
+        {
+            "game_id": req.game_id,
+            "move_number": req.move_number,
+            "move_san": req.move_san,
+        },
+        {"_id": 0, "override_text": 1, "coach_note": 1},
+    )
+    override_line = ""
+    if override:
+        override_line = (
+            f"Existing coach override (refine, don't replace):\n"
+            f"  text: {override.get('override_text', '')}\n"
+            f"  note: {override.get('coach_note') or '—'}\n"
+        )
+
+    prompt = _ANALYZE_PROMPT.format(
+        fen=fen,
+        user_color=user_color,
+        played_san=req.move_san,
+        cp_loss=moment.get("cp_loss"),
+        severity=moment.get("severity") or "—",
+        best_san=best_san or "—",
+        pv_after_best=pv_after_best_san or "(no PV available)",
+        pv_after_played=pv_after_played_san or "(no PV available)",
+        opening_context=opening_line,
+        override_context=override_line,
+    )
+
+    # Call Claude API directly via httpx (anthropic SDK not installed;
+    # this endpoint avoids adding a dependency).
+    import httpx
+    import json as json_lib
+
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    payload = {
+        # Opus 4.7 chosen for quality on chess pattern reasoning. Volume
+        # is low (only when coach clicks Analyze) so cost is bounded.
+        "model": "claude-opus-4-7",
+        "max_tokens": 1024,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=payload,
+            )
+        if resp.status_code != 200:
+            logger.warning(f"[analyze] Claude API error {resp.status_code}: {resp.text[:300]}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"Claude API returned {resp.status_code}",
+            )
+        data = resp.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Claude API timed out")
+    except Exception as e:
+        logger.warning(f"[analyze] Claude call failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Claude call failed: {e}")
+
+    # Extract text and parse the JSON response.
+    text = ""
+    for block in (data.get("content") or []):
+        if block.get("type") == "text":
+            text += block.get("text", "")
+    text = (text or "").strip()
+    # Sometimes Claude wraps JSON in fences despite the prompt.
+    if text.startswith("```"):
+        text = text.split("```", 2)[1]
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip().rstrip("`").strip()
+
+    parsed = None
+    try:
+        parsed = json_lib.loads(text)
+    except Exception as e:
+        logger.warning(f"[analyze] failed to parse Claude JSON: {e} | raw={text[:300]}")
+
+    return {
+        "ok": True,
+        "model": payload["model"],
+        "raw_text": text,
+        "proposal": parsed,
+        "input": {
+            "fen": fen,
+            "user_color": user_color,
+            "played_san": req.move_san,
+            "best_san": best_san,
+            "pv_after_best": pv_after_best_san,
+            "pv_after_played": pv_after_played_san,
+            "cp_loss": moment.get("cp_loss"),
+            "severity": moment.get("severity"),
+        },
+    }
