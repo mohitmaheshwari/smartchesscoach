@@ -376,19 +376,35 @@ async def main(args) -> None:
     lines.append(f"  records with empty move_san:     {diag['ob_empty_san']}")
     lines.append("")
 
-    # Coverage table
+    # Coverage table. Three exclusion categories:
+    #   - good_generic / engine_fallback / silent: detector gap (need work)
+    #   - engine_review_needed: deliberately empty, flagged for human coach
+    #     in the review tab. Counts as "needs review" not "covered".
     lines.append("COVERAGE BY SOURCE (most common first):")
     total = sum(source_counts.values()) or 1
     deterministic_count = 0
+    review_count = 0
+    EXCLUDED_FROM_DETERMINISTIC = {
+        "engine_fallback", "silent", "good_generic", "engine_review_needed",
+    }
     for src, n in source_counts.most_common():
         pct = 100.0 * n / total
-        marker = " ← needs work" if src in ("engine_fallback", "silent", "good_generic") else ""
+        if src in ("engine_fallback", "silent", "good_generic"):
+            marker = " ← needs work"
+        elif src == "engine_review_needed":
+            marker = " ← review tab"
+        else:
+            marker = ""
         lines.append(f"  {n:6d}  {pct:5.1f}%  {src}{marker}")
-        if src not in ("engine_fallback", "silent", "good_generic"):
+        if src not in EXCLUDED_FROM_DETERMINISTIC:
             deterministic_count += n
+        if src == "engine_review_needed":
+            review_count = n
     det_pct = 100.0 * deterministic_count / total
+    review_pct = 100.0 * review_count / total
     lines.append("")
-    lines.append(f"  DETERMINISTIC COVERAGE: {deterministic_count}/{total}  ({det_pct:.1f}%)")
+    lines.append(f"  SUBSTANTIVE COVERAGE:    {deterministic_count}/{total}  ({det_pct:.1f}%)")
+    lines.append(f"  FOR HUMAN COACH REVIEW:  {review_count}/{total}  ({review_pct:.1f}%)")
     lines.append("")
 
     # Severity x source
