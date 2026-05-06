@@ -39,6 +39,62 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
 
 
+def _adapt_stockfish_record(me: dict, user_color: str) -> dict:
+    """Convert one stockfish_analysis.move_evaluations record to the
+    V5-shaped record the audit pipeline expects. Field-name and
+    semantic adaptation only — no inference beyond what's stored."""
+    san = me.get("move_san") or me.get("move") or ""
+    best_san = me.get("best_move_san") or me.get("best_move") or ""
+    fen_before = me.get("fen_before") or ""
+
+    # Derive is_user_move from the side-to-move in fen_before vs user_color.
+    is_user_move = False
+    if fen_before:
+        try:
+            import chess
+            b = chess.Board(fen_before)
+            mover = "white" if b.turn else "black"
+            is_user_move = (mover == (user_color or "white"))
+        except Exception:
+            pass
+
+    # severity = MoveClassification string already lower-case ("blunder",
+    # "mistake", "inaccuracy", "good", "excellent", "best"); map
+    # excellent/best → "best", good → "good".
+    raw_eval = (me.get("evaluation") or "good").lower()
+    severity_map = {
+        "best": "best",
+        "brilliant": "best",
+        "excellent": "best",
+        "good": "good",
+        "inaccuracy": "inaccuracy",
+        "mistake": "mistake",
+        "blunder": "blunder",
+    }
+    severity = severity_map.get(raw_eval, "good")
+
+    # Phase: opening ≤12, middlegame 13-30, endgame 31+
+    mn = me.get("move_number") or 0
+    if mn <= 12:
+        phase = "opening"
+    elif mn <= 30:
+        phase = "middlegame"
+    else:
+        phase = "endgame"
+
+    return {
+        "move_number": mn,
+        "move_san": san,
+        "is_user_move": is_user_move,
+        "severity": severity,
+        "phase": phase,
+        "best_move_san": best_san,
+        "pv_after_best": me.get("pv_after_best") or [],
+        "pv_after_played": me.get("pv_after_played") or [],
+        "fen_before": fen_before,
+    }
+
+
 async def main(args) -> None:
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
@@ -46,17 +102,29 @@ async def main(args) -> None:
     # Lazy import so the script can be run from a clean checkout
     from services.decryption_voice.per_move_caption import caption_for_move
 
+    # Cover EVERY analyzed game: prefer decryption_v5_data when present,
+    # else fall back to stockfish_analysis.move_evaluations. The latter
+    # exists for the full analyzed corpus (~2985 games); V5 ran on a
+    # subset only.
     cursor = db.game_analyses.find(
-        {"decryption_v5_data": {"$exists": True, "$ne": []}},
+        {
+            "$or": [
+                {"decryption_v5_data": {"$exists": True, "$ne": []}},
+                {"stockfish_analysis.move_evaluations": {"$exists": True, "$ne": []}},
+            ]
+        },
         {
             "_id": 0,
             "game_id": 1,
             "decryption_v5_data": 1,
             "decryption_block": 1,
+            "stockfish_analysis.move_evaluations": 1,
         },
     )
     if args.limit and args.limit > 0:
         cursor = cursor.limit(args.limit)
+    games_from_v5 = 0
+    games_from_stockfish = 0
 
     # Cache user_color per game.
     user_colors = {}
@@ -78,6 +146,15 @@ async def main(args) -> None:
         user_color = user_colors[gid]
 
         v5 = ga.get("decryption_v5_data") or []
+        if v5:
+            games_from_v5 += 1
+        else:
+            # Fall back to stockfish_analysis.move_evaluations
+            sf = (ga.get("stockfish_analysis") or {}).get("move_evaluations") or []
+            if not sf:
+                continue
+            v5 = [_adapt_stockfish_record(me, user_color) for me in sf]
+            games_from_stockfish += 1
         moments_index = {}
         for m in ((ga.get("decryption_block") or {}).get("moments") or []):
             moments_index[(m.get("move_number"), m.get("move_san"))] = m
@@ -176,6 +253,8 @@ async def main(args) -> None:
     lines.append("CAPTION COVERAGE AUDIT")
     lines.append("=" * 78)
     lines.append(f"  games processed:  {games_processed}")
+    lines.append(f"    via V5 data:    {games_from_v5}")
+    lines.append(f"    via stockfish:  {games_from_stockfish}")
     lines.append(f"  user moves total: {moves_processed}")
     lines.append("")
 
