@@ -540,6 +540,170 @@ def _detect_combination_chain(
     return None
 
 
+# ── Local detectors — MISSED_CHECK / MISSED_CASTLE / MISSED_CAPTURE ──
+# Three patterns that surfaced repeatedly in the May 2026 review queue.
+# All are "best move was X but user played Y" — high signal because
+# the engine's recommendation has a single clean property (is a check /
+# is castling / is a winning capture) we can verify deterministically.
+
+def _detect_missed_check(
+    board: chess.Board,
+    user_move_san: str,
+    best_move_san: Optional[str],
+) -> Optional[Dict]:
+    """Best move is a check; user played a non-check. Caption names the
+    checking piece, square, and (when present) what else it attacks."""
+    if not best_move_san or not user_move_san:
+        return None
+    bs = best_move_san.replace("!", "").replace("?", "")
+    us = user_move_san.replace("!", "").replace("?", "")
+    if not (bs.endswith("+") or bs.endswith("#")):
+        return None
+    if us.endswith("+") or us.endswith("#"):
+        return None  # user already gave check too — different scenario
+
+    try:
+        b = board.copy()
+        m = b.parse_san(best_move_san)
+        moving_piece = b.piece_at(m.from_square)
+        if not moving_piece:
+            return None
+        b.push(m)
+    except Exception:
+        return None
+
+    user_color = moving_piece.color
+    moved_to = m.to_square
+    attacker_value = _PIECE_VALUE.get(moving_piece.piece_type, 0)
+
+    # What enemy non-king piece does the checking piece also hit?
+    side_attacks = []
+    for sq in b.attacks(moved_to):
+        p = b.piece_at(sq)
+        if not p or p.color == user_color or p.piece_type == chess.KING:
+            continue
+        defenders = b.attackers(not user_color, sq)
+        target_value = _PIECE_VALUE.get(p.piece_type, 0)
+        if not defenders or target_value > attacker_value:
+            side_attacks.append({
+                "piece": _PIECE_NAME.get(p.piece_type, "piece"),
+                "square": chess.square_name(sq),
+                "value": target_value,
+            })
+    side_attacks.sort(key=lambda t: -t["value"])
+
+    return {
+        "best_move": best_move_san,
+        "checking_piece": _PIECE_NAME.get(moving_piece.piece_type, "piece"),
+        "checking_square": chess.square_name(moved_to),
+        "side_attacks": side_attacks,
+    }
+
+
+def _detect_missed_castle(
+    board: chess.Board,
+    user_move_san: str,
+    best_move_san: Optional[str],
+) -> Optional[Dict]:
+    """Best move is castling; user played a different move."""
+    if not best_move_san or not user_move_san:
+        return None
+    bs = best_move_san.replace("+", "").replace("#", "")
+    us = user_move_san.replace("+", "").replace("#", "")
+    if bs not in ("O-O", "O-O-O"):
+        return None
+    if us in ("O-O", "O-O-O"):
+        return None
+    return {
+        "best_move": best_move_san,
+        "side": "kingside" if bs == "O-O" else "queenside",
+    }
+
+
+def _detect_missed_capture(
+    board: chess.Board,
+    user_move_san: str,
+    best_move_san: Optional[str],
+) -> Optional[Dict]:
+    """Best move is a capture that wins material; user played different.
+
+    Two-tier: 'free' (no enemy defender of the destination) or 'winning
+    trade' (captured piece worth more than the capturing piece, even if
+    recaptured). Skips equal-or-losing trades."""
+    if not best_move_san or not user_move_san:
+        return None
+    if "x" not in best_move_san:
+        return None
+    if best_move_san == user_move_san:
+        return None
+
+    try:
+        b = board.copy()
+        m = b.parse_san(best_move_san)
+    except Exception:
+        return None
+
+    if not b.is_capture(m):
+        return None
+
+    moving_piece = b.piece_at(m.from_square)
+    if not moving_piece:
+        return None
+    moving_value = _PIECE_VALUE.get(moving_piece.piece_type, 0)
+    user_color = moving_piece.color
+
+    # En-passant: captured pawn isn't on m.to_square; report the pawn explicitly.
+    if b.is_en_passant(m):
+        captured_piece_type = chess.PAWN
+        captured_sq_name = chess.square_name(m.to_square)
+    else:
+        cap_p = b.piece_at(m.to_square)
+        if not cap_p:
+            return None
+        captured_piece_type = cap_p.piece_type
+        captured_sq_name = chess.square_name(m.to_square)
+
+    captured_value = _PIECE_VALUE.get(captured_piece_type, 0)
+    if captured_value <= 0:
+        return None
+
+    # Apply move and check if capturing piece is safe / favorably traded.
+    b_after = b.copy()
+    b_after.push(m)
+    enemy_attackers = b_after.attackers(not user_color, m.to_square)
+
+    facts = {
+        "best_move": best_move_san,
+        "captured_piece": _PIECE_NAME.get(captured_piece_type, "piece"),
+        "captured_square": captured_sq_name,
+        "captured_value": captured_value,
+        "moving_piece": _PIECE_NAME.get(moving_piece.piece_type, "piece"),
+        "moving_value": moving_value,
+    }
+
+    if not enemy_attackers:
+        facts["free"] = True
+        return facts
+
+    # Recapture analysis: if cheapest enemy attacker is worth less than
+    # ours and they win the trade, skip (equal-or-losing trade for us).
+    cheapest_attacker_value = min(
+        _PIECE_VALUE.get(b_after.piece_at(sq).piece_type, 99)
+        for sq in enemy_attackers
+    )
+
+    # Net = captured - moving (if they recapture). If captured > moving,
+    # we win even after recapture. If captured == moving and they're
+    # cheaper attackers, we still ~break even (skip). Be conservative:
+    # only fire when net > 0.
+    if captured_value > moving_value:
+        facts["free"] = False
+        return facts
+    # captured == moving: skip unless we have defenders to fight back
+    # (Not modeling full SEE here; conservative default = skip).
+    return None
+
+
 # ── Severity scoring for dominant-pick ───────────────────────────────
 # Replaces "first detector by registry priority" with a function that
 # weights detections by actual decisiveness. A missed fork worth
@@ -571,6 +735,19 @@ def _severity_score(det: Dict) -> float:
             top = max(targets, key=lambda t: t.get("value", 0))
             return float(top.get("value", 0)) * 3.0 + 6.0
         return 8.0
+    if pt == "missed_check":
+        # Checks force opponent's response. Side-attacks add weight.
+        sides = d.get("side_attacks") or []
+        if sides:
+            top = max(sides, key=lambda t: t.get("value", 0))
+            return 12.0 + float(top.get("value", 0))  # 13-21 range
+        return 8.0  # plain check
+    if pt == "missed_castle":
+        return 9.0  # king safety, but lower than tactical wins
+    if pt == "missed_capture":
+        # Captured-value × 2 + small bonus. Free capture worth more.
+        base = float(d.get("captured_value", 0)) * 2.0 + 4.0
+        return base + (3.0 if d.get("free") else 0.0)
     if pt == "missed_fork":
         return float(d.get("total_value", 0)) * 2.0  # forks compound
     if pt == "missed_pin":
@@ -773,6 +950,49 @@ def detect_concepts(
             })
     except Exception as e:
         logger.warning(f"[concept_dispatcher] combination detect failed: {e}")
+
+    # Local detectors — MISSED_CHECK / MISSED_CASTLE / MISSED_CAPTURE.
+    # All three are best-move-shape patterns that surfaced repeatedly
+    # in the May 2026 review queue (~17 of 31 flagged moments).
+    try:
+        chk = _detect_missed_check(board, user_move_san, best_move_san)
+        if chk:
+            out.append({
+                "pattern_type": "missed_check",
+                "details": chk,
+                "teaching_hook": "Missed a check that forces a response",
+                "key_squares": [chk.get("checking_square")] if chk.get("checking_square") else [],
+                "confidence": 0.95,
+                "category": "tactical",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] missed_check detect failed: {e}")
+    try:
+        cas = _detect_missed_castle(board, user_move_san, best_move_san)
+        if cas:
+            out.append({
+                "pattern_type": "missed_castle",
+                "details": cas,
+                "teaching_hook": "Missed castling — king safety",
+                "key_squares": [],
+                "confidence": 0.95,
+                "category": "strategic",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] missed_castle detect failed: {e}")
+    try:
+        cap = _detect_missed_capture(board, user_move_san, best_move_san)
+        if cap:
+            out.append({
+                "pattern_type": "missed_capture",
+                "details": cap,
+                "teaching_hook": "Missed a winning capture",
+                "key_squares": [cap.get("captured_square")] if cap.get("captured_square") else [],
+                "confidence": 0.95,
+                "category": "tactical",
+            })
+    except Exception as e:
+        logger.warning(f"[concept_dispatcher] missed_capture detect failed: {e}")
 
     # Local detector — PAWN_RACE. Endgame: opp passed pawn promotes
     # because user-king is outside the square-of-the-pawn.

@@ -152,6 +152,42 @@ def _render_combination(details: Dict) -> Optional[str]:
     return None
 
 
+def _render_missed_check(details: Dict) -> Optional[str]:
+    """Best move was a check; user played a non-check."""
+    best = details.get("best_move")
+    sides = details.get("side_attacks") or []
+    if not best:
+        return None
+    if sides:
+        top = sides[0]
+        piece = top.get("piece", "piece")
+        sq = top.get("square", "")
+        if sq:
+            return f"{best} was the move. The check also attacks the {piece} on {sq}."
+        return f"{best} was the move. The check also attacks the {piece}."
+    return f"{best} was the move. The check forces them to respond first."
+
+
+def _render_missed_castle(details: Dict) -> Optional[str]:
+    best = details.get("best_move")
+    side = details.get("side", "kingside")
+    if not best:
+        return None
+    return f"{best} was the move. Castling {side} takes your king out of the centre."
+
+
+def _render_missed_capture(details: Dict) -> Optional[str]:
+    best = details.get("best_move")
+    cap = details.get("captured_piece")
+    sq = details.get("captured_square")
+    free = details.get("free", False)
+    if not best or not cap:
+        return None
+    if free:
+        return f"{best} wins the {cap} on {sq}. It has no defender."
+    return f"{best} wins the {cap} on {sq}."
+
+
 def _render_walked_into_capture(details: Dict) -> Optional[str]:
     """User's just-moved piece is now hanging or in a losing trade."""
     piece = details.get("piece")
@@ -283,6 +319,9 @@ def _render_opposition(details: Dict) -> Optional[str]:
 _TEMPLATE_REGISTRY = {
     # Tactical — high priority, common at 600-1400
     "combination":        _render_combination,
+    "missed_check":       _render_missed_check,
+    "missed_castle":      _render_missed_castle,
+    "missed_capture":     _render_missed_capture,
     "hanging_piece":      _render_hanging_piece,
     "trapped_piece":      _render_trapped_piece,
     "missed_mate":        _render_missed_mate,

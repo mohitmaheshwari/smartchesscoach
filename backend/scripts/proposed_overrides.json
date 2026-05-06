@@ -1,0 +1,163 @@
+[
+  {
+    "game_id": "0f4c730e-e7c5-4edd-8f35-1f596ecc0577",
+    "move_number": 35,
+    "move_san": "Kc4",
+    "override_text": "Kc4 walks into Qe2+. Your king has to retreat to b3, far from the action. Kc2 keeps the king safer.",
+    "coach_note": "Endgame king-positioning blunder. Walks into a tempo-losing check; future detector: walked_into_check_demotion."
+  },
+  {
+    "game_id": "8103750e-1c6b-4745-a3cf-a96d96efb5db",
+    "move_number": 9,
+    "move_san": "Nge2",
+    "override_text": "Nf3 was the natural square. Nge2 puts the knight where it blocks your bishop on g2. From f3 the knight controls e5 and supports the centre.",
+    "coach_note": "Wrong development square. Positional, not a clean detector — coach override."
+  },
+  {
+    "game_id": "5adca621-3141-4f1e-9c97-87222e42893a",
+    "move_number": 14,
+    "move_san": "Bb4",
+    "override_text": "Bxh7+ was coming. Their bishop on e4 had a clear path to h7. After Bxh7+ Kxh7 Qh5+ Kg8, your queen on g5 falls to Qxg5. g6 blocks the diagonal and stops the sacrifice.",
+    "coach_note": "Greek Gift defense. Build walked_into_attack detector that walks pv_after_played for opp sacrifices on king-side squares."
+  },
+  {
+    "game_id": "coach_df9abda8-645",
+    "move_number": 6,
+    "move_san": "Qf3",
+    "override_text": "Nxc5 wins the bishop on c5. Your knight on a4 was already there, attacking it. Qf3 misses the free piece.",
+    "coach_note": "Missed capture — but knight (3) takes bishop (3), equal trade. cp_loss came from missing the only good move in a bad position. Captured == moving so my detector skipped it."
+  },
+  {
+    "game_id": "8f3c6612-f2fd-43b1-bf5a-5a6b1375c908",
+    "move_number": 20,
+    "move_san": "Qe3",
+    "override_text": "c4 was the move. Pushing the c-pawn closes the queenside and slows their attack on your king. Qe3 doesn't address what they are building.",
+    "coach_note": "Defensive pawn break. Hard to template — coach override."
+  },
+  {
+    "game_id": "12f39e60-b970-4b68-9fa0-2b52a9d4cd96",
+    "move_number": 23,
+    "move_san": "g4",
+    "override_text": "Re2 attacks their queen on f2. They have to move it, and you reach a winning position. g4 weakens your own king instead.",
+    "coach_note": "Missed attack on enemy queen (not a capture, but a forced threat). Future detector: missed_attack_on_queen — best move attacks an enemy queen, queen has to move."
+  },
+  {
+    "game_id": "game_afd6ac9aa4ec",
+    "move_number": 10,
+    "move_san": "f6",
+    "override_text": "Qe8 was needed to defend along the back rank. f6 weakens your king and opens lines white wanted opened. The knight on h6 stays vulnerable.",
+    "coach_note": "Defensive prophylaxis. Hard to template generically."
+  },
+  {
+    "game_id": "21ccd986-0449-4110-96bd-db8f42aa8f89",
+    "move_number": 19,
+    "move_san": "Qf5+",
+    "override_text": "Nd4+ was the killer. The knight to d4 checks your king and forks the white queen on a5. After their forced king move, you take the queen. Qf5+ throws the position away.",
+    "coach_note": "Missed combination ending in winning the queen via fork after check. Should be caught by combination_chain when pv_after_best is populated; investigate why pv_after_best is empty here."
+  },
+  {
+    "game_id": "38c0d9cd-6f3d-4f3a-99b3-8c9386a81a33",
+    "move_number": 13,
+    "move_san": "Re8",
+    "override_text": "Bf5 defends h7 along the diagonal. The white queen on h4 was eyeing your king, and Re8 doesn't address it. Bf5 stops the attack before it starts.",
+    "coach_note": "Defensive prophylaxis (defend a king-side square)."
+  },
+  {
+    "game_id": "8103750e-1c6b-4745-a3cf-a96d96efb5db",
+    "move_number": 28,
+    "move_san": "Kc3",
+    "override_text": "Nd6+ was the move. The knight check forces their king to move, and you keep your winning attack. Kc3 walks into checks instead.",
+    "coach_note": "Missed check — should be caught by missed_check detector once deployed."
+  },
+  {
+    "game_id": "89971c6b-4af5-49b1-9283-9bf72772cdea",
+    "move_number": 27,
+    "move_san": "Ne3",
+    "override_text": "Kh1 was needed first. Their knight on f4 attacks your pawn on g2 and your king on g1. Ne3 lets the knight come in. Kh1 steps out of the way.",
+    "coach_note": "Prophylactic king move (avoid impending threats). Specialized — coach override."
+  },
+  {
+    "game_id": "8f3c6612-f2fd-43b1-bf5a-5a6b1375c908",
+    "move_number": 17,
+    "move_san": "Qg7",
+    "override_text": "Bxh7 wins the pawn next to their king. Your bishop on g8 takes for free and opens up the king's cover. Qg7 misses the simpler win.",
+    "coach_note": "Missed capture — should be caught by missed_capture detector once deployed."
+  },
+  {
+    "game_id": "91e93a38-033d-491b-9e18-c5c955157d59",
+    "move_number": 5,
+    "move_san": "h3",
+    "override_text": "d4 challenges the centre right away. h3 wastes a move on the side and lets their pieces settle. In the opening, every move should fight for the centre or develop a piece.",
+    "coach_note": "Opening principle violation. Hard to template per-position."
+  },
+  {
+    "game_id": "d05bf4fd-213c-4fd3-8c77-9207cdc80818",
+    "move_number": 16,
+    "move_san": "Bc4",
+    "override_text": "Ne4 was the active square. The knight to e4 challenges their pieces in the centre. Bc4 doesn't address their strong knight on d4.",
+    "coach_note": "Positional — better square for a piece. Stays as coach override."
+  },
+  {
+    "game_id": "d9a6f9b0-d7bc-4b34-a62e-ba04c2e49ed6",
+    "move_number": 11,
+    "move_san": "Bh4",
+    "override_text": "Bxf6 was right. Trading the bishop for their knight doubles their pawns and weakens their king side. Bh4 keeps the bishop but lets them recapture cleanly.",
+    "coach_note": "Missed_capture-like (gxf6 doubles pawns). Captures knight (3) with bishop (3) — equal trade by raw value, but the structural damage matters. Detector should consider 'doubling enemy pawns' as a value bonus."
+  },
+  {
+    "game_id": "dd25a753-a241-493c-ac70-b2884e36e052",
+    "move_number": 20,
+    "move_san": "Kb8",
+    "override_text": "a6 attacks their queen on b5. They have to move the queen, and you keep your structure. Kb8 doesn't address the queen.",
+    "coach_note": "Missed attack on enemy queen (pawn attack). Build missed_attack_on_queen detector — best move attacks the enemy queen."
+  },
+  {
+    "game_id": "ed042610-caf8-4e71-b81b-9fa7239fcb07",
+    "move_number": 18,
+    "move_san": "Rfd1",
+    "override_text": "Qe2 was needed to defend the second rank. Their queen and rook were lined up to attack — Qe2 covers it. Rfd1 leaves the defence light.",
+    "coach_note": "Defensive piece coordination. Hard to template."
+  },
+  {
+    "game_id": "f7dabac4-c962-4f0e-8f49-610ea538cda2",
+    "move_number": 12,
+    "move_san": "Bxe4",
+    "override_text": "b5 attacks the white bishop on c4. The bishop has to move, and you gain time. Bxe4 trades your active bishop for a knight.",
+    "coach_note": "Missed pawn attack on bishop. Same family as a6 vs queen — build missed_attack_on_piece (pawn attacks higher-value enemy piece)."
+  },
+  {
+    "game_id": "f7dabac4-c962-4f0e-8f49-610ea538cda2",
+    "move_number": 18,
+    "move_san": "h5",
+    "override_text": "Nd7 develops the last piece. From d7 the knight defends your king side and supports the centre. h5 weakens your king and opens lines for their queen.",
+    "coach_note": "Development-vs-king-safety in middlegame. Coach override."
+  },
+  {
+    "game_id": "game_1ae587423ad4",
+    "move_number": 23,
+    "move_san": "exd6",
+    "override_text": "exf6 was the move. The pawn capture opens lines toward their king and supports your queen on e6. exd6 closes the attack.",
+    "coach_note": "Massive cp_loss — likely throws away mate. Specific tactical case; the detector for this is combination_chain once pv_after_best is populated."
+  },
+  {
+    "game_id": "game_7bdc02d0c35b",
+    "move_number": 16,
+    "move_san": "Ne3",
+    "override_text": "Be4 attacks their knight on f3. The bishop is more active there and forces them to respond. Ne3 walks the knight into a worse square.",
+    "coach_note": "Better-active-square for a piece. Coach override."
+  },
+  {
+    "game_id": "game_7bdc02d0c35b",
+    "move_number": 30,
+    "move_san": "Kf7",
+    "override_text": "Ref7 brings your rook to the seventh rank. From f7 it attacks their pieces and supports your king. Kf7 just shuffles the king without a plan.",
+    "coach_note": "Rook activation / piece reorganization. Coach override."
+  },
+  {
+    "game_id": "game_8e3ae9dc7f0f",
+    "move_number": 39,
+    "move_san": "Rb1",
+    "override_text": "Kf6 was needed. Your king must walk forward to support your pawns. Rb1 takes the rook off the back rank but loses the winning idea — your king staying back lets their pawn run.",
+    "coach_note": "Endgame king activation. cp_loss=9022 because Rb1 abandons the winning king-march plan. Coach override."
+  }
+]
