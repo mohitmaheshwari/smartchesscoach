@@ -1239,10 +1239,14 @@ async def admin_analyze_moment(
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
+    # Sonnet 4.6 by default — ~5x cheaper than Opus and the task is
+    # narrow + structured (label a pattern from given facts, output
+    # JSON), so the quality difference is negligible. Override with
+    # ANALYZE_MODEL=claude-opus-4-7 in env if you want to spend more
+    # on harder positions.
+    model = os.environ.get("ANALYZE_MODEL", "claude-sonnet-4-6")
     payload = {
-        # Opus 4.7 chosen for quality on chess pattern reasoning. Volume
-        # is low (only when coach clicks Analyze) so cost is bounded.
-        "model": "claude-opus-4-7",
+        "model": model,
         "max_tokens": 1024,
         "messages": [{"role": "user", "content": prompt}],
     }
