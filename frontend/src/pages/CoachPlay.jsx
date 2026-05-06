@@ -256,6 +256,10 @@ const CoachPlay = ({ user }) => {
   // Client-side opening guidance — no server dependency for arrows
   const [openingIdeas, setOpeningIdeas] = useState([]); // ALL move ideas from /start
   const [gamePly, setGamePly] = useState(0); // total half-moves played
+  // V5 coaching state — hoisted up here from line ~441 because a useEffect
+  // higher in this function listed v5Coaching as a dep, which threw
+  // 'Cannot access yn before initialization' under Vite/Rollup minification.
+  const [v5Coaching, setV5Coaching] = useState(null);
 
   // Compute and show guidance arrow from local data
   useEffect(() => {
@@ -438,7 +442,7 @@ const CoachPlay = ({ user }) => {
   }, [gamePly, openingTraps, openingIdeas, isPlayerTurn, gameOver]);
 
   // V5 Coaching State - Unified with Lab
-  const [v5Coaching, setV5Coaching] = useState(null);
+  // (v5Coaching itself is declared earlier — useEffect deps need it hoisted)
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
   const [preMoveTrap, setPreMoveTrap] = useState(null);
   const [fundamentalViolations, setFundamentalViolations] = useState([]);
