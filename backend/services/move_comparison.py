@@ -15,7 +15,7 @@ import chess
 from typing import Optional, Dict, List
 import logging
 
-from services.tactical_safety import fork_threat_is_real
+from services.tactical_safety import fork_threat_is_real, count_winnable_fork_targets
 
 logger = logging.getLogger(__name__)
 
@@ -386,6 +386,18 @@ def _find_opponent_threats(board: chess.Board, opp_color: chess.Color) -> List[s
             board, move, user_color
         ):
             continue
+
+        # Winnability gate. Tester reported "Qb5 forks your bishop and
+        # knight" when only the bishop was actually winnable (knight was
+        # defended twice by pawns). A real fork requires 2+ winnable
+        # targets — opponent must be unable to save both. One winnable
+        # target alone is just an attack on a piece, not a fork.
+        if len(attacked_targets) >= 2:
+            board.push(move)
+            winnable = count_winnable_fork_targets(board, move.to_square, opp_color)
+            board.pop()
+            if winnable < 2:
+                continue
 
         if len(attacked_targets) >= 2:
             piece_name = chess.piece_name(piece.piece_type)

@@ -132,6 +132,51 @@ def fork_is_safe(
     return False
 
 
+def count_winnable_fork_targets(
+    board_after_fork: chess.Board,
+    fork_square: chess.Square,
+    mover_color: chess.Color,
+) -> int:
+    """How many of the pieces attacked by the forker are actually
+    'winnable'?
+
+    A target is winnable when:
+      - It's undefended on its square (zero own attackers), OR
+      - It's strictly more valuable than the forker (favorable trade
+        even after recapture).
+
+    A real fork — the kind worth flagging — needs at least TWO
+    winnable targets: opponent can save one but not both. If only
+    one target is winnable and the rest are well-defended pieces of
+    equal/lower value, the move is just an attack on one piece, not
+    a fork. Caller should use this as a gate before generating
+    "X forks your Y and Z" coaching text.
+
+    Pawns and the king are excluded from the count (pawn value is too
+    low to call a "fork target"; a king attack is a check, handled
+    elsewhere).
+    """
+    attacker = board_after_fork.piece_at(fork_square)
+    if not attacker:
+        return 0
+    attacker_value = PIECE_VALUE.get(attacker.piece_type, 0)
+    winnable = 0
+    for sq in board_after_fork.attacks(fork_square):
+        target = board_after_fork.piece_at(sq)
+        if not target or target.color == mover_color:
+            continue
+        if target.piece_type in (chess.PAWN, chess.KING):
+            continue
+        defenders = board_after_fork.attackers(target.color, sq)
+        if not defenders:
+            winnable += 1
+            continue
+        target_value = PIECE_VALUE.get(target.piece_type, 0)
+        if target_value > attacker_value:
+            winnable += 1
+    return winnable
+
+
 def fork_threat_is_real(
     board_before_opp_move: chess.Board,
     opp_move: chess.Move,

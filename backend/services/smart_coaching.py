@@ -309,6 +309,31 @@ async def generate_smart_coach_explanation(
         elif sub.get("safe_captures", 0) > 0:
             threat_type_key = "safe_capture"
 
+    # Tester-reported bug fb_4d83f155ef08 / fb_5fd043f37dbf:
+    # "{piece} hitting two things at once" fired on a Kf8 / Qd7 move
+    # that didn't actually attack two pieces. Root cause: the v2
+    # teaching system flagged intent as "fork_opportunity" based on
+    # what it WANTED to teach, but the move actually selected/played
+    # didn't create a fork. Verify post-move geometry: the moving
+    # piece must attack ≥2 winnable enemy pieces. If not, downgrade
+    # the intent so the fork_created template doesn't fire.
+    if intent_key == "fork_opportunity":
+        try:
+            from services.tactical_safety import count_winnable_fork_targets
+            winnable = count_winnable_fork_targets(
+                board_after, move.to_square, coach_color
+            )
+            if winnable < 2:
+                logger.info(
+                    f"[SMART-COACHING] downgrading fork_opportunity intent — "
+                    f"played move {move_san} only has {winnable} winnable target(s)"
+                )
+                intent_key = ""
+                if threat_type_key == "fork":
+                    threat_type_key = None
+        except Exception as fork_check_err:
+            logger.debug(f"[SMART-COACHING] fork verify failed: {fork_check_err}")
+
     # Tester-reported bug: coach said "Bxb3 — free piece. Your bishop
     # on b3 had no help" when b3 actually had a pawn. Root cause:
     # target_piece_name was only set inside the capture_punishment
