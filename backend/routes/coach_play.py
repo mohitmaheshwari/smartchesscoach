@@ -2571,6 +2571,12 @@ async def get_interactive_coaching(
             if coaching.severity in ("mistake", "blunder"):
                 try:
                     from services.smart_coaching import generate_smart_user_feedback
+                    # Build SAN history from session for opening-theory gate
+                    _mh_san = []
+                    for entry in (session_doc.get("move_history") or []):
+                        m = entry.get("move") if isinstance(entry, dict) else None
+                        if m:
+                            _mh_san.append(m)
                     smart_fb = await generate_smart_user_feedback(
                         board_before=board,
                         user_move=move,
@@ -2583,6 +2589,7 @@ async def get_interactive_coaching(
                         phase=phase_str,
                         db=db,
                         pv_after_played=pv_after_played,
+                        move_history_san=_mh_san,
                     )
                     if smart_fb:
                         if smart_fb.get("question"):

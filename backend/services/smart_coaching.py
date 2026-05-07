@@ -598,12 +598,70 @@ async def generate_smart_user_feedback(
     phase: str = "middlegame",
     db=None,
     pv_after_played: Optional[List[str]] = None,
+    move_history_san: Optional[List[str]] = None,
 ) -> Optional[Dict]:
     """
     Generate Socratic question for mistakes using LLM as language layer.
     All chess facts come from our fundamentals checker and detectors.
     """
     if severity in ("good", "brilliant"):
+        return None
+
+    # ─── PRE-ROUTING GATES ────────────────────────────────────────
+    # Several Parth bugs (fb_3c558315d3c7, fb_3f8c02a989c9,
+    # fb_9b519ba4edb2, fb_0cbacdf54340, fb_631576d2f1ab,
+    # fb_274dfae7eb44) had the "X was the stronger move here"
+    # template fire on moves that weren't actually mistakes:
+    #   - User addressing an immediate forcing threat (Qe7 saves
+    #     Bc5, Kf8 stops Bh6 mate-in-1)
+    #   - Known opening lines (b4 = Evans Gambit)
+    #   - Both moves leading to mate (Rfe1+ vs Bxf7+)
+    #   - Borderline cp_loss that stockfish flagged "mistake"
+    #
+    # Apply confidence-philosophy gates: if any gate fires,
+    # downgrade severity so the mistake_calculation template
+    # ("stronger move") doesn't fire. The move is left for the
+    # human coach to address in the review tab if needed.
+    suppress_mistake_framing = False
+    suppress_reason = None
+
+    # Gate A: cp_loss too small for "stronger move" framing
+    if cp_loss is not None and cp_loss < 80:
+        suppress_mistake_framing = True
+        suppress_reason = f"cp_loss={cp_loss} below 'stronger move' threshold"
+
+    # Gate B: user's move addresses an immediate forcing threat
+    if not suppress_mistake_framing:
+        try:
+            from services.tactical_safety import user_move_addresses_threat
+            if user_move_addresses_threat(board_before, user_move):
+                suppress_mistake_framing = True
+                suppress_reason = "user move addresses an attacked own piece"
+        except Exception as gate_err:
+            logger.debug(f"[SMART-COACHING] threat-gate failed: {gate_err}")
+
+    # Gate C: position is in known opening theory
+    if not suppress_mistake_framing and move_history_san is not None:
+        try:
+            from services.decryption_voice.opening_book import (
+                recognize_opening_from_history,
+            )
+            move_san_check = board_before.san(user_move)
+            full_history = list(move_history_san) + [move_san_check]
+            if recognize_opening_from_history(full_history):
+                suppress_mistake_framing = True
+                suppress_reason = "move is part of known opening theory"
+        except Exception as gate_err:
+            logger.debug(f"[SMART-COACHING] opening-theory gate failed: {gate_err}")
+
+    if suppress_mistake_framing:
+        logger.info(
+            f"[SMART-COACHING] suppressing mistake framing "
+            f"(severity={severity}, cp_loss={cp_loss}): {suppress_reason}"
+        )
+        # Return None — the move shows uncaptioned and the human
+        # coach can address it in the review tab. This is the same
+        # pattern as engine_review_needed in per_move_caption.py.
         return None
 
     from llm_service import call_llm

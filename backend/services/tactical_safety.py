@@ -177,6 +177,73 @@ def count_winnable_fork_targets(
     return winnable
 
 
+def user_move_addresses_threat(
+    board_before: chess.Board,
+    user_move: chess.Move,
+) -> bool:
+    """Did the user's move address an immediate forcing threat —
+    save or defend an attacked own piece?
+
+    Returns True when:
+      - Before the move, the user has at least one piece (≥minor)
+        that's attacked AND under-defended (hanging).
+      - AFTER the move, that piece is no longer hanging — either it
+        moved away, was traded, or it now has enough defenders.
+
+    Use this to gate "you should have played the engine's better
+    move" framing. A user who used their move to save a piece
+    deserves credit for the defensive necessity even if the engine
+    found something flashier — calling it a "mistake" without
+    acknowledging the threat is wrong.
+    """
+    user_color = board_before.turn
+    king_sq = board_before.king(user_color)
+    hanging_squares = []
+    for sq in chess.SQUARES:
+        p = board_before.piece_at(sq)
+        if not p or p.color != user_color:
+            continue
+        if p.piece_type == chess.KING:
+            continue
+        attackers = board_before.attackers(not user_color, sq)
+        if not attackers:
+            continue
+        defenders = board_before.attackers(user_color, sq)
+        if len(defenders) >= len(attackers):
+            continue
+        # Minor / rook / queen always counted. Pawns counted only when
+        # they shield the king (within 2 squares of king on the same
+        # side) — losing those lets opp open the king up.
+        if p.piece_type == chess.PAWN:
+            if king_sq is None:
+                continue
+            kf = chess.square_file(king_sq)
+            kr = chess.square_rank(king_sq)
+            pf = chess.square_file(sq)
+            pr = chess.square_rank(sq)
+            if abs(kf - pf) > 2 or abs(kr - pr) > 2:
+                continue
+        hanging_squares.append(sq)
+    if not hanging_squares:
+        return False
+    board_after = board_before.copy(stack=False)
+    try:
+        board_after.push(user_move)
+    except Exception:
+        return False
+    for sq in hanging_squares:
+        p_after = board_after.piece_at(sq)
+        if not p_after or p_after.color != user_color:
+            # Piece moved away or was traded — threat addressed
+            return True
+        attackers = board_after.attackers(not user_color, sq)
+        defenders = board_after.attackers(user_color, sq)
+        if len(defenders) >= len(attackers):
+            # Piece now adequately defended
+            return True
+    return False
+
+
 def fork_threat_is_real(
     board_before_opp_move: chess.Board,
     opp_move: chess.Move,
