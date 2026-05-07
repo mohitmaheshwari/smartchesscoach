@@ -369,7 +369,31 @@ async def generate_smart_coach_explanation(
     if move_type == "capture":
         try:
             from services.tactical_safety import target_truly_undefended
-            target_was_undefended = target_truly_undefended(board_before, move)
+            # Recapture context: if the opp's previous move was itself
+            # a capture on this same square, our move is the recapture
+            # in an ongoing exchange — not a free piece. Pull last move
+            # from move_history if available.
+            last_opp_move = None
+            last_opp_was_capture = False
+            if move_history:
+                for entry in reversed(move_history):
+                    if not isinstance(entry, dict):
+                        continue
+                    last_uci = entry.get("uci")
+                    last_san = entry.get("move") or entry.get("san") or ""
+                    if last_uci:
+                        try:
+                            last_opp_move = chess.Move.from_uci(last_uci)
+                            # SAN with "x" indicates a capture
+                            last_opp_was_capture = "x" in str(last_san)
+                        except Exception:
+                            last_opp_move = None
+                        break
+            target_was_undefended = target_truly_undefended(
+                board_before, move,
+                last_opp_move=last_opp_move,
+                last_opp_was_capture=last_opp_was_capture,
+            )
         except Exception:
             target_was_undefended = False
 

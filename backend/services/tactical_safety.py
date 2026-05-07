@@ -46,20 +46,40 @@ from .pattern_confidence.see import (
 def target_truly_undefended(
     board_before: chess.Board,
     move: chess.Move,
+    last_opp_move: Optional[chess.Move] = None,
+    last_opp_was_capture: bool = False,
 ) -> bool:
     """Was the captured piece truly undefended — no opponent attackers
-    on the landing square at all?
+    on the landing square at all, AND not part of an ongoing exchange?
 
     Use this for "free piece" / "nobody was guarding it" claims. We
     deliberately don't go all the way to SEE here — even a cheaper
     defender means the capture isn't "free," it's a trade with a
     favorable balance, which deserves different framing.
 
-    Returns False for non-capture moves (defensive default — we never
-    want a non-capture to be tagged "free piece").
+    Returns False for:
+      - Non-capture moves (defensive default — we never want a
+        non-capture to be tagged "free piece").
+      - The destination square has any opponent attacker post-move
+        (recapture coming = trade, not free).
+      - The opponent's previous move was itself a capture on the SAME
+        square (this move is a recapture in an ongoing exchange —
+        even if the destination is now undefended, calling it 'free'
+        ignores the trade context). Tester reported coach saying
+        "Bxg5 — free piece" when it was the coach's recapture after
+        the user took the coach's queen on g5.
     """
     if not board_before.is_capture(move):
         return False
+
+    # Recapture-in-exchange guard
+    if (
+        last_opp_was_capture
+        and last_opp_move is not None
+        and last_opp_move.to_square == move.to_square
+    ):
+        return False
+
     # Apply the move and check whether opponent attacks the landing
     # square. ANY attacker on the destination = recapture is coming.
     board_after = board_before.copy(stack=False)
