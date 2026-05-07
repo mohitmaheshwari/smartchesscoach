@@ -970,13 +970,27 @@ def _describe_move(board, move, piece, captured):
 
 
 def _get_phase(board):
+    """Phase by piece count + move number.
+
+    Tester reported "we're in the King's Pawn Opening — solid start"
+    fired on Qe2 at move 6 (fb_f054972fee92), and "we're both still
+    setting up" on Qe3 at move 4 (fb_307b44a3ebb9). Piece-count
+    alone called both positions "opening" because all pieces were
+    still on the board, and the templates assume early-opening
+    framing. Add a move-number gate so anything past move 6 falls
+    through to middlegame templates.
+    """
     pieces = len(board.piece_map())
-    if pieces >= 28:
+    fullmove = board.fullmove_number or 1
+    # Opening templates assume "still setting up / solid start"
+    # framing — only valid in the first few moves before pieces
+    # become active. Past fullmove 4, even with all pieces on the
+    # board, we're in early middlegame.
+    if pieces >= 28 and fullmove <= 4:
         return "opening"
-    elif pieces >= 14:
+    if pieces >= 14:
         return "middlegame"
-    else:
-        return "endgame"
+    return "endgame"
 
 
 def _scan_opportunities(board, student_color):

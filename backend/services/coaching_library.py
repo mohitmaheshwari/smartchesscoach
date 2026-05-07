@@ -86,8 +86,14 @@ COACH_MOVE = {
     ],
 
     "opening_generic": [
-        {"explanation": "{move}. We're in the {opening} — solid start.", "question": "Know the main idea of this opening?", "hint": "Every opening has a plan. Think about which pieces to move first."},
-        {"explanation": "{move} — playing the {opening}. We're both still setting up.", "question": "Which piece are you bringing out next?", "hint": "Look at your back row — who hasn't moved yet?"},
+        # Tester reported "we're both still setting up" / "solid start"
+        # firing on active queen moves (Qe3 at move 4) where the
+        # framing is wrong. Templates are now neutral about pace —
+        # they describe the opening name without claiming the position
+        # is undeveloped. Phase classifier in smart_coaching also
+        # tightened to fullmove<=4 so this template fires less often.
+        {"explanation": "{move}. We're in the {opening}.", "question": "Know the main idea of this opening?", "hint": "Every opening has a plan. Think about which pieces to move first."},
+        {"explanation": "{move} — playing the {opening}.", "question": "Which piece are you bringing out next?", "hint": "Look at your back row — who hasn't moved yet?"},
     ],
 
     # ─── MIDDLEGAME: Teaching intents ───
