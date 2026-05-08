@@ -177,6 +177,9 @@ def _central_pawn_caption(
     move_number: int,
     is_user_move: bool,
 ) -> Optional[str]:
+    """Pawn push to a central square in the opening. 1200-test fix:
+    name the two squares the pushed pawn now controls, rather than
+    leaving 'claiming central space' as a vague concept."""
     if move_number > 8:
         return None
     if moving_piece.piece_type != chess.PAWN:
@@ -184,9 +187,18 @@ def _central_pawn_caption(
     to_sq = chess.square_name(move.to_square)
     if to_sq not in ("e4", "d4", "e5", "d5", "c4", "c5", "f4", "f5"):
         return None
+    user_color = moving_piece.color
+    direction = 1 if user_color == chess.WHITE else -1
+    attacked = []
+    for df in (-1, 1):
+        nf = chess.square_file(move.to_square) + df
+        nr = chess.square_rank(move.to_square) + direction
+        if 0 <= nf <= 7 and 0 <= nr <= 7:
+            attacked.append(chess.square_name(chess.square(nf, nr)))
+    sq_str = " and ".join(attacked) if attacked else "the centre"
     if is_user_move:
-        return f"Pushes to {to_sq}, claiming central space."
-    return f"They push to {to_sq}, grabbing central space."
+        return f"Pushes to {to_sq}. Now attacks {sq_str}."
+    return f"They push to {to_sq}, attacking {sq_str}."
 
 
 def _capture_caption(

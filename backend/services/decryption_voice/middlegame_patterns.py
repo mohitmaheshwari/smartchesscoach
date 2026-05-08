@@ -118,9 +118,10 @@ def _detect_rook_to_open_file(
     moving_piece: chess.Piece,
     is_user_move: bool,
 ) -> Optional[str]:
-    """Rook moves to a file with NO friendly pawns (open or half-open
-    from rook's POV). Captures are excluded — rook captures get their
-    own caption."""
+    """Rook moves to a file with NO friendly pawns. 1200-test fix: name
+    what's actually on the file instead of saying 'controls the column'.
+    If there's an enemy piece on the file, name it; if pure open file,
+    note that the rook has no obstacles."""
     if moving_piece.piece_type != chess.ROOK:
         return None
     if board_before.is_capture(move):
@@ -129,37 +130,54 @@ def _detect_rook_to_open_file(
     user_color = moving_piece.color
     to_file = chess.square_file(move.to_square)
 
-    # Check if any friendly pawn is on this file.
-    has_friendly_pawn = False
+    # Friendly pawn on file → not an open-file move
     for r in range(8):
-        sq = chess.square(to_file, r)
-        p = board_before.piece_at(sq)
+        p = board_before.piece_at(chess.square(to_file, r))
         if p and p.piece_type == chess.PAWN and p.color == user_color:
-            has_friendly_pawn = True
-            break
-    if has_friendly_pawn:
+            return None
+
+    # Don't fire when the rook just shuffles within the same file.
+    if chess.square_file(move.from_square) == to_file:
         return None
 
-    # Was the rook NOT on this file before? (don't fire on a rook just
-    # shuffling along a file it already occupied).
-    from_file = chess.square_file(move.from_square)
-    if from_file == to_file:
-        return None
-
-    file_letter = chr(ord('a') + to_file)
-    # Check enemy pawns to differentiate open vs half-open
-    has_enemy_pawn = False
+    # Find what's on the file post-move (excluding the rook itself).
+    b = board_before.copy()
+    b.push(move)
+    file_letter = chr(ord("a") + to_file)
+    enemy_targets = []  # (piece_type, square_name)
     for r in range(8):
         sq = chess.square(to_file, r)
-        p = board_before.piece_at(sq)
-        if p and p.piece_type == chess.PAWN and p.color != user_color:
-            has_enemy_pawn = True
-            break
+        p = b.piece_at(sq)
+        if p and p.color != user_color:
+            enemy_targets.append((p.piece_type, chess.square_name(sq)))
 
-    file_kind = "half-open" if has_enemy_pawn else "open"
+    if enemy_targets:
+        # Pick the highest-value target — usually the king or a queen
+        enemy_targets.sort(
+            key=lambda x: 100 if x[0] == chess.KING else (
+                9 if x[0] == chess.QUEEN
+                else 5 if x[0] == chess.ROOK
+                else 3 if x[0] in (chess.BISHOP, chess.KNIGHT)
+                else 1
+            ),
+            reverse=True,
+        )
+        target_pt, target_sq = enemy_targets[0]
+        target_name = _PIECE_NAME.get(target_pt, "piece")
+        if is_user_move:
+            return (
+                f"Rook to the {file_letter}-file — eyes their {target_name} "
+                f"on {target_sq}."
+            )
+        return (
+            f"Their rook swings to the {file_letter}-file, eyeing your "
+            f"{target_name} on {target_sq}."
+        )
+
+    # Pure open file with no enemy targets — describe honestly.
     if is_user_move:
-        return f"Rook to the {file_letter}-file — {file_kind}. The rook controls the column."
-    return f"Their rook swings to the {file_letter}-file ({file_kind}), claiming the column."
+        return f"Rook to the {file_letter}-file — no obstacles ahead."
+    return f"Their rook swings to the {file_letter}-file with a clear file."
 
 
 def _detect_rook_to_seventh_middlegame(
@@ -223,9 +241,9 @@ def _detect_central_pawn_break(
     move_number: int,
     is_user_move: bool,
 ) -> Optional[str]:
-    """Pawn moves into a square that opens a file or breaks the centre.
-    Conservative: fire when the pushed pawn captures an enemy pawn or
-    is itself a CENTRAL pawn (c/d/e/f) advancing past rank 4."""
+    """Pawn moves into a central square in middlegame. 1200-test fix:
+    name what the pawn now attacks (its two diagonal squares) so the
+    "tests their pawn structure" framing has concrete content."""
     if moving_piece.piece_type != chess.PAWN:
         return None
     if not _is_middlegame(board_before, move_number):
@@ -247,9 +265,32 @@ def _detect_central_pawn_break(
         if is_user_move:
             return f"Pawn break — opens lines toward their king with {sq_name}."
         return f"They open the centre with {sq_name}."
+
+    # Compute what the pawn now attacks
+    b = board_before.copy()
+    b.push(move)
+    direction = 1 if user_color == chess.WHITE else -1
+    attacked_squares = []
+    attacked_pieces = []
+    for df in (-1, 1):
+        nf = to_file + df
+        nr = to_rank + direction
+        if 0 <= nf <= 7 and 0 <= nr <= 7:
+            target_sq = chess.square(nf, nr)
+            attacked_squares.append(chess.square_name(target_sq))
+            p = b.piece_at(target_sq)
+            if p and p.color != user_color and p.piece_type != chess.PAWN:
+                attacked_pieces.append((p.piece_type, chess.square_name(target_sq)))
+    if attacked_pieces:
+        target_pt, target_sq = attacked_pieces[0]
+        target_name = _PIECE_NAME.get(target_pt, "piece")
+        if is_user_move:
+            return f"Pawn to {sq_name}. Now attacks their {target_name} on {target_sq}."
+        return f"They push to {sq_name}, attacking your {target_name} on {target_sq}."
+    sq_str = " and ".join(attacked_squares) if attacked_squares else "the centre"
     if is_user_move:
-        return f"Central pawn push to {sq_name}. Tests their pawn structure."
-    return f"They push the central pawn to {sq_name}."
+        return f"Pawn to {sq_name}. Now controls {sq_str}."
+    return f"They push to {sq_name}, controlling {sq_str}."
 
 
 def _detect_queen_lift_attack(
@@ -624,15 +665,23 @@ def _detect_opening_pawn_prep(
         return None
 
     sq_name = chess.square_name(move.to_square)
-    file_letter = chr(ord("a") + to_file)
-    # Frame based on file
-    if file_letter in ("c", "e"):
-        prep = f"prepares ...d{5 if user_color == chess.WHITE else 5}" if user_color == chess.BLACK else "prepares d4 or supports the centre"
-    else:
-        prep = "frees the queen and supports the centre"
+    # 1200-test fix: name the squares the pawn now controls instead of
+    # the empty 'Solid setup' tail. e3 → controls d4 + f4. c3 → b4 + d4.
+    direction = 1 if user_color == chess.WHITE else -1
+    controls = []
+    for df in (-1, 1):
+        nf = to_file + df
+        nr = to_rank + direction
+        if 0 <= nf <= 7 and 0 <= nr <= 7:
+            controls.append(chess.square_name(chess.square(nf, nr)))
+    sq_str = " and ".join(controls) if controls else None
     if is_user_move:
-        return f"Pawn to {sq_name} — quiet structural move. Solid setup."
-    return f"They play {sq_name} — solid structural move."
+        if sq_str:
+            return f"Pawn to {sq_name}. Now controls {sq_str}."
+        return f"Pawn to {sq_name}."
+    if sq_str:
+        return f"They play {sq_name}, controlling {sq_str}."
+    return f"They play {sq_name}."
 
 
 def _detect_central_knight_redeployment(
@@ -642,32 +691,65 @@ def _detect_central_knight_redeployment(
     move_number: int,
     is_user_move: bool,
 ) -> Optional[str]:
-    """Knight moves to a central square (c4/c5/d4/d5/e4/e5/f4/f5) past
-    the development phase (move > 8). Knight_outpost requires pawn
-    support AND no enemy pawn can chase; this fires on central knight
-    moves that don't meet that strict bar but are still good
-    repositioning."""
+    """Knight to a central square past the development phase. 1200-test
+    fix: name what the knight actually attacks rather than 'eyes both
+    sides of the board'. Falls back to listing the central squares
+    covered."""
     if moving_piece.piece_type != chess.KNIGHT:
         return None
     if move_number <= 8:
-        return None  # earliest development handled by good_development
+        return None
     to_file = chess.square_file(move.to_square)
     to_rank = chess.square_rank(move.to_square)
-    if to_file not in (2, 3, 4, 5):  # c, d, e, f
+    if to_file not in (2, 3, 4, 5):
         return None
-    if to_rank not in (3, 4):  # ranks 4-5 in 1-indexed (centre ranks)
+    if to_rank not in (3, 4):
         return None
-
-    # Must not be a capture (capture detector handles those)
     if board_before.is_capture(move):
         return None
 
-    # Must not already be in knight_outpost territory — re-check that
-    # the strict version doesn't fire (we want this as fallback).
+    b = board_before.copy()
+    b.push(move)
+    user_color = moving_piece.color
     sq_name = chess.square_name(move.to_square)
-    if is_user_move:
-        return f"Knight to {sq_name} — central post. Eyes both sides of the board."
-    return f"Their knight redeploys to {sq_name}."
+
+    # Find any non-pawn enemy piece this knight now attacks
+    attacked_enemies = []
+    for sq in b.attacks(move.to_square):
+        p = b.piece_at(sq)
+        if p and p.color != user_color and p.piece_type != chess.PAWN:
+            attacked_enemies.append((p.piece_type, chess.square_name(sq)))
+    if attacked_enemies:
+        attacked_enemies.sort(
+            key=lambda x: 100 if x[0] == chess.KING else (
+                9 if x[0] == chess.QUEEN
+                else 5 if x[0] == chess.ROOK
+                else 3
+            ),
+            reverse=True,
+        )
+        target_pt, target_sq = attacked_enemies[0]
+        target_name = _PIECE_NAME.get(target_pt, "piece")
+        if is_user_move:
+            return f"Knight to {sq_name}. Eyes their {target_name} on {target_sq}."
+        return f"Their knight to {sq_name} eyes your {target_name} on {target_sq}."
+
+    # No enemy piece directly under attack — list two central squares
+    # the knight now covers.
+    central_attacks = [
+        chess.square_name(sq)
+        for sq in b.attacks(move.to_square)
+        if 2 <= chess.square_file(sq) <= 5
+        and 2 <= chess.square_rank(sq) <= 5
+    ]
+    central_attacks.sort()
+    central_attacks = central_attacks[:2]
+    if central_attacks:
+        sq_str = " and ".join(central_attacks)
+        if is_user_move:
+            return f"Knight to {sq_name}. Now covers {sq_str}."
+        return f"Their knight to {sq_name}, covering {sq_str}."
+    return None
 
 
 def _detect_wing_pawn_expansion(
@@ -677,11 +759,10 @@ def _detect_wing_pawn_expansion(
     move_number: int,
     is_user_move: bool,
 ) -> Optional[str]:
-    """Pawn push on a flank file (a/b on queenside or g/h on kingside)
-    past the opening — typical pawn-storm or space-grab move. Distinct
-    from luft (which is a single 1-square h/g/a-file push toward the
-    castled king's flank); this fires on 2-square pushes or pushes
-    that aren't tied to king luft."""
+    """Pawn push on a flank file (a/b queenside or g/h kingside) past
+    the opening. 1200-test fix: name a concrete target — either an
+    enemy piece the pawn now attacks/threatens, or the squares it now
+    controls. Drop the empty 'gains space on the wing' framing."""
     if moving_piece.piece_type != chess.PAWN:
         return None
     if move_number < 8:
@@ -691,20 +772,14 @@ def _detect_wing_pawn_expansion(
     user_color = moving_piece.color
     to_file = chess.square_file(move.to_square)
     to_rank = chess.square_rank(move.to_square)
-    from_rank = chess.square_rank(move.from_square)
     from_file = chess.square_file(move.from_square)
 
-    # Wing files: a, b (queenside) or g, h (kingside)
     if to_file not in (0, 1, 6, 7):
         return None
     if from_file != to_file:
-        return None  # not a straight push (would be a capture)
+        return None
 
-    # Determine flank
     flank = "queenside" if to_file in (0, 1) else "kingside"
-
-    # User pieces on the relevant flank? Quick proxy: count user heavy
-    # pieces (R, Q, K) on that side.
     side_files = (0, 1, 2, 3) if flank == "queenside" else (4, 5, 6, 7)
     own_heavy_on_side = sum(
         1
@@ -715,13 +790,40 @@ def _detect_wing_pawn_expansion(
         and chess.square_file(sq) in side_files
     )
     if own_heavy_on_side == 0:
-        return None  # not really an attack/expansion
+        return None
+
+    # What does the pawn now attack? Find concrete target.
+    b = board_before.copy()
+    b.push(move)
+    direction = 1 if user_color == chess.WHITE else -1
+    attacked_squares = []
+    attacked_pieces = []
+    for df in (-1, 1):
+        nf = to_file + df
+        nr = to_rank + direction
+        if 0 <= nf <= 7 and 0 <= nr <= 7:
+            target_sq = chess.square(nf, nr)
+            attacked_squares.append(chess.square_name(target_sq))
+            p = b.piece_at(target_sq)
+            if p and p.color != user_color and p.piece_type != chess.PAWN:
+                attacked_pieces.append((p.piece_type, chess.square_name(target_sq)))
 
     sq_name = chess.square_name(move.to_square)
-    framing = "kingside attack" if flank == "kingside" else "queenside expansion"
+    if attacked_pieces:
+        target_pt, target_sq = attacked_pieces[0]
+        target_name = _PIECE_NAME.get(target_pt, "piece")
+        if is_user_move:
+            return f"Pawn to {sq_name} on the {flank}. Hits their {target_name} on {target_sq}."
+        return f"They push {sq_name} on the {flank}, hitting your {target_name} on {target_sq}."
+
+    sq_str = " and ".join(attacked_squares) if attacked_squares else None
     if is_user_move:
-        return f"Pawn to {sq_name} — {framing}. Gains space on the wing."
-    return f"They push {sq_name} — {framing}."
+        if sq_str:
+            return f"Pawn to {sq_name} on the {flank}. Now controls {sq_str}."
+        return f"Pawn to {sq_name} on the {flank}."
+    if sq_str:
+        return f"They push {sq_name} on the {flank}, controlling {sq_str}."
+    return f"They push {sq_name} on the {flank}."
 
 
 def _detect_late_central_pawn(
@@ -801,10 +903,10 @@ def _detect_bishop_activation(
     move_number: int,
     is_user_move: bool,
 ) -> Optional[str]:
-    """Bishop moves past the development phase to an active diagonal —
-    common destinations: b4/c4/h5 (white) or b5/c5/h4 (black). Catches
-    bishop redeployments that weren't caught by good_development
-    (move > 10) or fianchetto."""
+    """Bishop redeployment to an active diagonal past the development
+    phase. 1200-test fix: name a concrete enemy piece the bishop now
+    attacks. If nothing concrete to say, return None — let dispatcher
+    fall through to a more honest fallback."""
     if moving_piece.piece_type != chess.BISHOP:
         return None
     if move_number <= 10:
@@ -819,9 +921,32 @@ def _detect_bishop_activation(
     if to_sq_name not in target_set:
         return None
 
-    if is_user_move:
-        return f"Bishop to {to_sq_name} — activates on a fresh diagonal."
-    return f"Their bishop swings to {to_sq_name} — eyes a new diagonal."
+    b = board_before.copy()
+    b.push(move)
+    attacked_enemies = []
+    for sq in b.attacks(move.to_square):
+        p = b.piece_at(sq)
+        if p and p.color != user_color and p.piece_type != chess.PAWN:
+            attacked_enemies.append((p.piece_type, chess.square_name(sq)))
+    if attacked_enemies:
+        attacked_enemies.sort(
+            key=lambda x: 100 if x[0] == chess.KING else (
+                9 if x[0] == chess.QUEEN
+                else 5 if x[0] == chess.ROOK
+                else 3
+            ),
+            reverse=True,
+        )
+        target_pt, target_sq = attacked_enemies[0]
+        target_name = _PIECE_NAME.get(target_pt, "piece")
+        if is_user_move:
+            return f"Bishop to {to_sq_name}. Eyes their {target_name} on {target_sq}."
+        return f"Their bishop to {to_sq_name}, eyeing your {target_name} on {target_sq}."
+
+    # No enemy target on the diagonal — don't manufacture a teaching
+    # claim. Return None and let dispatcher try other detectors / fall
+    # to a more honest fallback (good_generic).
+    return None
 
 
 def _detect_middlegame_king_walk(
@@ -854,21 +979,48 @@ def _detect_piece_maneuver(
     move_number: int,
     is_user_move: bool,
 ) -> Optional[str]:
-    """Last-resort fallback for minor piece moves past move 14 that
-    didn't match any other detector. Catches knight/bishop
-    repositioning that's reasonable but not specifically captured.
-    Frame neutrally as 'repositions'."""
+    """Minor piece move past move 14 that didn't match any other
+    detector. 1200-test fix: only fire when the move CONCRETELY
+    attacks an enemy piece. Otherwise return None — the audit caught
+    'repositions' as empty filler with 0% pass rate. Honest silence
+    is better than fake teaching."""
     if moving_piece.piece_type not in (chess.KNIGHT, chess.BISHOP):
         return None
     if move_number <= 14:
         return None
     if board_before.is_capture(move):
         return None
+    user_color = moving_piece.color
+    b = board_before.copy()
+    b.push(move)
+    attacked_enemies = []
+    for sq in b.attacks(move.to_square):
+        p = b.piece_at(sq)
+        if p and p.color != user_color and p.piece_type != chess.PAWN:
+            attacked_enemies.append((p.piece_type, chess.square_name(sq)))
+    if not attacked_enemies:
+        return None  # nothing concrete to say
+    attacked_enemies.sort(
+        key=lambda x: 100 if x[0] == chess.KING else (
+            9 if x[0] == chess.QUEEN
+            else 5 if x[0] == chess.ROOK
+            else 3
+        ),
+        reverse=True,
+    )
+    target_pt, target_sq = attacked_enemies[0]
+    target_name = _PIECE_NAME.get(target_pt, "piece")
     sq_name = chess.square_name(move.to_square)
     piece_name = _PIECE_NAME[moving_piece.piece_type]
     if is_user_move:
-        return f"{piece_name.capitalize()} to {sq_name} — repositions."
-    return f"They reposition the {piece_name} to {sq_name}."
+        return (
+            f"{piece_name.capitalize()} to {sq_name}. "
+            f"Now attacks their {target_name} on {target_sq}."
+        )
+    return (
+        f"They move the {piece_name} to {sq_name}, "
+        f"attacking your {target_name} on {target_sq}."
+    )
 
 
 def detect_middlegame_pattern(

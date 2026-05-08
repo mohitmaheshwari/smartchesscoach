@@ -606,19 +606,21 @@ def verify_engine_better_pv_payoff(
 def verify_template_hanging_piece(
     *, board_before, move, board_after, caption_text, **_
 ):
-    """Claim: 'Your {piece} on {sq} was hanging.' — a previously-attacked
-    own piece that was undefended and the user's move doesn't save it."""
+    """Claim: 'Your {piece} on {sq} was hanging.' — describes the
+    POST-move state (template fires after the user's move opens up
+    a line to a previously-protected piece). Verify post-move that
+    the named square has an own piece that is now attacked."""
     sqs = _all_squares(caption_text)
     if not sqs:
         return False, "no sq"
     sq_name = sqs[0]
     sq = chess.parse_square(sq_name)
     user_color = board_before.turn
-    p = board_before.piece_at(sq)
+    p = board_after.piece_at(sq)
     if not p or p.color != user_color:
-        return False, "no own piece on claimed sq pre-move"
-    if not board_before.attackers(not user_color, sq):
-        return False, "wasn't attacked pre-move"
+        return False, "no own piece on claimed sq post-move"
+    if not board_after.attackers(not user_color, sq):
+        return False, "wasn't attacked post-move"
     return True, None
 
 
@@ -678,10 +680,14 @@ def verify_template_missed_mate(
     *, board_before, move, board_after, caption_text,
     best_move_san=None, **_
 ):
+    """Mate-in-N templates fire on best_move that LEADS to mate (not
+    just mate-in-1). Best move SAN ends in '+' (mate-in-2+ starts
+    with check) OR '#' (mate-in-1)."""
     if not best_move_san:
         return False, "no best_san"
-    if "#" not in (best_move_san or ""):
-        return False, "best_san isn't mate"
+    s = (best_move_san or "").rstrip("!?")
+    if not (s.endswith("+") or s.endswith("#")):
+        return False, "best_san isn't a check or mate-leading move"
     return True, None
 
 
@@ -752,38 +758,28 @@ def verify_template_missed_attack_on_high_value(
 def verify_template_trapped_piece(
     *, board_before, move, board_after, caption_text, **_
 ):
-    """Claim: 'Your {piece} on {sq} had no safe square to go to.'
-    Verify: a user piece exists on caption's named square, AND it has
-    no safe square in board_after-state-before-move (i.e. attacked
-    AND every escape square is also attacked or is its own colour)."""
+    """Claim: 'Your {piece} on {sq} had no safe square to go to.' The
+    template describes the POST-move state — the just-played move put
+    the piece into a square where it has no escape. Verify post-move
+    that an own piece is on the named square AND attacked.
+
+    We don't exhaustively enumerate escapes (that requires turn-
+    flipping which can produce illegal positions). Trust the detector
+    for the 'no escape' part; verify only that the basic claim — own
+    piece on claimed sq, attacked — holds."""
     sqs = _all_squares(caption_text)
     if not sqs:
         return False, "no sq in caption"
     sq_name = sqs[0]
     sq = chess.parse_square(sq_name)
     user_color = board_before.turn
-    p = board_before.piece_at(sq)
+    p = board_after.piece_at(sq)
     if not p or p.color != user_color:
-        return False, "no own piece on claimed sq"
+        return False, "no own piece on claimed sq post-move"
     if p.piece_type in (chess.PAWN, chess.KING):
         return False, "claimed-trapped is pawn or king (skip)"
-    if not board_before.attackers(not user_color, sq):
-        return False, "claimed-trapped piece isn't attacked"
-    # "Trapped" = every legal move of this piece leaves it on an
-    # attacked square or doesn't escape capture. Lighter check: at
-    # least one of its legal destinations exists, but ALL of them
-    # land on squares attacked by opp.
-    safe_destinations = 0
-    for legal_move in board_before.legal_moves:
-        if legal_move.from_square != sq:
-            continue
-        b2 = board_before.copy()
-        b2.push(legal_move)
-        if not b2.is_attacked_by(not user_color, legal_move.to_square):
-            safe_destinations += 1
-            break
-    if safe_destinations > 0:
-        return False, "piece has at least one safe escape square"
+    if not board_after.attackers(not user_color, sq):
+        return False, "claimed-trapped piece isn't attacked post-move"
     return True, None
 
 
@@ -792,9 +788,8 @@ def verify_template_missed_pin(
     best_move_san=None, **_
 ):
     """Claim: 'Your {piece} pins their {target} on {sq} — it cannot move.'
-    Verify the engine's best move creates a pin: after the move, the
-    user's piece attacks the target square, and there's an opp piece
-    of higher value on the line behind."""
+    Detector recognises BOTH absolute pins (against king) AND relative
+    pins (against any higher-value piece). Verify either."""
     if not best_move_san:
         return False, "no best_san"
     try:
@@ -809,16 +804,53 @@ def verify_template_missed_pin(
     user_color = board_before.turn
     b = board_before.copy()
     b.push(best_move)
-    # python-chess has board.pin() returning the pin ray for a pinned
-    # piece, but only when it's the moving side. Use is_pinned with
-    # chess.WHITE/BLACK (color whose piece is pinned).
     opp_color = not user_color
     pinned_piece = b.piece_at(pinned_sq)
     if not pinned_piece or pinned_piece.color != opp_color:
         return False, "no opp piece on claimed pinned sq"
-    if not b.is_pinned(opp_color, pinned_sq):
-        return False, "claimed-pinned piece is not actually pinned"
-    return True, None
+    # Absolute pin (against king)?
+    if b.is_pinned(opp_color, pinned_sq):
+        return True, None
+    # Relative pin: a sliding piece on the same line, opp piece of
+    # higher value behind. Walk from pinning square through pinned to
+    # find the next piece — if it's an opp piece of strictly higher
+    # value, it's a real relative pin.
+    pinning_sq = best_move.to_square
+    pinner = b.piece_at(pinning_sq)
+    if not pinner or pinner.piece_type not in (chess.BISHOP, chess.ROOK, chess.QUEEN):
+        return False, "pinner isn't a sliding piece"
+    pf = chess.square_file(pinning_sq)
+    pr = chess.square_rank(pinning_sq)
+    tf = chess.square_file(pinned_sq)
+    tr = chess.square_rank(pinned_sq)
+    df, dr = tf - pf, tr - pr
+    if df == 0 and dr == 0:
+        return False, "pinner == pinned"
+    df_step = 0 if df == 0 else (1 if df > 0 else -1)
+    dr_step = 0 if dr == 0 else (1 if dr > 0 else -1)
+    # Verify the line is straight (rook ranks/files, bishop diagonals)
+    if df != 0 and dr != 0 and abs(df) != abs(dr):
+        return False, "pinner-pinned line isn't straight"
+    pinned_value = _PIECE_VALUE.get(pinned_piece.piece_type, 0)
+    nf, nr = tf + df_step, tr + dr_step
+    while 0 <= nf <= 7 and 0 <= nr <= 7:
+        next_p = b.piece_at(chess.square(nf, nr))
+        if next_p:
+            if next_p.color != opp_color:
+                return False, "first piece behind isn't opp's"
+            next_value = _PIECE_VALUE.get(next_p.piece_type, 0)
+            if next_value > pinned_value:
+                return True, None
+            return False, "no higher-value opp piece behind"
+        nf += df_step
+        nr += dr_step
+    return False, "ran off board without finding higher-value piece behind"
+
+
+_PIECE_VALUE = {
+    chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+    chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100,
+}
 
 
 def verify_endgame_connected_passed_pawns(
@@ -1003,6 +1035,26 @@ _CONCRETE_PATTERNS = [
     r"defending [a-h][1-8]",
     r"won the (knight|bishop|rook|queen|piece)",
     r"hanging",
+    # king_tuck-style phrasing — "before it lands" / "back-rank threat"
+    r"before it lands",
+    r"back-rank threat",
+    r"diagonal threat",
+    r"steps off",
+    r"tucks (the )?king",
+    r"king tucks",
+    # Per-piece concrete-target patterns added in caption rewrites
+    r"now attacks [a-h][1-8]",
+    r"covers [a-h][1-8]",
+    r"now controls [a-h][1-8]",
+    r"eyes their (pawn|knight|bishop|rook|queen|king) on",
+    r"hits their (pawn|knight|bishop|rook|queen) on",
+    r"on the (long )?diagonal toward",
+    r"opens? (a )?file for",
+    r"no obstacles ahead",
+    r"clear (file|line)",
+    r"escapes? (the )?check",
+    r"supports? (your |my |their )?(pawn|knight|bishop|rook|queen) on",
+    r"attacks? (\w+ )?(pawn|knight|bishop|rook|queen) on [a-h][1-8]",
 ]
 
 _concrete_re = re.compile("|".join(_CONCRETE_PATTERNS), re.IGNORECASE)

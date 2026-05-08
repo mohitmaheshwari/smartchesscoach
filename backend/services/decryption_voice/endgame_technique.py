@@ -277,25 +277,48 @@ def _detect_king_repositioning(
     move: chess.Move,
     moving_piece: chess.Piece,
 ) -> Optional[str]:
-    """King move in endgame that ISN'T activation — sideways or back.
-    Often the user is shielding a passed pawn, dodging a check, or
-    walking to a defensive square. Catches the K→d1/g2/e1/c1 cases
-    where activation pattern doesn't fire."""
+    """King move in endgame that ISN'T activation. 1200-test fix: only
+    fire when there's a CONCRETE reason — escaping check, defending an
+    own pawn, or supporting a passed pawn. Otherwise return None (the
+    detector chain falls through to good_generic, which is honest
+    about not having something specific to say)."""
     if moving_piece.piece_type != chess.KING:
         return None
     if not _is_endgame(board_before):
         return None
     to_rank = chess.square_rank(move.to_square)
     from_rank = chess.square_rank(move.from_square)
-    # If activation would fire (king moving forward toward centre), let it.
+    # If activation would fire (king moving forward toward centre), defer.
     if moving_piece.color == chess.WHITE and to_rank > from_rank and to_rank >= 2:
         return None
     if moving_piece.color == chess.BLACK and to_rank < from_rank and to_rank <= 5:
         return None
+
     sq_name = chess.square_name(move.to_square)
-    if to_rank == from_rank:
-        return f"King to {sq_name} — sidesteps to a safer square."
-    return f"King to {sq_name} — repositions for defence."
+    user_color = moving_piece.color
+
+    # Concrete reason 1: escapes a check
+    if board_before.is_check():
+        return f"King to {sq_name} — escapes the check."
+
+    # Concrete reason 2: new square defends a friendly pawn that wasn't
+    # adequately defended before
+    b = board_before.copy()
+    b.push(move)
+    new_attacks = b.attacks(move.to_square)
+    for sq in new_attacks:
+        p = b.piece_at(sq)
+        if not p or p.color != user_color or p.piece_type != chess.PAWN:
+            continue
+        # Was this pawn defended pre-move? If yes, no new info.
+        pre_defenders = board_before.attackers(user_color, sq)
+        if pre_defenders:
+            continue
+        # Pawn previously undefended, king now defends it
+        return f"King to {sq_name} — supports your pawn on {chess.square_name(sq)}."
+
+    # No concrete reason found. Better to say nothing than fake one.
+    return None
 
 
 def detect_endgame_technique(
