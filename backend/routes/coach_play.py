@@ -5984,14 +5984,53 @@ async def make_coach_play_move(
     try:
         board = chess.Board(fen_before)
         chess_move = board.parse_san(move)
-        
+
+        # ── Active punishment puzzle? Evaluate the user's move against
+        # the armed expected_sans. The user's move is ALWAYS played
+        # (whether right or wrong); we just add a coaching feedback
+        # layer. Clear the puzzle either way.
+        puzzle_feedback = None
+        active_puzzle = session_doc.get("active_puzzle")
+        if active_puzzle:
+            try:
+                from coach_play.punishment_puzzle import evaluate_user_response
+                evaluation = evaluate_user_response(
+                    user_move_san=move, puzzle=active_puzzle,
+                )
+                puzzle_feedback = {
+                    "outcome": evaluation.outcome,
+                    "user_san": evaluation.user_san,
+                    "feedback_text": evaluation.feedback_text,
+                    "puzzle_id": active_puzzle.get("puzzle_id"),
+                    "pattern_type": active_puzzle.get("pattern_type"),
+                }
+                # Persist outcome to puzzle_history; clear active puzzle.
+                puzzle_history_entry = {
+                    "puzzle_id": active_puzzle.get("puzzle_id"),
+                    "pattern_type": active_puzzle.get("pattern_type"),
+                    "outcome": evaluation.outcome,
+                    "user_san": evaluation.user_san,
+                    "expected_sans": evaluation.expected_sans,
+                    "resolved_at": datetime.now(timezone.utc).isoformat(),
+                }
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {
+                        "$unset": {"active_puzzle": ""},
+                        "$push": {"puzzle_history": puzzle_history_entry},
+                    },
+                )
+            except Exception as puzzle_err:
+                logger.warning(f"[PUZZLE] user-response eval failed: {puzzle_err}")
+                puzzle_feedback = None
+
         # Record user's move
         board.push(chess_move)
         fen_after_user = board.fen()
-        
+
         move_history = session_doc.get("move_history", [])
         move_number = len([m for m in move_history if m.get("by") == "player"]) + 1
-        
+
         # Add user's move to history
         move_history.append({
             "move": move,
@@ -6073,8 +6112,9 @@ async def make_coach_play_move(
             "game_over": game_over,
             "result": result,
             "curriculum_feedback": curriculum_feedback,
+            "puzzle_feedback": puzzle_feedback,
         }
-        
+
     except chess.InvalidMoveError:
         raise HTTPException(status_code=400, detail="Invalid move")
     except chess.AmbiguousMoveError:
@@ -7123,7 +7163,87 @@ async def _process_move_and_respond(
                     
                     # Get new evaluation
                     eval_score, mate_in = await opponent.get_evaluation(fen_after_coach)
-                    
+
+                    # === PUNISHMENT-PUZZLE ARMING ===
+                    # If the coach just played an exploitable move, arm
+                    # a guided puzzle: store observation/challenge/reveal
+                    # in session.active_puzzle. The user's next move will
+                    # be evaluated against the expected refutation.
+                    # Confidence-gated — fires only when stockfish + PV
+                    # confirm a concrete win (mate, undefended ≥minor,
+                    # overextended pawn). See coach_play.punishment_puzzle.
+                    if not coach_game_over and not session_doc.get("opening_teaching_active"):
+                        try:
+                            from coach_play.punishment_puzzle import evaluate_for_puzzle
+                            from stockfish_service import get_best_moves_for_position
+                            import uuid as _uuid
+
+                            # Multi-PV from user's POV
+                            user_chess_color = chess.WHITE if user_color == "white" else chess.BLACK
+                            top_raw = get_best_moves_for_position(
+                                fen_after_coach, num_moves=3, depth=12,
+                            )
+                            pv_top_moves = []
+                            if top_raw and top_raw.get("success"):
+                                for entry in top_raw.get("top_moves", []):
+                                    san = entry.get("move_san")
+                                    ev = entry.get("evaluation")
+                                    mate = entry.get("mate_in")
+                                    if mate is not None:
+                                        # Mate eval: convert to large signed cp
+                                        ev_cp = 30000 if mate > 0 else -30000
+                                    elif ev is not None:
+                                        ev_cp = ev  # already cp
+                                    else:
+                                        continue
+                                    # get_best_moves returns score from white's POV
+                                    if user_chess_color == chess.BLACK:
+                                        ev_cp = -ev_cp
+                                    if san:
+                                        pv_top_moves.append((san, int(ev_cp)))
+
+                            # Frequency cap from puzzle_history
+                            puzzle_count = len(fresh_session.get("puzzle_history", []) or []) if fresh_session else 0
+                            board_before_coach = chess.Board(fen_after_user)
+                            board_after_coach = chess.Board(fen_after_coach)
+                            spec = evaluate_for_puzzle(
+                                board_before_coach=board_before_coach,
+                                coach_move=chess_move,
+                                board_after_coach=board_after_coach,
+                                user_color=user_chess_color,
+                                pv_top_moves=pv_top_moves,
+                                session_puzzle_count=puzzle_count,
+                                frequency_cap=3,
+                            )
+                            if spec is not None:
+                                puzzle_doc = {
+                                    "puzzle_id": _uuid.uuid4().hex[:12],
+                                    "pattern_type": spec.pattern_type,
+                                    "observation": spec.observation,
+                                    "challenge": spec.challenge,
+                                    "expected_sans": spec.expected_sans,
+                                    "near_miss_sans": spec.near_miss_sans,
+                                    "reveal": spec.reveal,
+                                    "target_square": spec.target_square,
+                                    "armed_at_fen": fen_after_coach,
+                                    "armed_after_coach_move": coach_move,
+                                    "armed_at_ts": datetime.now(timezone.utc).isoformat(),
+                                }
+                                await db.coach_sessions.update_one(
+                                    {"session_id": session_id},
+                                    {"$set": {"active_puzzle": puzzle_doc}},
+                                )
+                                publish_session_event(session_id, {
+                                    "type": "puzzle_armed",
+                                    "puzzle": puzzle_doc,
+                                })
+                                logger.info(
+                                    f"[PUZZLE] armed pattern={spec.pattern_type} "
+                                    f"after coach_move={coach_move} session={session_id}"
+                                )
+                        except Exception as puzzle_err:
+                            logger.warning(f"[PUZZLE] arming failed (non-fatal): {puzzle_err}")
+
                     # === OPENING DETECTION AFTER COACH'S MOVE ===
                     # This enables immediate detection for openings where the coach makes the defining move
                     # (e.g., 1.e4 for French Defense: coach plays e4, user will play e6)

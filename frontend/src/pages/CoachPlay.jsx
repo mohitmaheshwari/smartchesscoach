@@ -466,6 +466,11 @@ const CoachPlay = ({ user }) => {
   // Pedagogical state (not in hooks)
   const [consequenceFeedback, setConsequenceFeedback] = useState(null);
 
+  // Punishment-puzzle feedback. Set from /move's puzzle_feedback field
+  // when the user answers an armed puzzle. Cleared when the next coach
+  // move arms a new puzzle (so we don't show stale feedback).
+  const [puzzleFeedback, setPuzzleFeedback] = useState(null);
+
   // Escape Squares Quiz state
   const [escapeSquaresQuiz, setEscapeSquaresQuiz] = useState(null);
 
@@ -1735,6 +1740,10 @@ const CoachPlay = ({ user }) => {
     setCurrentInsight(null);
     setConsequenceFeedback(null);
     setCurriculumFeedback(null);
+    // Clear stale puzzle feedback — the response to this move will
+    // either repopulate it (if user was answering an armed puzzle)
+    // or leave it empty (normal move).
+    setPuzzleFeedback(null);
     setIsCoachThinking(true);
     setLoadingFeedback(true);
     setEscapeSquaresQuiz(null);
@@ -1795,6 +1804,13 @@ const CoachPlay = ({ user }) => {
         setCurriculumFeedback(data.curriculum_feedback);
       } else {
         setCurriculumFeedback(null);
+      }
+
+      // Punishment-puzzle feedback — populated when the user just
+      // answered an armed puzzle. The card shows solved/close/missed
+      // until the next coach move arrives.
+      if (data.puzzle_feedback) {
+        setPuzzleFeedback(data.puzzle_feedback);
       }
       
       // Handle consequence feedback from pedagogical opponent
@@ -2875,6 +2891,7 @@ const CoachPlay = ({ user }) => {
           setActiveTrapAlert={setActiveTrapAlert}
           moveFeedback={moveFeedback}
           setMoveFeedback={setMoveFeedback}
+          puzzleFeedback={puzzleFeedback}
           guardianIntervention={guardianIntervention}
           pendingMove={pendingMove}
           cancelRiskyMove={cancelRiskyMove}

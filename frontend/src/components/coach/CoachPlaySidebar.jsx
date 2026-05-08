@@ -28,6 +28,7 @@ import CoachTimelinePanel from "@/components/coach/CoachTimelinePanel";
 import ActiveCoachStrip from "@/components/coach/ActiveCoachStrip";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
 import LiveChecklist from "@/components/coach/LiveChecklist";
+import PunishmentPuzzleCard from "@/components/coach/PunishmentPuzzleCard";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
 import { FlagMoveButton, InlineFlag } from "@/components/shared/FlagMoveDialog";
@@ -711,6 +712,8 @@ const CoachPlaySidebar = ({
   setActiveTrapAlert,
   moveFeedback,
   setMoveFeedback,
+  /* punishment puzzle (in-game guided refutation) */
+  puzzleFeedback,
   /* guardian */
   guardianIntervention,
   pendingMove,
@@ -871,6 +874,22 @@ const CoachPlaySidebar = ({
                 ("TEACHING MOMENT" / "COACH PLAYED"), the explanation renders in
                 Fraunces serif, Socratic questions in italic, and the opponent-
                 opportunity + trap-warning inline use quieter panels. */}
+            {/* Punishment-puzzle card. Renders ABOVE the TeachingMoment
+                when the coach just played an exploitable move (armed)
+                or when the user just answered (resolved). Quietly
+                no-ops when neither is set. */}
+            <PunishmentPuzzleCard
+              puzzle={session?.active_puzzle || null}
+              feedback={puzzleFeedback || null}
+              flagCtx={{
+                source: "play_with_coach",
+                sessionId: session?.session_id,
+                gameId: session?.session_id,
+                fen: currentFen,
+                component: "CoachPlaySidebar.PunishmentPuzzle",
+              }}
+            />
+
             {interactiveCoaching?.coachMoveCoaching?.explanation && (() => {
               // Single flag context for the whole Teaching Moment card.
               // Every coach-generated text block inside gets an InlineFlag
