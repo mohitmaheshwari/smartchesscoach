@@ -717,6 +717,146 @@ def verify_template_missed_fork(
     return True, None
 
 
+def verify_template_missed_attack_on_high_value(
+    *, board_before, move, board_after, caption_text,
+    best_move_san=None, **_
+):
+    """Claim: '{some_san} attacks their {piece} on {sq}. They have to
+    move it...'. Verify the engine's best move (or some user piece)
+    after some sequence creates an attack on a piece named in caption.
+    Conservative: just check the named target square actually has an
+    enemy piece, and that some user piece attacks it post-best."""
+    if not best_move_san:
+        return False, "no best_san"
+    try:
+        best_move = board_before.parse_san(best_move_san)
+    except Exception:
+        return False, "best_san unparseable"
+    sqs = _all_squares(caption_text)
+    if not sqs:
+        return False, "no sq in caption"
+    target_sq = chess.parse_square(sqs[-1])
+    user_color = board_before.turn
+    b = board_before.copy()
+    b.push(best_move)
+    target_p = b.piece_at(target_sq)
+    if not target_p or target_p.color == user_color:
+        return False, f"no enemy piece on claimed target {sqs[-1]}"
+    if target_p.piece_type == chess.PAWN:
+        return False, "claimed high-value target is a pawn"
+    if not b.attackers(user_color, target_sq):
+        return False, "no user attacker on claimed target"
+    return True, None
+
+
+def verify_template_trapped_piece(
+    *, board_before, move, board_after, caption_text, **_
+):
+    """Claim: 'Your {piece} on {sq} had no safe square to go to.'
+    Verify: a user piece exists on caption's named square, AND it has
+    no safe square in board_after-state-before-move (i.e. attacked
+    AND every escape square is also attacked or is its own colour)."""
+    sqs = _all_squares(caption_text)
+    if not sqs:
+        return False, "no sq in caption"
+    sq_name = sqs[0]
+    sq = chess.parse_square(sq_name)
+    user_color = board_before.turn
+    p = board_before.piece_at(sq)
+    if not p or p.color != user_color:
+        return False, "no own piece on claimed sq"
+    if p.piece_type in (chess.PAWN, chess.KING):
+        return False, "claimed-trapped is pawn or king (skip)"
+    if not board_before.attackers(not user_color, sq):
+        return False, "claimed-trapped piece isn't attacked"
+    # "Trapped" = every legal move of this piece leaves it on an
+    # attacked square or doesn't escape capture. Lighter check: at
+    # least one of its legal destinations exists, but ALL of them
+    # land on squares attacked by opp.
+    safe_destinations = 0
+    for legal_move in board_before.legal_moves:
+        if legal_move.from_square != sq:
+            continue
+        b2 = board_before.copy()
+        b2.push(legal_move)
+        if not b2.is_attacked_by(not user_color, legal_move.to_square):
+            safe_destinations += 1
+            break
+    if safe_destinations > 0:
+        return False, "piece has at least one safe escape square"
+    return True, None
+
+
+def verify_template_missed_pin(
+    *, board_before, move, board_after, caption_text,
+    best_move_san=None, **_
+):
+    """Claim: 'Your {piece} pins their {target} on {sq} — it cannot move.'
+    Verify the engine's best move creates a pin: after the move, the
+    user's piece attacks the target square, and there's an opp piece
+    of higher value on the line behind."""
+    if not best_move_san:
+        return False, "no best_san"
+    try:
+        best_move = board_before.parse_san(best_move_san)
+    except Exception:
+        return False, "best_san unparseable"
+    sqs = _all_squares(caption_text)
+    if not sqs:
+        return False, "no sq in caption"
+    pinned_sq_name = sqs[-1]
+    pinned_sq = chess.parse_square(pinned_sq_name)
+    user_color = board_before.turn
+    b = board_before.copy()
+    b.push(best_move)
+    # python-chess has board.pin() returning the pin ray for a pinned
+    # piece, but only when it's the moving side. Use is_pinned with
+    # chess.WHITE/BLACK (color whose piece is pinned).
+    opp_color = not user_color
+    pinned_piece = b.piece_at(pinned_sq)
+    if not pinned_piece or pinned_piece.color != opp_color:
+        return False, "no opp piece on claimed pinned sq"
+    if not b.is_pinned(opp_color, pinned_sq):
+        return False, "claimed-pinned piece is not actually pinned"
+    return True, None
+
+
+def verify_endgame_connected_passed_pawns(
+    *, board_before, move, board_after, caption_text, **_
+):
+    """Claim: 'Connected passed pawns. Push them together.'"""
+    moving = board_before.piece_at(move.from_square)
+    if not moving or moving.piece_type != chess.PAWN:
+        return False, "non-pawn"
+    user_color = moving.color
+    direction = 1 if user_color == chess.WHITE else -1
+    passed_files = set()
+    for sq in chess.SQUARES:
+        p = board_after.piece_at(sq)
+        if not p or p.piece_type != chess.PAWN or p.color != user_color:
+            continue
+        f = chess.square_file(sq)
+        r = chess.square_rank(sq)
+        is_passed = True
+        nr = r + direction
+        while 0 <= nr <= 7:
+            for nf in (f - 1, f, f + 1):
+                if 0 <= nf <= 7:
+                    pp = board_after.piece_at(chess.square(nf, nr))
+                    if pp and pp.piece_type == chess.PAWN and pp.color != user_color:
+                        is_passed = False
+                        break
+            if not is_passed:
+                break
+            nr += direction
+        if is_passed:
+            passed_files.add(f)
+    for f in passed_files:
+        if (f + 1) in passed_files:
+            return True, None
+    return False, "no two adjacent passed pawn files"
+
+
 def verify_engine_review_needed(*args, **kwargs):
     """Empty by design — no claim to verify."""
     return True, "deliberately empty"
@@ -779,10 +919,126 @@ VERIFIERS: Dict[str, VerifyFn] = {
     "template:missed_mate": verify_template_missed_mate,
     "template:missed_castle": verify_template_missed_castle,
     "template:missed_fork": verify_template_missed_fork,
+    "template:missed_attack_on_high_value": verify_template_missed_attack_on_high_value,
+    "template:trapped_piece": verify_template_trapped_piece,
+    "template:missed_pin": verify_template_missed_pin,
+
+    "endgame:connected_passed_pawns": verify_endgame_connected_passed_pawns,
 
     "engine_review_needed": verify_engine_review_needed,
     "engine_fallback": verify_engine_fallback,
 }
+
+
+# ── 1200-test (explanation quality) ─────────────────────────────────
+# Per the project memory feedback_1200_test: every caption must EITHER
+# pair a chess concept word with a verifiable concrete consequence, OR
+# not use the concept at all. The check is "does the caption contain
+# at least one concrete consequence the player can see on the board?"
+# A caption can be factually correct (passes verifier above) yet still
+# fail the 1200 test if it's pure abstract description.
+
+# Source labels that are exempt — empty by design or generic fallback
+# that we already accept as a non-teaching slot.
+_QUALITY_EXEMPT = {
+    "engine_review_needed",
+    "engine_fallback",
+    "good_generic",
+    "silent",
+}
+
+# Concept words that need a paired explanation. If a caption has any
+# of these AND no concrete-consequence pattern, it fails the 1200 test.
+_NEEDS_PAIR_CONCEPTS = [
+    "outpost", "fianchetto", "luft", "minority attack",
+    "controls the column", "controls the file", "controls the diagonal",
+    "active diagonal", "fresh diagonal", "secure outpost",
+    "tempo", "prophylactic", "central post",
+    "claiming central space", "kingside attack", "queenside expansion",
+    "back-rank", "back rank", "tests their pawn structure",
+]
+
+# Concrete-consequence patterns. If the caption matches any of these,
+# it has a verifiable claim a 1200 player can confirm by looking.
+_CONCRETE_PATTERNS = [
+    r"wins (the |an? |your |their |my |\w+ )?(pawn|knight|bishop|rook|queen|piece|material)",
+    r"takes (the |a )?(pawn|knight|bishop|rook|queen|piece) on [a-h][1-8]",
+    r"attacks (the |a |their |my )?(pawn|knight|bishop|rook|queen|king) on [a-h][1-8]",
+    r"defends (your|their|my) (pawn|knight|bishop|rook|queen) on [a-h][1-8]",
+    r"saves (your|their|my) (pawn|knight|bishop|rook|queen|piece)",
+    r"checkmate",
+    r"check\.",
+    r"check\s—",
+    r"check that forces",
+    r"check that",
+    r"no enemy pawn can chase",
+    r"no defender",
+    r"no defenders",
+    r"had no safe square",
+    r"no escape",
+    r"no luft",
+    r"sets up [\w\d\+#=]+",
+    r"threatens [\w\d\+#=]+",
+    r"prepares ",
+    r"promot",
+    r"promotion",
+    r"sits in front of (the )?(\w+ )?passed pawn",
+    r"connected passed pawns",
+    r"runs to promotion",
+    r"catches it in time",
+    r"(a|the) capture",
+    r"forces (them|me|him|her) to respond",
+    r"forces a (king move|response|king response)",
+    r"open(s)? (a |the )?(file|line|diagonal)",
+    r"opens up",
+    r"keeps the king safer",
+    r"escape squares?",
+    r"shores up the kingside",
+    r"closes the long diagonal",
+    r"avoids checks",
+    r"tucks the king",
+    r"passed pawn",
+    r"has no defender",
+    r"no back-rank surprises now",
+    r"defending [a-h][1-8]",
+    r"won the (knight|bishop|rook|queen|piece)",
+    r"hanging",
+]
+
+_concrete_re = re.compile("|".join(_CONCRETE_PATTERNS), re.IGNORECASE)
+
+
+def quality_check(caption_text: str, source: str) -> Tuple[bool, str]:
+    """Returns (passes_1200_test, reason).
+    Pass = either has no risky concept word, or has one paired with a
+    concrete-consequence pattern.
+    """
+    if source in _QUALITY_EXEMPT:
+        return True, "exempt source"
+    txt = (caption_text or "").strip()
+    if not txt:
+        return True, "empty caption"
+    txt_lower = txt.lower()
+    has_concrete = bool(_concrete_re.search(txt))
+    if has_concrete:
+        return True, "has concrete consequence"
+    # No concrete consequence — only OK if the caption avoids all risky
+    # concept words too (i.e. it's a clean fact statement).
+    has_risky = any(c in txt_lower for c in _NEEDS_PAIR_CONCEPTS)
+    if has_risky:
+        return False, "concept word used without paired concrete consequence"
+    # No risky concept and no concrete consequence — likely a hollow
+    # filler caption ("repositions", "small move makes my side a bit
+    # better", "claiming central space"). Flag.
+    hollow_flags = [
+        "repositions", "redeploys", "redeployment", "active diagonal",
+        "small move", "to a better spot", "controls the",
+        "reasonable", "holds the structure", "keeps the position under control",
+        "pawn moves matter", "solid setup", "solid",
+    ]
+    if any(h in txt_lower for h in hollow_flags):
+        return False, "empty filler phrasing"
+    return True, "concrete fact statement"
 
 
 # ── Runner ───────────────────────────────────────────────────────────
@@ -802,6 +1058,11 @@ def run(args) -> str:
     correctness_pass: Dict[str, int] = defaultdict(int)
     wrong_examples: Dict[str, List[Dict]] = defaultdict(list)
     no_verifier: Counter = Counter()
+
+    # 1200-test (explanation quality)
+    quality_total: Dict[str, int] = defaultdict(int)
+    quality_pass: Dict[str, int] = defaultdict(int)
+    quality_fails: Dict[str, List[Dict]] = defaultdict(list)
 
     started = time.time()
     games_played = 0
@@ -863,6 +1124,20 @@ def run(args) -> str:
                         "reason": reason or "(no reason)",
                     })
 
+            # 1200-test pass — explanation quality
+            quality_total[source] += 1
+            q_ok, q_reason = quality_check(text, source)
+            if q_ok:
+                quality_pass[source] += 1
+            else:
+                if len(quality_fails[source]) < 5:
+                    quality_fails[source].append({
+                        "pair": pair,
+                        "move": f"M{rec['move_number']} {rec['move_san']}",
+                        "text": (text or "")[:140],
+                        "reason": q_reason,
+                    })
+
     elapsed = time.time() - started
 
     # ── Build report ────────────────────────────────────────────────
@@ -918,6 +1193,52 @@ def run(args) -> str:
                 )
                 lines.append(f"      text: {ex['text']}")
                 lines.append(f"      fen:  {ex['fen']}")
+            lines.append("")
+
+    # ── 1200-test (explanation quality) section ──────────────────
+    lines.append("=" * 78)
+    lines.append("1200-TEST (EXPLANATION QUALITY)")
+    lines.append("=" * 78)
+    lines.append("Concept words must be paired with concrete consequences a 1200")
+    lines.append("player can verify by looking. Empty fillers ('repositions',")
+    lines.append("'controls the column' alone) fail. Exempt: engine_review_needed,")
+    lines.append("good_generic, engine_fallback, silent.")
+    lines.append("")
+    q_grand_total = sum(quality_total.values()) or 1
+    q_grand_pass = sum(quality_pass.values())
+    q_pct = 100.0 * q_grand_pass / q_grand_total
+    lines.append(
+        f"  OVERALL EXPLANATION QUALITY: {q_grand_pass}/{q_grand_total}  "
+        f"({q_pct:.1f}% pass)"
+    )
+    lines.append("")
+
+    lines.append("PER-TEMPLATE QUALITY:")
+    lines.append("-" * 78)
+    for source, total in sorted(quality_total.items(), key=lambda x: -x[1]):
+        passed = quality_pass.get(source, 0)
+        pct = 100.0 * passed / total if total else 0
+        marker = "" if passed == total else f"  ← {total - passed} fail 1200-test"
+        lines.append(f"  {passed:4d}/{total:4d}  {pct:5.1f}%  {source}{marker}")
+    lines.append("")
+
+    any_q_fail = any(
+        quality_total[s] > quality_pass[s] for s in quality_total
+    )
+    if any_q_fail:
+        lines.append("QUALITY-FAIL SAMPLES (up to 5 per template):")
+        lines.append("-" * 78)
+        for source in sorted(quality_fails.keys()):
+            exs = quality_fails[source]
+            if not exs:
+                continue
+            lines.append(f"  {source}:")
+            for ex in exs:
+                lines.append(
+                    f"    {ex['pair'][0]}v{ex['pair'][1]}  {ex['move']}: "
+                    f"reason='{ex['reason']}'"
+                )
+                lines.append(f"      text: {ex['text']}")
             lines.append("")
 
     return "\n".join(lines)
