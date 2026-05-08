@@ -235,27 +235,31 @@ def verify_middlegame_knight_outpost(*, board_before, move, board_after, caption
 
 
 def verify_middlegame_rook_open_file(*, board_before, move, board_after, caption_text, **_):
-    """Claim: 'Rook to the {file}-file — {open|half-open}. The rook
-    controls the column.'"""
+    """Claim: 'Rook to the {file}-file — eyes their X on Y' (or
+    'no obstacles ahead'). Verify rook moved, no friendly pawn on
+    file. The new caption format dropped the open/half-open words —
+    only flag if those words appear AND don't match the position."""
     moving = board_before.piece_at(move.from_square)
     if not moving or moving.piece_type != chess.ROOK:
         return False, "non-rook tagged rook_open_file"
     user_color = moving.color
     to_file = chess.square_file(move.to_square)
-    # Friendly pawn on file?
     for r in range(8):
         p = board_after.piece_at(chess.square(to_file, r))
         if p and p.piece_type == chess.PAWN and p.color == user_color:
             return False, "friendly pawn on claimed open file"
-    # Caption says "open" vs "half-open"; verify against enemy pawn presence
+    # Soft-check open/half-open ONLY if the caption explicitly uses
+    # those words (legacy captions did; new captions don't).
     has_enemy_pawn = any(
         (lambda p: p and p.piece_type == chess.PAWN and p.color != user_color)(board_after.piece_at(chess.square(to_file, r)))
         for r in range(8)
     )
-    if has_enemy_pawn and "half-open" not in caption_text:
-        return False, "enemy pawn present but caption says 'open'"
-    if not has_enemy_pawn and "half-open" in caption_text:
+    if "half-open" in caption_text and not has_enemy_pawn:
         return False, "no enemy pawn but caption says 'half-open'"
+    # We deliberately don't fail when caption says "open" with an
+    # enemy pawn present, because the new caption form ('eyes their
+    # pawn on d6') correctly mentions the enemy pawn — a different
+    # framing of the same fact.
     return True, None
 
 
@@ -627,11 +631,11 @@ def verify_template_hanging_piece(
 def verify_template_walked_into_capture(
     *, board_before, move, board_after, caption_text, **_
 ):
-    """Claim: 'Your {piece} on {sq} has no defender. {opp_capture} wins it.'
-    The user's just-played move places/keeps a piece on a square attacked
-    by opp without sufficient defenders."""
-    user_color = board_before.turn  # color BEFORE move = the user
-    # Find claimed square in caption
+    """Claim: 'Your {piece} on {sq} ...' — could be (a) 'no defender'
+    free piece, OR (b) 'attacked for less' losing-trade case. Accept
+    either: more attackers than defenders, OR cheapest attacker is
+    strictly cheaper than the target piece (losing exchange)."""
+    user_color = board_before.turn
     sqs = _all_squares(caption_text)
     if not sqs:
         return False, "no sq"
@@ -640,10 +644,23 @@ def verify_template_walked_into_capture(
     if not p or p.color != user_color:
         return False, "no own piece on claimed sq post-move"
     attackers = board_after.attackers(not user_color, sq)
+    if not attackers:
+        return False, "no attackers post-move"
     defenders = board_after.attackers(user_color, sq)
-    if len(attackers) <= len(defenders):
-        return False, "not actually hanging post-move"
-    return True, None
+    if len(attackers) > len(defenders):
+        return True, None
+    # Defended but losing trade: cheapest attacker < target value
+    target_value = _PIECE_VALUE.get(p.piece_type, 0)
+    cheapest_attacker_value = min(
+        _PIECE_VALUE.get(
+            board_after.piece_at(a).piece_type if board_after.piece_at(a) else chess.PAWN,
+            0,
+        )
+        for a in attackers
+    )
+    if cheapest_attacker_value < target_value:
+        return True, None
+    return False, "not actually hanging or losing trade post-move"
 
 
 def verify_template_missed_capture(

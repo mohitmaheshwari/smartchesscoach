@@ -368,9 +368,36 @@ def _detect_minority_attack_push(
     if queenside_pawns >= enemy_queenside:
         return None
     sq_name = chess.square_name(move.to_square)
-    if is_user_move:
-        return f"Minority attack — pushing {sq_name} to create weaknesses on their queenside."
-    return f"They push {sq_name} on the queenside — minority attack idea."
+    # Find an enemy queenside pawn this push targets (typical minority-
+    # attack target: the pawn the next push will hit).
+    user_color = moving_piece.color
+    direction = 1 if user_color == chess.WHITE else -1
+    target_pawn_sq = None
+    # Look at the square one push ahead and its diagonals for an enemy pawn.
+    push_rank = chess.square_rank(move.to_square) + direction
+    push_file = chess.square_file(move.to_square)
+    if 0 <= push_rank <= 7:
+        for df in (-1, 0, 1):
+            nf = push_file + df
+            if not (0 <= nf <= 7):
+                continue
+            sq = chess.square(nf, push_rank)
+            p = board_before.piece_at(sq)
+            if p and p.color != user_color and p.piece_type == chess.PAWN:
+                target_pawn_sq = chess.square_name(sq)
+                break
+    if target_pawn_sq:
+        if is_user_move:
+            return (
+                f"Pawn to {sq_name}. Sets up a push that hits their "
+                f"pawn on {target_pawn_sq}."
+            )
+        return (
+            f"They push {sq_name}, lining up on your pawn on {target_pawn_sq}."
+        )
+    # No specific target pawn — return None instead of generic
+    # "create weaknesses" framing. Honest silence > vague concept.
+    return None
 
 
 def _detect_fianchetto_complete(
