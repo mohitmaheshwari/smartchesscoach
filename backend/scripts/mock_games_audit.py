@@ -162,7 +162,10 @@ def analyse_game(
     board = game.board()
 
     with _engine(20) as eng:  # full-strength for analysis
-        eng.configure({"MultiPV": multipv})
+        # NOTE: don't configure MultiPV here — python-chess raises
+        # EngineError("cannot set MultiPV which is automatically
+        # managed") because it manages multipv per analyse() call.
+        # Pass multipv= to analyse() instead (see calls below).
         prev_eval_white_pov: Optional[int] = None
         for move in game.mainline_moves():
             fen_before = board.fen()
