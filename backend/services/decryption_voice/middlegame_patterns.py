@@ -240,8 +240,8 @@ def _detect_prophylactic_king_tuck(
         if from_sq_name == "g1" and to_sq_name in ("h1", "f1"):
             if is_user_move:
                 return (
-                    f"King tucks to {to_sq_name}. Quiet move — "
-                    f"steps off a back-rank trap before it lands."
+                    f"King tucks to {to_sq_name}. "
+                    f"Steps off a back-rank trap before it lands."
                 )
             return (
                 f"They tuck the king to {to_sq_name} — "
@@ -251,8 +251,8 @@ def _detect_prophylactic_king_tuck(
         if from_sq_name == "g8" and to_sq_name in ("h8", "f8"):
             if is_user_move:
                 return (
-                    f"King tucks to {to_sq_name}. Quiet move — "
-                    f"steps off a back-rank trap before it lands."
+                    f"King tucks to {to_sq_name}. "
+                    f"Steps off a back-rank trap before it lands."
                 )
             return (
                 f"They tuck the king to {to_sq_name} — "
@@ -320,10 +320,10 @@ def _detect_central_pawn_break(
             f"Pawn break to {sq_name} — they crack the centre, "
             f"hitting your {target_name} on {target_sq}."
         )
-    sq_str = " and ".join(attacked_squares) if attacked_squares else "the centre"
+    # No enemy piece hit — lead with meaning, no empty-square tail.
     if is_user_move:
-        return f"Pawn break to {sq_name} — punches into the centre. Bites at {sq_str}."
-    return f"They break with {sq_name}, biting at {sq_str}."
+        return f"Pawn break to {sq_name} — punches into the centre. Now Black has to react."
+    return f"They break with {sq_name} — punching into the centre. Forces a response."
 
 
 def _detect_queen_lift_attack(
@@ -764,13 +764,10 @@ def _detect_opening_pawn_prep(
         nr = to_rank + direction
         if 0 <= nf <= 7 and 0 <= nr <= 7:
             controls.append(chess.square_name(chess.square(nf, nr)))
-    sq_str = " and ".join(controls) if controls else None
+    # Don't list squares — these support pawns rarely have interesting
+    # targets to name. Lead with intent.
     if is_user_move:
-        if sq_str:
-            return f"Pawn to {sq_name} — quiet support move. Holds {sq_str}."
-        return f"Pawn to {sq_name} — quiet support move."
-    if sq_str:
-        return f"They play {sq_name} — solid support, holding {sq_str}."
+        return f"Pawn to {sq_name} — quiet support move. Builds a solid base."
     return f"They play {sq_name} — solid support."
 
 
@@ -830,26 +827,15 @@ def _detect_central_knight_redeployment(
             f"Stares at your {target_name} on {target_sq}."
         )
 
-    # No enemy piece directly under attack — list two central squares
-    # the knight now covers.
-    central_attacks = [
-        chess.square_name(sq)
-        for sq in b.attacks(move.to_square)
-        if 2 <= chess.square_file(sq) <= 5
-        and 2 <= chess.square_rank(sq) <= 5
-    ]
-    central_attacks.sort()
-    central_attacks = central_attacks[:2]
-    if central_attacks:
-        sq_str = " and ".join(central_attacks)
-        if is_user_move:
-            return (
-                f"Knight to {sq_name} — strong square. "
-                f"Both sides want this; you got it first. "
-                f"Covers {sq_str}."
-            )
-        return f"Knight to {sq_name} — strong square. Covers {sq_str}."
-    return None
+    # No enemy piece directly under attack — lead with meaning, skip
+    # the empty-square geometry. (Coach voice rule: list squares only
+    # when they contain something interesting.)
+    if is_user_move:
+        return (
+            f"Knight to {sq_name} — strong central square. "
+            f"Both sides want this; you got it first."
+        )
+    return f"Knight to {sq_name} — strong central square. Hard to dislodge."
 
 
 def _detect_wing_pawn_expansion(
@@ -922,17 +908,10 @@ def _detect_wing_pawn_expansion(
             f"hits your {target_name} on {target_sq}."
         )
 
-    sq_str = " and ".join(attacked_squares) if attacked_squares else None
+    # No enemy piece on diagonals — lead with meaning, no empty-square tail.
     if is_user_move:
-        if sq_str:
-            return (
-                f"Pawn to {sq_name} — gains ground on the {flank}. "
-                f"Bites at {sq_str}."
-            )
-        return f"Pawn to {sq_name} — gains ground on the {flank}."
-    if sq_str:
-        return f"They push {sq_name} on the {flank}, biting at {sq_str}."
-    return f"They push {sq_name} on the {flank}."
+        return f"Pawn to {sq_name} — gains ground on the {flank}. Starts to crack their structure."
+    return f"They push {sq_name} on the {flank} — gaining ground on that side."
 
 
 def _detect_late_central_pawn(
@@ -1090,8 +1069,8 @@ def _detect_middlegame_king_walk(
     sq_name = chess.square_name(move.to_square)
     if is_user_move:
         return (
-            f"King to {sq_name} — sidesteps. "
-            f"Quiet move, but useful: avoids checks and pins down the line."
+            f"King to {sq_name} — small move, big shield. "
+            f"Avoids checks and pins down the line."
         )
     return f"They walk the king to {sq_name} — sidestepping future checks."
 
