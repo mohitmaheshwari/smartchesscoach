@@ -197,8 +197,8 @@ def _central_pawn_caption(
             attacked.append(chess.square_name(chess.square(nf, nr)))
     sq_str = " and ".join(attacked) if attacked else "the centre"
     if is_user_move:
-        return f"Pushes to {to_sq}. Now attacks {sq_str}."
-    return f"They push to {to_sq}, attacking {sq_str}."
+        return f"Pushes to {to_sq} — claims the centre. Hits {sq_str} now."
+    return f"They push to {to_sq}, biting at {sq_str}."
 
 
 def _capture_caption(
@@ -283,8 +283,14 @@ def _prophylactic_caption(
             piece_name = _PIECE_NAME.get(p.piece_type, "piece")
             sq_name = chess.square_name(sq)
             if is_user_move:
-                return f"Defends your {piece_name} on {sq_name}."
-            return f"They defend their {piece_name} on {sq_name}."
+                return (
+                    f"Defends your {piece_name} on {sq_name}. "
+                    f"Always cover what you can't replace."
+                )
+            return (
+                f"They defend their {piece_name} on {sq_name} — "
+                f"plugging a weak spot."
+            )
     return None
 
 
@@ -642,27 +648,26 @@ def _interpret_engine_preference(
     best_is_castle = best_san.startswith("O-O")
 
     # ── Concrete cases (intrinsic WHY: material / king safety) ──
+    # Voice rule (per project_coach_voice): use "X was sharper" /
+    # "X was the move" framing — the coach is the player's voice,
+    # not a third-party narrator quoting an engine.
 
     # 1. Engine wanted a CAPTURE the user didn't play
     if best_is_capture and not played_is_capture:
         captured = board.piece_at(best_move.to_square)
         if not captured and board.is_en_passant(best_move):
-            return f"Engine prefers {best_san} — an en passant capture."
+            return f"{best_san} was the move — en passant snags the pawn."
         if captured:
             captured_name = _PIECE_NAME.get(captured.piece_type, "piece")
-            return f"Engine prefers {best_san} — wins the {captured_name}."
-        return None  # Promotion-capture edge case; let coach review
+            return f"{best_san} was the move. Wins the {captured_name} — free."
+        return None  # promotion-capture edge case; let coach review
 
-    # 2. Engine wanted to CASTLE — concrete (king safety)
+    # 2. Engine wanted to CASTLE — coach voice on king safety
     if best_is_castle and not played_is_castle:
         side = "kingside" if "O-O-O" not in best_san else "queenside"
-        return f"Engine prefers castling {side} — keeps the king safer."
+        return f"{best_san} was the move. Castle {side} first — your king's exposed otherwise."
 
     # ── Derived cases — require a concrete signal ──
-    # For every other case (check, same piece, different piece etc.),
-    # we need the WHY-derivation to find an actual reason. If none,
-    # return None and let the human coach handle it in the review tab.
-
     why = _derive_engine_preference_why(
         fen_before=fen_before,
         played_san=played_san,
@@ -673,10 +678,10 @@ def _interpret_engine_preference(
     if not why:
         return None
 
-    # Stitch the WHY fragment into a complete caption.
+    # Coach voice: lead with the move, name the lesson plainly.
     if best_is_check:
-        return f"Engine prefers {best_san} — a check that {why}."
-    return f"Engine prefers {best_san} — {why}."
+        return f"{best_san} was sharper — a check that {why}."
+    return f"{best_san} was sharper here — {why}."
 
 
 # ── Public API ───────────────────────────────────────────────────────

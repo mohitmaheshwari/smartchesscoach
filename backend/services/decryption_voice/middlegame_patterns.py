@@ -108,8 +108,14 @@ def _detect_knight_outpost(
 
     sq_name = chess.square_name(to_sq)
     if is_user_move:
-        return f"Plants the knight on {sq_name} — secure outpost. No enemy pawn can chase it."
-    return f"Their knight lands on {sq_name} — a secure outpost protected by their pawn."
+        return (
+            f"Plants the knight on {sq_name} — locked in. "
+            f"No pawn can push it away."
+        )
+    return (
+        f"Their knight lands on {sq_name} — locked in there. "
+        f"Hard to dislodge."
+    )
 
 
 def _detect_rook_to_open_file(
@@ -166,18 +172,21 @@ def _detect_rook_to_open_file(
         target_name = _PIECE_NAME.get(target_pt, "piece")
         if is_user_move:
             return (
-                f"Rook to the {file_letter}-file — eyes their {target_name} "
-                f"on {target_sq}."
+                f"Rook to the {file_letter}-file — open file. "
+                f"Stares straight at their {target_name} on {target_sq}."
             )
         return (
-            f"Their rook swings to the {file_letter}-file, eyeing your "
-            f"{target_name} on {target_sq}."
+            f"Rook to the {file_letter}-file — they take the open file. "
+            f"It eyes your {target_name} on {target_sq}."
         )
 
-    # Pure open file with no enemy targets — describe honestly.
+    # Pure open file with no enemy targets — coach voice still.
     if is_user_move:
-        return f"Rook to the {file_letter}-file — no obstacles ahead."
-    return f"Their rook swings to the {file_letter}-file with a clear file."
+        return (
+            f"Rook to the {file_letter}-file. Open file all the way "
+            f"— rooks love these."
+        )
+    return f"Rook to the {file_letter}-file — they grab a clean line."
 
 
 def _detect_rook_to_seventh_middlegame(
@@ -200,8 +209,14 @@ def _detect_rook_to_seventh_middlegame(
         return None
     sq_name = chess.square_name(move.to_square)
     if is_user_move:
-        return f"Rook to the seventh — {sq_name}. From here it eats pawns and ties the enemy king down."
-    return f"Their rook reaches the seventh on {sq_name}. Tough to kick out."
+        return (
+            f"Rook to {sq_name} — seventh rank. "
+            f"From here it picks off their pawns and ties their king down."
+        )
+    return (
+        f"Their rook lands on {sq_name} — seventh rank. "
+        f"Hard to kick out, eats pawns from there."
+    )
 
 
 def _detect_prophylactic_king_tuck(
@@ -224,13 +239,25 @@ def _detect_prophylactic_king_tuck(
     if user_color == chess.WHITE:
         if from_sq_name == "g1" and to_sq_name in ("h1", "f1"):
             if is_user_move:
-                return f"King tucks to {to_sq_name}. Steps off a future diagonal or back-rank threat before it lands."
-            return f"They tuck the king to {to_sq_name} prophylactically."
+                return (
+                    f"King tucks to {to_sq_name}. Quiet move — "
+                    f"steps off a back-rank trap before it lands."
+                )
+            return (
+                f"They tuck the king to {to_sq_name} — "
+                f"sidesteps a back-rank trap before it lands."
+            )
     else:
         if from_sq_name == "g8" and to_sq_name in ("h8", "f8"):
             if is_user_move:
-                return f"King tucks to {to_sq_name}. Steps off a future diagonal or back-rank threat before it lands."
-            return f"They tuck the king to {to_sq_name} prophylactically."
+                return (
+                    f"King tucks to {to_sq_name}. Quiet move — "
+                    f"steps off a back-rank trap before it lands."
+                )
+            return (
+                f"They tuck the king to {to_sq_name} — "
+                f"sidesteps a back-rank trap before it lands."
+            )
     return None
 
 
@@ -285,12 +312,18 @@ def _detect_central_pawn_break(
         target_pt, target_sq = attacked_pieces[0]
         target_name = _PIECE_NAME.get(target_pt, "piece")
         if is_user_move:
-            return f"Pawn to {sq_name}. Now attacks their {target_name} on {target_sq}."
-        return f"They push to {sq_name}, attacking your {target_name} on {target_sq}."
+            return (
+                f"Pawn break to {sq_name} — punches into the centre. "
+                f"Hits their {target_name} on {target_sq}."
+            )
+        return (
+            f"Pawn break to {sq_name} — they crack the centre, "
+            f"hitting your {target_name} on {target_sq}."
+        )
     sq_str = " and ".join(attacked_squares) if attacked_squares else "the centre"
     if is_user_move:
-        return f"Pawn to {sq_name}. Now controls {sq_str}."
-    return f"They push to {sq_name}, controlling {sq_str}."
+        return f"Pawn break to {sq_name} — punches into the centre. Bites at {sq_str}."
+    return f"They break with {sq_name}, biting at {sq_str}."
 
 
 def _detect_queen_lift_attack(
@@ -322,8 +355,8 @@ def _detect_queen_lift_attack(
 
     sq_name = chess.square_name(move.to_square)
     if is_user_move:
-        return f"Queen lifts toward {sq_name}, joining the attack on their king."
-    return f"Their queen lifts to {sq_name} — heading for your king."
+        return f"Queen swings to {sq_name} — joining the attack on their king."
+    return f"Their queen swings to {sq_name} — heading for your king."
 
 
 def _detect_minority_attack_push(
@@ -389,11 +422,12 @@ def _detect_minority_attack_push(
     if target_pawn_sq:
         if is_user_move:
             return (
-                f"Pawn to {sq_name}. Sets up a push that hits their "
-                f"pawn on {target_pawn_sq}."
+                f"Pawn to {sq_name} — sets up a wing pawn break. "
+                f"Aims to crack their pawn on {target_pawn_sq}."
             )
         return (
-            f"They push {sq_name}, lining up on your pawn on {target_pawn_sq}."
+            f"They push {sq_name} — wing break coming. "
+            f"Lining up on your pawn on {target_pawn_sq}."
         )
     # No specific target pawn — return None instead of generic
     # "create weaknesses" framing. Honest silence > vague concept.
@@ -430,8 +464,14 @@ def _detect_fianchetto_complete(
     # Long diagonal description varies by square.
     diag = "a1-h8 diagonal" if to_sq_name in ("g2", "b7") else "a8-h1 diagonal"
     if is_user_move:
-        return f"Fianchetto — bishop to {to_sq_name}. Eyes the {diag}."
-    return f"They fianchetto the bishop to {to_sq_name}, claiming the {diag}."
+        return (
+            f"Fianchetto — bishop to {to_sq_name}. "
+            f"Sweeps the {diag} from corner to corner."
+        )
+    return (
+        f"They fianchetto the bishop to {to_sq_name} — "
+        f"sweeps the {diag} corner to corner."
+    )
 
 
 def _has_isolated_queen_pawn(board: chess.Board, color: bool) -> bool:
@@ -477,8 +517,14 @@ def _detect_isolated_queen_pawn_play(
         if to_sq_name != ideal:
             return None
         if is_user_move:
-            return f"Knight to {to_sq_name} — the IQP outpost. Your isolated d-pawn supports a strong square."
-        return f"Their knight lands on {to_sq_name} — IQP outpost."
+            return (
+                f"Knight to {to_sq_name} — strong square. "
+                f"Your lone d-pawn covers it; their pawns can't kick it."
+            )
+        return (
+            f"Their knight lands on {to_sq_name} — strong square. "
+            f"Their lone d-pawn protects it."
+        )
 
     if moving_piece.piece_type == chess.BISHOP:
         if user_color == chess.WHITE and to_sq_name not in ("b3", "c4", "d3"):
@@ -486,8 +532,14 @@ def _detect_isolated_queen_pawn_play(
         if user_color == chess.BLACK and to_sq_name not in ("b6", "c5", "d6"):
             return None
         if is_user_move:
-            return f"Bishop to {to_sq_name} — joins the IQP attack. Your d-pawn pays for itself with active pieces."
-        return f"Their bishop to {to_sq_name} — typical IQP attacker."
+            return (
+                f"Bishop to {to_sq_name} — pressing on their king. "
+                f"That's the way to use an isolated d-pawn: active pieces."
+            )
+        return (
+            f"Their bishop swings to {to_sq_name} — "
+            f"using their isolated d-pawn to power piece play."
+        )
 
     return None
 
@@ -556,11 +608,16 @@ def _detect_back_rank_pressure(
         return None
 
     sq_name = chess.square_name(move.to_square)
+    piece_name = _PIECE_NAME[moving_piece.piece_type]
     if is_user_move:
         return (
-            f"Heavy piece to {sq_name} — eyes their back rank. Their king has no luft."
+            f"{piece_name.capitalize()} to {sq_name} — eyes their back rank. "
+            f"Their king has nowhere to run if you break through."
         )
-    return f"Their {_PIECE_NAME[moving_piece.piece_type]} to {sq_name} — back-rank pressure."
+    return (
+        f"Their {piece_name} to {sq_name} — heavy piece on your back rank. "
+        f"Watch out: your king has no escape squares."
+    )
 
 
 def _detect_doubled_pawn_recapture(
@@ -653,8 +710,14 @@ def _detect_luft_push(
 
     sq_name = chess.square_name(move.to_square)
     if is_user_move:
-        return f"Pawn to {sq_name} — gives the king luft. No back-rank surprises now."
-    return f"They push {sq_name}, giving their king luft."
+        return (
+            f"Pawn to {sq_name} — opens an escape square for your king. "
+            f"No back-rank surprises now."
+        )
+    return (
+        f"They push {sq_name} — escape square for their king. "
+        f"They saw a back-rank threat coming."
+    )
 
 
 def _detect_opening_pawn_prep(
@@ -704,11 +767,11 @@ def _detect_opening_pawn_prep(
     sq_str = " and ".join(controls) if controls else None
     if is_user_move:
         if sq_str:
-            return f"Pawn to {sq_name}. Now controls {sq_str}."
-        return f"Pawn to {sq_name}."
+            return f"Pawn to {sq_name} — quiet support move. Holds {sq_str}."
+        return f"Pawn to {sq_name} — quiet support move."
     if sq_str:
-        return f"They play {sq_name}, controlling {sq_str}."
-    return f"They play {sq_name}."
+        return f"They play {sq_name} — solid support, holding {sq_str}."
+    return f"They play {sq_name} — solid support."
 
 
 def _detect_central_knight_redeployment(
@@ -758,8 +821,14 @@ def _detect_central_knight_redeployment(
         target_pt, target_sq = attacked_enemies[0]
         target_name = _PIECE_NAME.get(target_pt, "piece")
         if is_user_move:
-            return f"Knight to {sq_name}. Eyes their {target_name} on {target_sq}."
-        return f"Their knight to {sq_name} eyes your {target_name} on {target_sq}."
+            return (
+                f"Knight to {sq_name} — strong square. "
+                f"Stares at their {target_name} on {target_sq}."
+            )
+        return (
+            f"Knight to {sq_name} — strong square. "
+            f"Stares at your {target_name} on {target_sq}."
+        )
 
     # No enemy piece directly under attack — list two central squares
     # the knight now covers.
@@ -774,8 +843,12 @@ def _detect_central_knight_redeployment(
     if central_attacks:
         sq_str = " and ".join(central_attacks)
         if is_user_move:
-            return f"Knight to {sq_name}. Now covers {sq_str}."
-        return f"Their knight to {sq_name}, covering {sq_str}."
+            return (
+                f"Knight to {sq_name} — strong square. "
+                f"Both sides want this; you got it first. "
+                f"Covers {sq_str}."
+            )
+        return f"Knight to {sq_name} — strong square. Covers {sq_str}."
     return None
 
 
@@ -840,16 +913,25 @@ def _detect_wing_pawn_expansion(
         target_pt, target_sq = attacked_pieces[0]
         target_name = _PIECE_NAME.get(target_pt, "piece")
         if is_user_move:
-            return f"Pawn to {sq_name} on the {flank}. Hits their {target_name} on {target_sq}."
-        return f"They push {sq_name} on the {flank}, hitting your {target_name} on {target_sq}."
+            return (
+                f"Pawn to {sq_name} — gains ground on the {flank}. "
+                f"Hits their {target_name} on {target_sq}."
+            )
+        return (
+            f"They push {sq_name} on the {flank} — "
+            f"hits your {target_name} on {target_sq}."
+        )
 
     sq_str = " and ".join(attacked_squares) if attacked_squares else None
     if is_user_move:
         if sq_str:
-            return f"Pawn to {sq_name} on the {flank}. Now controls {sq_str}."
-        return f"Pawn to {sq_name} on the {flank}."
+            return (
+                f"Pawn to {sq_name} — gains ground on the {flank}. "
+                f"Bites at {sq_str}."
+            )
+        return f"Pawn to {sq_name} — gains ground on the {flank}."
     if sq_str:
-        return f"They push {sq_name} on the {flank}, controlling {sq_str}."
+        return f"They push {sq_name} on the {flank}, biting at {sq_str}."
     return f"They push {sq_name} on the {flank}."
 
 
@@ -881,8 +963,8 @@ def _detect_late_central_pawn(
 
     sq_name = chess.square_name(move.to_square)
     if is_user_move:
-        return f"Pawn to {sq_name} — claims central space. Better late than never."
-    return f"They push to {sq_name}, claiming the centre."
+        return f"Pawn to {sq_name} — staking out the centre. Better late than never."
+    return f"They push to {sq_name}, staking out the centre."
 
 
 def _detect_defensive_pawn_shield(
@@ -919,8 +1001,14 @@ def _detect_defensive_pawn_shield(
 
     sq_name = chess.square_name(move.to_square)
     if is_user_move:
-        return f"Pawn to {sq_name} — shores up the kingside. Closes the long diagonal."
-    return f"They play {sq_name}, shoring up their king."
+        return (
+            f"Pawn to {sq_name} — shores up your king. "
+            f"Closes the long diagonal so their bishop can't get in."
+        )
+    return (
+        f"They play {sq_name} — shoring up their king. "
+        f"That diagonal is closed now."
+    )
 
 
 def _detect_bishop_activation(
@@ -967,8 +1055,14 @@ def _detect_bishop_activation(
         target_pt, target_sq = attacked_enemies[0]
         target_name = _PIECE_NAME.get(target_pt, "piece")
         if is_user_move:
-            return f"Bishop to {to_sq_name}. Eyes their {target_name} on {target_sq}."
-        return f"Their bishop to {to_sq_name}, eyeing your {target_name} on {target_sq}."
+            return (
+                f"Bishop to {to_sq_name} — opens up its diagonal. "
+                f"Aims right at their {target_name} on {target_sq}."
+            )
+        return (
+            f"Bishop to {to_sq_name} — fresh diagonal, aimed at your "
+            f"{target_name} on {target_sq}."
+        )
 
     # No enemy target on the diagonal — don't manufacture a teaching
     # claim. Return None and let dispatcher try other detectors / fall
@@ -995,8 +1089,11 @@ def _detect_middlegame_king_walk(
         return None  # endgame — handled elsewhere
     sq_name = chess.square_name(move.to_square)
     if is_user_move:
-        return f"King to {sq_name} — sidesteps. Avoids checks and pins."
-    return f"They walk the king to {sq_name}."
+        return (
+            f"King to {sq_name} — sidesteps. "
+            f"Quiet move, but useful: avoids checks and pins down the line."
+        )
+    return f"They walk the king to {sq_name} — sidestepping future checks."
 
 
 def _detect_piece_maneuver(
@@ -1041,12 +1138,13 @@ def _detect_piece_maneuver(
     piece_name = _PIECE_NAME[moving_piece.piece_type]
     if is_user_move:
         return (
-            f"{piece_name.capitalize()} to {sq_name}. "
-            f"Now attacks their {target_name} on {target_sq}."
+            f"{piece_name.capitalize()} swings to {sq_name}. "
+            f"Hits their {target_name} on {target_sq} — "
+            f"makes them deal with it."
         )
     return (
-        f"They move the {piece_name} to {sq_name}, "
-        f"attacking your {target_name} on {target_sq}."
+        f"Their {piece_name} swings to {sq_name} — "
+        f"hits your {target_name} on {target_sq}."
     )
 
 

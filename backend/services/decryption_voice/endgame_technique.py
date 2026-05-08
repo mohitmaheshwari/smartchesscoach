@@ -100,14 +100,14 @@ def _detect_king_activation(
     if moving_piece.color == chess.WHITE:
         if to_rank > from_rank and to_rank >= 2:
             return (
-                f"Activates the king toward {chess.square_name(move.to_square)}. "
-                "In the endgame the king is a fighting piece."
+                f"King marches to {chess.square_name(move.to_square)} — "
+                f"endgame mode. Your king's a fighting piece now, not a target."
             )
     else:
         if to_rank < from_rank and to_rank <= 5:
             return (
-                f"Activates the king toward {chess.square_name(move.to_square)}. "
-                "In the endgame the king is a fighting piece."
+                f"King marches to {chess.square_name(move.to_square)} — "
+                f"endgame mode. Your king's a fighting piece now, not a target."
             )
     return None
 
@@ -126,8 +126,8 @@ def _detect_rook_to_seventh(
     if not _is_endgame(board_before):
         return None
     return (
-        f"Rook to {chess.square_name(move.to_square)} — reaches the seventh rank. "
-        "From here it eats pawns and pins the enemy king."
+        f"Rook to {chess.square_name(move.to_square)} — seventh rank. "
+        f"From here it picks off their pawns and ties their king down."
     )
 
 
@@ -218,7 +218,8 @@ def _detect_connected_passed_pawns_advance(
     for f in passed_files:
         if (f + 1) in passed_files:
             return (
-                "Connected passed pawns. Push them together — they protect each other and either promotes."
+                "Connected passed pawns — your strongest endgame asset. "
+                "Push them together; they protect each other and one will queen."
             )
     return None
 
@@ -267,8 +268,9 @@ def _detect_wrong_color_bishop_draw(
     if promo_is_light == bishop_is_light:
         return None  # bishop is the right colour
     return (
-        "Wrong-colour bishop with a rook pawn. The defending king can hold the corner — "
-        "this is a theoretical draw despite the extra piece."
+        "Wrong-colour bishop with a rook pawn — this is a known draw. "
+        "Their king can sit in the corner; your bishop can't kick him out. "
+        "The extra piece doesn't help here."
     )
 
 
