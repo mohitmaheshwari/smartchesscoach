@@ -281,7 +281,35 @@ class AnalysisInterpreter:
         # Second pass: detect patterns across moves
         self._detect_cross_move_patterns(interpreted)
 
+        # Third pass: per-game shape dedup. A wandering queen produces
+        # multiple queen_too_early fires across the game, but they're
+        # the same teaching moment — surfacing all of them would feel
+        # naggy. Keep the first occurrence per shape type per game.
+        self._dedupe_shapes_per_game(interpreted)
+
         return interpreted
+
+    def _dedupe_shapes_per_game(self, moves: List[InterpretedMove]) -> None:
+        """Strip duplicate shape types within a game — keep only the
+        first chronological occurrence of each type.
+
+        Mutates the moves list in place. Same architectural shape as
+        `_detect_cross_move_patterns` (cross-move post-pass).
+        """
+        seen_types: set = set()
+        for m in moves:
+            if not m.shapes:
+                continue
+            kept: List[Dict] = []
+            for shape in m.shapes:
+                stype = shape.get("type")
+                if not stype:
+                    continue
+                if stype in seen_types:
+                    continue
+                kept.append(shape)
+                seen_types.add(stype)
+            m.shapes = kept
     
     def _interpret_single_move(
         self,

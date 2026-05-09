@@ -67,16 +67,24 @@ async def run(args) -> str:
         if not moves:
             continue
 
+        # Per-game dedup: only the FIRST occurrence of each shape type
+        # surfaces. Mirrors the dedup pass in analysis_interpreter so the
+        # audit numbers match what users see.
+        seen_types_in_game: set = set()
         game_had_shape = False
         for idx, me in enumerate(moves):
             moves_seen += 1
             future = moves[idx + 1: idx + 1 + SHAPE_LOOKAHEAD]
             shapes = detect_shapes_for_move(me, future) or []
             for shape in shapes:
-                shape_total[shape["type"]] += 1
+                stype = shape["type"]
+                if stype in seen_types_in_game:
+                    continue  # already counted earlier in this game
+                seen_types_in_game.add(stype)
+                shape_total[stype] += 1
                 game_had_shape = True
-                if len(samples[shape["type"]]) < args.samples_per_type:
-                    samples[shape["type"]].append({
+                if len(samples[stype]) < args.samples_per_type:
+                    samples[stype].append({
                         "game_id": ga.get("game_id", "?"),
                         "move_number": me.get("move_number"),
                         "move_san": me.get("move_san") or me.get("move"),
