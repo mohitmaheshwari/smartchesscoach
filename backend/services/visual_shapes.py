@@ -53,7 +53,13 @@ SHAPE_QUEEN_TOO_EARLY = "queen_too_early"
 # ────────────────────────────────────────────────────────────────────
 
 _QUEEN_EARLY_MAX_MOVE = 10
-_QUEEN_EARLY_VERIFIER_PLIES = 4
+# How many future move-evaluations to inspect for the chase. The
+# production move_evaluations array contains ONLY the user's moves —
+# opponent moves are not stored as events; their effect is captured
+# in the FEN snapshots between user moves. So 4 here means "inspect
+# the user's next 4 turns" — which covers 4 opponent responses in
+# user-only data and 4 plies of game time in interleaved data.
+_QUEEN_EARLY_VERIFIER_WINDOW = 4
 
 
 def _count_developed_minors(board: chess.Board, color: bool) -> int:
@@ -81,71 +87,91 @@ def _queen_chased_in_future(
     queen_move_uci: str,
     future_moves: List[Dict],
     user_color: bool,
-    max_plies: int = _QUEEN_EARLY_VERIFIER_PLIES,
+    max_window: int = _QUEEN_EARLY_VERIFIER_WINDOW,
 ) -> bool:
     """
-    Verifier — does the queen get chased in the next `max_plies`?
+    Verifier — does the queen get chased in the next several positions?
 
-    Returns True iff:
-      - an enemy minor piece (knight/bishop) attacks the queen's current
-        square at any point in the next `max_plies`, OR
-      - the user is forced to move the queen again while it's already
-        being attacked by an enemy minor.
+    The production `move_evaluations` array contains only the user's
+    moves; opponent moves aren't stored as events. So we inspect the
+    FEN snapshots of subsequent user moves: each `fen_before` of a
+    later user move = position right after the opponent's response.
 
-    Conservative: missing/illegal data → False (fail-closed, no warning).
+    This works for both user-only arrays (production) and interleaved
+    arrays (smoke tests) — every entry's fen_before is just "some
+    snapshot in the game's future" and we check the queen's status in
+    each one. No reliance on whose-turn-it-is in the array.
+
+    Returns True iff in any of the inspected future positions:
+      - the user's queen is attacked by an enemy minor (knight/bishop), OR
+      - the user is forced to move their queen FROM a square that's
+        currently under attack by an enemy minor (forced retreat).
+
+    Conservative: missing/illegal data → False (fail-closed).
     """
+    # Sanity-check the queen move is legal in fen_before.
     try:
-        sim = chess.Board(fen_before)
+        legality_board = chess.Board(fen_before)
         queen_mv = chess.Move.from_uci(queen_move_uci)
-        if queen_mv not in sim.legal_moves:
+        if queen_mv not in legality_board.legal_moves:
             return False
-        sim.push(queen_mv)
-        queen_sq = queen_mv.to_square
     except Exception:
         return False
 
-    for fm in future_moves[:max_plies]:
-        fuci = fm.get("move_uci", "")
-        if not fuci or len(fuci) < 4:
-            return False
-        try:
-            fmv = chess.Move.from_uci(fuci)
-        except Exception:
-            return False
-        if fmv not in sim.legal_moves:
-            return False
+    # Walk the next several future moves. For each, inspect BOTH
+    # fen_before and fen_after — this covers both data shapes:
+    #   • user-only array: fen_before of user's next move = right
+    #     after opponent responded → chase visible there.
+    #   • interleaved array: fen_after of opponent's move = right
+    #     after opponent moved → chase visible there.
+    # Some FENs will appear twice; that's harmless.
+    for fm in future_moves[:max_window]:
+        for fen_key in ("fen_before", "fen_after"):
+            fen = fm.get(fen_key, "")
+            if not fen:
+                continue
+            try:
+                board = chess.Board(fen)
+            except Exception:
+                continue
 
-        moving = sim.piece_at(fmv.from_square)
-        if moving is None:
-            return False
-        is_user_move = (moving.color == user_color)
-
-        # User about to move the queen while it's attacked by a minor → forced retreat.
-        if is_user_move and fmv.from_square == queen_sq:
-            attackers = sim.attackers(not user_color, queen_sq)
-            for asq in attackers:
-                apiece = sim.piece_at(asq)
-                if apiece and apiece.piece_type in (chess.KNIGHT, chess.BISHOP):
-                    return True
-
-        sim.push(fmv)
-
-        # After opponent's move, queen now attacked by a minor?
-        if not is_user_move:
-            queen_piece = sim.piece_at(queen_sq)
-            if not queen_piece or queen_piece.piece_type != chess.QUEEN \
-                    or queen_piece.color != user_color:
-                # Queen captured / moved off — different dynamic, bail.
+            user_queens = [
+                sq for sq, p in board.piece_map().items()
+                if p.piece_type == chess.QUEEN and p.color == user_color
+            ]
+            if not user_queens:
+                # Queen captured/promoted-off — different dynamic, bail.
                 return False
-            attackers = sim.attackers(not user_color, queen_sq)
-            for asq in attackers:
-                apiece = sim.piece_at(asq)
-                if apiece and apiece.piece_type in (chess.KNIGHT, chess.BISHOP):
-                    return True
 
-        # Track queen if user just moved it.
-        if is_user_move and fmv.from_square == queen_sq:
-            queen_sq = fmv.to_square
+            for qsq in user_queens:
+                attackers = board.attackers(not user_color, qsq)
+                for asq in attackers:
+                    apiece = board.piece_at(asq)
+                    if apiece and apiece.piece_type in (chess.KNIGHT, chess.BISHOP):
+                        return True
+
+        # Forced retreat — only meaningful at fen_before of the move
+        # being inspected (the position the user is acting on).
+        fen_b = fm.get("fen_before", "")
+        next_uci = fm.get("move_uci", "")
+        if not fen_b or not next_uci or len(next_uci) < 4:
+            continue
+        try:
+            board = chess.Board(fen_b)
+            next_mv = chess.Move.from_uci(next_uci)
+            if next_mv not in board.legal_moves:
+                continue
+            moving = board.piece_at(next_mv.from_square)
+            if (moving
+                    and moving.piece_type == chess.QUEEN
+                    and moving.color == user_color):
+                attackers = board.attackers(not user_color, next_mv.from_square)
+                for asq in attackers:
+                    apiece = board.piece_at(asq)
+                    if apiece and apiece.piece_type in (chess.KNIGHT, chess.BISHOP):
+                        return True
+        except Exception:
+            pass
 
     return False
 
@@ -197,7 +223,7 @@ def detect_queen_too_early(
             f"{played_san} brought queen out on move {move_number} with "
             f"{developed} minor piece{'s' if developed != 1 else ''} developed; "
             f"verifier confirmed queen was chased within "
-            f"{_QUEEN_EARLY_VERIFIER_PLIES} plies"
+            f"{_QUEEN_EARLY_VERIFIER_WINDOW} plies"
         ),
         "coach_line": (
             f"{played_san} brings the queen out before your knights and bishops. "
