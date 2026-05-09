@@ -16,6 +16,8 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
+import chess
+
 from cognitive_gap_service import (
     CognitiveGap,
     analyze_cognitive_gap,
@@ -95,6 +97,84 @@ def _best_move_is_forcing(best_move_san: str) -> bool:
     if not best_move_san:
         return False
     return any(ch in best_move_san for ch in ("x", "+", "#"))
+
+
+_PIECE_VALUE_CP = {
+    chess.PAWN: 100,
+    chess.KNIGHT: 300,
+    chess.BISHOP: 300,
+    chess.ROOK: 500,
+    chess.QUEEN: 900,
+    chess.KING: 0,
+}
+
+
+def _played_drops_material(fen_before: str, move_uci: str, threshold_cp: int = 200) -> bool:
+    """Did the played move drop ≥ threshold_cp of material to a forced
+    opp recapture? Used as the hard signal for tactical/calculation
+    failures: if the user's move loses material via simple recapture,
+    the gap is tactical, not positional."""
+    if not fen_before or not move_uci or len(move_uci) < 4:
+        return False
+    try:
+        board = chess.Board(fen_before)
+        mv = chess.Move.from_uci(move_uci)
+        if mv not in board.legal_moves:
+            return False
+        moving_piece = board.piece_at(mv.from_square)
+        if not moving_piece:
+            return False
+        attacker_value = _PIECE_VALUE_CP.get(moving_piece.piece_type, 0)
+        board.push(mv)
+        user_color = not board.turn
+        attackers = board.attackers(not user_color, mv.to_square)
+        if not attackers:
+            return False
+        cheapest_value = min(
+            _PIECE_VALUE_CP.get(board.piece_at(a).piece_type, 9999)
+            for a in attackers if board.piece_at(a)
+        )
+        defenders = board.attackers(user_color, mv.to_square)
+        if not defenders:
+            # Hanging — full attacker_value lost
+            return attacker_value >= threshold_cp
+        # With defenders, we lose (attacker_value - cheapest_attacker)
+        cp_lost = max(0, attacker_value - cheapest_value)
+        return cp_lost >= threshold_cp
+    except Exception:
+        return False
+
+
+def _move_involves_king(fen_before: str, move_uci: str) -> bool:
+    """Did the played move involve the user's king (move it OR break
+    its pawn shield in front of a castled king)?"""
+    if not fen_before or not move_uci or len(move_uci) < 4:
+        return False
+    try:
+        board = chess.Board(fen_before)
+        mv = chess.Move.from_uci(move_uci)
+        moving = board.piece_at(mv.from_square)
+        if not moving:
+            return False
+        if moving.piece_type == chess.KING:
+            return True
+        if moving.piece_type != chess.PAWN:
+            return False
+        user_color = moving.color
+        king_sq = board.king(user_color)
+        if king_sq is None:
+            return False
+        kf = chess.square_file(king_sq)
+        kr = chess.square_rank(king_sq)
+        pf = chess.square_file(mv.from_square)
+        pr = chess.square_rank(mv.from_square)
+        castled_rank = 0 if user_color == chess.WHITE else 7
+        forward = 1 if user_color == chess.WHITE else -1
+        if kr == castled_rank and abs(kf - pf) <= 2 and pr == kr + forward:
+            return True
+        return False
+    except Exception:
+        return False
 
 
 def _played_move_hangs_piece(fen_before: str, move_uci: str) -> bool:
@@ -308,46 +388,81 @@ class AnalysisInterpreter:
             coaching_focus = ""
             is_behavior_event = False
 
-            # Specific behavioural gaps first — these are stronger lessons
-            # than "you made a mistake in the opening/endgame phase". A
-            # hanging piece on move 3 is a piece_safety habit issue, not an
-            # opening_knowledge one.
+            # ── Rule order rewritten 2026-05-09 to fix mis-classification.
+            #
+            # Old order: king_safety → piece_safety → opening → endgame →
+            #   ignore_threat → missed_tactic → pawn_structure → piece_activity.
+            #
+            # 1000-game audit found:
+            #   - king_safety fired from POSITION pressure regardless of
+            #     what the move did: 33.6% misfire rate.
+            #   - piece_activity was a catch-all for any non-pawn move
+            #     where engine's best was non-forcing — caught calculation
+            #     errors and labelled them "passive pieces".
+            #
+            # New order leads with MOVE-LEVEL evidence:
+            #   1. Hanging piece (your move drops material) → piece_safety
+            #   2. Material drop on the played move ≥200cp → tactical_oversight
+            #   3. Engine's best is forcing → missed_tactic
+            #   4. King-safety with MOVE evidence (move involved king
+            #      OR addressed a king threat) → king_safety
+            #   5. Phase + structural buckets (opening / endgame / pawn)
+            #   6. piece_activity LAST and only with positive evidence
+            #      (no tactic missed, played move quiet)
 
-            # King safety — king in direct danger.
-            if cp_loss >= 100:
+            # 1. Piece safety — played move left a user piece hanging.
+            #    Strongest signal; fires first.
+            if cp_loss >= 100 and _played_move_hangs_piece(fen_before, played_uci):
+                primary_gap = GAP_PIECE_SAFETY
+                confidence = 0.85
+                evidence = "Move left a piece attacked with no defender"
+                coaching_focus = (
+                    "Before each move, scan your pieces — is anything undefended?"
+                )
+                is_behavior_event = True
+
+            # 2. Tactical / calculation blunder — played move drops material
+            #    to a forced recapture. Catches the failed sacrifices that
+            #    were previously misclassified as piece_activity.
+            if primary_gap is None and cp_loss >= 200 and _played_drops_material(fen_before, played_uci, threshold_cp=200):
+                primary_gap = GAP_TACTICAL_OVERSIGHT
+                confidence = 0.85
+                evidence = f"Played move drops material — calculation failure"
+                coaching_focus = (
+                    "Before sacrificing a piece, calculate at least 3 moves of forcing reply."
+                )
+                is_behavior_event = True
+
+            # 3. Best move was a forcing move (capture/check/mate). User
+            #    missed a concrete tactic.
+            if primary_gap is None and cp_loss >= 150 and _best_move_is_forcing(best_move_san):
+                primary_gap = GAP_MISSED_TACTIC
+                confidence = 0.75
+                evidence = f"Missed {best_move_san}"
+                coaching_focus = "Scan checks, captures, threats every move"
+
+            # 4. King safety — TIGHTENED. Old rule fired on position
+            #    pressure alone (34% misfire). New rule requires the
+            #    move to actually involve the king OR (king under attack
+            #    AND played move didn't address it).
+            if primary_gap is None and cp_loss >= 100:
                 try:
-                    if _king_under_attack(fen_before):
+                    move_touches_king = _move_involves_king(fen_before, played_uci)
+                    king_in_trouble = _king_under_attack(fen_before)
+                    if move_touches_king or (king_in_trouble and not _best_move_is_forcing(best_move_san)):
                         primary_gap = GAP_KING_SAFETY
-                        confidence = 0.8
-                        evidence = "King under pressure here"
+                        confidence = 0.75
+                        evidence = (
+                            "Played move involved king or pawn shield"
+                            if move_touches_king
+                            else "King under pressure pre-move and threat went unaddressed"
+                        )
                         coaching_focus = "Check the king's safety before attacking"
                         is_behavior_event = True
                 except Exception:
                     pass
 
-            # Piece safety — the played move left a user piece hanging.
-            if primary_gap is None and cp_loss >= 100:
-                if _played_move_hangs_piece(fen_before, played_uci):
-                    primary_gap = GAP_PIECE_SAFETY
-                    confidence = 0.85
-                    evidence = "Move left a piece attacked with no defender"
-                    coaching_focus = "Before each move, scan your pieces — is anything undefended?"
-                    is_behavior_event = True
-
-            # Phase context — opening/endgame — only if no specific gap fired.
-            if primary_gap is None and cp_loss >= 100 and is_opening:
-                primary_gap = GAP_OPENING_KNOWLEDGE
-                confidence = 0.7
-                evidence = f"Opening move {move_number} lost {cp_loss}cp"
-                coaching_focus = "Learn the ideas behind the opening, not just the moves"
-
-            if primary_gap is None and cp_loss >= 100 and is_endgame:
-                primary_gap = GAP_ENDGAME_TECHNIQUE
-                confidence = 0.75
-                evidence = f"Endgame slip cost {cp_loss}cp"
-                coaching_focus = "Active king, passed pawns, clean technique"
-
-            # Opponent had a real threat that was ignored.
+            # 5. Opponent had a real threat that was ignored.
             if primary_gap is None:
                 try:
                     threats = find_threats(fen_before)
@@ -360,28 +475,49 @@ class AnalysisInterpreter:
                 except Exception:
                     pass
 
-            # Best move was a forcing move (capture/check/mate) the player
-            # didn't see — the classic "missed tactic".
-            if primary_gap is None and cp_loss >= 150 and _best_move_is_forcing(best_move_san):
-                primary_gap = GAP_MISSED_TACTIC
+            # 6. Phase context — opening/endgame — only if no specific gap fired.
+            if primary_gap is None and cp_loss >= 100 and is_opening:
+                primary_gap = GAP_OPENING_KNOWLEDGE
                 confidence = 0.7
-                evidence = f"Missed {best_move_san}"
-                coaching_focus = "Scan checks, captures, threats every move"
+                evidence = f"Opening move {move_number} lost {cp_loss}cp"
+                coaching_focus = "Learn the ideas behind the opening, not just the moves"
 
-            # Pawn move with lasting structural cost.
+            if primary_gap is None and cp_loss >= 100 and is_endgame:
+                primary_gap = GAP_ENDGAME_TECHNIQUE
+                confidence = 0.75
+                evidence = f"Endgame slip cost {cp_loss}cp"
+                coaching_focus = "Active king, passed pawns, clean technique"
+
+            # 7. Pawn move with lasting structural cost.
             if primary_gap is None and cp_loss >= 100 and _is_pawn_move(played_uci, fen_before):
                 primary_gap = GAP_PAWN_STRUCTURE
                 confidence = 0.6
                 evidence = "Pawn move with lasting positional cost"
                 coaching_focus = "Every pawn push is permanent — think before pushing"
 
-            # Best move was a quiet piece repositioning → piece activity / coordination.
-            if primary_gap is None and cp_loss >= 100 and best_move_san and not _best_move_is_forcing(best_move_san):
-                if not _is_pawn_move(played_uci, fen_before):
-                    primary_gap = GAP_PIECE_ACTIVITY
-                    confidence = 0.55
-                    evidence = f"A quieter move ({best_move_san}) improved piece coordination"
-                    coaching_focus = "Look for moves that activate sleeping pieces"
+            # 8. Piece activity — TIGHTENED. Old rule was a catch-all
+            #    when engine's best was non-forcing (~5% confirmed misfire,
+            #    ~18% suspicious). New rule additionally requires:
+            #      - played move was NOT a capture/check (those aren't
+            #        "passive" by definition)
+            #      - played move did NOT drop material (that's tactical)
+            #      - played move was NOT a king move (that's king_safety)
+            played_san_str = move.get("move_san") or ""
+            played_is_forcing = "x" in played_san_str or "+" in played_san_str or "#" in played_san_str
+            if (
+                primary_gap is None
+                and cp_loss >= 100
+                and best_move_san
+                and not _best_move_is_forcing(best_move_san)
+                and not _is_pawn_move(played_uci, fen_before)
+                and not played_is_forcing
+                and not _played_drops_material(fen_before, played_uci, threshold_cp=200)
+                and not _move_involves_king(fen_before, played_uci)
+            ):
+                primary_gap = GAP_PIECE_ACTIVITY
+                confidence = 0.55
+                evidence = f"A quieter move ({best_move_san}) improved piece coordination"
+                coaching_focus = "Look for moves that activate sleeping pieces"
 
             # cp-loss fallback — the generic buckets catch anything the
             # specific detectors above missed.
