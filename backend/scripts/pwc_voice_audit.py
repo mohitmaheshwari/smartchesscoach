@@ -123,12 +123,21 @@ def verdict(score: int, issues: List[str]) -> str:
 
 
 async def run(args):
+    from datetime import datetime, timedelta, timezone
+
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
 
-    print(f"\n=== Sampling coach_messages (limit {args.limit}) ===\n")
+    query = {"message": {"$exists": True, "$ne": ""}}
+    if args.since_days:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=args.since_days)
+        query["created_at"] = {"$gte": cutoff}
+        print(f"\n=== Sampling coach_messages from last {args.since_days} days (limit {args.limit}) ===\n")
+    else:
+        print(f"\n=== Sampling coach_messages (limit {args.limit}) ===\n")
+
     cursor = db.coach_messages.find(
-        {"message": {"$exists": True, "$ne": ""}},
+        query,
         {"_id": 0, "message": 1, "trigger": 1, "move": 1, "move_number": 1,
          "created_at": 1, "session_id": 1},
     ).sort("created_at", -1).limit(args.limit)
@@ -228,4 +237,8 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=300, help="messages to sample")
     p.add_argument("--samples", type=int, default=15, help="examples per verdict")
+    p.add_argument("--since-days", type=int, default=None,
+                   help="filter to messages created in the last N days "
+                        "(useful after voice-template fixes — historical "
+                        "messages keep their old text)")
     asyncio.run(run(p.parse_args()))
