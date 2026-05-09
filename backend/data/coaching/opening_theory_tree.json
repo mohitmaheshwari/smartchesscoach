@@ -919,7 +919,7 @@
           "Qd2",
           "Re8"
         ],
-        "white_plan": "Minority attack with b4-b5, pressure along the e-file, exploit symmetry for first-move advantage",
+        "white_plan": "Push b4-b5 to crack their queenside pawns, pressure along the e-file, exploit symmetry for first-move advantage",
         "black_plan": "Use the freed light bishop (Bf5 or Bg4!), central control, counterattack queenside advances",
         "critical_positions": {
           "after_exd5": {
@@ -1077,7 +1077,7 @@
       "d5",
       "c4"
     ],
-    "white_plan": "Central control, queenside space, minority attack or central break e4",
+    "white_plan": "Central control, queenside space, push b4-b5 to crack their pawns, or break with e4",
     "black_plan": "Solid defense of d5, counterattack with c5 or e5 when ready",
     "critical_positions": {
       "after_c4": {
@@ -1164,7 +1164,7 @@
           "Bxc4",
           "Nd5"
         ],
-        "white_plan": "Minority attack (a3, b4, b5) to create queenside weaknesses, control c-file",
+        "white_plan": "Push a3-b4-b5 to crack their queenside pawns and create weak squares, control the c-file",
         "black_plan": "Solid center with c6, develop Nd7, plan c5 or e5 break, solve the bishop problem",
         "critical_positions": {
           "after_Bg5": {
@@ -1189,10 +1189,10 @@
             }
           },
           "minority_attack": {
-            "key_decision": "White starts the minority attack - Black must know how to respond",
+            "key_decision": "White pushes b4-b5 to crack Black's queenside pawns — Black must know how to respond",
             "best_moves": {
               "a5": {
-                "idea": "Stop b4! Prevent the minority attack",
+                "idea": "Stop b4! Prevent White's queenside pawn break",
                 "why_good": "Fixes the queenside pawns and stops White's main plan"
               },
               "Ne4": {
@@ -1436,7 +1436,7 @@
     },
     "common_learnings": [
       "The Queen's Gambit is not a real gambit - White usually gets the pawn back",
-      "In the QGD, the minority attack (b4-b5) is White's main plan",
+      "In the QGD, pushing b4-b5 to crack the queenside pawns is White's main plan",
       "In the QGA, never try to hold the c4 pawn - develop instead",
       "In the Slav, develop Bf5 BEFORE playing e6 - that's the whole point",
       "c5 is Black's key break in almost all Queen's Gambit lines"
@@ -6402,7 +6402,7 @@
       "c4",
       "e6"
     ],
-    "white_plan": "Build central control, develop with Nc3-Bg5-e3, aim for minority attack or central break",
+    "white_plan": "Build central control, develop with Nc3-Bg5-e3, aim for the b4-b5 queenside break or a central break",
     "black_plan": "Solidly defend d5, develop with Nf6-Be7-O-O, solve the light bishop problem, break with c5",
     "critical_positions": {
       "after_e6": {
@@ -6558,7 +6558,7 @@
           "Nxc3",
           "Rxc3"
         ],
-        "white_plan": "Develop with Bg5-e3-Nf3-Bd3, castle, launch minority attack (a3-b4-b5)",
+        "white_plan": "Develop with Bg5-e3-Nf3-Bd3, castle, then push a3-b4-b5 on the queenside to crack their pawns",
         "black_plan": "Solid with Be7-O-O-Nbd7-c6, aim for dxc4 and Nd5 exchanges, break with c5 or e5",
         "critical_positions": {
           "after_Bg5": {
@@ -6634,7 +6634,7 @@
       "The QGD is one of the most classical and tested openings in chess",
       "Black's light bishop on c8 is the 'problem piece' - solving it is key",
       "c5 and e5 are the two key breaks for Black in the middlegame",
-      "White's minority attack (b4-b5) is the main strategic plan",
+      "White's b4-b5 queenside pawn break is the main strategic plan — it cracks Black's pawns and creates weak squares",
       "The Lasker Defense (h6/Ne4) is a great simplification tool for Black"
     ],
     "traps": [

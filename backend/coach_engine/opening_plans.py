@@ -321,19 +321,19 @@ QUEENS_GAMBIT = OpeningPlan(
                 "Bg5": {"teach": "Pin the knight! This is the CLASSICAL approach. The knight on f6 defends d5 — by pinning it to the queen, you threaten to win the d5 pawn. This is one of the most important ideas in the QGD.", "idea": "Pressure d5 through the pin"},
                 "Be7": {"teach": "Black breaks the pin. Solid defense — the bishop covers e7 and prepares castling. Your plan now: complete development with e3 and Nf3.", "idea": "King safety first"},
                 "e3": {"teach": "Support d4 and unlock the light-squared bishop. The bishop will go to d3 — a powerful post aiming at Black's kingside. This quiet move is actually very strong.", "idea": "Prepare Bd3 and kingside pressure"},
-                "O-O": {"teach": "Black castles. Good defensive technique. Now the real battle begins. Your plan: Bd3, Nf3, then push for e4 or play a queenside minority attack.", "idea": "Middlegame planning begins"},
+                "O-O": {"teach": "Black castles. Good defensive technique. Now the real battle begins. Your plan: Bd3, Nf3, then push for e4 or play a queenside queenside pawn break.", "idea": "Middlegame planning begins"},
                 "Nf3": {"teach": "Complete development — knights before the queen. Your army is nearly ready. After Bd3, you'll have a powerful setup.", "idea": "Finish development"},
                 "Nbd7": {"teach": "Black reroutes the knight, possibly to f8-g6 for kingside defense. Deep positional maneuvering.", "idea": "Piece improvement"},
                 "Bd3": {"teach": "The bishop lands on the PERFECT diagonal! It eyes h7 and supports an eventual e4 push. This is the dream setup in the Queen's Gambit Declined.", "idea": "Attacking setup complete"},
-                "c6": {"teach": "Black reinforces d5 with a pawn chain. Your two big plans from here: 1) Central break with e4 to blast open the position, or 2) Minority attack with a4-b5 to create weak pawns on Black's queenside.", "idea": "Choose your plan: e4 or minority attack"},
+                "c6": {"teach": "Black reinforces d5 with a pawn chain. Your two big plans from here: 1) Central break with e4 to blast open the position, or 2) Queenside pawn break with a4-b5 to create weak pawns on Black's queenside.", "idea": "Choose your plan: e4 or queenside pawn break"},
             },
             "key_plans": [
-                "Minority attack: push a4-b5 to create weak pawns on Black's queenside",
+                "Queenside pawn break: push a4-b5 to create weak pawns on Black's queenside",
                 "Central break: push e4 when the time is right to open lines for your pieces",
                 "Kingside attack: Bd3 + potential Bxh7 sacrifice if Black is careless"
             ],
             "plans_for_white": [
-                "Complete development, then choose between e4 or the minority attack",
+                "Complete development, then choose between e4 or the queenside pawn break",
                 "Use the Bg5 pin to increase pressure on d5",
                 "Place the bishop on d3 before shifting toward a kingside attack"
             ],

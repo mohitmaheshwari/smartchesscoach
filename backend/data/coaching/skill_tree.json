@@ -244,7 +244,7 @@
     },
     "concept_minority_attack": {
       "kind": "concept",
-      "label": "Minority attack",
+      "label": "Queenside pawn break (b4-b5)",
       "fixes": "not knowing how to attack in QGD structures",
       "content_ref": "minority_attack",
       "prerequisites": ["opening_queens_gambit"],

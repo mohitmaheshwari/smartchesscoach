@@ -768,14 +768,14 @@
         "plan": "Push e4 and open the center. Your pieces are better.",
         "ideas": [
           "e4 break is powerful",
-          "Minority attack on queenside",
+          "Push b4-b5 on the queenside to crack their pawns",
           "Rooks on c and d files"
         ]
       },
       "when_equal": {
-        "plan": "Control d5. Play for the minority attack.",
+        "plan": "Hold d5. Push b4-b5 to break their queenside pawn structure.",
         "ideas": [
-          "b4-b5 minority attack",
+          "b4-b5 cracks open the queenside",
           "Keep central control",
           "Bishop pair is an asset"
         ]
@@ -791,7 +791,7 @@
     },
     "endgame_tips": [
       "Central pawns are strong.",
-      "The minority attack creates weaknesses.",
+      "Pushing b4-b5 on the queenside cracks their pawn structure and creates weak squares to land pieces on.",
       "Rook endgames favor better structure."
     ]
   },

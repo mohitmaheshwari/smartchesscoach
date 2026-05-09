@@ -535,24 +535,24 @@ class StructurePlanDatabase:
             "carlsbad_structure": StructureTeaching(
                 structure_name="Carlsbad Structure",
                 structure_type="carlsbad_structure",
-                main_idea="Symmetric pawn structure where White plays the minority attack (b4-b5)",
+                main_idea="Symmetric pawn structure where White plays the queenside pawn break (b4-b5)",
                 key_characteristics=[
                     "Symmetric pawns: White c3-d4-e3 vs Black c6-d5-e6",
                     "Arises from QGD Exchange variation",
-                    "White's main plan is the minority attack",
+                    "White's main plan is the queenside pawn break",
                     "Black seeks counterplay on kingside or with ...c5",
                     "Strategic, positional battle"
                 ],
                 white_plans=[
                     StrategicPlan(
-                        name="Minority Attack",
+                        name="Queenside Pawn Break",
                         description="Push b4-b5 to create a weakness on c6",
                         key_moves=["b4", "b5", "bxc6"],
                         piece_maneuvers=["Rb1", "a4", "b4-b5"],
                         pawn_breaks=["b4-b5 targeting c6"],
                         when_to_use="The standard plan in this structure",
                         what_to_avoid=["Rushing b5 before pieces are ready"],
-                        teaching_explanation="The minority attack is a classic plan. Push your b-pawn to force ...cxb5, leaving Black with a weak c6 pawn. Then pile pressure on it."
+                        teaching_explanation="The queenside pawn break is a classic plan. Push your b-pawn to force ...cxb5, leaving Black with a weak c6 pawn. Then pile pressure on it."
                     ),
                     StrategicPlan(
                         name="Ne5 Outpost",
@@ -560,21 +560,21 @@ class StructurePlanDatabase:
                         key_moves=["Ne5", "Bf4", "Qb3"],
                         piece_maneuvers=["Nf3-e5"],
                         pawn_breaks=[],
-                        when_to_use="In conjunction with minority attack",
+                        when_to_use="In conjunction with queenside pawn break",
                         what_to_avoid=["Trading the e5 knight unnecessarily"],
-                        teaching_explanation="The e5 square is a great outpost for your knight. From there it controls key squares and supports both the minority attack and central play."
+                        teaching_explanation="The e5 square is a great outpost for your knight. From there it controls key squares and supports both the queenside pawn break and central play."
                     )
                 ],
                 black_plans=[
                     StrategicPlan(
                         name="c5 Break",
-                        description="Play ...c5 before White's minority attack develops",
+                        description="Play ...c5 before White's queenside pawn break develops",
                         key_moves=["c5", "cxd4", "exd4"],
                         piece_maneuvers=["Prepare ...c5 with piece development"],
-                        pawn_breaks=["c5 to counter the minority attack"],
+                        pawn_breaks=["c5 to counter the queenside pawn break"],
                         when_to_use="Early, before White gets b4-b5 rolling",
                         what_to_avoid=["Playing ...c5 when it creates an IQP for you"],
-                        teaching_explanation="If you can play ...c5 in time, you prevent the minority attack and might even get counterplay. But be careful about creating your own IQP!"
+                        teaching_explanation="If you can play ...c5 in time, you prevent the queenside pawn break and might even get counterplay. But be careful about creating your own IQP!"
                     ),
                     StrategicPlan(
                         name="Kingside Counterplay",
@@ -582,9 +582,9 @@ class StructurePlanDatabase:
                         key_moves=["f6", "e5", "Qe8-h5"],
                         piece_maneuvers=["Nf6-e4", "Bd6", "Qe8-h5"],
                         pawn_breaks=["f6 and e5 to open lines"],
-                        when_to_use="When minority attack is unstoppable",
+                        when_to_use="When queenside pawn break is unstoppable",
                         what_to_avoid=["Overextending without piece support"],
-                        teaching_explanation="If you can't stop the minority attack, create your own counterplay! The kingside is your territory. Push ...f6 and ...e5 to open lines."
+                        teaching_explanation="If you can't stop the queenside pawn break, create your own counterplay! The kingside is your territory. Push ...f6 and ...e5 to open lines."
                     )
                 ],
                 ideal_piece_placement={
@@ -595,7 +595,7 @@ class StructurePlanDatabase:
                 outposts=["e5 (for White)", "e4 (for Black)"],
                 weak_squares=["c6 (after bxc6)", "isolated pawns after ...c5"],
                 teaching_points=[
-                    "The minority attack is a fundamental strategic plan",
+                    "The queenside pawn break is a fundamental strategic plan",
                     "Creating weaknesses is often better than winning material",
                     "Black must choose: prevent the attack or create counterplay",
                     "Piece activity is crucial for both sides",
@@ -910,14 +910,14 @@ class StructurePlanDatabase:
                 ],
                 white_plans=[
                     StrategicPlan(
-                        name="Minority Attack",
+                        name="Queenside Pawn Break",
                         description="Push b4-b5 to create weaknesses on Black's queenside",
                         key_moves=["b4", "b5", "bxc6"],
                         piece_maneuvers=["Rb1", "a4-b4-b5"],
                         pawn_breaks=["b4-b5 targeting c6"],
                         when_to_use="After exchanging on d5 (Carlsbad structure)",
                         what_to_avoid=["Rushing b5 without preparation"],
-                        teaching_explanation="The minority attack creates a weakness on c6. You attack with fewer pawns to create an isolated pawn or backward pawn for Black."
+                        teaching_explanation="The queenside pawn break creates a weakness on c6. You attack with fewer pawns to create an isolated pawn or backward pawn for Black."
                     ),
                     StrategicPlan(
                         name="Central Pressure",
@@ -958,12 +958,12 @@ class StructurePlanDatabase:
                 },
                 critical_squares=["d5", "e4", "c5"],
                 outposts=["e5 (for White)", "e4 (for Black after ...c5)"],
-                weak_squares=["c6 (after minority attack)", "e6"],
+                weak_squares=["c6 (after queenside pawn break)", "e6"],
                 teaching_points=[
                     "Black's position is solid but slightly cramped",
                     "The c8 bishop is the 'problem piece' - activate it",
                     "...c5 is Black's main freeing break",
-                    "White often plays for the minority attack",
+                    "White often plays for the queenside pawn break",
                     "Don't release central tension without a good reason"
                 ],
                 common_mistakes=[
@@ -1346,13 +1346,13 @@ class StructurePlanDatabase:
                 white_plans=[
                     StrategicPlan(
                         name="Exchange Variation",
-                        description="Exchange on d5 and play for minority attack",
+                        description="Exchange on d5 and play for queenside pawn break",
                         key_moves=["cxd5", "cxd5", "Bf4", "Nc3"],
-                        piece_maneuvers=["Minority attack setup"],
-                        pawn_breaks=["b4-b5 minority attack"],
+                        piece_maneuvers=["Queenside pawn break setup"],
+                        pawn_breaks=["b4-b5 queenside pawn break"],
                         when_to_use="For a quiet positional game",
                         what_to_avoid=["Letting Black equalize too easily"],
-                        teaching_explanation="The Exchange Slav leads to the Carlsbad structure. Use the minority attack (b4-b5) to create a weakness on c6."
+                        teaching_explanation="The Exchange Slav leads to the Carlsbad structure. Use the queenside pawn break (b4-b5) to create a weakness on c6."
                     ),
                     StrategicPlan(
                         name="Main Line with e3",

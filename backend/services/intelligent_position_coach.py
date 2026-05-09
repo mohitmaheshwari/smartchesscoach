@@ -222,11 +222,15 @@ async def analyze_position_and_suggest(
             return None
         
         # 9. Build complete teaching offer
-        # Determine main idea - prefer structure teaching, then detected structure, then phase-based
+        # Determine main idea - prefer structure teaching, else fall back to a
+        # concrete phase prompt. The old middle case ("This position has a
+        # {structure_name} character. ...") was 94% RED in the voice audit —
+        # it labelled the structure without teaching anything, while the
+        # structure_name is already shown as the heading downstream
+        # (format_position_coaching_message). Don't repeat the label —
+        # let the phase prompt do the actual coaching work.
         if structure_teaching:
             main_idea = structure_teaching.main_idea
-        elif structure_analysis:
-            main_idea = f"This position has a {structure_name.lower()} character. {_get_phase_main_idea(game_phase)}"
         else:
             main_idea = _get_phase_main_idea(game_phase)
         
@@ -266,14 +270,22 @@ async def analyze_position_and_suggest(
 
 
 def _get_phase_main_idea(game_phase: str) -> str:
-    """Get a general main idea based on game phase when no specific structure is detected."""
+    """Phase-specific coach voice when no structure teaching is available.
+
+    Voice rules: concrete action prompts, no fluffy abstractions. The old
+    middlegame line ("Look for tactical opportunities and strategic
+    imbalances") was the single biggest RED contributor in the PwC voice
+    audit — abstract, no checklist, no verb the player can act on.
+    Replaced with a loose-piece scan, which is concrete and matches the
+    1200 reading level.
+    """
     phase_ideas = {
-        "opening": "Develop your pieces, control the center, and ensure king safety.",
-        "middlegame": "Look for tactical opportunities and strategic imbalances.",
-        "late_middlegame": "Start thinking about the transition to endgame - activate your king gradually.",
-        "endgame": "King activity is paramount. Passed pawns are your most valuable asset."
+        "opening": "Get your pieces out, fight for the centre, castle before move 10.",
+        "middlegame": "Find the loose pieces — yours undefended, theirs hanging.",
+        "late_middlegame": "Pieces are thinning out — start walking your king forward.",
+        "endgame": "Your king is a fighter now — bring it forward. Passed pawns are gold.",
     }
-    return phase_ideas.get(game_phase, "Evaluate the position and find the best plan.")
+    return phase_ideas.get(game_phase, "Pick your weakest piece and ask: what is it doing?")
 
 
 def format_position_coaching_message(coaching: Dict[str, Any]) -> str:

@@ -177,7 +177,7 @@ OPENING_DATABASE = {
             "Control the center with pawns on d4 and eventually e4",
             "The c4 pawn attacks d5 - don't worry about losing it temporarily",
             "Develop pieces to active squares, then look for e4 break",
-            "Minority attack on the queenside (a4-b5) is a common plan"
+            "Pushing a4-b5 on the queenside to crack their pawns is a common plan"
         ],
         "common_mistakes": [
             {"move": "e4", "instead_of": "Nc3", "explanation": "e4 too early weakens d4. Develop first!"},

@@ -486,7 +486,7 @@ class OpeningTeachingDatabase:
                 typical_plans_white=[
                     "Advance Variation: e5 with kingside space",
                     "Classical: Develop and challenge d5",
-                    "Exchange: Minority attack"
+                    "Exchange: Push b4-b5 on the queenside to crack their pawns"
                 ],
                 typical_plans_black=[
                     "Develop Bf5 before e6",
@@ -563,7 +563,7 @@ class OpeningTeachingDatabase:
                 typical_plans_white=[
                     "Develop with Nc3, Bg5, e3",
                     "If Black takes: recover pawn and develop",
-                    "Minority attack in QGD Exchange"
+                    "In QGD Exchange: push b4-b5 to crack their queenside pawns"
                 ],
                 typical_plans_black=[
                     "QGD: Play ...c5 or ...c6, develop bishop problem piece",

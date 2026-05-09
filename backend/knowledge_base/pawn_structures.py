@@ -52,7 +52,7 @@ PAWN_STRUCTURES = {
         },
         "typical_plans": {
             "with_iqp": [
-                "Minority attack on queenside is NOT the plan",
+                "Queenside pawn break on queenside is NOT the plan",
                 "Focus on kingside attack with f3-e4 support",
                 "Rooks belong on d1 and e1 (or c1)"
             ],
@@ -247,7 +247,7 @@ PAWN_STRUCTURES = {
         "trigger_conditions": [
             "More pawns on queenside (a,b,c,d files) than opponent",
             "Classic structure from Exchange Spanish, QGD",
-            "Minority attack creates this for opponent"
+            "Queenside pawn break creates this for opponent"
         ],
         "strategic_goal_with": {
             "summary": "Create outside passed pawn",
@@ -296,9 +296,9 @@ PAWN_STRUCTURES = {
             "Classic QGD Exchange structure"
         ],
         "strategic_goal_with": {
-            "summary": "Minority attack on queenside",
+            "summary": "Queenside pawn break on queenside",
             "plans": [
-                "b4-b5 minority attack to create weakness on c6",
+                "b4-b5 queenside pawn break to create weakness on c6",
                 "Trade b-pawn for c-pawn, leaving isolated a-pawn",
                 "Open c-file for rooks",
                 "Place knight on c5 outpost"
@@ -317,7 +317,7 @@ PAWN_STRUCTURES = {
         },
         "amateur_errors": {
             "white": [
-                "Rushing minority attack without completing development",
+                "Rushing queenside pawn break without completing development",
                 "Neglecting kingside defense",
                 "Not using open c-file after exchange"
             ],

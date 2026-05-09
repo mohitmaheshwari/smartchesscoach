@@ -236,7 +236,7 @@ OPENINGS_DATABASE = {
             "Control the center with c4 and e3/e4",
             "The c4 pawn attacks d5, undermining Black's center",
             "Develop pieces to natural squares: Nc3, Nf3, Bg5",
-            "Look for the minority attack on the queenside"
+            "Look for the b4-b5 queenside pawn break to crack their pawns"
         ],
         "common_variations": [
             {

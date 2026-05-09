@@ -314,9 +314,9 @@ STRUCTURE_DATABASE = {
             "white_center": ["c3", "d4", "e3"],
             "black_center": ["c6", "d5", "e6"],
         },
-        "description": "Symmetric structure with minority attack potential for White",
+        "description": "Symmetric structure with queenside pawn break potential for White",
         "white_plans": [
-            "Minority attack: b4-b5 to create a weakness on c6",
+            "Queenside pawn break: b4-b5 to create a weakness on c6",
             "Put pressure on the c-file after ...cxb5",
             "Ne5 outpost",
             "Kingside attack as alternative"
@@ -325,7 +325,7 @@ STRUCTURE_DATABASE = {
             "...c5 break before White's b4-b5",
             "Kingside counterplay with ...f6 and ...e5",
             "...Ne4 outpost",
-            "Trade pieces if White gets the minority attack going"
+            "Trade pieces if White gets the queenside pawn break going"
         ],
         "key_squares": {
             "outposts_white": ["e5"],
@@ -338,13 +338,13 @@ STRUCTURE_DATABASE = {
             "black": {"N": ["f6", "e4"], "B": ["d6", "e7"], "R": ["c8", "e8"]}
         },
         "key_concepts": [
-            "Minority attack creates a permanent weakness",
+            "Queenside pawn break creates a permanent weakness",
             "The side being attacked should seek counterplay",
             "Piece activity is crucial",
             "This structure arises from QGD Exchange"
         ],
         "common_mistakes": [
-            "Black passively waiting for the minority attack",
+            "Black passively waiting for the queenside pawn break",
             "White rushing b4-b5 without piece support",
             "Ignoring the center while focusing on flanks"
         ],
