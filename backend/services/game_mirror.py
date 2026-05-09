@@ -65,6 +65,174 @@ def _pattern_voice(pattern: str, form: str = "verb") -> str:
     return readable
 
 
+# ── Lab session voice helpers ─────────────────────────────────────────
+# Coach voice for the multi-game session summary. Replaces the old
+# "Across N games: W-L-D" scoreboard with prose, anchors abstract patterns
+# to one concrete move from the actual games, and ends with a teaching
+# prompt instead of "Drill X today".
+
+_NUM_WORD = {1: "One", 2: "Two", 3: "Three", 4: "Four",
+             5: "Five", 6: "Six", 7: "Seven", 8: "Eight"}
+
+
+def _num_word(n: int) -> str:
+    return _NUM_WORD.get(n, str(n))
+
+
+def _count_phrase(n: int, wins: int, losses: int, draws: int) -> str:
+    """Natural prose count for a session — replaces 'Across N games: W-L-D'.
+    Lead with the games as games, not a scoreboard.
+    """
+    word = _num_word(n)
+    if n == 1:
+        # Single-game callers use _compose_verdict — keep this clean anyway.
+        if wins == 1: return "One game, a win"
+        if losses == 1: return "One game, a loss"
+        if draws == 1: return "One game, drawn"
+        return "One game"
+    if wins == n:
+        return f"{word} games, both wins" if n == 2 else f"{word} games, all wins"
+    if losses == n:
+        return f"{word} games, both losses" if n == 2 else f"{word} games, all losses"
+    if draws == n:
+        return f"{word} games, both drawn" if n == 2 else f"{word} games, all drawn"
+    if n == 2:
+        if wins == 1 and losses == 1:
+            return "Two games — one each way"
+        if wins == 1 and draws == 1:
+            return "Two games — a win and a draw"
+        if losses == 1 and draws == 1:
+            return "Two games — a loss and a draw"
+    # 3+ mixed — say it as a coach would: "three games — two wins, a loss".
+    pieces = []
+    for k, label_s, label_p in (
+        (wins, "win", "wins"),
+        (losses, "loss", "losses"),
+        (draws, "draw", "draws"),
+    ):
+        if k == 0:
+            continue
+        pieces.append(f"{k} {label_s if k == 1 else label_p}")
+    if pieces:
+        return f"{word} games — " + ", ".join(pieces)
+    return f"{word} games"
+
+
+def _pattern_observation(pattern: str, top_count: int, n: int) -> str:
+    """Natural-prose observation about the top recurring pattern.
+    Returns something like 'Both turned on passive pieces.' rather than
+    'You left pieces passive in 2 of 2.'.
+    """
+    noun = _pattern_voice(pattern, form="noun")
+    if top_count == n:
+        if n == 1:
+            return f"Turned on {noun}."
+        if n == 2:
+            return f"Both turned on {noun}."
+        return f"All {_num_word(n).lower()} turned on {noun}."
+    if top_count == 1:
+        return f"One slipped on {noun}."
+    return f"{_num_word(top_count)} of {_num_word(n).lower()} turned on {noun}."
+
+
+# Teaching prompts the coach gives the player, gap-keyed. These replace
+# the old "Drill X today" generic prescription. Each is a single concrete
+# habit the player can carry into the next game — coach voice rule 6
+# ("end with one specific thing").
+_TEACHING_PROMPT_BY_GAP = {
+    "piece_activity":     "Before each move, pick one piece and ask: what is it doing right now?",
+    "piece_safety":       "Before any move, scan twice: any of yours undefended? Any of theirs hanging?",
+    "king_safety":        "If your king's still in the centre past move 10, castling jumps to first priority.",
+    "missed_tactic":      "Look at forcing moves first — checks, captures, threats — before the quiet ones.",
+    "tactical_oversight": "After your move, ask their side: what does my opponent see for them now?",
+    "calculation_depth":  "Pick the sharpest line and follow it three moves deep before deciding.",
+    "opening_knowledge":  "Pick one opening for each colour and play only those for the next week.",
+    "pawn_structure":     "Before pushing a pawn, ask: what square does this give them? You can't take it back.",
+    "endgame_technique":  "In the endgame the king is a fighter — bring it forward, don't hide it.",
+    "time_pressure":      "Use the clock between moves, not on the critical one. Slow down when stakes spike.",
+    "ignore_threat":      "Before your move, ask: what does the move I'm about to make let them do?",
+    "conversion":         "When you're winning, switch from attacking to consolidating — trade pieces, simplify.",
+}
+
+
+def _teaching_prompt(pattern: str) -> str:
+    """Gap-keyed teaching prompt. Empty string when we don't have a coached
+    line for the pattern (caller falls back silently — better than a generic
+    'Drill X today.')."""
+    return _TEACHING_PROMPT_BY_GAP.get(pattern, "")
+
+
+def _find_concrete_anchor(games_data: List[Dict], pattern: str) -> Optional[Dict]:
+    """Find the single most-decisive critical move tagged with `pattern`.
+    Prefer losses (the gap was decisive there), then draws, then wins.
+    Among ties, the highest cp_loss wins.
+    Returns dict with played/best/move_number/outcome, or None if no game
+    has a matching critical move.
+    """
+    def _priority(g: Dict) -> Tuple[int, int]:
+        outcome = g.get("outcome")
+        rank = 0 if outcome == "lost" else (1 if outcome == "drew" else 2)
+        cp = g.get("critical_cp") or 0
+        return (rank, -cp)
+
+    by_priority = sorted(games_data, key=_priority)
+    for g in by_priority:
+        if (g.get("critical_gap") == pattern
+                and g.get("critical_played")
+                and g.get("critical_best")):
+            return {
+                "played": g["critical_played"],
+                "best": g["critical_best"],
+                "move_number": g.get("critical_move_number"),
+                "outcome": g.get("outcome"),
+            }
+    return None
+
+
+# Per-pattern phrasing for "what happened on this move".
+# Played = what user played, Best = engine's choice. The phrasing
+# is teaching-flavoured so a 1200 reads it as a coach pointing at the
+# board, not an engine printing diff.
+_ANCHOR_PHRASE_BY_GAP = {
+    "piece_activity":     "{played} stayed home; {best} was the active move",
+    "piece_safety":       "{played} hung material that {best} would have kept",
+    "king_safety":        "{played} left the king exposed; {best} dealt with the threat",
+    "missed_tactic":      "{played} was quiet when {best} was the tactic",
+    "tactical_oversight": "{played} missed it; {best} stopped what was coming",
+    "calculation_depth":  "{played} stopped one move short; {best} kept the line going",
+    "opening_knowledge":  "{played} drifted; {best} was the book line",
+    "pawn_structure":     "{played} cracked the structure; {best} held it",
+    "endgame_technique":  "{played} let it slip; {best} converted",
+    "time_pressure":      "{played} was a rush; {best} was there if you'd looked",
+    "ignore_threat":      "{played} ignored the threat; {best} stopped it",
+    "conversion":         "{played} gave it back; {best} closed the game",
+}
+
+
+def _anchor_sentence(anchor: Dict, pattern: str, multi_game: bool) -> str:
+    """Coach-voice sentence anchoring the pattern to a concrete move from
+    one of the actual games. `multi_game` controls the location prefix —
+    when there were several games we name which one ('of the loss').
+    """
+    played = anchor.get("played")
+    best = anchor.get("best")
+    move_n = anchor.get("move_number")
+    outcome = anchor.get("outcome")
+    if not played or not best:
+        return ""
+    move_chunk = f"Move {move_n}" if move_n else "The critical moment"
+    location = ""
+    if multi_game and outcome == "lost":
+        location = " of the loss"
+    elif multi_game and outcome == "drew":
+        location = " of the draw"
+    template = _ANCHOR_PHRASE_BY_GAP.get(
+        pattern, "{played} instead of {best}"
+    )
+    middle = template.format(played=played, best=best)
+    return f"{move_chunk}{location}: {middle}."
+
+
 # ── Per-game pattern chips ────────────────────────────────────────────
 # Short human labels for cognitive_gap tags rendered as chips on each
 # Lab card. Up to 2 chips per card; the most-decisive gap goes first
@@ -506,22 +674,30 @@ def _result_word(result: str, user_color: str) -> str:
 
 
 def _compose_verdict(
-    outcome: str,
-    game_gaps: List[str],
+    game: Dict,
     established: List[str],
     sample_size: int,
 ) -> Dict[str, str]:
-    """Compose the coach-voice mirror verdict. Returns:
-        { "tone": <tag>, "headline": <one line>, "detail": <optional second> }
-    Tone tags: repeated, broke_pattern, clean, no_profile_yet.
+    """Coach-voice mirror verdict for a SINGLE game in the window.
+
+    Returns { "tone", "headline", "detail" }. Tones: repeated,
+    broke_pattern, clean, no_profile_yet.
+
+    Voice rules (cross-cutting coach-not-narrator memo):
+      • Anchor abstract patterns to a concrete move from this game.
+      • End with a teaching prompt the player can carry into the next
+        game — not "drill X today".
     """
+    outcome = game.get("outcome") or ""
+    game_gaps = game.get("gaps") or []
+
     if not established:
         # Not enough data to say anything honest about patterns.
         return {
             "tone": "no_profile_yet",
             "headline": (
-                f"Still reading your game. Play a few more and I'll "
-                f"start spotting your patterns."
+                "Still reading your game. Play a few more and your "
+                "patterns will start firming up."
             ),
             "detail": "",
         }
@@ -530,43 +706,51 @@ def _compose_verdict(
     broke = [p for p in established if p not in game_gaps]
 
     if repeated:
-        first = _pattern_voice(repeated[0])
-        extras = ""
-        if len(repeated) > 1:
-            second = _pattern_voice(repeated[1])
-            extras = f" Also {second}."
+        top = repeated[0]
+        verb = _pattern_voice(top, form="verb")
         if outcome == "won":
-            headline = f"You won — but you {first} again."
-            detail = (
-                "Opponent didn't capitalize this time." + extras
-            ).strip()
+            headline = f"Won it — but you {verb} again."
         elif outcome == "lost":
-            headline = f"You lost, and it was your usual — you {first}."
-            detail = extras.strip()
+            headline = f"Lost, and the same gap turned it: you {verb}."
         elif outcome == "drew":
-            headline = f"Drew it — but you {first} again."
-            detail = extras.strip()
+            headline = f"Drew it — but you {verb} again."
         else:
-            headline = f"You {first} again."
-            detail = extras.strip()
-        return {"tone": "repeated", "headline": headline, "detail": detail}
+            headline = f"You {verb} again."
 
-    # Clean vs established patterns.
+        parts: List[str] = []
+        anchor = _find_concrete_anchor([game], top)
+        if anchor:
+            sent = _anchor_sentence(anchor, top, multi_game=False)
+            if sent:
+                parts.append(sent)
+        if len(repeated) > 1:
+            second_noun = _pattern_voice(repeated[1], form="noun")
+            parts.append(f"{second_noun.capitalize()} showed up too.")
+        teaching = _teaching_prompt(top)
+        if teaching:
+            parts.append(teaching)
+        return {
+            "tone": "repeated",
+            "headline": headline,
+            "detail": " ".join(parts).strip(),
+        }
+
+    # Clean vs the established patterns.
     if broke:
         first = _pattern_voice(broke[0], form="noun")
         if outcome == "won":
             headline = f"Clean win. No {first} this time."
         elif outcome == "lost":
-            headline = f"You lost — but you broke pattern. No {first}."
+            headline = f"Lost it, but you broke pattern — no {first}."
         elif outcome == "drew":
-            headline = f"Drew it cleanly. No {first}."
+            headline = f"Drew it clean — no {first}."
         else:
             headline = f"Pattern-free game. No {first}."
         return {"tone": "broke_pattern", "headline": headline, "detail": ""}
 
     return {
         "tone": "clean",
-        "headline": "Clean game. No repeat patterns.",
+        "headline": "Clean game. None of your usual patterns turned up.",
         "detail": "",
     }
 
@@ -576,19 +760,24 @@ def _aggregate_verdict(
     established: List[str],
     last_snapshot: Optional[Dict],
 ) -> Dict[str, str]:
-    """Compose a coach-voice verdict for a multi-game window.
+    """Coach-voice verdict for a multi-game session.
 
-    games_data: per-game [{outcome, gaps}], newest first.
-    established: patterns currently flagged as recurring across the user's
-                 broader history.
-    last_snapshot: the most recent CLOSED window (if any), used for the
-                 "you listened" comparison.
+    Voice rules (per cross-cutting coach-not-narrator memo):
+      • No "Across N games: W-L-D" scoreboard. Prose count instead.
+      • Anchor abstract patterns to a concrete move from one of the games.
+      • End with a teaching prompt, not "Drill X today".
+      • "Listening" line names what changed without stenographer phrasing
+        like "carried over from last session".
+
+    games_data: per-game records, newest first.
+    established: user's broader recurring patterns.
+    last_snapshot: most recent CLOSED window, for the "you listened" line.
     """
     n = len(games_data)
     wins = sum(1 for g in games_data if g["outcome"] == "won")
     losses = sum(1 for g in games_data if g["outcome"] == "lost")
     draws = sum(1 for g in games_data if g["outcome"] == "drew")
-    score = f"{wins}-{losses}-{draws}"
+    count = _count_phrase(n, wins, losses, draws)
 
     # Patterns that recurred in this window.
     repeated_count: Dict[str, int] = {p: 0 for p in established}
@@ -599,19 +788,19 @@ def _aggregate_verdict(
     repeated = [(p, c) for p, c in repeated_count.items() if c > 0]
     repeated.sort(key=lambda x: -x[1])
 
-    # No established patterns → don't mirror, just say honest.
+    # No established patterns yet — be honest and brief.
     if not established:
         return {
             "tone": "no_profile_yet",
             "headline": (
-                f"Across {n} games: {score}. Still reading your patterns — "
-                f"play a few more and I'll have your profile."
+                f"{count}. Still reading your patterns — a few more games "
+                f"and your profile starts firming up."
             ),
             "detail": "",
             "listening": "",
         }
 
-    # Listening signal: did patterns flagged last time disappear?
+    # Listening signal: what changed since the previous closed window?
     listening = ""
     if last_snapshot:
         prev_flagged = set(last_snapshot.get("patterns_flagged") or [])
@@ -621,77 +810,61 @@ def _aggregate_verdict(
         if prev_flagged and improved and not persisted:
             voice = _pattern_voice(next(iter(improved)), form="noun")
             listening = (
-                f"Last session was {voice}. {n} new games, none. You listened."
+                f"Last session it was {voice}. This session, none. "
+                f"You listened."
             )
         elif persisted:
-            # Use noun form so "Same {X} pattern" is grammatical. Verb
-            # form (e.g. "drifted from opening theory") slotted into a
-            # noun position produced "Same drifted from opening theory
-            # pattern" — voice violation flagged 2026-05-04.
             voice = _pattern_voice(next(iter(persisted)), form="noun")
-            listening = f"Same {voice} pattern carried over from last session."
+            listening = (
+                f"Second time {voice} have shown up — these are real now, "
+                f"not noise."
+            )
 
     if not repeated:
-        # Clean window across all established patterns.
-        headline = f"Across {n} games: {score}. No repeated patterns."
-        detail = "This is what growth looks like."
-        return {"tone": "broke_pattern", "headline": headline,
-                "detail": detail, "listening": listening}
+        # None of the user's known patterns recurred this window.
+        return {
+            "tone": "broke_pattern",
+            "headline": f"{count}. None of your usual patterns turned up.",
+            "detail": "This is what growth looks like.",
+            "listening": listening,
+        }
 
-    # Compute fully-clean = no established pattern appeared in those games.
-    # "Clean" in the headline must mean clean ACROSS ALL flagged patterns,
-    # not just clean on the top one. Otherwise we say "5 were clean" while
-    # also mentioning "Also exposed your king" — internally inconsistent.
-    fully_clean = sum(
-        1 for g in games_data
-        if not any(p in g["gaps"] for p in established)
-    )
-
-    # Mixed or all-repeated window.
     top_pattern, top_count = repeated[0]
-    voice_verb = _pattern_voice(top_pattern, form="verb")
-    pct_repeat = top_count / n
+    observation = _pattern_observation(top_pattern, top_count, n)
+    headline = f"{count}. {observation}"
 
-    # Headline: dominant pattern with full count.
-    if top_count == n:
-        headline = f"Across {n} games: {score}. You {voice_verb} in all of them."
-    else:
-        headline = f"Across {n} games: {score}. You {voice_verb} in {top_count} of {n}."
+    detail_parts: List[str] = []
 
-    # Second-pattern note if there's another recurring pattern.
-    second_note = ""
+    # Anchor: pull a concrete move from the worst game flagged with this
+    # pattern. Without an anchor we'd just be restating the pattern name.
+    anchor = _find_concrete_anchor(games_data, top_pattern)
+    if anchor:
+        sent = _anchor_sentence(anchor, top_pattern, multi_game=(n > 1))
+        if sent:
+            detail_parts.append(sent)
+
+    # Second pattern note — only when it actually shows up in the window
+    # AND we have something to say about it. Anchor it too if we can.
     if len(repeated) > 1:
         second_pattern, second_count = repeated[1]
-        second_note = (
-            f" Also {_pattern_voice(second_pattern)} in {second_count} of {n}."
-        )
+        second_noun = _pattern_voice(second_pattern, form="noun")
+        if second_count == n:
+            detail_parts.append(f"{second_noun.capitalize()} also showed up in every game.")
+        else:
+            detail_parts.append(
+                f"{second_noun.capitalize()} also turned up in "
+                f"{_num_word(second_count).lower()} of {_num_word(n).lower()}."
+            )
 
-    # Phrase the count in terms of the named top pattern — "clean" was
-    # ambiguous to a 1200 (does it mean no blunders? no mistakes? no
-    # tracked patterns?). Saying "X games without it" anchors the count
-    # to the pattern just named in the headline. Voice review 2026-05-05.
-    top_clean = n - top_count
-    if top_count == n:
-        clean_line = "Every game touched it."
-    elif pct_repeat >= 0.5:
-        clean_line = f"{top_clean} of {n} games without it. Most still had it."
-    elif pct_repeat >= 0.25:
-        clean_line = f"{top_clean} of {n} games without it. Halfway there."
-    else:
-        # <25% recurrence is real partial progress.
-        clean_line = f"{top_clean} of {n} games without it — the pattern is fading."
-
-    # Forward action: name the pattern, point to the drill. Coach Voice
-    # rule 6 ("end with one specific thing").
-    drill_voice_noun = _pattern_voice(top_pattern, form="noun")
-    forward = f"Drill {drill_voice_noun} today."
-
-    detail = f"{clean_line}{second_note} {forward}".strip()
+    # Forward: gap-keyed teaching prompt — replaces "Drill X today".
+    teaching = _teaching_prompt(top_pattern)
+    if teaching:
+        detail_parts.append(teaching)
 
     return {
         "tone": "repeated",
         "headline": headline,
-        "detail": detail,
+        "detail": " ".join(detail_parts).strip(),
         "listening": listening,
     }
 
@@ -752,10 +925,10 @@ async def build_game_mirror(db, user_id: str) -> Optional[Dict]:
 
     established, sample_size = await _established_patterns(db, user_id)
 
-    # Compose verdict — single-game uses old voice, multi-game uses aggregate.
+    # Compose verdict — single-game and multi-game share voice helpers but
+    # differ in shape (no aggregate count, no listening line for single).
     if len(games_data) == 1:
-        g0 = games_data[0]
-        verdict = _compose_verdict(g0["outcome"], g0["gaps"], established, sample_size)
+        verdict = _compose_verdict(games_data[0], established, sample_size)
         verdict["listening"] = ""  # single-game has no listening line
     else:
         prev = await latest_snapshot(db, user_id)
