@@ -306,7 +306,14 @@ const GameAnalysis = ({ user }) => {
   
   // Get current move's coaching data
   const currentMoveData = decryptionData?.[currentMoveIndex] || null;
-  
+
+  // Visual-shape detections for the current move (pattern-recognition layer
+  // sitting alongside the V5 narrative — see project_visual_danger_language
+  // memo. The shapes array lives on each move_evaluation; first-occurrence
+  // dedup happens in analysis_interpreter so at most one entry per type).
+  const currentMoveShapes =
+    analysis?.stockfish_analysis?.move_evaluations?.[currentMoveIndex]?.shapes || [];
+
   // Get all moves for the move list
   const moves = decryptionData || [];
 
@@ -523,6 +530,25 @@ const GameAnalysis = ({ user }) => {
                       <p className="text-sm text-zinc-300 leading-relaxed">
                         {currentMoveData.narrative}
                       </p>
+
+                      {/* Pattern Spotted — visual shape detector layer.
+                          Only renders on moves where a shape was detected
+                          (one teaching moment per shape type per game). */}
+                      {currentMoveShapes.length > 0 && (
+                        <div className="p-3 rounded-lg bg-violet-500/5 border border-violet-500/20">
+                          <div className="flex items-start gap-2">
+                            <Target className="w-4 h-4 text-violet-400 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs uppercase tracking-wide text-violet-400 font-medium mb-1">
+                                Pattern spotted
+                              </div>
+                              <p className="text-sm text-zinc-200 leading-relaxed">
+                                {currentMoveShapes[0].coach_line}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Your Plan Now */}
                       {currentMoveData.your_plan_now && (
