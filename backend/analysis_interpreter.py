@@ -13,7 +13,7 @@ behavioral interpretation (why it happened).
 
 import logging
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 import chess
@@ -24,6 +24,7 @@ from cognitive_gap_service import (
     find_hanging_pieces,
     find_threats
 )
+from services.visual_shapes import detect_shapes_for_move
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +228,7 @@ class InterpretedMove:
     eval_swing: int
     is_turning_point: bool
     evaluation: str  # good/mistake/blunder etc
-    
+
     # Behavioral interpretation (NEW)
     cognitive_gap: Optional[str] = None
     is_critical: bool = False
@@ -235,6 +236,10 @@ class InterpretedMove:
     gap_confidence: float = 0.0
     gap_evidence: str = ""
     coaching_focus: str = ""
+    # Visual-shape detections (orthogonal to cognitive_gap — both can fire
+    # on the same move; shapes describe geometric danger patterns, the
+    # cognitive_gap describes the move's tactical/strategic mistake type).
+    shapes: List[Dict] = field(default_factory=list)
 
 
 class AnalysisInterpreter:
@@ -248,34 +253,46 @@ class AnalysisInterpreter:
         self.db = db
     
     def interpret_moves(
-        self, 
+        self,
         move_evaluations: List[Dict],
         user_color: str = "white"
     ) -> List[InterpretedMove]:
         """
         Process raw move evaluations and add behavioral interpretation.
-        
+
         Args:
             move_evaluations: Raw moves from Stockfish analysis
             user_color: Which color the user played
-            
+
         Returns:
             List of InterpretedMove with cognitive gap analysis
         """
         interpreted = []
-        
-        for move in move_evaluations:
-            interpreted_move = self._interpret_single_move(move)
+
+        # Visual-shape detectors need a few future plies for verifier checks
+        # (e.g. queen-too-early needs to see whether the queen got chased in
+        # the next 4 plies). Slice once per move and pass through.
+        SHAPE_LOOKAHEAD = 6
+        for idx, move in enumerate(move_evaluations):
+            future = move_evaluations[idx + 1: idx + 1 + SHAPE_LOOKAHEAD]
+            interpreted_move = self._interpret_single_move(move, future_moves=future)
             interpreted.append(interpreted_move)
-        
+
         # Second pass: detect patterns across moves
         self._detect_cross_move_patterns(interpreted)
-        
+
         return interpreted
     
-    def _interpret_single_move(self, move: Dict) -> InterpretedMove:
-        """Interpret a single move for behavioral patterns"""
-        
+    def _interpret_single_move(
+        self,
+        move: Dict,
+        future_moves: Optional[List[Dict]] = None,
+    ) -> InterpretedMove:
+        """Interpret a single move for behavioral patterns.
+
+        `future_moves` is the next handful of plies (for shape verifiers).
+        """
+
         cp_loss = move.get("cp_loss", 0)
         eval_swing = move.get("eval_swing", 0)
         is_turning_point = move.get("is_turning_point", False)
@@ -338,6 +355,16 @@ class AnalysisInterpreter:
                 gap_evidence = gap_result.get("evidence", "")
                 coaching_focus = gap_result.get("coaching_focus", "")
         
+        # Visual-shape detection — orthogonal to cognitive_gap. Both layers
+        # may fire on the same move (e.g. a queen-too-early move can also be
+        # a piece_safety blunder). Verifier-gated inside detect_shapes_for_move
+        # so misfires never leak to the user-facing surface.
+        try:
+            shapes = detect_shapes_for_move(move, future_moves or []) or []
+        except Exception as exc:
+            logger.warning(f"Shape detection failed at move {move.get('move_number')}: {exc}")
+            shapes = []
+
         return InterpretedMove(
             move_number=move.get("move_number", 0),
             move_uci=move.get("move_uci", ""),
@@ -352,7 +379,8 @@ class AnalysisInterpreter:
             critical_reason=critical_reason,
             gap_confidence=gap_confidence,
             gap_evidence=gap_evidence,
-            coaching_focus=coaching_focus
+            coaching_focus=coaching_focus,
+            shapes=shapes,
         )
     
     def _analyze_gap(self, move: Dict) -> Optional[Dict]:
@@ -675,6 +703,8 @@ def interpret_game_analysis(
             "gap_confidence": m.gap_confidence,
             "gap_evidence": m.gap_evidence,
             "coaching_focus": m.coaching_focus,
+            # Visual-shape detections — orthogonal to cognitive_gap.
+            "shapes": m.shapes,
             # Preserve original fields
             "best_move": orig.get("best_move"),
             "best_move_uci": orig.get("best_move_uci"),
