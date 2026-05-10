@@ -1549,7 +1549,9 @@ def analyze_opponent_move(
     eval_before: Optional[int],
     eval_after: Optional[int],
     pv_after: List[str],
-    user_color: str
+    user_color: str,
+    move_history_san: Optional[List[str]] = None,
+    full_move_number: Optional[int] = None,
 ) -> Tuple[str, Optional[str], List[str]]:
     """
     Analyze opponent's move from USER's perspective with EDUCATIONAL depth.
@@ -1590,7 +1592,11 @@ def analyze_opponent_move(
     
     # Opponent played a normal move
     elif abs(eval_swing) < 50:
-        narrative, your_plan_now = _explain_opponent_move_with_context(board, move, user_color, pv_after)
+        narrative, your_plan_now = _explain_opponent_move_with_context(
+            board, move, user_color, pv_after,
+            move_history_san=move_history_san,
+            full_move_number=full_move_number,
+        )
     
     # Small inaccuracy (50-100 cp)
     else:
@@ -2087,20 +2093,85 @@ def _explain_opponent_move_with_context(
     board: chess.Board,
     move: chess.Move,
     user_color: str,
-    pv_after: List[str]
+    pv_after: List[str],
+    move_history_san: Optional[List[str]] = None,
+    full_move_number: Optional[int] = None,
 ) -> Tuple[str, str]:
     """
-    Explain opponent's move with FUN, MEMORABLE language!
+    Explain opponent's move.
+
+    First-pass: if the move is in known opening theory, prefer theory
+    over invented "fun" copy. e5 in response to e4 should say
+    "Open Game / King's Pawn Opening — symmetric center control. Leads
+    to tactical play.", not "Pawn advances. They want the center! Don't
+    let them have all the space. Push back!".
+
+    Falls through to the legacy fun-text branches when theory has
+    nothing to say.
     """
     move_san = board.san(move)
     piece = board.piece_at(move.from_square)
-    
+
     sim = board.copy()
     sim.push(move)
-    
+
+    # ── Opening-theory first-pass ──
+    # When move_history is available and we're in the opening phase,
+    # use the opening detector to emit theory-grounded captions instead
+    # of hardcoded "fun" text. Source bugs: fb_d0454a4088f3 / fb_e093213e873f
+    # / fb_a12c4f9d39ed (opening moves got "Pawn advances to e5. They
+    # want the center! Don't let them have all the space. Push back!"
+    # instead of "King's Pawn Opening — Open game, both sides fight for
+    # the center.").
+    #
+    # Try get_opening_theory_note first (curriculum-grade content for
+    # named lines like the Queen's Gambit, Sicilian variations, etc.).
+    # Fall back to detect_opening_from_moves (broader coverage including
+    # bare e4/d4/c4/Nf3 + first responses) when curriculum has no entry.
+    if move_history_san and full_move_number and full_move_number <= 12:
+        try:
+            from services.opening_theory_note import get_opening_theory_note
+            note = get_opening_theory_note(
+                move_history=move_history_san,
+                move_number=full_move_number,
+            )
+            if note:
+                opening_name = note.get("opening_name") or ""
+                summary = (note.get("summary") or "").strip()
+                key_rule = (note.get("key_rule") or "").strip()
+                if opening_name and summary:
+                    return (
+                        f"{opening_name}: {summary}",
+                        key_rule or f"Stay with the {opening_name.lower()} plan.",
+                    )
+        except Exception as exc:
+            logger.debug(f"opening_theory_note failed (non-fatal): {exc}")
+
+        # Detector fallback — covers the common "no curriculum entry"
+        # case (e4-e5, d4-d5, e4-c5, etc.). Returns name + description
+        # + introduction which are enough to teach with.
+        try:
+            from services.opening_mastery import detect_opening_from_moves
+            info = detect_opening_from_moves(move_history_san)
+            if info:
+                opening_name = info.get("opening_name") or ""
+                description = (info.get("description") or "").strip()
+                introduction = (info.get("introduction") or "").strip()
+                if opening_name and description:
+                    # Description sometimes has " / " separating white
+                    # vs black ideas — take the first half (more
+                    # universally framed) for the narrative.
+                    desc_short = description.split(" / ")[0].strip().rstrip(".")
+                    return (
+                        f"{opening_name} — {desc_short}.",
+                        introduction.rstrip("!") + ("!" if introduction.endswith("!") else ".") if introduction else f"Stay with the {opening_name.lower()} plan.",
+                    )
+        except Exception as exc:
+            logger.debug(f"detect_opening_from_moves failed (non-fatal): {exc}")
+
     # Check what this move threatens
     threats = []
-    
+
     # 1. Does it create a direct threat?
     for sq, p in sim.piece_map().items():
         if p.color == (user_color == "white"):  # User's pieces
@@ -2781,12 +2852,28 @@ async def generate_game_decryption_v5(
                 # Use the best response in PV if available
                 pv_for_analysis = [user_best_response] if user_best_response else pv_after_played
                 
+                # Build move history (SAN list) including this opponent
+                # move — used by analyze_opponent_move to look up opening
+                # theory and emit theory-grounded captions in the
+                # opening phase.
+                move_history_san = []
+                try:
+                    replay = chess.Board()
+                    for past_move in board.move_stack:
+                        move_history_san.append(replay.san(past_move))
+                        replay.push(past_move)
+                    move_history_san.append(replay.san(move))
+                except Exception:
+                    move_history_san = []
+
                 narrative, your_plan_now, highlight_squares = analyze_opponent_move(
                     board, move,
                     opp_eval_before,
                     opp_eval_after,
                     pv_for_analysis,
-                    user_color
+                    user_color,
+                    move_history_san=move_history_san,
+                    full_move_number=full_move_number,
                 )
                 future_moves = pv_after_played[:3] if pv_after_played else []
                 
