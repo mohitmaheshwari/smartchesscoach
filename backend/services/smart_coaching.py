@@ -474,6 +474,31 @@ async def generate_smart_coach_explanation(
                 except Exception as guard_err:
                     logger.debug(f"[SMART-COACHING] Guard non-fatal error: {guard_err}")
 
+                # Vacuous-text suppressor — Category 5. Coach-move
+                # explanations like "just getting my knight to a better
+                # spot" are vacuous when the move actually creates a
+                # specific threat (fork, attack). Reject those library
+                # hits when severity calls for real teaching.
+                # Source bug: fb_81ea58440719 (Nf3 forks queen+bishop
+                # but coach said "just getting my knight to a better spot").
+                try:
+                    from services.vacuous_text_detector import is_text_vacuous
+                    explanation_text = (lib_text.get("explanation") or "").strip()
+                    # Coach-move severity is implicit — if there's a
+                    # threat_facts entry, this is a teaching-worthy move
+                    # even when not categorised as user mistake.
+                    if explanation_text and threat_facts:
+                        if is_text_vacuous(explanation_text, severity="mistake"):
+                            logger.warning(
+                                f"[SMART-COACHING] Library hit '{lib_key}' rejected by "
+                                f"vacuous-text guard: \"{explanation_text[:80]}\""
+                            )
+                            raise ValueError("vacuous_guard_rejected")
+                except ValueError:
+                    raise
+                except Exception as vac_err:
+                    logger.debug(f"[SMART-COACHING] Vacuous guard non-fatal error: {vac_err}")
+
                 lib_text["move_san"] = move_san
                 lib_text.setdefault("plan", "")
                 lib_text.setdefault("threats", [])

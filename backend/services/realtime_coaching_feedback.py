@@ -1503,6 +1503,21 @@ async def generate_move_feedback(
     except Exception as exc:
         logger.warning(f"[PWC] Hallucination guard skipped: {exc}")
 
+    # Vacuous text suppressor — Category 5. Strip filler/no-content
+    # coaching when the move severity warrants real teaching. Frontend
+    # falls back to severity badge + best move on empty coaching_message.
+    try:
+        from services.vacuous_text_detector import is_text_vacuous
+        if quality in ("mistake", "blunder", "inaccuracy"):
+            if coaching_message and is_text_vacuous(coaching_message, quality):
+                logger.warning(
+                    f"[PWC] Stripped vacuous coaching_message on {quality} "
+                    f"move {user_move}: \"{coaching_message[:80]}\""
+                )
+                coaching_message = ""
+    except Exception as exc:
+        logger.warning(f"[PWC] Vacuous-text suppressor skipped: {exc}")
+
     return MoveFeedback(
         user_move=user_move,
         user_move_quality=quality,

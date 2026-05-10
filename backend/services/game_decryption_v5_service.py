@@ -2927,6 +2927,41 @@ async def generate_game_decryption_v5(
         except Exception as e:
             logger.warning(f"[DECRYPTION V5] Hallucination guard skipped: {e}")
 
+        # Vacuous text suppressor — Category 5. After rendering, if the
+        # narrative on a mistake/inaccuracy/blunder is vacuous (no
+        # squares, no specific moves, no tactical pattern names —
+        # filler like "Something just changed on the board"), strip it.
+        # Frontend falls back to severity badge + best move, which is
+        # honest silence vs. confidently-wrong fluff. Source bugs:
+        #   fb_53710952f696, fb_81ea58440719, fb_2d3cd3b7bf57,
+        #   fb_50304a538492, fb_2f2b3ec9dcde
+        try:
+            from services.vacuous_text_detector import is_text_vacuous
+            vacuous_stripped = 0
+            for item in decryption_data:
+                severity = (item.get("severity") or "").strip().lower()
+                # Only enforce on real-coaching severities. "good"/"book"
+                # acknowledgments are intentionally brief.
+                if severity not in ("mistake", "blunder", "inaccuracy",
+                                    "opp_blunder", "opp_mistake"):
+                    continue
+                for field in ("narrative", "consequence", "your_plan_now"):
+                    text = (item.get(field) or "").strip()
+                    if not text:
+                        continue
+                    if is_text_vacuous(text, severity):
+                        logger.warning(
+                            f"[DECRYPTION V5] Stripped vacuous {field} on move "
+                            f"{item.get('move_number')} {item.get('move_san')}: "
+                            f"\"{text[:80]}\""
+                        )
+                        item[field] = ""
+                        vacuous_stripped += 1
+            if vacuous_stripped:
+                logger.warning(f"[DECRYPTION V5] Vacuous-text suppressor stripped {vacuous_stripped} fields")
+        except Exception as e:
+            logger.warning(f"[DECRYPTION V5] Vacuous-text suppressor skipped: {e}")
+
         return decryption_data
         
     except Exception as e:
