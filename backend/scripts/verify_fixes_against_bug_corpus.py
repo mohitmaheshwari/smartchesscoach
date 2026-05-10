@@ -33,7 +33,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 import chess
 
-from services.coaching_text_guard import verify_coaching_text
+from services.coaching_text_guard import verify_coaching_text, verify_chain_claims
 
 
 def run(args):
@@ -68,6 +68,11 @@ def run(args):
 
         n_audited += 1
         issues = verify_coaching_text(text, fen, user_color=inferred)
+        # Cat 8: multi-ply chain claims. Append to issues so a bug with
+        # an illegal "After X Y Z" claim counts as a catch.
+        chain_issues = verify_chain_claims(text, fen)
+        if chain_issues:
+            issues = list(issues) + list(chain_issues)
         if issues:
             n_would_strip += 1
             for i in issues:
