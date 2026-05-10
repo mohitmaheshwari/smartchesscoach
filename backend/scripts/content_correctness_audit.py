@@ -279,7 +279,17 @@ def run_bug_file(args):
             n_skip_no_fen += 1
             continue
 
-        audit = audit_text_against_fen(text, fen, user_color="white")
+        # In Parth's bug entries the FEN is the position at the moment
+        # the user was being coached — side-to-move IS the user. "your"
+        # in the coaching text addresses side-to-move. Inferring this
+        # avoids spurious wrong-color fails on legitimate claims.
+        try:
+            board_for_color = chess.Board(fen)
+            inferred_user_color = "white" if board_for_color.turn == chess.WHITE else "black"
+        except ValueError:
+            inferred_user_color = "white"
+
+        audit = audit_text_against_fen(text, fen, user_color=inferred_user_color)
         if audit.overall == "fail":
             n_fail += 1
             failures.append((bug, audit))
@@ -293,11 +303,11 @@ def run_bug_file(args):
     print("=" * 70)
     print(f"  total bugs:           {n_total}")
     print(f"  skipped (no text):    {n_skip_no_text}")
-    print(f"  skipped (no FEN):     {n_skip_no_fen}  ← reconstruction TODO")
+    print(f"  skipped (no FEN):     {n_skip_no_fen}  (reconstruction TODO)")
     print(f"  audited:              {n_total - n_skip_no_text - n_skip_no_fen}")
     print(f"    pass (all claims):  {n_pass}")
     print(f"    no claims detected: {n_no_claims}")
-    print(f"    FAIL (≥1 claim):    {n_fail}")
+    print(f"    FAIL (>=1 claim):   {n_fail}")
     print()
 
     if failures:
