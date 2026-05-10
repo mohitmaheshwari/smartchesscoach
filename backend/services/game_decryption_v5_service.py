@@ -315,46 +315,13 @@ def is_book_opening_move(board: chess.Board, move_san: str, move_index: int,
     if cp_loss > 120:
         return False
     
-    # --- Check 1: Common opening responses by position context ---
-    # After 1.e4, all standard replies are book
-    
-    # Move 1 for black (index 1): after 1.e4 or 1.d4
-    if move_index == 1:
-        # After 1.e4, these are all valid defenses
-        if "rnbqkbnr/pppppppp/8/8/4P3" in board.fen():
-            valid_responses = {"e5", "c5", "e6", "c6", "d5", "d6", "Nf6", "g6", "b6", "Nc6", "a6"}
-            if move_san in valid_responses:
-                return True
-        # After 1.d4
-        if "rnbqkbnr/pppppppp/8/8/3P4" in board.fen():
-            valid_responses = {"d5", "Nf6", "f5", "e6", "c5", "d6", "g6", "c6", "e5", "Nc6", "b6"}
-            if move_san in valid_responses:
-                return True
-        # After 1.c4
-        if "rnbqkbnr/pppppppp/8/8/2P5" in board.fen():
-            valid_responses = {"e5", "c5", "Nf6", "e6", "c6", "g6", "f5", "b6"}
-            if move_san in valid_responses:
-                return True
-        # After 1.Nf3
-        if "rnbqkbnr/pppppppp/8/8/8/5N2" in board.fen():
-            valid_responses = {"d5", "Nf6", "c5", "g6", "f5", "e6", "d6"}
-            if move_san in valid_responses:
-                return True
-    
-    # Move 1 for white (index 0): all standard first moves are fine
-    if move_index == 0:
-        valid_first_moves = {"e4", "d4", "c4", "Nf3", "g3", "b3", "f4", "e3", "d3", "b4", "Nc3"}
-        if move_san in valid_first_moves:
-            return True
-
-    # --- Check 1b: Use the existing opening-detection service ---
-    # Category 7 fix (fb_9c6ef2a4c2c4): rather than hand-curating move
-    # responses per opening (which doesn't scale and breaks on
-    # transpositions), reconstruct the move sequence so far + this
-    # candidate move, and ask services.opening_mastery whether the
-    # sequence matches a known opening line. If it does, the move is
-    # by definition book — regardless of cp_loss within the opening
-    # threshold above.
+    # --- Check 1: Use the opening-detection service for moves >= 2 ---
+    # Reconstruct the played sequence + the candidate move, ask
+    # services.opening_mastery whether the sequence matches a known
+    # opening line. Handles 23+ openings via the existing detector —
+    # no hardcoded per-opening response sets here. Detector requires
+    # at least 2 moves to classify, so move 1 (idx 0/1) falls through
+    # to Check 2 below.
     try:
         from services.opening_mastery import detect_opening_from_moves
         replay_board = chess.Board()
@@ -368,6 +335,20 @@ def is_book_opening_move(board: chess.Board, move_san: str, move_index: int,
             return True
     except Exception:
         pass
+
+    # --- Check 2: Move-1 sanity (detector needs >=2 moves to classify) ---
+    # Any standard first move by white is book. Any standard first
+    # response by black to a recognised first move is book.
+    _STANDARD_FIRST_WHITE_MOVES = {
+        "e4", "d4", "c4", "Nf3", "g3", "b3", "f4", "e3", "d3", "b4", "Nc3",
+    }
+    _STANDARD_FIRST_BLACK_RESPONSES = {
+        "e5", "c5", "e6", "c6", "d5", "d6", "Nf6", "Nc6", "g6", "b6", "a6", "f5",
+    }
+    if move_index == 0 and move_san in _STANDARD_FIRST_WHITE_MOVES:
+        return True
+    if move_index == 1 and move_san in _STANDARD_FIRST_BLACK_RESPONSES:
+        return True
     
     # --- Check 2: If opening was detected, trust early moves ---
     # If the game eventually reaches a recognized opening (e.g., Scandinavian),
