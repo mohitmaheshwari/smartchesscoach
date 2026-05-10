@@ -25,7 +25,8 @@ import {
   Swords,
   ChevronLeft,
   ChevronRight,
-  BookOpen
+  BookOpen,
+  Flag
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { API } from "@/App";
@@ -135,7 +136,10 @@ const Layout = ({ children, user }) => {
   const isActive = (href) => location.pathname === href ||
     (href === '/lab' && location.pathname.startsWith('/game/')) ||
     (href === '/lab' && location.pathname.startsWith('/lab/')) ||
-    (href === '/admin' && location.pathname.startsWith('/admin'));
+    (href === '/admin' && location.pathname.startsWith('/admin')) ||
+    (href === '/review' && location.pathname.startsWith('/review'));
+
+  const isReviewer = !!user?.is_reviewer;
 
   const handleLogout = async () => {
     try { await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' }); navigate('/'); } catch (e) {}
@@ -218,6 +222,23 @@ const Layout = ({ children, user }) => {
               </div>
             </Link>
           </div>
+
+          {isReviewer && (
+            <div className="pt-2">
+              <Link to="/review">
+                <div
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
+                    sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
+                  } ${isActive('/review') ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  data-testid="nav-review"
+                  title={sidebarCollapsed ? 'Review' : undefined}
+                >
+                  <Flag className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.5} />
+                  {!sidebarCollapsed && <span>Review</span>}
+                </div>
+              </Link>
+            </div>
+          )}
 
           {isAdmin && (
             <div className="pt-2">
@@ -367,6 +388,13 @@ const Layout = ({ children, user }) => {
                     <Swords className="w-4 h-4" /> Play with Coach
                   </Button>
                 </Link>
+                {isReviewer && (
+                  <Link to="/review" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-start gap-3" data-testid="mobile-nav-review">
+                      <Flag className="w-4 h-4" /> Review
+                    </Button>
+                  </Link>
+                )}
                 <div className="border-t border-border my-2" />
                 <Button variant="ghost" onClick={toggleTheme} className="w-full justify-start gap-3">
                   {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} {theme === "dark" ? "Light mode" : "Dark mode"}
