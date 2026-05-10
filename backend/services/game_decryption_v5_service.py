@@ -2974,19 +2974,33 @@ async def generate_game_decryption_v5(
             vacuous_stripped = 0
             for item in decryption_data:
                 severity = (item.get("severity") or "").strip().lower()
-                # Only enforce on real-coaching severities. "good"/"book"
-                # acknowledgments are intentionally brief.
-                if severity not in ("mistake", "blunder", "inaccuracy",
-                                    "opp_blunder", "opp_mistake"):
+                phase = (item.get("phase") or "").strip().lower()
+                played_san = item.get("move_san") or ""
+                # Real-coaching severities always get checked. Good/book
+                # severities only get checked in the OPENING phase, where
+                # the typical failure mode is "Bg7. Bishop on an active
+                # diagonal." — text that echoes the move + adds piece-type
+                # praise without naming any concrete consequence.
+                if severity in ("mistake", "blunder", "inaccuracy",
+                                "opp_blunder", "opp_mistake"):
+                    pass  # always check
+                elif severity in ("good", "best", "excellent", "book") and phase == "opening":
+                    pass  # opening-phase tightening
+                else:
                     continue
                 for field in ("narrative", "consequence", "your_plan_now"):
                     text = (item.get(field) or "").strip()
                     if not text:
                         continue
-                    if is_text_vacuous(text, severity):
+                    if is_text_vacuous(
+                        text,
+                        severity=severity,
+                        played_move_san=played_san,
+                        phase=phase,
+                    ):
                         logger.warning(
                             f"[DECRYPTION V5] Stripped vacuous {field} on move "
-                            f"{item.get('move_number')} {item.get('move_san')}: "
+                            f"{item.get('move_number')} {played_san}: "
                             f"\"{text[:80]}\""
                         )
                         item[field] = ""

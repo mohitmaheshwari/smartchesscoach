@@ -63,6 +63,23 @@ _FILLER_PHRASES = (
     "evaluate the position and find",
     "don't let them have all the space",
     "push back",
+    # Opening-phase praise that says nothing about THIS position. Pattern:
+    # echo the move + add generic compliment about the piece type. Source:
+    # Parth's "same" bucket from regen-diff (fb_1382ba42cb94, fb_99a956e6356b,
+    # fb_240145859bcf, etc).
+    "bishops love",
+    "bishop loves",
+    "knights love",
+    "knight loves",
+    "rooks love",
+    "queens love",
+    "love open diagonal",
+    "love active",
+    "love open file",
+    "active diagonal",
+    "an active diagonal",
+    "natural move",
+    "natural development",
 )
 
 # A SAN move pattern — used to count how many specific moves are named.
@@ -84,7 +101,6 @@ def count_concrete_signals(text: str) -> int:
       • Distinct squares mentioned (a1-h8)
       • Distinct moves named (SAN)
       • Tactical pattern words (fork, pin, hanging, etc.)
-      • "your"/"their" references (mild signal)
 
     Filler phrases SUBTRACT from the score — they actively dilute the
     information density.
@@ -103,29 +119,84 @@ def count_concrete_signals(text: str) -> int:
     return score
 
 
+def _signals_after_echo_discount(text: str, played_move_san: str) -> int:
+    """Count concrete signals while ignoring the played move's own SAN
+    and destination square. Naming the move the coaching is literally
+    about isn't real signal — it's tautology. Real opening-phase
+    coaching names the consequence: opponent piece, target square,
+    threat, or plan.
+
+    Used by the opening-good vacuous threshold so "Bg7. Bishop on an
+    active diagonal." (echoes Bg7 + generic praise) scores 0 instead
+    of being rescued by the played move's own mention.
+    """
+    if not text or not played_move_san:
+        return count_concrete_signals(text)
+
+    lo = text.lower()
+    squares = set(m.group(0).lower() for m in _SQUARE_RE.finditer(text))
+    sans = set(m.group(0) for m in _SAN_RE.finditer(text))
+    patterns = sum(1 for w in _CONCRETE_PATTERN_WORDS if re.search(rf"\b{re.escape(w)}\b", lo))
+    filler_hits = sum(1 for ph in _FILLER_PHRASES if ph in lo)
+
+    played_clean = played_move_san.rstrip("!?+#")
+    for variant in {played_move_san, played_clean,
+                    played_clean + "+", played_clean + "#",
+                    played_clean + "!", played_clean + "?"}:
+        sans.discard(variant)
+    m = re.search(r"([a-h][1-8])", played_clean)
+    if m:
+        # Also drop a bare-square SAN match for that square (the regex
+        # treats "g4" alone as a pawn-move SAN).
+        sq = m.group(1).lower()
+        squares.discard(sq)
+        sans.discard(sq)
+
+    score = len(squares) + len(sans) + patterns
+    score -= 2 * filler_hits
+    return score
+
+
 def is_text_vacuous(
     text: str,
     severity: Optional[str] = None,
+    played_move_san: Optional[str] = None,
+    phase: Optional[str] = None,
 ) -> bool:
     """Return True if the text is vacuous given the move's severity.
 
-    Threshold sliders by severity:
+    Threshold sliders:
       • mistake / blunder / inaccuracy / opp_blunder / opp_mistake:
         require >= 2 concrete signals. Real teaching needs at least
-        a square and a piece, or a tactical pattern name.
-      • good / best / excellent / book: lenient — quiet acknowledgment
-        ("d4 — book move") is fine. Only flag if score is deeply negative
-        (filler-heavy with no signal).
+        a square and a piece, or a tactical pattern name. The played
+        move's own SAN counts toward this baseline.
+      • good / best / excellent / book in OPENING phase (text >30 chars):
+        require >= 1 concrete signal AFTER echo-discounting the played
+        move's own SAN/square. Catches "Bg7. Bishop on an active
+        diagonal." which echoes the move + adds generic piece-type
+        praise = 0 real signal. Short acks like "Nf3. Book." pass —
+        they don't pretend to coach.
+      • good / best / excellent / book elsewhere: lenient — only flag
+        when score is deeply negative (filler-heavy with no signal).
       • context / unknown / None: lenient — only flag if score < -1.
     """
     if not text or not text.strip():
         return True
 
-    score = count_concrete_signals(text)
     sev = (severity or "").lower()
+    ph = (phase or "").lower()
 
     if sev in ("mistake", "blunder", "inaccuracy", "opp_blunder", "opp_mistake"):
-        return score < 2
+        return count_concrete_signals(text) < 2
     if sev in ("good", "best", "excellent", "book"):
-        return score < 0
-    return score < -1
+        if ph == "opening" and played_move_san and len(text) > 30:
+            # Opening-good is intentionally permissive — terse acks are
+            # fine, and we don't want to flag legit dev/plan text just
+            # because it doesn't hit our pattern keywords. So only flag
+            # when (a) at least one filler phrase fired AND (b) echo-
+            # discount reveals no real signal beyond the played move.
+            # That's exactly the "echo move + generic praise" pattern in
+            # Parth's same-bucket bugs (fb_1382ba42cb94 etc).
+            return _signals_after_echo_discount(text, played_move_san) < 0
+        return count_concrete_signals(text) < 0
+    return count_concrete_signals(text) < -1
