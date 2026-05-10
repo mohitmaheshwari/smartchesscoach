@@ -1411,6 +1411,50 @@ def _generate_generic_plan(
             )
 
     elif piece_type == chess.BISHOP:
+        # Before defaulting to "blocked diagonal", check what the bishop
+        # ACTUALLY does on its new square. If it attacks a high-value
+        # enemy piece, the move is tactical, not positional — name the
+        # attack target. Source bug: fb_1dbdb06502eb (Bg4 attacks queen
+        # but caption said "pawns block its diagonal" — wrong reason).
+        bishop_target_phrase = None
+        try:
+            opp_color = not board_after.turn  # bishop just moved, so it
+                                              # belongs to side that just moved
+            attacked_pieces = []
+            for attacked_sq in board_after.attacks(to_square):
+                p = board_after.piece_at(attacked_sq)
+                if (
+                    p
+                    and p.color != opp_color
+                    and p.piece_type != chess.PAWN
+                    and p.piece_type != chess.KING  # checks are not "attacks on pieces" in this template
+                ):
+                    attacked_pieces.append((p, attacked_sq))
+            # Prefer queens, then rooks, then minor pieces.
+            attacked_pieces.sort(key=lambda x: -_piece_value(x[0]))
+            if attacked_pieces:
+                target_piece, target_sq = attacked_pieces[0]
+                target_name = get_piece_name(target_piece)
+                target_sq_name = chess.square_name(target_sq)
+                bishop_target_phrase = (
+                    f"{played_san} attacks their {target_name} on {target_sq_name}, "
+                    f"but it's still a mistake here — see what comes next."
+                )
+        except Exception:
+            bishop_target_phrase = None
+
+        if bishop_target_phrase:
+            return ChessPlan(
+                goal="Make your move count tactically",
+                current_problem=bishop_target_phrase,
+                consequence=consequence,
+                better_approach=better_approach or (f"{best_move} was better." if best_move else ""),
+                transferable_learning=transferable_learning or "Attacking a piece isn't always good — check whether your opponent has a strong reply that punishes the attacker.",
+                concept_id="bishop_tactical_attack",
+                concept_type="tactical",
+                candidate_moves=candidate_moves
+            )
+
         return ChessPlan(
             goal="Keep your bishop on an open diagonal",
             current_problem=f"{played_san} puts your bishop where pawns block its diagonal. It can't do much from {sq_name}.",
