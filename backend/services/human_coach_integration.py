@@ -322,7 +322,8 @@ class HumanCoachIntegration:
         pattern_name: str
     ) -> Optional[Dict]:
         """Check if this pattern has occurred before for the user."""
-        if not self.db:
+        # Motor DB objects raise on bool() — must use 'is None' explicitly.
+        if self.db is None:
             return None
         
         try:
@@ -379,7 +380,8 @@ class HumanCoachIntegration:
         current_position_type: str
     ) -> Optional[str]:
         """Get a reference to a past game or lesson if relevant."""
-        if not self.db:
+        # Motor DB objects raise on bool() — must use 'is None' explicitly.
+        if self.db is None:
             return None
         
         try:

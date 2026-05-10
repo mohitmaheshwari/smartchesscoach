@@ -320,7 +320,11 @@ class ChessBrain:
     
     async def _get_fingerprint(self, user_id: str) -> Optional[MistakeFingerprint]:
         """Get user's mistake fingerprint from database."""
-        if not self.db:
+        # Motor (async MongoDB) Database objects raise on bool() — must
+        # use 'is None' explicitly. Without this fix, every move's
+        # ChessBrain analysis raises and falls through to the
+        # "Let's continue the game." fallback (silent coaching outage).
+        if self.db is None:
             return None
         
         try:
@@ -381,7 +385,8 @@ class ChessBrain:
         category: str
     ):
         """Update user's mistake fingerprint after a mistake."""
-        if not self.db:
+        # Motor DB truthiness — see comment in _get_fingerprint above.
+        if self.db is None:
             return
         
         try:
