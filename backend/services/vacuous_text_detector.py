@@ -290,18 +290,27 @@ def strip_vacuous_segments(
     if not kept:
         return ""
 
-    # If the only thing left is a single echo-only sentence (mentions
-    # the played move but says nothing else), drop it too — that's the
-    # "Bishop slides to Bh6." remnant after stripping the praise tail.
-    # Skip this drop for mistake/inaccuracy severities: a short
-    # diagnostic sentence like "Bg3 is slightly passive." has 0 echo-
-    # discount score by our heuristic but is real content for review.
+    # If the only thing left is a single sentence, decide whether it
+    # carries enough content to keep:
+    #   • Diagnostic severities (mistake/inaccuracy/blunder): a short
+    #     diagnostic sentence like "Bg3 is slightly passive." has
+    #     plain score = 1 (the played SAN) and is real review content.
+    #     But "wins the bishop." has plain score = 0 — no SAN, no
+    #     square, no pattern — drop it.
+    #   • Good/book severities: drop pure-echo remnants ("Bishop slides
+    #     to Bh6.") where echo-discount reveals zero signal beyond the
+    #     played move's own mention.
     sev = (severity or "").lower()
     is_diag_severity = sev in ("mistake", "blunder", "inaccuracy",
                                 "opp_blunder", "opp_mistake")
-    if len(kept) == 1 and played_move_san and not is_diag_severity:
-        if _signals_after_echo_discount(kept[0], played_move_san) <= 0:
-            return ""
+    if len(kept) == 1 and played_move_san:
+        single = kept[0]
+        if is_diag_severity:
+            if count_concrete_signals(single) < 1:
+                return ""
+        else:
+            if _signals_after_echo_discount(single, played_move_san) <= 0:
+                return ""
 
     result = ". ".join(kept).strip()
     if result and not result.endswith((".", "!", "?")):
