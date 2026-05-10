@@ -204,3 +204,106 @@ def is_text_vacuous(
             return _signals_after_echo_discount(text, played_move_san) < 0
         return count_concrete_signals(text) < 0
     return count_concrete_signals(text) < -1
+
+
+# ────────────────────────────────────────────────────────────────────────
+# Sentence-level stripper — preserve content sentences, drop filler tails.
+#
+# `is_text_vacuous` returns a single yes/no for the whole string, which
+# causes false-positive over-strips when content + filler appear together:
+#
+#   "This is the Nimzo Indian Defense Leningrad Variation.
+#    Bishop slides to Bb4. Bishops love open diagonals!"
+#
+# The opening-name sentence is real teaching content; only the trailing
+# "Bishops love…" clause is filler. `strip_vacuous_segments` splits on
+# sentence + em-dash boundaries, runs the per-sentence vacuous check, and
+# rejoins what survives. Net effect on V5 emit: less collateral damage
+# when generation produced a mixed-quality caption.
+# ────────────────────────────────────────────────────────────────────────
+
+# Sentence terminators followed by whitespace. We deliberately do NOT
+# split on em-dash / en-dash / hyphen — those usually act as clause
+# joiners within a single sentence ("Rad1. Rook on an open file -
+# controls the whole column.") and splitting them produces fragmented
+# nonsense ("Rad1. controls the whole column.") when only the middle
+# clause is filler.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def strip_vacuous_segments(
+    text: str,
+    severity: Optional[str] = None,
+    played_move_san: Optional[str] = None,
+    phase: Optional[str] = None,
+) -> str:
+    """Drop only the filler-bearing sentences from `text`, preserving
+    sentences that carry real content (opening names, diagnoses,
+    alternative-move recommendations).
+
+    Returns:
+      - the original `text` if it isn't flagged vacuous to begin with
+        (don't transform good content)
+      - "" if every sentence is filler, or if the only thing left after
+        stripping is an echo-only remnant ("Bishop slides to Bh6.")
+      - the rejoined non-filler sentences otherwise
+
+    Used by emit-time guards instead of the all-or-nothing
+    `is_text_vacuous → wipe` pattern, which was over-stripping captions
+    where filler appeared alongside real content (the regen-diff
+    revealed e.g. "This is the Nimzo Indian Defense… Bishop slides to
+    Bb4. Bishops love open diagonals!" being fully nuked when only the
+    trailing clause was filler).
+    """
+    if not text or not text.strip():
+        return ""
+
+    # Cheap path — text isn't vacuous, leave it alone.
+    if not is_text_vacuous(
+        text,
+        severity=severity,
+        played_move_san=played_move_san,
+        phase=phase,
+    ):
+        return text
+
+    raw_segments = [s.strip() for s in _SENTENCE_SPLIT_RE.split(text)]
+    raw_segments = [s for s in raw_segments if s]
+    if not raw_segments:
+        return ""
+
+    # Drop any segment that contains a filler phrase. Keep everything
+    # else verbatim — diagnostic sentences ("Bg3 is slightly passive")
+    # and opening-name sentences ("This is the Nimzo Indian…") often
+    # have low signal scores by our pattern-counting heuristics, but
+    # they're real content. Only the filler-bearing tail is junk.
+    kept: list[str] = []
+    for seg in raw_segments:
+        seg_clean = seg.rstrip(".!?")
+        if not seg_clean:
+            continue
+        seg_lo = seg_clean.lower()
+        if any(ph in seg_lo for ph in _FILLER_PHRASES):
+            continue
+        kept.append(seg_clean)
+
+    if not kept:
+        return ""
+
+    # If the only thing left is a single echo-only sentence (mentions
+    # the played move but says nothing else), drop it too — that's the
+    # "Bishop slides to Bh6." remnant after stripping the praise tail.
+    # Skip this drop for mistake/inaccuracy severities: a short
+    # diagnostic sentence like "Bg3 is slightly passive." has 0 echo-
+    # discount score by our heuristic but is real content for review.
+    sev = (severity or "").lower()
+    is_diag_severity = sev in ("mistake", "blunder", "inaccuracy",
+                                "opp_blunder", "opp_mistake")
+    if len(kept) == 1 and played_move_san and not is_diag_severity:
+        if _signals_after_echo_discount(kept[0], played_move_san) <= 0:
+            return ""
+
+    result = ". ".join(kept).strip()
+    if result and not result.endswith((".", "!", "?")):
+        result += "."
+    return result

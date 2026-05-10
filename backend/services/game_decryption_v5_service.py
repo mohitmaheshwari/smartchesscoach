@@ -2970,29 +2970,33 @@ async def generate_game_decryption_v5(
         #   fb_53710952f696, fb_81ea58440719, fb_2d3cd3b7bf57,
         #   fb_50304a538492, fb_2f2b3ec9dcde
         try:
-            from services.vacuous_text_detector import is_text_vacuous
+            from services.vacuous_text_detector import strip_vacuous_segments
             vacuous_stripped = 0
+            vacuous_partial = 0
             for item in decryption_data:
                 severity = (item.get("severity") or "").strip().lower()
                 phase = (item.get("phase") or "").strip().lower()
                 played_san = item.get("move_san") or ""
-                # Run the detector universally — its internal thresholds
-                # already keep middle/endgame "good" moves lenient and
-                # short acks free, while catching mistake/inaccuracy
-                # filler and opening-good "echo + praise" patterns.
-                # Earlier outer-gate caused fb_1382ba42cb94 (move 11 Bh6
-                # in middlegame phase) to slip through despite hitting
-                # multiple filler phrases.
+                # Sentence-level strip: drops only the filler-bearing
+                # sentences, preserving opening names / diagnoses /
+                # alt-move recommendations that appear alongside filler.
+                # Earlier all-or-nothing wipe nuked captions like
+                # "This is the Nimzo Indian Defense… Bishop slides to
+                # Bb4. Bishops love open diagonals!" — losing the
+                # opening-name content with the praise tail.
                 for field in ("narrative", "consequence", "your_plan_now"):
                     text = (item.get(field) or "").strip()
                     if not text:
                         continue
-                    if is_text_vacuous(
+                    cleaned = strip_vacuous_segments(
                         text,
                         severity=severity,
                         played_move_san=played_san,
                         phase=phase,
-                    ):
+                    )
+                    if cleaned == text:
+                        continue  # nothing to do
+                    if not cleaned:
                         logger.warning(
                             f"[DECRYPTION V5] Stripped vacuous {field} on move "
                             f"{item.get('move_number')} {played_san}: "
@@ -3000,8 +3004,20 @@ async def generate_game_decryption_v5(
                         )
                         item[field] = ""
                         vacuous_stripped += 1
-            if vacuous_stripped:
-                logger.warning(f"[DECRYPTION V5] Vacuous-text suppressor stripped {vacuous_stripped} fields")
+                    else:
+                        logger.info(
+                            f"[DECRYPTION V5] Trimmed filler from {field} on move "
+                            f"{item.get('move_number')} {played_san}: "
+                            f"\"{text[:80]}\" -> \"{cleaned[:80]}\""
+                        )
+                        item[field] = cleaned
+                        vacuous_partial += 1
+            if vacuous_stripped or vacuous_partial:
+                logger.warning(
+                    f"[DECRYPTION V5] Vacuous-text suppressor: "
+                    f"{vacuous_stripped} fields fully stripped, "
+                    f"{vacuous_partial} partially trimmed"
+                )
         except Exception as e:
             logger.warning(f"[DECRYPTION V5] Vacuous-text suppressor skipped: {e}")
 
