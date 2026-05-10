@@ -909,18 +909,29 @@ async def generate_move_feedback(
     session_id: str,
     move_number: int,
     user_id: str,
-    use_chess_brain: bool = True  # NEW: Enable Chess Brain by default
+    use_chess_brain: bool = False  # DISABLED: see comment below
 ) -> Optional[MoveFeedback]:
     """
     Generate comprehensive feedback for a specific move in a session.
-    
+
     Args:
         db: Database connection
         session_id: Coach play session ID
         move_number: Which user move to analyze (1-indexed)
         user_id: User ID for personalization
-        use_chess_brain: If True, use the new deterministic Chess Brain engine
-    
+        use_chess_brain: If True, use the deterministic Chess Brain engine.
+            DISABLED 2026-05-10. ChessBrain's lesson library was firing
+            canned snippets ("Rooks belong on open files!", "Pin the pawn
+            to the knight", "King safety needs attention") matched at
+            random to moves where they didn't apply — including opening
+            moves where rooks haven't moved and pin geometries don't exist.
+            For live coaching, wrong teaching is worse than no teaching.
+            The legacy _generate_coaching_message path handles each move-
+            quality tier correctly (good → quiet acknowledgment, mistake
+            → contrastive explanation with best move, blunder → Socratic +
+            contrastive). Re-enable only after lesson selection is fixed
+            to surface lessons only when they actually match the position.
+
     Returns:
         MoveFeedback object with all analysis
     """
