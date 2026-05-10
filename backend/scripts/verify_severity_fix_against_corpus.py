@@ -75,6 +75,7 @@ def run(args):
     n_was_good_now_other = 0
     n_no_change = 0
     examples = []
+    other_examples = []
 
     for bug in bugs:
         n_total += 1
@@ -99,18 +100,34 @@ def run(args):
         n_audited += 1
         if stored_severity in ("good", "inaccuracy") and new_severity == "blunder":
             n_was_good_now_blunder += 1
-            if len(examples) < 8:
-                examples.append({
-                    "feedback_id": bug.get("feedback_id"),
-                    "move_san": position.get("move_san"),
-                    "stored_severity": stored_severity,
-                    "new_severity": new_severity,
-                    "eval_before": eb,
-                    "eval_after": ea,
-                    "user_note": (bug.get("issue") or "")[:120],
-                })
+            examples.append({
+                "kind": "upgrade",
+                "feedback_id": bug.get("feedback_id"),
+                "move_san": position.get("move_san"),
+                "move_number": position.get("move_number"),
+                "stored_severity": stored_severity,
+                "new_severity": new_severity,
+                "eval_before": eb,
+                "eval_after": ea,
+                "cp_loss": cpl,
+                "user_note": (bug.get("issue") or "")[:200],
+                "fen": (position.get("fen") or "")[:80],
+            })
         elif stored_severity != new_severity:
             n_was_good_now_other += 1
+            other_examples.append({
+                "kind": "other",
+                "feedback_id": bug.get("feedback_id"),
+                "move_san": position.get("move_san"),
+                "move_number": position.get("move_number"),
+                "stored_severity": stored_severity,
+                "new_severity": new_severity,
+                "eval_before": eb,
+                "eval_after": ea,
+                "cp_loss": cpl,
+                "user_note": (bug.get("issue") or "")[:200],
+                "fen": (position.get("fen") or "")[:80],
+            })
         else:
             n_no_change += 1
 
@@ -125,11 +142,28 @@ def run(args):
     print(f"    no change (already correct):    {n_no_change}")
     print()
     if examples:
-        print("Examples of severity upgraded by the fix:")
+        print("=== UPGRADES (good/inaccuracy -> blunder) ===")
+        print("These are the Category 1 fix wins.")
         for ex in examples:
-            print(f"  {ex['feedback_id']} ({ex['move_san']}): {ex['stored_severity']} -> {ex['new_severity']}")
-            print(f"    eval_before={ex['eval_before']:.0f}  eval_after={ex['eval_after']:.0f}")
+            print(f"\n  {ex['feedback_id']} (move {ex['move_number']} {ex['move_san']})")
+            print(f"    stored severity: {ex['stored_severity']}  -> new: {ex['new_severity']}")
+            print(f"    eval_before={ex['eval_before']:.0f}  eval_after={ex['eval_after']:.0f}  cp_loss={ex['cp_loss']}")
             print(f"    parth: \"{ex['user_note']}\"")
+            print(f"    fen: {ex['fen']}")
+        print()
+
+    if other_examples:
+        print("=" * 70)
+        print("=== OTHER RECLASSIFICATIONS (need eyeball review) ===")
+        print(f"Total: {len(other_examples)}. Each one shows old severity vs")
+        print("new severity. The new classifier may be RIGHT (improvement) or")
+        print("WRONG (regression). Audit chess-correctness on each.")
+        for ex in other_examples:
+            print(f"\n  {ex['feedback_id']} (move {ex['move_number']} {ex['move_san']})")
+            print(f"    stored severity: {ex['stored_severity']}  -> new: {ex['new_severity']}")
+            print(f"    eval_before={ex['eval_before']:.0f}  eval_after={ex['eval_after']:.0f}  cp_loss={ex['cp_loss']}")
+            print(f"    parth: \"{ex['user_note']}\"")
+            print(f"    fen: {ex['fen']}")
         print()
 
 
