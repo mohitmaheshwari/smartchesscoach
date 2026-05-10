@@ -2319,6 +2319,36 @@ def recognize_good_move(
     if board_after.is_checkmate():
         return f"Checkmate. {move_san} ends the game.", "checkmate_delivery", True
 
+    # ── Checks (non-mating) ──
+    # Don't let development templates fire on a check. "Bc4+. Bishop on
+    # an active diagonal." is wrong on so many levels — the news is the
+    # check, not the bishop's diagonal. Route to a check-specific
+    # template that names what the check forks/attacks if anything.
+    if board_after.is_check():
+        opp_color = not board_after.turn  # we just moved → opp's turn
+        # What else does the moving piece attack besides the king?
+        extras = []
+        if move.to_square is not None:
+            for sq in board_after.attacks(move.to_square):
+                p = board_after.piece_at(sq)
+                if (p and p.color == board_after.turn  # opp pieces (current turn = opp)
+                        and p.piece_type != chess.KING
+                        and p.piece_type != chess.PAWN):
+                    extras.append(get_piece_name(p))
+        if extras:
+            # Check + extra attack = mini fork
+            extra = extras[0]
+            return (
+                f"{move_san} — check, and attacks the {extra} too.",
+                "double_attack_check",
+                is_best,
+            )
+        return (
+            f"{move_san} — check. Their king has to move or block.",
+            "check_given",
+            is_best,
+        )
+
     # Check for mate threats (eval indicates forced mate - values near ±10000)
     if eval_after is not None:
         # We're getting mated (eval around -9000 to -10000 for mate scores)

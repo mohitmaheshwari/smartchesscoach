@@ -641,6 +641,14 @@ def explain_best_move_tactically(
     if not parts:
         return None
 
+    # If no pattern fired and the only part is the material phrase
+    # ("wins the bishop"), the sentence has no subject — prepend the
+    # SAN so it reads "Bxe5 wins the bishop." instead of a fragment.
+    # Source bug: regen log fragments like "wins the bishop." /
+    # "wins a pawn." / "wins a rook for a pawn." landing in narratives.
+    if not pattern_named and len(parts) == 1:
+        return f"{best_move_san} {parts[0]}."
+
     if len(parts) == 1:
         return parts[0] + "."
     return parts[0] + " — " + ", ".join(parts[1:]) + "."
