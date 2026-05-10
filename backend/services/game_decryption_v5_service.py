@@ -347,31 +347,27 @@ def is_book_opening_move(board: chess.Board, move_san: str, move_index: int,
         if move_san in valid_first_moves:
             return True
 
-    # --- Check 1b: Move-2 book responses (Category 7 fix) ---
-    # Petrov / Two Knights / Open Spanish / QGD / Slav / etc. all begin
-    # at move 2. The previous logic only covered move 1, so Petrov's
-    # 2...Nf6 was tagged a mistake (fb_9c6ef2a4c2c4).
-    # Move 2 for white (index 2): after 1.e4 e5
-    if move_index == 2 and "rnbqkbnr/pppp1ppp/8/4p3/4P3" in board.fen():
-        valid_responses = {"Nf3", "Nc3", "Bc4", "f4", "d4", "Qh5", "Bb5"}
-        if move_san in valid_responses:
+    # --- Check 1b: Use the existing opening-detection service ---
+    # Category 7 fix (fb_9c6ef2a4c2c4): rather than hand-curating move
+    # responses per opening (which doesn't scale and breaks on
+    # transpositions), reconstruct the move sequence so far + this
+    # candidate move, and ask services.opening_mastery whether the
+    # sequence matches a known opening line. If it does, the move is
+    # by definition book — regardless of cp_loss within the opening
+    # threshold above.
+    try:
+        from services.opening_mastery import detect_opening_from_moves
+        replay_board = chess.Board()
+        prior_sans = []
+        for past_mv in board.move_stack:
+            prior_sans.append(replay_board.san(past_mv))
+            replay_board.push(past_mv)
+        full_sequence = prior_sans + [move_san]
+        opening_info = detect_opening_from_moves(full_sequence)
+        if opening_info and opening_info.get("opening_key"):
             return True
-    # Move 2 for black (index 3): after 1.e4 e5 2.Nf3 — covers Italian/
-    # Spanish/Petrov/Philidor/Russian/etc. classical defences.
-    if move_index == 3 and "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2" in board.fen():
-        valid_responses = {"Nc6", "Nf6", "d6", "Bc5", "Bb4", "f5", "Qe7"}
-        if move_san in valid_responses:
-            return True
-    # Move 2 for black after 1.d4 d5 2.c4 — covers QGD/Slav/QGA/Albin/etc.
-    if move_index == 3 and "rnbqkbnr/ppp1pppp/8/3p4/2PP4" in board.fen():
-        valid_responses = {"e6", "c6", "dxc4", "Nf6", "Nc6", "e5", "g6", "Bf5"}
-        if move_san in valid_responses:
-            return True
-    # Move 2 for black after 1.d4 Nf6 2.c4 — covers Indian defences.
-    if move_index == 3 and "rnbqkb1r/pppppppp/5n2/8/2PP4" in board.fen():
-        valid_responses = {"e6", "g6", "c5", "d5", "d6", "e5", "c6"}
-        if move_san in valid_responses:
-            return True
+    except Exception:
+        pass
     
     # --- Check 2: If opening was detected, trust early moves ---
     # If the game eventually reaches a recognized opening (e.g., Scandinavian),
