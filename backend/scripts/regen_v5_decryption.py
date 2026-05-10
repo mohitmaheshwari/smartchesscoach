@@ -61,6 +61,12 @@ async def main():
                    help="Run V5 generation but don't write anything to MongoDB.")
     p.add_argument("--game-id", default=None,
                    help="Regenerate just this game (overrides other filters).")
+    p.add_argument("--skip-stockfish-candidates", action="store_true",
+                   help="Skip the per-mistake Stockfish call that fetches top-3 "
+                        "alternative moves. ~20x faster but the 'Better Approach' "
+                        "field will only show best_move (no alternatives). Use "
+                        "this for bulk backfills when you mostly care about "
+                        "template/filter improvements.")
     args = p.parse_args()
 
     client = AsyncIOMotorClient(MONGO_URL)
@@ -93,7 +99,18 @@ async def main():
     print()
 
     # Lazy import — heavy module
+    from services import game_decryption_v5_service as v5_mod
     from services.game_decryption_v5_service import generate_game_decryption_v5
+
+    # When --skip-stockfish-candidates, monkey-patch _get_stockfish_candidates
+    # to a no-op coroutine that returns []. V5 handles empty candidates
+    # gracefully — "Better Approach" falls back to best_move only.
+    if args.skip_stockfish_candidates:
+        async def _noop_candidates(*_a, **_kw):
+            return []
+        v5_mod._get_stockfish_candidates = _noop_candidates
+        print("[INFO] --skip-stockfish-candidates: top-3 alternative-move lookup disabled.")
+        print("       Backfill will be ~20x faster but 'Better Approach' won't include alternatives.\n")
 
     total = len(games)
     n_regenerated = 0
