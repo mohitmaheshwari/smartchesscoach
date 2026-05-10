@@ -2891,7 +2891,42 @@ async def generate_game_decryption_v5(
             logger.warning("[DECRYPTION V5] Narrative enhancers not available, using rule-based narratives")
         except Exception as e:
             logger.warning(f"[DECRYPTION V5] Narrative enhancement skipped: {e}")
-        
+
+        # Hallucination guard pass — every per-move text the user will
+        # see (narrative, consequence, your_plan_now, better_approach)
+        # gets verified against that move's FEN. Strings with hallucinated
+        # piece references are stripped (set to empty) so the frontend
+        # falls back to other available context. Better silence than
+        # confidently-wrong claims. Source bugs:
+        #   fb_a36d3d477950 ("Your pawn on f4" with no pawn there)
+        #   fb_4f5aff6798ed ("Your queen on g5" — actually a bishop)
+        #   fb_93b8af5dd608 ("your knight on e5" — knight is enemy's)
+        #   fb_274dfae7eb44 ("your bishop on f7" — bishop is enemy's)
+        try:
+            from services.coaching_text_guard import verify_coaching_text
+            stripped = 0
+            for item in decryption_data:
+                fen = item.get("fen_before") or item.get("fen") or ""
+                if not fen:
+                    continue
+                for field in ("narrative", "consequence", "your_plan_now", "better_approach"):
+                    text = (item.get(field) or "").strip()
+                    if not text:
+                        continue
+                    issues = verify_coaching_text(text, fen, user_color=user_color)
+                    if issues:
+                        logger.warning(
+                            f"[DECRYPTION V5] Stripped hallucinated {field} on move "
+                            f"{item.get('move_number')} {item.get('move_san')}: "
+                            f"{[i.detail for i in issues]}"
+                        )
+                        item[field] = ""
+                        stripped += 1
+            if stripped:
+                logger.warning(f"[DECRYPTION V5] Hallucination guard stripped {stripped} fields")
+        except Exception as e:
+            logger.warning(f"[DECRYPTION V5] Hallucination guard skipped: {e}")
+
         return decryption_data
         
     except Exception as e:

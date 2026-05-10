@@ -1463,6 +1463,46 @@ async def generate_move_feedback(
     except Exception as exc:
         logger.warning(f"opening_theory_note lookup failed: {exc}")
 
+    # Hallucination guard — verify every "X on Y" / "your X on Y" claim
+    # in the user-facing strings against the actual board. Strings that
+    # fail are wiped (set to empty) so the frontend falls back to other
+    # available context — silence beats confidently-wrong claims.
+    # Same module + same checks as smart_coaching + V5 decryption.
+    try:
+        from services.coaching_text_guard import verify_coaching_text
+
+        def _guard(text_val: str) -> str:
+            """Return text_val unchanged if it passes the guard, '' if not."""
+            if not text_val or not isinstance(text_val, str):
+                return text_val or ""
+            issues = verify_coaching_text(text_val, guard_fen, user_color=user_color)
+            if issues:
+                logger.warning(
+                    f"[PWC] Hallucination guard stripped string on move "
+                    f"{user_move}: {[i.detail for i in issues]}"
+                )
+                return ""
+            return text_val
+
+        # The user-facing position when they read this coaching is the
+        # position AFTER their move. Compute it from fen_before + move.
+        guard_fen = ""
+        if fen_before and user_move:
+            try:
+                _gboard = chess.Board(fen_before)
+                _gboard.push_san(user_move)
+                guard_fen = _gboard.fen()
+            except Exception:
+                guard_fen = fen_before  # fall back to pre-move FEN
+        if guard_fen:
+            coaching_message = _guard(coaching_message)
+            best_move_explanation = _guard(best_move_explanation)
+            coach_explanation = _guard(coach_explanation)
+            consequence = _guard(consequence) if consequence else consequence
+            golden_rule = _guard(golden_rule) if golden_rule else golden_rule
+    except Exception as exc:
+        logger.warning(f"[PWC] Hallucination guard skipped: {exc}")
+
     return MoveFeedback(
         user_move=user_move,
         user_move_quality=quality,
