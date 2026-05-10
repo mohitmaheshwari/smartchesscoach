@@ -499,6 +499,29 @@ async def generate_smart_coach_explanation(
                 except Exception as vac_err:
                     logger.debug(f"[SMART-COACHING] Vacuous guard non-fatal error: {vac_err}")
 
+                # Multi-ply chain verifier — Category 8. Coach-move
+                # explanations sometimes claim future sequences ("After
+                # Bxe5 Qxe5 Nf3"); illegal chains get the hit rejected
+                # so the LLM path can produce a verifiable replacement.
+                try:
+                    from services.coaching_text_guard import verify_chain_claims
+                    explanation_text = (lib_text.get("explanation") or "").strip()
+                    if explanation_text:
+                        chain_issues = verify_chain_claims(
+                            explanation_text,
+                            board_after.fen(),
+                        )
+                        if chain_issues:
+                            logger.warning(
+                                f"[SMART-COACHING] Library hit '{lib_key}' rejected by "
+                                f"chain-legality guard: {[i.detail for i in chain_issues]}"
+                            )
+                            raise ValueError("chain_guard_rejected")
+                except ValueError:
+                    raise
+                except Exception as chain_err:
+                    logger.debug(f"[SMART-COACHING] Chain guard non-fatal error: {chain_err}")
+
                 lib_text["move_san"] = move_san
                 lib_text.setdefault("plan", "")
                 lib_text.setdefault("threats", [])
@@ -627,6 +650,27 @@ JSON only: {{"explanation": "...", "question": "...", "hint": "..."}}"""
             "teaching_point": "",
             "hint_for_user": data.get("question", ""),
         }
+
+        # Multi-ply chain verifier — Category 8. LLM-generated coach
+        # explanations occasionally hallucinate move sequences. Wipe the
+        # explanation if any "After X Y Z" chain contains illegal moves
+        # from the post-coach-move position.
+        try:
+            from services.coaching_text_guard import verify_chain_claims
+            for fkey in ("explanation", "hint_for_user"):
+                txt = (result.get(fkey) or "").strip()
+                if not txt:
+                    continue
+                chain_issues = verify_chain_claims(txt, board_after.fen())
+                if chain_issues:
+                    logger.warning(
+                        f"[SMART-COACHING] LLM result {fkey} stripped by "
+                        f"chain-legality guard: {[i.detail for i in chain_issues]}"
+                    )
+                    result[fkey] = ""
+        except Exception as chain_err:
+            logger.debug(f"[SMART-COACHING] LLM chain guard non-fatal error: {chain_err}")
+
         if data.get("hint"):
             result["opponent_opportunity"] = {
                 "type": "smart",

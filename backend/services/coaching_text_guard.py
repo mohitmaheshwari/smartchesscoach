@@ -141,3 +141,71 @@ def is_coaching_text_safe(
 ) -> bool:
     """Convenience boolean. True iff verify_coaching_text finds no issues."""
     return not verify_coaching_text(text, fen, user_color)
+
+
+# ────────────────────────────────────────────────────────────────────────
+# Category 8 — multi-ply chain verifier.
+#
+# Coaching text often makes claims about future move sequences:
+#   "After g4 Nxe5 Nxe5, your knight on e5 gets taken!"
+#   "After Bb5, ...Rc8 Qa4, the knight can't be defended."
+#
+# To verify: parse the chain, replay each move from the FEN, confirm each
+# is legal. Illegal chains (typos, hallucinated tactics, wrong piece
+# notation) get stripped — same wipe-on-fail behavior as the piece-on-
+# square guard.
+# ────────────────────────────────────────────────────────────────────────
+
+# Match "After [SAN1] [SAN2]..." where each SAN is a chess move.
+# The chain must have at least 2 moves to be worth checking — single
+# moves are caught by the legality check elsewhere.
+_AFTER_CHAIN_RE = re.compile(
+    r"\bAfter\s+("
+    r"(?:[NBRQK][a-h]?[1-8]?x?[a-h][1-8](?:=[NBRQ])?[+#]?|"
+    r"O-O-O|O-O|"
+    r"[a-h]x?[a-h][1-8](?:=[NBRQ])?[+#]?|"
+    r"[a-h][1-8](?:=[NBRQ])?[+#]?)"
+    r"(?:\s+(?:[NBRQK][a-h]?[1-8]?x?[a-h][1-8](?:=[NBRQ])?[+#]?|"
+    r"O-O-O|O-O|"
+    r"[a-h]x?[a-h][1-8](?:=[NBRQ])?[+#]?|"
+    r"[a-h][1-8](?:=[NBRQ])?[+#]?)){1,4}"
+    r")(?=[,.;!?\s]|$)",
+)
+
+
+def verify_chain_claims(text: str, fen: str) -> List[GuardIssue]:
+    """Find every 'After X Y Z' multi-ply claim in the text and verify
+    each move in the chain is legal from the position derived by replay.
+
+    Returns a list of GuardIssue for any chain that contains an illegal
+    move. Empty list = all chains are sequence-legal (doesn't verify the
+    SEMANTIC claim, just the move legality of the chain).
+    """
+    issues: List[GuardIssue] = []
+    if not text or not fen:
+        return issues
+    try:
+        starting_board = chess.Board(fen)
+    except ValueError:
+        return issues
+
+    for match in _AFTER_CHAIN_RE.finditer(text):
+        chain_text = match.group(0)
+        sans = match.group(1).split()
+        if len(sans) < 2:
+            continue
+        board = starting_board.copy()
+        bad_san = None
+        for san in sans:
+            try:
+                board.push_san(san)
+            except (chess.InvalidMoveError, chess.IllegalMoveError, chess.AmbiguousMoveError, ValueError):
+                bad_san = san
+                break
+        if bad_san is not None:
+            issues.append(GuardIssue(
+                kind="illegal_chain",
+                text=chain_text,
+                detail=f"chain contains illegal move '{bad_san}' from this position",
+            ))
+    return issues

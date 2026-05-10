@@ -1518,6 +1518,38 @@ async def generate_move_feedback(
     except Exception as exc:
         logger.warning(f"[PWC] Vacuous-text suppressor skipped: {exc}")
 
+    # Multi-ply chain verifier — Category 8. Check "After X Y Z" claims
+    # against the post-move position; wipe field on illegal-chain
+    # detection. Same module + behavior as V5 decryption + smart_coaching.
+    try:
+        from services.coaching_text_guard import verify_chain_claims
+        chain_fen = ""
+        if fen_before and user_move:
+            try:
+                _cb = chess.Board(fen_before)
+                _cb.push_san(user_move)
+                chain_fen = _cb.fen()
+            except Exception:
+                chain_fen = ""
+        if chain_fen:
+            def _chain_guard(text_val: str, name: str) -> str:
+                if not text_val or not isinstance(text_val, str):
+                    return text_val or ""
+                issues = verify_chain_claims(text_val, chain_fen)
+                if issues:
+                    logger.warning(
+                        f"[PWC] Stripped illegal-chain {name} on move "
+                        f"{user_move}: {[i.detail for i in issues]}"
+                    )
+                    return ""
+                return text_val
+            coaching_message = _chain_guard(coaching_message, "coaching_message")
+            best_move_explanation = _chain_guard(best_move_explanation, "best_move_explanation")
+            coach_explanation = _chain_guard(coach_explanation, "coach_explanation")
+            consequence = _chain_guard(consequence, "consequence") if consequence else consequence
+    except Exception as exc:
+        logger.warning(f"[PWC] Chain-legality verifier skipped: {exc}")
+
     return MoveFeedback(
         user_move=user_move,
         user_move_quality=quality,

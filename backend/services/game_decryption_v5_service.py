@@ -2996,6 +2996,47 @@ async def generate_game_decryption_v5(
         except Exception as e:
             logger.warning(f"[DECRYPTION V5] Vacuous-text suppressor skipped: {e}")
 
+        # Multi-ply chain verifier — Category 8. Coaching strings often
+        # claim future move sequences ("After g4 Nxe5 Nxe5, your knight
+        # on e5 gets taken"). Verify each move in the chain is legal
+        # from the post-played-move position. Illegal chains (typo'd
+        # moves, hallucinated sequences) get the field wiped.
+        # Source bug: fb_93b8af5dd608 (chain interpretation issues).
+        try:
+            from services.coaching_text_guard import verify_chain_claims
+            chain_stripped = 0
+            for item in decryption_data:
+                # Compute post-move FEN. The chain claim describes what
+                # happens AFTER the played move, so we verify the chain
+                # starting from that position.
+                fen_pre = item.get("fen_before") or item.get("fen") or ""
+                played_san = item.get("move_san") or ""
+                if not fen_pre or not played_san:
+                    continue
+                try:
+                    _b = chess.Board(fen_pre)
+                    _b.push_san(played_san)
+                    fen_post = _b.fen()
+                except Exception:
+                    continue
+                for field in ("narrative", "consequence"):
+                    text = (item.get(field) or "").strip()
+                    if not text:
+                        continue
+                    chain_issues = verify_chain_claims(text, fen_post)
+                    if chain_issues:
+                        logger.warning(
+                            f"[DECRYPTION V5] Stripped illegal-chain {field} on move "
+                            f"{item.get('move_number')} {played_san}: "
+                            f"{[i.detail for i in chain_issues]}"
+                        )
+                        item[field] = ""
+                        chain_stripped += 1
+            if chain_stripped:
+                logger.warning(f"[DECRYPTION V5] Chain-legality verifier stripped {chain_stripped} fields")
+        except Exception as e:
+            logger.warning(f"[DECRYPTION V5] Chain-legality verifier skipped: {e}")
+
         return decryption_data
         
     except Exception as e:
