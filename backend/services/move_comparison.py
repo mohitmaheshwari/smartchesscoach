@@ -339,10 +339,21 @@ def _find_user_hanging(board: chess.Board, user_color: chess.Color) -> List:
     return results
 
 
-def _find_opponent_threats(board: chess.Board, opp_color: chess.Color) -> List[str]:
+def _find_opponent_threats(
+    board: chess.Board,
+    opp_color: chess.Color,
+    engine: "Optional[chess.engine.SimpleEngine]" = None,
+) -> List[str]:
     """
     Find what the opponent can do in the resulting position.
     Checks for: forks, checks that win material, free captures, checkmate.
+
+    `engine` (optional) is used to verify "free capture" claims — the
+    1-ply is_defended check misses tactical refutations that recover
+    material in 2-4 plies. Source bug: fb_159fc121ec61. When engine is
+    provided, services.threat_verifier suppresses any "free" claim
+    where the user can recover >= 50% of the captured piece's value.
+    When engine is None, behavior matches pre-fix logic.
     """
     user_color = not opp_color
     threats = []
@@ -421,10 +432,29 @@ def _find_opponent_threats(board: chess.Board, opp_color: chess.Color) -> List[s
                 board.pop()
 
                 if not is_defended and cap_val >= 3:
-                    threats.append(
-                        f"After your move, your {chess.piece_name(captured.piece_type)} on "
-                        f"{chess.square_name(move.to_square)} can be taken for free"
-                    )
+                    # Engine verification — does the user actually lose
+                    # this material once we look at the next 4-6 plies?
+                    # If user has tactical compensation (counter-attack,
+                    # fork, regaining piece), the "free" claim is wrong.
+                    # See services/threat_verifier.py for the full check.
+                    claim_credible = True
+                    if engine is not None:
+                        try:
+                            from services.threat_verifier import free_capture_claim_is_credible
+                            claim_credible = free_capture_claim_is_credible(
+                                fen_before_opp_move=board.fen(),
+                                opp_capture_move_uci=move.uci(),
+                                user_color=user_color,
+                                engine=engine,
+                            )
+                        except Exception:
+                            claim_credible = True  # fail-open: keep existing behavior
+
+                    if claim_credible:
+                        threats.append(
+                            f"After your move, your {chess.piece_name(captured.piece_type)} on "
+                            f"{chess.square_name(move.to_square)} can be taken for free"
+                        )
                 elif cap_val > attacker_val + 1:
                     threats.append(
                         f"After your move, the opponent can take your "

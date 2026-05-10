@@ -862,7 +862,18 @@ async def generate_smart_user_feedback(
     if severity == "blunder":
         try:
             from services.move_comparison import _find_opponent_threats
-            threats = _find_opponent_threats(board_after, not (chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK))
+            # Pass the engine singleton so 'free capture' threats are
+            # verified at depth before being added — Category 4 fix
+            # (fb_159fc121ec61 class). Singleton returns None outside
+            # production containers, in which case verification is
+            # skipped (existing behavior).
+            from services.threat_verifier import _get_singleton_engine
+            verify_engine = _get_singleton_engine()
+            threats = _find_opponent_threats(
+                board_after,
+                not (chess.WHITE if board_before.turn == chess.WHITE else chess.BLACK),
+                engine=verify_engine,
+            )
             if threats:
                 opponent_threat_text = threats[0]
                 if "fork" in threats[0].lower():
