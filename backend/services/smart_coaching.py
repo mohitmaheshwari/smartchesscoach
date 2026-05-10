@@ -445,6 +445,35 @@ async def generate_smart_coach_explanation(
                 defenders="0",
             )
             if lib_text:
+                # Hallucination guard — verify every "X on Y" / "your X
+                # on Y" claim in the rendered explanation against the
+                # actual post-move position. Source bug fb_a36d3d477950:
+                # template threat_created_specific was filling
+                # `target_square` with the COACH'S destination square,
+                # producing "Your pawn on f4" when the queen had just
+                # moved there. If the guard catches a problem, reject
+                # the library hit and fall through to the LLM path,
+                # which has the full board state.
+                try:
+                    from services.coaching_text_guard import verify_coaching_text
+                    explanation_text = (lib_text.get("explanation") or "").strip()
+                    if explanation_text:
+                        issues = verify_coaching_text(
+                            explanation_text,
+                            board_after.fen(),
+                            user_color=user_color,
+                        )
+                        if issues:
+                            logger.warning(
+                                f"[SMART-COACHING] Library hit '{lib_key}' rejected by "
+                                f"hallucination guard: {[i.detail for i in issues]}"
+                            )
+                            raise ValueError("hallucination_guard_rejected")
+                except ValueError:
+                    raise
+                except Exception as guard_err:
+                    logger.debug(f"[SMART-COACHING] Guard non-fatal error: {guard_err}")
+
                 lib_text["move_san"] = move_san
                 lib_text.setdefault("plan", "")
                 lib_text.setdefault("threats", [])
