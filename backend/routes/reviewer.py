@@ -51,6 +51,12 @@ async def list_review_games(
     has_bugs: Optional[str] = Query(None, regex="^(yes|no)$", description="yes = only flagged; no = only unflagged"),
     analyzed_only: bool = Query(True, description="Skip games without analysis"),
     platform: Optional[str] = Query(None, description="chess.com / lichess / coach"),
+    regenerated_only: bool = Query(
+        True,
+        description="Only show games whose decryption has been regenerated with "
+                    "the latest V5 code (decryption_v5_regen_at is set). Default "
+                    "True so reviewers don't waste cycles flagging stale captions."
+    ),
 ):
     """
     Paginated list of games for review. Reviewer-only. Designed to be
@@ -95,6 +101,35 @@ async def list_review_games(
         flt["platform"] = platform
     if opening:
         flt["opening"] = {"$regex": re.escape(opening), "$options": "i"}
+
+    # When regenerated_only is true, restrict the game set to those whose
+    # decryption has been re-generated with the current V5 code. This is
+    # the default for reviewers — flagging stale captions wastes cycles.
+    # The set is collected from game_analyses where decryption_v5_regen_at
+    # exists, then intersected with the games filter.
+    regen_at_by_game: dict = {}
+    if regenerated_only:
+        regen_ids = []
+        async for a in db.game_analyses.find(
+            {"decryption_v5_regen_at": {"$exists": True}},
+            {"_id": 0, "game_id": 1, "decryption_v5_regen_at": 1},
+        ):
+            gid = a.get("game_id")
+            if gid:
+                regen_ids.append(gid)
+                regen_at_by_game[gid] = a.get("decryption_v5_regen_at")
+        if not regen_ids:
+            # No games have been regenerated yet — return empty fast.
+            return {
+                "games": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "has_more": False,
+                "regenerated_only": True,
+                "regenerated_total": 0,
+            }
+        flt["game_id"] = {"$in": regen_ids}
 
     skip = (page - 1) * page_size
 
@@ -186,6 +221,9 @@ async def list_review_games(
             email = owner.get("email") or ""
             owner_name = email.split("@", 1)[0] if "@" in email else (owner.get("user_id") or g.get("user_id", ""))
 
+        regen_at_val = regen_at_by_game.get(g.get("game_id"))
+        if hasattr(regen_at_val, "isoformat"):
+            regen_at_val = regen_at_val.isoformat()
         enriched.append({
             "game_id": g.get("game_id"),
             "owner_user_id": g.get("user_id"),
@@ -202,6 +240,7 @@ async def list_review_games(
             "mistakes": stats.get("mistakes", 0),
             "accuracy": round(stats.get("accuracy", 0) or 0, 1),
             "flag_count": flag_count_by_game.get(g.get("game_id"), 0),
+            "regenerated_at": regen_at_val,
         })
 
     return {
@@ -210,27 +249,62 @@ async def list_review_games(
         "page": page,
         "page_size": page_size,
         "has_more": (skip + len(enriched)) < total,
+        "regenerated_only": regenerated_only,
+        "regenerated_total": len(regen_at_by_game) if regenerated_only else None,
     }
 
 
 @router.get("/reviewer/owners")
-async def list_review_owners(user: User = Depends(get_current_user)):
-    """List of distinct game owners for the user-id filter dropdown."""
+async def list_review_owners(
+    user: User = Depends(get_current_user),
+    regenerated_only: bool = Query(
+        True,
+        description="Only count games whose decryption has been regenerated."
+    ),
+):
+    """List of distinct game owners for the user-id filter dropdown.
+
+    Game counts reflect how many of each owner's games are AVAILABLE
+    for review (regenerated, by default). This way the dropdown shows
+    a useful number — picking a user with 0 doesn't surprise Parth
+    with an empty page.
+    """
     _require_reviewer(user)
 
     owner_ids = await db.games.distinct("user_id")
     if not owner_ids:
         return {"owners": []}
 
+    # Build the set of regenerated game_ids once if filtering.
+    regen_game_ids: Optional[set] = None
+    if regenerated_only:
+        regen_game_ids = set()
+        async for a in db.game_analyses.find(
+            {"decryption_v5_regen_at": {"$exists": True}},
+            {"_id": 0, "game_id": 1},
+        ):
+            gid = a.get("game_id")
+            if gid:
+                regen_game_ids.add(gid)
+
     owners = []
     async for u in db.users.find(
         {"user_id": {"$in": owner_ids}},
         {"_id": 0, "user_id": 1, "name": 1, "email": 1}
     ):
-        # Game count per owner (analyzed)
-        game_count = await db.games.count_documents(
-            {"user_id": u["user_id"], "is_analyzed": True}
-        )
+        if regen_game_ids is not None:
+            # Count this owner's games that intersect the regen set.
+            game_count = 0
+            async for g in db.games.find(
+                {"user_id": u["user_id"], "is_analyzed": True},
+                {"_id": 0, "game_id": 1},
+            ):
+                if g.get("game_id") in regen_game_ids:
+                    game_count += 1
+        else:
+            game_count = await db.games.count_documents(
+                {"user_id": u["user_id"], "is_analyzed": True}
+            )
         if game_count == 0:
             continue
         email = u.get("email") or ""

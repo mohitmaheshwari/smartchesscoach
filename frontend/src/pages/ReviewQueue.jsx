@@ -47,6 +47,7 @@ const ReviewQueue = ({ user }) => {
   const [openingFilter, setOpeningFilter] = useState("");
   const [hasBugsFilter, setHasBugsFilter] = useState("all"); // all | yes | no
   const [openingDraft, setOpeningDraft] = useState("");
+  const [regeneratedOnly, setRegeneratedOnly] = useState(true);
 
   const fetchGames = useCallback(async () => {
     setLoading(true);
@@ -54,6 +55,7 @@ const ReviewQueue = ({ user }) => {
       const params = new URLSearchParams({
         page: String(page),
         page_size: String(PAGE_SIZE),
+        regenerated_only: String(regeneratedOnly),
       });
       if (ownerFilter) params.set("user_id", ownerFilter);
       if (openingFilter) params.set("opening", openingFilter);
@@ -75,12 +77,15 @@ const ReviewQueue = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, ownerFilter, openingFilter, hasBugsFilter]);
+  }, [page, ownerFilter, openingFilter, hasBugsFilter, regeneratedOnly]);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/reviewer/owners`, { credentials: "include" });
+        const res = await fetch(
+          `${API}/reviewer/owners?regenerated_only=${regeneratedOnly}`,
+          { credentials: "include" }
+        );
         if (res.ok) {
           const j = await res.json();
           setOwners(j.owners || []);
@@ -89,7 +94,7 @@ const ReviewQueue = ({ user }) => {
         console.error("owners fetch failed", e);
       }
     })();
-  }, []);
+  }, [regeneratedOnly]);
 
   useEffect(() => {
     fetchGames();
@@ -119,6 +124,11 @@ const ReviewQueue = ({ user }) => {
           </p>
           <p className="text-xs text-muted-foreground mt-2">
             {total.toLocaleString()} games match current filters · page {page} of {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            {regeneratedOnly && data?.regenerated_total !== null && data?.regenerated_total !== undefined && (
+              <span className="ml-2 text-amber-600">
+                (showing only games regenerated with current code · {data.regenerated_total.toLocaleString()} regenerated total)
+              </span>
+            )}
           </p>
         </header>
 
@@ -179,13 +189,26 @@ const ReviewQueue = ({ user }) => {
             </select>
           </div>
 
-          {(ownerFilter || openingFilter || hasBugsFilter !== "all") && (
+          <div>
+            <label className="block text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Freshness</label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={regeneratedOnly}
+                onChange={(e) => { setRegeneratedOnly(e.target.checked); setPage(1); }}
+              />
+              <span>Regenerated only</span>
+            </label>
+          </div>
+
+          {(ownerFilter || openingFilter || hasBugsFilter !== "all" || !regeneratedOnly) && (
             <button
               onClick={() => {
                 setOwnerFilter("");
                 setOpeningFilter("");
                 setOpeningDraft("");
                 setHasBugsFilter("all");
+                setRegeneratedOnly(true);
                 setPage(1);
               }}
               className="ml-auto text-xs text-muted-foreground hover:text-foreground underline self-end"
