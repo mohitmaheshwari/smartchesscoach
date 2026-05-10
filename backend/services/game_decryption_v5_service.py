@@ -1848,8 +1848,28 @@ def _explain_response_idea(
             
             return f"{response_san} is a powerful pawn break! It opens lines and creates threats. h6 weakened this possibility."
         
-        # Attacking pawn
+        # Attacking pawn — detect forks (2+ non-pawn pieces attacked
+        # simultaneously). Source bug: fb_c45f3552e4d9 said "f6 attacks
+        # their knight" when f6 actually forked bishop + knight.
         if enemy_pieces_attacked:
+            non_pawn_targets = [
+                sq for sq in enemy_pieces_attacked
+                if sim.piece_at(sq) and sim.piece_at(sq).piece_type != chess.PAWN
+            ]
+            if len(non_pawn_targets) >= 2:
+                names = sorted({
+                    get_piece_name(sim.piece_at(sq)) for sq in non_pawn_targets
+                })
+                if len(names) >= 2:
+                    return (
+                        f"{response_san} forks the {names[0]} and {names[1]} — "
+                        f"double attack, you win material."
+                    )
+                # Two pieces of the same type forked (e.g., two knights)
+                return (
+                    f"{response_san} forks two {names[0]}s — "
+                    f"double attack, you win material."
+                )
             attacked = sim.piece_at(enemy_pieces_attacked[0])
             if attacked:
                 return f"{response_san} attacks their {get_piece_name(attacked)}."
@@ -1903,14 +1923,31 @@ def _explain_response_idea(
         
         return f"{response_san} gives check, forcing their king to move."
     
-    # ─── ATTACKS ON VALUABLE PIECES ───
+    # ─── ATTACKS ON VALUABLE PIECES (with fork detection) ───
+    # Collect every enemy non-pawn piece this move attacks. If 2+, name
+    # the fork explicitly. If 1, fall back to the single-target template.
+    enemy_targets = []
     for attacked_sq in sim.attacks(to_sq):
         attacked = sim.piece_at(attacked_sq)
-        if attacked and attacked.color != user_is_white:
-            if attacked.piece_type == chess.QUEEN:
-                return f"{response_san} attacks their Queen!"
-            if attacked.piece_type == chess.ROOK:
-                return f"{response_san} attacks their Rook."
+        if attacked and attacked.color != user_is_white and attacked.piece_type != chess.PAWN:
+            enemy_targets.append(attacked)
+    if len(enemy_targets) >= 2:
+        names = sorted({get_piece_name(p) for p in enemy_targets})
+        if len(names) >= 2:
+            return (
+                f"{response_san} forks the {names[0]} and {names[1]} — "
+                f"double attack, you win material."
+            )
+        return (
+            f"{response_san} forks two {names[0]}s — "
+            f"double attack, you win material."
+        )
+    if len(enemy_targets) == 1:
+        attacked = enemy_targets[0]
+        if attacked.piece_type == chess.QUEEN:
+            return f"{response_san} attacks their Queen!"
+        if attacked.piece_type == chess.ROOK:
+            return f"{response_san} attacks their Rook."
     
     # ─── KNIGHT MOVES ───
     if piece.piece_type == chess.KNIGHT:
