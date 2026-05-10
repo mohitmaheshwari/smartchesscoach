@@ -23,7 +23,9 @@ import {
   HelpCircle,
   Send,
   Eye,
-  BookOpen
+  BookOpen,
+  AlertCircle,
+  Star
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
@@ -54,6 +56,13 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId,
     // NEW: Opening theory note — pairs with the move-level rule to give
     // opening-specific context. See services/opening_theory_note.py.
     opening_theory_note,
+    // V5 fields produced by the realtime path — backend was generating
+    // these for months but the panel never rendered them. Pass 5 fix.
+    golden_rule,
+    consequence,
+    // Brilliant/sacrifice flags for celebratory visual emphasis.
+    is_brilliant,
+    is_sacrifice,
     // Position context fields used to enrich tester flags
     fen_before,
   } = feedback;
@@ -71,25 +80,36 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId,
     component: "MoveFeedbackPanel",
   };
   
-  // Quality colors
+  // Quality colors. "brilliant" gets gold treatment for celebration —
+  // backend's sacrifice/brilliant detection earned it; UI was previously
+  // dropping is_brilliant on the floor.
   const qualityColors = {
+    brilliant: "text-yellow-300 bg-yellow-400/10 border-yellow-400/40",
     excellent: "text-green-400 bg-green-500/10 border-green-500/30",
     good: "text-blue-400 bg-blue-500/10 border-blue-500/30",
+    book: "text-blue-400 bg-blue-500/10 border-blue-500/30",
     inaccuracy: "text-amber-400 bg-amber-500/10 border-amber-500/30",
     mistake: "text-orange-400 bg-orange-500/10 border-orange-500/30",
     blunder: "text-red-400 bg-red-500/10 border-red-500/30"
   };
-  
+
   const qualityEmoji = {
+    brilliant: "⭐",
     excellent: "🎯",
     good: "👍",
+    book: "📖",
     inaccuracy: "🤔",
     mistake: "⚠️",
     blunder: "❌"
   };
-  
-  const isGoodMove = ["excellent", "good"].includes(user_move_quality);
-  const shouldShowSocratic = socratic_question && expects_response && !showingAnswer && !isGoodMove;
+
+  const isGoodMove = ["excellent", "good", "book", "brilliant"].includes(user_move_quality);
+  // Pass 5 fix: don't gate the coaching_message behind the Socratic
+  // prompt. Backend was generating real teaching for every mistake/
+  // blunder, but the panel hid it until the user clicked "Show answer."
+  // Now we always render the coaching, and surface the Socratic
+  // question as an optional engagement prompt above it.
+  const showSocraticPrompt = socratic_question && expects_response && !isGoodMove && !hasResponded;
   
   const handleSubmitResponse = () => {
     setHasResponded(true);
@@ -130,77 +150,111 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId,
         </button>
       </div>
       
-      {/* SOCRATIC MODE - Ask before telling */}
-      <AnimatePresence mode="wait">
-        {shouldShowSocratic ? (
-          <motion.div
-            key="socratic"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="space-y-3"
-          >
-            {/* Coach's question */}
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30">
-              <HelpCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="group text-sm font-medium">
-                  {socratic_question}
-                  <InlineFlag section="socratic_question" flaggedText={socratic_question} context={flagCtx} />
-                </p>
-                {pattern_reference && (
-                  <p className="group text-xs text-amber-400 mt-2">
-                    <Lightbulb className="w-3 h-3 inline mr-1" />
-                    {pattern_reference}
-                    <InlineFlag section="pattern_reference" flaggedText={pattern_reference} context={flagCtx} />
-                  </p>
-                )}
-              </div>
+      {/* Coaching content — ALWAYS visible. Pass 5 fix: was previously
+          gated behind the Socratic prompt for mistakes/blunders, hiding
+          the rich teaching the backend generated. Now the Socratic
+          question is an optional engagement prompt that appears
+          ALONGSIDE the coaching, not instead of it. */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-3"
+      >
+        {/* Optional Socratic prompt — appears for mistakes/blunders to
+            encourage thinking-before-reading, but doesn't gate the body. */}
+        {showSocraticPrompt && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30">
+            <HelpCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-[10px] uppercase tracking-wide text-primary font-medium mb-1">
+                Coach asks
+              </p>
+              <p className="group text-sm font-medium">
+                {socratic_question}
+                <InlineFlag section="socratic_question" flaggedText={socratic_question} context={flagCtx} />
+              </p>
+              {/* Inline textarea — collapsed by default. The user can
+                  type if they want to engage; otherwise the answer below
+                  is already visible. */}
+              <details className="mt-2">
+                <summary className="text-xs text-primary/80 cursor-pointer hover:text-primary">
+                  Share your thinking
+                </summary>
+                <div className="mt-2 space-y-2">
+                  <Textarea
+                    placeholder="Type your thinking here... What was your plan?"
+                    value={userResponse}
+                    onChange={(e) => setUserResponse(e.target.value)}
+                    className="text-sm min-h-[60px] bg-background/50"
+                    disabled={hasResponded}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSubmitResponse}
+                    disabled={hasResponded || !userResponse.trim()}
+                  >
+                    <Send className="w-3 h-3 mr-2" />
+                    {hasResponded ? "Shared" : "Share my thinking"}
+                  </Button>
+                </div>
+              </details>
             </div>
-            
-            {/* User's response input */}
-            <div className="space-y-2">
-              <Textarea
-                placeholder="Type your thinking here... What was your plan?"
-                value={userResponse}
-                onChange={(e) => setUserResponse(e.target.value)}
-                className="text-sm min-h-[60px] bg-background/50"
-                disabled={hasResponded}
-              />
-              
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  onClick={handleSubmitResponse}
-                  disabled={hasResponded}
-                  className="flex-1"
-                >
-                  <Send className="w-3 h-3 mr-2" />
-                  Share my thinking
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={handleShowAnswer}
-                >
-                  <Eye className="w-3 h-3 mr-2" />
-                  Show answer
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="feedback"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-3"
-          >
-            {/* Main coaching message */}
+          </div>
+        )}
+
+        {/* Brilliant/sacrifice celebration — UI emphasis to match the
+            backend's brilliant-detection work. Was previously dropped. */}
+        {(is_brilliant || is_sacrifice) && (
+          <div className="flex items-center gap-2 p-2 rounded bg-yellow-400/5 border border-yellow-400/30">
+            <Star className="w-4 h-4 text-yellow-300 flex-shrink-0" />
+            <p className="text-xs text-yellow-200 font-medium">
+              {is_brilliant
+                ? "Brilliant move — the kind that wins games."
+                : "A sacrifice. Confidence in your calculation."}
+            </p>
+          </div>
+        )}
+
+        {/* Main coaching message */}
             <p className="group text-sm">
               {coaching_message}
               <InlineFlag section="coaching_message" flaggedText={coaching_message} context={flagCtx} />
             </p>
+
+            {/* Consequence — backend's "what happens next" warning.
+                Pass 5 fix: was being generated and dropped on the floor. */}
+            {consequence && (
+              <div className="flex items-start gap-2 p-2 rounded bg-red-500/5 border border-red-500/20">
+                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-red-400 font-medium mb-1">
+                    Watch out
+                  </p>
+                  <p className="group text-xs text-zinc-200">
+                    {consequence}
+                    <InlineFlag section="consequence" flaggedText={consequence} context={flagCtx} />
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Golden rule — transferable principle the player should
+                carry to future games. Pass 5 fix: backend produces this
+                regularly; frontend was dropping it. */}
+            {golden_rule && (
+              <div className="flex items-start gap-2 p-2 rounded bg-amber-500/5 border border-amber-500/20">
+                <Lightbulb className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-amber-400 font-medium mb-1">
+                    Rule
+                  </p>
+                  <p className="group text-xs text-zinc-200 italic">
+                    {golden_rule}
+                    <InlineFlag section="golden_rule" flaggedText={golden_rule} context={flagCtx} />
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Opening-theory note — pairs the move-level rule with opening-
                 specific theory. Renders in the opening phase only (gated
@@ -329,9 +383,7 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId,
                 <InlineFlag section="encouragement" flaggedText={encouragement} context={flagCtx} />
               </div>
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </motion.div>
     </motion.div>
   );
 };
