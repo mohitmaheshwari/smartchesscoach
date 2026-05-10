@@ -134,6 +134,11 @@ const CoachPlay = ({ user }) => {
   const [focusRule, setFocusRule] = useState(null);
   const [showFocusBanner, setShowFocusBanner] = useState(false);
 
+  // Premium upsell — set when /coach/play/start returns 402 (Free tier
+  // has used today's allowed PwC session). Renders the upgrade modal
+  // so the user gets a clear path forward instead of an error toast.
+  const [upgradeInfo, setUpgradeInfo] = useState(null);
+
   // SSE (push-based coach notifications) — replaces the old 300ms poll.
   // pollTimerRef holds the safety-net setTimeout handle so the SSE handler
   // can cancel it and trigger the next poll tick immediately.
@@ -1003,6 +1008,13 @@ const CoachPlay = ({ user }) => {
       // Read body once to avoid "body stream already read" errors
       const data = await response.json();
       if (!response.ok) {
+        // 402 Payment Required → daily PwC limit reached on Free tier.
+        // Surface as upsell modal, not an error toast.
+        if (response.status === 402 && data.detail && typeof data.detail === "object") {
+          setUpgradeInfo(data.detail);
+          setLoading(false);
+          return;
+        }
         throw new Error(data.detail || "Failed to start game");
       }
       setSession(data.session);
@@ -2757,6 +2769,69 @@ const CoachPlay = ({ user }) => {
   // Game screen
   return (
     <Layout user={user}>
+      {/* Premium upsell modal — fires when /coach/play/start returns 402.
+          Replaces the generic error toast with a clear path forward. */}
+      {upgradeInfo && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-amber-500/30 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                <Target className="w-5 h-5 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground">
+                  You've used today's free session
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Free tier gets one Play with Coach session per day. Come back tomorrow, or upgrade for unlimited coaching.
+                </p>
+              </div>
+            </div>
+            <div className="bg-amber-500/5 border border-amber-500/15 rounded-lg p-4 mb-4">
+              <p className="text-xs uppercase tracking-wider text-amber-400 font-medium mb-2">
+                ChessGuru Premium
+              </p>
+              <ul className="space-y-1.5 text-sm text-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 mt-0.5">·</span>
+                  <span>Unlimited Play with Coach sessions</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 mt-0.5">·</span>
+                  <span>Opening theory notes on every move</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 mt-0.5">·</span>
+                  <span>Engine 2 — visual pattern detection</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 mt-0.5">·</span>
+                  <span>Unlimited puzzles + opening repertoire</span>
+                </li>
+              </ul>
+              <p className="text-2xl font-bold text-foreground mt-3">
+                ₹{upgradeInfo.price_inr || 149}
+                <span className="text-sm font-normal text-muted-foreground"> / month</span>
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setUpgradeInfo(null)}
+                className="flex-1 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted/50 transition-colors"
+              >
+                Later
+              </button>
+              <button
+                onClick={() => navigate(upgradeInfo.upgrade_url || "/upgrade")}
+                className="flex-1 px-4 py-2 rounded-lg bg-amber-500 text-zinc-900 text-sm font-medium hover:bg-amber-400 transition-colors"
+              >
+                Upgrade
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Pre-game focus banner */}
       {showFocusBanner && focusRule && (
         <div className="bg-amber-500/10 border-b border-amber-500/15 px-4 py-3 flex items-center justify-between animate-in fade-in slide-in-from-top duration-300">

@@ -5547,7 +5547,27 @@ async def start_play_with_coach(
     # Validate user_color
     if user_color not in ["white", "black"]:
         raise HTTPException(status_code=400, detail="user_color must be 'white' or 'black'")
-    
+
+    # Premium gate — Free tier gets 1 PwC session/day; Premium = unlimited.
+    # DEV_MODE bypasses the gate via get_effective_plan inside the helper.
+    # Returns 402 (Payment Required) with the upsell payload so the
+    # frontend can render an upgrade modal cleanly instead of a generic
+    # error toast.
+    from subscription_service import can_start_pwc_session
+    gate = await can_start_pwc_session(db, user.user_id)
+    if not gate.get("allowed"):
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "error": "daily_pwc_limit_reached",
+                "message": gate.get("message"),
+                "limit": gate.get("limit"),
+                "used_today": gate.get("used_today"),
+                "upgrade_url": gate.get("upgrade_url"),
+                "price_inr": gate.get("price_inr"),
+            },
+        )
+
     try:
         session = await start_coach_session(
             db=db,

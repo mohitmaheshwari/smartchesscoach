@@ -47,7 +47,12 @@ export const useCoachSession = () => {
   // Coach thinking
   const [coachThinking, setCoachThinking] = useState(false);
   const [thinkingMessage, setThinkingMessage] = useState("");
-  
+
+  // Premium upsell — populated when /coach/play/start returns 402
+  // (Free tier has hit its daily PwC limit). The page should render an
+  // upgrade modal instead of an error toast.
+  const [upgradeInfo, setUpgradeInfo] = useState(null);
+
   // Move feedback
   const [moveFeedback, setMoveFeedback] = useState(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
@@ -88,9 +93,15 @@ export const useCoachSession = () => {
       // Read body once to avoid "body stream already read" errors
       const data = await res.json();
       if (!res.ok) {
+        // 402 Payment Required → daily PwC limit reached on Free tier.
+        // Surface as an upsell modal, not a generic error toast.
+        if (res.status === 402 && data.detail && typeof data.detail === "object") {
+          setUpgradeInfo(data.detail);
+          return null;
+        }
         throw new Error(data.detail || "Failed to start game");
       }
-      
+
       setSession(data.session);
       setCurrentFen(data.current_fen);
       setBoardOrientation(color);
@@ -295,7 +306,11 @@ export const useCoachSession = () => {
     setThinkingMessage,
     setMoveFeedback,
     setBlundersThisGame,
-    
+
+    // Premium upsell (set when /coach/play/start returns 402)
+    upgradeInfo,
+    setUpgradeInfo,
+
     // Actions
     startGame,
     resignGame,

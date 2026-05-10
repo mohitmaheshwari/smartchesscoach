@@ -22,10 +22,14 @@ class UserPlan(str, Enum):
     PRO = "pro"
 
 
-# Plan limits
+# Plan limits.
+# daily_pwc_session_limit: how many Play-with-Coach sessions a user can
+# START in a 24h window. -1 means unlimited. Counted against
+# `coach_sessions.created_at` from UTC midnight today.
 PLAN_LIMITS = {
     UserPlan.FREE: {
         "monthly_analysis_limit": 5,
+        "daily_pwc_session_limit": 1,
         "auto_sync": False,
         "immediate_feedback": False,
         "llm_commentary": False,
@@ -33,6 +37,7 @@ PLAN_LIMITS = {
     },
     UserPlan.PRO: {
         "monthly_analysis_limit": 25,
+        "daily_pwc_session_limit": -1,
         "auto_sync": True,
         "immediate_feedback": True,
         "llm_commentary": True,
@@ -128,6 +133,67 @@ async def increment_analysis_count(db, user_id: str) -> int:
     )
     
     return result.get("monthly_analyses_used", 1) if result else 1
+
+
+async def count_pwc_sessions_today(db, user_id: str) -> int:
+    """How many Play-with-Coach sessions the user has STARTED since UTC
+    midnight today. Counts session-creation events, not finished games."""
+    from datetime import datetime, timedelta, timezone
+    midnight_utc = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    # `created_at` may be stored as a datetime or as an ISO string —
+    # query both shapes.
+    iso_threshold = midnight_utc.isoformat()
+    n = await db.coach_sessions.count_documents({
+        "user_id": user_id,
+        "$or": [
+            {"created_at": {"$gte": midnight_utc}},
+            {"created_at": {"$gte": iso_threshold}},
+        ],
+    })
+    return n
+
+
+async def can_start_pwc_session(db, user_id: str) -> Dict:
+    """Gate for the Play-with-Coach /start endpoint.
+
+    Returns:
+        {"allowed": bool, "reason": Optional[str], "message": Optional[str],
+         "limit": int, "used_today": int, "upgrade_url": Optional[str]}
+
+    Free tier: 1 session/day. Premium: unlimited. DEV_MODE bypasses
+    via get_effective_plan.
+    """
+    plan_info = await get_effective_plan(db, user_id)
+    limit = plan_info["limits"].get("daily_pwc_session_limit", 1)
+
+    # -1 = unlimited (Pro tier or dev mode).
+    if limit < 0:
+        return {"allowed": True, "limit": limit, "used_today": 0}
+
+    used = await count_pwc_sessions_today(db, user_id)
+    if used < limit:
+        return {
+            "allowed": True,
+            "limit": limit,
+            "used_today": used,
+            "remaining": limit - used,
+        }
+
+    return {
+        "allowed": False,
+        "reason": "daily_pwc_limit_reached",
+        "limit": limit,
+        "used_today": used,
+        "message": (
+            f"You've used today's free Play with Coach session. "
+            f"Upgrade to ChessGuru Premium for unlimited live coaching, "
+            f"opening theory notes, and Engine 2 pattern detection."
+        ),
+        "upgrade_url": "/upgrade",
+        "price_inr": 149,
+    }
 
 
 async def has_feature_access(db, user_id: str, feature: str) -> bool:
