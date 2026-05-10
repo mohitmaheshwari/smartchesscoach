@@ -39,6 +39,7 @@ def set_db(database):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+from services.access_scope import user_scope_filter
 
 
 # ==================== MODELS ====================
@@ -57,26 +58,27 @@ class SyncGamesRequest(BaseModel):
 
 @router.get("")
 async def get_games(user: User = Depends(get_current_user)):
-    """Get all games for the current user"""
+    """Get all games for the current user (or all users if reviewer)."""
     global db
-    
+
     games = await db.games.find(
-        {"user_id": user.user_id},
+        user_scope_filter(user),
         {"_id": 0}
-    ).sort("imported_at", -1).to_list(100)
+    ).sort("imported_at", -1).to_list(200 if user.is_reviewer else 100)
     return games
 
 
 @router.get("/analyzed")
 async def get_analyzed_games(user: User = Depends(get_current_user)):
-    """Get list of all analyzed games with summary stats"""
+    """Get list of all analyzed games with summary stats."""
     global db
-    
+
     games = await db.games.find(
-        {"user_id": user.user_id, "is_analyzed": True},
+        {"is_analyzed": True, **user_scope_filter(user)},
         {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "user_result": 1,
-         "white_player": 1, "black_player": 1, "platform": 1, "imported_at": 1}
-    ).sort("imported_at", -1).to_list(50)
+         "white_player": 1, "black_player": 1, "platform": 1, "imported_at": 1,
+         "user_id": 1}
+    ).sort("imported_at", -1).to_list(200 if user.is_reviewer else 50)
     
     result = []
     for game in games:
@@ -104,7 +106,10 @@ async def get_analyzed_games(user: User = Depends(get_current_user)):
             "blunders": analysis.get("blunders", 0) if analysis else 0,
             "mistakes": analysis.get("mistakes", 0) if analysis else 0,
             "best_moves": analysis.get("best_moves", 0) if analysis else 0,
-            "platform": game.get("platform", "chess.com")
+            "platform": game.get("platform", "chess.com"),
+            # Surface owner_user_id so the frontend can label cross-user
+            # games when a reviewer is browsing.
+            "owner_user_id": game.get("user_id"),
         })
     
     return {"games": result, "total": len(result)}
@@ -225,7 +230,7 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
     global db
     
     game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
+        {"game_id": game_id, **user_scope_filter(user)},
         {"_id": 0}
     )
     if not game:
@@ -320,7 +325,7 @@ async def get_game_analysis_status(game_id: str, user: User = Depends(get_curren
     global db
     
     game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
+        {"game_id": game_id, **user_scope_filter(user)},
         {"_id": 0, "is_analyzed": 1, "analysis_status": 1}
     )
     
@@ -365,7 +370,7 @@ async def reanalyze_game(
     
     # Verify game exists and belongs to user
     game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
+        {"game_id": game_id, **user_scope_filter(user)},
         {"_id": 0}
     )
     
@@ -401,7 +406,7 @@ async def reanalyze_game(
     
     # Use upsert to avoid duplicate entries - update existing or create new
     await db.analysis_queue.update_one(
-        {"game_id": game_id, "user_id": user.user_id},
+        {"game_id": game_id, **user_scope_filter(user)},
         {"$set": queue_item},
         upsert=True
     )
@@ -440,7 +445,7 @@ async def regenerate_coaching(
     
     # Verify game belongs to user
     game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
+        {"game_id": game_id, **user_scope_filter(user)},
         {"_id": 0, "game_id": 1}
     )
     
@@ -477,7 +482,7 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
     import chess
 
     game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id}, {"_id": 0}
+        {"game_id": game_id, **user_scope_filter(user)}, {"_id": 0}
     )
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")

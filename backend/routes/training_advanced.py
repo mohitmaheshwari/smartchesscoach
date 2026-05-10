@@ -18,6 +18,7 @@ def set_llm(llm_fn):
     call_llm_fn = llm_fn
 
 from routes.auth import get_current_user, User
+from services.access_scope import user_scope_filter
 
 logger = logging.getLogger(__name__)
 
@@ -1251,14 +1252,14 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     # the merged list by timestamp would push them ABOVE platform games the
     # user imported from Chess.com / Lichess (the bug this addresses).
     imported_games = await db.games.find(
-        {"user_id": user.user_id, "is_analyzed": True, "platform": {"$ne": "coach"}},
+        {"is_analyzed": True, "platform": {"$ne": "coach"}, **user_scope_filter(user)},
         {"_id": 0}
-    ).sort("imported_at", -1).to_list(40)
+    ).sort("imported_at", -1).to_list(120 if user.is_reviewer else 40)
 
     coach_games = await db.games.find(
-        {"user_id": user.user_id, "is_analyzed": True, "platform": "coach"},
+        {"is_analyzed": True, "platform": "coach", **user_scope_filter(user)},
         {"_id": 0}
-    ).sort("imported_at", -1).to_list(10)
+    ).sort("imported_at", -1).to_list(40 if user.is_reviewer else 10)
 
     # Imported platform games ALWAYS come first (the user's real competitive games).
     # Coach games appear at the bottom — they're for reference, not the review focus.
@@ -1266,8 +1267,8 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
 
     # Only load move_evaluations fields we actually use (not the full array)
     analyses_cursor = db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1,
+        user_scope_filter(user),
+        {"_id": 0, "game_id": 1, "user_id": 1, "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1,
          "stockfish_analysis.accuracy": 1,
          "stockfish_analysis.move_evaluations.cognitive_gap": 1,
          "stockfish_analysis.move_evaluations.cp_loss": 1,

@@ -53,10 +53,14 @@ class User(BaseModel):
     chess_com_username: Optional[str] = None
     lichess_username: Optional[str] = None
     role: Optional[str] = "user"
-    
+    # Reviewer flag — when True, user can read games / analyses across
+    # ALL users (not just their own). Used for content-quality auditors
+    # like Parth Gilda, who flag bugs against any user's coaching output.
+    is_reviewer: bool = False
+
     class Config:
         extra = "ignore"
-    
+
     def model_dump(self):
         """Return dict representation for JSON response"""
         return {
@@ -67,7 +71,8 @@ class User(BaseModel):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "chess_com_username": self.chess_com_username,
             "lichess_username": self.lichess_username,
-            "role": self.role or "user"
+            "role": self.role or "user",
+            "is_reviewer": self.is_reviewer,
         }
 
 class MobileAuthRequest(BaseModel):

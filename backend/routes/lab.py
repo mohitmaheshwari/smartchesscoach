@@ -121,6 +121,7 @@ def set_llm(llm_func):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+from services.access_scope import user_scope_filter
 
 # Import helper functions
 from blunder_intelligence_service import (
@@ -191,16 +192,16 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     
     analysis = await db.game_analyses.find_one({
         "game_id": game_id,
-        "user_id": user.user_id
+        **user_scope_filter(user),
     })
-    
+
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    
+
     # Get game data for metadata
     game = await db.games.find_one({
         "game_id": game_id,
-        "user_id": user.user_id
+        **user_scope_filter(user),
     })
     
     # Remove MongoDB _id
@@ -216,27 +217,36 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
         logger.warning(f"Async lab data failed, falling back to sync: {e}")
         lab_data = get_lab_data(analysis, game)
     
-    # Get all analyses and games for pattern tracking
+    # Pattern tracking should reflect THIS GAME'S OWNER, not the
+    # requester. For reviewers (Parth) looking at someone else's game,
+    # that's the game owner's user_id; for normal users they're the same.
+    owner_user_id = (
+        analysis.get("user_id")
+        or (game.get("user_id") if game else None)
+        or user.user_id
+    )
+
+    # Get all analyses and games for pattern tracking (owner's history)
     all_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
+        {"user_id": owner_user_id},
         {"_id": 0}
     ).to_list(100)
-    
+
     # Include more fields for rich pattern context
     all_games = await db.games.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, 
+        {"user_id": owner_user_id},
+        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1,
          "opponent_name": 1, "result": 1, "imported_at": 1,
-         "white_rating": 1, "black_rating": 1, "time_control": 1, 
+         "white_rating": 1, "black_rating": 1, "time_control": 1,
          "opening": 1, "opening_name": 1, "eco": 1}
     ).to_list(100)
-    
+
     # Add similar games (Behavior Memory)
     similar_games = find_similar_pattern_games(analysis, all_analyses, all_games)
     lab_data["similar_games"] = similar_games
-    
+
     # Add pattern context (longitudinal tracking) - THE GOLDEN INFORMATION with SPECIFIC insights
-    pattern_history = build_pattern_history(user.user_id, all_analyses, all_games)
+    pattern_history = build_pattern_history(owner_user_id, all_analyses, all_games)
     game_pattern_summary = get_game_pattern_summary(analysis, pattern_history, all_games, game)
     
     lab_data["pattern_context"] = {
