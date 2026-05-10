@@ -175,3 +175,81 @@ def free_capture_claim_is_credible(
         return True
 
     return True
+
+
+# Maximum mate distance we'll accept as evidence of a real "allows
+# checkmate" claim. fb_ca616e985bf8 was a 50-pawn eval swing without an
+# actual forced mate — the trigger condition (cp_loss >= 5000 OR "#" in
+# PV) over-fires. We require the engine to confirm a forced mate within
+# this many plies before letting the "allows checkmate" template through.
+_MATE_VERIFICATION_PLIES = 6
+_MATE_VERIFICATION_DEPTH = 14
+
+
+def position_allows_forced_mate(
+    fen_after_played_move: str,
+    losing_side: chess.Color,
+    engine: Optional[chess.engine.SimpleEngine] = None,
+) -> bool:
+    """Returns True if, from the given position, the side OTHER THAN
+    `losing_side` has a forced mate within _MATE_VERIFICATION_PLIES.
+
+    Used to verify "[move] allows checkmate" claims before emitting them.
+    fen_after_played_move is the position AFTER the player made the
+    questionable move; losing_side is the player whose move is being
+    accused of allowing mate.
+
+    Returns True (allow the claim) if engine is None or eval fails —
+    matches existing trust-the-caller pattern.
+    """
+    if engine is None:
+        return True
+
+    try:
+        board = chess.Board(fen_after_played_move)
+    except ValueError:
+        return True
+
+    try:
+        info = engine.analyse(
+            board,
+            chess.engine.Limit(depth=_MATE_VERIFICATION_DEPTH),
+        )
+        score = info.get("score")
+        if score is None:
+            return True
+        # POV the losing side. A forced mate AGAINST losing_side shows up
+        # as a negative mate score from their perspective.
+        pov_score = score.pov(losing_side)
+        mate_in = pov_score.mate()
+        if mate_in is None:
+            # No mate at this depth — eval-only swing, claim is wrong.
+            cp = pov_score.score()
+            logger.info(
+                f"[threat_verifier] 'allows checkmate' claim suppressed: "
+                f"engine sees eval={cp}cp at depth {_MATE_VERIFICATION_DEPTH}, "
+                f"no forced mate within window"
+            )
+            return False
+        # mate_in < 0 means losing_side gets mated in |mate_in| plies.
+        # mate_in > 0 means losing_side delivers mate (impossible at this
+        # turn, since losing_side just moved; but defensive).
+        if mate_in >= 0:
+            logger.info(
+                f"[threat_verifier] 'allows checkmate' claim suppressed: "
+                f"engine sees mate_in={mate_in} for losing side (their own mate?)"
+            )
+            return False
+        if abs(mate_in) > _MATE_VERIFICATION_PLIES:
+            logger.info(
+                f"[threat_verifier] 'allows checkmate' claim suppressed: "
+                f"mate is {abs(mate_in)} plies away, beyond verification "
+                f"window of {_MATE_VERIFICATION_PLIES}"
+            )
+            return False
+
+    except Exception as exc:
+        logger.warning(f"[threat_verifier] mate verify call failed: {exc}")
+        return True
+
+    return True

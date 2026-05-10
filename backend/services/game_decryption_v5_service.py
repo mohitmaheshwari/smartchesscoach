@@ -419,23 +419,56 @@ def extract_plan_from_pv(
     played_san = board.san(played_move)
     
     # ─── MATE BLUNDER CHECK ──────────────────────────────
-    # If this move allows checkmate, everything else is irrelevant
-    if cp_loss >= 5000 or (pv_after_played and any("#" in m for m in pv_after_played[:4])):
+    # If this move allows checkmate, everything else is irrelevant.
+    #
+    # The trigger condition (cp_loss >= 5000 OR PV-has-"#") is too
+    # eager — fb_ca616e985bf8 fired "Bb6 allows checkmate" on a 50-pawn
+    # eval swing where no forced mate actually existed (white's
+    # position was already losing; Bb6 made it more losing without a
+    # real mate threat). Verify the mate claim with a deeper engine
+    # search before emitting "allows checkmate."
+    mate_trigger = (
+        cp_loss >= 5000
+        or (pv_after_played and any("#" in m for m in pv_after_played[:4]))
+    )
+    if mate_trigger:
         board_after = board.copy()
         board_after.push(played_move)
-        
-        # Check if opponent can mate immediately or within a few moves
-        consequence = _describe_consequence(pv_after_played, board_after) if pv_after_played else "This allows a forced checkmate."
-        
-        return ChessPlan(
-            goal="Avoid checkmate",
-            current_problem=f"{played_san} allows checkmate.",
-            consequence=consequence,
-            better_approach=f"{best_move} stops the checkmate and keeps the game going." if best_move else "You needed to block the checkmate threat first.",
-            transferable_learning="Before every move, check: can my opponent give checkmate? If yes, stop that before doing anything else.",
-            concept_id="king_safety_mate_threat",
-            concept_type="tactical"
-        )
+
+        # Verify the mate claim against the engine. losing_side is the
+        # player whose move is accused (the side whose turn it WAS in
+        # `board`, before played_move).
+        mate_confirmed = True
+        try:
+            from services.threat_verifier import (
+                _get_singleton_engine,
+                position_allows_forced_mate,
+            )
+            engine = _get_singleton_engine()
+            if engine is not None:
+                mate_confirmed = position_allows_forced_mate(
+                    fen_after_played_move=board_after.fen(),
+                    losing_side=board.turn,
+                    engine=engine,
+                )
+        except Exception as exc:
+            logger.debug(f"[V5] mate verifier skipped: {exc}")
+
+        if mate_confirmed:
+            consequence = _describe_consequence(pv_after_played, board_after) if pv_after_played else "This allows a forced checkmate."
+            return ChessPlan(
+                goal="Avoid checkmate",
+                current_problem=f"{played_san} allows checkmate.",
+                consequence=consequence,
+                better_approach=f"{best_move} stops the checkmate and keeps the game going." if best_move else "You needed to block the checkmate threat first.",
+                transferable_learning="Before every move, check: can my opponent give checkmate? If yes, stop that before doing anything else.",
+                concept_id="king_safety_mate_threat",
+                concept_type="tactical"
+            )
+        # Mate not confirmed — fall through to the regular plan-
+        # extraction path so the caption describes the actual eval
+        # swing (material loss, positional collapse) instead of
+        # claiming a checkmate that doesn't exist.
     
     # Create a board with the user's move played (for consequence analysis)
     board_after_move = board.copy()

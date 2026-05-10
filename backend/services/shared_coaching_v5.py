@@ -932,36 +932,63 @@ async def generate_move_coaching(
     # ─── MISTAKE / BLUNDER ───
     
     # ─── MATE BLUNDER CHECK (highest priority) ───
-    if cp_loss >= 5000 or (pv_after_played and any("#" in m for m in pv_after_played[:4])):
-        # Check if this allows checkmate
-        mate_move = pv_after_played[0] if pv_after_played else "the next move"
-        is_immediate_mate = "#" in mate_move if pv_after_played else False
-        
-        if is_immediate_mate:
-            consequence = f"After {mate_move}, it's checkmate. Game over."
-        else:
-            consequence = "This allows a forced checkmate within a few moves."
-        
-        mate_coaching = V5Coaching(
-            narrative=f"{move_san} allows checkmate! This is a one-move blunder — the game is lost.",
-            severity="blunder",
-            goal="King safety — never allow checkmate",
-            current_problem=f"{move_san} ignores the mating threat completely.",
-            consequence=consequence,
-            better_approach=f"{best_move_san} defends against the mate threat." if best_move_san else "Look for moves that address the checkmate threat first.",
-            transferable_learning="Before ANY move, ask: can my opponent checkmate me? If there's a mating threat, deal with it FIRST — nothing else matters.",
-            concept_id="king_safety_mate_threat",
-            concept_type="tactical",
-            candidate_moves=None,
-            future_moves=pv_after_played[:4] if pv_after_played else None,
-            is_user_move=True,
-            best_move=best_move_san
-        )
-        return _enrich_with_fundamentals(
-            mate_coaching, board_before, board_after, move, best_move_san,
-            cp_loss, phase, user_color, opponent_last_move, opening_match, context,
-            coach_intent=coach_intent,
-        )
+    # Trigger condition is too eager — fires on 50-pawn eval swings even
+    # when no forced mate exists. Verify with a deeper engine search
+    # before emitting "allows checkmate". Source bug: fb_ca616e985bf8.
+    mate_trigger = (
+        cp_loss >= 5000
+        or (pv_after_played and any("#" in m for m in pv_after_played[:4]))
+    )
+    if mate_trigger:
+        mate_confirmed = True
+        try:
+            from services.threat_verifier import (
+                _get_singleton_engine,
+                position_allows_forced_mate,
+            )
+            engine = _get_singleton_engine()
+            if engine is not None:
+                mate_confirmed = position_allows_forced_mate(
+                    fen_after_played_move=board_after.fen(),
+                    losing_side=board_before.turn,
+                    engine=engine,
+                )
+        except Exception as exc:
+            logger.debug(f"[V5] mate verifier skipped: {exc}")
+
+        if mate_confirmed:
+            mate_move = pv_after_played[0] if pv_after_played else "the next move"
+            is_immediate_mate = "#" in mate_move if pv_after_played else False
+
+            if is_immediate_mate:
+                consequence = f"After {mate_move}, it's checkmate. Game over."
+            else:
+                consequence = "This allows a forced checkmate within a few moves."
+
+            mate_coaching = V5Coaching(
+                narrative=f"{move_san} allows checkmate! This is a one-move blunder — the game is lost.",
+                severity="blunder",
+                goal="King safety — never allow checkmate",
+                current_problem=f"{move_san} ignores the mating threat completely.",
+                consequence=consequence,
+                better_approach=f"{best_move_san} defends against the mate threat." if best_move_san else "Look for moves that address the checkmate threat first.",
+                transferable_learning="Before ANY move, ask: can my opponent checkmate me? If there's a mating threat, deal with it FIRST — nothing else matters.",
+                concept_id="king_safety_mate_threat",
+                concept_type="tactical",
+                candidate_moves=None,
+                future_moves=pv_after_played[:4] if pv_after_played else None,
+                is_user_move=True,
+                best_move=best_move_san
+            )
+            return _enrich_with_fundamentals(
+                mate_coaching, board_before, board_after, move, best_move_san,
+                cp_loss, phase, user_color, opponent_last_move, opening_match, context,
+                coach_intent=coach_intent,
+            )
+        # Mate not confirmed — fall through to the regular blunder
+        # branch so the caption describes the actual eval swing
+        # (material loss, positional collapse) instead of claiming a
+        # checkmate that doesn't exist.
     
     # Get Stockfish candidates
     stockfish_candidates = await get_stockfish_candidates(board_before, num_moves=3, depth=12)
