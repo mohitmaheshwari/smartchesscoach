@@ -346,6 +346,32 @@ def is_book_opening_move(board: chess.Board, move_san: str, move_index: int,
         valid_first_moves = {"e4", "d4", "c4", "Nf3", "g3", "b3", "f4", "e3", "d3", "b4", "Nc3"}
         if move_san in valid_first_moves:
             return True
+
+    # --- Check 1b: Move-2 book responses (Category 7 fix) ---
+    # Petrov / Two Knights / Open Spanish / QGD / Slav / etc. all begin
+    # at move 2. The previous logic only covered move 1, so Petrov's
+    # 2...Nf6 was tagged a mistake (fb_9c6ef2a4c2c4).
+    # Move 2 for white (index 2): after 1.e4 e5
+    if move_index == 2 and "rnbqkbnr/pppp1ppp/8/4p3/4P3" in board.fen():
+        valid_responses = {"Nf3", "Nc3", "Bc4", "f4", "d4", "Qh5", "Bb5"}
+        if move_san in valid_responses:
+            return True
+    # Move 2 for black (index 3): after 1.e4 e5 2.Nf3 — covers Italian/
+    # Spanish/Petrov/Philidor/Russian/etc. classical defences.
+    if move_index == 3 and "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2" in board.fen():
+        valid_responses = {"Nc6", "Nf6", "d6", "Bc5", "Bb4", "f5", "Qe7"}
+        if move_san in valid_responses:
+            return True
+    # Move 2 for black after 1.d4 d5 2.c4 — covers QGD/Slav/QGA/Albin/etc.
+    if move_index == 3 and "rnbqkbnr/ppp1pppp/8/3p4/2PP4" in board.fen():
+        valid_responses = {"e6", "c6", "dxc4", "Nf6", "Nc6", "e5", "g6", "Bf5"}
+        if move_san in valid_responses:
+            return True
+    # Move 2 for black after 1.d4 Nf6 2.c4 — covers Indian defences.
+    if move_index == 3 and "rnbqkb1r/pppppppp/5n2/8/2PP4" in board.fen():
+        valid_responses = {"e6", "g6", "c5", "d5", "d6", "e5", "c6"}
+        if move_san in valid_responses:
+            return True
     
     # --- Check 2: If opening was detected, trust early moves ---
     # If the game eventually reaches a recognized opening (e.g., Scandinavian),
@@ -2541,6 +2567,24 @@ async def generate_game_decryption_v5(
             if is_user and severity in ("inaccuracy", "mistake") and phase == "opening":
                 if is_book_opening_move(board, move_san, idx, opening_name, cp_loss):
                     logger.info(f"[BOOK MOVE] {move_san} (cpl={cp_loss}) is a book opening move — overriding '{severity}' to 'good'")
+                    severity = "good"
+
+            # Category 6 fix — best-move agreement sanity check. When the
+            # severity classifier says mistake/inaccuracy/blunder but the
+            # stored best_move EQUALS the played move, the stored cp_loss
+            # is internally inconsistent (you can't lose centipawns by
+            # playing the engine's top choice). Downgrade severity to
+            # "good" rather than mislead the user. Source bugs:
+            #   fb_4102902e3639 (Qe5 marked mistake but is engine's best)
+            #   fb_5dd398d092c9 (h6 marked mistake; Parth: both moves fine)
+            if is_user and severity in ("inaccuracy", "mistake", "blunder"):
+                _stored_best = (eval_data.get("best_move") or "").strip().rstrip("!?+#")
+                _played_norm = (move_san or "").strip().rstrip("!?+#")
+                if _stored_best and _stored_best == _played_norm:
+                    logger.warning(
+                        f"[SEVERITY-SANITY] move {move_san} == stored best_move but "
+                        f"severity={severity} (cpl={cp_loss}). Downgrading to 'good'."
+                    )
                     severity = "good"
             
             # Check for forced recapture
