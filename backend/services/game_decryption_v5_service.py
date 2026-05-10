@@ -226,10 +226,24 @@ def get_opening_data(eco_code: Optional[str], opening_name: Optional[str]) -> di
     return opening_plans.get("default", {})
 
 
-def get_opening_introduction(eco_code: Optional[str], opening_name: Optional[str], move_san: str, user_color: str) -> Optional[Dict]:
+def get_opening_introduction(
+    eco_code: Optional[str],
+    opening_name: Optional[str],
+    move_san: str,
+    user_color: str,
+    move_index: Optional[int] = None,
+) -> Optional[Dict]:
     """
     Get opening introduction for the first few moves.
     Returns context about what opening this is and what the plans are.
+
+    move_index (ply index, 0-based) is used to gate the "first-move
+    opening" labels: e4/d4/c4/Nf3 only refer to a named opening when
+    they are white's literal first move (idx 0); e5/c5/c6/Nf6 etc only
+    when they are black's literal first response (idx 1). Without this
+    gate, Nf3 played as move 3 (e.g., after 1.e4 e5 2.f4) gets labelled
+    "Réti Opening" — wrong, because Réti specifically means 1.Nf3 with
+    no prior pawn play. Source bug: fb_d0454a4088f3.
     """
     # Common opening patterns by first moves
     opening_intros = {
@@ -273,7 +287,22 @@ def get_opening_introduction(eco_code: Optional[str], opening_name: Optional[str
         "Bb5": {"name": "Spanish Game direction", "idea": "Pressures e5 indirectly through the knight on c6."},
     }
     
+    # Gate first-move labels on move_index — see docstring. The set
+    # of move_sans below is "openings named purely from the move name,
+    # ASSUMING it's the first or second ply." Without the gate they
+    # mis-fire on transpositions.
+    _WHITE_FIRST_MOVE_OPENINGS = {"e4", "d4", "c4", "Nf3"}
+    _BLACK_FIRST_RESPONSES = {"e5", "c5", "e6", "c6", "d5", "Nf6"}
+
     if move_san in opening_intros:
+        if move_index is not None:
+            if move_san in _WHITE_FIRST_MOVE_OPENINGS and move_index != 0:
+                # Not white's first move — can't be the named first-move
+                # opening (likely a transposition). Skip the label.
+                return None
+            if move_san in _BLACK_FIRST_RESPONSES and move_index != 1:
+                # Not black's first response — same reasoning.
+                return None
         intro = opening_intros[move_san]
         return {
             "name": intro.get("name"),
@@ -2719,7 +2748,10 @@ async def generate_game_decryption_v5(
                 
                 # Add opening introduction for early moves (only if it's a normal move)
                 if idx < 10 and phase == "opening" and severity == "context":
-                    intro = get_opening_introduction(eco_code, opening_name, move_san, user_color)
+                    intro = get_opening_introduction(
+                        eco_code, opening_name, move_san, user_color,
+                        move_index=idx,
+                    )
                     if intro:
                         intro_name = intro.get("name")
                         intro_idea = intro.get("idea")
