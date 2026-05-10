@@ -299,13 +299,20 @@ def get_opening_introduction(eco_code: Optional[str], opening_name: Optional[str
 # We only need to track positions where Stockfish might disagree with theory.
 KNOWN_OPENING_RESPONSES = None  # Will be built dynamically using python-chess
 
-def is_book_opening_move(board: chess.Board, move_san: str, move_index: int, 
-                         opening_name: Optional[str] = None, cp_loss: int = 0) -> bool:
+def is_book_opening_move(board: chess.Board, move_san: str, move_index: int,
+                         opening_name: Optional[str] = None, cp_loss: int = 0,
+                         move_history: Optional[List[str]] = None) -> bool:
     """
-    Check if a user's move is a known opening book move that shouldn't be 
+    Check if a user's move is a known opening book move that shouldn't be
     flagged as an inaccuracy, even if Stockfish slightly prefers another line.
-    
+
     Returns True if the move is a recognized opening response.
+
+    move_history: optional list of SAN moves played up to (not including)
+        the candidate move. When provided, the opening-detection check uses
+        it directly. When None, falls back to board.move_stack (which is
+        empty if board was built from a raw FEN). Audit scripts that
+        reconstruct from FEN should pass move_history explicitly.
     """
     # Only applies to early game (first 12 half-moves)
     if move_index > 12:
@@ -324,11 +331,17 @@ def is_book_opening_move(board: chess.Board, move_san: str, move_index: int,
     # to Check 2 below.
     try:
         from services.opening_mastery import detect_opening_from_moves
-        replay_board = chess.Board()
-        prior_sans = []
-        for past_mv in board.move_stack:
-            prior_sans.append(replay_board.san(past_mv))
-            replay_board.push(past_mv)
+        # Prefer explicit move_history when caller provides it (audit
+        # scripts reconstructing from FEN). Fall back to board.move_stack
+        # (production path where board was built incrementally).
+        if move_history is not None:
+            prior_sans = list(move_history)
+        else:
+            replay_board = chess.Board()
+            prior_sans = []
+            for past_mv in board.move_stack:
+                prior_sans.append(replay_board.san(past_mv))
+                replay_board.push(past_mv)
         full_sequence = prior_sans + [move_san]
         opening_info = detect_opening_from_moves(full_sequence)
         if opening_info and opening_info.get("opening_key"):

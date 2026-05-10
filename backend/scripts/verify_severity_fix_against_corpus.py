@@ -77,20 +77,28 @@ def _apply_book_override(
     move_index: int,
     cp_loss: int,
     opening_name: Optional[str],
+    move_history: Optional[list] = None,
 ) -> str:
     """Mirror the production override at game_decryption_v5_service:2509.
     If severity is inaccuracy/mistake AND we're in opening AND the move
-    is a known book move, downgrade to good."""
+    is a known book move, downgrade to good.
+
+    move_history is the list of SAN moves played up to (not including)
+    the candidate move — passed explicitly because boards reconstructed
+    from FEN have empty move_stack.
+    """
     if severity not in ("inaccuracy", "mistake"):
         return severity
-    # Lab-page phase detection: opening = move_index < ~20 ply (move 10-ish)
     if move_index >= 20:
         return severity
     try:
         from services.game_decryption_v5_service import is_book_opening_move
-        # Reconstruct board state BEFORE the move
         board = chess.Board(fen_before)
-        if is_book_opening_move(board, move_san, move_index, opening_name, cp_loss or 0):
+        if is_book_opening_move(
+            board, move_san, move_index,
+            opening_name, cp_loss or 0,
+            move_history=move_history,
+        ):
             return "good"
     except Exception:
         pass
@@ -113,6 +121,53 @@ async def _load_user_colors(db, game_ids: list) -> Dict[str, str]:
     return out
 
 
+async def _load_pgns(db, game_ids: list) -> Dict[str, str]:
+    """Look up PGN for each game_id so we can reconstruct move history."""
+    if not game_ids:
+        return {}
+    out: Dict[str, str] = {}
+    async for g in db.games.find(
+        {"game_id": {"$in": list(set(game_ids))}},
+        {"_id": 0, "game_id": 1, "pgn": 1},
+    ):
+        gid = g.get("game_id")
+        pgn = g.get("pgn")
+        if gid and pgn:
+            out[gid] = pgn
+    return out
+
+
+def _move_history_up_to(pgn: str, target_move_number: int, target_move_san: str) -> Optional[list]:
+    """Replay PGN, return the SAN list of moves played BEFORE the
+    matching (move_number, move_san) — i.e., the prior moves to feed
+    the book detector. Returns None if no match found."""
+    import io
+    import chess.pgn
+    try:
+        game = chess.pgn.read_game(io.StringIO(pgn))
+    except Exception:
+        return None
+    if game is None:
+        return None
+    target_norm = (target_move_san or "").rstrip("!?+#")
+    board = game.board()
+    history: list = []
+    for move in game.mainline_moves():
+        try:
+            san = board.san(move)
+        except Exception:
+            return None
+        san_norm = san.rstrip("!?+#")
+        if board.fullmove_number == target_move_number and san_norm == target_norm:
+            return history
+        history.append(san)
+        try:
+            board.push(move)
+        except Exception:
+            return None
+    return None
+
+
 async def run(args):
     data = json.loads(Path(args.bug_file).read_text(encoding="utf-8"))
     bugs = data.get("feedback") or []
@@ -126,6 +181,7 @@ async def run(args):
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
     user_color_by_game = await _load_user_colors(db, game_ids)
+    pgn_by_game = await _load_pgns(db, game_ids)
     client.close()
 
     n_total = 0
@@ -181,9 +237,18 @@ async def run(args):
         except Exception:
             pass
 
-        opening_name = None  # we don't have this on bug entries; book check works without it
+        opening_name = None
+        # Reconstruct move history from PGN so the book check can fire
+        # the way it does in production (where board.move_stack is built
+        # incrementally). When boards come from FEN, move_stack is empty
+        # — without this, the detector sees only the candidate move.
+        prior_history = None
+        pgn_text = pgn_by_game.get(game_id) if game_id else None
+        if pgn_text and move_san and move_number:
+            prior_history = _move_history_up_to(pgn_text, move_number, move_san)
         new_severity = _apply_book_override(
-            new_severity, fen, move_san, move_index, cpl, opening_name
+            new_severity, fen, move_san, move_index, cpl, opening_name,
+            move_history=prior_history,
         )
 
         n_audited += 1
