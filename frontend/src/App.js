@@ -12,6 +12,7 @@ import HomePage from "@/pages/HomePage";  // NEW focused homepage
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import AllGames from "@/pages/AllGames";
+import ReviewQueue from "@/pages/ReviewQueue";
 import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
 import TrainingNew from "@/pages/TrainingNew";  // Used by /coach and /focus routes (renamed from aliased `Training` for clarity)
@@ -227,6 +228,11 @@ function AppRouter() {
       <Route path="/games" element={
         <ProtectedRoute>
           {({ user }) => <AllGames user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/review" element={
+        <ProtectedRoute>
+          {({ user }) => <ReviewQueue user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/import" element={
