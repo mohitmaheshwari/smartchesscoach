@@ -84,6 +84,13 @@ class MoveFeedback:
     cct_discipline_held: bool = False
     cct_voice_line: Optional[str] = None
 
+    # Opening-theory note — fired when in a known opening's first
+    # ~12 moves. Pairs the universal teaching rule (e.g. "pieces
+    # before pawns") with opening-specific context ("In the Queen's
+    # Gambit, you recover c4 with Bxc4 and keep central control.").
+    # See services/opening_theory_note.py.
+    opening_theory_note: Optional[Dict] = None
+
     def to_dict(self) -> Dict:
         # Compute best_move_uci from SAN + FEN for board arrow drawing
         best_move_uci = ""
@@ -128,6 +135,9 @@ class MoveFeedback:
             # CCT discipline
             "cct_discipline_held": self.cct_discipline_held,
             "cct_voice_line": self.cct_voice_line,
+            # Opening-theory note (None when not in a known opening
+            # or past the opening phase)
+            "opening_theory_note": self.opening_theory_note,
         }
         if self.trap_suggestion:
             result["trap_suggestion"] = self.trap_suggestion
@@ -1437,7 +1447,22 @@ async def generate_move_feedback(
                 piece_moved = _get_piece_name(piece)
         except Exception:
             pass
-    
+
+    # Opening-theory note — pairs the move-level rule with opening-
+    # specific theory. Returns None when not in a known opening or
+    # past the opening phase. See services/opening_theory_note.py.
+    opening_theory_note = None
+    try:
+        from services.opening_theory_note import get_opening_theory_note
+        san_history = [m.get("move", "") for m in (move_history or []) if m.get("move")]
+        if san_history:
+            opening_theory_note = get_opening_theory_note(
+                move_history=san_history,
+                move_number=move_number,
+            )
+    except Exception as exc:
+        logger.warning(f"opening_theory_note lookup failed: {exc}")
+
     return MoveFeedback(
         user_move=user_move,
         user_move_quality=quality,
@@ -1468,6 +1493,7 @@ async def generate_move_feedback(
         is_brilliant=is_brilliant,
         cct_discipline_held=cct_discipline_held,
         cct_voice_line=cct_voice_line,
+        opening_theory_note=opening_theory_note,
     )
 
 

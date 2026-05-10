@@ -22,7 +22,8 @@ import {
   MessageCircle,
   HelpCircle,
   Send,
-  Eye
+  Eye,
+  BookOpen
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
@@ -50,6 +51,9 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId,
     expects_response,
     pattern_reference,
     memory_reference,
+    // NEW: Opening theory note — pairs with the move-level rule to give
+    // opening-specific context. See services/opening_theory_note.py.
+    opening_theory_note,
     // Position context fields used to enrich tester flags
     fen_before,
   } = feedback;
@@ -197,6 +201,32 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId,
               {coaching_message}
               <InlineFlag section="coaching_message" flaggedText={coaching_message} context={flagCtx} />
             </p>
+
+            {/* Opening-theory note — pairs the move-level rule with opening-
+                specific theory. Renders in the opening phase only (gated
+                server-side to move <= 12). */}
+            {opening_theory_note && (
+              <div className="p-2 rounded bg-sky-500/5 border border-sky-500/20">
+                <div className="flex items-start gap-2">
+                  <BookOpen className="w-4 h-4 text-sky-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs uppercase tracking-wide text-sky-400 font-medium mb-1">
+                      {opening_theory_note.opening_name || "Opening"}
+                    </div>
+                    {opening_theory_note.summary && (
+                      <p className="text-xs text-zinc-200 leading-relaxed">
+                        {opening_theory_note.summary}
+                      </p>
+                    )}
+                    {opening_theory_note.key_rule && (
+                      <p className="text-xs text-sky-300 mt-1 italic">
+                        {opening_theory_note.key_rule}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Pattern reference - "This is the 3rd time this week..." */}
             {pattern_reference && (
