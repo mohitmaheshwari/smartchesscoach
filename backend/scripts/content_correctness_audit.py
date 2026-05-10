@@ -6,14 +6,27 @@ Per `feedback_chess_content_verification.md`: don't claim any coaching layer is
 about the position. This is the audit that should have caught Parth's bugs.
 
 SCOPE OF THIS AUDIT (be explicit, per rule #6 of the memo):
-  ✓ Piece-on-square claims    — "your knight on e5", "their pawn on c6"
-  ✓ Move-played claim         — "Played [SAN]" or implied played-move
-  ✓ Best-move agreement       — claimed best vs engine pick at depth N
-  ✓ Hallucinated piece check  — claim references a piece/square; piece must exist
-  ✗ Multi-ply tactical lines  — "after X then Y" — NOT verified here (separate audit)
-  ✗ Strategic claims          — "doesn't develop", "loses tempo" — NOT verified
-  ✗ Severity vs forced-mate   — separate forced-mate audit needed (TODO)
-  ✗ Opening identification    — needs ECO DB cross-check (TODO)
+
+PHASE 1 (always on, no engine needed):
+  + Piece-on-square claims    -- "your knight on e5", "their pawn on c6"
+  + Move-played claim legality -- "Played [SAN]" must be a legal move
+  + Hallucinated piece check  -- claim references a piece; must exist on FEN
+  + Wrong-color piece check   -- "your" vs "their" matches actual piece color
+
+PHASE 2 (--engine flag, requires Stockfish at config.STOCKFISH_PATH):
+  + Severity-vs-engine-eval   -- "Equal trade" / "balanced" / "no concern" must
+                                 match engine eval. Mate-in-N or |eval| > 300cp
+                                 vs claimed "equal" = FAIL (catches Rxc3 = mate
+                                 misclassified as Equal trade).
+  + Best-move agreement       -- "best is X" / "Better: X" / "X was the move"
+                                 must match engine's top pick at depth N.
+
+NOT YET COVERED (Phase 3+ TODO):
+  - Multi-ply tactical lines  -- "after X then Y" -- needs PV chain validation
+  - Strategic claims           -- "doesn't develop", "loses tempo" -- subjective
+  - Wrong-but-legal move-played -- needs previous-position FEN
+  - Opening identification     -- needs ECO DB cross-check
+  - Pedagogical depth          -- not auditable mechanically
 
 Output: per-text verdict (PASS / FAIL / UNVERIFIABLE) with per-claim detail.
 
@@ -38,6 +51,13 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
 import chess
+import chess.engine
+
+# Phase 2 engine config — mirrors backend/config.py defaults.
+STOCKFISH_PATH = "/usr/games/stockfish"
+PHASE2_DEPTH = 14   # Balance between accuracy and audit speed; >=12 catches
+                    # most missed mates and best-move disagreements.
+PHASE2_EQUAL_EVAL_THRESHOLD = 300   # |eval| > 300 cp invalidates an "equal" claim.
 
 
 _PIECE_NAMES = {
@@ -193,11 +213,149 @@ def _extract_and_verify_played_move(audit: TextAudit, board: chess.Board) -> Non
             )
 
 
+# ── Phase 2: severity-vs-engine-eval and best-move agreement ─────────────
+
+# "Equal trade" / "Position is balanced" / "no immediate threats" / similar
+# severity claims that say the position is fine. Each must match engine eval.
+_EQUAL_CLAIM_RE = re.compile(
+    r"\b("
+    r"equal trade|"
+    r"position is balanced|"
+    r"no immediate threats|"
+    r"no concern|"
+    r"perfectly fine|"
+    r"keeps things steady|"
+    r"keeps the balance"
+    r")\b",
+    flags=re.IGNORECASE,
+)
+
+# "best is X" / "best was X" / "Better: X" / "X was the move" / "X was sharper"
+_BEST_MOVE_CLAIM_RE = re.compile(
+    r"\b(?:"
+    r"[Bb]est (?:is|was)\s+|"
+    r"[Bb]etter:\s*|"
+    r"[Tt]he move (?:is|was)\s+|"
+    r")"
+    r"([NBRQK][a-h]?[1-8]?x?[a-h][1-8](?:=[NBRQ])?[+#]?|"
+    r"O-O-O|O-O|"
+    r"[a-h]x?[a-h][1-8](?:=[NBRQ])?[+#]?|"
+    r"[a-h][1-8](?:=[NBRQ])?[+#]?)"
+    r"(?:\s+(?:was the move|was sharper|was a touch sharper|maintains better position))",
+)
+
+
+def _engine_analyse(
+    fen: str, engine: chess.engine.SimpleEngine, depth: int = PHASE2_DEPTH
+) -> Optional[Dict]:
+    """Run Stockfish on the position. Returns {eval_cp, mate, best_move_san}
+    or None on failure. Eval is from white's perspective."""
+    try:
+        board = chess.Board(fen)
+    except ValueError:
+        return None
+    try:
+        info = engine.analyse(board, chess.engine.Limit(depth=depth))
+    except Exception:
+        return None
+    score = info.get("score")
+    if score is None:
+        return None
+    pov_score = score.white()
+    mate = pov_score.mate()
+    cp = pov_score.score()
+    pv = info.get("pv") or []
+    best_move_san = None
+    if pv:
+        try:
+            best_move_san = board.san(pv[0])
+        except Exception:
+            best_move_san = None
+    return {"eval_cp": cp, "mate": mate, "best_move_san": best_move_san, "fen_turn": board.turn}
+
+
+def _verify_equal_claims(
+    audit: TextAudit, engine_result: Dict
+) -> None:
+    """For every 'equal trade' / 'balanced' / etc. claim, fail if engine
+    says mate-in-N or |eval| > 300 cp."""
+    mate = engine_result.get("mate")
+    cp = engine_result.get("eval_cp")
+    for match in _EQUAL_CLAIM_RE.finditer(audit.text):
+        claim_text = match.group(0)
+        if mate is not None:
+            audit.claims.append(
+                ClaimResult(
+                    kind="severity_vs_engine",
+                    text=claim_text,
+                    verdict="fail",
+                    detail=f"text says '{claim_text}' but engine sees mate in {abs(mate)} for {'white' if mate > 0 else 'black'}",
+                )
+            )
+        elif cp is not None and abs(cp) > PHASE2_EQUAL_EVAL_THRESHOLD:
+            side = "white" if cp > 0 else "black"
+            audit.claims.append(
+                ClaimResult(
+                    kind="severity_vs_engine",
+                    text=claim_text,
+                    verdict="fail",
+                    detail=f"text says '{claim_text}' but engine eval is {cp:+d} cp ({side} much better)",
+                )
+            )
+        else:
+            cp_str = f"{cp:+d} cp" if cp is not None else "no eval"
+            audit.claims.append(
+                ClaimResult(
+                    kind="severity_vs_engine",
+                    text=claim_text,
+                    verdict="pass",
+                    detail=f"engine eval {cp_str} -- claim '{claim_text}' is consistent",
+                )
+            )
+
+
+def _verify_best_move_claims(
+    audit: TextAudit, engine_result: Dict
+) -> None:
+    """For every 'best is X' / 'Better: Y' claim, fail if engine's top
+    pick disagrees."""
+    engine_best = engine_result.get("best_move_san")
+    if not engine_best:
+        return
+    # Strip check/mate annotations for comparison so 'Qf4' matches 'Qf4+'.
+    def _norm(san: str) -> str:
+        return re.sub(r"[+#]+$", "", san or "")
+    engine_norm = _norm(engine_best)
+
+    for match in _BEST_MOVE_CLAIM_RE.finditer(audit.text):
+        claimed = match.group(1)
+        claimed_norm = _norm(claimed)
+        if claimed_norm == engine_norm:
+            audit.claims.append(
+                ClaimResult(
+                    kind="best_move_agreement",
+                    text=match.group(0),
+                    verdict="pass",
+                    detail=f"engine agrees: {engine_best}",
+                )
+            )
+        else:
+            audit.claims.append(
+                ClaimResult(
+                    kind="best_move_agreement",
+                    text=match.group(0),
+                    verdict="fail",
+                    detail=f"text says best is '{claimed}' but engine picks '{engine_best}' at depth {PHASE2_DEPTH}",
+                )
+            )
+
+
 # ── Public entry point ───────────────────────────────────────────────────
 def audit_text_against_fen(
     text: str,
     fen: str,
     user_color: str = "white",
+    engine: Optional[chess.engine.SimpleEngine] = None,
 ) -> TextAudit:
     """Audit a coaching string against the position. Returns a structured
     audit result with per-claim verdicts.
@@ -229,6 +387,14 @@ def audit_text_against_fen(
     color = chess.WHITE if user_color.lower() == "white" else chess.BLACK
     _extract_and_verify_piece_claims(audit, board, color)
     _extract_and_verify_played_move(audit, board)
+
+    # Phase 2 — engine-backed checks. Skipped when no engine handle.
+    if engine is not None:
+        engine_result = _engine_analyse(fen, engine)
+        if engine_result is not None:
+            _verify_equal_claims(audit, engine_result)
+            _verify_best_move_claims(audit, engine_result)
+
     return audit
 
 
@@ -247,9 +413,24 @@ def _format_audit(audit: TextAudit, header: str = "") -> str:
     return "\n".join(lines)
 
 
+def _open_engine(stockfish_path: str) -> Optional[chess.engine.SimpleEngine]:
+    """Spawn Stockfish. Returns None if binary missing — caller should
+    skip Phase 2 checks gracefully."""
+    try:
+        return chess.engine.SimpleEngine.popen_uci(stockfish_path)
+    except Exception as exc:
+        print(f"WARN: Phase 2 engine unavailable ({exc}). Running Phase 1 only.")
+        return None
+
+
 def run_one(args):
-    audit = audit_text_against_fen(args.text, args.fen, args.color)
-    print(_format_audit(audit, header="=== single-text audit ==="))
+    engine = _open_engine(args.stockfish) if args.engine else None
+    try:
+        audit = audit_text_against_fen(args.text, args.fen, args.color, engine=engine)
+        print(_format_audit(audit, header="=== single-text audit ==="))
+    finally:
+        if engine is not None:
+            engine.quit()
 
 
 def run_bug_file(args):
@@ -259,6 +440,8 @@ def run_bug_file(args):
     path = Path(args.bug_file)
     data = json.loads(path.read_text(encoding="utf-8"))
     bugs = data.get("feedback") or []
+
+    engine = _open_engine(args.stockfish) if args.engine else None
 
     n_total = 0
     n_skip_no_text = 0
@@ -289,7 +472,7 @@ def run_bug_file(args):
         except ValueError:
             inferred_user_color = "white"
 
-        audit = audit_text_against_fen(text, fen, user_color=inferred_user_color)
+        audit = audit_text_against_fen(text, fen, user_color=inferred_user_color, engine=engine)
         if audit.overall == "fail":
             n_fail += 1
             failures.append((bug, audit))
@@ -312,12 +495,15 @@ def run_bug_file(args):
 
     if failures:
         print("=" * 70)
-        print("FAILURES — coaching text contains a claim that contradicts the FEN")
+        print("FAILURES -- coaching text contains a claim that contradicts the FEN")
         print("=" * 70)
         for bug, audit in failures:
             fid = bug.get("feedback_id", "?")
             print()
             print(_format_audit(audit, header=f"--- {fid} ---"))
+
+    if engine is not None:
+        engine.quit()
 
 
 if __name__ == "__main__":
@@ -326,6 +512,17 @@ if __name__ == "__main__":
     p.add_argument("--text", help="coaching text to audit (single-text mode)")
     p.add_argument("--color", default="white", help="user color: white | black")
     p.add_argument("--bug-file", help="path to a bug-export JSON to audit in batch")
+    p.add_argument(
+        "--engine",
+        action="store_true",
+        help="enable Phase 2 engine-backed checks (severity-vs-eval, "
+             "best-move agreement). Requires Stockfish.",
+    )
+    p.add_argument(
+        "--stockfish",
+        default=STOCKFISH_PATH,
+        help=f"path to Stockfish binary (default: {STOCKFISH_PATH})",
+    )
     args = p.parse_args()
 
     if args.bug_file:
