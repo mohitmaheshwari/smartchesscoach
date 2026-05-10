@@ -2455,6 +2455,23 @@ async def generate_game_decryption_v5(
             fen_key = " ".join(board.fen().split()[:4])
             eval_data = eval_lookup.get(fen_key, {})
             cp_loss = abs(eval_data.get("cp_loss", 0)) if is_user else 0
+
+            # Mate-sentinel cp_loss capture — when the engine returns a
+            # mate-loss as eval_after, cp_loss may be absent/0 in the
+            # stored eval_data even though the move walked into mate.
+            # Recompute cp_loss from eval_before + eval_after when those
+            # are available and the stored cp_loss looks suspicious.
+            # Source bug: fb_a9ac9f02affa (Rxc3 = "Equal trade" caught by
+            # Phase 2 audit at +381cp swing; underlying severity was tagged
+            # "good" because the stored cp_loss didn't reflect the swing).
+            if is_user:
+                eval_before_v = eval_data.get("eval_before")
+                eval_after_v = eval_data.get("eval_after")
+                if eval_before_v is not None and eval_after_v is not None:
+                    user_eval_before = eval_before_v if user_color == "white" else -eval_before_v
+                    user_eval_after = eval_after_v if user_color == "white" else -eval_after_v
+                    derived_loss = max(0, user_eval_before - user_eval_after)
+                    cp_loss = max(cp_loss, derived_loss)
             
             # For opponent moves, calculate eval swing using:
             # - eval BEFORE opponent move = eval AFTER user's last move (prev_user_eval_after)
@@ -2496,14 +2513,29 @@ async def generate_game_decryption_v5(
                     severity = "opp_inaccuracy"
                 else:
                     severity = "context"
-            elif cp_loss < 30:
-                severity = "good"
-            elif cp_loss < 100:
-                severity = "inaccuracy"
-            elif cp_loss < 250:
-                severity = "mistake"
             else:
-                severity = "blunder"
+                # Forced-mate sentinel guard FIRST — if the move walks the
+                # user into a losing mate (eval_after deeply negative from
+                # user's perspective), severity is BLUNDER regardless of
+                # the stored cp_loss. Bug fb_a9ac9f02affa class: Rxc3
+                # tagged "good" while engine sees mate-in-2 against the
+                # mover. Mate sentinels typically sit beyond ~3000cp.
+                _MATE_SENTINEL_CP = 3000
+                user_post_eval = None
+                _eb = eval_data.get("eval_before")
+                _ea = eval_data.get("eval_after")
+                if _ea is not None:
+                    user_post_eval = _ea if user_color == "white" else -_ea
+                if user_post_eval is not None and user_post_eval <= -_MATE_SENTINEL_CP:
+                    severity = "blunder"
+                elif cp_loss < 30:
+                    severity = "good"
+                elif cp_loss < 100:
+                    severity = "inaccuracy"
+                elif cp_loss < 250:
+                    severity = "mistake"
+                else:
+                    severity = "blunder"
             
             # Override: known opening book moves should never be flagged as inaccuracies
             if is_user and severity in ("inaccuracy", "mistake") and phase == "opening":
