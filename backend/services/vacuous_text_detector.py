@@ -78,6 +78,10 @@ _FILLER_PHRASES = (
     "love open file",
     "active diagonal",
     "an active diagonal",
+    "open diagonal ahead",
+    "open file ahead",
+    "an open diagonal",
+    "an open file",
     "natural move",
     "natural development",
 )
