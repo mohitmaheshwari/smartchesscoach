@@ -1,7 +1,8 @@
 # V5 Caption Pipeline — Design Doc
 
-**Status:** DRAFT — awaiting user review.
-**Locked:** 2026-05-11. No code until the user signs off on this doc.
+**Status:** DRAFT v2 — review feedback applied. Awaiting user sign-off before code.
+**Version:** v2 (2026-05-11). v1 was reviewed; user flagged 4 critical fixes
++ 2 deferred items. All 4 critical fixes applied in this version (see §16).
 **Locked rule (memory):** `feedback_v5_caption_rewrite_no_patches.md` — no template patches in V5 caption code until this pipeline ships.
 
 ---
@@ -96,8 +97,21 @@ A pure function. Same inputs → same outputs. No side effects, no LLM, no rando
   "target_square": str,                # square the move went to
   "attackers_on_target": [(sq, piece_type), ...],  # opp pieces attacking it AFTER move
   "defenders_on_target": [(sq, piece_type), ...],
-  "attacker_count": int,
+  "attacker_count": int,               # kept for context but NOT used as trigger
   "defender_count": int,
+
+  # ─── Static Exchange Evaluation (the real exchange truth) ─────────
+  # Raw attacker/defender counts are misleading: a pinned defender doesn't
+  # defend, an x-ray attacker doesn't attack right now, and exchange order
+  # by piece value matters. SEE walks the full capture sequence with
+  # cheapest-piece-first recapture rules and returns the net material
+  # outcome. Use this — NOT raw counts — to decide whether a capture or
+  # piece placement loses material.
+  "see_played_capture_cp": int | None,  # if move is a capture: SEE result for that capture
+  "see_target_square_cp": int | None,   # SEE on the move's target square with opp to capture next
+                                        # (relevant for non-capture moves that walk into attacks)
+  "is_exchange_losing": bool,           # see_played_capture_cp < -50 OR target en prise per SEE
+  "exchange_loss_cp": int,              # magnitude of the material loss (signed cp)
 
   # ─── What the move now threatens or stops defending ───────────────
   "threats_created": [{"target_sq": str, "piece_type": str, "value_cp": int}, ...],
@@ -164,11 +178,12 @@ The renderer evaluates triggers in priority order, fires the first match, and re
 - *highlights:* `[target_square]`
 - *arrows:* `[(from, target_square, "green")]`
 
-**R02 — Material loss by attacker/defender count**
-- *trigger:* `cp_loss >= 100 AND attacker_count > defender_count`
-- *template:* `"Only capture when defenders match attackers. {target_square} had {attacker_count} attackers, {defender_count} defender — {played} loses the {piece}. {best_move} keeps the piece."`
-- *highlights:* `[target_square]` + attacker squares + defender squares
-- *arrows:* attacker → target (red), best_move from → to (green)
+**R02 — Material loss verified by SEE**
+- *trigger:* `cp_loss >= 100 AND is_exchange_losing`  (SEE-based, not count-based)
+- *template:* `"{played} loses material in the exchange — {best_attacker} captures, the recapture line costs you {exchange_loss}. {best_move} avoids the trade."`
+- *highlights:* `[target_square]` + the leading attacker square + the leading defender square (only those that matter in the SEE sequence — pinned/x-ray pieces are excluded)
+- *arrows:* leading attacker → target (red), best_move from → to (green)
+- *Why SEE not counts:* counts miss pinned defenders (don't really defend), x-ray defenders (don't defend right now), pinned attackers (can't attack legally), and value imbalance (Q defended by P with R attacking still loses Q). SEE handles all of these correctly because it simulates the actual capture sequence with cheapest-first recapture rules.
 
 **R03 — Fork**
 - *trigger:* `tactic == "fork"`
@@ -211,27 +226,38 @@ The renderer evaluates triggers in priority order, fires the first match, and re
 
 **R11 — Central pawn capture**
 - *trigger:* `is_capture AND central_square_captured`
-- *template:* `"{played} takes in the centre. You get a {center_state} pawn here."`
+- *template:* `"{played} takes in the centre. You now control {center_squares_controlled} — they control {their_count}."`
+- *No abstract claims.* The "you control 2 central squares, they control 1" framing is concrete and visible on the board.
 
 **R12 — Recapture toward centre**
 - *trigger:* `pawn_recapture_choice_toward_center`
-- *template:* `"{played} — recapture toward the centre. Healthier pawn structure, more central control."`
+- *template:* `"{played} — recapture toward the centre. Pawn now defends {defended_squares}."`
 
 ### 5.3 Opening rules (priority 70)
 
 **R13 — Named opening / variation match**
 - *trigger:* `is_book_move AND opening_variation`
-- *template:* `"{played} — {opening_variation}. {variation_idea}."`
+- *template:* `"{played} — {opening_variation}. {one_concrete_idea}."`
+- `one_concrete_idea` MUST be a specific consequence — a piece going to a square, a pawn break prepared, a diagonal opened. Examples: "Bishop heads to g7", "Prepares the d4 break", "Opens the long diagonal for Bb7". Forbidden: "stakes a central claim", "controls the center", "flexible play."
 
 **R14 — First-move opening intro**
 - *trigger:* `move_index == 0`
-- *template:* `"{opening_name}. {idea}."`
-- *arrows:* common black responses (e4 → e5 blue, e4 → c5 blue, e4 → e6 blue)
+- *template:* `"{opening_name}. {what_it_opens}."`
+- `what_it_opens` names which own pieces gain mobility from this move. Concrete examples:
+  - e4 → "Opens the bishop on f1 and the queen on d1."
+  - d4 → "Opens the bishop on c1, controls e5."
+  - c4 → "Attacks d5 with the c-pawn before committing the d-pawn."
+  - Nf3 → "Develops the knight, controls e5 and d4."
+- *arrows:* common black responses (e4 → e5 blue, e4 → c5 blue, e4 → e6 blue) — visual is the lesson, not the prose.
 
 **R15 — Developing move with purpose**
 - *trigger:* `phase == "opening" AND played_develops_minor`
-- *template:* `"Develops the {piece} to {to_square}. {what_it_enables}."`
-  - `what_it_enables` = the most specific fact among: defends X, supports {next_break}, prepares castling, attacks {square}
+- *template:* `"Develops the {piece} to {to_square}. {what_it_does_now}."`
+- `what_it_does_now` MUST name a specific board fact: a square it attacks, a square it defends, a pawn break it supports, a king-side or queen-side it points at. Forbidden generic fillers: "active piece", "good square", "natural development", "controls the centre" (without naming which square).
+- Examples:
+  - Nf3 → "Develops the knight to f3. Attacks e5, prepares castling kingside."
+  - Bg5 → "Develops the bishop to g5. Pins the knight on f6 to the queen."
+  - Ne7 → "Develops the knight to e7. Supports a d5 break."
 
 **R16 — Early queen sortie (self)**
 - *trigger:* `queen_out_early AND played_is_queen`
@@ -253,15 +279,73 @@ The renderer evaluates triggers in priority order, fires the first match, and re
 
 ### 5.5 Quality acknowledgement (priority 50)
 
-**R20 — Best move played, with reason**
-- *trigger:* `played_is_best AND played_is_best_AND_has_alternatives AND has_extractable_reason`
-- *template:* `"Great move. {played} {one_thing_it_does}."` (the reason comes from the same extractor — defends X, develops Y, prepares Z, etc.)
-- *If no extractable reason* (forced recapture or only-move): fall through to R10.
-- *If reason but cp_loss > 0* (best move that's still imperfect): `"Best per engine. {played} {reason}."`
+**R20 — Best move played, objective acknowledgement**
+- *trigger:* `played_is_best AND has_extractable_reason`
+- *template:* `"Best move. {played} {primary_reason}."`
+- The acknowledgement word comes from a small fixed set, chosen on objective criteria — NOT emotional. Banned: "Great", "Excellent", "Amazing", "Nice find", "Well done".
+  - `cp_loss == 0 AND played_is_best AND tactic_present` → **"Precise."** (tactical accuracy)
+  - `cp_loss == 0 AND played_is_best AND material_delta_played > 100` → **"Strong."** (wins material)
+  - `cp_loss == 0 AND played_is_best AND other` → **"Best move."** (engine's #1)
+  - `cp_loss <= 20 AND NOT played_is_best AND played_is_reasonable` → **"Solid."** (close to best, not best)
+- *Reason source:* `extract_primary_reason(facts)` — see §5.7. The reason is ONE fact, not three.
+- *No emotional words.* If Stockfish later disagrees with a "Great move" call, user trust collapses. Objective wording survives engine disagreement because it makes a factual claim, not an emotional one.
+- *If no extractable reason* (forced recapture / only-move): fall through to R10.
+- *If reason but cp_loss > 0:* `"Best per engine. {played} {primary_reason}."` (factual, no praise word).
 
 ### 5.6 Fallback
 
 **R-FALLBACK** — no rule matched. Return `caption = ""`. Silence. The frontend has the severity badge and move SAN — that's enough when we have nothing concrete to add.
+
+### 5.7 `extract_primary_reason(facts)` — single-reason scoring layer
+
+A move can satisfy many "good reasons" simultaneously: develops, defends, attacks, supports a break, prepares castling, joins a battery. Listing all of them produces bloated captions and recreates the old V5 problem. The pipeline must pick **one** reason, the most important one.
+
+The scoring layer is **deterministic priority order** — no fuzzy weighting, no LLM judgment. Higher priority always wins; only one reason returns.
+
+**Priority order (highest first):**
+
+1. **Tactic in this move** — `fork | pin | skewer | discovery | deflection` is present. Reason text names the tactic concretely.
+2. **Material gain** — `material_delta_played_cp > 100` or `free_capture`. Reason text names what was won.
+3. **Check or mate threat** — `is_check AND threats_created` OR mate in PV.
+4. **King safety** — castling, or move that defends against a mate threat.
+5. **Concrete defensive duty** — defends an attacked own piece worth more than the moving piece.
+6. **Threat creation** — `threats_created` is non-empty; reason names the attacked piece.
+7. **Pawn structure win** — recapture toward centre, creates passed pawn, breaks opponent pawn chain.
+8. **Development with concrete next-step** — minor piece reaches square that supports a named pawn break, defends a key square, or prepares castling. The "concrete next-step" is required; bare "develops the piece" does NOT qualify and falls through to (10).
+9. **Activity gain** — attacks a previously undefended high-value square.
+10. **Cosmetic / generic** — engine ranks the move best but no factual hook can be extracted. Returns `None`. Caller renders no reason, just the move.
+
+```python
+def extract_primary_reason(facts) -> Optional[str]:
+    if facts.get("tactic"):
+        return _format_tactic_reason(facts)              # priority 1
+    if facts.get("free_capture") or facts.get("material_delta_played_cp", 0) > 100:
+        return _format_material_reason(facts)            # priority 2
+    if facts.get("is_check") and facts.get("threats_created"):
+        return _format_check_plus_attack_reason(facts)   # priority 3 (check)
+    if _move_defends_against_mate(facts):
+        return _format_mate_defense_reason(facts)        # priority 3 (mate defense)
+    if facts.get("is_castling"):
+        return "your king is now safe"                   # priority 4
+    defends = _move_defends_attacked_higher_piece(facts)
+    if defends:
+        return f"defends the {defends.piece} on {defends.square}"  # priority 5
+    if facts.get("threats_created"):
+        return _format_threat_reason(facts)              # priority 6
+    if facts.get("pawn_recapture_choice_toward_center"):
+        return "healthier pawn structure"                # priority 7
+    if _creates_passed_pawn(facts):
+        return f"creates a passed pawn on the {facts['file']} file"
+    if facts.get("played_develops_minor") and _has_named_next_step(facts):
+        return _format_development_with_target(facts)    # priority 8
+    if _attacks_undefended_high_value(facts):
+        return _format_attack_reason(facts)              # priority 9
+    return None                                          # priority 10 → caller renders no reason
+```
+
+**Why priority and not weighted scoring:** weighted scoring requires tuning, and tuning drifts. Hard priority is predictable, debuggable, and explainable to the user when they ask "why did the caption say X and not Y?"
+
+**Used by:** R20 (best move ack), R09 (alternative-was-better), and any rule that needs a "WHY" clause.
 
 ---
 
@@ -474,17 +558,21 @@ For every pattern (Phase 1 through 3), the detector either:
 
 ---
 
-## 13. Open decisions
+## 13. Locked decisions
 
 | # | Question | Decision |
 |---|----------|----------|
-| 1 | R20 (best move ack) | Always pair acknowledgement with a fact-extracted reason. Three sub-cases: tactic available → name it; concrete consequence → name it; no reason extractable → R10 (forced/only-move) or short factual line. No bare "Great move." |
-| 2 | R08 (Socratic on missed tactics) | Fire whenever the detector returns a named pattern. No hedging — detector is geometrically deterministic. |
+| 1 | R20 (best move ack) | Objective wording (Best move / Strong / Precise / Solid) — NOT emotional ("Great"). Always paired with a single primary reason from `extract_primary_reason(facts)`. See §5.5. |
+| 2 | R08 (Socratic on missed tactics) | Fire whenever the detector returns a named pattern. No hedging — detector is geometrically deterministic; false positives are structurally impossible. |
 | 3 | Pattern history claim | Dropped for v1. |
 | 4 | Forced recaptures | One-line factual ("Only move. Bxe6 takes back.") — R10. |
 | 5 | Opponent moves | Caption when there's something to teach (tactic, queen-out-early, book deviation). Otherwise silent. |
 | 6 | Visual layer | Existing infrastructure works. Add `arrows` to the move output dict; frontend reads them next to `highlight_squares`. No new component, no new library. |
 | 7 | First deliverable | This design doc (now). After user sign-off → build the three modules end-to-end and run on game `d7ce40cf-2856-4f1f-b61b-29167deef219`. Only then any other code. |
+| 8 | Attacker/defender math | SEE (Static Exchange Evaluation), not raw counts. Counts miss pinned defenders, x-ray defenders, value imbalance. SEE handles all correctly by simulating cheapest-first recapture sequence. See §4 and R02. |
+| 9 | Primary-reason selection | Single reason via `extract_primary_reason(facts)` with hard priority order (tactic > material > king safety > defense > threat > pawn structure > development > activity > none). No weighted scoring. See §5.7. |
+| 10 | Opening language | Concrete consequences only. "Opens the bishop on f1 and the queen on d1" — NOT "stakes a central claim." Rules R11-R15 explicitly forbid abstract filler. See §5.3. |
+| 11 | "Great move" wording | Replaced by objective wording: Best move / Strong / Precise / Solid. Emotional praise dies if Stockfish later disagrees; objective claims survive engine drift. See §5.5. |
 
 ---
 
@@ -511,6 +599,48 @@ Being honest about boundaries:
 - **Decryption voice / situational tone.** This pipeline produces neutral, factual coaching. Tone variations (urgent vs calm vs punishment) per `project_situational_personality.md` are a separate render layer that wraps these captions — not built here.
 - **Re-analysis at deeper depth on flagged moves.** If a user flags a caption claiming the move is best when it isn't, we may need to re-analyze that position at depth 20+ to confirm. Out of scope.
 - **Opening book completeness.** Phase 1 uses existing `detect_opening_from_moves`. The Accelerated Dragon Exchange wasn't recognised (Parth bug #19). Opening detector improvements are a parallel effort.
+
+### Known limitations of Phase 1, deferred to later phases
+
+These were flagged in the v1 review as architectural concerns that are real but not v1 blockers. Documented here so they aren't forgotten.
+
+- **Rule priority collisions (Phase 1.5).** Today the rule library uses *first-match-wins on a priority-sorted list*. This is sufficient for the 20 Phase 1 rules but will collide once we add Phase 2 tactics. A position can simultaneously contain: a check, a tactic, a free capture, an opening book match, and a positional concept. Suppressing all but the highest-priority loses information. **Future architecture:** a primary rule fires (the main caption), then optional decorator rules append qualifying details if they fit the 25-word budget (concept library already works this way per §6 — extend the same pattern to tactic decorators). Defer until Phase 2 tactics land and collisions actually appear.
+
+- **Template repetition fatigue (Phase 1.5+).** Phase 1 emits captions with fixed sentence shapes. Across 100 games, a user will see the same grammar repeatedly (`"X attacks Y. Z wins material."`) and perceive the system as robotic — even though every caption is true. **Future architecture:** introduce syntactic variants per template (e.g., 3-4 phrasings per rule, picked deterministically by a hash of the position so it's reproducible), and add optional-clause omission ("the {Y} too" → omit when caption is already near 25 words). NOT a v1 blocker — truth > variety, but variety becomes important once truth is stable. Track frequency-of-repetition per user; address when it becomes a complaint.
+
+---
+
+## 16. Review feedback applied (v1 → v2 changelog)
+
+The v1 of this doc was reviewed by the user; six issues were raised. Four were critical (blocking implementation); two were deferred as known future work.
+
+### Critical issues fixed in v2
+
+**Issue 1 — `attacker_count > defender_count` is insufficient.** Raw counts miss pinned defenders, x-ray attackers, value imbalance. **Fixed:** §4 facts dict now includes SEE-based fields (`see_played_capture_cp`, `see_target_square_cp`, `is_exchange_losing`, `exchange_loss_cp`). R02 trigger rewritten to use SEE.
+
+**Issue 2 — No "one reason" extraction layer.** Without it, captions would either pick reasons arbitrarily or bloat by listing several. **Fixed:** §5.7 adds `extract_primary_reason(facts)` with a hard priority order (tactic > material > king safety > defense > threat > pawn structure > development > activity > none). Used by R20 and any rule needing a "WHY" clause.
+
+**Issue 3 — Opening language is still abstract ("stakes a central claim").** **Fixed:** §5.3 rules R11, R13, R14, R15 now require concrete consequences. Examples: e4 → "Opens the bishop on f1 and the queen on d1." Banned filler explicitly listed.
+
+**Issue 4 — "Great move" is emotional and fragile.** If Stockfish later disagrees, trust collapses. **Fixed:** R20 in §5.5 now uses objective wording (Best move / Strong / Precise / Solid) chosen on hard criteria (cp_loss, tactic presence, material gain). "Great" and other emotional praise explicitly banned.
+
+### Deferred issues acknowledged in §15
+
+**Issue 5 — Rule priority collisions.** First-match-wins is sufficient for Phase 1 (20 rules) but will collide once Phase 2 tactics land. Future: primary + decorator architecture. Tracked in §15.
+
+**Issue 6 — Template repetition fatigue over many games.** Phase 1 captions will feel robotic over 100+ games. Future: per-template syntactic variants, optional-clause omission. Tracked in §15. Truth > variety for v1.
+
+### The architectural principle confirmed
+
+> *"Every word in every caption traces back to a function that read the FEN."*
+
+This is the load-bearing sentence. v2 strengthens it by:
+- Adding SEE so exchange claims are mechanically correct (not count-based)
+- Adding `extract_primary_reason` so the "why" claim is one fact from a deterministic source
+- Tightening opening language so abstract filler can't drift back in
+- Replacing emotional praise with objective claims that survive engine drift
+
+The geometric guarantee from v1 still holds: false positives are structurally impossible. v2 extends it to include exchange evaluation correctness.
 
 ---
 
