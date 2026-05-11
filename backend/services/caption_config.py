@@ -44,3 +44,16 @@ MIN_THREAT_SEE_CP = 200
 # valuable. Otherwise the alignment is geometrically real but trivially
 # uninteresting (e.g. pawn pinned to another pawn).
 MIN_ALIGNED_REAR_VALUE_CP = 500
+
+
+# ── Tactic-celebration safety gate ──────────────────────────────────────
+# A "tactic" caption (fork / pin / discovered attack / threat) only
+# fires when the played move ISN'T itself a mistake or blunder. If the
+# engine says the move loses this many centipawns, the story of the
+# move is the cp_loss, not the geometry — the tactic is incidental and
+# will be answered. From the d7ce40cf corpus review:
+#   #19 USER Re7 (286 cp blunder) was rendered "forks c7 and f7"
+#   #17 USER a3  (110 cp mistake) was rendered "threatens b4"
+# Suppress at the primary_reason layer so R02/R03/R04/R10 don't ever
+# get the chance to celebrate a losing move.
+MAX_CP_LOSS_FOR_TACTIC_CELEBRATION = 100

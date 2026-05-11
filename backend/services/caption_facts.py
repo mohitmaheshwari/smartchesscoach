@@ -86,6 +86,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import chess
 
+from services.caption_config import MAX_CP_LOSS_FOR_TACTIC_CELEBRATION
+
 
 # ────────────────────────────────────────────────────────────────────
 # Public constants
@@ -1241,14 +1243,23 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "priority_level": 1,
         }
 
-    # Priority 2: own tactic shape on the played move
-    if facts.get("multi_target_attack_evidence"):
+    # ── Tactic-celebration safety gate ──────────────────────────────
+    # If the engine calls this move a mistake/blunder, the geometric
+    # tactic shape is incidental — celebrating "you forked X and Y"
+    # on a 286-cp blunder is teaching the wrong thing. Fall through
+    # to the blunder/mistake rules (added in a later commit) instead.
+    # Bug from d7ce40cf corpus: #19 Re7, #17 a3, #9 Bg5.
+    _move_cpl = facts.get("cp_loss") or 0
+    _tactic_ok = _move_cpl < MAX_CP_LOSS_FOR_TACTIC_CELEBRATION
+
+    # Priority 2: own tactic shape on the played move (gated)
+    if _tactic_ok and facts.get("multi_target_attack_evidence"):
         return {
             "category": "tactic_played",
             "ref_field": "multi_target_attack_evidence",
             "priority_level": 2,
         }
-    if facts.get("aligned_pieces_evidence"):
+    if _tactic_ok and facts.get("aligned_pieces_evidence"):
         # Only fire if rear piece has real value (≥ rook) — pawn pins
         # are too trivial to be the primary reason.
         for shape in facts["aligned_pieces_evidence"]:
@@ -1258,7 +1269,7 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                     "ref_field": "aligned_pieces_evidence",
                     "priority_level": 2,
                 }
-    if facts.get("discovered_attack_evidence"):
+    if _tactic_ok and facts.get("discovered_attack_evidence"):
         for ev in facts["discovered_attack_evidence"]:
             if ev.get("target_value_cp", 0) >= 300:
                 return {
@@ -1315,8 +1326,9 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # Stronger detection arrives when we add an explicit
     # `pieces_now_defended` field in a later phase.
 
-    # Priority 8: threat creation (non-tactic threats)
-    if facts.get("threats_created"):
+    # Priority 8: threat creation (non-tactic threats; same gate as
+    # tactics — threats are only worth celebrating on non-mistake moves).
+    if _tactic_ok and facts.get("threats_created"):
         return {
             "category": "threat",
             "ref_field": "threats_created",
