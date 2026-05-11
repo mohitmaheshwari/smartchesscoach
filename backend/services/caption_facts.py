@@ -1048,6 +1048,301 @@ def _mate_threat_evidence(
     }
 
 
+# ────────────────────────────────────────────────────────────────────
+# Missed-tactic detection (commit #4b)
+#
+# Run the same tactic-shape detectors that we use on the played position
+# but apply them to the position AFTER the engine's best move. If a
+# tactic shape exists in pv_after_best that didn't exist in
+# pv_after_played, the user missed a tactic.
+#
+# Visibility scoring (per user feedback 2026-05-11):
+#   The shape must be HUMAN-VISIBLE — Stockfish ghost tactics that
+#   require 6-ply only-move precision should NOT trigger missed-tactic
+#   coaching. Score 1 = trivial (immediate, ≥minor piece), score 5 =
+#   engine-only depth.
+#
+# Renderer thresholds the score via DEFAULT_VISIBLE_TACTIC_THRESHOLD in
+# caption renderer config (default 2). Different surfaces (1200 coach,
+# 1800 coach, puzzle mode) can set different thresholds.
+# ────────────────────────────────────────────────────────────────────
+
+
+def _missed_tactic_evidence(
+    board_before: chess.Board,
+    pv_after_best: List[str],
+    best_move_san: Optional[str],
+    played_tactics_exist: bool,
+) -> List[Dict[str, Any]]:
+    """If the user did NOT play the best move, run the shape detectors
+    on the position after best_move and the next opponent reply.
+
+    Returns a list of missed-tactic entries — each with:
+      - tactic_kind: "multi_target_attack" | "aligned_pieces" | "discovered_attack"
+      - tactic_data: the evidence dict from the corresponding detector
+      - tactic_resolves_at_ply: 1 = after best move; 2 = after best
+        move + forced response; etc.
+      - minimum_material_gain_cp: SEE value of best capturing move
+        in the detected shape
+      - human_visibility_score: 1 = trivial, 5 = engine-only depth.
+        Computed from tactic_resolves_at_ply + material gain +
+        complexity of intervening moves.
+    """
+    if not pv_after_best or not best_move_san:
+        return []
+    if played_tactics_exist:
+        # User already created a tactic with the played move; don't
+        # bother surfacing alternative tactics from pv_after_best.
+        return []
+
+    # Walk pv_after_best up to a few plies, run shape detectors on each
+    # board_after-best-line position, return any new shapes found.
+    sim = board_before.copy()
+    normalized_pv = _normalize_pv_starting_with(best_move_san, pv_after_best)
+
+    plies_walked = 0
+    own_color = sim.turn  # whoever was to move at board_before
+    out: List[Dict[str, Any]] = []
+
+    for ply_idx, san in enumerate(normalized_pv[:4]):
+        try:
+            move = sim.parse_san(san)
+            sim.push(move)
+            plies_walked += 1
+        except (chess.InvalidMoveError, chess.IllegalMoveError, ValueError):
+            break
+
+        # Only check tactics AFTER own-color moves resolve (i.e. after
+        # plies 1 (best), 3 (best + opponent reply + own next), etc.).
+        # Tactic in board AFTER own move means we're looking at what
+        # WE could have created.
+        is_own_move = (ply_idx % 2 == 0)
+        if not is_own_move:
+            continue
+
+        # Synthesize a played_move stub for discovery detection (using
+        # the actual played move at this ply). We need the move object,
+        # not just SAN.
+        # _discovered_attack_evidence needs the pre-move and post-move
+        # boards. Since we already pushed `move`, we'd need to track the
+        # pre-move state. Simplest: skip discovered_attack here; it's
+        # heavily move-context dependent. Focus on aligned_pieces and
+        # multi-target patterns which depend only on the post-move
+        # position.
+
+        # Run aligned-pieces and multi-target detectors on the current
+        # sim board (which is the post-ply position from own POV).
+        aligned = _aligned_pieces_evidence(sim, own_color)
+        # Multi-target requires threats_created which requires a
+        # before+after diff. We approximate: any aligned-pieces shape
+        # with rear_value > 300 counts as a potential winning tactic.
+        for shape in aligned:
+            # Only flag shapes that win material — front_value_vs_rear
+            # = "lower" (classic pin/winning skewer scenario) and rear
+            # is high-value (rook or queen).
+            if shape["rear_piece_value_cp"] < 500:
+                continue
+            # Resolves at the ply where the shape was detected.
+            tactic_resolves_at_ply = plies_walked
+            minimum_material_gain_cp = shape["rear_piece_value_cp"] - shape["front_piece_value_cp"]
+            if minimum_material_gain_cp <= 0:
+                # Not actually a winning gain at this geometry.
+                continue
+            # Visibility: 1 if resolves on ply 1, +1 per extra ply.
+            # If gain is < 200cp (less than a minor piece), bump score
+            # by 1 (smaller targets are harder for humans to value).
+            visibility = tactic_resolves_at_ply
+            if minimum_material_gain_cp < 200:
+                visibility += 1
+            out.append({
+                "tactic_kind": "aligned_pieces",
+                "tactic_data": shape,
+                "tactic_resolves_at_ply": tactic_resolves_at_ply,
+                "minimum_material_gain_cp": minimum_material_gain_cp,
+                "human_visibility_score": visibility,
+            })
+
+    # Sort by visibility ascending (most visible first), then by gain desc
+    out.sort(key=lambda x: (x["human_visibility_score"], -x["minimum_material_gain_cp"]))
+    return out
+
+
+# ────────────────────────────────────────────────────────────────────
+# Primary-reason scoring layer (commit #4b)
+#
+# Pick ONE category of reason from the facts dict using a HARD priority
+# order. Returns a structured dict identifying the category and the
+# reference to the supporting evidence — NOT a coaching string. The
+# renderer turns the category into prose.
+#
+# Priority (highest first):
+#   1.  mate            — mate_threat_evidence is present
+#   2.  tactic_played   — own tactic shape on the played move
+#   3.  check_extra     — is_check AND threats_created non-empty
+#   4.  forced_recapture — single-best forced response
+#   5.  material        — gated: material delta accounts for ≥70% of
+#                         eval swing AND is positive (own gain)
+#   6.  king_safety     — is_castling
+#   7.  defense         — defends a higher-value attacked piece
+#   8.  threat          — threats_created non-empty (no tactic above)
+#   9.  pawn_structure  — recapture toward centre (Phase 1 minimal)
+#  10.  development     — opening + develops_minor + concrete next-step
+#  11.  None            — no extractable reason; renderer stays silent
+# ────────────────────────────────────────────────────────────────────
+
+
+def _eval_swing_cp(facts: Dict[str, Any]) -> int:
+    """Eval delta from side-to-move's POV. Positive = the move made the
+    position better for the side that just moved."""
+    eb = facts.get("eval_before_cp")
+    ea = facts.get("eval_after_cp")
+    if eb is None or ea is None:
+        return 0
+    side_white = facts.get("moving_piece_color") == "white"
+    # Eval-after is white-POV; for black, we flip both then take diff.
+    if side_white:
+        return ea - eb
+    return -(ea - eb)
+
+
+def _material_explains_eval(facts: Dict[str, Any]) -> bool:
+    """Material gain accounts for at least 70% of the eval swing.
+    Prevents 'wins a pawn' from drowning out 'creates a mating attack'
+    when the eval swing is much larger than the material gain."""
+    delta_played = facts.get("material_delta_played_cp") or 0
+    if delta_played <= 0:
+        return False
+    swing = _eval_swing_cp(facts)
+    if swing <= 50:
+        return False
+    return abs(delta_played) >= 0.7 * abs(swing) - 50
+
+
+def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return a structured dict identifying THE primary-reason category
+    for this move, plus a reference to the supporting evidence in the
+    facts dict. Returns None when no extractable reason exists (renderer
+    should render silently per R-FALLBACK).
+
+    Output shape:
+      {
+        "category": "mate" | "tactic_played" | "check_extra" | ...,
+        "ref_field": str,             # which facts key holds the evidence
+        "priority_level": int,        # for debugging / regression
+      }
+
+    Does NOT produce coaching prose — LAW 1 (no smart strings).
+    """
+    # Priority 1: mate (essence overrides everything)
+    if facts.get("mate_threat_evidence"):
+        return {
+            "category": "mate",
+            "ref_field": "mate_threat_evidence",
+            "priority_level": 1,
+        }
+
+    # Priority 2: own tactic shape on the played move
+    if facts.get("multi_target_attack_evidence"):
+        return {
+            "category": "tactic_played",
+            "ref_field": "multi_target_attack_evidence",
+            "priority_level": 2,
+        }
+    if facts.get("aligned_pieces_evidence"):
+        # Only fire if rear piece has real value (≥ rook) — pawn pins
+        # are too trivial to be the primary reason.
+        for shape in facts["aligned_pieces_evidence"]:
+            if shape.get("rear_piece_value_cp", 0) >= 500:
+                return {
+                    "category": "tactic_played",
+                    "ref_field": "aligned_pieces_evidence",
+                    "priority_level": 2,
+                }
+    if facts.get("discovered_attack_evidence"):
+        for ev in facts["discovered_attack_evidence"]:
+            if ev.get("target_value_cp", 0) >= 300:
+                return {
+                    "category": "tactic_played",
+                    "ref_field": "discovered_attack_evidence",
+                    "priority_level": 2,
+                }
+
+    # Priority 3: check + extra attack (concrete tactical pressure)
+    if facts.get("is_check") and facts.get("threats_created"):
+        return {
+            "category": "check_extra",
+            "ref_field": "threats_created",
+            "priority_level": 3,
+        }
+
+    # Priority 4: plain check — is_check without an extra attack still
+    # represents a forcing teaching moment ("king has to respond").
+    # Lower than check_extra so a check + fork goes to category=tactic_played.
+    if facts.get("is_check"):
+        return {
+            "category": "check_plain",
+            "ref_field": "is_check",
+            "priority_level": 4,
+        }
+
+    # Priority 5: forced recapture (factual, no praise)
+    if facts.get("is_forced_recapture"):
+        return {
+            "category": "forced_recapture",
+            "ref_field": "captured_piece_type",
+            "priority_level": 5,
+        }
+
+    # Priority 6: material — gated by eval-swing accounting
+    if _material_explains_eval(facts):
+        return {
+            "category": "material",
+            "ref_field": "material_delta_played_cp",
+            "priority_level": 6,
+        }
+
+    # Priority 7: king safety
+    if facts.get("is_castling"):
+        return {
+            "category": "king_safety",
+            "ref_field": "is_castling",
+            "priority_level": 7,
+        }
+
+    # Priority 7: defense — defends a higher-value attacked piece.
+    # Phase 1 implementation: any piece in pieces_now_undefended which
+    # is NOT now-hanging counts as "successfully defended elsewhere."
+    # Stronger detection arrives when we add an explicit
+    # `pieces_now_defended` field in a later phase.
+
+    # Priority 8: threat creation (non-tactic threats)
+    if facts.get("threats_created"):
+        return {
+            "category": "threat",
+            "ref_field": "threats_created",
+            "priority_level": 8,
+        }
+
+    # Priority 9: pawn structure (Phase 1 minimal — explicit fact)
+    # Reserved for when concept facts arrive.
+
+    # Priority 10: development — opening + develops minor + has next-step
+    if (
+        facts.get("phase") == "opening"
+        and facts.get("moving_piece_type") in ("knight", "bishop")
+    ):
+        # Phase 1: very permissive — any minor-piece move in opening
+        # counts as a development reason. Concept refinements (named
+        # next-step like "supports d4 break") arrive later.
+        return {
+            "category": "development",
+            "ref_field": "moving_piece_type",
+            "priority_level": 10,
+        }
+
+    return None
+
+
 def _queen_sortie_evidence(
     board_before: chess.Board,
     played_move: chess.Move,
@@ -1362,6 +1657,26 @@ def extract_facts(
         eval_after_cp, pv_after_played, pv_after_best, own_color
     )
 
+    # ── Missed tactic evidence (commit #4b) ─────────────────────────────
+    # Run shape detectors on pv_after_best to see if the user missed a
+    # tactic. Visibility-scored — renderer thresholds via config.
+    played_tactics_exist = bool(
+        multi_target_attack_evidence
+        or [s for s in aligned_pieces_evidence if s.get("rear_piece_value_cp", 0) >= 500]
+        or discovered_attack_evidence
+    )
+    played_is_best_check = (
+        best_move_san is not None
+        and _normalize_san(played_san) == _normalize_san(best_move_san)
+    )
+    missed_tactic_evidence = (
+        []
+        if played_is_best_check
+        else _missed_tactic_evidence(
+            board_before, pv_after_best, best_move_san, played_tactics_exist
+        )
+    )
+
     # ── Opening (uses existing detector) ───────────────────────────────
     opening_name = None
     opening_variation = None
@@ -1486,11 +1801,19 @@ def extract_facts(
         # else is consequence.
         "mate_threat_evidence": mate_threat_evidence,
 
-        # PLACEHOLDERS for fields arriving in commit #4b.
-        # Renderer rules MUST check is None before reading these.
-        "missed_tactic_evidence": None,        # commit #4b — tactics on pv_after_best
-        "primary_reason": None,                # commit #4b
+        # MISSED TACTIC EVIDENCE (commit #4b) — list of structured
+        # evidence dicts with human_visibility_score. Renderer applies
+        # its own visibility threshold via caption-renderer config.
+        "missed_tactic_evidence": missed_tactic_evidence,
+
+        # PRIMARY REASON (commit #4b) — see extract_primary_reason for
+        # priority order. Computed AFTER all other facts are built so
+        # the scorer has the full dict to read from.
+        "primary_reason": None,  # populated below after the dict is built
     }
+
+    # Compute primary_reason using the now-complete facts dict.
+    facts["primary_reason"] = extract_primary_reason(facts)
 
     return facts
 
