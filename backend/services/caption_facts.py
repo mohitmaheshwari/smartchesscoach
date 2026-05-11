@@ -1322,14 +1322,23 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         }
     if _tactic_ok and facts.get("aligned_pieces_evidence"):
         # Only fire if rear piece has real value (≥ rook) — pawn pins
-        # are too trivial to be the primary reason.
+        # are too trivial to be the primary reason. Also skip pawn-front
+        # pins (front=pawn) unless the rear is a king — "pins the pawn
+        # on d2 against the queen on d1" reads as a real pin but isn't
+        # actionable (pawn pushes don't expose anything on an x-ray
+        # geometry where the attacker is also on the file). Pawn pinned
+        # against king IS absolute and worth captioning.
         for shape in facts["aligned_pieces_evidence"]:
-            if shape.get("rear_piece_value_cp", 0) >= 500:
-                return {
-                    "category": "tactic_played",
-                    "ref_field": "aligned_pieces_evidence",
-                    "priority_level": 2,
-                }
+            if shape.get("rear_piece_value_cp", 0) < 500:
+                continue
+            if (shape.get("front_piece_type") == "pawn"
+                and not shape.get("rear_is_king", False)):
+                continue
+            return {
+                "category": "tactic_played",
+                "ref_field": "aligned_pieces_evidence",
+                "priority_level": 2,
+            }
     if _tactic_ok and facts.get("discovered_attack_evidence"):
         for ev in facts["discovered_attack_evidence"]:
             if ev.get("target_value_cp", 0) >= 300:

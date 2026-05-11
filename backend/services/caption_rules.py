@@ -98,25 +98,48 @@ def _r01_render(f):
     moving_color = f.get("moving_piece_color")
     ply = ev.get("ply_to_mate")
     delivered_on_this_move = ev.get("delivered_on_this_move", False)
+    mover_is_user = f.get("mover_is_user")
+    mover_delivers = bool(side_delivering and side_delivering == moving_color)
+
     if delivered_on_this_move:
-        # The played move IS the mating move. Same template regardless of side.
+        # Same template regardless of side — game-over checkmate move.
         cap = f"{_played(f)}. Checkmate."
-    elif side_delivering and side_delivering == moving_color:
-        # We're delivering mate within the next few ply.
-        if ply == 1:
-            cap = f"{_played(f)}. Forces mate next move."
-        elif ply:
-            cap = f"{_played(f)}. Forces mate in {ply}."
+    elif mover_delivers:
+        # The mover is setting up mate-in-N. From corpus audit: this
+        # branch fires often on OPP setup moves toward user-side mate,
+        # so we branch on mover_is_user to keep the voice user-relative.
+        if mover_is_user is False:
+            if ply == 1:
+                cap = f"{_played(f)}. Opp threatens mate next move."
+            elif ply:
+                cap = f"{_played(f)}. Opp threatens mate in {ply}."
+            else:
+                cap = f"{_played(f)}. Opp is winning by force."
         else:
-            cap = f"{_played(f)}. Wins by force."
+            if ply == 1:
+                cap = f"{_played(f)}. Forces mate next move."
+            elif ply:
+                cap = f"{_played(f)}. Forces mate in {ply}."
+            else:
+                cap = f"{_played(f)}. Wins by force."
     else:
-        # We walked into mate or allowed it
-        if ply == 1:
-            cap = f"{_played(f)} allows mate next move."
-        elif ply:
-            cap = f"{_played(f)} allows mate in {ply}."
+        # Mover walked into mate against themselves. The "Position is
+        # lost" caption was rendering on OPP moves where opp had blundered
+        # into a losing line — from user POV that's actually winning news.
+        if mover_is_user is False:
+            if ply == 1:
+                cap = f"{_played(f)}. Mate is on for you next move."
+            elif ply:
+                cap = f"{_played(f)}. Mate is on for you in {ply}."
+            else:
+                cap = f"{_played(f)}. Opp's position is lost."
         else:
-            cap = f"{_played(f)}. Position is lost."
+            if ply == 1:
+                cap = f"{_played(f)} allows mate next move."
+            elif ply:
+                cap = f"{_played(f)} allows mate in {ply}."
+            else:
+                cap = f"{_played(f)}. Position is lost."
     return CaptionOutput(
         caption=cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
@@ -163,17 +186,26 @@ def _r02_render(f):
 
 
 # R03 — Aligned pieces (rendered as pin / skewer / x-ray based on data)
+def _r03_shape_is_worth_captioning(s):
+    """Pawn-front shapes are trivial unless rear is king — pin the pawn
+    on d2 against the queen on d1 isn't actionable for a 1200 (R03 was
+    firing 23k times in corpus audit, ~30%+ of which were these). Pawn
+    pinned against king IS absolute and stays in."""
+    if s.get("rear_piece_value_cp", 0) < MIN_ALIGNED_REAR_VALUE_CP:
+        return False
+    if s.get("front_piece_type") == "pawn" and not s.get("rear_is_king", False):
+        return False
+    return True
+
+
 def _r03_trigger(f):
     shapes = f.get("aligned_pieces_evidence") or []
-    return any(s.get("rear_piece_value_cp", 0) >= MIN_ALIGNED_REAR_VALUE_CP for s in shapes)
+    return any(_r03_shape_is_worth_captioning(s) for s in shapes)
 
 
 def _r03_render(f):
-    # Pick the highest-rear-value shape
-    shapes = [
-        s for s in f["aligned_pieces_evidence"]
-        if s.get("rear_piece_value_cp", 0) >= MIN_ALIGNED_REAR_VALUE_CP
-    ]
+    # Pick the highest-rear-value shape among the worth-captioning ones
+    shapes = [s for s in f["aligned_pieces_evidence"] if _r03_shape_is_worth_captioning(s)]
     shape = max(shapes, key=lambda s: s["rear_piece_value_cp"])
     front_lower = shape["front_value_vs_rear"] == "lower"
     rear_is_king = shape.get("rear_is_king", False)
