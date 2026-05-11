@@ -1191,26 +1191,11 @@ const MoveCoachingCardV5 = ({
             which describe position features (pins, back-rank pieces, etc.)
             independent of the move actually played. Labeling them as
             move-specific advice lies to the user. */}
-        {positionCommentary && (isMistake || move.is_best_move) && (
-          <div className="bg-blue-500/5 rounded-lg p-3 border border-blue-500/15">
-            <p className="text-xs text-blue-400/70 font-semibold mb-1">What this position tells us</p>
-            {positionCommentary.plan && (
-              <p className="group text-sm text-gray-700 mb-1">
-                {positionCommentary.plan}
-                <InlineFlag section="position_plan" flaggedText={positionCommentary.plan} context={flagCtx} />
-              </p>
-            )}
-            {positionCommentary.observations?.slice(0, 2).map((obs, i) => (
-              <p key={i} className="group text-xs text-gray-500 leading-snug">
-                • {obs.title}: {obs.description}
-                <InlineFlag
-                  section={`position_observation_${i}`}
-                  flaggedText={`${obs.title}: ${obs.description}`}
-                  context={flagCtx}
-                />
-              </p>
-            ))}
-          </div>
+        {/* POSITION COMMENTARY block retired (800-tester feedback:
+            "too much theory, longer sentences"). The new V5 caption
+            above is the single move-grounded signal we show now. */}
+        {false && positionCommentary && (isMistake || move.is_best_move) && (
+          <div />
         )}
 
         {/* ─── OPENING THEORY (if in opening phase) ──────────────
@@ -1281,43 +1266,16 @@ const MoveCoachingCardV5 = ({
           </button>
         )}
 
-        {/* ─── OPPONENT MOVE: YOUR PLAN NOW ─────────────────── */}
-        {!isUser && move.your_plan_now && (
-          <div className="bg-indigo-500/10 rounded-lg p-3 border border-indigo-500/30 group" data-testid="your-plan-now">
-            <p className="text-xs text-indigo-400 mb-1 flex items-center gap-1">
-              <Swords className="w-3 h-3" /> What's your plan now?
-            </p>
-            <p className="text-gray-900 text-sm inline">{move.your_plan_now}</p>
-            <InlineFlag section="your_plan_now" flaggedText={move.your_plan_now} context={flagCtx} />
-          </div>
-        )}
+        {/* "What's your plan now?" block retired (800-tester feedback). */}
+        {false && !isUser && move.your_plan_now && (<div />)}
 
         {/* ─── PLAN (THE TRANSFERABLE LEARNING) ─────────────── */}
         {hasPlan && (
           <div className="space-y-2">
-            {/* Consequence with clickable moves */}
-            {move.plan.consequence && (
-              <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20 group" data-testid="plan-consequence">
-                <p className="text-xs text-red-400 mb-1">What happens</p>
-                <span className="inline">
-                  <ClickableMoves 
-                    text={move.plan.consequence}
-                    moves={move.future_moves || []}
-                    onMoveClick={onShowFutureMoves}
-                  />
-                </span>
-                <InlineFlag section="consequence" flaggedText={move.plan.consequence} context={flagCtx} />
-              </div>
-            )}
-            
-            {/* Better approach */}
-            {move.plan.better_approach && (
-              <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20 group" data-testid="plan-better">
-                <p className="text-xs text-emerald-400 mb-1">Better approach</p>
-                <p className="text-gray-900 text-sm inline">{move.plan.better_approach}</p>
-                <InlineFlag section="better_approach" flaggedText={move.plan.better_approach} context={flagCtx} />
-              </div>
-            )}
+            {/* "What happens" / "Better approach" prose blocks retired
+                (800-tester feedback: too much theory, longer sentences).
+                The V5 caption above already says what went wrong and
+                names the engine's best move when there is one. */}
             
             {/* Candidate Moves with Ideas - CLICKABLE */}
             {move.plan.candidate_moves?.length > 0 && (
@@ -1350,22 +1308,8 @@ const MoveCoachingCardV5 = ({
                       >
                         {candidate.move}
                       </button>
-                      <div className="flex-1 group">
-                        <p className="text-sm text-gray-700 inline">{candidate.idea}</p>
-                        <InlineFlag section={`candidate_move_${candidate.move}`} flaggedText={`${candidate.move}: ${candidate.idea}`} context={flagCtx} />
-                        <Badge 
-                          variant="outline" 
-                          className={`mt-1 text-xs ${
-                            candidate.type === 'counter_attack' ? 'text-orange-400 border-orange-500/30' :
-                            candidate.type === 'prophylactic' ? 'text-purple-400 border-purple-500/30' :
-                            candidate.type === 'development' ? 'text-blue-400 border-blue-500/30' :
-                            candidate.type === 'central' ? 'text-yellow-400 border-yellow-500/30' :
-                            candidate.type === 'tactical' ? 'text-red-400 border-red-500/30' :
-                            'text-gray-500 border-zinc-500/30'
-                          }`}
-                        >
-                          {candidate.type?.replace('_', ' ')}
-                        </Badge>
+                      <div className="flex-1 text-xs text-gray-500">
+                        click to see line
                       </div>
                       {candidate.is_best && (
                         <Trophy className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -1376,39 +1320,10 @@ const MoveCoachingCardV5 = ({
               </div>
             )}
             
-            {/* Transferable learning */}
-            {move.plan.transferable_learning && (
-              <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/30 group" data-testid="transferable-learning">
-                <div className="flex items-center gap-2 mb-1">
-                  <GraduationCap className="w-4 h-4 text-amber-400" />
-                  <p className="text-xs font-semibold text-amber-400">Learning</p>
-                </div>
-                <p className="text-gray-900 text-sm font-medium inline">{move.plan.transferable_learning}</p>
-                <InlineFlag section="transferable_learning" flaggedText={move.plan.transferable_learning} context={flagCtx} />
-                
-                {/* I Understand button */}
-                {needsAck && (
-                  <div className="mt-3 pt-3 border-t border-amber-500/20">
-                    <p className="text-xs text-gray-500 mb-2">{move.acknowledgment_prompt || "Click when this concept is clear to you."}</p>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => onAcknowledge(move.concept_id)}
-                      className="text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                      data-testid="btn-i-understand"
-                    >
-                      <Check className="w-3 h-3 mr-1" /> I understand
-                    </Button>
-                  </div>
-                )}
-                
-                {wasAcked && (
-                  <div className="mt-2 flex items-center gap-1 text-xs text-emerald-400">
-                    <CheckCircle2 className="w-3 h-3" /> You've learned this
-                  </div>
-                )}
-              </div>
-            )}
+            {/* "Learning" / transferable-learning block retired
+                (800-tester feedback: too much theory, longer sentences).
+                Acknowledgment loop also retired with it — re-introduce
+                once the voice gets a 800-friendly pass. */}
           </div>
         )}
 
