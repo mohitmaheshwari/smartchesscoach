@@ -330,11 +330,16 @@ def _see_for_played_move(board_before: chess.Board, played_move: chess.Move) -> 
     return static_exchange_eval(board_before, played_move.to_square, initiator)
 
 
-def _see_for_opponent_on_target(board_after: chess.Board, target_sq: int) -> Optional[int]:
+def _target_square_exchange_cp(board_after: chess.Board, target_sq: int) -> Optional[int]:
     """For NON-CAPTURE moves: after the played move, would the opponent
     capturing on `target_sq` win material? Returns SEE from the
     opponent's POV (positive = they win material by capturing).
-    Returns None when there's nothing on target_sq."""
+    Returns None when there's nothing on target_sq.
+
+    Named target_square_exchange_cp (was see_target_square_cp) to prevent
+    semantic overload — there are now multiple SEE-flavoured fields and
+    each one needs to say WHICH exchange it represents.
+    """
     piece_on_target = board_after.piece_at(target_sq)
     if not piece_on_target:
         return None
@@ -461,16 +466,29 @@ def _threats_created(
         if see_cp <= 0:
             continue  # not a winning threat — opponent defends adequately
 
+        attacker_piece = board_after.piece_at(cheapest_attacker_sq)
+        target_value_cp = PIECE_VALUE_CP.get(enemy_piece.piece_type, 0)
+        # If see_cp < target_value, the winning sequence cost us some
+        # material along the way → it required at least one recapture
+        # exchange. Renderer uses this to phrase confidently for free
+        # captures vs. cautiously for trade-required ones.
+        winning_line_requires_recapture = see_cp < target_value_cp
+
         threats.append({
             "attacker_square": chess.square_name(cheapest_attacker_sq),
+            "attacker_piece_type": (
+                PIECE_TYPE_NAMES.get(attacker_piece.piece_type, "piece")
+                if attacker_piece else "piece"
+            ),
             "target_square": chess.square_name(enemy_sq),
             "target_piece_type": PIECE_TYPE_NAMES.get(enemy_piece.piece_type, "piece"),
-            "target_value_cp": PIECE_VALUE_CP.get(enemy_piece.piece_type, 0),
+            "target_value_cp": target_value_cp,
             "see_cp": see_cp,
             "is_immediate": True,  # for now all detected threats are immediate;
-                                   # multi-ply threat chains are commit #3 territory.
+                                   # multi-ply threat chains arrive in commit #4.
             "via_moving_piece": cheapest_attacker_sq == played_move.to_square,
             "via_discovered": cheapest_attacker_sq != played_move.to_square,
+            "winning_line_requires_recapture": winning_line_requires_recapture,
         })
 
     # Sort by target value descending — highest-value threat first.
@@ -554,23 +572,390 @@ def _pieces_now_undefended(
 
         attackers_after = board_after.attackers(opp_color, sq)
         now_attacked = bool(attackers_after)
+        # Defenders of `sq` are own-color pieces that ATTACK that square
+        # (in chess parlance, defending = attacking your own piece's square).
+        # The piece on sq doesn't defend itself.
+        remaining_defenders = board_after.attackers(own_color, sq)
+        remaining_defender_count = len(remaining_defenders)
         see_if_captured = 0
         if now_attacked:
             see_if_captured = static_exchange_eval(board_after, sq, opp_color)
+        # "Hanging" is a strong renderer signal — distinct from "lost a
+        # defender but still adequately defended." Defined as:
+        # under attack AND the exchange loses material AND no other
+        # defender remains. Renderer can branch on this without re-
+        # checking geometry.
+        is_now_hanging = (
+            now_attacked
+            and see_if_captured > 0
+            and remaining_defender_count == 0
+        )
 
         out.append({
             "square": chess.square_name(sq),
             "piece_type": PIECE_TYPE_NAMES.get(piece.piece_type, "piece"),
+            "piece_value_cp": PIECE_VALUE_CP.get(piece.piece_type, 0),
             "piece_color": "white" if piece.color == chess.WHITE else "black",
             "lost_defender_square": lost_defender_sq,
             "lost_defender_piece": lost_defender_piece,
             "now_attacked": now_attacked,
             "see_if_captured_cp": see_if_captured,
+            "remaining_defender_count": remaining_defender_count,
+            "is_now_hanging": is_now_hanging,
         })
 
     # Sort: pieces that are now under losing exchange first (highest material at risk).
     out.sort(key=lambda x: -x["see_if_captured_cp"] if x["now_attacked"] else 0)
     return out
+
+
+# ────────────────────────────────────────────────────────────────────
+# Tactic-shape detectors
+#
+# Each detector emits STRUCTURED EVIDENCE — coordinates, piece types,
+# values — never a label like "fork" or "pin". The renderer decides
+# whether to call something a fork / double attack / pressure / battery
+# based on the evidence + context.
+#
+# Per LAW 3 in the module docstring. Per user instruction (2026-05-11):
+# "Same for pins. DO NOT emit `is_pinned: true`. Emit the geometric
+# evidence of the line."
+# ────────────────────────────────────────────────────────────────────
+
+def _fork_shape_evidence(threats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Group `threats_created` entries by attacker_square. Any attacker
+    with ≥2 separately-winning threats forms a fork shape.
+
+    The renderer decides whether to call it "fork" or "double attack" or
+    "pressure on two pieces."
+    """
+    by_attacker: Dict[str, List[Dict[str, Any]]] = {}
+    for t in threats:
+        by_attacker.setdefault(t["attacker_square"], []).append(t)
+
+    out: List[Dict[str, Any]] = []
+    for attacker_sq, ts in by_attacker.items():
+        if len(ts) < 2:
+            continue
+        # Sort targets by value descending so renderer sees the most valuable first
+        targets_sorted = sorted(ts, key=lambda t: -t["target_value_cp"])
+        out.append({
+            "attacker_square": attacker_sq,
+            "attacker_piece_type": ts[0]["attacker_piece_type"],
+            "attacked_targets": [
+                {
+                    "square": t["target_square"],
+                    "piece_type": t["target_piece_type"],
+                    "value_cp": t["target_value_cp"],
+                    "see_cp": t["see_cp"],
+                }
+                for t in targets_sorted
+            ],
+            "via_moving_piece": all(t.get("via_moving_piece", False) for t in ts),
+        })
+    # Sort fork shapes by the highest-value target descending
+    out.sort(key=lambda f: -f["attacked_targets"][0]["value_cp"])
+    return out
+
+
+# Pin/skewer shapes share a common geometry: a sliding own piece lines
+# up two enemy pieces. The difference is value ordering of front/rear.
+# The renderer decides terminology; the extractor only emits evidence.
+
+_SLIDING_PIECE_TYPES = (chess.BISHOP, chess.ROOK, chess.QUEEN)
+
+
+def _ray_squares(from_sq: int, direction: Tuple[int, int]) -> List[int]:
+    """Walk a (dx, dy) direction from from_sq, yielding each on-board
+    square in order until off-board."""
+    df, dr = direction
+    file_, rank_ = chess.square_file(from_sq), chess.square_rank(from_sq)
+    out: List[int] = []
+    while True:
+        file_ += df
+        rank_ += dr
+        if not (0 <= file_ < 8 and 0 <= rank_ < 8):
+            break
+        out.append(chess.square(file_, rank_))
+    return out
+
+
+def _piece_can_move_along_line(
+    board: chess.Board,
+    piece_square: int,
+    line_squares: List[int],
+) -> bool:
+    """Returns True if the piece on `piece_square` can move to ANY square
+    in `line_squares` legally. Used to determine whether a pinned piece
+    can still slide along the pin line (e.g. a rook pinned on a file can
+    still move on the file)."""
+    piece = board.piece_at(piece_square)
+    if not piece:
+        return False
+    # We don't need legal_moves (turn-dependent). We check pin geometry:
+    # piece can move along the line iff the line direction is the SAME
+    # as the pin direction. python-chess `board.pin(color, sq)` returns
+    # the SquareSet of legal destinations (along the pin line).
+    pin_mask = board.pin(piece.color, piece_square)
+    if isinstance(pin_mask, chess.SquareSet):
+        return any(sq in pin_mask for sq in line_squares)
+    return any(bool(chess.BB_SQUARES[sq] & pin_mask) for sq in line_squares)
+
+
+def _pin_skewer_shape_evidence(
+    board_after: chess.Board,
+    own_color: chess.Color,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Return (pin_shapes, skewer_shapes) seen in board_after.
+
+    For each own sliding piece (bishop, rook, queen), walk its rays.
+    If a ray hits enemy piece A then enemy piece B (further along, same
+    line), we have a pin-or-skewer shape:
+      - If B's value > A's value → pin shape (A is the front piece)
+      - If A's value > B's value → skewer shape
+      - If equal value → emit as pin shape (rendering ambiguous, but
+        the renderer can decide).
+
+    No labels — pure geometric evidence per LAW 3.
+    """
+    pin_shapes: List[Dict[str, Any]] = []
+    skewer_shapes: List[Dict[str, Any]] = []
+    opp_color = not own_color
+
+    # Directions per piece type
+    DIAGONAL_DIRS = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+    ORTHO_DIRS = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
+    sliding_pieces = []
+    for piece_type in _SLIDING_PIECE_TYPES:
+        for sq in board_after.pieces(piece_type, own_color):
+            sliding_pieces.append((sq, piece_type))
+
+    for slider_sq, slider_type in sliding_pieces:
+        if slider_type == chess.BISHOP:
+            dirs = DIAGONAL_DIRS
+        elif slider_type == chess.ROOK:
+            dirs = ORTHO_DIRS
+        else:  # QUEEN
+            dirs = DIAGONAL_DIRS + ORTHO_DIRS
+
+        slider_piece = board_after.piece_at(slider_sq)
+
+        for direction in dirs:
+            ray = _ray_squares(slider_sq, direction)
+            # Walk along the ray, collecting up to 2 enemy pieces.
+            first_enemy = None
+            second_enemy = None
+            blocked_by_own = False
+            for sq in ray:
+                piece = board_after.piece_at(sq)
+                if not piece:
+                    continue
+                if piece.color == own_color:
+                    blocked_by_own = True
+                    break
+                if first_enemy is None:
+                    first_enemy = (sq, piece)
+                else:
+                    second_enemy = (sq, piece)
+                    break
+            if blocked_by_own or first_enemy is None or second_enemy is None:
+                continue
+
+            front_sq, front_piece = first_enemy
+            rear_sq, rear_piece = second_enemy
+            front_val = PIECE_VALUE_CP.get(front_piece.piece_type, 0)
+            rear_val = PIECE_VALUE_CP.get(rear_piece.piece_type, 0)
+
+            # King in rear → it's a real pin: front piece is absolutely
+            # pinned (can't move off the line). Always treat as pin.
+            # King in front → unusual; treat as skewer.
+            if rear_piece.piece_type == chess.KING:
+                shape_is_pin = True
+            elif front_piece.piece_type == chess.KING:
+                shape_is_pin = False  # king front → skewer
+            else:
+                shape_is_pin = rear_val >= front_val
+
+            line_kind = (
+                "diagonal" if direction in DIAGONAL_DIRS else
+                ("file" if direction[0] == 0 else "rank")
+            )
+
+            # Can the front piece move along this line (sliding piece
+            # of same direction)? If not, the pin is absolute even for
+            # non-king rear pieces.
+            front_can_move_along = False
+            front_pt = front_piece.piece_type
+            if front_pt == chess.QUEEN:
+                front_can_move_along = True  # queen can slide any direction
+            elif front_pt == chess.ROOK and line_kind in ("file", "rank"):
+                front_can_move_along = True
+            elif front_pt == chess.BISHOP and line_kind == "diagonal":
+                front_can_move_along = True
+
+            entry = {
+                "attacker_square": chess.square_name(slider_sq),
+                "attacker_piece_type": PIECE_TYPE_NAMES.get(slider_type, "piece"),
+                "front_piece_square": chess.square_name(front_sq),
+                "front_piece_type": PIECE_TYPE_NAMES.get(front_piece.piece_type, "piece"),
+                "front_piece_value_cp": front_val,
+                "rear_piece_square": chess.square_name(rear_sq),
+                "rear_piece_type": PIECE_TYPE_NAMES.get(rear_piece.piece_type, "piece"),
+                "rear_piece_value_cp": rear_val,
+                "line_kind": line_kind,
+                "front_can_move_along_line": front_can_move_along,
+                "absolute_pin": rear_piece.piece_type == chess.KING,
+            }
+            if shape_is_pin:
+                pin_shapes.append(entry)
+            else:
+                skewer_shapes.append(entry)
+
+    return pin_shapes, skewer_shapes
+
+
+def _discovery_shape_evidence(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    played_move: chess.Move,
+) -> List[Dict[str, Any]]:
+    """If the played move's from_square was on a line between an own
+    sliding piece and an enemy piece, the move uncovered the slider's
+    attack. Emit evidence per such uncovered line.
+
+    Pure geometry — slider on one side, played-move from_square in the
+    middle, enemy piece on the other side. After the move, the line is
+    open and the slider attacks the enemy.
+    """
+    out: List[Dict[str, Any]] = []
+    own_color = not board_after.turn  # we just moved
+    opp_color = board_after.turn
+    from_sq = played_move.from_square
+
+    # For each own sliding piece, walk rays. If a ray passes through
+    # from_sq (the played move's origin) and lands on an enemy piece,
+    # AND the slider doesn't attack that enemy in board_before but DOES
+    # in board_after, → discovered attack.
+    for piece_type in _SLIDING_PIECE_TYPES:
+        for slider_sq in board_after.pieces(piece_type, own_color):
+            if slider_sq == played_move.to_square:
+                continue  # the moving piece itself isn't doing "discovery"
+            # Walk all rays from slider_sq
+            slider_piece = board_after.piece_at(slider_sq)
+            if piece_type == chess.BISHOP:
+                dirs = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+            elif piece_type == chess.ROOK:
+                dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+            else:
+                dirs = [(1, 1), (1, -1), (-1, 1), (-1, -1),
+                        (1, 0), (-1, 0), (0, 1), (0, -1)]
+            for direction in dirs:
+                ray = _ray_squares(slider_sq, direction)
+                if from_sq not in ray:
+                    continue
+                # Find the first piece on this ray AFTER from_sq.
+                from_idx = ray.index(from_sq)
+                target_sq = None
+                target_piece = None
+                for sq in ray[from_idx + 1:]:
+                    p = board_after.piece_at(sq)
+                    if p:
+                        target_sq = sq
+                        target_piece = p
+                        break
+                if target_sq is None or target_piece is None:
+                    continue
+                if target_piece.color == own_color:
+                    continue  # uncovered to an own piece — not a threat
+                if target_piece.piece_type == chess.KING:
+                    # Discovered CHECK — emit separately; renderer will pick
+                    # check-with-bonus template (R06) but the discovery
+                    # evidence is useful for explaining why.
+                    pass
+                # Verify it's actually a NEW attack — in board_before the
+                # slider's attack on target_sq was blocked by the piece
+                # on from_sq.
+                if board_before.is_attacked_by(own_color, target_sq):
+                    # The slider already attacked this square via another
+                    # path; not a real discovery for this target.
+                    # Heuristic: check if from_sq blocks the line in board_before
+                    pre_attackers = board_before.attackers(own_color, target_sq)
+                    if slider_sq in pre_attackers:
+                        continue  # slider already attacked via clear line
+                out.append({
+                    "discovered_attacker_square": chess.square_name(slider_sq),
+                    "discovered_attacker_piece_type": PIECE_TYPE_NAMES.get(piece_type, "piece"),
+                    "moved_piece_from_square": chess.square_name(from_sq),
+                    "target_square": chess.square_name(target_sq),
+                    "target_piece_type": PIECE_TYPE_NAMES.get(target_piece.piece_type, "piece"),
+                    "target_value_cp": PIECE_VALUE_CP.get(target_piece.piece_type, 0),
+                    "is_check": target_piece.piece_type == chess.KING,
+                    "line_direction": direction,
+                })
+    return out
+
+
+def _queen_sortie_evidence(
+    board_before: chess.Board,
+    played_move: chess.Move,
+    move_history_san: List[str],
+    full_move_number: int,
+) -> Optional[Dict[str, Any]]:
+    """Evidence dict for early queen sorties — when a queen moves out
+    in the opening before sufficient minor-piece development.
+
+    Returns None when the move isn't a queen move, or when the position
+    is past the opening phase (move_number > 10), or when adequate
+    minor pieces are already developed.
+
+    Per user feedback (2026-05-11): emit EVIDENCE, not a boolean
+    judgment. Numbers the renderer can use to decide phrasing.
+    """
+    moving_piece = board_before.piece_at(played_move.from_square)
+    if not moving_piece or moving_piece.piece_type != chess.QUEEN:
+        return None
+    if full_move_number > 10:
+        return None
+
+    queen_color = moving_piece.color
+    # Count minor pieces (knight + bishop) of this color OFF their starting squares.
+    # python-chess starting bitboards:
+    if queen_color == chess.WHITE:
+        starting_knights = {chess.B1, chess.G1}
+        starting_bishops = {chess.C1, chess.F1}
+    else:
+        starting_knights = {chess.B8, chess.G8}
+        starting_bishops = {chess.C8, chess.F8}
+
+    developed_minor = 0
+    for sq in board_before.pieces(chess.KNIGHT, queen_color):
+        if sq not in starting_knights:
+            developed_minor += 1
+    for sq in board_before.pieces(chess.BISHOP, queen_color):
+        if sq not in starting_bishops:
+            developed_minor += 1
+
+    # Count how many queen moves of this color have happened in history.
+    queen_moves_so_far = 0
+    for idx, san in enumerate(move_history_san):
+        # White moves are even-indexed (0, 2, 4...), black are odd-indexed.
+        is_white_move = (idx % 2 == 0)
+        if is_white_move != (queen_color == chess.WHITE):
+            continue
+        if san.startswith("Q"):
+            queen_moves_so_far += 1
+    # The current move counts as the next queen move (about to be played).
+    queen_move_index = queen_moves_so_far + 1
+
+    return {
+        "piece_color": "white" if queen_color == chess.WHITE else "black",
+        "from_square": chess.square_name(played_move.from_square),
+        "to_square": chess.square_name(played_move.to_square),
+        "full_move_number": full_move_number,
+        "minor_pieces_developed": developed_minor,
+        "queen_move_index_in_opening": queen_move_index,
+    }
 
 
 def _is_forced_recapture(board_before: chess.Board, played_move: chess.Move) -> bool:
@@ -722,9 +1107,9 @@ def extract_facts(
     see_played_capture_cp = _see_for_played_move(board_before, played_move)
     # For non-capture moves: would opponent win material capturing on
     # target_square next? SEE from their POV in board_after.
-    see_target_square_cp = None
+    target_square_exchange_cp = None
     if not is_capture:
-        see_target_square_cp = _see_for_opponent_on_target(board_after, played_move.to_square)
+        target_square_exchange_cp = _target_square_exchange_cp(board_after, played_move.to_square)
 
     # `is_exchange_losing` consolidates the two SEE signals:
     #   - if it's a capture: SEE for the played capture is negative
@@ -733,9 +1118,9 @@ def extract_facts(
     if is_capture and see_played_capture_cp is not None:
         is_exchange_losing = see_played_capture_cp < -EXCHANGE_LOSS_THRESHOLD_CP
         exchange_loss_cp = abs(see_played_capture_cp) if see_played_capture_cp < 0 else 0
-    elif see_target_square_cp is not None:
-        is_exchange_losing = see_target_square_cp > EXCHANGE_LOSS_THRESHOLD_CP
-        exchange_loss_cp = see_target_square_cp if see_target_square_cp > 0 else 0
+    elif target_square_exchange_cp is not None:
+        is_exchange_losing = target_square_exchange_cp > EXCHANGE_LOSS_THRESHOLD_CP
+        exchange_loss_cp = target_square_exchange_cp if target_square_exchange_cp > 0 else 0
     else:
         is_exchange_losing = False
         exchange_loss_cp = 0
@@ -753,15 +1138,32 @@ def extract_facts(
         board_after, played_move.to_square, initiating_for_target
     )
 
+    # ── Phase / full move number (needed by detectors below) ────────────
+    full_move = full_move_number or board_before.fullmove_number
+    phase = _detect_phase(board_before, full_move)
+
     # ── Threats created by the played move (structured evidence) ────────
     threats_created = _threats_created(board_before, board_after, played_move)
 
     # ── Pieces that lost a defender (structured evidence) ──────────────
     pieces_now_undefended = _pieces_now_undefended(board_before, board_after, played_move)
 
-    # ── Phase ──────────────────────────────────────────────────────────
-    full_move = full_move_number or board_before.fullmove_number
-    phase = _detect_phase(board_before, full_move)
+    # ── Tactic-shape evidence (commit #3) — NO LABELS, only geometry ────
+    # All detectors emit structured evidence per LAW 3. The renderer is
+    # the only place where "fork" / "double attack" / "pressure" gets
+    # decided — based on context and priority order in caption_rules.py.
+    fork_shape_evidence = _fork_shape_evidence(threats_created)
+    pin_shape_evidence, skewer_shape_evidence = _pin_skewer_shape_evidence(
+        board_after, own_color
+    )
+    discovery_shape_evidence = _discovery_shape_evidence(
+        board_before, board_after, played_move
+    )
+
+    # ── Queen sortie evidence (NOT a boolean — evidence per LAW 3) ─────
+    queen_sortie_evidence = _queen_sortie_evidence(
+        board_before, played_move, move_history_san, full_move
+    )
 
     # ── Opening (uses existing detector) ───────────────────────────────
     opening_name = None
@@ -851,21 +1253,32 @@ def extract_facts(
 
         # EXCHANGE TRUTH (SEE — commit #2)
         "see_played_capture_cp": see_played_capture_cp,
-        "see_target_square_cp": see_target_square_cp,
+        "target_square_exchange_cp": target_square_exchange_cp,
         "is_exchange_losing": is_exchange_losing,
         "exchange_loss_cp": exchange_loss_cp,
         "threats_created": threats_created,
         "pieces_now_undefended": pieces_now_undefended,
 
+        # TACTIC-SHAPE EVIDENCE (commit #3) — STRUCTURED, NO LABELS.
+        # Renderer rules read these and decide whether to say "fork" /
+        # "double attack" / "pin" / "pressure" — the extractor never
+        # commits to a coaching word.
+        "fork_shape_evidence": fork_shape_evidence,
+        "pin_shape_evidence": pin_shape_evidence,
+        "skewer_shape_evidence": skewer_shape_evidence,
+        "discovery_shape_evidence": discovery_shape_evidence,
+
+        # QUEEN SORTIE EVIDENCE (commit #3) — DICT or None, not bool.
+        # Renderer reads numbers (move_number, minor_pieces_developed)
+        # and decides whether/how to mention.
+        "queen_sortie_evidence": queen_sortie_evidence,
+
         # PLACEHOLDERS for fields arriving in subsequent commits.
         # Renderer rules MUST check is None before reading these.
-        "tactics_detected": None,              # commit #3 — list of evidence dicts
-        "material_delta_played_cp": None,      # commit #3
-        "material_delta_best_cp": None,        # commit #3
-        "free_capture": None,                  # commit #3
-        "missed_tactic": None,                 # commit #3
-        "queen_out_early": None,               # commit #3
-        "opponent_queen_out_early": None,      # commit #3
+        "material_delta_played_cp": None,      # commit #4 — PV walk
+        "material_delta_best_cp": None,        # commit #4
+        "free_capture": None,                  # commit #4 — derived
+        "missed_tactic_evidence": None,        # commit #4 — tactics on pv_after_best
         "primary_reason": None,                # commit #4
     }
 
