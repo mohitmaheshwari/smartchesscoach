@@ -1537,6 +1537,7 @@ def extract_facts(
     pv_after_best: Optional[List[str]] = None,
     move_history_san: Optional[List[str]] = None,
     full_move_number: Optional[int] = None,
+    mover_is_user: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Extract the deterministic facts dict for one move.
@@ -1845,6 +1846,12 @@ def extract_facts(
         # GAME-STATE FLAGS (purely eval-derived)
         "user_is_winning": user_is_winning,
         "user_is_losing": user_is_losing,
+
+        # SESSION CONTEXT (not chess truth — caller-supplied). Optional;
+        # rules with perspective-specific voicing read this to flip "you"
+        # vs "they" framing. Bend #5 — without it the renderer can't
+        # tell a user's castling from an opponent's castling.
+        "mover_is_user": mover_is_user,
 
         # EXCHANGE TRUTH (SEE — commit #2)
         "see_played_capture_cp": see_played_capture_cp,

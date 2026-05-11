@@ -3093,6 +3093,7 @@ async def generate_game_decryption_v5(
                         pv_after_best=pv_after_best,
                         move_history_san=cap_history,
                         full_move_number=full_move_number,
+                        mover_is_user=is_user,
                     )
                     caption_payload = _render_caption_dict(caption_facts)
                     caption_primary_reason = caption_facts.get("primary_reason")

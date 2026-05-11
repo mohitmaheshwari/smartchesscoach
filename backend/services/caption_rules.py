@@ -288,7 +288,14 @@ def _r09_trigger(f):
 
 
 def _r09_render(f):
-    cap = f"{_played(f)}. King is safe; rook joins the game."
+    mover_is_user = f.get("mover_is_user")
+    if mover_is_user is False:
+        # Opp castled — their good news, not yours. Describe rather
+        # than celebrate.
+        cap = f"{_played(f)}. Opponent tucks their king away."
+    else:
+        # Default + user-known: keep the original celebratory voice.
+        cap = f"{_played(f)}. King is safe; rook joins the game."
     return CaptionOutput(
         cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
@@ -352,7 +359,12 @@ def _r12_render(f):
     pawns_word = "pawn" if pawns == 1 else "pawns"
     played = _played(f)
     best = _best(f)
-    if best and best != played:
+    mover_is_user = f.get("mover_is_user")
+    if mover_is_user is False:
+        # Opp blundered — frame as user-actionable news, not coaching the
+        # opponent on what they should have played.
+        cap = f"Opponent's {played} drops about {pawns} {pawns_word}."
+    elif best and best != played:
         cap = f"{played} loses about {pawns} {pawns_word}. {best} was better."
     else:
         cap = f"{played} loses about {pawns} {pawns_word}."
