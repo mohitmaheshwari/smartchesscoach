@@ -468,6 +468,20 @@ def _threats_created(
         if see_cp <= 0:
             continue  # not a winning threat — opponent defends adequately
 
+        # Mutual-line / attacker-survival gate. The above SEE assumes WE
+        # initiate, but it's actually opp's move next. If opp can take
+        # our threatening attacker at SEE ≥ 0, the threat doesn't
+        # materialise — they capture before we get to. From d7ce40cf
+        # corpus: #14 Kf1 was emitting "threatens Rxe8 winning the rook"
+        # while ...Rxe1+ was the immediate reply on the same cleared line.
+        opp_attackers_on_attacker = board_after.attackers(opp_color, cheapest_attacker_sq)
+        if opp_attackers_on_attacker:
+            opp_see_on_attacker = static_exchange_eval(
+                board_after, cheapest_attacker_sq, opp_color
+            )
+            if opp_see_on_attacker >= 0:
+                continue
+
         attacker_piece = board_after.piece_at(cheapest_attacker_sq)
         target_value_cp = PIECE_VALUE_CP.get(enemy_piece.piece_type, 0)
         # If see_cp < target_value, the winning sequence cost us some
@@ -892,6 +906,21 @@ def _discovered_attack_evidence(
                     pre_attackers = board_before.attackers(own_color, target_sq)
                     if slider_sq in pre_attackers:
                         continue  # slider already attacked via clear line
+
+                # Mutual-line gate. The line that opened works both ways
+                # — opponent may now see our slider through the same gap.
+                # Since it's opp's move next, if they can capture our
+                # slider at SEE ≥ 0 the discovered attack is illusory:
+                # the slider is taken before it can execute the discovery.
+                # From d7ce40cf corpus: #14 Kf1 was emitting "uncovers
+                # rook hitting e8" while black's Rxe1+ was right there.
+                opp_attackers_on_slider = board_after.attackers(opp_color, slider_sq)
+                if opp_attackers_on_slider:
+                    opp_see_on_slider = static_exchange_eval(
+                        board_after, slider_sq, opp_color
+                    )
+                    if opp_see_on_slider >= 0:
+                        continue
                 out.append({
                     "discovered_attacker_square": chess.square_name(slider_sq),
                     "discovered_attacker_piece_type": PIECE_TYPE_NAMES.get(piece_type, "piece"),
