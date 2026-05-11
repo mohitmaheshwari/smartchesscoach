@@ -622,12 +622,14 @@ def _pieces_now_undefended(
 # evidence of the line."
 # ────────────────────────────────────────────────────────────────────
 
-def _fork_shape_evidence(threats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _multi_target_attack_evidence(threats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Group `threats_created` entries by attacker_square. Any attacker
-    with ≥2 separately-winning threats forms a fork shape.
+    with ≥2 separately-winning threats forms a multi-target-attack shape.
 
-    The renderer decides whether to call it "fork" or "double attack" or
-    "pressure on two pieces."
+    NAMED `multi_target_attack` rather than `fork`: the geometric primitive
+    is "one piece, multiple targets." The renderer decides whether to
+    call it "fork" / "double attack" / "pressure on two pieces" based on
+    context (piece type, target values, position).
     """
     by_attacker: Dict[str, List[Dict[str, Any]]] = {}
     for t in threats:
@@ -702,24 +704,27 @@ def _piece_can_move_along_line(
     return any(bool(chess.BB_SQUARES[sq] & pin_mask) for sq in line_squares)
 
 
-def _pin_skewer_shape_evidence(
+def _aligned_pieces_evidence(
     board_after: chess.Board,
     own_color: chess.Color,
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Return (pin_shapes, skewer_shapes) seen in board_after.
+) -> List[Dict[str, Any]]:
+    """Return ALL aligned-piece configurations seen in board_after — the
+    geometric shape that the renderer can interpret as a pin / skewer /
+    x-ray depending on value relations.
 
     For each own sliding piece (bishop, rook, queen), walk its rays.
-    If a ray hits enemy piece A then enemy piece B (further along, same
-    line), we have a pin-or-skewer shape:
-      - If B's value > A's value → pin shape (A is the front piece)
-      - If A's value > B's value → skewer shape
-      - If equal value → emit as pin shape (rendering ambiguous, but
-        the renderer can decide).
+    If a ray hits enemy piece A then enemy piece B (further along,
+    same line), emit one evidence dict with a `front_value_vs_rear`
+    flag — "lower" | "higher" | "equal" — that lets the renderer
+    decide naming.
 
-    No labels — pure geometric evidence per LAW 3.
+    NAMED `aligned_pieces` rather than `pin_shape`/`skewer_shape`:
+    pin and skewer are RENDER-time names; the geometric primitive is
+    "three pieces on a line." Merging them into one field with a value-
+    comparison flag prevents the extractor from cementing renderer
+    taxonomy (per user feedback 2026-05-11).
     """
-    pin_shapes: List[Dict[str, Any]] = []
-    skewer_shapes: List[Dict[str, Any]] = []
+    out: List[Dict[str, Any]] = []
     opp_color = not own_color
 
     # Directions per piece type
@@ -767,15 +772,16 @@ def _pin_skewer_shape_evidence(
             front_val = PIECE_VALUE_CP.get(front_piece.piece_type, 0)
             rear_val = PIECE_VALUE_CP.get(rear_piece.piece_type, 0)
 
-            # King in rear → it's a real pin: front piece is absolutely
-            # pinned (can't move off the line). Always treat as pin.
-            # King in front → unusual; treat as skewer.
-            if rear_piece.piece_type == chess.KING:
-                shape_is_pin = True
-            elif front_piece.piece_type == chess.KING:
-                shape_is_pin = False  # king front → skewer
+            # Front-vs-rear value comparison (renderer decides taxonomy):
+            #   "lower"  → front cheaper than rear  (classic pin shape)
+            #   "higher" → front more valuable      (classic skewer shape)
+            #   "equal"  → renderer's call          (e.g. R+R battery, N+B)
+            if front_val < rear_val:
+                front_value_vs_rear = "lower"
+            elif front_val > rear_val:
+                front_value_vs_rear = "higher"
             else:
-                shape_is_pin = rear_val >= front_val
+                front_value_vs_rear = "equal"
 
             line_kind = (
                 "diagonal" if direction in DIAGONAL_DIRS else
@@ -783,18 +789,18 @@ def _pin_skewer_shape_evidence(
             )
 
             # Can the front piece move along this line (sliding piece
-            # of same direction)? If not, the pin is absolute even for
-            # non-king rear pieces.
+            # of same direction)? If not, even a non-king rear creates
+            # an effective pin.
             front_can_move_along = False
             front_pt = front_piece.piece_type
             if front_pt == chess.QUEEN:
-                front_can_move_along = True  # queen can slide any direction
+                front_can_move_along = True
             elif front_pt == chess.ROOK and line_kind in ("file", "rank"):
                 front_can_move_along = True
             elif front_pt == chess.BISHOP and line_kind == "diagonal":
                 front_can_move_along = True
 
-            entry = {
+            out.append({
                 "attacker_square": chess.square_name(slider_sq),
                 "attacker_piece_type": PIECE_TYPE_NAMES.get(slider_type, "piece"),
                 "front_piece_square": chess.square_name(front_sq),
@@ -804,18 +810,16 @@ def _pin_skewer_shape_evidence(
                 "rear_piece_type": PIECE_TYPE_NAMES.get(rear_piece.piece_type, "piece"),
                 "rear_piece_value_cp": rear_val,
                 "line_kind": line_kind,
+                "front_value_vs_rear": front_value_vs_rear,
                 "front_can_move_along_line": front_can_move_along,
-                "absolute_pin": rear_piece.piece_type == chess.KING,
-            }
-            if shape_is_pin:
-                pin_shapes.append(entry)
-            else:
-                skewer_shapes.append(entry)
+                "rear_is_king": rear_piece.piece_type == chess.KING,
+                "front_is_king": front_piece.piece_type == chess.KING,
+            })
 
-    return pin_shapes, skewer_shapes
+    return out
 
 
-def _discovery_shape_evidence(
+def _discovered_attack_evidence(
     board_before: chess.Board,
     board_after: chess.Board,
     played_move: chess.Move,
@@ -827,6 +831,9 @@ def _discovery_shape_evidence(
     Pure geometry — slider on one side, played-move from_square in the
     middle, enemy piece on the other side. After the move, the line is
     open and the slider attacks the enemy.
+
+    NAMED `discovered_attack` rather than `discovery_shape`: cleaner
+    primitive; the "shape" suffix added no information.
     """
     out: List[Dict[str, Any]] = []
     own_color = not board_after.turn  # we just moved
@@ -894,6 +901,151 @@ def _discovery_shape_evidence(
                     "line_direction": direction,
                 })
     return out
+
+
+# ────────────────────────────────────────────────────────────────────
+# PV material walks + mate threat detection
+#
+# SEE tells us about IMMEDIATE exchange material. The PV walk tells us
+# about MULTI-PLY tactical material — e.g. a 4-ply combination that
+# wins a piece in the third move. SEE alone misses these; the PV walk
+# resolves them.
+#
+# Mate threat detection: walks the PV for checkmate notation (#) or
+# detects mate-distance via eval sentinel. Mate priority overrides
+# material in primary_reason scoring.
+# ────────────────────────────────────────────────────────────────────
+
+
+def _side_material_cp(board: chess.Board, color: chess.Color) -> int:
+    """Sum of piece values for `color` in board. Excludes king (no
+    SEE value). Centipawns."""
+    total = 0
+    for pt in (chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
+        total += len(board.pieces(pt, color)) * PIECE_VALUE_CP[pt]
+    return total
+
+
+def _normalize_pv_starting_with(
+    leading_san: Optional[str], pv: List[str]
+) -> List[str]:
+    """Ensure the PV list starts with `leading_san`. Different engine
+    record formats include or omit the leading move; this helper makes
+    walks idempotent regardless.
+
+    Returns a NEW list; doesn't mutate input.
+    """
+    if not leading_san:
+        return list(pv)
+    leading_clean = _normalize_san(leading_san)
+    if pv and _normalize_san(pv[0]) == leading_clean:
+        return list(pv)
+    return [leading_san] + list(pv)
+
+
+def _pv_material_delta(
+    board_before: chess.Board,
+    pv_san: List[str],
+    initiator_color: chess.Color,
+    max_plies: int = 8,
+) -> int:
+    """Walk the PV (SAN list) up to `max_plies` plies; return net
+    material change for `initiator_color` in centipawns.
+
+    Positive = initiator gained material.
+    Returns 0 if the PV can't be replayed cleanly.
+    """
+    if not pv_san:
+        return 0
+
+    sim = board_before.copy()
+    init_own = _side_material_cp(sim, initiator_color)
+    init_opp = _side_material_cp(sim, not initiator_color)
+
+    plies_pushed = 0
+    for san in pv_san[:max_plies]:
+        try:
+            move = sim.parse_san(san)
+            sim.push(move)
+            plies_pushed += 1
+        except (chess.InvalidMoveError, chess.IllegalMoveError, ValueError):
+            break
+
+    if plies_pushed == 0:
+        return 0
+
+    final_own = _side_material_cp(sim, initiator_color)
+    final_opp = _side_material_cp(sim, not initiator_color)
+
+    own_delta = final_own - init_own         # ≤ 0 (can only lose pieces)
+    opp_delta = final_opp - init_opp         # ≤ 0
+    # Net gain for initiator = pieces they took (= -opp_delta) minus
+    # pieces they lost (= -own_delta). Equivalent: own_delta - opp_delta.
+    return own_delta - opp_delta
+
+
+def _pv_resolves_to_mate(pv_san: List[str], max_plies: int = 8) -> Optional[int]:
+    """If the PV ends in checkmate (SAN ending with '#'), return the
+    1-indexed ply at which mate is delivered. Otherwise None.
+    """
+    for i, san in enumerate(pv_san[:max_plies]):
+        if san.endswith("#"):
+            return i + 1
+    return None
+
+
+def _mate_threat_evidence(
+    eval_after_cp: Optional[int],
+    pv_after_played: List[str],
+    pv_after_best: List[str],
+    own_color: chess.Color,
+) -> Optional[Dict[str, Any]]:
+    """Detect forced mate from PV + eval sentinels. Returns an evidence
+    dict or None.
+
+    Three signal sources, in order:
+      1. The PV contains a SAN ending in '#' → mate forced; ply distance
+         known directly.
+      2. eval_after_cp is in the mate-sentinel range (|eval| >= 9000) →
+         engine reports forced mate; we know it exists but not the side
+         delivering it without checking sign.
+      3. Both — most reliable.
+
+    Evidence emitted:
+      {
+        "side_delivering_mate": "white" | "black",
+        "ply_to_mate": int | None,         # known if PV has '#'
+        "via_played_move": bool,           # detected in pv_after_played
+        "via_best_move": bool,             # detected in pv_after_best
+        "engine_eval_indicates_mate": bool,
+      }
+    """
+    # PV-based mate detection
+    played_mate_ply = _pv_resolves_to_mate(pv_after_played)
+    best_mate_ply = _pv_resolves_to_mate(pv_after_best)
+
+    # Eval-sentinel detection. Note eval_after_cp is from white's POV
+    # by standard convention; user_color flips it for the user's POV.
+    engine_eval_indicates_mate = (
+        eval_after_cp is not None and abs(eval_after_cp) >= 9000
+    )
+
+    if played_mate_ply is None and best_mate_ply is None and not engine_eval_indicates_mate:
+        return None
+
+    # Determine who's delivering the mate. eval_after is from white's POV;
+    # positive = white winning. So if eval is +9000, white delivers mate.
+    side_delivering_mate = None
+    if eval_after_cp is not None and abs(eval_after_cp) >= 1000:
+        side_delivering_mate = "white" if eval_after_cp > 0 else "black"
+
+    return {
+        "side_delivering_mate": side_delivering_mate,
+        "ply_to_mate": played_mate_ply or best_mate_ply,
+        "via_played_move": played_mate_ply is not None,
+        "via_best_move": best_mate_ply is not None,
+        "engine_eval_indicates_mate": engine_eval_indicates_mate,
+    }
 
 
 def _queen_sortie_evidence(
@@ -1148,21 +1300,66 @@ def extract_facts(
     # ── Pieces that lost a defender (structured evidence) ──────────────
     pieces_now_undefended = _pieces_now_undefended(board_before, board_after, played_move)
 
-    # ── Tactic-shape evidence (commit #3) — NO LABELS, only geometry ────
-    # All detectors emit structured evidence per LAW 3. The renderer is
-    # the only place where "fork" / "double attack" / "pressure" gets
-    # decided — based on context and priority order in caption_rules.py.
-    fork_shape_evidence = _fork_shape_evidence(threats_created)
-    pin_shape_evidence, skewer_shape_evidence = _pin_skewer_shape_evidence(
-        board_after, own_color
-    )
-    discovery_shape_evidence = _discovery_shape_evidence(
+    # ── Tactic-shape evidence (commit #3 + renamed in #4a) ──────────────
+    # All detectors emit structured evidence per LAW 3. Names changed
+    # from {fork/pin/skewer/discovery}_shape to more primitive forms:
+    #   multi_target_attack — "one attacker, multiple targets"
+    #   aligned_pieces     — "three pieces on a line" (renderer picks
+    #                        pin/skewer/x-ray via front_value_vs_rear)
+    #   discovered_attack  — "uncovered attacker via played move"
+    multi_target_attack_evidence = _multi_target_attack_evidence(threats_created)
+    aligned_pieces_evidence = _aligned_pieces_evidence(board_after, own_color)
+    discovered_attack_evidence = _discovered_attack_evidence(
         board_before, board_after, played_move
     )
 
     # ── Queen sortie evidence (NOT a boolean — evidence per LAW 3) ─────
     queen_sortie_evidence = _queen_sortie_evidence(
         board_before, played_move, move_history_san, full_move
+    )
+
+    # ── PV material walks (commit #4a) ──────────────────────────────────
+    # SEE handles immediate exchange material. The PV walk handles multi-
+    # ply tactical sequences (e.g. a 4-ply combo that wins a piece on
+    # the third move). The two layers stack: SEE for one-shot exchanges,
+    # PV-walk for sequences.
+    #
+    # Convention: both pv_after_played and pv_after_best may or may not
+    # include the leading move (depends on engine record format).
+    # _normalize_pv_starting_with_move handles both — the played move
+    # is prepended only if missing.
+    played_pv_normalized = _normalize_pv_starting_with(played_san, pv_after_played)
+    best_pv_normalized = (
+        _normalize_pv_starting_with(best_move_san, pv_after_best)
+        if best_move_san else []
+    )
+    material_delta_played_cp = _pv_material_delta(
+        board_before, played_pv_normalized, own_color
+    )
+    material_delta_best_cp = _pv_material_delta(
+        board_before, best_pv_normalized, own_color
+    ) if best_pv_normalized else 0
+
+    # `free_capture` means PURELY "no recapture exists" — there is no
+    # opponent piece (of the owner's color) attacking the target square
+    # in board_before. This is geometric, not PV-derived: a 4-ply
+    # exchange that nets positive material (e.g. bishop-for-knight
+    # trade in commit's case A) is NOT a free capture even though
+    # net material is positive. The renderer needs to distinguish
+    # "took a piece nothing defends" from "won material via favourable
+    # trade sequence."
+    free_capture = False
+    if is_capture and captured_piece is not None:
+        owner_color = captured_piece.color
+        # Recapturers = pieces of the OWNER's color (the one being
+        # captured) that still attack the target after the capture
+        # (excluding the moving piece itself; it's now on target_square).
+        recapturers = board_after.attackers(owner_color, played_move.to_square)
+        free_capture = len(recapturers) == 0
+
+    # ── Mate threat evidence (commit #4a) ───────────────────────────────
+    mate_threat_evidence = _mate_threat_evidence(
+        eval_after_cp, pv_after_played, pv_after_best, own_color
     )
 
     # ── Opening (uses existing detector) ───────────────────────────────
@@ -1259,27 +1456,40 @@ def extract_facts(
         "threats_created": threats_created,
         "pieces_now_undefended": pieces_now_undefended,
 
-        # TACTIC-SHAPE EVIDENCE (commit #3) — STRUCTURED, NO LABELS.
+        # TACTIC-SHAPE EVIDENCE — STRUCTURED, NO LABELS.
+        # Names use the GEOMETRIC primitive, not renderer taxonomy.
         # Renderer rules read these and decide whether to say "fork" /
-        # "double attack" / "pin" / "pressure" — the extractor never
-        # commits to a coaching word.
-        "fork_shape_evidence": fork_shape_evidence,
-        "pin_shape_evidence": pin_shape_evidence,
-        "skewer_shape_evidence": skewer_shape_evidence,
-        "discovery_shape_evidence": discovery_shape_evidence,
+        # "pin" / "skewer" / "x-ray" / "double attack" / "pressure" —
+        # the extractor never commits to a coaching word.
+        "multi_target_attack_evidence": multi_target_attack_evidence,
+        "aligned_pieces_evidence": aligned_pieces_evidence,
+        "discovered_attack_evidence": discovered_attack_evidence,
 
         # QUEEN SORTIE EVIDENCE (commit #3) — DICT or None, not bool.
         # Renderer reads numbers (move_number, minor_pieces_developed)
         # and decides whether/how to mention.
         "queen_sortie_evidence": queen_sortie_evidence,
 
-        # PLACEHOLDERS for fields arriving in subsequent commits.
+        # PV MATERIAL WALKS (commit #4a) — multi-ply tactical material
+        # truth that SEE alone can't see. Renderer rules use these to
+        # detect long tactical sequences and gate the material primary
+        # reason (only fire when the eval swing is explained by
+        # material delta — prevents "wins a pawn" from drowning out
+        # "creates a mating attack").
+        "material_delta_played_cp": material_delta_played_cp,
+        "material_delta_best_cp": material_delta_best_cp,
+        "free_capture": free_capture,
+
+        # MATE THREAT EVIDENCE (commit #4a) — highest priority reason.
+        # When present, any primary_reason picker MUST prefer this
+        # over tactic/material reasons. Mate is essence; everything
+        # else is consequence.
+        "mate_threat_evidence": mate_threat_evidence,
+
+        # PLACEHOLDERS for fields arriving in commit #4b.
         # Renderer rules MUST check is None before reading these.
-        "material_delta_played_cp": None,      # commit #4 — PV walk
-        "material_delta_best_cp": None,        # commit #4
-        "free_capture": None,                  # commit #4 — derived
-        "missed_tactic_evidence": None,        # commit #4 — tactics on pv_after_best
-        "primary_reason": None,                # commit #4
+        "missed_tactic_evidence": None,        # commit #4b — tactics on pv_after_best
+        "primary_reason": None,                # commit #4b
     }
 
     return facts
