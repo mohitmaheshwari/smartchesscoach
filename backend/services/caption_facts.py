@@ -880,8 +880,24 @@ def _discovered_attack_evidence(
                 ray = _ray_squares(slider_sq, direction)
                 if from_sq not in ray:
                     continue
-                # Find the first piece on this ray AFTER from_sq.
                 from_idx = ray.index(from_sq)
+                # Ray BETWEEN slider and from_sq must be clear in
+                # board_after — otherwise the line was already blocked
+                # by some OTHER piece, and the moving piece never had a
+                # blocking role on this ray. Bug from feedback
+                # fb_a6f596afbba0 / move Nc2: detector claimed bishop f8
+                # uncovered onto a3, but f8→a3 is blocked at c5 by
+                # black's own queen. Moving the knight off b4 doesn't
+                # open that line. Without this check, ANY slider whose
+                # ray crosses from_sq looks like a discoverer.
+                blocked = False
+                for sq in ray[:from_idx]:
+                    if board_after.piece_at(sq) is not None:
+                        blocked = True
+                        break
+                if blocked:
+                    continue
+                # Find the first piece on this ray AFTER from_sq.
                 target_sq = None
                 target_piece = None
                 for sq in ray[from_idx + 1:]:
