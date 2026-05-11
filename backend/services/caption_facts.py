@@ -86,7 +86,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import chess
 
-from services.caption_config import MAX_CP_LOSS_FOR_TACTIC_CELEBRATION
+from services.caption_config import (
+    MAX_CP_LOSS_FOR_TACTIC_CELEBRATION,
+    MIN_THREAT_SEE_CP,
+)
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -1258,10 +1261,20 @@ def _eval_swing_cp(facts: Dict[str, Any]) -> int:
 def _material_explains_eval(facts: Dict[str, Any]) -> bool:
     """Material gain accounts for at least 70% of the eval swing.
     Prevents 'wins a pawn' from drowning out 'creates a mating attack'
-    when the eval swing is much larger than the material gain."""
+    when the eval swing is much larger than the material gain.
+
+    Free-capture short-circuit (from d7ce40cf #22 USER Rxc6): when the
+    capture has no recapture (free_capture=True), the move's STORY is
+    the capture even if the engine eval swing is ~0 because it already
+    discounted the captured piece in scoring the previous opp blunder.
+    Without this short-circuit, "punish the opp's hung knight" reads
+    silent — exactly when the user most needs the celebration.
+    """
     delta_played = facts.get("material_delta_played_cp") or 0
     if delta_played <= 0:
         return False
+    if facts.get("free_capture"):
+        return True
     swing = _eval_swing_cp(facts)
     if swing <= 50:
         return False
@@ -1378,12 +1391,35 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # `pieces_now_defended` field in a later phase.
 
     # Priority 8: threat creation (non-tactic threats; same gate as
-    # tactics — threats are only worth celebrating on non-mistake moves).
-    if _tactic_ok and facts.get("threats_created"):
+    # tactics — threats are only worth celebrating on non-mistake moves
+    # AND the threat must clear MIN_THREAT_SEE_CP so this category
+    # matches the R10 trigger. From d7ce40cf v2 review: #3 Bb7, #4 Nf6,
+    # #15 Nc6 each created weak see=100 threats; primary_reason picked
+    # "threat" but R10 needs see ≥ 200, so no rule fired and a clean
+    # development move went silent.
+    threats = facts.get("threats_created") or []
+    if _tactic_ok and any(t.get("see_cp", 0) >= MIN_THREAT_SEE_CP for t in threats):
         return {
             "category": "threat",
             "ref_field": "threats_created",
             "priority_level": 8,
+        }
+
+    # Priority 9: opening central pawn — first 1–2 full moves where a
+    # pawn lands on a central square (d4/d5/e4/e5). Covers the silent
+    # #1 e4 / #1 d5 case from the d7ce40cf review. Gated on cp_loss
+    # like other celebratory categories.
+    if (
+        _tactic_ok
+        and facts.get("phase") == "opening"
+        and facts.get("is_pawn_move")
+        and (facts.get("full_move_number") or 0) <= 2
+        and facts.get("target_square") in ("d4", "d5", "e4", "e5")
+    ):
+        return {
+            "category": "opening_central_pawn",
+            "ref_field": "target_square",
+            "priority_level": 9,
         }
 
     # Priority 9: pawn structure (Phase 1 minimal — explicit fact)

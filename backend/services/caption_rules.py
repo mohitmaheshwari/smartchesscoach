@@ -135,12 +135,21 @@ def _r02_render(f):
     targets = shape["attacked_targets"]
     t0 = targets[0]
     t1 = targets[1] if len(targets) > 1 else None
-    attacker_piece = shape["attacker_piece_type"]
     if t1:
-        cap = (
-            f"{_played(f)} forks the {t0['piece_type']} on {t0['square']} "
-            f"and the {t1['piece_type']} on {t1['square']}."
-        )
+        # Pawn-only fork (e.g. d7ce40cf #16 Ndb4 a2+d3, #23 Rc7 a7+f7)
+        # — "forks" overstates a dual-pawn attack since neither target
+        # is a piece. Use the lighter "attacks the pawns on …" template.
+        both_pawns = t0["piece_type"] == "pawn" and t1["piece_type"] == "pawn"
+        if both_pawns:
+            cap = (
+                f"{_played(f)} attacks the pawns on {t0['square']} "
+                f"and {t1['square']} — likely wins one."
+            )
+        else:
+            cap = (
+                f"{_played(f)} forks the {t0['piece_type']} on {t0['square']} "
+                f"and the {t1['piece_type']} on {t1['square']}."
+            )
         highlights = [shape["attacker_square"], t0["square"], t1["square"]]
         arrows = [
             (shape["attacker_square"], t0["square"], "red"),
@@ -249,7 +258,11 @@ def _r07_trigger(f):
 
 def _r07_render(f):
     captured = f.get("captured_piece_type", "piece")
-    cap = f"{_played(f)} — only move. Takes back the {captured}."
+    mover_is_user = f.get("mover_is_user")
+    if mover_is_user is False:
+        cap = f"{_played(f)}. Opponent forced to recapture the {captured}."
+    else:
+        cap = f"{_played(f)} — only move. Takes back the {captured}."
     return CaptionOutput(
         cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
@@ -266,14 +279,23 @@ def _r08_trigger(f):
 
 def _r08_render(f):
     delta = f["material_delta_played_cp"]
-    if f.get("free_capture"):
-        captured = f.get("captured_piece_type", "piece")
-        cap = f"{_played(f)}. Free {captured} — nothing recaptures."
-    elif f.get("is_capture"):
-        captured = f.get("captured_piece_type", "piece")
-        cap = f"{_played(f)} wins material. Net {delta} cp in the exchange."
+    mover_is_user = f.get("mover_is_user")
+    captured = f.get("captured_piece_type", "piece")
+    if mover_is_user is False:
+        # Opp grabbed material from us. User-actionable framing.
+        if f.get("free_capture"):
+            cap = f"{_played(f)}. Opponent grabs the {captured} — nothing was defending it."
+        elif f.get("is_capture"):
+            cap = f"{_played(f)}. Opponent wins material in the exchange."
+        else:
+            cap = f"{_played(f)}. Opponent gains {delta} cp."
     else:
-        cap = f"{_played(f)}. Wins {delta} cp in the resulting line."
+        if f.get("free_capture"):
+            cap = f"{_played(f)}. Free {captured} — nothing recaptures."
+        elif f.get("is_capture"):
+            cap = f"{_played(f)} wins material. Net {delta} cp in the exchange."
+        else:
+            cap = f"{_played(f)}. Wins {delta} cp in the resulting line."
     return CaptionOutput(
         cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
@@ -335,7 +357,11 @@ def _r11_trigger(f):
 def _r11_render(f):
     piece = f.get("moving_piece_type", "piece")
     sq = f.get("target_square", "")
-    cap = f"Develops the {piece} to {sq}."
+    mover_is_user = f.get("mover_is_user")
+    if mover_is_user is False:
+        cap = f"Opponent develops the {piece} to {sq}."
+    else:
+        cap = f"Develops the {piece} to {sq}."
     return CaptionOutput(
         cap,
         highlight_squares=[sq] if sq else [],
@@ -376,6 +402,32 @@ def _r12_render(f):
     )
 
 
+# R13 — Opening central pawn move. Covers the first-pair e4/d4/d5/e5
+# pushes that were silent in v1+v2 (no rule). Bend #7.
+def _r13_trigger(f):
+    return (
+        f.get("phase") == "opening"
+        and f.get("is_pawn_move")
+        and (f.get("full_move_number") or 0) <= 2
+        and f.get("target_square") in ("d4", "d5", "e4", "e5")
+    )
+
+
+def _r13_render(f):
+    sq = f.get("target_square", "")
+    mover_is_user = f.get("mover_is_user")
+    if mover_is_user is False:
+        cap = f"{_played(f)}. Opponent claims the center."
+    else:
+        cap = f"{_played(f)}. Stakes a claim in the center."
+    return CaptionOutput(
+        cap,
+        highlight_squares=[sq] if sq else [],
+        arrows=[],
+        rule_name="R13_opening_central_pawn",
+    )
+
+
 # R_FALLBACK — no rule matched. Silence.
 def _r_fallback_trigger(f):
     return True  # always fires last
@@ -402,6 +454,7 @@ RULES: List[Rule] = [
     Rule("R08_material",            "material",         8, _r08_trigger, _r08_render),
     Rule("R09_king_safety",         "king_safety",      9, _r09_trigger, _r09_render),
     Rule("R10_threat",              "threat",          10, _r10_trigger, _r10_render),
+    Rule("R13_opening_central_pawn","opening_central_pawn", 9, _r13_trigger, _r13_render),
     Rule("R11_development",         "development",     11, _r11_trigger, _r11_render),
     Rule("R12_blunder",             "blunder",         12, _r12_trigger, _r12_render),
 ]
