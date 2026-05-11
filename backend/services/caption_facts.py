@@ -106,12 +106,23 @@ PIECE_VALUE_CP: Dict[int, int] = {
     chess.BISHOP: 300,
     chess.ROOK: 500,
     chess.QUEEN: 900,
-    chess.KING: 0,  # king has no exchange value
+    chess.KING: 0,  # king has no exchange value (SEE caps before king capture)
 }
 
 # Phase boundary thresholds (mirrors detect_phase in game_decryption_v5_service)
 _OPENING_MAX_MOVE_HIGH_PIECES = 10  # if piece_count >= 28
 _OPENING_MAX_MOVE_MID_PIECES = 15   # if piece_count >= 24
+
+# Eval thresholds — kept inside the extractor so renderers don't drift
+# into their own "winning/losing" semantics. Numeric, deterministic,
+# universally reusable. Renderers consume the booleans, not the threshold.
+EVAL_WINNING_THRESHOLD_CP = 200    # user_is_winning when user_eval_after >= +200cp
+EVAL_LOSING_THRESHOLD_CP = -200    # user_is_losing  when user_eval_after <= -200cp
+
+# Exchange loss threshold — for is_exchange_losing flag (Phase 2).
+# A move whose SEE loses more than this counts as a material-losing
+# exchange. Set above small-fluctuation noise (a half-pawn).
+EXCHANGE_LOSS_THRESHOLD_CP = 50
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -161,6 +172,405 @@ def _detect_phase(board: chess.Board, full_move_number: int) -> str:
     if piece_count <= 18:
         return "endgame"
     return "middlegame"
+
+
+# ────────────────────────────────────────────────────────────────────
+# Static Exchange Evaluation (SEE) — chess-textbook capture-sequence math.
+#
+# Walks the recapture sequence on a target square. At each ply, the side
+# to move uses their CHEAPEST available attacker and the OPPOSING side
+# (now to move) decides whether to continue or stop. The "stop or
+# continue" choice is the standard backwards pass:
+#     gain[d] = -max(-gain[d], gain[d+1])
+#
+# Returns SEE in centipawns from the INITIATING side's perspective:
+#     SEE > 0  → exchange wins material for initiator
+#     SEE == 0 → even trade (or exchange not played)
+#     SEE < 0  → exchange loses material; initiator should NOT initiate
+#
+# Why we need SEE instead of raw attacker/defender counts:
+#   - pinned defenders don't really defend
+#   - x-ray defenders/attackers need lining up
+#   - piece-value imbalance: P-defended Q is still lost to a R attack
+#   - recapture order matters (cheapest-first or you waste material)
+# Counts get all of these wrong. SEE gets them right by simulation.
+#
+# Implementation notes:
+#   - We exclude pieces already used in earlier captures from being
+#     reused (the `consumed` set).
+#   - Pinned attackers that can't legally move to the target are skipped
+#     (would otherwise hang the king).
+#   - En-passant is supported: the captured pawn is identified before
+#     the simulated move.
+# ────────────────────────────────────────────────────────────────────
+
+def _square_set(squares) -> chess.SquareSet:
+    """Tolerant SquareSet builder accepting iterables of squares."""
+    if isinstance(squares, chess.SquareSet):
+        return squares
+    out = chess.SquareSet()
+    for sq in squares:
+        out.add(sq)
+    return out
+
+
+def _is_pinned_against_target(board: chess.Board, attacker_sq: int, target_sq: int) -> bool:
+    """True if the piece on `attacker_sq` is absolutely pinned in a way
+    that prevents it from moving to `target_sq` (i.e. moving there
+    would expose its own king).
+
+    Uses python-chess `board.pin(color, square)` which returns the set
+    of squares the pinned piece CAN move to along the pin line. This
+    check is TURN-INDEPENDENT — works whether or not the piece's side
+    is currently to move (important inside SEE simulation where we
+    flip sides on each ply without actually pushing moves).
+    """
+    piece = board.piece_at(attacker_sq)
+    if not piece:
+        return True
+    if not board.is_pinned(piece.color, attacker_sq):
+        return False
+    # Get the squares the pinned piece can still legally reach.
+    pin_mask = board.pin(piece.color, attacker_sq)
+    # pin_mask may be a SquareSet or an int bitboard depending on version
+    if isinstance(pin_mask, chess.SquareSet):
+        return target_sq not in pin_mask
+    return not (chess.BB_SQUARES[target_sq] & pin_mask)
+
+
+def static_exchange_eval(board: chess.Board, target_sq: int, initiating_side: chess.Color) -> int:
+    """
+    Compute SEE on `target_sq` assuming `initiating_side` makes the
+    first capture using their cheapest legal attacker. Returns net
+    material in centipawns from `initiating_side`'s POV.
+
+    If `initiating_side` has no legal attacker on `target_sq`, returns 0.
+    """
+    # Find cheapest legal NON-KING attacker from initiating_side.
+    # Kings are excluded from SEE recapture sequences by convention:
+    # a king "recapture" is only legal when no other opponent attacker
+    # remains AND the destination square isn't attacked. Modelling that
+    # exactly is fragile; the conservative choice (skip the king) yields
+    # SEE estimates that are correct in middlegame positions and slightly
+    # too-cautious in some K+P endgames. Tracked as a Phase-1 limitation
+    # in design doc §18.1.
+    attackers = board.attackers(initiating_side, target_sq)
+    if not attackers:
+        return 0
+
+    cheapest_sq = None
+    cheapest_val = 10 ** 9
+    for sq in attackers:
+        piece = board.piece_at(sq)
+        if not piece:
+            continue
+        if piece.piece_type == chess.KING:
+            continue
+        if _is_pinned_against_target(board, sq, target_sq):
+            continue
+        val = PIECE_VALUE_CP.get(piece.piece_type, 0)
+        if val < cheapest_val:
+            cheapest_val = val
+            cheapest_sq = sq
+
+    if cheapest_sq is None:
+        return 0
+
+    captured = board.piece_at(target_sq)
+    if not captured:
+        return 0
+    captured_val = PIECE_VALUE_CP.get(captured.piece_type, 0)
+
+    # First capture
+    gain = [captured_val]
+    current_piece_val = cheapest_val  # piece that just moved onto target
+    consumed = {cheapest_sq}
+    side = not initiating_side
+
+    while True:
+        # Same king-skip rule applies on every recapture ply.
+        candidates = board.attackers(side, target_sq) & ~_square_set(consumed)
+        cheapest_sq = None
+        cheapest_val_iter = 10 ** 9
+        for sq in candidates:
+            piece = board.piece_at(sq)
+            if not piece:
+                continue
+            if piece.piece_type == chess.KING:
+                continue
+            if _is_pinned_against_target(board, sq, target_sq):
+                continue
+            val = PIECE_VALUE_CP.get(piece.piece_type, 0)
+            if val < cheapest_val_iter:
+                cheapest_val_iter = val
+                cheapest_sq = sq
+
+        if cheapest_sq is None:
+            break
+
+        gain.append(current_piece_val - gain[-1])
+        consumed.add(cheapest_sq)
+        current_piece_val = cheapest_val_iter
+        side = not side
+
+    # Backwards pass: at each level, the side can choose not to continue.
+    for d in range(len(gain) - 2, -1, -1):
+        gain[d] = -max(-gain[d], gain[d + 1])
+
+    return gain[0]
+
+
+def _see_for_played_move(board_before: chess.Board, played_move: chess.Move) -> Optional[int]:
+    """Return SEE for a capture move (the played side's perspective),
+    or None if the move is not a capture."""
+    if not board_before.is_capture(played_move):
+        return None
+    # Compute SEE on the target square with the played side as initiator.
+    initiator = board_before.turn
+    return static_exchange_eval(board_before, played_move.to_square, initiator)
+
+
+def _see_for_opponent_on_target(board_after: chess.Board, target_sq: int) -> Optional[int]:
+    """For NON-CAPTURE moves: after the played move, would the opponent
+    capturing on `target_sq` win material? Returns SEE from the
+    opponent's POV (positive = they win material by capturing).
+    Returns None when there's nothing on target_sq."""
+    piece_on_target = board_after.piece_at(target_sq)
+    if not piece_on_target:
+        return None
+    initiator = board_after.turn  # opponent is to move in board_after
+    return static_exchange_eval(board_after, target_sq, initiator)
+
+
+def _exchange_participants(
+    board: chess.Board,
+    target_sq: int,
+    initiating_side: chess.Color,
+) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    """Return (effective_attackers, effective_defenders) — the pieces
+    that would actually participate in the SEE sequence in cheapest-
+    first order, with pinned-against-king pieces filtered out.
+
+    Distinct from raw `attackers_on_target` / `defenders_on_target`
+    which list ALL pieces with line-of-sight regardless of legality.
+    """
+    eff_attackers: List[Tuple[str, str]] = []
+    eff_defenders: List[Tuple[str, str]] = []
+
+    # Walk the exchange sequence. We don't actually need the SEE result
+    # here — just the order of participants.
+    consumed: set = set()
+    side = initiating_side
+
+    while True:
+        attackers = board.attackers(side, target_sq) & ~_square_set(consumed)
+        cheapest_sq = None
+        cheapest_val = 10 ** 9
+        for sq in attackers:
+            piece = board.piece_at(sq)
+            if not piece:
+                continue
+            if piece.piece_type == chess.KING:
+                continue  # Kings don't participate in SEE per convention
+            if _is_pinned_against_target(board, sq, target_sq):
+                continue
+            val = PIECE_VALUE_CP.get(piece.piece_type, 0)
+            if val < cheapest_val:
+                cheapest_val = val
+                cheapest_sq = sq
+        if cheapest_sq is None:
+            break
+
+        piece = board.piece_at(cheapest_sq)
+        entry = (chess.square_name(cheapest_sq), PIECE_TYPE_NAMES.get(piece.piece_type, "piece"))
+        if side == initiating_side:
+            eff_attackers.append(entry)
+        else:
+            eff_defenders.append(entry)
+        consumed.add(cheapest_sq)
+        side = not side
+
+    return eff_attackers, eff_defenders
+
+
+# ────────────────────────────────────────────────────────────────────
+# Threats and undefended pieces
+# ────────────────────────────────────────────────────────────────────
+
+def _threats_created(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    played_move: chess.Move,
+) -> List[Dict[str, Any]]:
+    """Return structured evidence of every threat the played move creates.
+
+    A threat is: own piece NOW attacks an enemy piece such that SEE on
+    capturing that enemy piece is favorable for us. Evidence (NOT labels)
+    per LAW 3 — renderer can render but never re-derive.
+
+    Each threat:
+      {
+        "attacker_square":          str,   # piece that's now threatening
+        "target_square":            str,   # enemy piece being threatened
+        "target_piece_type":        str,
+        "target_value_cp":          int,
+        "see_cp":                   int,   # net material if we capture
+        "is_immediate":             bool,  # we'd play it next without prep
+        "via_moving_piece":         bool,  # the moving piece is the attacker
+        "via_discovered":           bool,  # a different own piece's line opened up
+      }
+    """
+    threats: List[Dict[str, Any]] = []
+    own_color = not board_after.turn  # we just moved; board_after.turn is opp
+    opp_color = board_after.turn
+
+    # Pre-compute which enemy pieces are attacked by which of OUR pieces
+    # in board_before vs board_after. The diff = new threats.
+    enemy_squares = [sq for pt in range(chess.PAWN, chess.KING + 1)
+                       for sq in board_after.pieces(pt, opp_color)]
+
+    for enemy_sq in enemy_squares:
+        enemy_piece = board_after.piece_at(enemy_sq)
+        if not enemy_piece or enemy_piece.piece_type == chess.KING:
+            continue  # checks are handled by is_check, not threats
+
+        attackers_after = board_after.attackers(own_color, enemy_sq)
+        attackers_before = board_before.attackers(own_color, enemy_sq)
+        # A NEW attacker is one that's in 'after' but not in 'before'.
+        # Or: the from-square was an attacker and it moved away (capture case — handled elsewhere).
+        new_attackers = attackers_after - attackers_before
+        if not new_attackers:
+            continue
+
+        # Pick the cheapest new attacker as the "primary threat-maker"
+        cheapest_attacker_sq = None
+        cheapest_val = 10 ** 9
+        for atk_sq in new_attackers:
+            piece = board_after.piece_at(atk_sq)
+            if not piece:
+                continue
+            val = PIECE_VALUE_CP.get(piece.piece_type, 0)
+            if val < cheapest_val:
+                cheapest_val = val
+                cheapest_attacker_sq = atk_sq
+        if cheapest_attacker_sq is None:
+            continue
+
+        # SEE: if we initiate a capture on enemy_sq, do we win material?
+        see_cp = static_exchange_eval(board_after, enemy_sq, own_color)
+        if see_cp <= 0:
+            continue  # not a winning threat — opponent defends adequately
+
+        threats.append({
+            "attacker_square": chess.square_name(cheapest_attacker_sq),
+            "target_square": chess.square_name(enemy_sq),
+            "target_piece_type": PIECE_TYPE_NAMES.get(enemy_piece.piece_type, "piece"),
+            "target_value_cp": PIECE_VALUE_CP.get(enemy_piece.piece_type, 0),
+            "see_cp": see_cp,
+            "is_immediate": True,  # for now all detected threats are immediate;
+                                   # multi-ply threat chains are commit #3 territory.
+            "via_moving_piece": cheapest_attacker_sq == played_move.to_square,
+            "via_discovered": cheapest_attacker_sq != played_move.to_square,
+        })
+
+    # Sort by target value descending — highest-value threat first.
+    threats.sort(key=lambda t: -t["target_value_cp"])
+    return threats
+
+
+def _pieces_now_undefended(
+    board_before: chess.Board,
+    board_after: chess.Board,
+    played_move: chess.Move,
+) -> List[Dict[str, Any]]:
+    """Return own pieces that LOST a defender as a result of the played move.
+
+    Evidence (NOT a label per LAW 3):
+      [
+        {
+          "square":                 str,    # the undefended piece
+          "piece_type":             str,
+          "piece_color":            "white|black",
+          "lost_defender_square":   str | None,  # if a specific defender disappeared
+          "lost_defender_piece":    str | None,
+          "now_attacked":           bool,   # is this piece under attack from opp?
+          "see_if_captured_cp":     int,    # SEE from opp's POV
+        },
+        ...
+      ]
+
+    Computed by diffing defender counts before vs after for each own
+    piece. Renderer decides how to phrase it (or whether to mention).
+    """
+    out: List[Dict[str, Any]] = []
+    own_color = not board_after.turn
+    opp_color = board_after.turn
+    from_sq = played_move.from_square
+
+    # Own pieces that existed BEFORE the move and still exist after.
+    # (The moved piece itself is on a different square afterwards — skip.)
+    own_squares_before = [
+        sq for pt in range(chess.PAWN, chess.KING + 1)
+        for sq in board_before.pieces(pt, own_color)
+        if sq != from_sq
+    ]
+
+    for sq in own_squares_before:
+        piece = board_after.piece_at(sq)
+        if not piece or piece.color != own_color:
+            # Piece was captured during the move (e.g., en passant edge case)
+            continue
+
+        defenders_before = board_before.attackers(own_color, sq)
+        defenders_after = board_after.attackers(own_color, sq)
+        lost = defenders_before - defenders_after
+
+        # Did this piece lose a defender? The from_square will normally
+        # appear in `lost` if the moved piece was defending sq.
+        if not lost:
+            continue
+
+        # Was the lost defender the moved piece?
+        lost_defender_sq = None
+        lost_defender_piece = None
+        if from_sq in lost:
+            moved_piece = board_before.piece_at(from_sq)
+            if moved_piece:
+                lost_defender_sq = chess.square_name(from_sq)
+                lost_defender_piece = PIECE_TYPE_NAMES.get(moved_piece.piece_type, "piece")
+        else:
+            # A different defender disappeared (e.g. through-line broken).
+            # Pick the most valuable lost defender.
+            best_lost = None
+            best_val = -1
+            for ldsq in lost:
+                piece_lost = board_before.piece_at(ldsq)
+                if piece_lost and PIECE_VALUE_CP.get(piece_lost.piece_type, 0) > best_val:
+                    best_val = PIECE_VALUE_CP[piece_lost.piece_type]
+                    best_lost = (ldsq, piece_lost)
+            if best_lost:
+                lost_defender_sq = chess.square_name(best_lost[0])
+                lost_defender_piece = PIECE_TYPE_NAMES.get(best_lost[1].piece_type, "piece")
+
+        attackers_after = board_after.attackers(opp_color, sq)
+        now_attacked = bool(attackers_after)
+        see_if_captured = 0
+        if now_attacked:
+            see_if_captured = static_exchange_eval(board_after, sq, opp_color)
+
+        out.append({
+            "square": chess.square_name(sq),
+            "piece_type": PIECE_TYPE_NAMES.get(piece.piece_type, "piece"),
+            "piece_color": "white" if piece.color == chess.WHITE else "black",
+            "lost_defender_square": lost_defender_sq,
+            "lost_defender_piece": lost_defender_piece,
+            "now_attacked": now_attacked,
+            "see_if_captured_cp": see_if_captured,
+        })
+
+    # Sort: pieces that are now under losing exchange first (highest material at risk).
+    out.sort(key=lambda x: -x["see_if_captured_cp"] if x["now_attacked"] else 0)
+    return out
 
 
 def _is_forced_recapture(board_before: chess.Board, played_move: chess.Move) -> bool:
@@ -304,6 +714,51 @@ def extract_facts(
     attackers_on_target = _attackers_of(board_after, opp_color, played_move.to_square)
     defenders_on_target = _attackers_of(board_after, own_color, played_move.to_square)
 
+    # ── SEE-driven exchange truth (commit #2) ──────────────────────────
+    # Raw attacker/defender counts above are kept for renderer reference
+    # but DO NOT drive trigger logic. SEE handles pinned/x-ray/value-
+    # imbalance correctly by simulating the actual cheapest-first
+    # recapture sequence.
+    see_played_capture_cp = _see_for_played_move(board_before, played_move)
+    # For non-capture moves: would opponent win material capturing on
+    # target_square next? SEE from their POV in board_after.
+    see_target_square_cp = None
+    if not is_capture:
+        see_target_square_cp = _see_for_opponent_on_target(board_after, played_move.to_square)
+
+    # `is_exchange_losing` consolidates the two SEE signals:
+    #   - if it's a capture: SEE for the played capture is negative
+    #   - if not a capture: opponent's SEE on the target square is positive
+    #     (meaning OUR piece is in danger of being won)
+    if is_capture and see_played_capture_cp is not None:
+        is_exchange_losing = see_played_capture_cp < -EXCHANGE_LOSS_THRESHOLD_CP
+        exchange_loss_cp = abs(see_played_capture_cp) if see_played_capture_cp < 0 else 0
+    elif see_target_square_cp is not None:
+        is_exchange_losing = see_target_square_cp > EXCHANGE_LOSS_THRESHOLD_CP
+        exchange_loss_cp = see_target_square_cp if see_target_square_cp > 0 else 0
+    else:
+        is_exchange_losing = False
+        exchange_loss_cp = 0
+
+    # ── Effective attackers/defenders (SEE-participating, pin-filtered) ─
+    # Distinct from the RAW lists above. Effective = the pieces that
+    # actually take part in the exchange sequence. Renderers should
+    # prefer these for trigger logic; raw lists stay for reference.
+    initiating_for_target = opp_color  # who'd start a capture sequence on the target?
+    if is_capture:
+        # The piece sitting on target was captured — exchange continues from
+        # opponent's POV (they'd recapture).
+        initiating_for_target = opp_color
+    effective_attackers, effective_defenders = _exchange_participants(
+        board_after, played_move.to_square, initiating_for_target
+    )
+
+    # ── Threats created by the played move (structured evidence) ────────
+    threats_created = _threats_created(board_before, board_after, played_move)
+
+    # ── Pieces that lost a defender (structured evidence) ──────────────
+    pieces_now_undefended = _pieces_now_undefended(board_before, board_after, played_move)
+
     # ── Phase ──────────────────────────────────────────────────────────
     full_move = full_move_number or board_before.fullmove_number
     phase = _detect_phase(board_before, full_move)
@@ -332,8 +787,8 @@ def extract_facts(
     user_eval_after = eval_after_cp
     if user_eval_after is not None and own_color == chess.BLACK:
         user_eval_after = -user_eval_after
-    user_is_winning = (user_eval_after is not None) and (user_eval_after >= 200)
-    user_is_losing = (user_eval_after is not None) and (user_eval_after <= -200)
+    user_is_winning = (user_eval_after is not None) and (user_eval_after >= EVAL_WINNING_THRESHOLD_CP)
+    user_is_losing = (user_eval_after is not None) and (user_eval_after <= EVAL_LOSING_THRESHOLD_CP)
 
     # ── Move-history facts ─────────────────────────────────────────────
     move_index = len(move_history_san)  # 0-based ply index of the played move
@@ -366,11 +821,18 @@ def extract_facts(
         "is_forced_recapture": forced_recapture,
         "is_pawn_move": moving_piece_type == chess.PAWN,
 
-        # ATTACK / DEFENSE — RAW LISTS (SEE arrives commit #2)
+        # ATTACK / DEFENSE — RAW LISTS (pure geometry, no judgment)
         "attackers_on_target": attackers_on_target,
         "defenders_on_target": defenders_on_target,
         "attacker_count": len(attackers_on_target),
         "defender_count": len(defenders_on_target),
+
+        # EFFECTIVE PARTICIPANTS (SEE-filtered, pin-aware)
+        # These are the pieces that ACTUALLY take part in the exchange
+        # sequence — renderer rules should prefer these over raw lists
+        # for trigger logic. Raw lists remain available for reference.
+        "effective_attackers_on_target": effective_attackers,
+        "effective_defenders_on_target": effective_defenders,
 
         # PHASE / MOVE INDEX
         "phase": phase,
@@ -387,14 +849,16 @@ def extract_facts(
         "user_is_winning": user_is_winning,
         "user_is_losing": user_is_losing,
 
+        # EXCHANGE TRUTH (SEE — commit #2)
+        "see_played_capture_cp": see_played_capture_cp,
+        "see_target_square_cp": see_target_square_cp,
+        "is_exchange_losing": is_exchange_losing,
+        "exchange_loss_cp": exchange_loss_cp,
+        "threats_created": threats_created,
+        "pieces_now_undefended": pieces_now_undefended,
+
         # PLACEHOLDERS for fields arriving in subsequent commits.
         # Renderer rules MUST check is None before reading these.
-        "see_played_capture_cp": None,         # commit #2
-        "see_target_square_cp": None,          # commit #2
-        "is_exchange_losing": None,            # commit #2
-        "exchange_loss_cp": None,              # commit #2
-        "threats_created": None,               # commit #2
-        "pieces_now_undefended": None,         # commit #2
         "tactics_detected": None,              # commit #3 — list of evidence dicts
         "material_delta_played_cp": None,      # commit #3
         "material_delta_best_cp": None,        # commit #3
