@@ -313,8 +313,8 @@ def _r10_trigger(f):
 def _r10_render(f):
     threat = max(f["threats_created"], key=lambda t: t.get("see_cp", 0))
     cap = (
-        f"{_played(f)} threatens {threat['attacker_piece_type']}x{threat['target_square']} "
-        f"winning the {threat['target_piece_type']}."
+        f"{_played(f)} threatens the {threat['target_piece_type']} "
+        f"on {threat['target_square']}."
     )
     return CaptionOutput(
         cap,
