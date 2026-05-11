@@ -644,4 +644,96 @@ The geometric guarantee from v1 still holds: false positives are structurally im
 
 ---
 
+## 17. Why this isn't really a "caption" pipeline
+
+A second-order observation that emerged during v1→v2 review: the architecture we've built is bigger than captions.
+
+```
+extractor   →   reasoning   →   compressed teaching
+   (facts)        (rules)         (≤25-word render)
+```
+
+The **extractor layer is the canonical chess-understanding layer for the whole product.** Captions are just the first renderer that sits on top. Future surfaces that can plug into the same facts dict:
+
+- **Play with Coach commentary** — live move-by-move using the same extractor on each new position
+- **Postgame review** — same facts, different aggregation
+- **Puzzle explanations** — when the user solves/fails a puzzle, render why using the same extractor on the puzzle position
+- **Plateau Breaker captions** — when emitting "you've made this mistake before," ground each instance in extractor facts
+- **"Why not this move?" tutor** — when the user clicks an alternative, run the extractor on the alt's resulting position and explain
+- **Tactical quiz feedback** — same facts, simpler render
+- **Adaptive lesson narration** — pick examples from games where specific facts are present (e.g., positions where SEE > 0 to teach "free piece" lessons)
+
+This means the extractor is **load-bearing for the entire coaching stack**, not just for captions. Investing extra rigor here pays compounded dividends. Specifically:
+
+- Every new fact added to the extractor automatically becomes available to all renderers.
+- Every renderer is bound by the same law (§13.11, memory: `feedback_renderer_never_computes_chess_meaning.md`): never compute chess meaning, only select and compress facts.
+- The renderer-vs-extractor split is not a caption-pipeline detail — it's a product-wide architectural law.
+
+**Implication for the build:** prioritize extractor correctness and field-completeness over rule-library size. A small rule library on a strong extractor will outperform a big rule library on a thin extractor.
+
+---
+
+## 18. Implementation watchlist (non-blocking, must monitor)
+
+These are real risks that don't block v1 but require discipline during build. Documented so they aren't forgotten when the work intensifies.
+
+### 18.1 SEE edge cases
+
+SEE handles exchange evaluation correctly for the common case — capture sequences, pinned defenders, value imbalance, x-ray defenders. But SEE alone won't catch:
+
+- **Trapped-piece compensation** — a piece captured on a square it couldn't escape from anyway. SEE thinks the capture loses material, but the piece was going to die regardless. (Rare; affects ~1% of captures.)
+- **Mating attack value** — a piece sacrifice that delivers mate. SEE says -9 (queen sac), but the position is winning. Mate detection must take priority over SEE in the rule trigger order.
+- **Long tactical sequences** — SEE walks only the immediate capture chain. A 6-ply combination that finally wins material isn't caught by SEE; needs PV-based material delta (`material_delta_played_cp`) instead.
+- **Positional sacrifices** — giving material for long-term positional gain (open file, weakened king). SEE says loss; the position is actually equal or better.
+
+**Mitigation:** use SEE as the primary trigger for R02 (material loss), but the rule's priority is below tactics (R03-R06) and below check-with-mate. If the engine's PV after the move shows a winning sequence despite SEE-negative on the immediate capture, defer to `material_delta_played_cp`. The trigger logic for R02 becomes:
+
+```python
+def r02_trigger(facts):
+    if facts["tactic"] is not None: return False    # tactic rule fires instead
+    if facts["delivers_mate"]: return False         # mate rule fires instead
+    if facts["material_delta_played_cp"] > 0: return False  # PV says we're winning
+    return facts["cp_loss"] >= 100 and facts["is_exchange_losing"]
+```
+
+### 18.2 Rule explosion
+
+The phased plan grows from 20 rules (Phase 1) to ~40 (Phase 2 geometric) to ~50 (Phase 2 PV walks) to ~60 (Phase 3 concepts). Without discipline this becomes unmaintainable.
+
+**Mitigation built into the build:**
+- **Flat rule files.** No nested conditionals, no rule-of-rules. Each rule is one entry with `trigger`, `priority`, `template`, `highlights`, `arrows`. If a rule needs branching, split it into two rules.
+- **One file per rule category.** `caption_rules/tactical.py`, `caption_rules/material.py`, `caption_rules/opening.py`, `caption_rules/positional.py`. Each file imports facts type and exports a list of rules.
+- **Unit test per rule.** Every rule ships with at least one inline smoke test: a FEN + facts dict + expected caption. The rule registry validates that every rule has tests on load.
+- **No dynamic rule generation.** Rules are static Python objects (or static JSON). No metaprogramming.
+- **Triggers are one-liners.** If a trigger is more than 80 characters, the logic belongs in the extractor (add a fact), not in the rule.
+
+### 18.3 Primary reason extraction quality
+
+The `extract_primary_reason(facts)` layer (§5.7) is the hidden soul of the system. Bad primary reasons are technically true but emotionally wrong:
+
+> *"Best move. Defends b2."* — when the real reason was *"Threatens mate in 3."*
+
+The priority order in §5.7 is a first approximation. It will need tuning based on real Parth feedback.
+
+**Mitigation built into the build:**
+- The `extract_primary_reason` function returns BOTH the reason text AND the priority level that produced it. Captions carry the priority in their debug output (not user-visible).
+- During regression review, every caption Parth flags as "wrong reason" gets the priority and the alternative reasons logged. Patterns emerge ("you keep picking development over threat" → adjust priority order).
+- The priority order is a single sorted list at the top of `caption_facts.py`. Reordering it is a one-line change. No code dependencies on specific priorities.
+- A future enhancement: contextual priority adjustments (e.g., in endgames, king safety drops below pawn structure). Not Phase 1; track if Phase 1 reviews reveal need.
+
+### 18.4 The renderer-never-computes law (mechanical enforcement)
+
+Per memory `feedback_renderer_never_computes_chess_meaning.md`: the renderer must not compute chess meaning. The implementation enforces this mechanically.
+
+**Grep-test at CI / before each commit:**
+```bash
+# These commands must return ZERO lines from caption_rules.py and caption_renderer.py:
+grep -E "import chess|chess\\.Board|\\.parse_san|\\.attacks\\b|\\.piece_at|engine\\.analyse" \
+  backend/services/caption_renderer.py backend/data/caption_rules/*.py
+```
+
+If anything matches, the rule file has reached past the facts dict into chess logic. Move the logic to `caption_facts.py` and re-run.
+
+---
+
 End of design doc.
