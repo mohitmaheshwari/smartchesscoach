@@ -1315,8 +1315,11 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "priority_level": 4,
         }
 
-    # Priority 5: forced recapture (factual, no praise)
-    if facts.get("is_forced_recapture"):
+    # Priority 5: forced recapture (factual, no praise).
+    # Same cp_loss gate as tactic/threat — "only move, takes back the
+    # piece" is celebratory framing that misleads on a losing recapture
+    # (e.g. d7ce40cf #7 Nxd5 330 cp blunder where declining was better).
+    if _tactic_ok and facts.get("is_forced_recapture"):
         return {
             "category": "forced_recapture",
             "ref_field": "captured_piece_type",
@@ -1357,9 +1360,12 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # Priority 9: pawn structure (Phase 1 minimal — explicit fact)
     # Reserved for when concept facts arrive.
 
-    # Priority 10: development — opening + develops minor + has next-step
+    # Priority 10: development — opening + develops minor + has next-step.
+    # Gated on cp_loss like other celebratory categories — a 200 cp
+    # mistake in the opening shouldn't be celebrated as development.
     if (
-        facts.get("phase") == "opening"
+        _tactic_ok
+        and facts.get("phase") == "opening"
         and facts.get("moving_piece_type") in ("knight", "bishop")
     ):
         # Phase 1: very permissive — any minor-piece move in opening
@@ -1369,6 +1375,22 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "category": "development",
             "ref_field": "moving_piece_type",
             "priority_level": 10,
+        }
+
+    # Priority 11: blunder — last-resort category that fills the silence
+    # for any move whose engine evaluation calls it a mistake or worse.
+    # All celebratory categories above are gated on cp_loss < the
+    # MAX_CP_LOSS_FOR_TACTIC_CELEBRATION threshold, so anything that
+    # reaches this point with cp_loss above that threshold is a real
+    # blunder/mistake with no redeeming tactical or developmental story.
+    # From d7ce40cf corpus this fills silences on:
+    #   user side : #6 d3, #7 Nxd5, #9 Bg5, #17 a3, #19 Re7
+    #   opp side  : #19 Rd8, #21 Rd8
+    if _move_cpl >= MAX_CP_LOSS_FOR_TACTIC_CELEBRATION:
+        return {
+            "category": "blunder",
+            "ref_field": "cp_loss",
+            "priority_level": 11,
         }
 
     return None

@@ -337,6 +337,33 @@ def _r11_render(f):
     )
 
 
+# R12 — Blunder fallback. Fills the silence for moves whose engine
+# evaluation labels them a mistake/blunder and that didn't fire any of
+# the celebratory rules above (those are gated on cp_loss in
+# extract_primary_reason). Phrasing is neutral: it describes loss in
+# pawns and points at the engine's best alternative.
+def _r12_trigger(f):
+    return (f.get("cp_loss") or 0) >= 100
+
+
+def _r12_render(f):
+    cpl = f.get("cp_loss") or 0
+    pawns = max(1, min(9, round(cpl / 100)))
+    pawns_word = "pawn" if pawns == 1 else "pawns"
+    played = _played(f)
+    best = _best(f)
+    if best and best != played:
+        cap = f"{played} loses about {pawns} {pawns_word}. {best} was better."
+    else:
+        cap = f"{played} loses about {pawns} {pawns_word}."
+    return CaptionOutput(
+        caption=cap,
+        highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
+        arrows=[],
+        rule_name="R12_blunder",
+    )
+
+
 # R_FALLBACK — no rule matched. Silence.
 def _r_fallback_trigger(f):
     return True  # always fires last
@@ -364,4 +391,5 @@ RULES: List[Rule] = [
     Rule("R09_king_safety",         "king_safety",      9, _r09_trigger, _r09_render),
     Rule("R10_threat",              "threat",          10, _r10_trigger, _r10_render),
     Rule("R11_development",         "development",     11, _r11_trigger, _r11_render),
+    Rule("R12_blunder",             "blunder",         12, _r12_trigger, _r12_render),
 ]
