@@ -1001,11 +1001,17 @@ def _mate_threat_evidence(
     pv_after_played: List[str],
     pv_after_best: List[str],
     own_color: chess.Color,
+    is_checkmate: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Detect forced mate from PV + eval sentinels. Returns an evidence
     dict or None.
 
-    Three signal sources, in order:
+    Four signal sources, in order:
+      0. board_after.is_checkmate() — the PLAYED move just delivered
+         mate. This is the strongest possible signal; the PV is empty
+         because the game is over, so PV-scanning won't find it.
+         From d7ce40cf corpus: #24 OPP Rd1# was being classed as plain
+         check because the other three signals all missed.
       1. The PV contains a SAN ending in '#' → mate forced; ply distance
          known directly.
       2. eval_after_cp is in the mate-sentinel range (|eval| >= 9000) →
@@ -1016,12 +1022,24 @@ def _mate_threat_evidence(
     Evidence emitted:
       {
         "side_delivering_mate": "white" | "black",
-        "ply_to_mate": int | None,         # known if PV has '#'
-        "via_played_move": bool,           # detected in pv_after_played
+        "ply_to_mate": int | None,         # known if PV has '#' or is_checkmate
+        "via_played_move": bool,           # detected in pv_after_played OR move is mate
         "via_best_move": bool,             # detected in pv_after_best
         "engine_eval_indicates_mate": bool,
+        "delivered_on_this_move": bool,    # is_checkmate after the played move
       }
     """
+    # 0. The played move IS mate (board_after.is_checkmate() == True).
+    if is_checkmate:
+        return {
+            "side_delivering_mate": "white" if own_color == chess.WHITE else "black",
+            "ply_to_mate": 1,
+            "via_played_move": True,
+            "via_best_move": False,
+            "engine_eval_indicates_mate": True,
+            "delivered_on_this_move": True,
+        }
+
     # PV-based mate detection
     played_mate_ply = _pv_resolves_to_mate(pv_after_played)
     best_mate_ply = _pv_resolves_to_mate(pv_after_best)
@@ -1047,6 +1065,7 @@ def _mate_threat_evidence(
         "via_played_move": played_mate_ply is not None,
         "via_best_move": best_mate_ply is not None,
         "engine_eval_indicates_mate": engine_eval_indicates_mate,
+        "delivered_on_this_move": False,
     }
 
 
@@ -1666,7 +1685,8 @@ def extract_facts(
 
     # ── Mate threat evidence (commit #4a) ───────────────────────────────
     mate_threat_evidence = _mate_threat_evidence(
-        eval_after_cp, pv_after_played, pv_after_best, own_color
+        eval_after_cp, pv_after_played, pv_after_best, own_color,
+        is_checkmate=is_checkmate,
     )
 
     # ── Missed tactic evidence (commit #4b) ─────────────────────────────

@@ -97,10 +97,14 @@ def _r01_render(f):
     side_delivering = ev.get("side_delivering_mate")
     moving_color = f.get("moving_piece_color")
     ply = ev.get("ply_to_mate")
-    if side_delivering and side_delivering == moving_color:
-        # We delivered (or are delivering)
+    delivered_on_this_move = ev.get("delivered_on_this_move", False)
+    if delivered_on_this_move:
+        # The played move IS the mating move. Same template regardless of side.
+        cap = f"{_played(f)}. Checkmate."
+    elif side_delivering and side_delivering == moving_color:
+        # We're delivering mate within the next few ply.
         if ply == 1:
-            cap = f"{_played(f)}. Checkmate."
+            cap = f"{_played(f)}. Forces mate next move."
         elif ply:
             cap = f"{_played(f)}. Forces mate in {ply}."
         else:
