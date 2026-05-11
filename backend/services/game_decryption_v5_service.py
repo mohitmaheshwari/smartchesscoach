@@ -50,6 +50,24 @@ V5_COACHING_VERSION = 5  # v5: PV-based consequence analysis (captures > static 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
 
+# ── V5 caption pipeline feature flag ────────────────────────────────────
+# When True, every move record also carries new fields produced by the
+# extractor→rules→renderer pipeline (caption, rule_name, caption_arrows,
+# caption_highlight_squares, caption_facts_primary_reason). Legacy fields
+# (narrative, plan, future_moves, highlight_squares) remain in place so
+# reviewers can compare side-by-side. Disable by setting env to "0".
+# Per docs/caption_pipeline_design.md.
+CAPTION_V5_PIPELINE_ENABLED = os.environ.get("CAPTION_V5_PIPELINE_ENABLED", "1") not in ("0", "false", "False", "")
+
+try:
+    from services.caption_facts import extract_facts as _extract_caption_facts
+    from services.caption_renderer import render_caption_dict as _render_caption_dict
+except Exception as _caption_import_exc:  # pragma: no cover — defensive
+    _extract_caption_facts = None
+    _render_caption_dict = None
+    logger.warning(f"[caption_v5] import failed; pipeline disabled: {_caption_import_exc}")
+    CAPTION_V5_PIPELINE_ENABLED = False
+
 # Load theory data
 THEORY_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "theory")
 COACHING_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "coaching")
@@ -3031,10 +3049,70 @@ async def generate_game_decryption_v5(
                             move_priority = "weakness_match"
                         break
 
+            # ── V5 CAPTION PIPELINE ─────────────────────────────────────
+            # Extractor → rules → renderer. Runs for EVERY move (user +
+            # opponent). Pure-function: facts come from FEN + engine truth,
+            # renderer never touches `chess`. New fields land on move_output
+            # alongside the legacy `narrative`/`plan`/`highlight_squares`
+            # so we can review side-by-side before retiring the dispatcher.
+            # Per docs/caption_pipeline_design.md §3.
+            caption_payload = {
+                "caption": "",
+                "rule_name": "R_FALLBACK_disabled",
+                "highlight_squares": [],
+                "arrows": [],
+            }
+            caption_primary_reason = None
+            if CAPTION_V5_PIPELINE_ENABLED and _extract_caption_facts and _render_caption_dict:
+                try:
+                    # Rebuild SAN history from board.move_stack so the
+                    # extractor sees the same line we just replayed.
+                    cap_history: List[str] = []
+                    _replay = chess.Board()
+                    for _past in board.move_stack:
+                        cap_history.append(_replay.san(_past))
+                        _replay.push(_past)
+                    # Eval inputs are stored from white's POV regardless of
+                    # who moved; extractor flips per-side internally.
+                    if is_user:
+                        _eb = eval_data.get("eval_before")
+                        _ea = eval_data.get("eval_after")
+                        _cpl = cp_loss
+                    else:
+                        _eb = opp_eval_before
+                        _ea = opp_eval_after
+                        _cpl = max(0, opp_cp_loss)
+                    caption_facts = _extract_caption_facts(
+                        fen_before=fen_before,
+                        played_san=move_san,
+                        best_move_san=best_move,
+                        eval_before_cp=_eb,
+                        eval_after_cp=_ea,
+                        cp_loss=_cpl,
+                        pv_after_played=pv_after_played,
+                        pv_after_best=pv_after_best,
+                        move_history_san=cap_history,
+                        full_move_number=full_move_number,
+                    )
+                    caption_payload = _render_caption_dict(caption_facts)
+                    caption_primary_reason = caption_facts.get("primary_reason")
+                except Exception as _caption_exc:
+                    logger.warning(
+                        f"[caption_v5] move {full_move_number} {move_san} "
+                        f"extract/render failed: {_caption_exc}"
+                    )
+                    caption_payload = {
+                        "caption": "",
+                        "rule_name": "R_FALLBACK_extractor_crashed",
+                        "highlight_squares": [],
+                        "arrows": [],
+                    }
+                    caption_primary_reason = None
+
             # Build move output
             prev_move = move
             board.push(move)
-            
+
             # Track user's eval_after for opponent blunder detection
             if is_user:
                 prev_user_eval_after = eval_data.get("eval_after")
@@ -3087,8 +3165,18 @@ async def generate_game_decryption_v5(
                 # Good move tracking
                 "is_best_move": is_best_move,
                 "concept_applied": concept_applied,
+
+                # V5 caption pipeline — new contract per
+                # docs/caption_pipeline_design.md. Lives alongside the
+                # legacy narrative/plan until the side-by-side review
+                # signs off; then the dispatcher retires.
+                "caption": caption_payload["caption"],
+                "rule_name": caption_payload["rule_name"],
+                "caption_arrows": caption_payload["arrows"],
+                "caption_highlight_squares": caption_payload["highlight_squares"],
+                "caption_facts_primary_reason": caption_primary_reason,
             }
-            
+
             decryption_data.append(move_output)
             
             # Update concept shown count
