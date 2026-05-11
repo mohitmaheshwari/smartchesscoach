@@ -129,6 +129,10 @@ async def main() -> int:
                    help="How many sample captions to print per rule_name.")
     p.add_argument("--samples-per-suspect", type=int, default=10,
                    help="How many suspect samples to print per tag.")
+    p.add_argument("--quiet", action="store_true",
+                   help="Suppress the report on stdout — only write it to "
+                        "--output. Per-game progress lines still print so "
+                        "you can see the run is alive.")
     args = p.parse_args()
 
     client = AsyncIOMotorClient(MONGO_URL)
@@ -340,7 +344,8 @@ async def main() -> int:
     out_lines.append("")
 
     report = "\n".join(out_lines)
-    print(report)
+    if not args.quiet:
+        print(report)
 
     if args.output:
         out_path = Path(args.output)
