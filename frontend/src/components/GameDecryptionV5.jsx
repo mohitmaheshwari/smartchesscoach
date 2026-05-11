@@ -669,64 +669,34 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
   const currentMove = useMemo(() => {
     if (!rawCurrentMove) return null;
-    const moments = decryptionBlock?.moments || [];
-    const matched = moments.find(
-      (m) =>
-        m.move_number === rawCurrentMove.move_number
-        && m.move_san === rawCurrentMove.move_san
-        && m.text,
-    );
-    if (matched) {
-      // We have an authoritative override from the new pipeline.
-      // Replace the V5 narrative AND suppress the V5 supplementary
-      // text fields (consequence / better_approach / your_plan_now /
-      // candidate_move idea text), which Parth flagged repeatedly as
-      // wrong / generic / overconfident. Keep candidate_move SANs so
-      // the click-to-see-line UI still works — only suppress the
-      // misleading prose attached to them.
-      const cleanedPlan = rawCurrentMove.plan
-        ? {
-            ...rawCurrentMove.plan,
-            consequence: null,
-            better_approach: null,
-            candidate_moves: (rawCurrentMove.plan.candidate_moves || []).map(c => ({
-              ...c,
-              idea: null,    // strip buggy "X is a strong move here" text
-            })),
-          }
-        : rawCurrentMove.plan;
-      return {
-        ...rawCurrentMove,
-        narrative: matched.text,
-        plan: cleanedPlan,
-        your_plan_now: null,
-        _narrative_source: matched.source,
-      };
-    }
-
-    // No override — apply defensive filters per-field.
-    const cp = rawCurrentMove.cp_loss;
-    const filteredPlan = rawCurrentMove.plan
+    // decryption_block.moments[] override DISABLED — per-move endpoint
+    // (which now sources from V5 caption pipeline, see backend commit
+    // 13c1073b) is the single source of move-by-move text. LLM voice
+    // moments live on their own surface (TruthHeadline / GameMoments),
+    // also currently hidden for "tester sees only upgraded output."
+    // Legacy plan-prose fields (consequence / better_approach /
+    // your_plan_now) are nulled regardless of `_isV5TextStale` — they
+    // are never rendered now (retire commit 13c1073b deleted the JSX),
+    // so passing them through the filter is dead work. Candidate-move
+    // SANs are preserved for the click-to-see-line buttons.
+    const cleanedPlan = rawCurrentMove.plan
       ? {
           ...rawCurrentMove.plan,
-          consequence: _isV5TextStale(rawCurrentMove.plan.consequence, cp)
-            ? null : rawCurrentMove.plan.consequence,
-          better_approach: _isV5TextStale(rawCurrentMove.plan.better_approach, cp)
-            ? null : rawCurrentMove.plan.better_approach,
+          consequence: null,
+          better_approach: null,
+          transferable_learning: null,
           candidate_moves: (rawCurrentMove.plan.candidate_moves || []).map(c => ({
             ...c,
-            idea: _isV5TextStale(c.idea, cp) ? null : c.idea,
+            idea: null,
           })),
         }
       : rawCurrentMove.plan;
-
     return {
       ...rawCurrentMove,
-      narrative: _isV5TextStale(rawCurrentMove.narrative, cp) ? "" : rawCurrentMove.narrative,
-      plan: filteredPlan,
-      your_plan_now: _isV5TextStale(rawCurrentMove.your_plan_now, cp)
-        ? null : rawCurrentMove.your_plan_now,
-      _narrative_source: _isV5TextStale(rawCurrentMove.narrative, cp) ? "v5_suppressed" : "v5",
+      narrative: rawCurrentMove.narrative || "",
+      plan: cleanedPlan,
+      your_plan_now: null,
+      _narrative_source: "v5_caption",
     };
   }, [rawCurrentMove, decryptionBlock]);
 
@@ -786,9 +756,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           Pattern Evidence (visual proof on a mini board) shipped
           2026-05-05 — rendered when the game has tracked-pattern
           evidence (king-safety / piece-safety so far). */}
-      <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} userColor={userColor} />
+      {/* TruthHeadline + GameMoments retired for "show only what's been
+          upgraded" testing — both are LLM voice surfaces (separate from
+          the new V5 caption pipeline). PatternEvidence stays — it's a
+          factual mini-board visualisation, not prose. */}
+      {false && <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} userColor={userColor} />}
       <PatternEvidence patternEvidence={patternEvidence} userColor={userColor} />
-      <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} gameId={gameId} />
+      {false && <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} gameId={gameId} />}
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}
@@ -1018,16 +992,9 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, coachSummar
           detected a held-initiative-after-miss segment OR a strong
           forcing-move streak. Backend returns null when there's no
           signal worth narrating; in that case the block stays hidden. */}
-      {cctNarrative && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-4" data-testid="cct-narrative">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-600 dark:text-amber-400 mb-2">
-            What you got right
-          </p>
-          <p className="text-sm text-foreground leading-relaxed">
-            {cctNarrative}
-          </p>
-        </div>
-      )}
+      {/* CCT narrative block retired for "show only upgraded output"
+          testing — LLM voice surface, separate pipeline from V5 captions. */}
+      {false && cctNarrative && (<div />)}
 
       {/* What this analysis does */}
       <div className="rounded-lg border border-border p-4 bg-background">
@@ -1206,7 +1173,7 @@ const MoveCoachingCardV5 = ({
             X is a true deviation or a valid alternative line.
             Also bumped contrast from text-gray-500/400 (faded in dark
             mode) to text-foreground/80 + foreground/60 for readability. */}
-        {openingAnalysis && move.phase === "opening" && move.move_number <= 12 && (
+        {false && openingAnalysis && move.phase === "opening" && move.move_number <= 12 && (
           <div className="bg-primary/5 rounded-lg p-3 border border-primary/30">
             <p className="text-xs text-primary font-semibold mb-1">
               Opening: {openingAnalysis.name}

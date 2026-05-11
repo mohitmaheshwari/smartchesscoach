@@ -3147,30 +3147,57 @@ async def generate_game_decryption_v5(
                 "weakness_match": weakness_match,
                 "weakness_count": weakness_count if weakness_match else None,
                 
-                # V5 Coaching
-                "narrative": narrative,
-                "plan": asdict(plan) if plan else None,
-                "future_moves": future_moves,
+                # ── LEGACY PROSE FIELDS RETIRED ─────────────────
+                # narrative / plan.{goal,current_problem,consequence,
+                # better_approach,transferable_learning,concept_id,
+                # concept_type} / your_plan_now / future_moves are no
+                # longer emitted. The frontend reads its move-by-move
+                # text from the new V5 caption pipeline via the
+                # /coach/decryption/per-move/{game_id} endpoint, which
+                # sources from `caption` below. Per memory rule
+                # `feedback_v5_caption_rewrite_no_patches.md`: ship the
+                # new pipeline end-to-end, drop the legacy prose.
+                #
+                # Engine candidate moves (just the SAN list) are kept
+                # on plan.candidate_moves so the click-to-see-line UI
+                # still works — those aren't prose, they're an
+                # interactive game-tree feature.
+                "narrative": "",
+                "plan": (
+                    {
+                        "goal": None,
+                        "current_problem": None,
+                        "consequence": None,
+                        "better_approach": None,
+                        "transferable_learning": None,
+                        "concept_id": None,
+                        "concept_type": None,
+                        "candidate_moves": plan.candidate_moves,
+                    }
+                    if plan and plan.candidate_moves else None
+                ),
+                "future_moves": [],
                 "highlight_squares": highlight_squares,
-                
-                # Theory/Learning
-                "needs_acknowledgment": needs_acknowledgment,
-                "already_acknowledged": already_acknowledged,
-                "acknowledgment_prompt": acknowledgment_prompt,
-                "concept_id": plan.concept_id if plan else None,
-                "concept_type": plan.concept_type if plan else None,
-                
-                # Opponent analysis
-                "your_plan_now": your_plan_now,
-                
-                # Good move tracking
+
+                # Concept-acknowledgment loop retired with the legacy
+                # transferable_learning surface (frontend JSX deleted).
+                "needs_acknowledgment": False,
+                "already_acknowledged": False,
+                "acknowledgment_prompt": None,
+                "concept_id": None,
+                "concept_type": None,
+
+                "your_plan_now": None,
+
+                # Good move tracking — concept_applied is the only
+                # legacy "good move" string we leave in; renderer
+                # doesn't surface it but other lab consumers may.
                 "is_best_move": is_best_move,
                 "concept_applied": concept_applied,
 
-                # V5 caption pipeline — new contract per
-                # docs/caption_pipeline_design.md. Lives alongside the
-                # legacy narrative/plan until the side-by-side review
-                # signs off; then the dispatcher retires.
+                # ── NEW V5 CAPTION PIPELINE (the only text source) ─
+                # Per docs/caption_pipeline_design.md. Frontend reads
+                # via /coach/decryption/per-move/{game_id}.
                 "caption": caption_payload["caption"],
                 "rule_name": caption_payload["rule_name"],
                 "caption_arrows": caption_payload["arrows"],
