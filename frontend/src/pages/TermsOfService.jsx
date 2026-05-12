@@ -3,7 +3,7 @@
  *
  * Operator:   Maheshwari Innovative IT Services LLP
  * GSTIN:      09ABXFM7842G1ZH
- * Address:    Tulsi Residency, Goverdhan, Mathura, UP – 285102
+ * Address:    Tulsi Residency, Goverdhan, Mathura, UP – 281502
  * Jurisdiction for disputes: Mathura, Uttar Pradesh
  *
  * NOT a substitute for review by counsel.
@@ -38,7 +38,7 @@ export default function TermsOfService() {
               {" "}("Service"), operated by Maheshwari Innovative IT Services LLP,
               a Limited Liability Partnership incorporated in India (GSTIN
               09ABXFM7842G1ZH), with its registered office at Tulsi Residency,
-              Goverdhan, Mathura, Uttar Pradesh – 285102 ("we", "us", "our").
+              Goverdhan, Mathura, Uttar Pradesh – 281502 ("we", "us", "our").
               By creating an account or using the Service, you agree to be bound
               by these Terms.
             </p>
@@ -170,8 +170,8 @@ export default function TermsOfService() {
             <h2 className="text-lg font-heading text-gray-100 mb-3">13. Contact</h2>
             <p>
               For questions about these Terms, contact us at{" "}
-              <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
-                bhutramohit@gmail.com
+              <a href="mailto:mohitm@miiscollp.com" className="text-blue-400 hover:underline">
+                mohitm@miiscollp.com
               </a>
               {" "}or via our{" "}
               <a href="/contact" className="text-blue-400 hover:underline">Contact page</a>.

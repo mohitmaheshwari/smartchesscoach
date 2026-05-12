@@ -78,8 +78,8 @@ export default function RefundPolicy() {
               <li>Through your account Settings on the website, or</li>
               <li>
                 By emailing us at{" "}
-                <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
-                  bhutramohit@gmail.com
+                <a href="mailto:mohitm@miiscollp.com" className="text-blue-400 hover:underline">
+                  mohitm@miiscollp.com
                 </a>{" "}with the subject line "Cancellation Request" and your
                 registered email.
               </li>
@@ -131,8 +131,8 @@ export default function RefundPolicy() {
             <h2 className="text-lg font-heading text-gray-100 mb-3">5. How to request a refund under section 4</h2>
             <p className="mb-3">
               Email{" "}
-              <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
-                bhutramohit@gmail.com
+              <a href="mailto:mohitm@miiscollp.com" className="text-blue-400 hover:underline">
+                mohitm@miiscollp.com
               </a>{" "}with:
             </p>
             <ul className="list-disc list-inside space-y-2">
@@ -164,8 +164,8 @@ export default function RefundPolicy() {
             <h2 className="text-lg font-heading text-gray-100 mb-3">7. Disputes</h2>
             <p>
               If a refund decision is disputed, email us at{" "}
-              <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
-                bhutramohit@gmail.com
+              <a href="mailto:mohitm@miiscollp.com" className="text-blue-400 hover:underline">
+                mohitm@miiscollp.com
               </a>{" "}and we will review your case within 7 business days. If
               we cannot reach a resolution, you may refer the matter to
               Razorpay's dispute process or applicable consumer protection
@@ -177,8 +177,8 @@ export default function RefundPolicy() {
             <h2 className="text-lg font-heading text-gray-100 mb-3">8. Contact</h2>
             <p>
               For any refund or cancellation questions, contact us at{" "}
-              <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
-                bhutramohit@gmail.com
+              <a href="mailto:mohitm@miiscollp.com" className="text-blue-400 hover:underline">
+                mohitm@miiscollp.com
               </a>{" "}or through our{" "}
               <a href="/contact" className="text-blue-400 hover:underline">Contact page</a>.
             </p>

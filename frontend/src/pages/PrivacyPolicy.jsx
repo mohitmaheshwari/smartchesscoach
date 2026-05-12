@@ -2,7 +2,7 @@
  * Privacy Policy — Razorpay compliance + general data law.
  *
  * Operator: Maheshwari Innovative IT Services LLP
- * Address:  Tulsi Residency, Goverdhan, Mathura, UP – 285102
+ * Address:  Tulsi Residency, Goverdhan, Mathura, UP – 281502
  *
  * Covers account info, imported chess games (PGN), engine-analysis
  * metadata, and billing information via Razorpay. India / DPDPA-aware
@@ -149,8 +149,8 @@ export default function PrivacyPolicy() {
             </ul>
             <p className="mt-3">
               To exercise any of these rights, email us at{" "}
-              <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
-                bhutramohit@gmail.com
+              <a href="mailto:mohitm@miiscollp.com" className="text-blue-400 hover:underline">
+                mohitm@miiscollp.com
               </a>.
             </p>
           </section>
@@ -193,8 +193,8 @@ export default function PrivacyPolicy() {
             <p className="mt-3 ml-4">
               Name: Maheshwari Innovative IT Services LLP<br />
               Email:{" "}
-              <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
-                bhutramohit@gmail.com
+              <a href="mailto:mohitm@miiscollp.com" className="text-blue-400 hover:underline">
+                mohitm@miiscollp.com
               </a>
               <br />
               We respond to grievances within 15 days.

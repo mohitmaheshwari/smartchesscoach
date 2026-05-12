@@ -2,8 +2,8 @@
  * Contact Us — Razorpay compliance.
  *
  * Operator: Maheshwari Innovative IT Services LLP (GSTIN 09ABXFM7842G1ZH)
- * Address:  Tulsi Residency, Goverdhan, Mathura, UP – 285102
- * Email:    bhutramohit@gmail.com
+ * Address:  Tulsi Residency, Goverdhan, Mathura, UP – 281502
+ * Email:    mohitm@miiscollp.com
  */
 
 import { useNavigate } from "react-router-dom";
@@ -34,10 +34,10 @@ export default function ContactUs() {
               <div>
                 <p className="text-gray-100 font-medium">Email</p>
                 <a
-                  href="mailto:bhutramohit@gmail.com"
+                  href="mailto:mohitm@miiscollp.com"
                   className="text-blue-400 hover:underline"
                 >
-                  bhutramohit@gmail.com
+                  mohitm@miiscollp.com
                 </a>
                 <p className="text-xs text-gray-500 mt-1">
                   For general questions, billing, refunds, and feedback.
@@ -52,7 +52,7 @@ export default function ContactUs() {
                 <p className="text-gray-400">
                   Maheshwari Innovative IT Services LLP<br />
                   Tulsi Residency, Goverdhan<br />
-                  Mathura, Uttar Pradesh – 285102<br />
+                  Mathura, Uttar Pradesh – 281502<br />
                   India
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
