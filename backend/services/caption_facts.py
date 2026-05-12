@@ -1926,6 +1926,479 @@ def _p_tac_hanging_piece(
     }
 
 
+# ── Detector #6: OP_KNIGHT_ON_RIM ───────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Only triggers in opening phase.
+#   2. Only triggers on a knight move TO an a- or h-file square.
+#   3. Only when the knight came FROM a starting square (so this is the
+#      knight's first developing move) — re-routing an already-developed
+#      knight to the rim isn't a "developmental sin," it's a regrouping
+#      choice.
+#   4. cp_loss_strict (≥30): engine confirms the rim move is bad.
+def _p_op_knight_on_rim(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when a knight develops to the a or h file in opening."""
+    if facts.get("phase") != "opening":
+        return None
+    if facts.get("moving_piece_type") != "knight":
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    target = facts.get("target_square") or ""
+    if not target or target[0] not in ("a", "h"):
+        return None
+    # Only fire when the knight came from a starting square (development,
+    # not regrouping).
+    from_sq = facts.get("from_square") or ""
+    own_color_str = facts.get("moving_piece_color")
+    starting = {"b1", "g1"} if own_color_str == "white" else {"b8", "g8"}
+    if from_sq not in starting:
+        return None
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    aligned = _developing_minor_moves(board_before, own_color)
+    # Filter to non-rim targets
+    aligned = [m for m in aligned if not (len(m) >= 2 and m[-2] in ("a", "h"))]
+    endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    return {
+        "principle_id": "OP_KNIGHT_ON_RIM",
+        "evidence": {
+            "knight_from": from_sq,
+            "knight_to": target,
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned[:5],
+    }
+
+
+# ── Detector #7: OP_SAME_PIECE_TWICE ────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Captures don't count (capture buys back a tempo by winning
+#      something — we don't penalise the second move of a piece if it
+#      captures).
+#   2. Checks don't count (forcing moves serve a different purpose).
+#   3. Only triggers when there's a previously-moved own piece of
+#      the SAME piece type. Tracked by walking move_history_san.
+#   4. cp_loss_strict (≥30).
+def _p_op_same_piece_twice(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the player moves a piece type they already moved in
+    the opening — not a capture, not a check, and engine confirms
+    suboptimal."""
+    if facts.get("phase") != "opening":
+        return None
+    if facts.get("is_capture") or facts.get("is_check"):
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    moving_piece_type = facts.get("moving_piece_type")
+    if not moving_piece_type:
+        return None
+    # Don't count pawn moves toward "same piece twice" — that's
+    # covered by OP_PAWN_HEAVY.
+    if moving_piece_type == "pawn":
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_is_white = (own_color_str == "white")
+    # Walk own moves in history (own moves are at even/odd ply by color).
+    history = facts.get("pv_after_played")  # not what we want
+    # Actually pull move_history from facts. We stored move_index;
+    # rebuild own history from board_before.move_stack.
+    own_moves_history: List[chess.Move] = []
+    for i, m in enumerate(board_before.move_stack):
+        # First move (i=0) is white; even i = white moves, odd = black
+        move_color = chess.WHITE if (i % 2 == 0) else chess.BLACK
+        if move_color == (chess.WHITE if own_is_white else chess.BLACK):
+            own_moves_history.append(m)
+    # Look for a prior own move with the same piece type to a square
+    # other than this one's from_square.
+    moved_piece_chess_type = {
+        "pawn": chess.PAWN, "knight": chess.KNIGHT, "bishop": chess.BISHOP,
+        "rook": chess.ROOK, "queen": chess.QUEEN, "king": chess.KING,
+    }.get(moving_piece_type)
+    if moved_piece_chess_type is None:
+        return None
+    # Track the destination of the most-recent same-type move.
+    prior_same_type_to: Optional[int] = None
+    # Replay history to know what piece-type was moved each time.
+    replay = chess.Board()
+    for orig_idx, m in enumerate(board_before.move_stack):
+        piece_at_from = replay.piece_at(m.from_square)
+        piece_type_moved = piece_at_from.piece_type if piece_at_from else None
+        replay.push(m)
+        # Only track own moves of this same piece type.
+        move_color = chess.WHITE if (orig_idx % 2 == 0) else chess.BLACK
+        own_match = move_color == (chess.WHITE if own_is_white else chess.BLACK)
+        if own_match and piece_type_moved == moved_piece_chess_type:
+            prior_same_type_to = m.to_square
+    if prior_same_type_to is None:
+        return None
+    # The current move's from_square should be where the piece IS now
+    # (i.e., the prior move's to_square OR a different piece of same
+    # type). If they differ, we have a SECOND piece of same type moving
+    # (e.g., two knights). For v1 fire on any same-type-twice case.
+    own_color = chess.WHITE if own_is_white else chess.BLACK
+    aligned = _developing_minor_moves(board_before, own_color)
+    # Filter: aligned moves should be of OTHER piece types (not the
+    # type we already moved).
+    aligned_other_types = []
+    for san in aligned:
+        # Quick check: knight SAN starts with N, bishop with B.
+        if moving_piece_type == "knight" and san.startswith("N"):
+            continue
+        if moving_piece_type == "bishop" and san.startswith("B"):
+            continue
+        aligned_other_types.append(san)
+    endorsement = _principle_engine_endorsement(aligned_other_types, facts.get("best_move_san"))
+    return {
+        "principle_id": "OP_SAME_PIECE_TWICE",
+        "evidence": {
+            "piece_type": moving_piece_type,
+            "first_move_to_square": chess.square_name(prior_same_type_to),
+            "this_move_from": facts.get("from_square"),
+            "this_move_to": facts.get("target_square"),
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned_other_types[:5],
+    }
+
+
+# ── Detector #8: OP_NOT_CASTLED ─────────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. State-entry match: only fires the first move that full_move ≥ 13
+#      AND king on starting square AND castling rights still held AND
+#      played move isn't castling. Suppression (once_per_state_entry)
+#      handled at V5 wiring layer; detector fires every match.
+#   2. No castling rights: principle moot, don't fire.
+#   3. King already moved (off starting square): principle moot.
+#   4. gate_policy endorsement_preferred — fires with cue_absent when
+#      engine prefers something other than castling.
+def _p_op_not_castled(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when full_move ≥ 13, king is still on its starting square,
+    castling rights still held, played move isn't castling."""
+    full_move = facts.get("full_move_number") or 0
+    if full_move < 13:
+        return None
+    if facts.get("is_castling"):
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_is_white = (own_color_str == "white")
+    own_color = chess.WHITE if own_is_white else chess.BLACK
+    king_start = chess.E1 if own_is_white else chess.E8
+    king_square = board_before.king(own_color)
+    if king_square != king_start:
+        return None
+    if not (board_before.has_kingside_castling_rights(own_color)
+            or board_before.has_queenside_castling_rights(own_color)):
+        return None
+    # Compute legal castling moves as aligned moves.
+    aligned: List[str] = []
+    for move in board_before.legal_moves:
+        if board_before.is_castling(move):
+            aligned.append(_normalize_san(board_before.san(move)))
+    endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    return {
+        "principle_id": "OP_NOT_CASTLED",
+        "evidence": {
+            "king_square": chess.square_name(king_start),
+            "full_move_number": full_move,
+            "has_kingside_rights": board_before.has_kingside_castling_rights(own_color),
+            "has_queenside_rights": board_before.has_queenside_castling_rights(own_color),
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned,
+    }
+
+
+# ── Detector #9: OP_PAWN_HEAVY ──────────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Only triggers in opening phase.
+#   2. Only triggers on pawn moves (this move adds to pawn count).
+#   3. Threshold: ≥3 OWN pawn moves in the first 6 own moves means
+#      the player has spent too much opening time pushing pawns
+#      (typical 600–1200 misallocation).
+#   4. Captures count as pawn moves (they spend a tempo too).
+#   5. cp_loss_strict (≥30).
+def _p_op_pawn_heavy(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when player has played ≥3 pawn moves in their first 6
+    own opening moves (including this one) AND engine disagrees."""
+    if facts.get("phase") != "opening":
+        return None
+    if facts.get("moving_piece_type") != "pawn":
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_is_white = (own_color_str == "white")
+    # Count own pawn moves in history INCLUDING this move.
+    replay = chess.Board()
+    own_move_count = 0
+    own_pawn_count = 0
+    for i, m in enumerate(board_before.move_stack):
+        move_color = chess.WHITE if (i % 2 == 0) else chess.BLACK
+        if move_color == (chess.WHITE if own_is_white else chess.BLACK):
+            own_move_count += 1
+            piece = replay.piece_at(m.from_square)
+            if piece and piece.piece_type == chess.PAWN:
+                own_pawn_count += 1
+        replay.push(m)
+    own_move_count += 1  # the current move
+    own_pawn_count += 1  # the current move is a pawn move (per guard above)
+    if own_move_count > 6:
+        return None  # only the early opening window matters
+    if own_pawn_count < 3:
+        return None
+    own_color = chess.WHITE if own_is_white else chess.BLACK
+    aligned = _developing_minor_moves(board_before, own_color)
+    endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    return {
+        "principle_id": "OP_PAWN_HEAVY",
+        "evidence": {
+            "own_pawn_moves_so_far": own_pawn_count,
+            "own_moves_so_far": own_move_count,
+            "this_move_from": facts.get("from_square"),
+            "this_move_to": facts.get("target_square"),
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned[:5],
+    }
+
+
+# ── Detector #10: OP_CLAIM_CENTER ───────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Counterfactual match: fires when engine's best is a central
+#      pawn push AND played move is something else. Captures the
+#      "should have grabbed the centre" teaching moment.
+#   2. Only in opening (full_move ≤ 6 is the tightest window where
+#      central pawn is unambiguously the right choice).
+#   3. Aligned central pawn pushes are e4 / d4 / e5 / d5.
+#   4. gate_policy endorsement_preferred — fires with cue_absent when
+#      the player's move WAS reasonable but engine still preferred the
+#      central pawn (the "long-term habit" case).
+def _p_op_claim_center(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when engine's #1 move is a central pawn push (e4/d4/e5/d5)
+    AND the player played something else in the first 6 full moves."""
+    if facts.get("phase") != "opening":
+        return None
+    full_move = facts.get("full_move_number") or 0
+    if full_move > 6:
+        return None
+    best = _normalize_san(facts.get("best_move_san") or "")
+    if not best:
+        return None
+    # Aligned moves: e4/d4/e5/d5 pawn pushes legal in this position.
+    own_color_str = facts.get("moving_piece_color")
+    own_is_white = (own_color_str == "white")
+    central_squares = {chess.D4, chess.E4} if own_is_white else {chess.D5, chess.E5}
+    aligned: List[str] = []
+    for move in board_before.legal_moves:
+        piece = board_before.piece_at(move.from_square)
+        if piece and piece.piece_type == chess.PAWN and move.to_square in central_squares:
+            aligned.append(_normalize_san(board_before.san(move)))
+    if not aligned:
+        return None
+    # Best move must be one of the aligned moves (counterfactual:
+    # engine wanted the centre).
+    if best not in aligned:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    if played in aligned:
+        return None  # player DID claim the centre — no violation
+    return {
+        "principle_id": "OP_CLAIM_CENTER",
+        "evidence": {
+            "played": played,
+            "engine_central_choice": best,
+        },
+        "engine_endorsement": "best",  # engine endorsed an aligned move
+        "aligned_moves_offered": aligned,
+    }
+
+
+# ── Detector #11: TAC_DEFENDER_COUNT ────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Trigger: is_exchange_losing — played move drops material in an
+#      attacker-vs-defender mismatch. Same primary trigger as
+#      TAC_HANGING_PIECE; priority resolution at render time picks
+#      between them.
+#   2. cp_loss_strict (≥30) — same gate.
+#   3. endorsement_required — engine's #1 must differ from played.
+#
+# Overlap note: this fires alongside TAC_HANGING_PIECE on the same
+# move records. Same firing event, different teaching emphasis
+# ("count attackers/defenders" vs "loose piece"). Renderer priority
+# (11 vs 12) lets HANGING_PIECE win when both fire.
+def _p_tac_defender_count(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when a move loses material in an attacker-vs-defender
+    count mismatch. Engine-endorsed (cp_loss ≥ 30 + best differs)."""
+    if not facts.get("is_exchange_losing"):
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best = _normalize_san(facts.get("best_move_san") or "")
+    if not (best and played != best):
+        return None
+    return {
+        "principle_id": "TAC_DEFENDER_COUNT",
+        "evidence": {
+            "target_square": facts.get("target_square"),
+            "moving_piece_type": facts.get("moving_piece_type"),
+            "exchange_loss_cp": facts.get("exchange_loss_cp", 0),
+            "attackers": facts.get("attacker_count", 0),
+            "defenders": facts.get("defender_count", 0),
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best],
+    }
+
+
+# ── Detector #12: DEF_MOST_ATTACKED ─────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Fires when 2+ own pieces are attacked simultaneously AND the
+#      played move addressed the WRONG one. Encoded as: pieces_now_
+#      undefended has ≥2 entries with now_attacked=True, AND the
+#      played move didn't address the highest-value one.
+#   2. For v1, the "most attacked" definition is highest piece_value_cp.
+#   3. cp_loss_strict (≥30): engine confirms suboptimal.
+def _p_def_most_attacked(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when multiple own pieces are attacked but the played move
+    addressed the wrong one (or no one)."""
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    pieces = facts.get("pieces_now_undefended") or []
+    attacked = [p for p in pieces if p.get("now_attacked")]
+    if len(attacked) < 2:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best = _normalize_san(facts.get("best_move_san") or "")
+    if not (best and played != best):
+        return None
+    # Pick the most-attacked / highest-value piece.
+    worst = max(
+        attacked,
+        key=lambda p: p.get("piece_value_cp", 0)
+            if isinstance(p.get("piece_value_cp"), int) else 0
+    )
+    return {
+        "principle_id": "DEF_MOST_ATTACKED",
+        "evidence": {
+            "most_attacked_square": worst.get("square"),
+            "most_attacked_piece_type": worst.get("piece_type"),
+            "attacked_pieces_count": len(attacked),
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best],
+    }
+
+
+# ── Detector #13: END_PASSED_PAWN ───────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Fires in endgame or late middlegame when own player has a
+#      passed pawn that wasn't pushed this move. Counterfactual match:
+#      engine's #1 must be advancing the passed pawn.
+#   2. A "passed pawn" is a pawn with no enemy pawn on its file or
+#      adjacent files in front of it.
+#   3. Side-on-move only (we only check the player who just moved).
+#   4. cp_loss_strict (≥30) gate so we don't accuse correct moves of
+#      "missing the push."
+def _own_passed_pawns(board: chess.Board, color: chess.Color) -> List[int]:
+    """Return squares of own passed pawns. Pure geometry helper."""
+    out = []
+    for sq in board.pieces(chess.PAWN, color):
+        file_ = chess.square_file(sq)
+        rank_ = chess.square_rank(sq)
+        # Enemy pawns blocking: any enemy pawn on file or adjacent
+        # files at a rank "ahead" of this pawn (depending on color).
+        files_to_check = {file_, file_ - 1, file_ + 1} & set(range(8))
+        if color == chess.WHITE:
+            ranks_ahead = range(rank_ + 1, 8)
+        else:
+            ranks_ahead = range(0, rank_)
+        blocked = False
+        for f in files_to_check:
+            for r in ranks_ahead:
+                p = board.piece_at(chess.square(f, r))
+                if p and p.piece_type == chess.PAWN and p.color != color:
+                    blocked = True
+                    break
+            if blocked:
+                break
+        if not blocked:
+            out.append(sq)
+    return out
+
+
+def _p_end_passed_pawn(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when own player has a passed pawn AND engine's #1 is to
+    push it AND the player played something else."""
+    phase = facts.get("phase")
+    if phase not in ("endgame", "middlegame"):
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    best = _normalize_san(facts.get("best_move_san") or "")
+    if not best:
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    passed = _own_passed_pawns(board_before, own_color)
+    if not passed:
+        return None
+    # Aligned moves = legal pawn pushes of any passed pawn forward 1 square.
+    aligned: List[str] = []
+    for sq in passed:
+        # Find legal moves whose from_square is this passed pawn.
+        for move in board_before.legal_moves:
+            if move.from_square == sq:
+                aligned.append(_normalize_san(board_before.san(move)))
+    # Best move must be one of the aligned passed-pawn pushes.
+    if best not in aligned:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    if played in aligned:
+        return None  # player DID push a passed pawn
+    return {
+        "principle_id": "END_PASSED_PAWN",
+        "evidence": {
+            "passed_pawn_squares": [chess.square_name(s) for s in passed],
+            "engine_chose_push": best,
+            "player_chose": played,
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": aligned[:5],
+    }
+
+
 def _principles_violated(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -1950,6 +2423,14 @@ def _principles_violated(
         _p_tac_pin_pattern,
         _p_tac_discovered_pattern,
         _p_tac_hanging_piece,
+        _p_op_knight_on_rim,
+        _p_op_same_piece_twice,
+        _p_op_not_castled,
+        _p_op_pawn_heavy,
+        _p_op_claim_center,
+        _p_tac_defender_count,
+        _p_def_most_attacked,
+        _p_end_passed_pawn,
         # NEW DETECTORS APPENDED HERE — inline-tested per commit.
     ):
         try:
