@@ -609,15 +609,26 @@ def detect_double_attack_line(board: chess.Board) -> List[Dict]:
 # ────────────────────────────────────────────────────────────────────
 
 def detect_back_rank_trap(board: chess.Board) -> List[Dict]:
-    """Enemy king on its back rank with all 3 squares in front blocked by
-    its own pieces (no pawn escape), and we have a rook or queen on the board
-    (i.e. capable of delivering the back-rank mate).
+    """Enemy king on its back rank with all 3 forward squares occupied by
+    ENEMY PAWNS (not just any piece — pieces can step away to make luft),
+    and we have a R/Q with a clear path to the enemy back rank.
 
-    Edge cases handled:
-      - White vs Black back rank.
-      - Pieces in front: own pawns/pieces of theirs blocking the escape.
-      - Squares off the board (edge files): only check files that exist.
-      - We need a rook or queen — without one, even the geometry is moot.
+    Bug fix 2026-05-13 (per user-flagged move-4 false fire):
+      - Old spec accepted any enemy piece blocking the 3 in-front squares.
+        That fires on every opening position after a couple of captures —
+        e.g. after 1.d4 e5 2.dxe5 d6 3.exd6 Bxd6 4.Bd2 the king sits on e1
+        with d2=bishop, e2=pawn, f2=pawn, and a single open file somewhere
+        else on the board was enough to fire the pattern. Pedagogically
+        meaningless: bishop on d2 can step away in one move.
+      - New spec: all 3 blockers must be PAWNS (immovable laterally), and
+        we must have a R/Q with a path to the back rank (no piece of
+        either colour between R/Q and the back rank).
+
+    Negative cases this now rejects:
+      1. move-4 with bishop in front of king (real complaint)
+      2. starting-position derivatives (always had non-pawn or moved-pawn)
+      3. both-castled middlegame with no open invasion file (no path)
+      4. fianchetto positions (g6/g3 means missing pawn cover)
     """
     us = _own_color(board)
     them = not us
@@ -627,45 +638,57 @@ def detect_back_rank_trap(board: chess.Board) -> List[Dict]:
     back_rank = 7 if them == chess.BLACK else 0
     if chess.square_rank(them_king_sq) != back_rank:
         return []
-    # Check 3 squares one rank in front of king.
+    # All 3 forward squares must be enemy PAWNS (not any enemy piece).
     forward_rank = 6 if them == chess.BLACK else 1
     f0 = chess.square_file(them_king_sq)
-    blocked_all = True
+    pawns_in_front = 0
+    valid_squares = 0
     for df in (-1, 0, 1):
         f = f0 + df
         if not (0 <= f < 8):
             continue
+        valid_squares += 1
         sq = chess.square(f, forward_rank)
         p = board.piece_at(sq)
-        if not p or p.color != them:
-            blocked_all = False
+        if not p or p.color != them or p.piece_type != chess.PAWN:
+            return []
+        pawns_in_front += 1
+    # Need at least 2 pawns (corner kings only have 2 valid squares in front).
+    if pawns_in_front < 2:
+        return []
+    # We must have an R/Q with a clear path to the enemy back rank — that's
+    # how the trap actually executes. Generic "open file exists somewhere"
+    # isn't enough.
+    candidates = list(board.pieces(chess.ROOK, us)) + list(board.pieces(chess.QUEEN, us))
+    if not candidates:
+        return []
+    has_invasion = False
+    for c_sq in candidates:
+        if chess.square_rank(c_sq) == back_rank:
+            has_invasion = True
             break
-    if not blocked_all:
-        return []
-    # We must have a rook or queen.
-    if not (board.pieces(chess.ROOK, us) or board.pieces(chess.QUEEN, us)):
-        return []
-    # At least one file must be open (no pawns of either color) — that's how we
-    # actually invade the back rank. Starting position has every file blocked.
-    any_open_file = False
-    for f in range(8):
-        file_has_pawn = False
-        for r in range(8):
-            pp = board.piece_at(chess.square(f, r))
-            if pp and pp.piece_type == chess.PAWN:
-                file_has_pawn = True
+        cf = chess.square_file(c_sq)
+        cr = chess.square_rank(c_sq)
+        step = 1 if back_rank > cr else -1
+        path_clear = True
+        rr = cr + step
+        while rr != back_rank:
+            blocker = board.piece_at(chess.square(cf, rr))
+            if blocker is not None:
+                path_clear = False
                 break
-        if not file_has_pawn:
-            any_open_file = True
+            rr += step
+        if path_clear:
+            has_invasion = True
             break
-    if not any_open_file:
+    if not has_invasion:
         return []
     return [_ev(
         "back_rank_trap",
         mover=None,
         targets=[them_king_sq],
         executing_move=None,
-        evidence=f"king on {chess.square_name(them_king_sq)} has no luft on rank {back_rank + 1}",
+        evidence=f"king on {chess.square_name(them_king_sq)} has no escape squares on rank {back_rank + 1}",
     )]
 
 
