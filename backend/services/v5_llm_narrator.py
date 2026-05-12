@@ -79,7 +79,8 @@ async def generate_concise_narrative(
         Concise narrative string (under 20 words)
     """
     if not EMERGENT_LLM_KEY:
-        logger.warning("No EMERGENT_LLM_KEY, using fallback narrative")
+        # EMERGENT_LLM_KEY intentionally unconfigured — fallback is the
+        # default path. Warning silenced 2026-05-12 (docker-log noise).
         return _generate_fallback_narrative(move_san, plan_data, severity)
     
     try:

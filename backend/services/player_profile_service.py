@@ -218,7 +218,8 @@ async def _generate_narrative(data: dict) -> str:
 
         api_key = os.environ.get("EMERGENT_LLM_KEY", "")
         if not api_key:
-            logger.warning("No EMERGENT_LLM_KEY, using fallback narrative")
+            # EMERGENT_LLM_KEY intentionally unconfigured — fallback is
+            # the default path. Warning silenced 2026-05-12.
             return _fallback_narrative(data)
 
         prompt = f"""Look at this player's data and tell them who they are as a chess player right now. Talk to them like their personal coach — someone who's watched all their games and knows their patterns.

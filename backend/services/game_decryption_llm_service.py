@@ -213,7 +213,8 @@ async def generate_llm_coaching_async(
         return []
 
     if not EMERGENT_LLM_KEY:
-        logger.warning("[LLM] No EMERGENT_LLM_KEY found, skipping LLM coaching")
+        # EMERGENT_LLM_KEY intentionally unconfigured — LLM coaching is
+        # off by design. Warning silenced 2026-05-12 (docker-log noise).
         return []
 
     MAX_BATCH = 6
