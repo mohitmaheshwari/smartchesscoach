@@ -2847,9 +2847,13 @@ async def generate_game_decryption_v5(
                 _stored_best = (eval_data.get("best_move") or "").strip().rstrip("!?+#")
                 _played_norm = (move_san or "").strip().rstrip("!?+#")
                 if _stored_best and _stored_best == _played_norm:
-                    logger.warning(
+                    logger.info(
                         f"[SEVERITY-SANITY] move {move_san} == stored best_move but "
-                        f"severity={severity} (cpl={cp_loss}). Downgrading to 'good'."
+                        f"severity={severity} (cpl={cp_loss}). Reclassifying as "
+                        f"'forced' (best damage control in a losing position). "
+                        f"Internal severity stays 'good' for downstream-consumer "
+                        f"compatibility; user-facing caption surfaces via "
+                        f"R14_forced_best (\"only move\")."
                     )
                     severity = "good"
             
