@@ -215,7 +215,7 @@ async def main() -> int:
                 db=db,
             )
         except Exception as exc:
-            print(f"  [{i}/{len(games)}] {game_id}  FAIL: {exc}")
+            print(f"  [{i}/{len(games)}] {game_id}  FAIL: {exc}", file=sys.stderr, flush=True)
             n_games_failed += 1
             continue
 
@@ -230,7 +230,7 @@ async def main() -> int:
                 )
                 n_games_written += 1
             except Exception as exc:
-                print(f"  [{i}/{len(games)}] {game_id}  WRITE-FAIL: {exc}")
+                print(f"  [{i}/{len(games)}] {game_id}  WRITE-FAIL: {exc}", file=sys.stderr, flush=True)
 
         for mv in decryption:
             total_moves += 1
@@ -291,7 +291,10 @@ async def main() -> int:
         if i % 10 == 0 or i == len(games):
             elapsed = time.time() - t0
             rate = i / elapsed if elapsed > 0 else 0
-            print(f"  [{i}/{len(games)}] {game_id}  ({rate:.1f} games/s)")
+            print(
+                f"  [{i}/{len(games)}] {game_id}  ({rate:.1f} games/s)",
+                file=sys.stderr, flush=True,
+            )
 
     elapsed = time.time() - t0
 
