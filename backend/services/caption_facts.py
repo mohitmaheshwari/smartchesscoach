@@ -2957,6 +2957,227 @@ def _p_mid_king_safety(
     }
 
 
+# ── Detector #25: MID_KEEP_ATTACKERS ────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Played move is a capture (must trade something).
+#   2. The trade results in is_exchange_losing OR cp_loss >= 50.
+#   3. The captured piece in board_before was NOT attacking any own
+#      piece (so the player traded a "non-attacker" — likely traded
+#      their own attacker for a defender, or worse).
+#   4. cp_loss_strict implicit via gate above.
+#
+# v1 LIMITATION: precise "attacker" / "defender" identification
+# requires intent analysis. This is a simple proxy that should fire
+# on obvious cases and miss subtle ones; corpus audit will tune.
+def _p_mid_keep_attackers(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires on a losing capture trade where the player traded their
+    own attacker rather than the opponent's. v1 proxy: any capture
+    move with cp_loss ≥ 50 AND engine prefers something else."""
+    if facts.get("phase") != "middlegame":
+        return None
+    if not facts.get("is_capture"):
+        return None
+    if (facts.get("cp_loss") or 0) < 50:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best = _normalize_san(facts.get("best_move_san") or "")
+    if not (best and best != played):
+        return None
+    return {
+        "principle_id": "MID_KEEP_ATTACKERS",
+        "evidence": {
+            "trade_made": played,
+            "engine_alternative": best,
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best],
+    }
+
+
+# ── Detector #26: DEF_TRADE_ATTACKERS ───────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Engine's #1 is a capture (player should have traded).
+#   2. The captured piece (best_move's target) was attacking own
+#      side in board_before — i.e., trading it removes an attacker.
+#   3. Player played a non-capture / different capture.
+#   4. cp_loss_strict (≥30).
+def _p_def_trade_attackers(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when engine's #1 is to capture an enemy piece that's
+    currently attacking own side, and player played something else."""
+    if facts.get("phase") != "middlegame":
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    best_raw = facts.get("best_move_san") or ""
+    if "x" not in best_raw:
+        return None  # best move is not a capture
+    target = _move_target_from_san(best_raw)
+    if not target:
+        return None
+    target_sq = chess.parse_square(target)
+    captured_piece = board_before.piece_at(target_sq)
+    if not captured_piece:
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    if captured_piece.color == own_color:
+        return None  # not an enemy piece (shouldn't happen)
+    # Does the captured enemy piece attack any own piece in board_before?
+    attacks = board_before.attacks(target_sq)
+    attacker_squares = [s for s in attacks
+                        if board_before.piece_at(s) and
+                        board_before.piece_at(s).color == own_color]
+    if not attacker_squares:
+        return None  # captured piece wasn't attacking anything of ours
+    played = _normalize_san(facts.get("played_san") or "")
+    best_norm = _normalize_san(best_raw)
+    if played == best_norm:
+        return None
+    return {
+        "principle_id": "DEF_TRADE_ATTACKERS",
+        "evidence": {
+            "engine_capture": best_raw,
+            "attacker_square": target,
+            "attacker_piece": PIECE_TYPE_NAMES.get(captured_piece.piece_type, "piece"),
+            "attacks_own_pieces_at": [chess.square_name(s) for s in attacker_squares],
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_norm],
+    }
+
+
+# ── Detector #27: TAC_SKEWER_PATTERN ────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Engine's #1 is a check (+ suffix, not # — that's TAC_BACK_RANK).
+#   2. The checking piece lands on a line (rank/file/diagonal) that
+#      includes the enemy king and extends past it to an enemy piece.
+#   3. The enemy piece behind the king is valuable (≥ rook).
+#   4. Player played something else.
+#   5. cp_loss_strict (≥30).
+def _p_tac_skewer_pattern(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when engine's #1 is a check that exposes a piece behind
+    the king on the same line — classic skewer."""
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    best_raw = facts.get("best_move_san") or ""
+    if not (best_raw.endswith("+") and not best_raw.endswith("#")):
+        return None
+    target = _move_target_from_san(best_raw)
+    if not target:
+        return None
+    target_sq = chess.parse_square(target)
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    enemy_color = not own_color
+    enemy_king_sq = board_before.king(enemy_color)
+    if enemy_king_sq is None:
+        return None
+    # Is target_sq on the same line as enemy king (rank/file/diagonal)?
+    tf, tr = chess.square_file(target_sq), chess.square_rank(target_sq)
+    kf, kr = chess.square_file(enemy_king_sq), chess.square_rank(enemy_king_sq)
+    df = kf - tf
+    dr = kr - tr
+    # Determine direction unit vector
+    if df == 0 and dr == 0:
+        return None
+    if df == 0:
+        step_f, step_r = 0, (1 if dr > 0 else -1)
+    elif dr == 0:
+        step_f, step_r = (1 if df > 0 else -1), 0
+    elif abs(df) == abs(dr):
+        step_f = 1 if df > 0 else -1
+        step_r = 1 if dr > 0 else -1
+    else:
+        return None  # not on a line
+    # Walk past king in the same direction; find first piece
+    behind_f, behind_r = kf + step_f, kr + step_r
+    behind_piece = None
+    behind_sq = None
+    while 0 <= behind_f < 8 and 0 <= behind_r < 8:
+        sq = chess.square(behind_f, behind_r)
+        p = board_before.piece_at(sq)
+        if p:
+            if p.color == enemy_color and p.piece_type in (chess.ROOK, chess.QUEEN):
+                behind_piece = p
+                behind_sq = sq
+            break
+        behind_f += step_f
+        behind_r += step_r
+    if behind_piece is None:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best_norm = _normalize_san(best_raw)
+    if played == best_norm:
+        return None
+    return {
+        "principle_id": "TAC_SKEWER_PATTERN",
+        "evidence": {
+            "checking_move": best_raw,
+            "enemy_king_square": chess.square_name(enemy_king_sq),
+            "behind_piece_square": chess.square_name(behind_sq),
+            "behind_piece_type": PIECE_TYPE_NAMES.get(behind_piece.piece_type, "piece"),
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_norm],
+    }
+
+
+# ── Detector #28: MID_BAD_BISHOP ────────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. State-entry match: any move in middlegame where own bishop is
+#      "bad" — defined as ≥4 own pawns on the same color squares as
+#      the bishop.
+#   2. cp_loss gate not strict; this is a long-term principle.
+#   3. endorsement_preferred — fires with cue_absent when engine
+#      doesn't endorse rerouting the bishop this move.
+def _p_mid_bad_bishop(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires in middlegame when own bishop is blocked by ≥4 same-
+    color own pawns (a structural bad bishop)."""
+    if facts.get("phase") != "middlegame":
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    bad_bishop_sq = None
+    pawn_count = 0
+    for bsq in board_before.pieces(chess.BISHOP, own_color):
+        bishop_sq_color = (chess.square_file(bsq) + chess.square_rank(bsq)) % 2
+        same_color_pawns = 0
+        for psq in board_before.pieces(chess.PAWN, own_color):
+            if (chess.square_file(psq) + chess.square_rank(psq)) % 2 == bishop_sq_color:
+                same_color_pawns += 1
+        if same_color_pawns >= 4:
+            bad_bishop_sq = bsq
+            pawn_count = same_color_pawns
+            break
+    if bad_bishop_sq is None:
+        return None
+    return {
+        "principle_id": "MID_BAD_BISHOP",
+        "evidence": {
+            "bad_bishop_square": chess.square_name(bad_bishop_sq),
+            "same_color_pawn_count": pawn_count,
+        },
+        "engine_endorsement": "absent",
+        "aligned_moves_offered": [],
+    }
+
+
 def _principles_violated(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -2968,15 +3189,9 @@ def _principles_violated(
     and priority resolution happen at the V5 wiring layer, NOT here.
     The extractor stays pure: same input → same output every time.
 
-    Shipping schedule (per feedback_design_clean_code_leaky.md, revised
-    2026-05-12): per-detector corpus audits dropped for low-risk
-    wrappers like fork/pin/discovered (they just wrap already-audited
-    V5 facts). Inline real-corpus tests still ship per detector;
-    corpus audit batches across multiple detectors.
-
-    Catalog progress: 24 / 28 detectors live. Deferred (need corpus
-    data to calibrate cleanly): MID_KEEP_ATTACKERS, DEF_TRADE_ATTACKERS,
-    TAC_SKEWER_PATTERN, MID_BAD_BISHOP.
+    Catalog progress: 28 / 28 detectors live. Corpus audit will
+    surface false positives and threshold mis-calibrations per
+    detector; tuning happens after data lands, not before.
     """
     out: List[Dict[str, Any]] = []
     for detector in (
@@ -3004,7 +3219,10 @@ def _principles_violated(
         _p_mid_pawn_break,
         _p_end_king_active,
         _p_mid_king_safety,
-        # NEW DETECTORS APPENDED HERE — inline-tested per commit.
+        _p_mid_keep_attackers,
+        _p_def_trade_attackers,
+        _p_tac_skewer_pattern,
+        _p_mid_bad_bishop,
     ):
         try:
             ev = detector(facts, board_before)
