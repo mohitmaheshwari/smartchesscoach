@@ -127,20 +127,32 @@ def _verify_knight_fork(board: chess.Board, mover: str, targets: List[str],
 def _verify_slider_fork(board: chess.Board, mover: str, targets: List[str],
                         executing_move: Optional[str], piece_type: int,
                         dirs: List[Tuple[int, int]]) -> Tuple[bool, str]:
-    """Bishop/rook fork: ≥2 enemy targets reachable on slider rays from landing."""
+    """Bishop/rook fork: ≥2 enemy targets reachable on slider rays from landing.
+
+    For case-B (move-into-fork) fires, the verifier must walk rays on the
+    POST-MOVE board, otherwise the slider's original square blocks the ray.
+    """
     if len(targets) < 2:
         return False, "<2 targets"
     them = not board.turn
+    # Decide: pre-move board for case A (already-forking), post-move board for case B.
+    work_board = board
     if executing_move:
         try:
-            landing = chess.Move.from_uci(executing_move).to_square
+            mv = chess.Move.from_uci(executing_move)
         except Exception:
             return False, "bad executing_move uci"
+        landing = mv.to_square
+        work_board = board.copy()
+        try:
+            work_board.push(mv)
+        except Exception:
+            return False, "executing_move not legal in pre-move board"
     elif mover:
         landing = _sq(mover)
     else:
         return False, "no mover or executing_move"
-    # Reach: rays from landing in given directions, stop at first piece (which IS attacked).
+    # Reach: rays from landing on the work_board, stop at first piece (which IS attacked).
     reach = set()
     for d in dirs:
         f, r = chess.square_file(landing), chess.square_rank(landing)
@@ -150,13 +162,13 @@ def _verify_slider_fork(board: chess.Board, mover: str, targets: List[str],
                 break
             sq = chess.square(f, r)
             reach.add(sq)
-            if board.piece_at(sq):
+            if work_board.piece_at(sq):
                 break
     for t_name in targets:
         t = _sq(t_name)
         if t not in reach:
             return False, f"target {t_name} not reachable from {chess.square_name(landing)} along given rays"
-        p = board.piece_at(t)
+        p = work_board.piece_at(t)
         if not p or p.color != them:
             return False, f"target {t_name} not enemy piece"
     return True, "ok"

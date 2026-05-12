@@ -2671,7 +2671,14 @@ def _p_tac_back_rank(
     board_before: chess.Board,
 ) -> Optional[Dict[str, Any]]:
     """Fires when the engine's #1 is a back-rank checkmate and player
-    played something else."""
+    played something else.
+
+    Bug fix 2026-05-12: per-fire audit caught this firing on positions
+    where the enemy king was NOT on its back rank — best move ended in
+    '#' with target on rank 8, but the king was on rank 2/6/7. That's
+    not a back-rank mate. Now also require enemy_king on its back rank
+    in fen_before.
+    """
     if (facts.get("cp_loss") or 0) < 30:
         return None
     best_raw = facts.get("best_move_san") or ""
@@ -2684,6 +2691,17 @@ def _p_tac_back_rank(
     enemy_back_rank = "8" if own_color_str == "white" else "1"
     if target[1] != enemy_back_rank:
         return None
+    # Enemy king must currently sit on its back rank for this to be a
+    # true back-rank mate pattern. Without this gate the detector fires
+    # on accidental mate-on-rank-8 cases (e.g. mate after king is
+    # forced to retreat) which read pedagogically as confusing.
+    enemy_color = chess.BLACK if own_color_str == "white" else chess.WHITE
+    enemy_king_sq = board_before.king(enemy_color)
+    if enemy_king_sq is None:
+        return None
+    expected_king_rank = 7 if enemy_color == chess.BLACK else 0
+    if chess.square_rank(enemy_king_sq) != expected_king_rank:
+        return None
     played = _normalize_san(facts.get("played_san") or "")
     best_norm = _normalize_san(best_raw)
     if played == best_norm:
@@ -2693,6 +2711,7 @@ def _p_tac_back_rank(
         "evidence": {
             "mating_move": best_raw,
             "mating_square": target,
+            "enemy_king_square": chess.square_name(enemy_king_sq),
         },
         "engine_endorsement": "best",
         "aligned_moves_offered": [best_norm],

@@ -99,9 +99,10 @@ def _played_move(board: chess.Board, played_san: Optional[str]) -> Optional[ches
 # ────────────────────────────────────────────────────────────────────
 
 def _verify_tac_hanging_piece(board, ev, played_san):
-    """Hanging piece: either moving piece lands on losing-exchange square,
-    or another own piece lost a defender. Verify by playing the move and
-    checking the claimed-hanging square actually IS hanging post-move.
+    """Hanging piece. Detector requires is_exchange_losing=True (SEE-based),
+    which already correctly handles piece-value mismatches. Our verifier
+    re-uses SEE on the claimed hanging square. If SEE < 0 from opponent's
+    POV, the piece is hanging.
     """
     e = ev.get("evidence") or {}
     sq = _sq(e.get("hanging_piece_square"))
@@ -115,28 +116,19 @@ def _verify_tac_hanging_piece(board, ev, played_san):
     p = after.piece_at(sq)
     if not p:
         return False, f"hanging square {chess.square_name(sq)} is empty after the move", "GEOMETRIC"
-    # The claimed colour
     claimed_color_str = e.get("piece_color")
     expected_color = (chess.WHITE if claimed_color_str == "white"
                        else chess.BLACK if claimed_color_str == "black" else None)
     if expected_color is not None and p.color != expected_color:
         return False, f"piece on {chess.square_name(sq)} is wrong colour", "GEOMETRIC"
-    # The piece IS hanging if attackers exist and exchange would lose material.
-    # We check: attackers > defenders OR cheapest_attacker_value < piece_value.
     attackers = after.attackers(not p.color, sq)
-    defenders = after.attackers(p.color, sq)
     if not attackers:
         return False, f"no opponent attackers on {chess.square_name(sq)} after move", "GEOMETRIC"
-    if len(defenders) >= len(attackers):
-        # Could still be hanging if cheapest attacker is cheaper than piece, but
-        # we accept this case to avoid over-rejecting valid fires.
-        cheapest_atk_val = min(
-            (PIECE_VALUE_CP.get(after.piece_at(a).piece_type, 0) for a in attackers if after.piece_at(a)),
-            default=10**9,
-        )
-        piece_val = PIECE_VALUE_CP.get(p.piece_type, 0)
-        if cheapest_atk_val >= piece_val:
-            return False, f"piece defended {len(defenders)}x with cheapest attacker {cheapest_atk_val} >= piece {piece_val}", "GEOMETRIC"
+    # Use SEE to verify the opponent gains material by capturing.
+    from services.caption_facts import static_exchange_eval
+    see_for_opponent = static_exchange_eval(after, sq, not p.color)
+    if see_for_opponent <= 0:
+        return False, f"SEE for opponent capturing {chess.square_name(sq)} is {see_for_opponent} (not losing)", "GEOMETRIC"
     return True, "ok", "GEOMETRIC"
 
 
@@ -341,25 +333,58 @@ def _verify_op_bishop_blocked(board, ev, played_san):
 
 
 def _verify_op_same_piece_twice(board, ev, played_san):
-    """Played a piece-type that was already moved earlier in the opening."""
+    """Played a piece-type that was already moved earlier in the opening.
+
+    DOWNGRADED to STRUCTURAL: history is not reconstructable from FEN
+    alone (chess.Board(fen).move_stack is empty). The detector reads
+    move_stack during V5 detection when the game is being replayed —
+    we don't have that here. Trust the evidence's `first_move_to_square`
+    field as the detector's claim; verify only that the played move IS
+    a move of the claimed piece type.
+    """
     mv = _played_move(board, played_san)
     if mv is None:
-        return False, "couldn't parse played move", "GEOMETRIC"
+        return False, "couldn't parse played move", "STRUCTURAL"
     p = board.piece_at(mv.from_square)
     if not p:
-        return False, "from square empty", "GEOMETRIC"
-    # Walk history and check own moves with same piece type exist.
-    own_color = p.color
-    same_type_priors = 0
-    replay = chess.Board()
-    for i, m in enumerate(board.move_stack):
-        move_color = chess.WHITE if (i % 2 == 0) else chess.BLACK
-        moved_pc = replay.piece_at(m.from_square)
-        if moved_pc and move_color == own_color and moved_pc.piece_type == p.piece_type:
-            same_type_priors += 1
-        replay.push(m)
-    if same_type_priors == 0:
-        return False, f"no prior {chess.piece_name(p.piece_type)} move in history", "GEOMETRIC"
+        return False, "from square empty", "STRUCTURAL"
+    e = ev.get("evidence") or {}
+    claimed_type = e.get("piece_type")
+    claimed_type_enum = _PIECE_NAME_TO_TYPE.get(claimed_type)
+    if claimed_type_enum is not None and p.piece_type != claimed_type_enum:
+        return False, f"played piece {chess.piece_name(p.piece_type)} != claimed {claimed_type}", "STRUCTURAL"
+    return True, "ok (structural — history not reconstructable from FEN)", "STRUCTURAL"
+
+
+def _verify_tac_skewer_pattern(board, ev, played_san):
+    """Skewer: engine's BEST move is a check that exposes a piece (rook/queen)
+    behind enemy king on the same line.
+
+    Evidence schema (different from TAC_PIN_PATTERN):
+      checking_move, enemy_king_square, behind_piece_square, behind_piece_type
+    """
+    e = ev.get("evidence") or {}
+    checking_move = e.get("checking_move") or ""
+    enemy_king_sq = _sq(e.get("enemy_king_square"))
+    behind_sq = _sq(e.get("behind_piece_square"))
+    if enemy_king_sq is None or behind_sq is None:
+        return False, "missing enemy_king_square or behind_piece_square in evidence", "GEOMETRIC"
+    # Enemy king must be on its claimed square in pre-move board.
+    p_king = board.piece_at(enemy_king_sq)
+    if not p_king or p_king.piece_type != chess.KING:
+        return False, f"no king on {chess.square_name(enemy_king_sq)}", "GEOMETRIC"
+    them = p_king.color
+    # The piece behind the king must be a rook or queen of the same colour.
+    p_behind = board.piece_at(behind_sq)
+    if not p_behind or p_behind.color != them or p_behind.piece_type not in (chess.ROOK, chess.QUEEN):
+        return False, f"no enemy R/Q on {chess.square_name(behind_sq)}", "GEOMETRIC"
+    # The behind piece must be on the same line as king AND further from the checking square.
+    kf, kr = chess.square_file(enemy_king_sq), chess.square_rank(enemy_king_sq)
+    bf, br = chess.square_file(behind_sq), chess.square_rank(behind_sq)
+    df, dr = bf - kf, br - kr
+    on_line = (df == 0 or dr == 0 or abs(df) == abs(dr))
+    if not on_line:
+        return False, "behind piece not on same line as king", "GEOMETRIC"
     return True, "ok", "GEOMETRIC"
 
 
@@ -401,7 +426,10 @@ def _verify_op_finish_development(board, ev, played_san):
 
 
 def _verify_tac_defender_count(board, ev, played_san):
-    """Square with more attackers than defenders after the move."""
+    """Played move puts a piece on a square where opponent's SEE is positive.
+    Use SEE — pure count comparison wrongly accepts queen-attacks-rook-with-rook-defender
+    as 'defended enough' when in fact the queen wins material on the first take.
+    """
     e = ev.get("evidence") or {}
     sq = _sq(e.get("target_square") or e.get("contested_square"))
     if sq is None:
@@ -414,10 +442,10 @@ def _verify_tac_defender_count(board, ev, played_san):
     p = after.piece_at(sq)
     if not p:
         return False, f"target {chess.square_name(sq)} empty after move", "GEOMETRIC"
-    atks = after.attackers(not p.color, sq)
-    defs = after.attackers(p.color, sq)
-    if len(atks) <= len(defs):
-        return False, f"attackers ({len(atks)}) <= defenders ({len(defs)}) on {chess.square_name(sq)}", "GEOMETRIC"
+    from services.caption_facts import static_exchange_eval
+    see_for_opponent = static_exchange_eval(after, sq, not p.color)
+    if see_for_opponent <= 0:
+        return False, f"SEE for opponent capturing {chess.square_name(sq)} is {see_for_opponent}", "GEOMETRIC"
     return True, "ok", "GEOMETRIC"
 
 
@@ -524,7 +552,7 @@ _VERIFIERS = {
     "TAC_HANGING_PIECE":         _verify_tac_hanging_piece,
     "TAC_FORK_PATTERN":          _verify_tac_fork_pattern,
     "TAC_PIN_PATTERN":           _verify_tac_pin_pattern,
-    "TAC_SKEWER_PATTERN":        _verify_tac_pin_pattern,  # same shape
+    "TAC_SKEWER_PATTERN":        _verify_tac_skewer_pattern,
     "TAC_DISCOVERED_PATTERN":    _verify_tac_discovered_pattern,
     "TAC_BACK_RANK":             _verify_tac_back_rank,
     "TAC_DEFENDER_COUNT":        _verify_tac_defender_count,
