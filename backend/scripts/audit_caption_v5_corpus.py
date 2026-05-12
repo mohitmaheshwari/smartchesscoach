@@ -172,6 +172,14 @@ async def main() -> int:
     rule_examples: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     caption_text_counts: Counter = Counter()
 
+    # Teaching-layer aggregates (caption_facts_principles_violated).
+    # Shipped detectors fire here as evidence dicts; this audit groups
+    # them by principle_id + engine_endorsement so we can see whether
+    # each detector is hitting realistic positions or over-firing.
+    principle_counts: Counter = Counter()
+    principle_endorsement_counts: Dict[str, Counter] = defaultdict(Counter)
+    principle_samples: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+
     total_moves = 0
     silent_moves = 0
     user_moves = 0
@@ -262,6 +270,23 @@ async def main() -> int:
                         "caption": cap or "(silent)",
                     })
 
+            # Teaching layer: aggregate principle firings.
+            for pv_entry in (mv.get("caption_facts_principles_violated") or []):
+                pid = pv_entry.get("principle_id") or "(unknown)"
+                endorsement = pv_entry.get("engine_endorsement") or "(unknown)"
+                principle_counts[pid] += 1
+                principle_endorsement_counts[pid][endorsement] += 1
+                if len(principle_samples[pid]) < args.samples_per_rule:
+                    principle_samples[pid].append({
+                        "game_id": game_id,
+                        "move_no": mv.get("move_number"),
+                        "side": "USER" if mv.get("is_user_move") else "OPP",
+                        "move_san": mv.get("move_san"),
+                        "cp_loss": mv.get("cp_loss"),
+                        "endorsement": endorsement,
+                        "evidence": pv_entry.get("evidence"),
+                    })
+
         n_games_ok += 1
         if i % 10 == 0 or i == len(games):
             elapsed = time.time() - t0
@@ -340,6 +365,41 @@ async def main() -> int:
                 f"    {ex['game_id'][:8]}  m{ex['move_no']:>3} {ex['side']:<4} "
                 f"{(ex['move_san'] or ''):<8} cpl={ex['cp_loss']:>5}  "
                 f"{_short(ex['caption'])}"
+            )
+    out_lines.append("")
+
+    # Teaching layer audit — one section per shipped detector. Empty
+    # when no detector has fired yet (catalog text-only state).
+    out_lines.append("─" * 78)
+    out_lines.append("TEACHING LAYER — principle firing summary")
+    out_lines.append("─" * 78)
+    if not principle_counts:
+        out_lines.append("  (no principle detectors enabled yet, or none fired in this run)")
+    else:
+        total_principle_firings = sum(principle_counts.values())
+        out_lines.append(f"  total principle firings : {total_principle_firings}")
+        out_lines.append(f"  firings per move record : "
+                         f"{(total_principle_firings / total_moves * 100) if total_moves else 0:.2f}%")
+        out_lines.append("")
+        for pid, count in principle_counts.most_common():
+            endorse = principle_endorsement_counts[pid]
+            endorse_str = " · ".join(f"{tier}={n}" for tier, n in endorse.most_common())
+            out_lines.append(f"  {pid:<34} {count:>5}   ({endorse_str})")
+    out_lines.append("")
+
+    out_lines.append("─" * 78)
+    out_lines.append("PRINCIPLE SAMPLES (a few firings per principle for spot-check)")
+    out_lines.append("─" * 78)
+    if not principle_samples:
+        out_lines.append("  (no principle firings to sample)")
+    for pid in sorted(principle_samples):
+        out_lines.append("")
+        out_lines.append(f"  [{pid}]")
+        for ex in principle_samples[pid]:
+            out_lines.append(
+                f"    {ex['game_id'][:8]}  m{ex['move_no']:>3} {ex['side']:<4} "
+                f"{(ex['move_san'] or ''):<8} cpl={ex['cp_loss']:>5}  "
+                f"endorsement={ex['endorsement']:<7} evidence={ex['evidence']}"
             )
     out_lines.append("")
 

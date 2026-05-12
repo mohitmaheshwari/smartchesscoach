@@ -3063,6 +3063,7 @@ async def generate_game_decryption_v5(
                 "arrows": [],
             }
             caption_primary_reason = None
+            caption_principles_violated: List[Dict] = []
             if CAPTION_V5_PIPELINE_ENABLED and _extract_caption_facts and _render_caption_dict:
                 try:
                     # Rebuild SAN history from board.move_stack so the
@@ -3097,6 +3098,11 @@ async def generate_game_decryption_v5(
                     )
                     caption_payload = _render_caption_dict(caption_facts)
                     caption_primary_reason = caption_facts.get("primary_reason")
+                    # Teaching layer — list of principle evidence dicts.
+                    # Suppression + priority resolution lives in this
+                    # wiring layer once detectors mature; for v1 we just
+                    # stream them through to the audit / renderer.
+                    caption_principles_violated = caption_facts.get("principles_violated") or []
                 except Exception as _caption_exc:
                     logger.warning(
                         f"[caption_v5] move {full_move_number} {move_san} "
@@ -3109,6 +3115,7 @@ async def generate_game_decryption_v5(
                         "arrows": [],
                     }
                     caption_primary_reason = None
+                    caption_principles_violated = []
 
             # Build move output
             prev_move = move
@@ -3203,6 +3210,12 @@ async def generate_game_decryption_v5(
                 "caption_arrows": caption_payload["arrows"],
                 "caption_highlight_squares": caption_payload["highlight_squares"],
                 "caption_facts_primary_reason": caption_primary_reason,
+                # Teaching layer — list of evidence dicts, one per
+                # firing principle. Grows as detectors are shipped
+                # one-by-one per feedback_design_clean_code_leaky.md.
+                # Audit script reads this; renderer integration is a
+                # later commit once enough detectors are live.
+                "caption_facts_principles_violated": caption_principles_violated,
             }
 
             decryption_data.append(move_output)

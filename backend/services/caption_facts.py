@@ -1583,6 +1583,176 @@ def _is_forced_recapture(board_before: chess.Board, played_move: chess.Move) -> 
 
 
 # ────────────────────────────────────────────────────────────────────
+# Principle detectors (the teaching layer)
+#
+# Each detector is a pure function of (facts, board_before) that returns
+# an evidence dict if the principle matches, or None otherwise. Detectors
+# are NEVER aware of game state ("has this fired before this game?") —
+# that's the V5 wiring layer's job. They just answer "would this
+# principle fire on THIS move in THIS position?"
+#
+# Per memory rule feedback_design_clean_code_leaky.md:
+#   - Detectors ship ONE AT A TIME, each with a corpus audit before the next
+#   - Edge cases enumerated at the top of every detector docstring
+#   - Real-corpus tests (not synthetic) before commit
+#
+# Catalog is in services/caption_principles.py — every principle_id
+# returned here must exist in that file.
+# ────────────────────────────────────────────────────────────────────
+
+
+def _principle_engine_endorsement(
+    aligned_moves: List[str],
+    best_move_san: Optional[str],
+) -> str:
+    """Compare engine's #1 to the principle-aligned move set.
+
+    Returns:
+      "best"    — engine's #1 IS one of the aligned moves (strong claim)
+      "absent"  — engine prefers a non-aligned move (long-term principle)
+
+    Note: tier "top_n" (aligned move in engine top-3 PV) is documented in
+    caption_principles.py for future multi-PV support. V5 currently
+    ships single-line PV only, so this function returns binary
+    best/absent. Once multi-PV lands, add a top_n branch here without
+    touching detectors.
+    """
+    if not best_move_san or not aligned_moves:
+        return "absent"
+    best_norm = _normalize_san(best_move_san)
+    for am in aligned_moves:
+        if _normalize_san(am) == best_norm:
+            return "best"
+    return "absent"
+
+
+def _developing_minor_moves(
+    board_before: chess.Board,
+    color: chess.Color,
+) -> List[str]:
+    """All legal moves that develop a knight or bishop from its starting
+    square. Used by opening principles whose aligned_moves spec is
+    "any minor-piece development."
+
+    Edge cases handled:
+      - Already-developed minors are skipped (only starting-square pieces)
+      - Returns SAN strings, normalised (no annotation suffixes)
+      - Returns [] if no developing moves are legal in this position
+    """
+    if color == chess.WHITE:
+        starting_knights = {chess.B1, chess.G1}
+        starting_bishops = {chess.C1, chess.F1}
+    else:
+        starting_knights = {chess.B8, chess.G8}
+        starting_bishops = {chess.C8, chess.F8}
+
+    out: List[str] = []
+    for move in board_before.legal_moves:
+        piece = board_before.piece_at(move.from_square)
+        if not piece or piece.color != color:
+            continue
+        if piece.piece_type == chess.KNIGHT and move.from_square in starting_knights:
+            out.append(_normalize_san(board_before.san(move)))
+        elif piece.piece_type == chess.BISHOP and move.from_square in starting_bishops:
+            out.append(_normalize_san(board_before.san(move)))
+    return out
+
+
+# ── Detector #1: OP_QUEEN_OUT_EARLY ─────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Queen recaptures (e.g. Qxe2+) — `queen_sortie_evidence` returns
+#      None because we're past move 10 in most of these cases; if not,
+#      cp_loss_strict filters (recaptures rarely cost ≥30 cp).
+#   2. Queen check-blocks (Qe2 to block check) — same as above; the
+#      cp_loss filter catches these because forced moves have cp_loss ~0.
+#   3. Move 1-2 queen moves (e.g. 1.Qh5 or 2.Qf3) — fire correctly;
+#      these are textbook queen-sortie cases.
+#   4. Position with castling rights already lost — still fires; the
+#      principle is about development order, not castling specifically.
+#   5. Endgame queen moves — phase_in_scope gates to opening only;
+#      queen_sortie_evidence also caps at full_move_number ≤ 10.
+#   6. Aligned-moves empty (no minor pieces left to develop) — endorsement
+#      becomes "absent" automatically; principle still fires with the
+#      cue_absent tone.
+def _p_op_queen_out_early(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Detector for OP_QUEEN_OUT_EARLY.
+
+    Fires when:
+      - Played move is a queen move
+      - Position is in opening phase (full_move_number ≤ 10)
+      - queen_sortie_evidence is populated (already enforces #1, #2 above)
+      - cp_loss ≥ 30 (engine confirms the move is suboptimal)
+
+    Returns evidence dict or None.
+    """
+    if facts.get("moving_piece_type") != "queen":
+        return None
+    sortie = facts.get("queen_sortie_evidence")
+    if not sortie:
+        return None
+    if facts.get("phase") != "opening":
+        return None
+    # gate_policy from caption_principles.py:
+    #   "endorsement_preferred + cp_loss_strict"
+    # cp_loss_strict applies regardless of endorsement.
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    aligned = _developing_minor_moves(board_before, own_color)
+    endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+
+    return {
+        "principle_id": "OP_QUEEN_OUT_EARLY",
+        "evidence": {
+            "queen_from": sortie.get("from_square"),
+            "queen_to": sortie.get("to_square"),
+            "queen_move_index_in_opening": sortie.get("queen_move_index_in_opening"),
+            "minor_pieces_developed": sortie.get("minor_pieces_developed"),
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned[:5],
+    }
+
+
+def _principles_violated(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> List[Dict[str, Any]]:
+    """Run every shipped principle detector against the facts dict.
+    Returns a list of evidence dicts for every principle that matches.
+
+    Suppression (once_per_move / once_per_state_entry / once_per_game)
+    and priority resolution happen at the V5 wiring layer, NOT here.
+    The extractor stays pure: same input → same output every time.
+
+    Shipping schedule (per feedback_design_clean_code_leaky.md):
+      Each detector below is added on its own commit, corpus-audited
+      before the next is enabled. The catalog in caption_principles.py
+      lists 28 entries total; this function grows incrementally.
+    """
+    out: List[Dict[str, Any]] = []
+    for detector in (
+        _p_op_queen_out_early,
+        # NEW DETECTORS APPENDED HERE — one per commit, audit-gated.
+    ):
+        try:
+            ev = detector(facts, board_before)
+        except Exception:
+            # Detector crashes never break extract_facts. Same defensive
+            # posture as the rest of the extractor.
+            ev = None
+        if ev:
+            out.append(ev)
+    return out
+
+
+# ────────────────────────────────────────────────────────────────────
 # Public API
 # ────────────────────────────────────────────────────────────────────
 
@@ -1961,10 +2131,22 @@ def extract_facts(
         # priority order. Computed AFTER all other facts are built so
         # the scorer has the full dict to read from.
         "primary_reason": None,  # populated below after the dict is built
+
+        # PRINCIPLES VIOLATED (the teaching layer) — list of detector
+        # outputs from caption_principles.py. Each entry has:
+        #   {principle_id, evidence, engine_endorsement,
+        #    aligned_moves_offered}
+        # Suppression + priority happen at the V5 wiring layer; this
+        # list is the raw detector output. Ships one detector per
+        # commit per feedback_design_clean_code_leaky.md.
+        "principles_violated": [],  # populated below
     }
 
     # Compute primary_reason using the now-complete facts dict.
     facts["primary_reason"] = extract_primary_reason(facts)
+
+    # Run principle detectors. Pure functions of (facts, board_before).
+    facts["principles_violated"] = _principles_violated(facts, board_before)
 
     return facts
 
