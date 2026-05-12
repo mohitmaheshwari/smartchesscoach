@@ -1182,22 +1182,23 @@ def detect_open_long_line(board: chess.Board) -> List[Dict]:
     if them_king_sq is None:
         return []
     out: List[Dict] = []
-    # Long diagonals: a1-h8 (dark) and a8-h1 (light).
+    # Long diagonals: a1-h8 squares all have (file==rank) so sum is even -> parity 0.
+    # a8-h1 squares all have (file+rank==7) -> parity 1. Bishop matching the diagonal
+    # must share its parity.
     diag_a1h8 = [chess.square(i, i) for i in range(8)]
     diag_a8h1 = [chess.square(i, 7 - i) for i in range(8)]
     their_bishops = list(board.pieces(chess.BISHOP, them))
-    has_dark_b  = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 1 for s in their_bishops)
-    has_light_b = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 0 for s in their_bishops)
-    # We need our OWN bishop or queen to be able to put on the diagonal, else it's
-    # just an empty diagonal we can't exploit. a1-h8 is dark; a8-h1 is light.
+    has_b_par0 = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 0 for s in their_bishops)
+    has_b_par1 = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 1 for s in their_bishops)
     our_bishops = list(board.pieces(chess.BISHOP, us))
-    has_our_dark_b  = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 0 for s in our_bishops)
-    has_our_light_b = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 1 for s in our_bishops)
+    has_our_b_par0 = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 0 for s in our_bishops)
+    has_our_b_par1 = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 1 for s in our_bishops)
     have_queen = bool(board.pieces(chess.QUEEN, us))
-    # Dark-diagonal (a1-h8): is it clear? Their dark bishop missing? We have a piece for it?
+    # a1-h8 (parity 0): enemy must lack parity-0 bishop; we need parity-0 bishop or queen.
+    # a8-h1 (parity 1): enemy must lack parity-1 bishop; we need parity-1 bishop or queen.
     for diag, their_has, our_has_b, label in (
-        (diag_a1h8, has_dark_b,  has_our_dark_b,  "a1-h8"),
-        (diag_a8h1, has_light_b, has_our_light_b, "a8-h1"),
+        (diag_a1h8, has_b_par0, has_our_b_par0, "a1-h8"),
+        (diag_a8h1, has_b_par1, has_our_b_par1, "a8-h1"),
     ):
         if their_has:
             continue
