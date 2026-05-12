@@ -2399,6 +2399,368 @@ def _p_end_passed_pawn(
     }
 
 
+import re
+
+
+def _move_target_from_san(san: str) -> Optional[str]:
+    """Extract destination square from a SAN string like Re8+, Qxe7,
+    Nf3. Strips +/# and promotion suffix. Returns 'e8' / 'e7' / 'f3'
+    or None if no square found."""
+    s = (san or "").rstrip("+#!?")
+    m = re.search(r"([a-h][1-8])(?:=[QRBN])?$", s)
+    return m.group(1) if m else None
+
+
+# ── Detector #14: OP_LOOSE_KING_PAWNS ───────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Only fires in opening, on pawn moves, before castling.
+#   2. Target on f/g/h file (kingside) or a/b/c file (queenside) —
+#      both apply (the player might have been intending q-side castle).
+#      Simpler: only check kingside-pawn loosening since 90%+ of 600-
+#      1400 castles are kingside.
+#   3. King still on starting square AND kingside castling rights held.
+#   4. cp_loss_strict (≥30).
+def _p_op_loose_king_pawns(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when pawn pushes to f/g/h file before castling, with
+    king on starting square and kingside castling rights held."""
+    if facts.get("phase") != "opening":
+        return None
+    if facts.get("moving_piece_type") != "pawn":
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    target = facts.get("target_square") or ""
+    if not target or target[0] not in ("f", "g", "h"):
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    king_start = chess.E1 if own_color == chess.WHITE else chess.E8
+    if board_before.king(own_color) != king_start:
+        return None
+    if not board_before.has_kingside_castling_rights(own_color):
+        return None
+    aligned = _developing_minor_moves(board_before, own_color)
+    endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    return {
+        "principle_id": "OP_LOOSE_KING_PAWNS",
+        "evidence": {
+            "loosened_pawn_to": target,
+            "king_still_on": chess.square_name(king_start),
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned[:5],
+    }
+
+
+# ── Detector #15: OP_BISHOP_BLOCKED ─────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Only fires on pawn moves in opening/early middlegame.
+#   2. The pawn lands on a diagonal of own bishop WITH a clear path
+#      from bishop to target_sq in board_before (i.e., the bishop
+#      ACTUALLY sees the target square; otherwise the move isn't
+#      "blocking" anything).
+#   3. cp_loss_strict (≥30).
+def _bishop_sees_square(board: chess.Board, bsq: int, target_sq: int) -> bool:
+    """True iff bishop on bsq has clear diagonal line of sight to
+    target_sq in `board` (nothing blocking)."""
+    bf, br = chess.square_file(bsq), chess.square_rank(bsq)
+    tf, tr = chess.square_file(target_sq), chess.square_rank(target_sq)
+    if abs(bf - tf) != abs(br - tr) or bf == tf:
+        return False
+    df = 1 if tf > bf else -1
+    dr = 1 if tr > br else -1
+    f, r = bf + df, br + dr
+    while (f, r) != (tf, tr):
+        if board.piece_at(chess.square(f, r)) is not None:
+            return False
+        f += df
+        r += dr
+    return True
+
+
+def _p_op_bishop_blocked(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when a pawn move lands on a square that an own bishop
+    currently sees on the diagonal — locking the bishop in."""
+    if facts.get("phase") not in ("opening", "middlegame"):
+        return None
+    if facts.get("moving_piece_type") != "pawn":
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    target_name = facts.get("target_square")
+    if not target_name:
+        return None
+    target_sq = chess.parse_square(target_name)
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    blocked_bishop = None
+    for bsq in board_before.pieces(chess.BISHOP, own_color):
+        if _bishop_sees_square(board_before, bsq, target_sq):
+            blocked_bishop = bsq
+            break
+    if blocked_bishop is None:
+        return None
+    # Aligned: any non-blocking pawn move
+    aligned: List[str] = []
+    bishops = list(board_before.pieces(chess.BISHOP, own_color))
+    for move in board_before.legal_moves:
+        piece = board_before.piece_at(move.from_square)
+        if not piece or piece.color != own_color or piece.piece_type != chess.PAWN:
+            continue
+        if any(_bishop_sees_square(board_before, bsq, move.to_square) for bsq in bishops):
+            continue
+        aligned.append(_normalize_san(board_before.san(move)))
+    endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    return {
+        "principle_id": "OP_BISHOP_BLOCKED",
+        "evidence": {
+            "bishop_square": chess.square_name(blocked_bishop),
+            "blocking_pawn_to": target_name,
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned[:5],
+    }
+
+
+# ── Detector #16: OP_FINISH_DEVELOPMENT ─────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Played move creates a threat (threats_created non-empty) — the
+#      "attacking move" trigger.
+#   2. Own side has ≥2 undeveloped minor pieces (knights / bishops on
+#      starting squares).
+#   3. cp_loss_strict (≥30) — engine confirms the attack is premature.
+def _p_op_finish_development(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when player attacks (creates a threat OR makes an early
+    queen sortie) with 2+ minor pieces still on starting squares.
+
+    Trigger broadening: threats_created uses SEE > 0, which misses
+    Scholar's-Mate-style attacks (queen aims at f7 but loses material
+    in SEE because king defends). So we also accept queen_sortie_
+    evidence as an "attacking signal" — that catches Qh5/Qf3 attempts
+    by 600–1200 players regardless of SEE.
+    """
+    if facts.get("phase") not in ("opening", "middlegame"):
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    threats = facts.get("threats_created") or []
+    has_threat_attack = bool(threats)
+    has_queen_sortie = bool(facts.get("queen_sortie_evidence"))
+    if not (has_threat_attack or has_queen_sortie):
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    if own_color == chess.WHITE:
+        starting_n = {chess.B1, chess.G1}
+        starting_b = {chess.C1, chess.F1}
+    else:
+        starting_n = {chess.B8, chess.G8}
+        starting_b = {chess.C8, chess.F8}
+    undeveloped = 0
+    for sq in board_before.pieces(chess.KNIGHT, own_color):
+        if sq in starting_n:
+            undeveloped += 1
+    for sq in board_before.pieces(chess.BISHOP, own_color):
+        if sq in starting_b:
+            undeveloped += 1
+    if undeveloped < 2:
+        return None
+    aligned = _developing_minor_moves(board_before, own_color)
+    endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    premature_target = threats[0].get("target_square") if threats else None
+    trigger_kind = "threat_created" if has_threat_attack else "queen_sortie"
+    return {
+        "principle_id": "OP_FINISH_DEVELOPMENT",
+        "evidence": {
+            "undeveloped_minor_count": undeveloped,
+            "premature_attack_target": premature_target,
+            "trigger_kind": trigger_kind,
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned[:5],
+    }
+
+
+# ── Detector #17: TAC_CHECKS_CAPTURES_THREATS ───────────────────────
+#
+# Edge cases enumerated:
+#   1. Engine's #1 (best_move_san) is a check (+/# suffix) OR capture
+#      (x in SAN). "Threat" detection is harder without simulating the
+#      best move; deferred for v1.
+#   2. Played move is NOT a check and NOT a capture (player chose
+#      quiet over forcing).
+#   3. cp_loss_strict (≥30).
+def _p_tac_checks_captures_threats(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when engine's #1 is a forcing move (check or capture)
+    and the player played a quiet move instead."""
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    best_raw = facts.get("best_move_san") or ""
+    played = _normalize_san(facts.get("played_san") or "")
+    if not best_raw:
+        return None
+    best_is_check = best_raw.endswith("+") or best_raw.endswith("#")
+    best_is_capture = "x" in best_raw
+    if not (best_is_check or best_is_capture):
+        return None
+    played_raw = facts.get("played_san") or ""
+    played_is_check = played_raw.endswith("+") or played_raw.endswith("#")
+    played_is_capture = bool(facts.get("is_capture"))
+    if played_is_check or played_is_capture:
+        return None
+    best_norm = _normalize_san(best_raw)
+    if played == best_norm:
+        return None
+    return {
+        "principle_id": "TAC_CHECKS_CAPTURES_THREATS",
+        "evidence": {
+            "best_move": best_raw,
+            "best_kind": "check" if best_is_check else "capture",
+            "played": played,
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_norm],
+    }
+
+
+# ── Detector #18: TAC_BACK_RANK ─────────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Engine's #1 ends with '#' (delivers mate).
+#   2. Target square of the mating move is on enemy's back rank
+#      (rank 8 for white attackers, rank 1 for black attackers).
+#   3. Played move ≠ the mating move.
+def _p_tac_back_rank(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the engine's #1 is a back-rank checkmate and player
+    played something else."""
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    best_raw = facts.get("best_move_san") or ""
+    if not best_raw.endswith("#"):
+        return None
+    target = _move_target_from_san(best_raw)
+    if not target:
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    enemy_back_rank = "8" if own_color_str == "white" else "1"
+    if target[1] != enemy_back_rank:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best_norm = _normalize_san(best_raw)
+    if played == best_norm:
+        return None
+    return {
+        "principle_id": "TAC_BACK_RANK",
+        "evidence": {
+            "mating_move": best_raw,
+            "mating_square": target,
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_norm],
+    }
+
+
+# ── Detector #19: TAC_CHANGED_AFTER_MOVE ────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Broad fallback: fires when cp_loss ≥ 100 and the player's own
+#      move created a consequence (exchange-losing OR pieces_now_
+#      undefended). Catches "missed what my move does."
+#   2. Priority 18 means specific tactical principles (hanging,
+#      defender_count) win when they also fire.
+#   3. Engine endorsement: best_move ≠ played (true by definition for
+#      high cp_loss).
+def _p_tac_changed_after_move(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Catch-all: fires when the played move had unseen consequences —
+    high cp_loss + own side's exposure changed."""
+    if (facts.get("cp_loss") or 0) < 100:
+        return None
+    has_loss = facts.get("is_exchange_losing")
+    undef = facts.get("pieces_now_undefended") or []
+    has_undef = bool(undef)
+    if not (has_loss or has_undef):
+        return None
+    best = _normalize_san(facts.get("best_move_san") or "")
+    played = _normalize_san(facts.get("played_san") or "")
+    if not (best and best != played):
+        return None
+    return {
+        "principle_id": "TAC_CHANGED_AFTER_MOVE",
+        "evidence": {
+            "played": played,
+            "cp_loss": facts.get("cp_loss"),
+            "is_exchange_losing": bool(has_loss),
+            "pieces_lost_defender_count": len(undef),
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best],
+    }
+
+
+# ── Detector #20: DEF_WALK_KING ─────────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Own king has lost castling rights (can't castle anymore).
+#   2. Engine's #1 move is a king move (SAN starts with 'K').
+#   3. Played move was NOT a king move.
+#   4. cp_loss_strict (≥30).
+def _p_def_walk_king(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when engine wants a king walk to safety but player did
+    something else, with no castling rights remaining."""
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    best_raw = facts.get("best_move_san") or ""
+    if not best_raw.startswith("K"):
+        return None
+    # Exclude castling — that's its own principle
+    if best_raw in ("O-O", "O-O-O", "0-0", "0-0-0"):
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    if (board_before.has_kingside_castling_rights(own_color)
+            or board_before.has_queenside_castling_rights(own_color)):
+        return None
+    if facts.get("moving_piece_type") == "king":
+        return None  # player WAS walking the king (just not the engine's choice)
+    played = _normalize_san(facts.get("played_san") or "")
+    best_norm = _normalize_san(best_raw)
+    if played == best_norm:
+        return None
+    return {
+        "principle_id": "DEF_WALK_KING",
+        "evidence": {
+            "engine_king_move": best_raw,
+            "played": played,
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_norm],
+    }
+
+
 def _principles_violated(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -2431,6 +2793,13 @@ def _principles_violated(
         _p_tac_defender_count,
         _p_def_most_attacked,
         _p_end_passed_pawn,
+        _p_op_loose_king_pawns,
+        _p_op_bishop_blocked,
+        _p_op_finish_development,
+        _p_tac_checks_captures_threats,
+        _p_tac_back_rank,
+        _p_tac_changed_after_move,
+        _p_def_walk_king,
         # NEW DETECTORS APPENDED HERE — inline-tested per commit.
     ):
         try:
