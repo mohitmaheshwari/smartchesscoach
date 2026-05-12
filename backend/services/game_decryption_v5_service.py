@@ -2738,7 +2738,19 @@ async def generate_game_decryption_v5(
         principles_fired_last_move: set = set()
 
         for idx, move in enumerate(moves):
-            move_san = board.san(move)
+            # Defensive: a small share of corpus games have PGN ↔
+            # move_evaluations drift where the next mainline move
+            # isn't legal in the replayed board state. Skip the
+            # offending move rather than aborting the entire game.
+            try:
+                move_san = board.san(move)
+            except (AssertionError, ValueError, chess.IllegalMoveError) as _drift_exc:
+                logger.warning(
+                    f"[V5] PGN-replay drift at idx={idx} ({move.uci()}): "
+                    f"{_drift_exc}. Skipping this move; remainder of game "
+                    f"continues."
+                )
+                continue
             full_move_number = (idx // 2) + 1
             is_white = (idx % 2 == 0)
             is_user = (user_color == "white" and is_white) or (user_color == "black" and not is_white)
@@ -3143,7 +3155,11 @@ async def generate_game_decryption_v5(
                         principles_fired_this_game.add(_pid)
                     principles_fired_last_move = _this_move_fired
                 except Exception as _caption_exc:
-                    logger.warning(
+                    # Downgraded warning → info after audit noise: these
+                    # fire predictably on PGN ↔ eval-data drift games
+                    # (small corpus subset). The wrapper returns silent
+                    # caption; only debugging needs every entry logged.
+                    logger.info(
                         f"[caption_v5] move {full_move_number} {move_san} "
                         f"extract/render failed: {_caption_exc}"
                     )
