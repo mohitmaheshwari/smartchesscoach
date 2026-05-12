@@ -295,6 +295,15 @@ export default function Pricing() {
           Payments processed securely by Razorpay. We never see or store
           your card details.
         </p>
+
+        {/* Policy links near the Subscribe button — Razorpay-required
+            "easily accessible at checkout" surface. */}
+        <p className="text-center text-xs text-gray-600 mt-4">
+          By subscribing you agree to our{" "}
+          <a href="/terms" className="underline hover:text-gray-400">Terms</a>,{" "}
+          <a href="/privacy" className="underline hover:text-gray-400">Privacy Policy</a>, and{" "}
+          <a href="/refund" className="underline hover:text-gray-400">Refund Policy</a>.
+        </p>
       </div>
     </div>
   );
