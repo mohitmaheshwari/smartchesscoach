@@ -236,7 +236,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any knight move to a non-rim square (b/g/c/f files for development)",
         "gate_policy": "cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Centralise the knight. Engine's top choice — a central knight controls more squares.",
+        "cue_best":   "Centralise the knight. Engine's top choice — a central knight attacks more squares.",
         "cue_top_n":  "Knights fight best near the centre.",
         "cue_absent": "This rim move works here. But knights fight best near the centre — make that your default.",
         "visual_signature": {
@@ -471,9 +471,9 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that does NOT open a line / expose a piece / create a new threat against the mover",
         "gate_policy": "endorsement_required + cp_loss_strict",
         "suppress": "once_per_move",
-        "cue_best":   "Every move changes the board. Engine's top choice was the safer line.",
+        "cue_best":   "Check what your move newly attacks AND newly exposes. Engine's top choice keeps your pieces covered.",
         "cue_top_n":  "Scan after every move — yours or theirs — for new threats and exposed pieces.",
-        "cue_absent": "Every move opens new attacks and exposes pieces. Always scan after — yours and theirs.",
+        "cue_absent": "Your move opened a line or removed a defender. Always check what got exposed.",
         "visual_signature": {
             "highlight": ["newly_exposed_square", "new_attacker_square"],
             "arrows": [("new_attacker_square", "newly_exposed_square", "red")],
