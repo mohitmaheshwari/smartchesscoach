@@ -1,13 +1,12 @@
 /**
- * Terms of Service — required for Razorpay compliance.
+ * Terms of Service — Razorpay compliance.
  *
- * Placeholders to fill before publishing:
- *   [LEGAL_NAME]   — proprietor or company name
- *   [ADDRESS]      — registered business address
- *   [GSTIN]        — if applicable
+ * Operator:   Maheshwari Innovative IT Services LLP
+ * GSTIN:      09ABXFM7842G1ZH
+ * Address:    Tulsi Residency, Goverdhan, Mathura, UP – 285102
+ * Jurisdiction for disputes: Mathura, Uttar Pradesh
  *
- * Drafted as standard SaaS boilerplate suitable for an India-based
- * digital subscription product. NOT a substitute for review by counsel.
+ * NOT a substitute for review by counsel.
  */
 
 import { useNavigate } from "react-router-dom";
@@ -36,7 +35,10 @@ export default function TermsOfService() {
               These Terms of Service ("Terms") govern your access to and use of
               ChessGuru, a chess coaching platform available at{" "}
               <a href="https://chessguru.ai" className="text-blue-400 hover:underline">chessguru.ai</a>
-              {" "}("Service"), operated by [LEGAL_NAME] ("we", "us", "our").
+              {" "}("Service"), operated by Maheshwari Innovative IT Services LLP,
+              a Limited Liability Partnership incorporated in India (GSTIN
+              09ABXFM7842G1ZH), with its registered office at Tulsi Residency,
+              Goverdhan, Mathura, Uttar Pradesh – 285102 ("we", "us", "our").
               By creating an account or using the Service, you agree to be bound
               by these Terms.
             </p>
@@ -104,7 +106,7 @@ export default function TermsOfService() {
             <h2 className="text-lg font-heading text-gray-100 mb-3">7. Intellectual property</h2>
             <p>
               The Service, including all software, content, designs, logos, and
-              coaching content, is the property of [LEGAL_NAME] and is
+              coaching content, is the property of Maheshwari Innovative IT Services LLP and is
               protected by intellectual property laws. We grant you a limited,
               non-exclusive, non-transferable licence to use the Service for
               personal, non-commercial chess study. You retain ownership of any
@@ -148,7 +150,8 @@ export default function TermsOfService() {
             <p>
               These Terms are governed by the laws of India. Any disputes
               arising out of or in connection with these Terms shall be subject
-              to the exclusive jurisdiction of the courts at [CITY], India.
+              to the exclusive jurisdiction of the courts at Mathura, Uttar
+              Pradesh, India.
             </p>
           </section>
 

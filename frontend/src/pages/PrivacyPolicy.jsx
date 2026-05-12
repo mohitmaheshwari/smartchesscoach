@@ -1,14 +1,12 @@
 /**
- * Privacy Policy — required for Razorpay compliance + general data law.
+ * Privacy Policy — Razorpay compliance + general data law.
  *
- * Placeholders to fill before publishing:
- *   [LEGAL_NAME]   — proprietor or company name
- *   [ADDRESS]      — registered business address
+ * Operator: Maheshwari Innovative IT Services LLP
+ * Address:  Tulsi Residency, Goverdhan, Mathura, UP – 285102
  *
- * Drafted to cover what ChessGuru actually collects: account info,
- * imported chess games (PGN), engine-analysis metadata, billing
- * information via Razorpay. India / DPDPA-aware framing. NOT a
- * substitute for review by counsel.
+ * Covers account info, imported chess games (PGN), engine-analysis
+ * metadata, and billing information via Razorpay. India / DPDPA-aware
+ * framing. NOT a substitute for review by counsel.
  */
 
 import { useNavigate } from "react-router-dom";
@@ -34,7 +32,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-lg font-heading text-gray-100 mb-3">1. Introduction</h2>
             <p>
-              This Privacy Policy explains how [LEGAL_NAME] ("we", "us")
+              This Privacy Policy explains how Maheshwari Innovative IT Services LLP ("we", "us")
               collects, uses, and protects your personal information when you
               use ChessGuru ("Service"). By using the Service, you consent to
               the practices described here.
@@ -193,7 +191,7 @@ export default function PrivacyPolicy() {
               ChessGuru is:
             </p>
             <p className="mt-3 ml-4">
-              Name: [LEGAL_NAME]<br />
+              Name: Maheshwari Innovative IT Services LLP<br />
               Email:{" "}
               <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
                 bhutramohit@gmail.com

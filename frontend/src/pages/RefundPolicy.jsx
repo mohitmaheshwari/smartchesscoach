@@ -1,12 +1,12 @@
 /**
- * Refund & Cancellation Policy — MANDATORY for Razorpay compliance.
+ * Refund & Cancellation Policy — Razorpay-required.
  *
- * Placeholders to fill before publishing:
- *   [LEGAL_NAME]          — proprietor or company name
- *   [REFUND_WINDOW_DAYS]  — default 7 (Razorpay-typical)
- *
- * Drafted for a subscription SaaS product with monthly and annual
- * billing through Razorpay. NOT a substitute for review by counsel.
+ * Stance: all sales are final. No discretionary refunds for change of
+ * mind, cancellation mid-period, or unused subscription time. The
+ * mandatory-by-law exceptions (duplicate charges, unauthorised
+ * payments, processor errors, service non-delivery) are preserved
+ * because Indian consumer protection law preserves those rights
+ * regardless of merchant policy.
  */
 
 import { useNavigate } from "react-router-dom";
@@ -33,87 +33,104 @@ export default function RefundPolicy() {
             <h2 className="text-lg font-heading text-gray-100 mb-3">1. Overview</h2>
             <p>
               This Refund &amp; Cancellation Policy describes how subscriptions
-              to ChessGuru, operated by [LEGAL_NAME], can be cancelled and
-              when refunds are issued. It applies to all paid plans on{" "}
+              to ChessGuru, operated by Maheshwari Innovative IT Services LLP
+              (GSTIN 09ABXFM7842G1ZH), can be cancelled and the limited
+              circumstances under which refunds may be issued. It applies to
+              all paid plans on{" "}
               <a href="https://chessguru.ai" className="text-blue-400 hover:underline">chessguru.ai</a>.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-heading text-gray-100 mb-3">2. Cancellation</h2>
-            <p className="mb-3">You can cancel your subscription at any time:</p>
+            <h2 className="text-lg font-heading text-gray-100 mb-3">2. All sales are final</h2>
+            <p className="mb-3">
+              ChessGuru is a digital subscription service. Access to coaching
+              features, analysis, and content is granted immediately upon
+              successful payment. Because the service is delivered digitally
+              and consumed from the moment of activation, all payments are
+              non-refundable.
+            </p>
+            <p>
+              We do not offer refunds for:
+            </p>
+            <ul className="list-disc list-inside space-y-2 mt-3">
+              <li>Change of mind after a successful purchase.</li>
+              <li>Cancellation in the middle of a billing period (monthly or annual).</li>
+              <li>Unused time on a subscription after cancellation.</li>
+              <li>Partial-month or partial-year periods on either tier.</li>
+              <li>Dissatisfaction with the coaching results or analysis output.</li>
+              <li>Decisions to stop using the service.</li>
+            </ul>
+            <p className="mt-3">
+              You are encouraged to use the free tier and review our{" "}
+              <a href="/pricing" className="text-blue-400 hover:underline">Pricing</a>
+              {" "}page before subscribing to a paid plan, so you can confirm
+              the Service meets your needs.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-heading text-gray-100 mb-3">3. Cancellation</h2>
+            <p className="mb-3">
+              You can cancel your subscription at any time:
+            </p>
             <ul className="list-disc list-inside space-y-2">
               <li>Through your account Settings on the website, or</li>
-              <li>By emailing us at{" "}
+              <li>
+                By emailing us at{" "}
                 <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
                   bhutramohit@gmail.com
-                </a>{" "}with the subject line "Cancellation Request" and your registered email.
+                </a>{" "}with the subject line "Cancellation Request" and your
+                registered email.
               </li>
             </ul>
             <p className="mt-3">
-              After cancellation, you will continue to have access to your paid
-              plan features until the end of your current billing period.
-              Recurring charges will stop from the next billing cycle.
+              On cancellation, you continue to have access to your paid plan
+              features until the end of the current billing period. No
+              recurring charge will be made for the next period. Cancellation
+              does NOT generate a refund for the current period.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-heading text-gray-100 mb-3">3. Refund eligibility</h2>
+            <h2 className="text-lg font-heading text-gray-100 mb-3">4. Exceptions — when a refund is issued</h2>
             <p className="mb-3">
-              We offer refunds under the following conditions:
+              The following situations are NOT discretionary; we will refund
+              affected charges because Indian consumer protection law and
+              Razorpay merchant rules require it:
             </p>
             <ul className="list-disc list-inside space-y-2">
-              <li>
-                <strong className="text-gray-100">First-time subscribers:</strong>{" "}
-                a full refund is available within [REFUND_WINDOW_DAYS] days of
-                your first paid subscription, provided you have not used the
-                Pro features extensively (more than 25 analysed games or 10
-                Play-with-Coach sessions).
-              </li>
-              <li>
-                <strong className="text-gray-100">Service failure:</strong> if
-                the Service is unavailable for more than 72 consecutive hours
-                due to our fault, you may request a pro-rated refund for the
-                downtime.
-              </li>
               <li>
                 <strong className="text-gray-100">Duplicate charges:</strong>{" "}
                 if you are charged twice for the same billing period, the
-                duplicate charge will be refunded in full.
+                duplicate charge is refunded in full.
               </li>
               <li>
                 <strong className="text-gray-100">Unauthorised charges:</strong>{" "}
-                if you can demonstrate a charge was made without your authorisation, contact us and we will investigate and refund as
-                appropriate.
+                if you can demonstrate a charge was made without your
+                authorisation (e.g., your payment method was used by someone
+                else without consent), contact us and we will investigate and
+                refund as appropriate.
+              </li>
+              <li>
+                <strong className="text-gray-100">Payment processor errors:</strong>{" "}
+                if Razorpay or your bank applies a charge that did not result
+                in service activation on your ChessGuru account, the charge
+                is refunded.
+              </li>
+              <li>
+                <strong className="text-gray-100">Service not delivered:</strong>{" "}
+                if your subscription does not activate within 24 hours of a
+                successful payment because of an issue on our side, you may
+                request a full refund.
               </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-heading text-gray-100 mb-3">4. Non-refundable cases</h2>
-            <ul className="list-disc list-inside space-y-2">
-              <li>
-                Renewals of an existing subscription after the initial
-                [REFUND_WINDOW_DAYS]-day window has passed.
-              </li>
-              <li>
-                Annual plans after extensive use (defined as &gt;25 analysed
-                games or &gt;10 Play-with-Coach sessions).
-              </li>
-              <li>
-                Partial-month refunds when the user has used the Service
-                during the billing period.
-              </li>
-              <li>
-                Refund requests made more than 90 days after the original
-                charge.
-              </li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-heading text-gray-100 mb-3">5. How to request a refund</h2>
-            <p className="mb-3">Email{" "}
+            <h2 className="text-lg font-heading text-gray-100 mb-3">5. How to request a refund under section 4</h2>
+            <p className="mb-3">
+              Email{" "}
               <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
                 bhutramohit@gmail.com
               </a>{" "}with:
@@ -122,36 +139,37 @@ export default function RefundPolicy() {
               <li>Your registered email address.</li>
               <li>Date and amount of the charge.</li>
               <li>Razorpay payment ID or order ID (visible in your invoice email).</li>
-              <li>Reason for the refund request.</li>
+              <li>The exception you are claiming under (duplicate, unauthorised, processor error, non-delivery).</li>
+              <li>Any supporting evidence (screenshots, bank statements).</li>
             </ul>
             <p className="mt-3">
-              We will respond within 3 business days. Approved refunds are
+              We respond within 3 business days. Approved refunds are
               processed within 7 business days through the original payment
-              method via Razorpay. Bank credit timing depends on your
-              card-issuing bank (typically 5–10 working days).
+              method via Razorpay. Bank credit timing depends on your card
+              issuer (typically 5–10 working days).
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-heading text-gray-100 mb-3">6. Failed-payment handling</h2>
             <p>
-              If a recurring charge fails, we will retry up to 3 times over
-              the following 7 days. If all retries fail, your subscription
-              will be downgraded to the free tier, and your paid-tier data
-              will remain available for 30 days, after which it may be
-              archived.
+              If a recurring charge fails, we retry up to 3 times over the
+              following 7 days. If all retries fail, your subscription is
+              downgraded to the free tier. Your paid-tier data remains
+              available for 30 days, after which it may be archived.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-heading text-gray-100 mb-3">7. Disputes</h2>
             <p>
-              If a refund decision is disputed, please email us at{" "}
+              If a refund decision is disputed, email us at{" "}
               <a href="mailto:bhutramohit@gmail.com" className="text-blue-400 hover:underline">
                 bhutramohit@gmail.com
               </a>{" "}and we will review your case within 7 business days. If
-              we cannot reach a resolution, refer to Razorpay's dispute
-              process or applicable consumer protection regulations.
+              we cannot reach a resolution, you may refer the matter to
+              Razorpay's dispute process or applicable consumer protection
+              authorities.
             </p>
           </section>
 

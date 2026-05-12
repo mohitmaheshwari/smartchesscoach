@@ -1,10 +1,9 @@
 /**
- * Contact Us — required for Razorpay compliance.
+ * Contact Us — Razorpay compliance.
  *
- * Placeholders to fill before publishing:
- *   [LEGAL_NAME]   — proprietor or company name
- *   [ADDRESS]      — registered business address
- *   [CITY, STATE, PIN]
+ * Operator: Maheshwari Innovative IT Services LLP (GSTIN 09ABXFM7842G1ZH)
+ * Address:  Tulsi Residency, Goverdhan, Mathura, UP – 285102
+ * Email:    bhutramohit@gmail.com
  */
 
 import { useNavigate } from "react-router-dom";
@@ -51,10 +50,13 @@ export default function ContactUs() {
               <div>
                 <p className="text-gray-100 font-medium">Registered address</p>
                 <p className="text-gray-400">
-                  [LEGAL_NAME]<br />
-                  [ADDRESS]<br />
-                  [CITY], [STATE] [PIN]<br />
+                  Maheshwari Innovative IT Services LLP<br />
+                  Tulsi Residency, Goverdhan<br />
+                  Mathura, Uttar Pradesh – 285102<br />
                   India
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  GSTIN: 09ABXFM7842G1ZH
                 </p>
               </div>
             </div>
