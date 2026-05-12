@@ -62,6 +62,7 @@ CAPTION_V5_PIPELINE_ENABLED = os.environ.get("CAPTION_V5_PIPELINE_ENABLED", "1")
 try:
     from services.caption_facts import extract_facts as _extract_caption_facts
     from services.caption_renderer import render_caption_dict as _render_caption_dict
+    from services.caption_principles import PRINCIPLES_BY_ID as _CAPTION_PRINCIPLES_BY_ID
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
     _render_caption_dict = None
@@ -2722,7 +2723,20 @@ async def generate_game_decryption_v5(
         board = chess.Board()
         prev_move = None
         prev_user_eval_after = None  # Track eval after user's last move
-        
+
+        # ── Teaching-layer suppression state ──────────────────────────
+        # Catalog declares per-principle suppression semantics:
+        #   once_per_move        — default; no game-state filter
+        #   once_per_state_entry — fire on transitions from "not firing
+        #                          last move" to "firing this move"
+        #   once_per_game        — fire only the FIRST time per game
+        # Detectors are pure (no game-state); filtering happens here.
+        # Without this, state-persistent principles like END_KING_ACTIVE
+        # spammed 34k times across the audit corpus (first audit pass
+        # surfaced the gap).
+        principles_fired_this_game: set = set()
+        principles_fired_last_move: set = set()
+
         for idx, move in enumerate(moves):
             move_san = board.san(move)
             full_move_number = (idx // 2) + 1
@@ -3098,11 +3112,32 @@ async def generate_game_decryption_v5(
                     )
                     caption_payload = _render_caption_dict(caption_facts)
                     caption_primary_reason = caption_facts.get("primary_reason")
-                    # Teaching layer — list of principle evidence dicts.
-                    # Suppression + priority resolution lives in this
-                    # wiring layer once detectors mature; for v1 we just
-                    # stream them through to the audit / renderer.
-                    caption_principles_violated = caption_facts.get("principles_violated") or []
+                    # Teaching layer — apply per-principle suppression
+                    # against the running game-state. Detectors are
+                    # pure; this layer dedupes per the catalog's
+                    # suppress semantics.
+                    raw_principles = caption_facts.get("principles_violated") or []
+                    caption_principles_violated = []
+                    _this_move_fired = set()
+                    for _ev in raw_principles:
+                        _pid = _ev.get("principle_id")
+                        if not _pid:
+                            continue
+                        _entry = _CAPTION_PRINCIPLES_BY_ID.get(_pid, {}) if _CAPTION_PRINCIPLES_BY_ID else {}
+                        _suppress = _entry.get("suppress", "once_per_move")
+                        if _suppress == "once_per_game":
+                            if _pid in principles_fired_this_game:
+                                continue
+                        elif _suppress == "once_per_state_entry":
+                            # Fire only when state newly holds — i.e.,
+                            # principle did NOT fire on the previous move.
+                            if _pid in principles_fired_last_move:
+                                continue
+                        # once_per_move (default) → no further filter
+                        caption_principles_violated.append(_ev)
+                        _this_move_fired.add(_pid)
+                        principles_fired_this_game.add(_pid)
+                    principles_fired_last_move = _this_move_fired
                 except Exception as _caption_exc:
                     logger.warning(
                         f"[caption_v5] move {full_move_number} {move_san} "

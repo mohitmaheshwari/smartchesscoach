@@ -2205,11 +2205,21 @@ def _p_op_claim_center(
     board_before: chess.Board,
 ) -> Optional[Dict[str, Any]]:
     """Fires when engine's #1 move is a central pawn push (e4/d4/e5/d5)
-    AND the player played something else in the first 6 full moves."""
+    AND the player played something else in the first 6 full moves
+    AND the player's choice is actually suboptimal (cp_loss ≥ 20).
+
+    The cp_loss gate was added in audit pass #1: without it, this
+    fired on 1...c5 (Sicilian, cp_loss=0) saying "engine wanted e5"
+    — technically true but misleading because the Sicilian is fine.
+    Now only fires when the engine flags the player's choice as
+    a real loss vs the central pawn.
+    """
     if facts.get("phase") != "opening":
         return None
     full_move = facts.get("full_move_number") or 0
     if full_move > 6:
+        return None
+    if (facts.get("cp_loss") or 0) < 20:
         return None
     best = _normalize_san(facts.get("best_move_san") or "")
     if not best:
@@ -2842,10 +2852,17 @@ def _p_mid_pawn_break(
     board_before: chess.Board,
 ) -> Optional[Dict[str, Any]]:
     """Fires when engine's #1 is a pawn move in middlegame and player
-    played something else. Catches missed pawn-break attacks."""
+    played something else. Catches missed pawn-break attacks.
+
+    cp_loss threshold raised 30 → 80 after audit pass #1: at 30, this
+    fired on quiet positions where the engine's pawn-move preference
+    is small (e.g. cpl=62 sample). 80+ tightens to genuinely-missed
+    pawn-break opportunities where the engine sees a meaningful
+    advantage in the break.
+    """
     if facts.get("phase") != "middlegame":
         return None
-    if (facts.get("cp_loss") or 0) < 30:
+    if (facts.get("cp_loss") or 0) < 80:
         return None
     best_raw = facts.get("best_move_san") or ""
     if not best_raw:
@@ -3172,7 +3189,11 @@ def _p_mid_bad_bishop(
         for psq in board_before.pieces(chess.PAWN, own_color):
             if (chess.square_file(psq) + chess.square_rank(psq)) % 2 == bishop_sq_color:
                 same_color_pawns += 1
-        if same_color_pawns >= 4:
+        # Threshold raised 4 → 5 after audit pass #1: 4 same-color
+        # pawns fires even on starting positions where no pawns
+        # have been traded (every side starts with 4 on each colour).
+        # 5+ catches the genuinely-locked-in cases.
+        if same_color_pawns >= 5:
             bad_bishop_sq = bsq
             pawn_count = same_color_pawns
             break
