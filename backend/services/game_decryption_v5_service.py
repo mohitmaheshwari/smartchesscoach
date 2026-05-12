@@ -3141,13 +3141,16 @@ async def generate_game_decryption_v5(
                             continue
                         _entry = _CAPTION_PRINCIPLES_BY_ID.get(_pid, {}) if _CAPTION_PRINCIPLES_BY_ID else {}
                         _suppress = _entry.get("suppress", "once_per_move")
-                        if _suppress == "once_per_game":
+                        # Audit #2 reveal: once_per_state_entry's "fire
+                        # when not in last-move set" semantics leak on
+                        # alternating sides — END_KING_ACTIVE checks the
+                        # MOVER's king, so the OTHER side's move "breaks"
+                        # the last-move-set membership, and the next own
+                        # move re-fires. For sub-1500 teaching, the cue
+                        # is needed once per game anyway. Collapse
+                        # state_entry → game-level suppression.
+                        if _suppress in ("once_per_game", "once_per_state_entry"):
                             if _pid in principles_fired_this_game:
-                                continue
-                        elif _suppress == "once_per_state_entry":
-                            # Fire only when state newly holds — i.e.,
-                            # principle did NOT fire on the previous move.
-                            if _pid in principles_fired_last_move:
                                 continue
                         # once_per_move (default) → no further filter
                         caption_principles_violated.append(_ev)
