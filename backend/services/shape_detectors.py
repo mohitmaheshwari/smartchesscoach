@@ -683,9 +683,29 @@ def detect_back_rank_trap(board: chess.Board) -> List[Dict]:
             break
     if not has_invasion:
         return []
+    # Emit the invading R/Q square as mover so the move-relevance gate can
+    # attribute this pattern to the move that put our R/Q on the file.
+    invader_sq = None
+    for c_sq in candidates:
+        if chess.square_rank(c_sq) == back_rank:
+            invader_sq = c_sq
+            break
+        cf = chess.square_file(c_sq)
+        cr = chess.square_rank(c_sq)
+        step = 1 if back_rank > cr else -1
+        rr = cr + step
+        path_clear = True
+        while rr != back_rank:
+            if board.piece_at(chess.square(cf, rr)) is not None:
+                path_clear = False
+                break
+            rr += step
+        if path_clear:
+            invader_sq = c_sq
+            break
     return [_ev(
         "back_rank_trap",
-        mover=None,
+        mover=invader_sq,
         targets=[them_king_sq],
         executing_move=None,
         evidence=f"king on {chess.square_name(them_king_sq)} has no escape squares on rank {back_rank + 1}",
@@ -762,11 +782,15 @@ def detect_queen_knight_mate(board: chess.Board) -> List[Dict]:
     kf, kr = chess.square_file(them_king_sq), chess.square_rank(them_king_sq)
     def near(sq):
         return max(abs(chess.square_file(sq) - kf), abs(chess.square_rank(sq) - kr)) <= 3
-    if any(near(q) for q in queens) and any(near(n) for n in knights):
+    near_queens = [q for q in queens if near(q)]
+    near_knights = [n for n in knights if near(n)]
+    if near_queens and near_knights:
+        # Emit the near queen as mover so the move-relevance gate can fire
+        # this pattern on moves involving the attacking queen or knight.
         return [_ev(
             "queen_knight_mate",
-            mover=None,
-            targets=[them_king_sq],
+            mover=near_queens[0],
+            targets=[them_king_sq, near_knights[0]],
             executing_move=None,
             evidence=f"queen + knight within 3 squares of king on {chess.square_name(them_king_sq)}",
         )]

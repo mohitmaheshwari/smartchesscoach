@@ -39,6 +39,52 @@ from services.shape_detectors import detect_all_shapes, verify_with_engine_data
 from services.shape_patterns import PATTERNS_BY_ID
 
 
+def _is_relevant_to_move(
+    ev: Dict,
+    played_move: Optional[chess.Move],
+    best_move_uci: str,
+) -> bool:
+    """Move-relevance gate: a pattern fires only when the played move is
+    actually INVOLVED in the pattern. Without this, every pattern whose
+    geometry holds anywhere on the board surfaces under every move —
+    producing teaching that has nothing to do with what the player did.
+
+    Two cases:
+      1. Pattern has an executing_move (e.g. a fork move, capture):
+         fires if played_move matches (player executed it) OR engine's
+         best move matches (player missed it — surface as a lesson).
+      2. Pattern is positional (no executing_move): fires if the played
+         move's from or to square overlaps mover/targets — i.e., the
+         move involves a piece named in the pattern.
+    """
+    ex = ev.get("executing_move")
+    played_uci = played_move.uci() if played_move else ""
+    if ex:
+        return played_uci == ex or best_move_uci == ex
+    if played_move is None:
+        # No move context — can't gate. Pass through (used for tests).
+        return True
+    involved: Set[int] = set()
+    if ev.get("mover"):
+        try:
+            mover_val = ev["mover"]
+            if isinstance(mover_val, int):
+                involved.add(mover_val)
+            else:
+                involved.add(chess.parse_square(str(mover_val)))
+        except Exception:
+            pass
+    for t in ev.get("targets") or []:
+        try:
+            if isinstance(t, int):
+                involved.add(t)
+            else:
+                involved.add(chess.parse_square(str(t)))
+        except Exception:
+            pass
+    return played_move.from_square in involved or played_move.to_square in involved
+
+
 def select_shape_for_position(
     board: chess.Board,
     eval_data: Optional[Dict] = None,
@@ -56,6 +102,15 @@ def select_shape_for_position(
         candidates = detect_all_shapes(board, prev_move=prev_move)
     except Exception:
         return None
+    if not candidates:
+        return None
+
+    # Move-relevance gate: only surface patterns where the played move is
+    # actually involved. Without this, a pin/fork/discovery on the other
+    # side of the board fires under a routine developing move. The user's
+    # move-4 Nf6 firing back_rank_trap and hidden_attack was exactly this.
+    best_move_uci = (eval_data or {}).get("best_move_uci", "") if eval_data else ""
+    candidates = [ev for ev in candidates if _is_relevant_to_move(ev, prev_move, best_move_uci)]
     if not candidates:
         return None
 
