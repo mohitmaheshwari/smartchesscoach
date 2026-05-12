@@ -69,6 +69,15 @@ except Exception as _caption_import_exc:  # pragma: no cover — defensive
     logger.warning(f"[caption_v5] import failed; pipeline disabled: {_caption_import_exc}")
     CAPTION_V5_PIPELINE_ENABLED = False
 
+# TIER 3 shape-pattern selector. Pure-function detector + engine verifier
+# wrapper. Lives behind a try/except so a detector import failure can't
+# wedge the V5 pipeline.
+try:
+    from services.shape_layer import select_shape_for_position as _select_shape_for_position
+except Exception as _shape_import_exc:  # pragma: no cover — defensive
+    _select_shape_for_position = None
+    logger.warning(f"[shape_v3] import failed; shape layer disabled: {_shape_import_exc}")
+
 # Load theory data
 THEORY_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "theory")
 COACHING_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "coaching")
@@ -2736,6 +2745,10 @@ async def generate_game_decryption_v5(
         # surfaced the gap).
         principles_fired_this_game: set = set()
         principles_fired_last_move: set = set()
+        # TIER 3 shape-pattern suppression — same convention as principles:
+        # each pattern fires at most once per game, so the cue stays a
+        # memorable marker instead of a repeated label.
+        shapes_fired_this_game: set = set()
 
         for idx, move in enumerate(moves):
             # Defensive: a small share of corpus games have PGN ↔
@@ -3215,6 +3228,30 @@ async def generate_game_decryption_v5(
             # Track user's eval_after for opponent blunder detection
             if is_user:
                 prev_user_eval_after = eval_data.get("eval_after")
+
+            # ── TIER 3 shape-pattern detection ─────────────────────
+            # Runs on the POST-move board (the player sees the result
+            # of the move in review). Engine verifier matches against
+            # the engine's best move FOR THE PRE-MOVE position so the
+            # "executed/missed pattern" semantics line up with the
+            # move that was just played.
+            shape_pattern_record: Optional[Dict[str, Any]] = None
+            if _select_shape_for_position is not None:
+                try:
+                    # Detect on the pre-move board: the side-to-move at
+                    # fen_before is the side whose pattern we're naming.
+                    pre_move_board = chess.Board(fen_before)
+                    shape_pattern_record = _select_shape_for_position(
+                        pre_move_board,
+                        eval_data={
+                            "best_move_uci": eval_data.get("best_move_uci", ""),
+                        },
+                        shapes_fired_this_game=shapes_fired_this_game,
+                        prev_move=prev_move,
+                    )
+                except Exception as _shape_exc:
+                    logger.info(f"[shape_v3] detect failed on move {full_move_number}: {_shape_exc}")
+                    shape_pattern_record = None
             
             move_output = {
                 "move_number": full_move_number,
@@ -3314,6 +3351,18 @@ async def generate_game_decryption_v5(
                 # visually distinct.
                 "principle_cue": principle_cue,
                 "principle_id_used": principle_id_used,
+
+                # ── TIER 3 shape pattern (visual danger language) ─
+                # At most one pattern per move; once-per-game suppression.
+                # Frontend renders pattern_name as a callout under the
+                # caption, with pattern_desc on hover/expansion and
+                # target squares for board highlighting.
+                "shape_pattern_id":   shape_pattern_record["pattern_id"] if shape_pattern_record else None,
+                "shape_pattern_name": shape_pattern_record["pattern_name"] if shape_pattern_record else None,
+                "shape_pattern_desc": shape_pattern_record["pattern_desc"] if shape_pattern_record else None,
+                "shape_pattern_mover": shape_pattern_record["mover"] if shape_pattern_record else None,
+                "shape_pattern_targets": shape_pattern_record["targets"] if shape_pattern_record else [],
+                "shape_pattern_executing_move": shape_pattern_record["executing_move"] if shape_pattern_record else None,
             }
 
             decryption_data.append(move_output)

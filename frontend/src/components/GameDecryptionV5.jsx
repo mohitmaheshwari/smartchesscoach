@@ -227,6 +227,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             // the new named-principle habit reminder (≤20 words).
             const principle_cue = (cap && cap.principle_cue) || "";
             const principle_id = (cap && cap.principle_id) || null;
+            // TIER 3 shape pattern (visual danger language). Highest-
+            // priority engine-verified pattern in this position; at
+            // most one per move, suppressed once-per-game in V5 wiring.
+            const shape_pattern_id = (cap && cap.shape_pattern_id) || null;
+            const shape_pattern_name = (cap && cap.shape_pattern_name) || "";
+            const shape_pattern_desc = (cap && cap.shape_pattern_desc) || "";
+            const shape_pattern_targets = (cap && cap.shape_pattern_targets) || [];
             if (cap && cap.text) {
               return {
                 ...m,
@@ -234,6 +241,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                 _caption_source: cap.source,
                 principle_cue,
                 principle_id,
+                shape_pattern_id,
+                shape_pattern_name,
+                shape_pattern_desc,
+                shape_pattern_targets,
               };
             }
             // Empty caption from per-move endpoint = honest 'no comment'.
@@ -245,6 +256,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                 _caption_source: "silent",
                 principle_cue,
                 principle_id,
+                shape_pattern_id,
+                shape_pattern_name,
+                shape_pattern_desc,
+                shape_pattern_targets,
               };
             }
             return m;
@@ -1187,6 +1202,28 @@ const MoveCoachingCardV5 = ({
               flaggedText={move.principle_cue}
               context={{ ...flagCtx, principle_id: move.principle_id || null }}
             />
+          </div>
+        )}
+
+        {/* TIER 3 shape pattern — visual danger language. The pattern
+            NAME is what the player remembers (Class 6-8 English).
+            Description sits on the same line in lighter weight so
+            kids see both the label and the picture at once. */}
+        {move.shape_pattern_id && move.shape_pattern_name && (
+          <div
+            className="leading-relaxed group mt-1.5 pl-3 border-l-2 border-teal-500/40"
+            data-testid="move-shape-pattern"
+          >
+            <p className="text-xs">
+              <span className="font-semibold text-teal-700 dark:text-teal-300">
+                {move.shape_pattern_name}
+              </span>
+              {move.shape_pattern_desc && (
+                <span className="text-teal-700/80 dark:text-teal-300/70">
+                  {" — "}{move.shape_pattern_desc}
+                </span>
+              )}
+            </p>
           </div>
         )}
 

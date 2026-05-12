@@ -859,6 +859,33 @@ async def get_coach_home(user: User = Depends(get_current_user)):
         logger.warning(f"[COACH-HOME] Engine 2 failed: {e}")
         result["learn_next"] = None
 
+    # ─── TIER 3: Pattern of the Day ─────────────────────────────────
+    # Most-frequent shape-pattern across the user's last 20 analysed games.
+    # The named pattern is the memory anchor; the description gives the
+    # picture the player should drill until it stops appearing.
+    try:
+        from services.shape_layer import tally_shapes_across_games
+        recent = await db.game_analyses.find(
+            {"user_id": user_id},
+            {"_id": 0, "decryption_v5_data": 1}
+        ).sort("analyzed_at", -1).limit(20).to_list(20)
+        per_game = [(a.get("decryption_v5_data") or []) for a in recent]
+        tally = tally_shapes_across_games(per_game)
+        if tally:
+            top = tally[0]
+            result["pattern_of_the_day"] = {
+                "pattern_id":  top["pattern_id"],
+                "name":        top["name"],
+                "description": top["description"],
+                "count":       top["count"],
+                "games":       top["games"],
+            }
+        else:
+            result["pattern_of_the_day"] = None
+    except Exception as e:
+        logger.warning(f"[COACH-HOME] Pattern of the day failed: {e}")
+        result["pattern_of_the_day"] = None
+
     return result
 
 

@@ -528,6 +528,28 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
                     "trend": pattern_data.get("trend", "stable"),
                 })
         recurring_patterns.sort(key=lambda x: x["count"], reverse=True)
+
+    # ── TIER 3 Pattern of the Day ──────────────────────────────────
+    # Tally shape-pattern fires across the user's last 20 analysed games.
+    # The most-frequent named pattern becomes Pattern of the Day — a
+    # memorable label the player should drill until it stops appearing.
+    pattern_of_the_day = None
+    try:
+        from collections import Counter
+        from services.shape_layer import tally_shapes_across_games
+        per_game_records = [a.get("decryption_v5_data") or [] for a in analyses]
+        tally = tally_shapes_across_games(per_game_records)
+        if tally:
+            top = tally[0]
+            pattern_of_the_day = {
+                "pattern_id":  top["pattern_id"],
+                "name":        top["name"],
+                "description": top["description"],
+                "count":       top["count"],
+                "games":       top["games"],
+            }
+    except Exception as _shape_exc:
+        logger.debug(f"[shape_v3] pattern-of-the-day tally failed: {_shape_exc}")
     
     # Calculate focus capacity
     focus_capacity = calculate_focus_capacity(
@@ -766,6 +788,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
             "mistakes_per_game": round(mistakes_per_game, 2),
             "time_trouble_rate": round(time_trouble_rate * 100, 1),
         },
+        "pattern_of_the_day": pattern_of_the_day,
     }
 
 

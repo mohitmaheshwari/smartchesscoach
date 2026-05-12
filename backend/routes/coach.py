@@ -1087,6 +1087,13 @@ async def get_per_move_captions(
         principle_cue = (rec.get("principle_cue") or "").strip()
         principle_id = rec.get("principle_id_used")
 
+        # TIER 3 shape-pattern fields (visual danger language). At most
+        # one pattern per move; once-per-game suppression in V5 wiring.
+        shape_pattern_id = rec.get("shape_pattern_id")
+        shape_pattern_name = rec.get("shape_pattern_name")
+        shape_pattern_desc = rec.get("shape_pattern_desc")
+        shape_pattern_targets = rec.get("shape_pattern_targets") or []
+
         # decryption_block moments still win — LLM "critical moment"
         # voice is a separate surface coach-approved per-game.
         override = moments_index.get((mn, san))
@@ -1099,6 +1106,10 @@ async def get_per_move_captions(
                 "source": override.get("source") or "decryption_block",
                 "principle_cue": principle_cue,
                 "principle_id": principle_id,
+                "shape_pattern_id": shape_pattern_id,
+                "shape_pattern_name": shape_pattern_name,
+                "shape_pattern_desc": shape_pattern_desc,
+                "shape_pattern_targets": shape_pattern_targets,
             })
             continue
 
@@ -1116,6 +1127,10 @@ async def get_per_move_captions(
             "source": rule_name if caption_text else "silent",
             "principle_cue": principle_cue,
             "principle_id": principle_id,
+            "shape_pattern_id": shape_pattern_id,
+            "shape_pattern_name": shape_pattern_name,
+            "shape_pattern_desc": shape_pattern_desc,
+            "shape_pattern_targets": shape_pattern_targets,
         })
 
     return {

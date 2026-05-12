@@ -249,6 +249,30 @@ const HomePage = ({ user }) => {
             <TodayHero />
           </section>
 
+          {/* ━━ PATTERN OF THE DAY ━━
+              TIER 3 visual-danger-language: the named shape that fires
+              most often across the user's last 20 analysed games. The
+              name is the memory anchor; description is the picture in
+              plain English. Drill until it stops appearing. */}
+          {data?.pattern_of_the_day && (
+            <section className="mb-16 md:mb-20">
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-5">
+                Pattern of the day
+              </div>
+              <div className="rounded-lg border border-teal-500/30 bg-teal-500/5 p-5 md:p-6">
+                <p className="text-xl md:text-2xl font-serif text-teal-600 dark:text-teal-300 mb-2">
+                  {data.pattern_of_the_day.name}
+                </p>
+                <p className="text-[14px] md:text-[15px] text-foreground/85 leading-relaxed mb-3 max-w-[560px]">
+                  {data.pattern_of_the_day.description}
+                </p>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Seen {data.pattern_of_the_day.count}× across {data.pattern_of_the_day.games} game{data.pattern_of_the_day.games === 1 ? "" : "s"}
+                </p>
+              </div>
+            </section>
+          )}
+
           {/* ━━ RECENT PLAY ━━ */}
           {/* Per-window Mirror verdict over games imported since the user
               last engaged with the coach. The pointer advances when the

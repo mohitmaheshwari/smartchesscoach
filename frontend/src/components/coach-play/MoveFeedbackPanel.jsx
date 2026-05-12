@@ -65,6 +65,10 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId,
     is_sacrifice,
     // Position context fields used to enrich tester flags
     fen_before,
+    // TIER 3 shape pattern — visual danger language
+    shape_pattern_id,
+    shape_pattern_name,
+    shape_pattern_desc,
   } = feedback;
 
   // Shared flag context for every InlineFlag in this panel — tester
@@ -251,6 +255,30 @@ const MoveFeedbackPanel = ({ feedback, onDismiss, onSocraticResponse, sessionId,
                   <p className="group text-xs text-zinc-200 italic">
                     {golden_rule}
                     <InlineFlag section="golden_rule" flaggedText={golden_rule} context={flagCtx} />
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* TIER 3 shape pattern — the named visual the player should
+                remember. Name is the memory anchor; description is the
+                picture in plain English. */}
+            {shape_pattern_id && shape_pattern_name && (
+              <div className="flex items-start gap-2 p-2 rounded bg-teal-500/5 border border-teal-500/20">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-teal-400 font-medium mb-1">
+                    Pattern
+                  </p>
+                  <p className="group text-xs">
+                    <span className="font-semibold text-teal-300">{shape_pattern_name}</span>
+                    {shape_pattern_desc && (
+                      <span className="text-zinc-300"> — {shape_pattern_desc}</span>
+                    )}
+                    <InlineFlag
+                      section="shape_pattern"
+                      flaggedText={`${shape_pattern_name} — ${shape_pattern_desc || ""}`}
+                      context={{ ...flagCtx, shape_pattern_id }}
+                    />
                   </p>
                 </div>
               </div>

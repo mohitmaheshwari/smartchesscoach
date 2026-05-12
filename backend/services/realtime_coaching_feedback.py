@@ -91,6 +91,15 @@ class MoveFeedback:
     # See services/opening_theory_note.py.
     opening_theory_note: Optional[Dict] = None
 
+    # TIER 3 shape pattern (visual danger language). Single highest-
+    # priority pattern matching the engine's best move for the pre-
+    # move position; once-per-session suppression handled by caller.
+    shape_pattern_id: Optional[str] = None
+    shape_pattern_name: Optional[str] = None
+    shape_pattern_desc: Optional[str] = None
+    shape_pattern_targets: Optional[List[str]] = None
+    shape_pattern_executing_move: Optional[str] = None
+
     def to_dict(self) -> Dict:
         # Compute best_move_uci from SAN + FEN for board arrow drawing
         best_move_uci = ""
@@ -138,6 +147,12 @@ class MoveFeedback:
             # Opening-theory note (None when not in a known opening
             # or past the opening phase)
             "opening_theory_note": self.opening_theory_note,
+            # TIER 3 shape pattern (visual danger language)
+            "shape_pattern_id":     self.shape_pattern_id,
+            "shape_pattern_name":   self.shape_pattern_name,
+            "shape_pattern_desc":   self.shape_pattern_desc,
+            "shape_pattern_targets": self.shape_pattern_targets or [],
+            "shape_pattern_executing_move": self.shape_pattern_executing_move,
         }
         if self.trap_suggestion:
             result["trap_suggestion"] = self.trap_suggestion
@@ -1550,6 +1565,49 @@ async def generate_move_feedback(
     except Exception as exc:
         logger.warning(f"[PWC] Chain-legality verifier skipped: {exc}")
 
+    # ── TIER 3 shape pattern detection ─────────────────────────────
+    # Detects on the pre-move board (the position the user just faced)
+    # and verifies against the engine's best move. Session-level
+    # suppression: each pattern surfaces at most once per game so the
+    # name stays a memorable marker, not a repeated label.
+    shape_pattern_id_out = None
+    shape_pattern_name_out = None
+    shape_pattern_desc_out = None
+    shape_pattern_targets_out: List[str] = []
+    shape_pattern_executing_out = None
+    if fen_before and best_move:
+        try:
+            from services.shape_layer import select_shape_for_position
+            shapes_fired = set(session.get("shapes_fired_ids") or [])
+            pre_board = chess.Board(fen_before)
+            best_uci = ""
+            try:
+                best_uci = pre_board.parse_san(best_move).uci()
+            except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+                best_uci = ""
+            shape_rec = select_shape_for_position(
+                pre_board,
+                eval_data={"best_move_uci": best_uci} if best_uci else None,
+                shapes_fired_this_game=shapes_fired,
+            )
+            if shape_rec:
+                shape_pattern_id_out = shape_rec["pattern_id"]
+                shape_pattern_name_out = shape_rec["pattern_name"]
+                shape_pattern_desc_out = shape_rec["pattern_desc"]
+                shape_pattern_targets_out = shape_rec.get("targets") or []
+                shape_pattern_executing_out = shape_rec.get("executing_move")
+                # Persist suppression set back to session so subsequent
+                # moves don't refire the same pattern.
+                try:
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$set": {"shapes_fired_ids": sorted(shapes_fired)}},
+                    )
+                except Exception:
+                    pass
+        except Exception as shape_exc:
+            logger.debug(f"[shape_v3] live detect failed: {shape_exc}")
+
     return MoveFeedback(
         user_move=user_move,
         user_move_quality=quality,
@@ -1581,6 +1639,11 @@ async def generate_move_feedback(
         cct_discipline_held=cct_discipline_held,
         cct_voice_line=cct_voice_line,
         opening_theory_note=opening_theory_note,
+        shape_pattern_id=shape_pattern_id_out,
+        shape_pattern_name=shape_pattern_name_out,
+        shape_pattern_desc=shape_pattern_desc_out,
+        shape_pattern_targets=shape_pattern_targets_out,
+        shape_pattern_executing_move=shape_pattern_executing_out,
     )
 
 
