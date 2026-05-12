@@ -222,13 +222,30 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           }
           perMoveData = data.decryption_data.map((m) => {
             const cap = captionByKey.get(`${m.move_number}|${m.move_san}`);
+            // Teaching cue + principle id flow through regardless of
+            // whether the base caption text is present. The cue is
+            // the new named-principle habit reminder (≤20 words).
+            const principle_cue = (cap && cap.principle_cue) || "";
+            const principle_id = (cap && cap.principle_id) || null;
             if (cap && cap.text) {
-              return { ...m, narrative: cap.text, _caption_source: cap.source };
+              return {
+                ...m,
+                narrative: cap.text,
+                _caption_source: cap.source,
+                principle_cue,
+                principle_id,
+              };
             }
             // Empty caption from per-move endpoint = honest 'no comment'.
             // Drop the V5 narrative entirely (it's been suppressed).
             if (cap && !cap.text) {
-              return { ...m, narrative: "", _caption_source: "silent" };
+              return {
+                ...m,
+                narrative: "",
+                _caption_source: "silent",
+                principle_cue,
+                principle_id,
+              };
             }
             return m;
           });
@@ -1149,6 +1166,27 @@ const MoveCoachingCardV5 = ({
           <div className="leading-relaxed group" data-testid="move-narrative">
             <p className="text-sm text-gray-700 inline">{move.narrative}</p>
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
+          </div>
+        )}
+
+        {/* Teaching cue — named-principle habit reminder. Rendered
+            as a smaller italic line under the diagnosis so the
+            diagnostic caption and the habit cue stay visually
+            distinct. Cue lives on move.principle_cue (set in
+            currentMove useMemo, sourced from per-move endpoint). */}
+        {move.principle_cue && (
+          <div
+            className="leading-relaxed group mt-1.5 pl-3 border-l-2 border-amber-500/30"
+            data-testid="move-principle-cue"
+          >
+            <p className="text-xs italic text-amber-700 dark:text-amber-300/80 inline">
+              {move.principle_cue}
+            </p>
+            <InlineFlag
+              section="principle_cue"
+              flaggedText={move.principle_cue}
+              context={{ ...flagCtx, principle_id: move.principle_id || null }}
+            />
           </div>
         )}
 

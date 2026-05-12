@@ -3094,6 +3094,8 @@ async def generate_game_decryption_v5(
             }
             caption_primary_reason = None
             caption_principles_violated: List[Dict] = []
+            principle_cue = ""
+            principle_id_used: Optional[str] = None
             if CAPTION_V5_PIPELINE_ENABLED and _extract_caption_facts and _render_caption_dict:
                 try:
                     # Rebuild SAN history from board.move_stack so the
@@ -3132,6 +3134,10 @@ async def generate_game_decryption_v5(
                     # against the running game-state. Detectors are
                     # pure; this layer dedupes per the catalog's
                     # suppress semantics.
+                    # Reset per-move principle-cue outputs before the
+                    # filter loop fills them.
+                    principle_cue = ""
+                    principle_id_used = None
                     raw_principles = caption_facts.get("principles_violated") or []
                     caption_principles_violated = []
                     _this_move_fired = set()
@@ -3157,6 +3163,33 @@ async def generate_game_decryption_v5(
                         _this_move_fired.add(_pid)
                         principles_fired_this_game.add(_pid)
                     principles_fired_last_move = _this_move_fired
+
+                    # ── Pick the cue for this move ────────────────────
+                    # Highest-priority surviving principle (lowest
+                    # priority number wins) contributes the cue.
+                    # Endorsement tier picks the variant: best /
+                    # top_n / absent → maps to cue_best / cue_top_n /
+                    # cue_absent in the catalog entry. top_n is
+                    # reserved for future multi-PV; v1 returns
+                    # best or absent.
+                    if caption_principles_violated and _CAPTION_PRINCIPLES_BY_ID:
+                        sorted_pv = sorted(
+                            caption_principles_violated,
+                            key=lambda ev: _CAPTION_PRINCIPLES_BY_ID.get(
+                                ev.get("principle_id") or "", {}
+                            ).get("priority", 99),
+                        )
+                        _top = sorted_pv[0]
+                        _top_pid = _top.get("principle_id")
+                        _entry = _CAPTION_PRINCIPLES_BY_ID.get(_top_pid, {}) if _top_pid else {}
+                        _endorsement = _top.get("engine_endorsement", "absent")
+                        _cue_key = {
+                            "best": "cue_best",
+                            "top_n": "cue_top_n",
+                            "absent": "cue_absent",
+                        }.get(_endorsement, "cue_absent")
+                        principle_cue = _entry.get(_cue_key) or _entry.get("cue_absent") or ""
+                        principle_id_used = _top_pid
                 except Exception as _caption_exc:
                     # Downgraded warning → info after audit noise: these
                     # fire predictably on PGN ↔ eval-data drift games
@@ -3274,6 +3307,13 @@ async def generate_game_decryption_v5(
                 # Audit script reads this; renderer integration is a
                 # later commit once enough detectors are live.
                 "caption_facts_principles_violated": caption_principles_violated,
+                # Teaching cue — highest-priority principle's
+                # endorsement-tiered cue string. Frontend renders this
+                # as a separate italic line under the main caption so
+                # the diagnosis + the named-principle habit stay
+                # visually distinct.
+                "principle_cue": principle_cue,
+                "principle_id_used": principle_id_used,
             }
 
             decryption_data.append(move_output)

@@ -1080,6 +1080,13 @@ async def get_per_move_captions(
 
         is_user_move = bool(rec.get("is_user_move"))
 
+        # Teaching cue and originating principle. Available on every
+        # move record regardless of which override path the caption
+        # text comes from. Frontend renders cue as a styled second
+        # line under the diagnosis.
+        principle_cue = (rec.get("principle_cue") or "").strip()
+        principle_id = rec.get("principle_id_used")
+
         # decryption_block moments still win — LLM "critical moment"
         # voice is a separate surface coach-approved per-game.
         override = moments_index.get((mn, san))
@@ -1090,6 +1097,8 @@ async def get_per_move_captions(
                 "is_user_move": is_user_move,
                 "text": override["text"],
                 "source": override.get("source") or "decryption_block",
+                "principle_cue": principle_cue,
+                "principle_id": principle_id,
             })
             continue
 
@@ -1105,6 +1114,8 @@ async def get_per_move_captions(
             "is_user_move": is_user_move,
             "text": caption_text,
             "source": rule_name if caption_text else "silent",
+            "principle_cue": principle_cue,
+            "principle_id": principle_id,
         })
 
     return {
