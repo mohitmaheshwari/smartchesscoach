@@ -411,6 +411,55 @@ def _r12_trigger(f):
     return (f.get("cp_loss") or 0) >= 100
 
 
+def _r12_compose_why(f):
+    """Compose a concrete WHY clause for an R12 user blunder.
+
+    Reads facts the extractor already produces (no chess imports — renderer
+    rules never compute chess meaning). Returns "" if no concrete fact is
+    available. Order is priority: most-specific cases first so 1200-rated
+    players see the actionable consequence, not a generic engine appeal.
+    """
+    moving_piece = f.get("moving_piece_type") or "piece"
+    target_sq = f.get("target_square") or ""
+    opp_reply = f.get("opp_reply_san")
+
+    # 1. Opponent's reply directly attacks the just-moved piece.
+    #    Covers cases like Ne5 -> f4 where the move strands its own piece.
+    if opp_reply and f.get("opp_reply_attacks_played_piece") and target_sq:
+        return f"After {opp_reply}, your {moving_piece} on {target_sq} has no safe square."
+
+    # 2. The move itself landed on a losing-exchange square.
+    if f.get("is_exchange_losing") and target_sq:
+        if opp_reply:
+            return f"After {opp_reply}, your {moving_piece} on {target_sq} falls."
+        return f"Your {moving_piece} on {target_sq} can't be defended."
+
+    # 3. The move stripped a defender from another own piece.
+    undef = f.get("pieces_now_undefended") or []
+    hanging = [p for p in undef if p.get("now_attacked") and p.get("is_now_hanging")]
+    if hanging:
+        worst = max(hanging, key=lambda p: p.get("piece_value_cp", 0) or 0)
+        piece = worst.get("piece_type", "piece")
+        sq = worst.get("square", "")
+        if sq:
+            return f"Your {piece} on {sq} is now undefended."
+
+    # 4. Opponent's reply wins material outright.
+    cap_piece = f.get("opp_reply_captures_piece_type")
+    if opp_reply and cap_piece:
+        return f"Opponent plays {opp_reply} winning your {cap_piece}."
+
+    # 5. Opponent's reply is a check.
+    if opp_reply and (opp_reply.endswith("+") or opp_reply.endswith("#")):
+        return f"Opponent has {opp_reply} forcing your king."
+
+    # 6. Bare opponent response when nothing more specific applies.
+    if opp_reply:
+        return f"Opponent's strongest reply: {opp_reply}."
+
+    return ""
+
+
 def _r12_render(f):
     cpl = f.get("cp_loss") or 0
     pawns = max(1, min(9, round(cpl / 100)))
@@ -424,8 +473,14 @@ def _r12_render(f):
         cap = f"Opponent's {played} drops about {pawns} {pawns_word}."
     elif best and best != played:
         cap = f"{played} loses about {pawns} {pawns_word}. {best} was better."
+        why = _r12_compose_why(f)
+        if why:
+            cap = cap + " " + why
     else:
         cap = f"{played} loses about {pawns} {pawns_word}."
+        why = _r12_compose_why(f)
+        if why:
+            cap = cap + " " + why
     return CaptionOutput(
         caption=cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],

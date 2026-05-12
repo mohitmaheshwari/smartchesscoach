@@ -3443,6 +3443,43 @@ def extract_facts(
     # ── Pieces that lost a defender (structured evidence) ──────────────
     pieces_now_undefended = _pieces_now_undefended(board_before, board_after, played_move)
 
+    # ── Opponent's expected reply (2026-05-13) ─────────────────────────
+    # pv_after_played[0] is the engine's expected opponent response after
+    # the played move. For R12_blunder's WHY composition (and any future
+    # rule that needs to say "after their reply, X happens"), expose:
+    #   - opp_reply_san: the SAN of opp's first move
+    #   - opp_reply_attacks_played_piece: True if opp's reply attacks the
+    #     square the played piece landed on (covers "your knight is now
+    #     attacked with no safe square" cases like Ne5 -> f4)
+    #   - opp_reply_captures_piece_type: piece type captured by opp's
+    #     reply, if any (covers "opponent wins your X" cases)
+    opp_reply_san: Optional[str] = None
+    opp_reply_attacks_played_piece: bool = False
+    opp_reply_captures_piece_type: Optional[str] = None
+    if pv_after_played:
+        raw = (pv_after_played[0] or "").strip()
+        if raw:
+            opp_reply_san = raw
+            try:
+                opp_mv = board_after.parse_san(raw)
+                if board_after.is_capture(opp_mv):
+                    captured = board_after.piece_at(opp_mv.to_square)
+                    if captured:
+                        opp_reply_captures_piece_type = PIECE_TYPE_NAMES.get(
+                            captured.piece_type, "piece"
+                        )
+                sim = board_after.copy()
+                sim.push(opp_mv)
+                # After opp's reply, does its piece attack the square our
+                # played piece is sitting on?
+                if played_move.to_square in sim.attacks(opp_mv.to_square):
+                    opp_reply_attacks_played_piece = True
+            except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError, AssertionError):
+                # PGN drift defensive — pv_after_played may not align with
+                # board_after in rare cases. Leave facts empty rather than
+                # raising.
+                pass
+
     # ── Tactic-shape evidence (commit #3 + renamed in #4a) ──────────────
     # All detectors emit structured evidence per LAW 3. Names changed
     # from {fork/pin/skewer/discovery}_shape to more primitive forms:
@@ -3625,6 +3662,12 @@ def extract_facts(
         "exchange_loss_cp": exchange_loss_cp,
         "threats_created": threats_created,
         "pieces_now_undefended": pieces_now_undefended,
+
+        # OPPONENT REPLY (2026-05-13) — used by R12_blunder WHY composer
+        # and any future rule that needs to say "after their reply, ...".
+        "opp_reply_san": opp_reply_san,
+        "opp_reply_attacks_played_piece": opp_reply_attacks_played_piece,
+        "opp_reply_captures_piece_type": opp_reply_captures_piece_type,
 
         # TACTIC-SHAPE EVIDENCE — STRUCTURED, NO LABELS.
         # Names use the GEOMETRIC primitive, not renderer taxonomy.
