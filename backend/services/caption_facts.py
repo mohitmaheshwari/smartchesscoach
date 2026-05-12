@@ -2761,6 +2761,202 @@ def _p_def_walk_king(
     }
 
 
+# ── Detector #21: MID_ROOK_OPEN_FILE ────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Engine's #1 is a rook move (SAN starts with 'R').
+#   2. The destination file is open (no own pawns on it) OR half-open
+#      (own pawns on it but no enemy pawns).
+#   3. Player didn't play that move.
+#   4. cp_loss_strict (≥30).
+def _file_is_open_for(board: chess.Board, file_idx: int, own_color: chess.Color) -> bool:
+    """True if there are no OWN pawns on this file. Half-open from
+    own perspective. (For 'fully open' both sides need to be checked;
+    half-open is fine for rook-belongs-here teaching.)"""
+    for rank in range(8):
+        p = board.piece_at(chess.square(file_idx, rank))
+        if p and p.piece_type == chess.PAWN and p.color == own_color:
+            return False
+    return True
+
+
+def _p_mid_rook_open_file(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when engine's #1 is a rook move to a half-open or open
+    file AND the player played something else."""
+    if facts.get("phase") not in ("middlegame", "endgame"):
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    best_raw = facts.get("best_move_san") or ""
+    if not best_raw.startswith("R"):
+        return None
+    target = _move_target_from_san(best_raw)
+    if not target:
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    target_sq = chess.parse_square(target)
+    file_idx = chess.square_file(target_sq)
+    if not _file_is_open_for(board_before, file_idx, own_color):
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best_norm = _normalize_san(best_raw)
+    if played == best_norm:
+        return None
+    return {
+        "principle_id": "MID_ROOK_OPEN_FILE",
+        "evidence": {
+            "rook_target_file": target[0],
+            "rook_target_square": target,
+            "engine_chose": best_raw,
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_norm],
+    }
+
+
+# ── Detector #22: MID_PAWN_BREAK ────────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Middlegame phase only.
+#   2. Engine's #1 is a pawn move (no piece-letter prefix, just file/
+#      square like "e5" or "exd5").
+#   3. Played wasn't that pawn move.
+#   4. cp_loss_strict (≥30).
+def _p_mid_pawn_break(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when engine's #1 is a pawn move in middlegame and player
+    played something else. Catches missed pawn-break attacks."""
+    if facts.get("phase") != "middlegame":
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    best_raw = facts.get("best_move_san") or ""
+    if not best_raw:
+        return None
+    # Pawn moves in SAN start with a file letter (a-h) — no piece prefix
+    if not (best_raw and best_raw[0] in "abcdefgh"):
+        return None
+    # Castling is "O-O" — already excluded.
+    played = _normalize_san(facts.get("played_san") or "")
+    best_norm = _normalize_san(best_raw)
+    if played == best_norm:
+        return None
+    target = _move_target_from_san(best_raw)
+    return {
+        "principle_id": "MID_PAWN_BREAK",
+        "evidence": {
+            "pawn_break_move": best_raw,
+            "pawn_break_target": target,
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_norm],
+    }
+
+
+# ── Detector #23: END_KING_ACTIVE ───────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Endgame phase only.
+#   2. Own king is on back rank (rank 1 for white, rank 8 for black) —
+#      passive position.
+#   3. State-entry match: fires the first move this state holds
+#      (V5 wiring suppresses subsequent fires per once_per_state_entry).
+def _p_end_king_active(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires in endgame when own king is still on its back rank."""
+    if facts.get("phase") != "endgame":
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    king_sq = board_before.king(own_color)
+    if king_sq is None:
+        return None
+    king_rank = chess.square_rank(king_sq)
+    back_rank = 0 if own_color == chess.WHITE else 7
+    if king_rank != back_rank:
+        return None
+    # Aligned moves: king moves that LEAVE the back rank (must step off).
+    aligned: List[str] = []
+    for move in board_before.legal_moves:
+        piece = board_before.piece_at(move.from_square)
+        if not piece or piece.piece_type != chess.KING or piece.color != own_color:
+            continue
+        new_rank = chess.square_rank(move.to_square)
+        if new_rank != back_rank:
+            aligned.append(_normalize_san(board_before.san(move)))
+    endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    return {
+        "principle_id": "END_KING_ACTIVE",
+        "evidence": {
+            "king_square": chess.square_name(king_sq),
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": aligned[:5],
+    }
+
+
+# ── Detector #24: MID_KING_SAFETY ───────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Middlegame phase only.
+#   2. Own king is castled — on g1/h1/c1/b1 (white) or g8/h8/c8/b8 (black).
+#   3. At least one pawn in front of king (1-square ahead, in the
+#      king's file + adjacent files) is MISSING from the player's
+#      pawns. Captures the "loose king pawns" structural weakness.
+#   4. State-entry match: fires once per state-entry per game.
+def _p_mid_king_safety(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires in middlegame when own castled king has missing front
+    pawns (a structural weakness — opponent can attack through gaps)."""
+    if facts.get("phase") != "middlegame":
+        return None
+    own_color_str = facts.get("moving_piece_color")
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    king_sq = board_before.king(own_color)
+    if king_sq is None:
+        return None
+    castled_squares = (
+        {chess.G1, chess.C1, chess.H1, chess.B1, chess.F1}
+        if own_color == chess.WHITE
+        else {chess.G8, chess.C8, chess.H8, chess.B8, chess.F8}
+    )
+    if king_sq not in castled_squares:
+        return None
+    king_file = chess.square_file(king_sq)
+    pawn_rank = 1 if own_color == chess.WHITE else 6
+    files_to_check = [f for f in (king_file - 1, king_file, king_file + 1) if 0 <= f < 8]
+    pawn_missing = 0
+    for f in files_to_check:
+        sq = chess.square(f, pawn_rank)
+        p = board_before.piece_at(sq)
+        if not (p and p.piece_type == chess.PAWN and p.color == own_color):
+            pawn_missing += 1
+    if pawn_missing == 0:
+        return None
+    # gate_policy endorsement_preferred — we don't compute aligned moves
+    # precisely (would require defensive-move classification). Use
+    # binary endorsement based on whether engine prefers any move at all.
+    return {
+        "principle_id": "MID_KING_SAFETY",
+        "evidence": {
+            "king_square": chess.square_name(king_sq),
+            "front_pawns_missing": pawn_missing,
+        },
+        "engine_endorsement": "absent",  # always uses cue_absent voice
+        "aligned_moves_offered": [],
+    }
+
+
 def _principles_violated(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -2777,6 +2973,10 @@ def _principles_violated(
     wrappers like fork/pin/discovered (they just wrap already-audited
     V5 facts). Inline real-corpus tests still ship per detector;
     corpus audit batches across multiple detectors.
+
+    Catalog progress: 24 / 28 detectors live. Deferred (need corpus
+    data to calibrate cleanly): MID_KEEP_ATTACKERS, DEF_TRADE_ATTACKERS,
+    TAC_SKEWER_PATTERN, MID_BAD_BISHOP.
     """
     out: List[Dict[str, Any]] = []
     for detector in (
@@ -2800,6 +3000,10 @@ def _principles_violated(
         _p_tac_back_rank,
         _p_tac_changed_after_move,
         _p_def_walk_king,
+        _p_mid_rook_open_file,
+        _p_mid_pawn_break,
+        _p_end_king_active,
+        _p_mid_king_safety,
         # NEW DETECTORS APPENDED HERE — inline-tested per commit.
     ):
         try:
