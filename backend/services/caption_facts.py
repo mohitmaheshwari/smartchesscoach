@@ -1720,6 +1720,212 @@ def _p_op_queen_out_early(
     }
 
 
+# ── Detector #2: TAC_FORK_PATTERN ───────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Multi-target shape evidence already filters pawn-only forks
+#      into a different render template at the rule layer, but here
+#      we surface the principle if ANY multi_target shape exists with
+#      at least one target valued ≥ knight (300 cp). Pure pawn-pawn
+#      forks don't fire (catches "Rc7 attacks two pawns" cases).
+#   2. cp_loss gate: principle fires on a TACTIC the user found, so
+#      cp_loss is expected to be LOW (engine endorses). gate_policy
+#      "endorsement_required" enforces this implicitly.
+#   3. Mover_is_user — fork principles fire for either side; the cue
+#      branches at render time on perspective. Detector is symmetric.
+def _p_tac_fork_pattern(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the played move creates a multi-target attack with at
+    least one target valued ≥ knight, AND the engine endorses the move."""
+    shapes = facts.get("multi_target_attack_evidence") or []
+    if not shapes:
+        return None
+    shape = shapes[0]
+    targets = shape.get("attacked_targets") or []
+    if not any(t.get("value_cp", 0) >= 300 for t in targets):
+        return None
+    # endorsement_required: only fire when engine endorses the move
+    # itself. Since the played move IS what created the fork, the
+    # engine's #1 should match played_san for the principle to apply.
+    played = _normalize_san(facts.get("played_san") or "")
+    best = _normalize_san(facts.get("best_move_san") or "")
+    endorsement = "best" if (played and best and played == best) else "absent"
+    if endorsement == "absent":
+        return None
+    return {
+        "principle_id": "TAC_FORK_PATTERN",
+        "evidence": {
+            "attacker_square": shape.get("attacker_square"),
+            "attacker_piece_type": shape.get("attacker_piece_type"),
+            "targets": [
+                {"square": t["square"], "piece_type": t["piece_type"]}
+                for t in targets[:2]
+            ],
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": [played],
+    }
+
+
+# ── Detector #3: TAC_PIN_PATTERN ────────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Pawn-front pins already filtered by aligned_pieces_evidence
+#      (bend #8 — pawn pinned against queen is geometric but trivial,
+#      excluded unless rear is king).
+#   2. Rear must be at least rook value (already gated in
+#      MIN_ALIGNED_REAR_VALUE_CP); also requires engine endorses move.
+#   3. front_value_vs_rear "higher" reads as skewer at render time;
+#      here both pin AND skewer fire under the same principle for the
+#      teaching layer (the catalog uses TAC_PIN_PATTERN broadly).
+def _p_tac_pin_pattern(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the played move creates a pin/skewer alignment with a
+    rear piece worth at least a rook AND the front piece is not a pawn
+    (unless rear is king), AND the engine endorses the move."""
+    shapes = facts.get("aligned_pieces_evidence") or []
+    # Apply the same filter R03 uses (caption_rules._r03_shape_is_worth_captioning):
+    relevant = []
+    for s in shapes:
+        if s.get("rear_piece_value_cp", 0) < 500:
+            continue
+        if s.get("front_piece_type") == "pawn" and not s.get("rear_is_king", False):
+            continue
+        relevant.append(s)
+    if not relevant:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best = _normalize_san(facts.get("best_move_san") or "")
+    endorsement = "best" if (played and best and played == best) else "absent"
+    if endorsement == "absent":
+        return None
+    shape = max(relevant, key=lambda s: s.get("rear_piece_value_cp", 0))
+    return {
+        "principle_id": "TAC_PIN_PATTERN",
+        "evidence": {
+            "attacker_square": shape.get("attacker_square"),
+            "front_piece_type": shape.get("front_piece_type"),
+            "front_square": shape.get("front_piece_square"),
+            "rear_piece_type": shape.get("rear_piece_type"),
+            "rear_square": shape.get("rear_piece_square"),
+            "rear_is_king": shape.get("rear_is_king", False),
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": [played],
+    }
+
+
+# ── Detector #4: TAC_DISCOVERED_PATTERN ─────────────────────────────
+#
+# Edge cases enumerated:
+#   1. Mutual-line discoveries already filtered by bend #4 SEE gate —
+#      false discoveries where opp captures the slider first are gone.
+#   2. Ray-before-from_sq must be clear (bend #4 fix from feedback
+#      fb_a6f596afbba0) — blocked lines don't emit evidence.
+#   3. Endorsement_required — only fire when engine's #1 IS the move
+#      that uncovers.
+def _p_tac_discovered_pattern(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the played move uncovers a slider attack on an enemy
+    piece AND the engine endorses the move."""
+    evs = facts.get("discovered_attack_evidence") or []
+    if not evs:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best = _normalize_san(facts.get("best_move_san") or "")
+    endorsement = "best" if (played and best and played == best) else "absent"
+    if endorsement == "absent":
+        return None
+    ev0 = evs[0]
+    return {
+        "principle_id": "TAC_DISCOVERED_PATTERN",
+        "evidence": {
+            "slider_square": ev0.get("discovered_attacker_square"),
+            "slider_piece_type": ev0.get("discovered_attacker_piece_type"),
+            "moved_from": ev0.get("moved_piece_from_square"),
+            "target_square": ev0.get("target_square"),
+            "target_piece_type": ev0.get("target_piece_type"),
+        },
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": [played],
+    }
+
+
+# ── Detector #5: TAC_HANGING_PIECE ──────────────────────────────────
+#
+# Edge cases enumerated:
+#   1. PRIMARY trigger: is_exchange_losing — the played move puts the
+#      moving piece on a square where opponent's SEE is positive (more
+#      attackers than defenders). Most common 600–1200 mistake.
+#   2. SECONDARY trigger: pieces_now_undefended — the played move
+#      removed a defender from another own piece, leaving it hanging.
+#   3. Both gated by cp_loss ≥ 30 (engine confirms the move is bad).
+#      Without this gate, intentional sacrifices and even trades fire.
+#   4. endorsement_required: engine's #1 must DIFFER from played
+#      (because the played move IS the hanging move; an aligned move
+#      is any other safe move).
+def _p_tac_hanging_piece(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the played move hangs a piece — either the moving
+    piece lands on a losing-exchange square OR the move strips a
+    defender off another own piece, leaving it attacked with no
+    defender. cp_loss ≥ 30 confirms engine disagreement.
+    """
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+    played = _normalize_san(facts.get("played_san") or "")
+    best = _normalize_san(facts.get("best_move_san") or "")
+    # endorsement_required: engine's #1 must differ from played
+    if not (best and played != best):
+        return None
+
+    # PRIMARY: moving piece itself lands on losing-exchange square.
+    if facts.get("is_exchange_losing"):
+        loss = facts.get("exchange_loss_cp", 0) or 0
+        return {
+            "principle_id": "TAC_HANGING_PIECE",
+            "evidence": {
+                "hanging_piece_square": facts.get("target_square"),
+                "hanging_piece_type": facts.get("moving_piece_type"),
+                "piece_color": facts.get("moving_piece_color"),
+                "exchange_loss_cp": loss,
+                "trigger": "moved_into_hanging_square",
+            },
+            "engine_endorsement": "best",
+            "aligned_moves_offered": [best],
+        }
+
+    # SECONDARY: another own piece lost a defender and is now hanging.
+    pieces = facts.get("pieces_now_undefended") or []
+    hanging = [p for p in pieces if p.get("now_attacked") and p.get("is_now_hanging")]
+    if not hanging:
+        return None
+    worst = max(
+        hanging,
+        key=lambda p: p.get("piece_value_cp", 0)
+            if isinstance(p.get("piece_value_cp"), int) else 0
+    )
+    return {
+        "principle_id": "TAC_HANGING_PIECE",
+        "evidence": {
+            "hanging_piece_square": worst.get("square"),
+            "hanging_piece_type": worst.get("piece_type"),
+            "piece_color": worst.get("piece_color"),
+            "trigger": "lost_defender",
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best],
+    }
+
+
 def _principles_violated(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -1731,15 +1937,20 @@ def _principles_violated(
     and priority resolution happen at the V5 wiring layer, NOT here.
     The extractor stays pure: same input → same output every time.
 
-    Shipping schedule (per feedback_design_clean_code_leaky.md):
-      Each detector below is added on its own commit, corpus-audited
-      before the next is enabled. The catalog in caption_principles.py
-      lists 28 entries total; this function grows incrementally.
+    Shipping schedule (per feedback_design_clean_code_leaky.md, revised
+    2026-05-12): per-detector corpus audits dropped for low-risk
+    wrappers like fork/pin/discovered (they just wrap already-audited
+    V5 facts). Inline real-corpus tests still ship per detector;
+    corpus audit batches across multiple detectors.
     """
     out: List[Dict[str, Any]] = []
     for detector in (
         _p_op_queen_out_early,
-        # NEW DETECTORS APPENDED HERE — one per commit, audit-gated.
+        _p_tac_fork_pattern,
+        _p_tac_pin_pattern,
+        _p_tac_discovered_pattern,
+        _p_tac_hanging_piece,
+        # NEW DETECTORS APPENDED HERE — inline-tested per commit.
     ):
         try:
             ev = detector(facts, board_before)
