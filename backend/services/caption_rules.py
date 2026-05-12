@@ -460,6 +460,30 @@ def _r13_render(f):
     )
 
 
+# R14 — Forced best move in a losing position. Fires when played_is_best
+# is True AND cp_loss is high (≥100). The player picked the engine's
+# top choice — it's not a blunder, it's the best damage control in a
+# bad position. Calling that "good" would be confusing ("if it's good
+# why is cp_loss 392?"); calling it a blunder would be wrong (player
+# played the right move).
+def _r14_trigger(f):
+    return bool(f.get("played_is_best")) and (f.get("cp_loss") or 0) >= 100
+
+
+def _r14_render(f):
+    mover_is_user = f.get("mover_is_user")
+    if mover_is_user is False:
+        cap = f"{_played(f)}. Opponent had no better move here."
+    else:
+        cap = f"{_played(f)} — only move. Best you've got in this position."
+    return CaptionOutput(
+        caption=cap,
+        highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
+        arrows=[],
+        rule_name="R14_forced_best",
+    )
+
+
 # R_FALLBACK — no rule matched. Silence.
 def _r_fallback_trigger(f):
     return True  # always fires last
@@ -488,5 +512,6 @@ RULES: List[Rule] = [
     Rule("R10_threat",              "threat",          10, _r10_trigger, _r10_render),
     Rule("R13_opening_central_pawn","opening_central_pawn", 9, _r13_trigger, _r13_render),
     Rule("R11_development",         "development",     11, _r11_trigger, _r11_render),
+    Rule("R14_forced_best",         "forced_best",     11, _r14_trigger, _r14_render),
     Rule("R12_blunder",             "blunder",         12, _r12_trigger, _r12_render),
 ]

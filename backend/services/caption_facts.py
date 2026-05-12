@@ -1476,7 +1476,18 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # From d7ce40cf corpus this fills silences on:
     #   user side : #6 d3, #7 Nxd5, #9 Bg5, #17 a3, #19 Re7
     #   opp side  : #19 Rd8, #21 Rd8
+    #
+    # CORNER: when played_is_best == True and cp_loss is high, the
+    # position was already lost and the player chose the best damage
+    # control. Calling that a "blunder" lies. Forced-best category
+    # below catches it BEFORE the blunder fallback fires.
     if _move_cpl >= MAX_CP_LOSS_FOR_TACTIC_CELEBRATION:
+        if facts.get("played_is_best"):
+            return {
+                "category": "forced_best",
+                "ref_field": "played_is_best",
+                "priority_level": 10,
+            }
         return {
             "category": "blunder",
             "ref_field": "cp_loss",
