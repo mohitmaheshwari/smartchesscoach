@@ -554,12 +554,22 @@ const Landing = () => {
 
       {/* ═══ FOOTER ═══ */}
       <footer className="py-10 border-t border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <img src="/chessguru-logo.svg" alt="" className="w-4 h-4 opacity-40" />
-            <span className="text-xs text-gray-600 font-heading">ChessGuru</span>
+        <div className="max-w-6xl mx-auto px-6 space-y-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <img src="/chessguru-logo.svg" alt="" className="w-4 h-4 opacity-40" />
+              <span className="text-xs text-gray-600 font-heading">ChessGuru</span>
+            </div>
+            <p className="text-xs text-gray-700">Built for chess players stuck on a plateau.</p>
           </div>
-          <p className="text-xs text-gray-700">Built for chess players stuck on a plateau.</p>
+          {/* Policy links — required for Razorpay compliance. */}
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-gray-600">
+            <a href="/terms" className="hover:text-gray-400">Terms</a>
+            <a href="/privacy" className="hover:text-gray-400">Privacy</a>
+            <a href="/refund" className="hover:text-gray-400">Refunds</a>
+            <a href="/contact" className="hover:text-gray-400">Contact</a>
+            <a href="/pricing" className="hover:text-gray-400">Pricing</a>
+          </div>
         </div>
       </footer>
     </div>

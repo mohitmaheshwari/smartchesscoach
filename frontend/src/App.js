@@ -6,6 +6,10 @@ import "@/App.css";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Pricing from "@/pages/Pricing";
+import TermsOfService from "@/pages/TermsOfService";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import RefundPolicy from "@/pages/RefundPolicy";
+import ContactUs from "@/pages/ContactUs";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
 import HomePage from "@/pages/HomePage";  // NEW focused homepage
@@ -178,6 +182,11 @@ function AppRouter() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/pricing" element={<Pricing />} />
+      {/* Public policy pages — required for Razorpay compliance. */}
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/refund" element={<RefundPolicy />} />
+      <Route path="/contact" element={<ContactUs />} />
       <Route path="/prototype/interactive-moment" element={<PrototypeInteractiveMoment />} />
 
       {/* Public SEO routes — no auth required. Indexed by crawlers,
