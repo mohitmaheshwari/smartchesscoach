@@ -1279,18 +1279,16 @@ const MoveCoachingCardV5 = ({
           </div>
         )}
 
-        {/* ─── PATTERN CONNECTION (cross-game) ─────────────────── */}
-        {patternContext?.is_recurring && isMistake && (
-          <div className="bg-red-500/5 rounded-lg p-2.5 border border-red-500/15">
-            <p className="text-xs text-red-400">
-              This type of mistake happened in {patternContext.games_with} of your last {patternContext.games_checked} games.
-              {patternContext.is_improving
-                ? " But it's getting less frequent — you're improving."
-                : " This is your most consistent pattern right now."
-              }
-            </p>
-          </div>
-        )}
+        {/* PATTERN CONNECTION (cross-game) — RETIRED 2026-05-13.
+            Per feedback_sub1500_memory_anchors: <1500 players remember
+            NAMED principles, geometric shapes, and process habits —
+            never games/opponents/move-sequences. "12 of your last 20
+            games" reads as empty. The cross-game repetition surfaces
+            naturally now through the V5 principle cue + shape pattern
+            NAME appearing under the same kind of move across games —
+            the player sees "Free Piece" or "Hanging Piece" repeatedly,
+            which is the actual memory anchor. */}
+        {false && patternContext?.is_recurring && isMistake && (<div />)}
 
         {/* ─── STOCKFISH BRANCHING (what if best move?) ────────── */}
         {isMistake && (move.best_move_san || move.best_move) && (
