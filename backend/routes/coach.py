@@ -1141,6 +1141,37 @@ async def get_per_move_captions(
     }
 
 
+@router.get("/decryption/facts/{game_id}")
+async def get_per_move_facts(
+    game_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Raw per-move records for authoring. Returns decryption_v5_data
+    array unmapped, so caption authors (Parth's round) can see exactly
+    which facts the extractor produced for each move alongside the board.
+
+    Different from /decryption/per-move/{game_id}:
+      - per-move returns the RENDERED caption + cue (consumer surface).
+      - facts returns the full per-move record (authoring surface).
+
+    Used by GameDecryptionV5.jsx when ?show_facts=1 is set on the URL.
+    """
+    global db
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "user_id": 1},
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="game_analyses not found")
+
+    v5 = analysis.get("decryption_v5_data") or []
+    return {
+        "game_id": game_id,
+        "moves": v5,
+        "total": len(v5),
+    }
+
+
 class ConceptAcknowledgmentRequest(BaseModel):
     concept_id: str
 

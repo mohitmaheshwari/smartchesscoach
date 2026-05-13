@@ -131,6 +131,10 @@ function _generateThoughtOptions(move, posCommentary) {
 
 
 const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName, coachReview, onPlayBestLine }) => {
+  // ?show_facts=1 enables a per-move JSON-fact panel for caption authoring
+  // (Parth's templating round). Off by default — invisible to normal users.
+  const showFacts = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("show_facts") === "1";
+  const [factsByMove, setFactsByMove] = useState({});
   const [decryptionData, setDecryptionData] = useState(null);
   const [cctNarrative, setCctNarrative] = useState(null);
   const [truthLine, setTruthLine] = useState(null);
@@ -269,6 +273,24 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         console.warn("Per-move caption fetch failed; falling back to V5 narrative:", e);
       }
       setDecryptionData(perMoveData);
+
+      // Authoring mode: pull raw per-move facts when ?show_facts=1 is set.
+      // Backend endpoint added 2026-05-13 for Parth's template-authoring round.
+      if (showFacts) {
+        try {
+          const fRes = await fetch(`${API}/coach/decryption/facts/${gameId}`, { credentials: "include" });
+          if (fRes.ok) {
+            const fJson = await fRes.json();
+            const byKey = {};
+            for (const m of (fJson.moves || [])) {
+              byKey[`${m.move_number}|${m.move_san}`] = m;
+            }
+            setFactsByMove(byKey);
+          }
+        } catch (e) {
+          console.warn("Facts fetch failed (show_facts mode):", e);
+        }
+      }
 
       // Store habits report if available
       if (data.habits_report) {
@@ -929,7 +951,31 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             onPlayBestLine={onPlayBestLine}
           />
         )}
-        
+
+        {/* Authoring fact-dump panel — only when ?show_facts=1 is on URL.
+            Shows the raw per-move record from decryption_v5_data so the
+            caption author can see exactly which facts the extractor
+            produced for this move. */}
+        {showFacts && currentMove && (() => {
+          const rec = factsByMove[`${currentMove.move_number}|${currentMove.move_san}`];
+          if (!rec) return (
+            <div className="mt-3 p-3 rounded border border-zinc-700 bg-zinc-900/50">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-400 mb-1">authoring · facts</p>
+              <p className="text-xs text-zinc-500">No raw record found for this move.</p>
+            </div>
+          );
+          return (
+            <div className="mt-3 p-3 rounded border border-zinc-700 bg-zinc-900/50">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-400 mb-2">
+                authoring · facts (move {rec.move_number} {rec.move_san})
+              </p>
+              <pre className="text-[11px] text-zinc-300 whitespace-pre-wrap break-all max-h-[420px] overflow-y-auto font-mono">
+                {JSON.stringify(rec, null, 2)}
+              </pre>
+            </div>
+          );
+        })()}
+
         {feedbackOpen && currentMove && (
           <FeedbackPanel 
             move={currentMove} 
