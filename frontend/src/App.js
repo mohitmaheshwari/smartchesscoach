@@ -37,6 +37,7 @@ import PostLossRecovery from "@/pages/PostLossRecovery";
 import CoachPlay from "@/pages/CoachPlay";
 import AdminOpenings from "@/pages/AdminOpenings";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminAuthoring from "@/pages/AdminAuthoring";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import EndgameLesson from "@/pages/EndgameLesson";
 import CoachReplay from "@/pages/CoachReplay";  // Guided behavioral game review
@@ -317,6 +318,11 @@ function AppRouter() {
       <Route path="/admin/openings" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminOpenings user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/authoring" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminAuthoring user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin" element={
