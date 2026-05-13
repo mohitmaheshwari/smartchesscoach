@@ -250,7 +250,16 @@ def _r04_render(f):
 
 
 # R05 — Check + extra threat
+#
+# Severity gate added 2026-05-13 (user-flagged bugs fb_77033d853689 +
+# fb_d7e9c60cdeff): R05 fires appreciative voice ("Rd6+ — check, and
+# attacks the pawn on e6 too") even when the played move is a real
+# mistake or blunder (Rd6+ cp_loss 207, c5+ cp_loss 135). Skipping
+# R05 when cp_loss >= 30 lets R12_blunder take over and frame the
+# move as the mistake it actually is.
 def _r05_trigger(f):
+    if (f.get("cp_loss") or 0) >= 30:
+        return False
     return f.get("is_check") and bool(f.get("threats_created"))
 
 
@@ -269,7 +278,13 @@ def _r05_render(f):
 
 
 # R06 — Plain check
+#
+# Same severity gate as R05 (2026-05-13): praise voice on a check
+# that turns out to be a mistake reads as "appreciative when engine
+# says it's bad." Drop to silence; R12_blunder picks up.
 def _r06_trigger(f):
+    if (f.get("cp_loss") or 0) >= 30:
+        return False
     return bool(f.get("is_check"))
 
 
