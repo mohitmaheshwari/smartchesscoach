@@ -133,6 +133,9 @@ async def main() -> int:
                    help="Suppress the report on stdout — only write it to "
                         "--output. Per-game progress lines still print so "
                         "you can see the run is alive.")
+    p.add_argument("--include-inactive", action="store_true",
+                   help="Also process games marked is_active=False. Default: "
+                        "active games only.")
     args = p.parse_args()
 
     client = AsyncIOMotorClient(MONGO_URL)
@@ -140,6 +143,8 @@ async def main() -> int:
 
     flt: Dict[str, Any] = {"is_analyzed": True}
     if args.game_id:
+        # Explicit single-game lookup — bypass active filter (archive semantics:
+        # if you know the id, you can audit it).
         flt = {"game_id": args.game_id}
     else:
         if args.user_id:
@@ -147,6 +152,9 @@ async def main() -> int:
         if args.since_days > 0:
             cutoff = datetime.now(timezone.utc) - timedelta(days=args.since_days)
             flt["imported_at"] = {"$gte": cutoff.isoformat()}
+        # Active-only by default — skip the archived 2000+ games.
+        if not args.include_inactive:
+            flt["is_active"] = {"$ne": False}
 
     cursor = db.games.find(flt, {"_id": 0}).sort("imported_at", -1)
     if args.limit > 0:

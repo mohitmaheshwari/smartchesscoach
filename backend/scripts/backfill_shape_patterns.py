@@ -133,14 +133,32 @@ async def main():
                     help="Re-detect even if shape_pattern_id is already set")
     ap.add_argument("--dry-run", action="store_true",
                     help="Compute but don't write back to MongoDB")
+    ap.add_argument("--include-inactive", action="store_true",
+                    help="Also process games marked is_active=False. Default: "
+                         "active games only (skips the deactivated 2000+ that "
+                         "mark_active_games.py archived).")
     args = ap.parse_args()
 
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
 
+    # By default, restrict to active games only — the 1600 the user kept
+    # active via mark_active_games.py. Avoids re-processing the archived
+    # 2000+ games on every audit run.
+    active_game_ids: Optional[set] = None
+    if not args.include_inactive:
+        active_cursor = db.games.find(
+            {"is_active": {"$ne": False}},
+            {"_id": 0, "game_id": 1},
+        )
+        active_game_ids = {d["game_id"] async for d in active_cursor if d.get("game_id")}
+        print(f"[backfill] active filter: {len(active_game_ids)} game_ids", file=sys.stderr, flush=True)
+
     query: Dict[str, Any] = {"decryption_v5_data": {"$exists": True, "$ne": []}}
     if args.user_id:
         query["user_id"] = args.user_id
+    if active_game_ids is not None:
+        query["game_id"] = {"$in": list(active_game_ids)}
 
     cursor = db.game_analyses.find(query, {"_id": 1, "game_id": 1, "user_id": 1, "decryption_v5_data": 1})
     cursor = cursor.sort("analyzed_at", -1)
