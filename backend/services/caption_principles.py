@@ -236,7 +236,12 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any knight move to a non-rim square (b/g/c/f files for development)",
         "gate_policy": "cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Centralise the knight. Engine's top choice — a central knight attacks more squares.",
+        # Reverted to silence 2026-05-13. Previous string was authored
+        # by me without sign-off when fixing a forbidden-phrase hit on
+        # "controls" — per audit-coverage-tracks-surface rule, removal
+        # is allowed, rewriting is authoring. Awaiting user-authored
+        # replacement.
+        "cue_best":   "",
         "cue_top_n":  "Knights fight best near the centre.",
         "cue_absent": "This rim move works here. But knights fight best near the centre — make that your default.",
         "visual_signature": {
@@ -471,9 +476,13 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that does NOT open a line / expose a piece / create a new threat against the mover",
         "gate_policy": "endorsement_required + cp_loss_strict",
         "suppress": "once_per_move",
-        "cue_best":   "Check what your move newly attacks AND newly exposes. Engine's top choice keeps your pieces covered.",
+        # cue_best + cue_absent reverted to silence 2026-05-13. The text
+        # I shipped in commit ed1dc69e was authored without user sign-off
+        # — user flagged it (fb_399b9c6dc18c, fb_a4748723dd18). cue_top_n
+        # remains as it was pre-existing user-approved text.
+        "cue_best":   "",
         "cue_top_n":  "Scan after every move — yours or theirs — for new threats and exposed pieces.",
-        "cue_absent": "Your move opened a line or removed a defender. Always check what got exposed.",
+        "cue_absent": "",
         "visual_signature": {
             "highlight": ["newly_exposed_square", "new_attacker_square"],
             "arrows": [("new_attacker_square", "newly_exposed_square", "red")],
