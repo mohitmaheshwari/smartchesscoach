@@ -34,6 +34,10 @@ import { Flag, Loader2, Check, Copy, ChevronDown, ChevronUp } from "lucide-react
 export const InlineFlag = ({ section, flaggedText, context = {} }) => {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
+  // Authoring submission — optional. When set, this flag becomes an
+  // authored caption-replacement candidate for Parth's round. Regular
+  // users (bug flags) leave it empty.
+  const [suggestedCaption, setSuggestedCaption] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [showContext, setShowContext] = useState(false);
@@ -55,6 +59,7 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
           move_san: context.moveSan || null,
           coaching_text: flaggedText || null,
           user_note: note.trim(),
+          suggested_caption: suggestedCaption.trim() || null,
           severity: context.severity || null,
           cp_loss: context.cpLoss != null ? context.cpLoss : null,
           best_move: context.bestMove || null,
@@ -75,6 +80,7 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
           setOpen(false);
           setSubmitted(false);
           setNote("");
+          setSuggestedCaption("");
         }, 1500);
       }
     } finally {
@@ -235,13 +241,33 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
                 data-testid="flag-note-input"
                 autoFocus
               />
+
+              {/* AUTHORING — optional suggested replacement. For caption
+                  authors (Parth's round): if you know what this caption
+                  SHOULD say, paste it here. Submitting with this field
+                  filled in marks the flag as an authoring submission. */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                  Authoring (optional)
+                </label>
+                <Textarea
+                  placeholder="If you can author the replacement text, paste it here. Leave blank for regular bug flags."
+                  value={suggestedCaption}
+                  onChange={(e) => setSuggestedCaption(e.target.value)}
+                  className="bg-emerald-950/10 border-emerald-900/30 min-h-[64px] text-sm"
+                  data-testid="flag-suggested-caption-input"
+                />
+              </div>
+
               <Button
                 className="w-full"
                 onClick={handleSubmit}
                 disabled={submitting || !note.trim()}
                 data-testid="flag-submit-btn"
               >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Flag"}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                  suggestedCaption.trim() ? "Submit Authored Replacement" : "Submit Flag"
+                )}
               </Button>
             </div>
           )}

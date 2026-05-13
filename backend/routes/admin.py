@@ -96,6 +96,11 @@ class FlagMoveRequest(BaseModel):
     move_san: Optional[str] = None
     coaching_text: Optional[str] = None
     user_note: str
+    # AUTHORING — set by caption authors (Parth's round) to provide a
+    # suggested replacement. When present, this flag is an authoring
+    # submission and the suggested text becomes a candidate template.
+    # Optional: regular users (Mohit, testers) leave it blank.
+    suggested_caption: Optional[str] = None
     # Developer-grade diagnostic fields
     severity: Optional[str] = None           # good/inaccuracy/mistake/blunder
     cp_loss: Optional[int] = None            # centipawn loss
@@ -690,6 +695,10 @@ async def flag_move(req: FlagMoveRequest, user: User = Depends(get_current_user)
         "move_san": req.move_san,
         "coaching_text": req.coaching_text,
         "user_note": req.user_note,
+        # Authoring submission — present iff author provided suggested
+        # replacement text. Empty/None for regular bug flags.
+        "suggested_caption": (req.suggested_caption or "").strip() or None,
+        "is_authoring_submission": bool((req.suggested_caption or "").strip()),
         "status": "pending",
         "admin_notes": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
