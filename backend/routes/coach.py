@@ -43,6 +43,7 @@ def set_llm(llm_func):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+from db_filters import ACTIVE_GAMES_FILTER
 
 
 # ==================== MODELS ====================
@@ -1517,7 +1518,7 @@ async def get_analytics_summary(user: User = Depends(get_current_user)):
     global db
     
     # Count games
-    total_games = await db.games.count_documents({"user_id": user.user_id})
+    total_games = await db.games.count_documents({"user_id": user.user_id, **ACTIVE_GAMES_FILTER})
     analyzed_games = await db.game_analyses.count_documents({"user_id": user.user_id})
     
     # Get reflection count
@@ -3432,7 +3433,7 @@ async def get_personalized_learning_path(user: User = Depends(get_current_user))
     
     # Get recent games for pattern analysis
     recent_games = await db.games.find(
-        {"user_id": user_id}
+        {"user_id": user_id, **ACTIVE_GAMES_FILTER}
     ).sort("created_at", -1).limit(10).to_list(10)
     
     # Get understanding profile

@@ -122,6 +122,7 @@ def set_llm(llm_func):
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
 from services.access_scope import user_scope_filter
+from db_filters import ACTIVE_GAMES_FILTER
 
 # Import helper functions
 from blunder_intelligence_service import (
@@ -234,7 +235,7 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
 
     # Include more fields for rich pattern context
     all_games = await db.games.find(
-        {"user_id": owner_user_id},
+        {"user_id": owner_user_id, **ACTIVE_GAMES_FILTER},
         {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1,
          "opponent_name": 1, "result": 1, "imported_at": 1,
          "white_rating": 1, "black_rating": 1, "time_control": 1,
@@ -625,8 +626,8 @@ async def get_mistake_pattern_context(game_id: str, move_number: int, user: User
     ).to_list(100)
     
     all_games = await db.games.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, 
+        {"user_id": user.user_id, **ACTIVE_GAMES_FILTER},
+        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1,
          "opponent_name": 1, "result": 1, "imported_at": 1,
          "white_rating": 1, "black_rating": 1, "time_control": 1,
          "opening": 1, "opening_name": 1, "eco": 1}

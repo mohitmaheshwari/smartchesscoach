@@ -17,6 +17,8 @@ from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 import logging
 
+from db_filters import ACTIVE_GAMES_FILTER
+
 logger = logging.getLogger(__name__)
 
 
@@ -938,7 +940,7 @@ async def get_progress_trend(db, user_id: str) -> Dict:
     """
     # Get last 10 games
     games = await db.games.find(
-        {"user_id": user_id},
+        {"user_id": user_id, **ACTIVE_GAMES_FILTER},
         {"_id": 0, "game_id": 1, "blunders": 1, "mistakes": 1, "accuracy": 1, "analyzed_at": 1}
     ).sort("analyzed_at", -1).limit(10).to_list(10)
     

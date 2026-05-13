@@ -19,6 +19,7 @@ import logging
 
 from routes.auth import get_current_user, User
 from blunder_intelligence_service import estimate_rating_impact
+from db_filters import ACTIVE_GAMES_FILTER
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def set_db(database):
 @router.get("/dashboard-stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics including player profile for the current user"""
-    total_games = await db.games.count_documents({"user_id": user.user_id})
+    total_games = await db.games.count_documents({"user_id": user.user_id, **ACTIVE_GAMES_FILTER})
 
     # Use game_analyses count as the source of truth for analyzed games
     # (more accurate than games.is_analyzed which can get out of sync)
@@ -94,7 +95,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
 
     # Get recent games (up to 100)
     all_games = await db.games.find(
-        {"user_id": user.user_id},
+        {"user_id": user.user_id, **ACTIVE_GAMES_FILTER},
         {
             "_id": 0,
             "game_id": 1,
@@ -117,7 +118,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
 
     if missing_queued_ids:
         missing_games = await db.games.find(
-            {"game_id": {"$in": list(missing_queued_ids)}, "user_id": user.user_id},
+            {"game_id": {"$in": list(missing_queued_ids)}, "user_id": user.user_id, **ACTIVE_GAMES_FILTER},
             {
                 "_id": 0,
                 "game_id": 1,
@@ -469,8 +470,8 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
         result["accuracy"] = profile_accuracy
 
         # Games count
-        result["games_analyzed"] = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
-        result["games_imported"] = await db.games.count_documents({"user_id": user.user_id})
+        result["games_analyzed"] = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True, **ACTIVE_GAMES_FILTER})
+        result["games_imported"] = await db.games.count_documents({"user_id": user.user_id, **ACTIVE_GAMES_FILTER})
 
         # Contextual action
         user_won = (game_result == "1-0" and user_color == "white") or (game_result == "0-1" and user_color == "black")
@@ -481,7 +482,7 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
 
         # ── STREAK ──
         recent_games = await db.games.find(
-            {"user_id": user.user_id, "is_analyzed": True},
+            {"user_id": user.user_id, "is_analyzed": True, **ACTIVE_GAMES_FILTER},
             {"_id": 0, "result": 1, "user_color": 1}
         ).sort("imported_at", -1).limit(20).to_list(20)
 
@@ -531,8 +532,8 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
                     pass
 
         # ── REVIEW PROGRESS ──
-        total_analyzed = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
-        total_reviewed = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True, "reviewed": True})
+        total_analyzed = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True, **ACTIVE_GAMES_FILTER})
+        total_reviewed = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True, "reviewed": True, **ACTIVE_GAMES_FILTER})
         pending_review = total_analyzed - total_reviewed
         result["review_progress"] = {
             "total": total_analyzed,
@@ -1023,8 +1024,8 @@ async def get_data_status(user: User = Depends(get_current_user)):
     }
 
     # Check total games vs analyzed
-    total_games = await db.games.count_documents({"user_id": user.user_id})
-    game_ids = [g["game_id"] async for g in db.games.find({"user_id": user.user_id}, {"_id": 0, "game_id": 1})]
+    total_games = await db.games.count_documents({"user_id": user.user_id, **ACTIVE_GAMES_FILTER})
+    game_ids = [g["game_id"] async for g in db.games.find({"user_id": user.user_id, **ACTIVE_GAMES_FILTER}, {"_id": 0, "game_id": 1})]
     analyzed_games = await db.game_analyses.count_documents({"game_id": {"$in": game_ids}})
 
     status["games"] = {

@@ -40,6 +40,7 @@ def set_db(database):
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
 from services.access_scope import user_scope_filter
+from db_filters import ACTIVE_GAMES_FILTER
 
 
 # ==================== MODELS ====================
@@ -62,7 +63,7 @@ async def get_games(user: User = Depends(get_current_user)):
     global db
 
     games = await db.games.find(
-        user_scope_filter(user),
+        {**user_scope_filter(user), **ACTIVE_GAMES_FILTER},
         {"_id": 0}
     ).sort("imported_at", -1).to_list(200 if user.is_reviewer else 100)
     return games
@@ -74,7 +75,7 @@ async def get_analyzed_games(user: User = Depends(get_current_user)):
     global db
 
     games = await db.games.find(
-        {"is_analyzed": True, **user_scope_filter(user)},
+        {"is_analyzed": True, **user_scope_filter(user), **ACTIVE_GAMES_FILTER},
         {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "user_result": 1,
          "white_player": 1, "black_player": 1, "platform": 1, "imported_at": 1,
          "user_id": 1}

@@ -47,6 +47,7 @@ def set_sync_status(sync_status_ref, interval_seconds):
 
 # Import User model and get_current_user from auth routes
 from routes.auth import User, get_current_user
+from db_filters import ACTIVE_GAMES_FILTER
 
 # Import journey services
 from journey_service import (
@@ -430,7 +431,7 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     
     # Get ALL games for baseline, last 25 for current
     all_games = await db.games.find(
-        {"user_id": user.user_id}
+        {"user_id": user.user_id, **ACTIVE_GAMES_FILTER}
     ).sort("imported_at", -1).to_list(200)
     
     games = all_games[:25] if len(all_games) > 25 else all_games
@@ -531,7 +532,7 @@ async def get_instant_dna(user: User = Depends(get_current_user)):
 
     # Get all imported games for this user
     games = await db.games.find(
-        {"user_id": user.user_id},
+        {"user_id": user.user_id, **ACTIVE_GAMES_FILTER},
         {"_id": 0}
     ).sort("imported_at", -1).limit(30).to_list(30)
 
