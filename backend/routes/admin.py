@@ -729,6 +729,58 @@ async def flag_move(req: FlagMoveRequest, user: User = Depends(get_current_user)
     return {"message": "Feedback submitted", "feedback_id": feedback_doc["feedback_id"]}
 
 
+@router.get("/admin/authoring-queue")
+async def get_authoring_queue(
+    round_id: Optional[str] = None,
+    user: User = Depends(require_admin),
+):
+    """Authoring queue for caption-template authoring rounds.
+
+    Populated by scripts/pick_authoring_games.py --persist. Each item
+    is a game the author should review/caption. Endpoint enriches with
+    per-game authoring-submission counts so the frontend can show
+    progress ("3 of 10 done").
+
+    If round_id is omitted, returns the most-recent round.
+    """
+    # Find the latest round_id if not specified
+    if not round_id:
+        latest = await db.authoring_queue.find_one(
+            {}, {"_id": 0, "round_id": 1}, sort=[("picked_at", -1)],
+        )
+        if not latest:
+            return {"round_id": None, "items": [], "total": 0, "completed": 0}
+        round_id = latest.get("round_id")
+
+    cursor = db.authoring_queue.find(
+        {"round_id": round_id},
+        {"_id": 0},
+    ).sort("order_in_round", 1)
+    items = await cursor.to_list(100)
+
+    # Enrich each item with authoring-submission count for its game.
+    completed = 0
+    for it in items:
+        gid = it.get("game_id")
+        if not gid:
+            it["authoring_submission_count"] = 0
+            continue
+        count = await db.move_feedback.count_documents({
+            "game_id": gid,
+            "is_authoring_submission": True,
+        })
+        it["authoring_submission_count"] = count
+        if count > 0:
+            completed += 1
+
+    return {
+        "round_id": round_id,
+        "items": items,
+        "total": len(items),
+        "completed": completed,
+    }
+
+
 @router.get("/admin/feedback")
 async def admin_list_feedback(
     status: str = None,
