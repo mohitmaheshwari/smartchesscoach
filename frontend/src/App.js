@@ -320,7 +320,7 @@ function AppRouter() {
           {({ user }) => <AdminOpenings user={user} />}
         </ProtectedRoute>
       } />
-      <Route path="/admin/authoring" element={
+      <Route path="/review/authoring" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminAuthoring user={user} />}
         </ProtectedRoute>

@@ -224,17 +224,29 @@ const Layout = ({ children, user }) => {
           </div>
 
           {isReviewer && (
-            <div className="pt-2">
+            <div className="pt-2 space-y-1">
               <Link to="/review">
                 <div
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${isActive('/review') ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  } ${location.pathname === '/review' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                   data-testid="nav-review"
                   title={sidebarCollapsed ? 'Review' : undefined}
                 >
                   <Flag className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.5} />
                   {!sidebarCollapsed && <span>Review</span>}
+                </div>
+              </Link>
+              <Link to="/review/authoring">
+                <div
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
+                    sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
+                  } ${location.pathname === '/review/authoring' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  data-testid="nav-review-authoring"
+                  title={sidebarCollapsed ? 'Authoring' : undefined}
+                >
+                  <Flag className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.5} />
+                  {!sidebarCollapsed && <span>Authoring</span>}
                 </div>
               </Link>
             </div>

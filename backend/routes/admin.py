@@ -732,7 +732,7 @@ async def flag_move(req: FlagMoveRequest, user: User = Depends(get_current_user)
 @router.get("/admin/authoring-queue")
 async def get_authoring_queue(
     round_id: Optional[str] = None,
-    user: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     """Authoring queue for caption-template authoring rounds.
 
@@ -742,7 +742,12 @@ async def get_authoring_queue(
     progress ("3 of 10 done").
 
     If round_id is omitted, returns the most-recent round.
+
+    Access: reviewers (is_reviewer=True) — Parth's role. Not admin-only,
+    so reviewers can access without admin privileges.
     """
+    if not getattr(user, "is_reviewer", False):
+        raise HTTPException(status_code=403, detail="Reviewer access required")
     # Find the latest round_id if not specified
     if not round_id:
         latest = await db.authoring_queue.find_one(
