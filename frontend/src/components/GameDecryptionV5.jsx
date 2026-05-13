@@ -1367,18 +1367,16 @@ const MoveCoachingCardV5 = ({
           </div>
         )}
 
-        {/* ─── CONCEPT APPLIED (for good moves) ──────────────── */}
-        {move.concept_applied && !hasPlan && (
-          <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20" data-testid="concept-applied">
-            <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> You demonstrated
-            </p>
-            <p className="group text-gray-900 text-sm">
-              {move.concept_applied.replace(/_/g, ' ')}
-              <InlineFlag section="concept_applied" flaggedText={move.concept_applied} context={flagCtx} />
-            </p>
-          </div>
-        )}
+        {/* CONCEPT APPLIED — RETIRED 2026-05-13.
+            concept_applied is an internal TAG ("found_best_move",
+            "king_safety_castling", etc.) emitted by recognize_good_move
+            in game_decryption_v5_service.py. It was never meant to be
+            display text; this block was rendering the raw tag with
+            underscores stripped, producing user-visible junk like
+            "You demonstrated found best move" (fb_c8310544af99).
+            V5 captions are the proper teaching surface for good moves.
+            Future authored "You demonstrated X" needs user-written text. */}
+        {false && move.concept_applied && !hasPlan && (<div />)}
 
         {/* ─── FUTURE MOVES (clickable) ───────────────────────── */}
         {move.future_moves?.length > 0 && !hasPlan && (
