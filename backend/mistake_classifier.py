@@ -892,28 +892,36 @@ def detect_missed_pin(board_before: chess.Board, best_move: str,
                      user_color: chess.Color) -> Optional[Dict]:
     """
     Detect if the best move would have created a pin on opponent.
-    
-    Only reports significant pins (absolute or pinning valuable piece).
+
+    Only reports pins of pieces worth at least a knight. User-flagged
+    bug fb_cf32c7f6626b: "You missed a pin: your queen pins their pawn
+    on e4 — it cannot move" — pinning a pawn has near-zero pedagogical
+    value at sub-1500 level. Pawns often can't move forward anyway in
+    the tight positions where pins exist, and the teaching
+    "you can pile on the pawn" isn't actionable.
+
+    Same filter R03 (TAC_PIN_PATTERN) uses for the played-move case:
+    pinned_value >= 3 regardless of pin type.
     """
     if not best_move:
         return None
-    
+
     opponent = not user_color
-    
+
     try:
         board_copy = board_before.copy()
         board_copy.push_san(best_move)
-        
-        # Check for pins on opponent after best move
+
         pins = find_pins(board_copy, opponent)
         if pins:
             best_pin = pins[0]
-            # Only report absolute pins or pins of valuable pieces
-            if best_pin["pin_type"] == "absolute" or best_pin["pinned_value"] >= 3:
+            # Tightened 2026-05-13 (was: "absolute OR pinned_value >= 3").
+            # Pawn-front pins now silenced regardless of pin_type.
+            if best_pin["pinned_value"] >= 3:
                 return best_pin
     except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
         pass
-    
+
     return None
 
 
