@@ -3488,7 +3488,23 @@ def extract_facts(
     #                        pin/skewer/x-ray via front_value_vs_rear)
     #   discovered_attack  — "uncovered attacker via played move"
     multi_target_attack_evidence = _multi_target_attack_evidence(threats_created)
-    aligned_pieces_evidence = _aligned_pieces_evidence(board_after, own_color)
+    # User-flagged bug 2026-05-13 (fb_69b32c5fdcbf): R03 fired
+    # "Nf3. Pins the knight on f6 against the queen on d8" — knight Nf3
+    # can't pin (knights aren't sliders), so the pin must have been
+    # pre-existing in the position. R03 assumed the played move CREATED
+    # the pin (match_kind: played_move) but the detector emitted ANY
+    # pin geometry in the post-move board. Fix: compute the delta vs
+    # board_before, emit only pins the played move actually created.
+    _aligned_after = _aligned_pieces_evidence(board_after, own_color)
+    _aligned_before = _aligned_pieces_evidence(board_before, own_color)
+    _before_keys = {
+        (s["attacker_square"], s["front_piece_square"], s["rear_piece_square"])
+        for s in _aligned_before
+    }
+    aligned_pieces_evidence = [
+        s for s in _aligned_after
+        if (s["attacker_square"], s["front_piece_square"], s["rear_piece_square"]) not in _before_keys
+    ]
     discovered_attack_evidence = _discovered_attack_evidence(
         board_before, board_after, played_move
     )
