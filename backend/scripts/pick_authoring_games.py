@@ -108,6 +108,12 @@ async def main():
                     help="Games to pick per bucket (default 2 → 10 total)")
     ap.add_argument("--output", type=str, default=None,
                     help="Also write report to this file")
+    ap.add_argument("--persist", action="store_true",
+                    help="Write picked games to the authoring_queue collection "
+                         "so the /admin/authoring page lists them.")
+    ap.add_argument("--round-id", type=str, default=None,
+                    help="Round identifier for persistence (default round_YYYYMMDD). "
+                         "Re-running with the same round_id replaces that round's queue.")
     args = ap.parse_args()
 
     client = AsyncIOMotorClient(MONGO_URL)
@@ -196,6 +202,39 @@ async def main():
     if args.output:
         Path(args.output).write_text(report, encoding="utf-8")
         print(f"\nReport also written to {args.output}", file=sys.stderr)
+
+    if args.persist:
+        from datetime import datetime, timezone
+        round_id = args.round_id or f"round_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+        # Replace any prior items under this round_id; new pick overwrites.
+        await db.authoring_queue.delete_many({"round_id": round_id})
+        now = datetime.now(timezone.utc).isoformat()
+        pick_idx = 0
+        docs = []
+        for b in BUCKETS:
+            for _ in range(args.per_bucket):
+                if pick_idx >= len(picked):
+                    break
+                gid = picked[pick_idx]
+                pick_idx += 1
+                g = active_games.get(gid, {})
+                docs.append({
+                    "round_id": round_id,
+                    "game_id": gid,
+                    "bucket": b,
+                    "user_id": g.get("user_id"),
+                    "result": g.get("result"),
+                    "user_color": g.get("user_color"),
+                    "opening": g.get("opening") or g.get("opening_name"),
+                    "imported_at": g.get("imported_at"),
+                    "picked_at": now,
+                    "order_in_round": len(docs) + 1,
+                })
+        if docs:
+            await db.authoring_queue.insert_many(docs)
+            print(f"\nPersisted {len(docs)} games under round_id={round_id} to authoring_queue collection.")
+        else:
+            print(f"\nNothing to persist (no games matched).", file=sys.stderr)
 
 
 if __name__ == "__main__":
