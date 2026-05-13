@@ -1560,37 +1560,39 @@ def _queen_sortie_evidence(
 
 
 def _is_forced_recapture(board_before: chess.Board, played_move: chess.Move) -> bool:
-    """A move is a 'forced recapture' if:
-      - The previous move was a capture
-      - The played move recaptures on the same square
-      - There is no other reasonable move (this is a soft criterion;
-        we approximate as 'played move is the only legal capture on
-        that square AND there's at least one other own piece attacking
-        it that would have lost more material if it had been ignored')
+    """A move is a 'forced recapture' if and only if:
+      - The previous move was a capture into prev.to_square
+      - The played move captures on that same square
+      - There is LITERALLY ONLY ONE legal move in the pre-move position
+        (the strict definition where R07's "only move" caption is true).
 
-    For commit #1, we use the simpler criterion:
-      - previous_move was a capture (board_before.peek() returns it)
-      - played_move captures on the SAME square as previous_move went to
-      - that square contains an opponent piece that just moved there
+    Pre-2026-05-13 implementation used a soft criterion ("did we
+    recapture on the same square?") which fired "only move" on
+    positions with many legal alternatives. User-flagged bugs:
+      fb_0bc718b251da (Qxc4) — "not the only move"
+      fb_ee278d250e5c (dxe5) — alternatives like f6-fork avoidance
+      fb_f49d896177d8 (exd5) — "this is not the only move. White can
+                                capture on d5 or play e5 or just ignore"
+    Tightened to len(legal_moves)==1 so the caption is accurate.
+
+    This silences R07 on most recaptures (since chess positions rarely
+    have only one legal move). Those fall through to R08 (material gain)
+    or R12 (mistake/blunder) which frame correctly.
     """
     if not played_move or not board_before.move_stack:
         return False
     prev = board_before.peek()
     if not prev or prev.to_square is None:
         return False
-    # The previous move must have been a capture into prev.to_square.
-    # board_before is the position AFTER prev was played. So the piece
-    # at prev.to_square in board_before is the opponent's piece that
-    # just landed there.
     landing_piece = board_before.piece_at(prev.to_square)
     if not landing_piece:
         return False
     if landing_piece.color == board_before.turn:
-        # The piece on the to-square belongs to side-to-move, which
-        # means our previous move wasn't a capture by them — bail.
         return False
-    # The played move must be capturing on prev.to_square.
-    return played_move.to_square == prev.to_square and board_before.is_capture(played_move)
+    if played_move.to_square != prev.to_square or not board_before.is_capture(played_move):
+        return False
+    # Strict "only move" check — what the R07 caption actually claims.
+    return board_before.legal_moves.count() == 1
 
 
 # ────────────────────────────────────────────────────────────────────
