@@ -394,7 +394,14 @@ def _r10_render(f):
 
 
 # R11 — Development (opening, minor piece, no tactic)
+#
+# Severity gate added 2026-05-13 (user-flagged fb_2b055c2dd847): R11
+# fired "Develops the bishop to h4" on Bh4 with cp_loss 78 — engine
+# rates it as a positional mistake but R11 framed it as good
+# development. Same R05/R06 pattern. Skip when cp_loss >= 30.
 def _r11_trigger(f):
+    if (f.get("cp_loss") or 0) >= 30:
+        return False
     return (
         f.get("phase") == "opening"
         and f.get("moving_piece_type") in ("knight", "bishop")
