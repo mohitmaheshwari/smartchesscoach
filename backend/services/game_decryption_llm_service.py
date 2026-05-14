@@ -3,7 +3,7 @@ Game Decryption LLM Service
 ============================
 
 LLM-powered coaching narratives for chess moves.
-Uses GPT-4.1-mini for the best balance of reasoning, tone, accuracy, and cost.
+Uses Anthropic Claude (Sonnet 4.6 by default) via llm_service.call_llm.
 
 Architecture:
 - Called ONLY for mistakes + key moments (eval_loss > 30cp)
@@ -43,10 +43,13 @@ import asyncio
 from typing import Dict, List
 from dotenv import load_dotenv
 
+from llm_service import call_llm
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+DECRYPTION_MODEL = os.environ.get("DECRYPTION_LLM_MODEL", "claude-sonnet-4-6")
 
 COACH_SYSTEM_PROMPT = """You are a strong chess coach (2000+ Elo).
 
@@ -152,18 +155,12 @@ Return ONLY the JSON array. No other text."""
 
 async def _call_llm_async(prompt: str) -> str:
     """Call the LLM and return the raw response text."""
-    from llm_helper import LlmChat, UserMessage
-
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"decryption-{uuid.uuid4().hex[:8]}",
-        system_message=COACH_SYSTEM_PROMPT
+    return await call_llm(
+        system_message=COACH_SYSTEM_PROMPT,
+        user_message=prompt,
+        model=DECRYPTION_MODEL,
+        max_tokens=4096,
     )
-    chat.with_model("openai", "gpt-4.1-mini")
-
-    user_message = UserMessage(text=prompt)
-    response = await chat.send_message(user_message)
-    return response
 
 
 def _parse_llm_response(response_text: str, expected_count: int) -> List[Dict]:
@@ -212,8 +209,8 @@ async def generate_llm_coaching_async(
     if not moves_to_analyze:
         return []
 
-    if not EMERGENT_LLM_KEY:
-        # EMERGENT_LLM_KEY intentionally unconfigured — LLM coaching is
+    if not ANTHROPIC_API_KEY:
+        # ANTHROPIC_API_KEY intentionally unconfigured — LLM coaching is
         # off by design. Warning silenced 2026-05-12 (docker-log noise).
         return []
 
