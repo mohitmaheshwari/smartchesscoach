@@ -266,7 +266,6 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=1,
                     help="Number of games to test (default 1 — keep low until prompt is validated).")
-    ap.add_argument("--output", type=str, default="llm_caption_test.md")
     ap.add_argument("--source", choices=["queue", "random"], default="queue",
                     help="queue=use active authoring_queue (default), random=random sample")
     args = ap.parse_args()
@@ -275,94 +274,69 @@ async def main():
     db = client[DB_NAME]
 
     games = await pick_games(db, args.n, args.source)
-    print(f"[test] selected {len(games)} games", file=sys.stderr)
 
-    # Build the system prompt once and reuse across every call.
-    # Identical prefix every call → OpenAI's automatic prompt caching
-    # discounts the system block on calls 2+.
     sys_prompt = with_coach_voice(
         CAPTION_TASK_PROMPT
         + "\n\n" + build_principle_catalog_block()
         + "\n\n" + build_shape_catalog_block()
     )
-    print(f"[test] system prompt: {len(sys_prompt):,} chars", file=sys.stderr)
 
-    out_lines: List[str] = [
-        "# LLM Caption Test (v2 — gated + tightened + retry)",
-        f"_Source: {args.source} · Games: {len(games)} · Model: gpt-4o-mini_",
-        "",
-    ]
-
-    total_moves = 0
-    total_called = 0
-    total_empty_by_gate = 0
-    total_empty_by_llm = 0
-    total_errors = 0
+    totals = {"moves": 0, "called": 0, "gated": 0, "llm_empty": 0, "errors": 0}
 
     for idx, item in enumerate(games, 1):
         gid = item["game_id"]
         bucket = item.get("bucket", "?")
+
+        print("")
+        print("═" * 78)
+        print(f"GAME {idx}/{len(games)}   game_id: {gid}   bucket: {bucket}")
+        print(f"  open in UI:  /game/{gid}")
+        print("═" * 78)
+
         analysis = await db.game_analyses.find_one(
             {"game_id": gid},
             {"_id": 0, "decryption_v5_data": 1},
         )
         if not analysis or not analysis.get("decryption_v5_data"):
-            out_lines.append(f"## {idx}. `{gid}` ({bucket}) — NO V5 DATA")
-            out_lines.append("")
+            print("  (no V5 data for this game)")
             continue
 
         moves = analysis["decryption_v5_data"]
-        out_lines.append(f"## {idx}. `{gid}` ({bucket}) — {len(moves)} moves")
-        out_lines.append("")
 
         for m in moves:
-            existing = (m.get("caption") or "").strip() or "_(no caption)_"
-            total_moves += 1
-
-            if not has_teaching_signal(m):
-                total_empty_by_gate += 1
-                llm_caption = ""
-                llm_label = "_(skipped by gate — no teaching signal)_"
-            else:
-                total_called += 1
-                llm_caption = await generate_caption(m, sys_prompt)
-                if not llm_caption:
-                    total_empty_by_llm += 1
-                    llm_label = "_(empty — LLM decided nothing to teach)_"
-                elif llm_caption.startswith("[ERROR"):
-                    total_errors += 1
-                    llm_label = llm_caption
-                else:
-                    llm_label = llm_caption
-
-            tag = m.get("severity", "?")
-            cpl = m.get("cp_loss", 0)
-            mover = "user" if m.get("is_user_move") else "opp"
+            totals["moves"] += 1
             mv = m.get("move_san", "?")
             mn = m.get("move_number", "?")
+            mover = "user" if m.get("is_user_move") else "opp "
+            sev = (m.get("severity") or "?").ljust(13)
 
-            out_lines.append(f"**{mn}. {mv}** ({mover} · {tag} · cp_loss={cpl})")
-            out_lines.append(f"- existing: {existing}")
-            out_lines.append(f"- **LLM**: {llm_label}")
-            out_lines.append(f"- facts: {format_facts_inline(m)}")
-            out_lines.append("")
+            if not has_teaching_signal(m):
+                totals["gated"] += 1
+                continue  # skip silently — no signal, no print
 
-    out_lines.append("---")
-    out_lines.append(
-        f"**Total moves:** {total_moves}  ·  "
-        f"**LLM called:** {total_called}  ·  "
-        f"**Gated (no signal):** {total_empty_by_gate}  ·  "
-        f"**LLM said empty:** {total_empty_by_llm}  ·  "
-        f"**Errors:** {total_errors}"
-    )
+            totals["called"] += 1
+            llm_caption = await generate_caption(m, sys_prompt)
 
-    output_path = Path(args.output)
-    output_path.write_text("\n".join(out_lines), encoding="utf-8")
-    print(f"[test] wrote {output_path.resolve()}", file=sys.stderr)
+            if not llm_caption:
+                totals["llm_empty"] += 1
+                tag = "[LLM-EMPTY]"
+            elif llm_caption.startswith("[ERROR"):
+                totals["errors"] += 1
+                tag = "[ERROR]    "
+            else:
+                tag = "           "
+
+            existing = (m.get("caption") or "").strip() or "(no existing)"
+            print(f"\n  move {mn:>3}.{mv:<8}  {mover}  {sev}  {tag}")
+            print(f"    existing : {existing}")
+            print(f"    LLM      : {llm_caption or '(empty)'}")
+            print(f"    facts    : {format_facts_inline(m)}")
+
+    print("")
+    print("─" * 78)
     print(
-        f"[test] moves={total_moves} called={total_called} "
-        f"gated={total_empty_by_gate} llm_empty={total_empty_by_llm} errors={total_errors}",
-        file=sys.stderr,
+        f"moves={totals['moves']}  called={totals['called']}  "
+        f"gated={totals['gated']}  llm_empty={totals['llm_empty']}  errors={totals['errors']}"
     )
 
 
