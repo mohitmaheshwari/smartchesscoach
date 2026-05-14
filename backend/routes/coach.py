@@ -1095,6 +1095,28 @@ async def get_per_move_captions(
         shape_pattern_desc = rec.get("shape_pattern_desc")
         shape_pattern_targets = rec.get("shape_pattern_targets") or []
 
+        # LLM caption (new V5.1 backfill, written by scripts/backfill_llm_captions.py).
+        # Wins over moments and the deterministic caption when present.
+        # Field-presence semantics: if `caption_llm` is in the record at all,
+        # this game has been backfilled — surface its text (which may be "",
+        # an intentional silence on forced-recapture / no-teaching positions).
+        if "caption_llm" in rec:
+            llm_text = (rec.get("caption_llm") or "").strip()
+            out_captions.append({
+                "move_number": mn,
+                "move_san": san,
+                "is_user_move": is_user_move,
+                "text": llm_text,
+                "source": "llm_v1" if llm_text else "llm_silent",
+                "principle_cue": principle_cue,
+                "principle_id": principle_id,
+                "shape_pattern_id": shape_pattern_id,
+                "shape_pattern_name": shape_pattern_name,
+                "shape_pattern_desc": shape_pattern_desc,
+                "shape_pattern_targets": shape_pattern_targets,
+            })
+            continue
+
         # decryption_block moments still win — LLM "critical moment"
         # voice is a separate surface coach-approved per-game.
         override = moments_index.get((mn, san))
