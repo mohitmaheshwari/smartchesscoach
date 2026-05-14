@@ -1,15 +1,14 @@
 """
 LLM Service Abstraction Layer
 
-This module provides a unified interface for LLM calls that works with:
-- Emergent integrations (for development/testing on Emergent platform)
-- Direct OpenAI SDK (for production deployment)
+Supports:
+- Anthropic Claude SDK (preferred — used by V5 caption pipeline with prompt caching)
+- Direct OpenAI SDK (legacy callers + TTS)
+- Emergent integrations (legacy, being removed)
 
-AUTOMATIC DETECTION:
-- Emergent environment: Has EMERGENT_LLM_KEY, no OPENAI_API_KEY
-- Production environment: Has OPENAI_API_KEY
-
-Manual override: Set LLM_PROVIDER_MODE="emergent" or "openai"
+Routing rule for call_llm():
+- model starts with "claude-" → Claude SDK
+- otherwise → OpenAI/Emergent (based on LLM_PROVIDER_MODE)
 """
 
 import os
@@ -41,6 +40,72 @@ def _detect_provider_mode():
 
 LLM_PROVIDER_MODE = _detect_provider_mode()
 logger.info(f"LLM Provider Mode: {LLM_PROVIDER_MODE}")
+
+
+# ==================== ANTHROPIC (CLAUDE) IMPLEMENTATION ====================
+_anthropic_client = None
+
+# Default Claude model when caller passes generic "claude" or for cached caption calls.
+# Sonnet 4.6 has a 2K-token cache minimum, making it cheaper than Haiku 4.5 (4K min)
+# for our ~2K caption-system-prompt use case.
+CLAUDE_DEFAULT_MODEL = "claude-sonnet-4-6"
+
+
+def _get_anthropic_client():
+    global _anthropic_client
+    if _anthropic_client is None:
+        from anthropic import AsyncAnthropic
+        _anthropic_client = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+    return _anthropic_client
+
+
+async def _call_claude(
+    system_message: str,
+    user_message: str,
+    model: str = CLAUDE_DEFAULT_MODEL,
+    max_tokens: int = 1024,
+    cache_system: bool = False,
+) -> str:
+    """
+    Anthropic Claude API call.
+
+    Args:
+        system_message: System prompt.
+        user_message: User prompt.
+        model: Claude model id (e.g. "claude-sonnet-4-6", "claude-haiku-4-5", "claude-opus-4-7").
+               Pass "claude" to use CLAUDE_DEFAULT_MODEL.
+        max_tokens: Output cap. Caption use case is ~50 tokens; default 1024 covers most callers.
+        cache_system: If True, mark the system message with cache_control=ephemeral so
+                      identical prompts are billed at the cached rate. Only worthwhile when
+                      the system message exceeds the model's cache minimum
+                      (Sonnet 4.6: 2048 tokens; Haiku 4.5: 4096 tokens).
+    Returns:
+        Assistant text. Raises on API error so callers can hit deterministic fallback.
+    """
+    client = _get_anthropic_client()
+    resolved_model = CLAUDE_DEFAULT_MODEL if model == "claude" else model
+
+    if cache_system:
+        system_param = [{
+            "type": "text",
+            "text": system_message,
+            "cache_control": {"type": "ephemeral"},
+        }]
+    else:
+        system_param = system_message
+
+    response = await client.messages.create(
+        model=resolved_model,
+        max_tokens=max_tokens,
+        system=system_param,
+        messages=[{"role": "user", "content": user_message}],
+    )
+
+    parts = []
+    for block in response.content:
+        if getattr(block, "type", None) == "text":
+            parts.append(block.text)
+    return "".join(parts)
 
 
 # ==================== OPENAI IMPLEMENTATION ====================
@@ -114,22 +179,30 @@ async def _emergent_tts(text: str, voice: str = "onyx", model: str = "tts-1") ->
 
 
 # ==================== PUBLIC API ====================
-async def call_llm(system_message: str, user_message: str, model: str = "gpt-4o-mini") -> str:
+async def call_llm(
+    system_message: str,
+    user_message: str,
+    model: str = "gpt-4o-mini",
+    *,
+    max_tokens: int = 1024,
+    cache_system: bool = False,
+) -> str:
     """
-    Call LLM with automatic provider selection.
-    
-    Args:
-        system_message: System prompt
-        user_message: User prompt
-        model: Model name (default: gpt-4o-mini)
-    
-    Returns:
-        LLM response text
+    Call LLM with provider selection by model prefix.
+
+    Routing:
+      - model startswith "claude" → Claude SDK (supports cache_system, max_tokens)
+      - otherwise → OpenAI or Emergent based on LLM_PROVIDER_MODE
+        (max_tokens/cache_system are ignored on the legacy path)
     """
+    if model.startswith("claude"):
+        return await _call_claude(
+            system_message, user_message, model,
+            max_tokens=max_tokens, cache_system=cache_system,
+        )
     if LLM_PROVIDER_MODE == "emergent":
         return await _call_emergent(system_message, user_message, model)
-    else:
-        return await _call_openai(system_message, user_message, model)
+    return await _call_openai(system_message, user_message, model)
 
 
 async def call_tts(text: str, voice: str = "onyx", model: str = "tts-1") -> bytes:
