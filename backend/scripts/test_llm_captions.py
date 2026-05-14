@@ -155,7 +155,7 @@ D. NEVER invent principle or shape names. The shape catalog has Knight Fork, Bis
 
 E. NEVER fabricate what the best_move does. best_move is the engine's safer alternative — describe what it DOES only if facts contain explicit support (a shape pattern, a principle evidence). Otherwise just name it: "Better was Nf6." Don't say "Nf6 hits...", "Nf6 attacks...", "Nf6 captures..." unless facts back that claim.
 
-F. NEVER use engine words: cp, eval, evaluation, centipawn, accuracy, %.
+F. NEVER use engine words or internal labels: cp, eval, evaluation, centipawn, accuracy, %, "context", "context move", "good move tag", "severity", "primary reason", "category". These are internal terms the player never sees.
 
 G. NEVER say "this move" — name the move (e.g. "Nf3", not "this move").
 
@@ -233,9 +233,33 @@ Examples that MUST be empty:
 
 Better silence than a generic line.
 
+═════ FINAL CHECKLIST — DO BEFORE OUTPUT ═════
+
+Before you emit the caption, scan it and answer each:
+
+  1. Did I name an opening (e.g., "Italian Game", "London System", "King's Indian", "Sicilian", etc.)?
+     IF YES — does facts.opening exist in the facts dict (not null)?
+     IF facts.opening is null/absent → REMOVE the opening name. The sentence stays, but the opening name goes. No exceptions.
+
+  2. Does my sentence end with imperative advice to the player?
+     Phrases to check: "...focus on X", "...try Y", "...attack it again", "...castle soon", "...be ready", "...exploit", "...prepare", "...look for", "...pressure builds".
+     IF YES → rewrite without the tail. End on the observation, not on instructions.
+
+  3. Did I use "your/you" to refer to opponent's pieces (when is_user_move=false)?
+     IF YES → switch to "their/them". Opp moves = third-person observation.
+
+  4. Did I claim what best_move "does" / "hits" / "attacks" / "captures" / "forces"?
+     IF YES — does the facts dict contain explicit support (shape_pattern, principle evidence, primary_reason, opening rule)?
+     IF NO support → cut the claim. Just name the move: "Better was {best_move}."
+
+  5. Did I use internal labels: "context", "context move", "severity", "primary reason", "category", "step"?
+     IF YES → strip them. Player never sees these.
+
+If any check fails, fix the sentence. Then output.
+
 ═════ OUTPUT ═════
 
-Just the sentence text. No labels, no quotes, no JSON. Empty allowed."""
+Just the sentence text. No labels, no quotes, no JSON, no preamble like "Here is the caption:". Empty string allowed."""
 
 
 def has_teaching_signal(move: Dict[str, Any]) -> bool:
