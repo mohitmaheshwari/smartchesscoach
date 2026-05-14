@@ -11,7 +11,8 @@ from typing import Dict, Optional, List
 import os
 
 # Import centralized config
-from config import LLM_PROVIDER, LLM_MODEL, STOCKFISH_PATH
+from config import LLM_MODEL, STOCKFISH_PATH
+from llm_service import call_llm
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +125,6 @@ async def generate_idea_chain_explanation(
         }
     """
     try:
-        from llm_helper import LlmChat, UserMessage
-        
         refutation_move = refutation.get("refutation_move", "")
         is_check = refutation.get("is_check", False)
         is_capture = refutation.get("is_capture", False)
@@ -154,18 +153,14 @@ WHY_IT_WORKS: [Why the opponent's reply is strong]
 BETTER_PLAN: [What {best_move} achieves]
 RULE: [A simple rule to remember for next time]"""
 
-        import uuid
-        chat = LlmChat(
-            api_key=os.environ.get("OPENAI_API_KEY", ""),
-            session_id=f"pdr_idea_{uuid.uuid4().hex[:8]}",
-            system_message=system_prompt
-        ).with_model(LLM_PROVIDER, LLM_MODEL)
-        
-        message = UserMessage(text=user_prompt)
-        response = await chat.send_message(message)
-        
-        # Parse response
-        text = response.strip() if isinstance(response, str) else str(response)
+        response = await call_llm(
+            system_message=system_prompt,
+            user_message=user_prompt,
+            model=LLM_MODEL,
+            max_tokens=512,
+        )
+
+        text = response.strip()
         
         result = {
             "your_plan": "",
@@ -276,10 +271,8 @@ async def generate_why_options(fen: str, best_move: str, user_move: str, refutat
     Returns one correct reason and two plausible but wrong reasons.
     """
     try:
-        from llm_helper import LlmChat, UserMessage
-        import uuid
         import random
-        
+
         refutation_move = refutation.get("refutation_move", "") if refutation else ""
         
         system_prompt = """You are a chess coach creating a multiple choice question.
@@ -299,16 +292,14 @@ CORRECT: [the actual reason this move is good]
 WRONG1: [sounds reasonable but not the key reason]
 WRONG2: [sounds reasonable but not the key reason]"""
 
-        chat = LlmChat(
-            api_key=os.environ.get("OPENAI_API_KEY", ""),
-            session_id=f"pdr_why_{uuid.uuid4().hex[:8]}",
-            system_message=system_prompt
-        ).with_model(LLM_PROVIDER, LLM_MODEL)
-        
-        message = UserMessage(text=user_prompt)
-        response = await chat.send_message(message)
-        
-        text = response.strip() if isinstance(response, str) else str(response)
+        response = await call_llm(
+            system_message=system_prompt,
+            user_message=user_prompt,
+            model=LLM_MODEL,
+            max_tokens=512,
+        )
+
+        text = response.strip()
         
         correct_reason = ""
         wrong_reasons = []
