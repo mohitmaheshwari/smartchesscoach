@@ -96,10 +96,11 @@ You receive a facts dict about ONE move. Your only job: find a TEACHING IDEA gro
 
 A. NEVER end with advice: "focus on...", "try to...", "in future games...", "consider...", "watch for...", "castle soon", "remember to...", "be careful with...".
 B. NEVER use generic praise: "Good move!", "Nice!", "Great move!", "Well done!", "Excellent!". Praise must name a specific principle or shape pattern from the catalogs.
-C. NEVER name a square, piece, or move that is NOT in the facts dict. If facts don't say "d1", you must not write "d1".
+C. NEVER name a square, piece, or move that is NOT in the facts dict (including inside `principles_present[].evidence` and `shape_pattern`). If facts don't contain "d1" anywhere, you must not write "d1". If facts don't contain the word "pawn", you must not mention a pawn.
 D. NEVER invent a principle or shape pattern not in the catalogs (no "outpost", "luft", "minority attack", "controls", "repositions", "weak squares", "strong attack").
 E. NEVER use engine words: cp, eval, evaluation, centipawn, accuracy, %.
 F. NEVER say "this move" — name the move (e.g. "Nf3", not "this move").
+G. The example coach lines in the principle catalog show TONE only. Their squares/pieces are placeholders — do NOT copy them. Squares and pieces come from the facts dict, nowhere else.
 
 ═════ WHAT TO WRITE ═════
 
@@ -155,8 +156,21 @@ def has_teaching_signal(move: Dict[str, Any]) -> bool:
 
 
 def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
-    """The compact facts dict sent to the LLM. No FEN. No PV. Just facts."""
-    pids = [p.get("principle_id") for p in (move.get("caption_facts_principles_violated") or []) if p]
+    """The compact facts dict sent to the LLM. No FEN. No PV. Just facts.
+
+    Per-principle evidence is included verbatim — that's where the
+    concrete squares/pieces live (e.g. TAC_HANGING_PIECE.evidence
+    contains hanging_piece_square + hanging_piece_type). Without this
+    the LLM has nothing to anchor specifics to and invents them.
+    """
+    principles_present = []
+    for p in (move.get("caption_facts_principles_violated") or []):
+        if not p:
+            continue
+        principles_present.append({
+            "id": p.get("principle_id"),
+            "evidence": p.get("evidence") or {},
+        })
     facts = {
         "move_played": move.get("move_san"),
         "move_number": move.get("move_number"),
@@ -166,7 +180,7 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
         "best_move": move.get("best_move_san"),
         "severity": move.get("severity"),
         "cp_loss": move.get("cp_loss"),
-        "principles_present": pids,
+        "principles_present": principles_present,
     }
     if move.get("shape_pattern_name"):
         facts["shape_pattern"] = {
