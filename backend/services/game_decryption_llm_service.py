@@ -44,6 +44,7 @@ from typing import Dict, List
 from dotenv import load_dotenv
 
 from llm_service import call_llm
+from services.coach_voice_prompt import with_coach_voice
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -163,7 +164,7 @@ Return ONLY the JSON array. No other text."""
 async def _call_llm_async(prompt: str) -> str:
     """Call the LLM and return the raw response text."""
     return await call_llm(
-        system_message=COACH_SYSTEM_PROMPT,
+        system_message=with_coach_voice(COACH_SYSTEM_PROMPT),
         user_message=prompt,
         model=DECRYPTION_MODEL,
         max_tokens=4096,

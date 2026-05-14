@@ -21,6 +21,7 @@ from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
 from llm_service import call_llm
+from services.coach_voice_prompt import with_coach_voice
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -119,7 +120,7 @@ async def generate_concise_narrative(
 
     try:
         response = await call_llm(
-            system_message=NARRATOR_SYSTEM_PROMPT,
+            system_message=with_coach_voice(NARRATOR_SYSTEM_PROMPT),
             user_message=user_prompt,
             model=NARRATOR_MODEL,
             max_tokens=120,
@@ -177,7 +178,7 @@ Format: Line 1 = observation, Line 2 = plan"""
 
     try:
         response = await call_llm(
-            system_message="You are a chess coach. Be concise and actionable. Max 15 words per line.",
+            system_message=with_coach_voice("Be concise and actionable. Max 15 words per line."),
             user_message=user_prompt,
             model=NARRATOR_MODEL,
             max_tokens=120,
@@ -219,7 +220,7 @@ Don't say "great move" or "well done" - be more specific."""
 
     try:
         response = await call_llm(
-            system_message="You are a warm but honest chess coach. Be concise.",
+            system_message=with_coach_voice("Praise for a good move. Max 10 words. Be specific, not robotic."),
             user_message=user_prompt,
             model=NARRATOR_MODEL,
             max_tokens=80,
@@ -324,7 +325,7 @@ Return as JSON: {{"1": "narrative for move 1", "2": "narrative for move 2", ...}
 
     try:
         response = await call_llm(
-            system_message=NARRATOR_SYSTEM_PROMPT + "\n\nReturn ONLY valid JSON.",
+            system_message=with_coach_voice(NARRATOR_SYSTEM_PROMPT + "\n\nReturn ONLY valid JSON."),
             user_message=user_prompt,
             model=NARRATOR_MODEL,
             max_tokens=1024,

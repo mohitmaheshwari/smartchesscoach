@@ -16,6 +16,7 @@ from typing import Dict, Optional
 from datetime import datetime, timezone
 
 from llm_service import call_llm
+from services.coach_voice_prompt import with_coach_voice
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +211,7 @@ GAME DATA (use ONLY this information):
             game_context += f"- Turning point: Move {cm['move_number']} (position went from {cm['eval_before']:+.1f} to {cm['eval_after']:+.1f})\n"
 
         response = await call_llm(
-            system_message=COACH_SYSTEM_PROMPT,
+            system_message=with_coach_voice(COACH_SYSTEM_PROMPT),
             user_message=game_context,
             model=LLM_MODEL,
             max_tokens=MAX_TOKENS,

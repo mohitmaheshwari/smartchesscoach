@@ -13,6 +13,7 @@ import os
 # Import centralized config
 from config import LLM_MODEL, STOCKFISH_PATH
 from llm_service import call_llm
+from services.coach_voice_prompt import with_coach_voice
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +155,7 @@ BETTER_PLAN: [What {best_move} achieves]
 RULE: [A simple rule to remember for next time]"""
 
         response = await call_llm(
-            system_message=system_prompt,
+            system_message=with_coach_voice(system_prompt),
             user_message=user_prompt,
             model=LLM_MODEL,
             max_tokens=512,
@@ -293,7 +294,7 @@ WRONG1: [sounds reasonable but not the key reason]
 WRONG2: [sounds reasonable but not the key reason]"""
 
         response = await call_llm(
-            system_message=system_prompt,
+            system_message=with_coach_voice(system_prompt),
             user_message=user_prompt,
             model=LLM_MODEL,
             max_tokens=512,

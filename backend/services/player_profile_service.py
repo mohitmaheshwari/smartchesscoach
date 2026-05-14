@@ -214,12 +214,12 @@ async def _generate_narrative(data: dict) -> str:
     try:
         import os
         from llm_service import call_llm
+        from services.coach_voice_prompt import with_coach_voice
         from config import LLM_MODEL
 
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        needs_anthropic = LLM_MODEL.startswith("claude")
+        api_key = os.environ.get("ANTHROPIC_API_KEY") if needs_anthropic else os.environ.get("OPENAI_API_KEY")
         if not api_key:
-            # ANTHROPIC_API_KEY intentionally unconfigured — fallback is
-            # the default path. Warning silenced 2026-05-12.
             return _fallback_narrative(data)
 
         prompt = f"""Look at this player's data and tell them who they are as a chess player right now. Talk to them like their personal coach — someone who's watched all their games and knows their patterns.
@@ -248,10 +248,10 @@ PLAYER DATA:
 
 Now write the profile. 2-3 short sentences. Simple language. Like a coach talking, not writing."""
 
-        system_msg = "You are a chess coach in India. You talk simply and directly. No dramatic language, no metaphors, no Western slang. Just honest, clear observations about the player. Like talking to your student after watching their games."
+        system_msg = "You are a chess coach in India. Talk simply and directly. No dramatic language, no metaphors, no Western slang. Honest, clear observations about the player — like talking to your student after watching their games. 2-3 short sentences."
 
         response = await call_llm(
-            system_message=system_msg,
+            system_message=with_coach_voice(system_msg),
             user_message=prompt,
             model=LLM_MODEL,
             max_tokens=512,

@@ -599,6 +599,7 @@ async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
     import os
     import json
     from llm_service import call_llm
+    from services.coach_voice_prompt import with_coach_voice
     from player_profile_service import get_or_create_profile, update_profile_after_analysis
     from rag_service import build_rag_context
     from stockfish_service import analyze_game_with_stockfish, QUICK_DEPTH
@@ -703,7 +704,7 @@ RULES:
 """
         
         response = await call_llm(
-            system_message=system_prompt,
+            system_message=with_coach_voice(system_prompt),
             user_message=f"Analyze this game:\n\n{pgn}",
             model=LLM_MODEL,
             max_tokens=4096,

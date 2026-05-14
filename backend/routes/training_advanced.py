@@ -383,6 +383,7 @@ async def _batch_generate_game_stories(games: list) -> dict:
 
     try:
         from llm_service import call_llm
+        from services.coach_voice_prompt import with_coach_voice
     except ImportError:
         return {}
 
@@ -420,7 +421,7 @@ STRICT RULES:
 FORMAT: Each line starts with the 8-character game ID, then colon, then the story. One line per game. Nothing else."""
 
     try:
-        response = await call_llm(system, user_msg, model="gpt-4o-mini")
+        response = await call_llm(with_coach_voice(system), user_msg, model="gpt-4o-mini")
 
         # Parse response into {game_id: story}
         result = {}
@@ -2126,14 +2127,17 @@ async def explain_milestone(
 
     explanation = await generate_position_explanation(db, milestone_data, use_llm=True)
 
-    # If LLM humanization needed, call Claude
+    # If LLM humanization needed, call the LLM
     if explanation.get("needs_llm_humanization"):
         try:
             from llm_service import call_llm
+            from services.coach_voice_prompt import with_coach_voice
             from config import LLM_MODEL
 
             response = await call_llm(
-                system_message="You are a chess coach explaining moves to amateur players. Be concrete and simple. Focus on the 'what happens' not abstract strategy.",
+                system_message=with_coach_voice(
+                    "Explain a move to an amateur player. Concrete and simple. Focus on what happens, not abstract strategy."
+                ),
                 user_message=explanation["llm_prompt"],
                 model=LLM_MODEL,
                 max_tokens=512,
@@ -2304,13 +2308,16 @@ async def get_ai_insights(user: User = Depends(get_current_user)):
     if not suggestion_data.get("ready_for_ai"):
         return suggestion_data
 
-    # Use Claude to generate insights
+    # Generate AI insights
     try:
         from llm_service import call_llm
+        from services.coach_voice_prompt import with_coach_voice
         from config import LLM_MODEL
 
         response = await call_llm(
-            system_message="You are a chess coach analyzing a player's thinking patterns. Be specific, reference their actual words, and give actionable advice.",
+            system_message=with_coach_voice(
+                "Analyze the player's thinking patterns. Be specific, reference their actual words, give one actionable observation."
+            ),
             user_message=suggestion_data["prompt"],
             model=LLM_MODEL,
             max_tokens=1024,
