@@ -180,7 +180,8 @@ async def pick_games(db, n: int, source: str) -> List[Dict[str, str]]:
 
 async def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=10)
+    ap.add_argument("--n", type=int, default=1,
+                    help="Number of games to test (default 1 — keep low until prompt is validated).")
     ap.add_argument("--output", type=str, default="llm_caption_test.md")
     ap.add_argument("--source", choices=["queue", "random"], default="queue",
                     help="queue=use active authoring_queue (default), random=random sample")
