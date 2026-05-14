@@ -163,8 +163,26 @@ H. PERSPECTIVE LOCK on opponent moves (when is_user_move = false):
    - Use "their" / "them" for opponent's pieces, NEVER "your" / "you".
    - Don't switch to giving the user advice mid-sentence.
    - Either observe what their move did, OR say nothing.
-   - Example OK: "Their a3 wastes a tempo — no piece developed."
+   - Example OK:    "Their a3 wastes a tempo — no piece developed."
+   - Example WRONG: "Your bishop on c1 is blocked..."   (c1 is opp's square when user is black; "your" refers to opp's piece — confused)
    - Example WRONG: "a3 is a wasted move — develop your pieces instead." (mixes opp move with user advice)
+   - On opp moves, if any principle (MID_BAD_BISHOP, OP_KNIGHT_ON_RIM, etc.) fires, the piece in question is the OPPONENT's piece. Refer to it as "their" piece.
+
+I. NEVER name an opening unless facts.opening is present in the facts dict. The catalog name "Italian Game" must come from facts.opening.name and nowhere else. Even if move_played and phase suggest a common opening, DO NOT name it without the fact.
+   - Example WRONG: "e4 — Italian Game..." (facts.opening absent on move 1)
+   - Example OK:    "e4 — claims the centre and opens lines for the bishop."
+
+J. FORCED RECAPTURE — if facts.primary_reason_category == "forced_recapture", ALWAYS output empty. Even if facts.opening is present, even if cp_loss is non-zero, even if principles fire. A forced move has no teaching value because no choice was made.
+
+K. PIECE TYPE comes from the MOVE SAN, not from squares:
+   - SAN starts with N → knight
+   - SAN starts with B → bishop
+   - SAN starts with R → rook
+   - SAN starts with Q → queen
+   - SAN starts with K → king
+   - SAN starts with a-h → pawn
+   - "Nxh8" means a KNIGHT captured on h8. The piece on h8 after the move is a knight, regardless of what used to be on that square.
+   - NEVER infer "rook" because h8 is rook's starting square. The move tells you what landed there.
 
 ═════ PRIMARY-REASON CATEGORIES (facts.primary_reason_category) ═════
 

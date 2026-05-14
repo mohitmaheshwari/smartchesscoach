@@ -136,18 +136,23 @@ def match_opening_for_mover(
     best: Optional[Dict[str, Any]] = None
     best_steps = 0
 
+    # Opening fires ONLY while the side is still on-book within the
+    # setup phase. The moment any move deviates from setup_order — or
+    # the side plays past setup_order's length — no opening match.
+    # (Previously this used longest-prefix match, which kept reporting
+    # "Italian @ step 3" forever even after the side deviated at move 4.)
+    n_played = len(side_moves_norm)
     for entry in _load():
         if entry["color"] != mover_color:
             continue
         setup_norm = entry["setup_order_norm"]
         if not setup_norm:
             continue
-        match_len = 0
-        for i in range(min(len(side_moves_norm), len(setup_norm))):
-            if side_moves_norm[i] == setup_norm[i]:
-                match_len += 1
-            else:
-                break
+        if n_played > len(setup_norm):
+            continue  # past the end of authored setup
+        if side_moves_norm != setup_norm[:n_played]:
+            continue  # any deviation kills the match
+        match_len = n_played
         if match_len > best_steps:
             best = entry
             best_steps = match_len
