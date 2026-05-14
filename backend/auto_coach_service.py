@@ -20,7 +20,7 @@ from llm_service import call_llm
 logger = logging.getLogger(__name__)
 
 # LLM Configuration
-LLM_MODEL = os.environ.get("AUTO_COACH_MODEL", "claude-sonnet-4-6")
+LLM_MODEL = os.environ.get("AUTO_COACH_MODEL", "gpt-4o-mini")
 MAX_TOKENS = 600
 
 # System prompt for the coach
@@ -181,9 +181,10 @@ async def generate_coach_commentary(analysis: Dict, game: Dict = None) -> Option
         Coaching commentary string or None if generation fails
     """
     try:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        needs_anthropic = LLM_MODEL.startswith("claude")
+        api_key = os.environ.get("ANTHROPIC_API_KEY") if needs_anthropic else os.environ.get("OPENAI_API_KEY")
         if not api_key:
-            logger.error("ANTHROPIC_API_KEY not found in environment")
+            logger.error(f"API key for {LLM_MODEL} not configured")
             return None
 
         # Build deterministic summary

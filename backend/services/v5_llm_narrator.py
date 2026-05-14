@@ -10,7 +10,8 @@ Key Principles:
 3. Focus on the PLAN, not just the move
 4. Make it memorable (user should remember this forever)
 
-Uses Anthropic Claude via the central llm_service abstraction.
+Routes through llm_service.call_llm. Defaults to gpt-4o-mini (cheapest);
+swap to Claude by setting V5_NARRATOR_MODEL=claude-sonnet-4-6.
 """
 
 import json
@@ -25,7 +26,15 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-NARRATOR_MODEL = os.environ.get("V5_NARRATOR_MODEL", "claude-sonnet-4-6")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+NARRATOR_MODEL = os.environ.get("V5_NARRATOR_MODEL", "gpt-4o-mini")
+
+
+def _llm_available() -> bool:
+    """True if the API key for the configured NARRATOR_MODEL is present."""
+    if NARRATOR_MODEL.startswith("claude"):
+        return bool(ANTHROPIC_API_KEY)
+    return bool(OPENAI_API_KEY)
 
 # System prompt for concise narrative generation.
 #
@@ -81,7 +90,7 @@ async def generate_concise_narrative(
     Returns:
         Concise narrative string (under 20 words)
     """
-    if not ANTHROPIC_API_KEY:
+    if not _llm_available():
         return _generate_fallback_narrative(move_san, plan_data, severity)
 
     # Build the grounded context. Only pass what the upstream plan
@@ -145,7 +154,7 @@ async def generate_opponent_narrative(
     Returns:
         (narrative, your_plan_now)
     """
-    if not ANTHROPIC_API_KEY:
+    if not _llm_available():
         return _fallback_opponent_narrative(move_san, eval_swing, weak_squares)
 
     if eval_swing > 150:
@@ -194,7 +203,7 @@ async def generate_good_move_praise(
     """
     Generate praise for a good move. Keep it short and genuine.
     """
-    if not ANTHROPIC_API_KEY:
+    if not _llm_available():
         return _fallback_good_move(move_san, concept_applied, is_best_move)
 
     context = f"Move: {move_san}\nPhase: {phase}\n"
@@ -284,7 +293,7 @@ async def generate_narratives_batch(moves_data: List[Dict]) -> Dict[int, str]:
 
     Returns: Dict mapping move_index to narrative
     """
-    if not ANTHROPIC_API_KEY:
+    if not _llm_available():
         return {
             i: _generate_fallback_narrative(
                 m.get("move_san", ""),

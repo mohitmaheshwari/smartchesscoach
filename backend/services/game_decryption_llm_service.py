@@ -49,7 +49,14 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-DECRYPTION_MODEL = os.environ.get("DECRYPTION_LLM_MODEL", "claude-sonnet-4-6")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+DECRYPTION_MODEL = os.environ.get("DECRYPTION_LLM_MODEL", "gpt-4o-mini")
+
+
+def _decryption_llm_available() -> bool:
+    if DECRYPTION_MODEL.startswith("claude"):
+        return bool(ANTHROPIC_API_KEY)
+    return bool(OPENAI_API_KEY)
 
 COACH_SYSTEM_PROMPT = """You are a strong chess coach (2000+ Elo).
 
@@ -209,9 +216,8 @@ async def generate_llm_coaching_async(
     if not moves_to_analyze:
         return []
 
-    if not ANTHROPIC_API_KEY:
-        # ANTHROPIC_API_KEY intentionally unconfigured — LLM coaching is
-        # off by design. Warning silenced 2026-05-12 (docker-log noise).
+    if not _decryption_llm_available():
+        # LLM key intentionally unconfigured — LLM coaching is off by design.
         return []
 
     MAX_BATCH = 6

@@ -7,15 +7,19 @@ Change settings here - they apply everywhere.
 # LLM CONFIGURATION
 # =============================================================================
 
-# Main LLM for commentary and analysis (Anthropic Claude).
-# Provider routing happens inside llm_service.call_llm based on model prefix.
-LLM_PROVIDER = "anthropic"
-LLM_MODEL = "claude-sonnet-4-6"
+# Main LLM for commentary and analysis.
+# Provider routing happens inside llm_service.call_llm based on model prefix:
+#   - model starts with "claude" → Anthropic SDK
+#   - otherwise → OpenAI SDK
+# gpt-4o-mini is the default: cheapest, sufficient quality when the
+# system prompt enforces Coach Voice rules (see services/coach_voice_prompt.py).
+LLM_PROVIDER = "openai"
+LLM_MODEL = "gpt-4o-mini"
 
-# Alternative models (set LLM_MODEL to switch):
-# LLM_MODEL = "claude-opus-4-7"     # Best quality, expensive
-# LLM_MODEL = "claude-sonnet-4-6"   # Strong + 2K-token cache minimum (RECOMMENDED)
-# LLM_MODEL = "claude-haiku-4-5"    # Fast + cheap, 4K-token cache minimum
+# Alternative models (set LLM_MODEL or per-caller env var to switch):
+# LLM_MODEL = "gpt-4o"              # OpenAI, better reasoning, ~17x more expensive
+# LLM_MODEL = "claude-haiku-4-5"    # Anthropic, fast, ~6x more expensive than gpt-4o-mini
+# LLM_MODEL = "claude-sonnet-4-6"   # Anthropic, best voice, ~20x more expensive
 
 # Text-to-Speech model
 TTS_MODEL = "tts-1"
