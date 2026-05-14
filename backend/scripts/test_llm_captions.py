@@ -76,14 +76,22 @@ def build_principle_catalog_block() -> str:
 
 
 def build_shape_catalog_block() -> str:
-    """The 23 named shape patterns the coach can call out on the board."""
+    """The 23 named shape patterns the coach can call out on the board.
+
+    Sends ONLY `name`. The authored descriptions (e.g. "Just take it",
+    "Attack it once more — it falls") contain imperative advice tails
+    that the LLM copies verbatim into output, violating Rule A. The
+    pattern name is descriptive enough; per-move facts.shape_pattern
+    carries the specifics (mover, targets, executing_move).
+    """
     lines = [
-        "SHAPE PATTERNS — use these NAMES verbatim when the facts say one is present.",
-        "Each entry: name | description.",
+        "SHAPE PATTERNS — use these NAMES verbatim when facts.shape_pattern.name matches.",
+        "Do NOT invent new shape names. Per-move facts.shape_pattern carries the",
+        "specifics (mover, targets, executing_move).",
         "",
     ]
     for s in SHAPE_PATTERNS:
-        lines.append(f"- {s['name']} — {s['description']}")
+        lines.append(f"- {s['name']}")
     return "\n".join(lines)
 
 
