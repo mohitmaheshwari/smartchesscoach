@@ -46,6 +46,7 @@ from services.coach_voice_prompt import with_coach_voice
 from services.shape_patterns import SHAPE_PATTERNS
 from services.caption_principles import PRINCIPLES
 from services.trap_recognition import detect_trap_setup, match_trap_line_step
+from services.opening_lookup import match_opening_for_mover
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
@@ -123,6 +124,24 @@ PHASE 2 — victim_falls or trap_player_punishes (facts.trap.step >= 1):
 NEVER critique a move when facts.trap is present using mechanical principles. Even if principles_present says hanging/same-piece-twice/etc., the trap context overrides those.
 
 If facts.trap is null/absent, continue to the regular rules below.
+
+═════ OPENING CONTEXT (facts.opening) ═════
+
+In opening-phase moves, facts.opening is populated when the side's played moves match a known opening's setup_order. Fields:
+  - facts.opening.name           — "Italian Game", "London System", etc.
+  - facts.opening.summary        — authored one-sentence pitch of the opening's idea.
+  - facts.opening.golden_rules   — list of authored short principles for this opening.
+  - facts.opening.matched_steps  — how many setup moves of this opening have been played.
+  - facts.opening.next_expected  — the canonical next setup move, or null at end of setup.
+
+When facts.opening is present and no trap is active:
+  - You MAY name the opening using facts.opening.name verbatim.
+  - You MAY draw on facts.opening.summary or one of facts.opening.golden_rules to teach the IDEA behind this move — pick the rule that fits.
+  - Use those authored lines as INSPIRATION for content, not templates. Rewrite in your own voice. Do not copy verbatim more than 3 consecutive words.
+  - On step 1 (matched_steps == 1) it is often useful to NAME the opening once and state its core idea. After that, focus on the specific job of THIS move.
+  - If facts.opening.next_expected is present and the played move IS that expected move, your caption can simply describe what this move does and what's coming.
+
+If facts.opening is null/absent, fall back to PRIMARY-REASON CATEGORIES below.
 
 ═════ NEVER DO THESE — each one fails the task ═════
 
@@ -273,6 +292,10 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
     # and attached on the move dict under a runtime-only key.
     if move.get("_trap"):
         facts["trap"] = move["_trap"]
+    # Opening curriculum match (name + summary + golden_rules) for the
+    # side that just moved. Same runtime-attached pattern as _trap.
+    if move.get("_opening"):
+        facts["opening"] = move["_opening"]
     return facts
 
 
@@ -329,6 +352,8 @@ def format_facts_inline(move: Dict[str, Any]) -> str:
     parts = []
     if move.get("_trap"):
         parts.append(f"TRAP={move['_trap']['name']}")
+    if move.get("_opening"):
+        parts.append(f"opening={move['_opening']['name']}@step{move['_opening']['matched_steps']}")
     if move.get("best_move_san"):
         parts.append(f"best={move['best_move_san']}")
     if move.get("caption_facts_primary_reason"):
@@ -418,6 +443,12 @@ async def main():
             if not san:
                 continue
             played_san_so_far.append(san)
+
+            # Opening lookup — per move, for the side that just moved.
+            mover_color = "white" if m.get("is_white") else "black"
+            opening_match = match_opening_for_mover(played_san_so_far, mover_color)
+            if opening_match:
+                m["_opening"] = opening_match
 
             if active_trap is None:
                 # Look for a new trap setup completing on this move.
