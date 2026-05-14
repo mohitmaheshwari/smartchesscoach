@@ -45,7 +45,7 @@ from llm_service import call_llm
 from services.coach_voice_prompt import with_coach_voice
 from services.shape_patterns import SHAPE_PATTERNS
 from services.caption_principles import PRINCIPLES
-from services.trap_recognition import detect_trap_setup
+from services.trap_recognition import detect_trap_setup, match_trap_line_step
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
@@ -99,16 +99,28 @@ You receive a facts dict about ONE move. Your only job: find a TEACHING IDEA gro
 
 ═════ TRAP OVERRIDE — HIGHEST PRIORITY ═════
 
-If facts.trap is present, this position IS a named opening trap. Everything else in the facts (TAC_HANGING_PIECE, OP_SAME_PIECE_TWICE, etc.) describes SURFACE features of how the trap looks — a piece appears loose, a piece moved twice. These are BAIT. The trap setup is INTENTIONAL.
+If facts.trap is present, this position is inside a named opening trap. Everything else in facts (TAC_HANGING_PIECE, OP_SAME_PIECE_TWICE, OP_FINISH_DEVELOPMENT, etc.) describes SURFACE features of how the trap looks. These critiques are WRONG when a trap is active — the moves are intentional bait or intentional punishment, not mistakes.
 
-When facts.trap is present:
-  - Name the trap. Use facts.trap.name verbatim.
-  - State the IDEA in ≤ 14 more words. Use facts.trap.description as the source of truth for what the trap does.
-  - You may reference the next expected move (facts.trap.trap_line[0]) if it helps.
-  - IGNORE the mechanical principles in facts.principles_present. Do not say "hangs a piece" or "moves the same piece twice" when a trap is present — those critiques are wrong because the move is intentional bait.
+There are TWO trap phases. Use the right one based on facts.trap.step_label:
 
-Form: "{played_move} — {trap_name}. {one short clause about the idea}."
-Example: "Nd4 — Blackburne Shilling Gambit. The e5 pawn is bait; if they grab it with Nxe5, you punish with Qg5!"
+PHASE 1 — setup_completed (facts.trap.step == 0):
+  - This move COMPLETES a known trap setup. The bait is now set.
+  - Name the trap (facts.trap.name verbatim).
+  - State the idea in ≤ 14 words using facts.trap.description as ground truth.
+  - You may name facts.trap.next_expected_move as the bait-grabbing move.
+  - Form: "{move} — {trap_name}. {one clause about the idea}."
+  - Example: "Nd4 — Blackburne Shilling Gambit. The e5 pawn is bait; if they grab with Nxe5, Qg5! wins."
+
+PHASE 2 — victim_falls or trap_player_punishes (facts.trap.step >= 1):
+  - This move is step N of the trap_line — the game is following the authored line.
+  - facts.trap.step_explanation gives the authored idea for this step (use it as ground truth, do NOT copy verbatim).
+  - If step_label == "victim_falls": describe what just happened. The mover walked into the prepared idea.
+    Form: "{move} — {trap_name}, step {N}. They walked into it; next comes {next_expected_move}."
+  - If step_label == "trap_player_punishes": describe what this move achieves in the trap's plan.
+    Form: "{move} — {trap_name}, step {N}. {what punishment this delivers, from step_explanation}."
+  - In both cases NAME THE TRAP. The trap is the lesson.
+
+NEVER critique a move when facts.trap is present using mechanical principles. Even if principles_present says hanging/same-piece-twice/etc., the trap context overrides those.
 
 If facts.trap is null/absent, continue to the regular rules below.
 
@@ -358,20 +370,85 @@ async def main():
 
         moves = analysis["decryption_v5_data"]
 
-        # Walk the game's SAN sequence so we can fire the trap detector
-        # against the played-moves prefix on every move. When the setup
-        # completes, attach the trap fact to the move under a runtime key
-        # that build_move_facts picks up.
+        # Walk the game's SAN sequence so we can:
+        #   (a) fire the trap detector against the played-moves prefix
+        #       to find the setup-completing move, and
+        #   (b) walk subsequent moves against trap_line to annotate them
+        #       as "in_line" (continues the trap) or break tracking if
+        #       the player deviates.
         played_san_so_far: List[str] = []
+        active_trap: Optional[Dict[str, Any]] = None
+        active_trap_setup_completed_by_user: Optional[bool] = None
+        active_trap_step_cursor: int = 0  # 0 = setup_complete, 1+ = in trap_line
+
         for m in moves:
             san = m.get("move_san")
-            if san:
-                played_san_so_far.append(san)
+            if not san:
+                continue
+            played_san_so_far.append(san)
+
+            if active_trap is None:
+                # Look for a new trap setup completing on this move.
                 hit = detect_trap_setup(played_san_so_far)
                 if hit:
-                    m["_trap"] = hit
+                    active_trap = hit
+                    active_trap_setup_completed_by_user = bool(m.get("is_user_move"))
+                    active_trap_step_cursor = 0
+                    m["_trap"] = {
+                        "name": hit["name"],
+                        "family": hit["family"],
+                        "description": hit["description"],
+                        "step": 0,
+                        "step_label": "setup_completed",
+                        "completed_by_user": active_trap_setup_completed_by_user,
+                        "this_move_by_user": bool(m.get("is_user_move")),
+                        "next_expected_move": hit["trap_line"][0] if hit["trap_line"] else None,
+                    }
                     print(f"\n  ▶ TRAP DETECTED on move {m.get('move_number')}: "
-                          f"{hit['name']} ({hit['family']})")
+                          f"{hit['name']} ({hit['family']}) — completed by "
+                          f"{'user' if active_trap_setup_completed_by_user else 'opp'}")
+            else:
+                # We're in trap territory. Check whether this move follows
+                # the expected trap_line step.
+                step_index = active_trap_step_cursor  # 0 = first move after setup
+                if match_trap_line_step(active_trap, san, step_index):
+                    # Whose move is this in the trap_line?
+                    #   step_index 0 = the side that DIDN'T play the setup
+                    #                  (the "victim" who falls for the bait).
+                    #   step_index 1 = the trap_player punishing.
+                    #   alternates from there.
+                    if step_index % 2 == 0:
+                        step_label = "victim_falls"  # opp of trap_player
+                    else:
+                        step_label = "trap_player_punishes"
+                    step_expl = ""
+                    if step_index < len(active_trap.get("trap_line_steps") or []):
+                        step_expl = active_trap["trap_line_steps"][step_index].get("explanation", "")
+                    next_mv = None
+                    if step_index + 1 < len(active_trap["trap_line"]):
+                        next_mv = active_trap["trap_line"][step_index + 1]
+                    m["_trap"] = {
+                        "name": active_trap["name"],
+                        "family": active_trap["family"],
+                        "description": active_trap["description"],
+                        "step": step_index + 1,
+                        "step_label": step_label,
+                        "step_explanation": step_expl,
+                        "completed_by_user": active_trap_setup_completed_by_user,
+                        "this_move_by_user": bool(m.get("is_user_move")),
+                        "next_expected_move": next_mv,
+                    }
+                    active_trap_step_cursor = step_index + 1
+                    print(f"  ▶ TRAP CONTINUATION on move {m.get('move_number')}.{san} "
+                          f"— step {step_index + 1} ({step_label})")
+                    if active_trap_step_cursor >= len(active_trap["trap_line"]):
+                        # Reached end of authored line — clear.
+                        active_trap = None
+                        active_trap_step_cursor = 0
+                else:
+                    # Deviated from trap_line — clear tracking.
+                    active_trap = None
+                    active_trap_step_cursor = 0
 
         for m in moves:
             totals["moves"] += 1

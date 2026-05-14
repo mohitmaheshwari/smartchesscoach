@@ -47,7 +47,12 @@ def _strip_san(san: str) -> str:
 
 
 def _load_traps() -> List[Dict[str, Any]]:
-    """Flatten traps.json into a single list; cached after first call."""
+    """Flatten traps.json into a single list; cached after first call.
+
+    Each entry carries both the move-only line (`trap_line`) for fast
+    matching AND the full step list (`trap_line_steps`) with explanations
+    so callers walking continuations can surface the authored prose.
+    """
     global _TRAPS_CACHE
     if _TRAPS_CACHE is not None:
         return _TRAPS_CACHE
@@ -67,18 +72,26 @@ def _load_traps() -> List[Dict[str, Any]]:
     for family, trap_list in (data or {}).items():
         for trap in trap_list or []:
             setup_raw = trap.get("setup_moves") or []
-            line = []
+            line_moves: List[str] = []
+            line_steps: List[Dict[str, str]] = []
             for step in trap.get("trap_line") or []:
-                mv = step.get("move") if isinstance(step, dict) else step
+                if isinstance(step, dict):
+                    mv = step.get("move", "") or ""
+                    explanation = (step.get("explanation") or "").strip()
+                else:
+                    mv = step
+                    explanation = ""
                 if mv:
-                    line.append(mv)
+                    line_moves.append(mv)
+                    line_steps.append({"move": mv, "explanation": explanation})
             flat.append({
                 "family": family,
                 "name": trap.get("name", "?"),
                 "description": (trap.get("description") or "").strip(),
                 "setup_moves": list(setup_raw),
                 "setup_moves_norm": [_strip_san(m) for m in setup_raw],
-                "trap_line": line,
+                "trap_line": line_moves,
+                "trap_line_steps": line_steps,
                 "success_message": (trap.get("success_message") or "").strip(),
                 "result_type": trap.get("result_type"),
             })
@@ -93,6 +106,10 @@ def detect_trap_setup(played_moves_san: List[str]) -> Optional[Dict[str, Any]]:
 
     Fires only on the move that COMPLETES the setup. If played sequence
     is shorter or longer than every trap's setup, no match.
+
+    The returned dict's `trap_line_steps` is the authored continuation
+    (move + explanation per step) used by the line-walker to annotate
+    subsequent moves as in_line / deviation.
     """
     if not played_moves_san:
         return None
@@ -107,7 +124,18 @@ def detect_trap_setup(played_moves_san: List[str]) -> Optional[Dict[str, Any]]:
                 "family": trap["family"],
                 "description": trap["description"],
                 "completed_by_move": played_moves_san[-1],
-                "trap_line": trap["trap_line"],
+                "trap_line": list(trap["trap_line"]),
+                "trap_line_steps": list(trap["trap_line_steps"]),
                 "result_type": trap.get("result_type"),
             }
     return None
+
+
+def match_trap_line_step(trap: Dict[str, Any], played_san: str, step_index: int) -> bool:
+    """True if `played_san` is the expected move at `step_index` in trap_line.
+    +/# markers are tolerated; otherwise SAN must be identical.
+    """
+    line = trap.get("trap_line") or []
+    if step_index < 0 or step_index >= len(line):
+        return False
+    return _strip_san(played_san) == _strip_san(line[step_index])
