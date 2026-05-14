@@ -213,12 +213,12 @@ async def _generate_narrative(data: dict) -> str:
     """Generate a coaching narrative using LLM."""
     try:
         import os
-        import uuid
-        from llm_helper import LlmChat, UserMessage
+        from llm_service import call_llm
+        from config import LLM_MODEL
 
-        api_key = os.environ.get("EMERGENT_LLM_KEY", "")
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not api_key:
-            # EMERGENT_LLM_KEY intentionally unconfigured — fallback is
+            # ANTHROPIC_API_KEY intentionally unconfigured — fallback is
             # the default path. Warning silenced 2026-05-12.
             return _fallback_narrative(data)
 
@@ -250,14 +250,12 @@ Now write the profile. 2-3 short sentences. Simple language. Like a coach talkin
 
         system_msg = "You are a chess coach in India. You talk simply and directly. No dramatic language, no metaphors, no Western slang. Just honest, clear observations about the player. Like talking to your student after watching their games."
 
-        chat_instance = LlmChat(
-            api_key=api_key,
-            session_id=f"profile-{uuid.uuid4().hex[:8]}",
+        response = await call_llm(
             system_message=system_msg,
+            user_message=prompt,
+            model=LLM_MODEL,
+            max_tokens=512,
         )
-        chat_instance.with_model("openai", "gpt-4.1-mini")
-
-        response = await chat_instance.send_message(UserMessage(text=prompt))
         narrative = response.strip().strip('"').strip("'")
         return narrative
 
