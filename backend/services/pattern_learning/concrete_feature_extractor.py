@@ -104,24 +104,7 @@ class ConcreteFeatureExtractor:
     """
     
     def __init__(self):
-        self.api_key = os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("OPENAI_API_KEY")
-        self._chat = None
-    
-    def _get_chat(self):
-        """Lazy-load the chat client"""
-        if self._chat is None:
-            try:
-                from llm_helper import LlmChat
-                import uuid
-                self._chat = LlmChat(
-                    api_key=self.api_key,
-                    session_id=f"feature_extractor_{uuid.uuid4().hex[:8]}",
-                    system_message=self._get_system_prompt()
-                ).with_model("openai", "gpt-4o-mini")
-            except ImportError:
-                logger.error("emergentintegrations not installed")
-                raise
-        return self._chat
+        self.api_key = os.environ.get("ANTHROPIC_API_KEY")
     
     def _get_system_prompt(self) -> str:
         return """You are a chess pattern analyzer. Your job is to extract CONCRETE, QUERYABLE features from user feedback about chess mistakes.
@@ -301,8 +284,9 @@ Always output valid JSON with these exact field names."""
     async def _extract_with_llm(self, feedback: Dict) -> Optional[ConcretePatternRule]:
         """Use LLM to extract features when keyword matching isn't enough"""
         try:
-            from llm_helper import UserMessage
-            
+            from llm_service import call_llm
+            from config import LLM_MODEL
+
             prompt = f"""Extract concrete, queryable features from this chess feedback.
 
 USER'S EXPLANATION: "{feedback.get('user_explanation', '')}"
@@ -322,10 +306,13 @@ Output ONLY valid JSON with these fields:
     "explanation_template": "Your piece walked into a fork..."
 }}"""
 
-            chat = self._get_chat()
-            response = await chat.send_message(UserMessage(text=prompt))
-            
-            # Parse JSON response
+            response = await call_llm(
+                system_message=self._get_system_prompt(),
+                user_message=prompt,
+                model=LLM_MODEL,
+                max_tokens=1024,
+            )
+
             data = self._parse_json(response)
             if data:
                 rule = ConcretePatternRule(
