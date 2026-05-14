@@ -24,19 +24,14 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 # ==================== EMBEDDING GENERATION ====================
 
 async def generate_embedding(text: str) -> List[float]:
-    """Generate embedding using emergentintegrations library"""
+    """Hash-based 256-dim embedding with chess-keyword features.
+
+    Historically this function looked like an LLM call but never actually
+    issued one — the LlmChat was constructed and discarded. We dropped the
+    dead LLM scaffolding when migrating off emergentintegrations; the
+    deterministic hash+feature embedding here is the real implementation.
+    """
     try:
-        from llm_helper import LlmChat, UserMessage
-        
-        # Use a simple approach - generate a numerical representation
-        # by using the LLM to create a semantic hash
-        chat = LlmChat(
-            api_key=OPENAI_API_KEY,
-            session_id=f"embed_{uuid.uuid4().hex[:8]}",
-            system_message="You are an embedding generator. Given text, output ONLY a JSON array of 256 floats between -1 and 1 representing the semantic meaning. No explanation, just the array."
-        ).with_model("openai", "gpt-4.1-nano")
-        
-        # For efficiency, use a hash-based approach with semantic enhancement
         import hashlib
         
         # Create base embedding from text hash
