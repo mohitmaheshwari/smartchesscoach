@@ -102,31 +102,24 @@ class PatternLearner:
     def __init__(self, api_key: str = None):
         """
         Initialize the pattern learner.
-        
+
         Args:
-            api_key: OpenAI API key. If not provided, reads from EMERGENT_LLM_KEY
-                     or OPENAI_API_KEY environment variable.
+            api_key: Anthropic API key. If not provided, reads from ANTHROPIC_API_KEY.
         """
-        self.api_key = api_key or os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("OPENAI_API_KEY")
+        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
-            logger.warning("No API key found. Pattern learning will be disabled.")
-        
-        self._chat = None
-    
-    def _get_chat(self):
-        """Lazy-load the chat client"""
-        if self._chat is None:
-            try:
-                from llm_helper import LlmChat
-                self._chat = LlmChat(
-                    api_key=self.api_key,
-                    session_id=f"pattern_learner_{uuid.uuid4().hex[:8]}",
-                    system_message=self._get_system_prompt()
-                ).with_model("openai", "gpt-4o")
-            except ImportError:
-                logger.error("emergentintegrations not installed")
-                raise
-        return self._chat
+            logger.warning("No ANTHROPIC_API_KEY found. Pattern learning will be disabled.")
+
+    async def _send(self, prompt: str) -> str:
+        """Issue a single LLM call with this learner's system prompt."""
+        from llm_service import call_llm
+        from config import LLM_MODEL
+        return await call_llm(
+            system_message=self._get_system_prompt(),
+            user_message=prompt,
+            model=LLM_MODEL,
+            max_tokens=2048,
+        )
     
     def _get_system_prompt(self) -> str:
         """System prompt for the pattern learner AI"""
@@ -165,19 +158,11 @@ Output your analysis as JSON."""
         if not self.api_key:
             return {"error": "No API key configured"}
         
-        # Build the analysis prompt
         prompt = self._build_analysis_prompt(feedback)
-        
+
         try:
-            from llm_helper import UserMessage
-            
-            chat = self._get_chat()
-            response = await chat.send_message(UserMessage(text=prompt))
-            
-            # Parse JSON response
-            analysis = self._parse_json_response(response)
-            return analysis
-            
+            response = await self._send(prompt)
+            return self._parse_json_response(response)
         except Exception as e:
             logger.error(f"Error analyzing feedback: {e}")
             return {"error": str(e)}
@@ -203,16 +188,10 @@ Output your analysis as JSON."""
         if "error" in analysis:
             return None
         
-        # Build the rule generation prompt
         prompt = self._build_rule_generation_prompt(feedback, analysis)
-        
+
         try:
-            from llm_helper import UserMessage
-            
-            chat = self._get_chat()
-            response = await chat.send_message(UserMessage(text=prompt))
-            
-            # Parse the rule from response
+            response = await self._send(prompt)
             rule_dict = self._parse_json_response(response)
             
             if not rule_dict or "error" in rule_dict:
@@ -255,17 +234,11 @@ Output your analysis as JSON."""
             return None
         
         prompt = self._build_correction_prompt(feedback)
-        
+
         try:
-            from llm_helper import UserMessage
-            
-            chat = self._get_chat()
-            response = await chat.send_message(UserMessage(text=prompt))
-            
-            # Parse JSON response to get the explanation
+            response = await self._send(prompt)
             result = self._parse_json_response(response)
             return result.get("corrected_explanation", response)
-            
         except Exception as e:
             logger.error(f"Error generating corrected explanation: {e}")
             return None
