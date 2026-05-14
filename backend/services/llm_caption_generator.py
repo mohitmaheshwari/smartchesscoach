@@ -343,15 +343,26 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
 
 def annotate_runtime_facts(moves: List[Dict[str, Any]]) -> None:
     """In-place: walk `moves` in order, attach `_trap` and `_opening`
-    keys to each move record where applicable.
+    runtime keys to each move record where applicable.
 
-    Trap walker: detects setup completion, then steps through the
-    authored trap_line. Resets on deviation.
-
-    Opening walker: per-move, looks up the moving side's opening from
-    opening_curriculum.json via setup_order prefix match (deviation =
-    drops the match; min 3 setup-step match before declaring).
+    Bridge: if the move already has persistent `trap` / `opening` fields
+    (written by services/game_decryption_v5_service.py), use those —
+    they're identical content, just produced earlier in the pipeline.
+    Otherwise walk the detectors here. This lets new analyses
+    (post-wiring) and old analyses (pre-backfill) both flow through
+    the same downstream LLM-facts builder.
     """
+    # Fast path: if every move already has either trap/opening set (or
+    # explicit None for "we checked, nothing fired"), copy persistent →
+    # runtime and skip the per-game walker.
+    if all(("trap" in m) or ("opening" in m) for m in moves if m.get("move_san")):
+        for m in moves:
+            if m.get("trap"):
+                m["_trap"] = m["trap"]
+            if m.get("opening"):
+                m["_opening"] = m["opening"]
+        return
+
     played_san_so_far: List[str] = []
     active_trap: Optional[Dict[str, Any]] = None
     active_trap_setup_completed_by_user: Optional[bool] = None
@@ -433,10 +444,17 @@ async def call_with_retry(
     sys_prompt: str,
     user_prompt: str,
     model: str = "gpt-4o-mini",
-    max_attempts: int = 4,
+    max_attempts: int = 8,
     max_tokens: int = 80,
 ) -> str:
-    """Call the LLM with retry-on-429. Returns response text or '[ERROR ...]'."""
+    """Call the LLM with retry-on-429. Returns response text or '[ERROR ...]'.
+
+    OpenAI's lower tiers ration RPM + TPM aggressively (e.g. 15 RPM / 50K
+    TPM on Tier-0 for gpt-4o-mini). The backoff respects the server's
+    suggested wait when present, otherwise grows exponentially. With 8
+    attempts the worst case is ~5 minutes of waiting on one call — that's
+    OK for backfills, the script is idempotent and resumable.
+    """
     last_err: Optional[Exception] = None
     delay = 2.0
     for attempt in range(1, max_attempts + 1):
@@ -453,10 +471,16 @@ async def call_with_retry(
             err_text = str(e)
             if "rate_limit" in err_text or "429" in err_text:
                 suggested = _retry_seconds_from_error(err_text)
-                wait = suggested + 0.5 if suggested else delay
+                # On retries 4+, ignore the server's tiny suggested wait
+                # ("try again in 1.2s") — we keep hitting the wall. Add
+                # a real cooldown to clear the minute window.
+                if attempt >= 4:
+                    wait = max(suggested or 0, 30.0)
+                else:
+                    wait = (suggested + 0.5) if suggested else delay
                 print(f"[llm-cap] rate limit on attempt {attempt}/{max_attempts}, waiting {wait:.1f}s", file=sys.stderr)
                 await asyncio.sleep(wait)
-                delay = min(delay * 2, 30)
+                delay = min(delay * 2, 60)
                 continue
             return f"[ERROR: {e}]"
     return f"[ERROR after {max_attempts} attempts: {last_err}]"
