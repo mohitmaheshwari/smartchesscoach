@@ -2,7 +2,6 @@
 Auto-Coach Service - Live Post-Game Coaching Feedback
 
 This service generates brief, coach-like commentary after each game analysis.
-Uses GPT-4o-mini for cost-effective, high-quality coaching summaries.
 
 Design Rules:
 - 300-600 tokens max
@@ -16,11 +15,12 @@ import logging
 from typing import Dict, Optional
 from datetime import datetime, timezone
 
+from llm_service import call_llm
+
 logger = logging.getLogger(__name__)
 
 # LLM Configuration
-LLM_MODEL = "gpt-4o"  # Using gpt-4o as gpt-4o-mini
-LLM_PROVIDER = "openai"
+LLM_MODEL = os.environ.get("AUTO_COACH_MODEL", "claude-sonnet-4-6")
 MAX_TOKENS = 600
 
 # System prompt for the coach
@@ -181,23 +181,18 @@ async def generate_coach_commentary(analysis: Dict, game: Dict = None) -> Option
         Coaching commentary string or None if generation fails
     """
     try:
-        from llm_helper import LlmChat, UserMessage
-        from dotenv import load_dotenv
-        load_dotenv()
-        
-        api_key = os.environ.get("EMERGENT_LLM_KEY")
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
-            logger.error("EMERGENT_LLM_KEY not found in environment")
+            logger.error("ANTHROPIC_API_KEY not found in environment")
             return None
-        
+
         # Build deterministic summary
         summary = build_deterministic_summary(analysis, game)
-        
+
         # Skip if clean game
         if summary["blunders"] == 0 and summary["mistakes"] == 0 and summary["inaccuracies"] <= 2:
             return f"Clean game! Your {summary['accuracy']:.0f}% accuracy shows solid play. Keep up this focused approach in your next games."
-        
-        # Build prompt with structured data
+
         game_context = f"""
 GAME DATA (use ONLY this information):
 - Result: {summary['result']}
@@ -208,25 +203,21 @@ GAME DATA (use ONLY this information):
 - Problem phase: {summary['phase_issue']}
 - Was winning at some point: {'Yes' if summary['was_ahead'] else 'No'}
 """
-        
+
         if summary['critical_moment']:
             cm = summary['critical_moment']
             game_context += f"- Turning point: Move {cm['move_number']} (position went from {cm['eval_before']:+.1f} to {cm['eval_after']:+.1f})\n"
-        
-        # Initialize chat
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"coach_{analysis.get('game_id', 'unknown')}",
-            system_message=COACH_SYSTEM_PROMPT
-        ).with_model(LLM_PROVIDER, LLM_MODEL)
-        
-        # Send message
-        user_message = UserMessage(text=game_context)
-        response = await chat.send_message(user_message)
-        
+
+        response = await call_llm(
+            system_message=COACH_SYSTEM_PROMPT,
+            user_message=game_context,
+            model=LLM_MODEL,
+            max_tokens=MAX_TOKENS,
+        )
+
         logger.info(f"Generated coaching commentary for game {analysis.get('game_id')}")
         return response.strip()
-        
+
     except Exception as e:
         logger.error(f"Error generating coach commentary: {e}")
         return None
