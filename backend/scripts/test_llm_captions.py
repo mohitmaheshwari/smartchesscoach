@@ -53,21 +53,23 @@ TEACHING_SEVERITIES = {"mistake", "blunder", "opp_mistake", "opp_blunder"}
 
 
 def build_principle_catalog_block() -> str:
-    """The 28 named teaching principles, condensed for the LLM prompt.
+    """The 28 named teaching principles.
 
-    Sends `id`, `name`, `phase_in_scope`, and `cue_top_n` (the standard
-    coach-voice line for when this principle fires). The LLM uses these
-    names verbatim; it must not invent new ones.
+    Sends ONLY `id`, `name`, `phase_in_scope`. The cue lines from the
+    catalog are NOT sent — they were authored as full captions for the
+    renderer (with advice tails and placeholder squares) and they
+    bait the LLM into copying their shape. The LLM has the voice rules
+    + the evidence dict per principle in facts — that's enough.
     """
     lines = [
-        "TEACHING PRINCIPLES — use these NAMES verbatim. Do not invent new principle names.",
-        "Each entry: name | phases | example coach line.",
+        "TEACHING PRINCIPLES — use these NAMES verbatim when the facts say one fires.",
+        "Do NOT invent new principle names. Per-move facts.principles_present[].evidence",
+        "carries the specifics (square, piece type, who owns it).",
         "",
     ]
     for p in PRINCIPLES:
         phases = ",".join(p.get("phase_in_scope") or [])
-        cue = (p.get("cue_top_n") or p.get("cue_best") or "").strip()
-        lines.append(f"- {p['name']} ({p['id']}) [{phases}] — e.g. \"{cue}\"")
+        lines.append(f"- {p['name']} ({p['id']}) [{phases}]")
     return "\n".join(lines)
 
 
@@ -94,13 +96,26 @@ You receive a facts dict about ONE move. Your only job: find a TEACHING IDEA gro
 
 ═════ NEVER DO THESE — each one fails the task ═════
 
-A. NEVER end with advice: "focus on...", "try to...", "in future games...", "consider...", "watch for...", "castle soon", "remember to...", "be careful with...".
+A. NEVER end with advice. Forbidden phrases (any tense): "focus on...", "try to...", "in future games...", "consider...", "watch for...", "castle soon", "remember to...", "be careful with...", "scan every move", "scan after...", "attack it again", "reroute or trade", "keep the initiative", "keep the pressure". If your sentence ends with imperative advice to the player, rewrite or drop it.
+
 B. NEVER use generic praise: "Good move!", "Nice!", "Great move!", "Well done!", "Excellent!". Praise must name a specific principle or shape pattern from the catalogs.
-C. NEVER name a square, piece, or move that is NOT in the facts dict (including inside `principles_present[].evidence` and `shape_pattern`). If facts don't contain "d1" anywhere, you must not write "d1". If facts don't contain the word "pawn", you must not mention a pawn.
-D. NEVER invent a principle or shape pattern not in the catalogs (no "outpost", "luft", "minority attack", "controls", "repositions", "weak squares", "strong attack").
-E. NEVER use engine words: cp, eval, evaluation, centipawn, accuracy, %.
-F. NEVER say "this move" — name the move (e.g. "Nf3", not "this move").
-G. The example coach lines in the principle catalog show TONE only. Their squares/pieces are placeholders — do NOT copy them. Squares and pieces come from the facts dict, nowhere else.
+
+C. NEVER name a square, piece, or move that is NOT in the facts dict (including inside `principles_present[].evidence` and `shape_pattern`). If facts don't contain "e5" anywhere, you must not write "e5". If facts don't say "pawn", do not mention a pawn.
+
+D. NEVER invent principle or shape names. The shape catalog has Knight Fork, Bishop Fork, Rook Fork — NO "Queen Fork", NO "Pawn Fork". If TAC_FORK_PATTERN fires but no matching catalog shape is named in facts.shape_pattern, write "fork" lowercase as a generic noun, not as a named pattern.
+
+E. NEVER fabricate what the best_move does. best_move is the engine's safer alternative — describe what it DOES only if facts contain explicit support (a shape pattern, a principle evidence). Otherwise just name it: "Better was Nf6." Don't say "Nf6 hits...", "Nf6 attacks...", "Nf6 captures..." unless facts back that claim.
+
+F. NEVER use engine words: cp, eval, evaluation, centipawn, accuracy, %.
+
+G. NEVER say "this move" — name the move (e.g. "Nf3", not "this move").
+
+H. PERSPECTIVE LOCK on opponent moves (when is_user_move = false):
+   - Use "their" / "them" for opponent's pieces, NEVER "your" / "you".
+   - Don't switch to giving the user advice mid-sentence.
+   - Either observe what their move did, OR say nothing.
+   - Example OK: "Their a3 wastes a tempo — no piece developed."
+   - Example WRONG: "a3 is a wasted move — develop your pieces instead." (mixes opp move with user advice)
 
 ═════ WHAT TO WRITE ═════
 
