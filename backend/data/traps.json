@@ -223,6 +223,45 @@
       "result_type": "wins_material",
       "difficulty": "advanced",
       "training_weakness": "king_safety"
+    },
+    {
+      "name": "Lolli Variation",
+      "description": "After 4...Nxe4? in the Two Knights, White crashes through with d4 and a kingside attack.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Bc4",
+        "Nf6",
+        "Ng5",
+        "Nxe4"
+      ],
+      "trap_line": [
+        {
+          "move": "Bxf7+",
+          "explanation": "Bishop takes f7 with check — sacrifices for the king hunt."
+        },
+        {
+          "move": "Kxf7",
+          "explanation": "King is forced to take, now exposed in the open."
+        },
+        {
+          "move": "Nxe4",
+          "explanation": "White recovers the piece. Black's king is stuck on f7."
+        },
+        {
+          "move": "d5",
+          "explanation": "Black tries to cover, but the attack is winning."
+        },
+        {
+          "move": "Nf3",
+          "explanation": "Knight retreats — White has a piece for two pawns and a crushing attack."
+        }
+      ],
+      "success_message": "The Lolli Variation — Black's king is dragged out. Big attacking edge for White.",
+      "result_type": "wins_material",
+      "difficulty": "intermediate"
     }
   ],
   "sicilian-defense": [
@@ -329,6 +368,40 @@
         }
       ],
       "success_message": "The Magnus Smith Trap wins material and opens Black's king!",
+      "result_type": "wins_material",
+      "difficulty": "intermediate"
+    },
+    {
+      "name": "Wing Gambit",
+      "description": "White sacrifices a flank pawn early to seize the centre against the Sicilian.",
+      "setup_moves": [
+        "e4",
+        "c5",
+        "b4"
+      ],
+      "trap_line": [
+        {
+          "move": "cxb4",
+          "explanation": "Black accepts the pawn — most natural."
+        },
+        {
+          "move": "a3",
+          "explanation": "White offers another pawn to clear the b-file and build the centre."
+        },
+        {
+          "move": "bxa3",
+          "explanation": "If Black takes, White's d4 and rapid development give big initiative."
+        },
+        {
+          "move": "Nxa3",
+          "explanation": "Knight develops with tempo, eyeing b5 and c4."
+        },
+        {
+          "move": "d6",
+          "explanation": "Black tries to hold — but White has open lines and lead in development."
+        }
+      ],
+      "success_message": "Wing Gambit — pawn for a big centre and quick development against the Sicilian.",
       "result_type": "wins_material",
       "difficulty": "intermediate"
     }
@@ -477,6 +550,48 @@
       "result_type": "wins_material",
       "difficulty": "advanced",
       "training_weakness": "tactical_oversight"
+    },
+    {
+      "name": "Cambridge Springs Trap",
+      "description": "In the QGD Cambridge Springs, if White takes on d5 too greedily, Black wins a piece via a discovered check.",
+      "setup_moves": [
+        "d4",
+        "d5",
+        "c4",
+        "e6",
+        "Nc3",
+        "Nf6",
+        "Bg5",
+        "Nbd7",
+        "cxd5",
+        "exd5",
+        "Nxd5"
+      ],
+      "trap_line": [
+        {
+          "move": "Nxd5",
+          "explanation": "Black recaptures the knight on d5."
+        },
+        {
+          "move": "Bxd8",
+          "explanation": "White takes the queen — looks winning."
+        },
+        {
+          "move": "Bb4+",
+          "explanation": "Check! Now the king must move."
+        },
+        {
+          "move": "Qd2",
+          "explanation": "Block with the queen — forced."
+        },
+        {
+          "move": "Bxd2+",
+          "explanation": "Black takes the queen back, gaining a whole piece overall."
+        }
+      ],
+      "success_message": "Cambridge Springs Trap — Black wins a piece using the discovered check on the king.",
+      "result_type": "wins_material",
+      "difficulty": "intermediate"
     }
   ],
   "london-system": [
@@ -777,6 +892,55 @@
       "success_message": "The Mortimer Trap! Smothered mate in the Ruy Lopez.",
       "result_type": "checkmate",
       "difficulty": "intermediate"
+    },
+    {
+      "name": "Tarrasch Trap (Open Lopez)",
+      "description": "In the Open Ruy Lopez, White exploits the knight on c5 with Re1 — Black loses a piece via a pin.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Bb5",
+        "a6",
+        "Ba4",
+        "Nf6",
+        "O-O",
+        "Nxe4",
+        "d4",
+        "b5",
+        "Bb3",
+        "d5",
+        "dxe5",
+        "Be6",
+        "c3",
+        "Nc5"
+      ],
+      "trap_line": [
+        {
+          "move": "Nxe4",
+          "explanation": "Black plays the Open Variation — captures the e-pawn."
+        },
+        {
+          "move": "Bxe6",
+          "explanation": "White takes the bishop on e6."
+        },
+        {
+          "move": "fxe6",
+          "explanation": "Black must recapture."
+        },
+        {
+          "move": "Qd3",
+          "explanation": "Queen lines up against the c5 knight."
+        },
+        {
+          "move": "Nxb3",
+          "explanation": "Black tries to escape — but loses material."
+        }
+      ],
+      "success_message": "Tarrasch Trap — the c5 knight is pinned and lost. Classic Ruy Lopez trick.",
+      "result_type": "wins_material",
+      "difficulty": "advanced"
     }
   ],
   "philidor-defense": [
@@ -826,6 +990,41 @@
       "success_message": "Legal's Mate in the Philidor! A classic queen sacrifice.",
       "result_type": "checkmate",
       "difficulty": "intermediate"
+    },
+    {
+      "name": "Damiano Defense Punishment",
+      "description": "Black plays 2...f6 (the Damiano), inviting a knight sacrifice that exposes the king to forced attack.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "f6"
+      ],
+      "trap_line": [
+        {
+          "move": "Nxe5",
+          "explanation": "Knight takes the pawn — looks risky but it's strong!"
+        },
+        {
+          "move": "fxe5",
+          "explanation": "If Black takes, the king is exposed."
+        },
+        {
+          "move": "Qh5+",
+          "explanation": "Check! The king cannot block with a piece."
+        },
+        {
+          "move": "Ke7",
+          "explanation": "Forced — Kg6 loses to Qf5+, and pawn moves don't defend."
+        },
+        {
+          "move": "Qxe5+",
+          "explanation": "Wins back the material with continued attack. Black's king is in the open."
+        }
+      ],
+      "success_message": "Damiano Defense Punishment — White recovers material and Black's king is stranded.",
+      "result_type": "wins_material",
+      "difficulty": "beginner"
     }
   ],
   "petrov-defense": [
@@ -918,6 +1117,44 @@
       "result_type": "wins_material",
       "difficulty": "beginner",
       "training_weakness": "tactical_oversight"
+    },
+    {
+      "name": "Cochrane Gambit",
+      "description": "In the Petrov, White sacrifices the knight on f7 to drag Black's king into the open.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nf6",
+        "Nxe5",
+        "d6",
+        "Nxf7"
+      ],
+      "trap_line": [
+        {
+          "move": "Kxf7",
+          "explanation": "Black must take the knight — but the king is now stuck on f7."
+        },
+        {
+          "move": "d4",
+          "explanation": "White builds a big centre and opens lines."
+        },
+        {
+          "move": "Be7",
+          "explanation": "Black tries to develop and tuck the king away."
+        },
+        {
+          "move": "Bc4+",
+          "explanation": "Check! The king has no easy shelter."
+        },
+        {
+          "move": "Be6",
+          "explanation": "Block — forced. White keeps strong attacking chances for the piece."
+        }
+      ],
+      "success_message": "Cochrane Gambit — knight for two pawns and an exposed king. Sharp attacking play.",
+      "result_type": "wins_material",
+      "difficulty": "advanced"
     }
   ],
   "budapest-gambit": [
@@ -1713,6 +1950,90 @@
       "result_type": "wins_material",
       "difficulty": "advanced",
       "training_weakness": "tactical_oversight"
+    }
+  ],
+  "kings-gambit": [
+    {
+      "name": "Kieseritzky Gambit Attack",
+      "description": "In the King's Gambit, after the Kieseritzky line, White's central pawns and active pieces produce a crushing attack.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "f4",
+        "exf4",
+        "Nf3",
+        "g5",
+        "h4",
+        "g4",
+        "Ne5"
+      ],
+      "trap_line": [
+        {
+          "move": "Nf6",
+          "explanation": "Black tries to develop and put pressure on e4."
+        },
+        {
+          "move": "d4",
+          "explanation": "White builds a huge centre."
+        },
+        {
+          "move": "d6",
+          "explanation": "Black challenges the knight on e5."
+        },
+        {
+          "move": "Nd3",
+          "explanation": "Knight retreats but keeps the position alive."
+        },
+        {
+          "move": "Nxe4",
+          "explanation": "Black grabs the pawn — but loses to Bxf4 and a strong attack."
+        }
+      ],
+      "success_message": "Kieseritzky Gambit — White sacs a pawn for huge central control and king-side initiative.",
+      "result_type": "wins_material",
+      "difficulty": "advanced"
+    }
+  ],
+  "scotch": [
+    {
+      "name": "Mieses Variation",
+      "description": "After 4...Nf6 5.Nxc6, if Black recaptures with the wrong pawn, the position collapses.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "d4",
+        "exd4",
+        "Nxd4",
+        "Nf6",
+        "Nxc6"
+      ],
+      "trap_line": [
+        {
+          "move": "bxc6",
+          "explanation": "Black should recapture with the b-pawn — strong move."
+        },
+        {
+          "move": "e5",
+          "explanation": "White pushes the pawn, attacking the knight on f6."
+        },
+        {
+          "move": "Qe7",
+          "explanation": "Black supports the knight from behind."
+        },
+        {
+          "move": "Qe2",
+          "explanation": "White prepares to castle long and continue the attack."
+        },
+        {
+          "move": "Nd5",
+          "explanation": "Knight retreats to a strong square — but White has long-term pressure."
+        }
+      ],
+      "success_message": "Mieses Variation — sharp Scotch line where central pawn power dominates.",
+      "result_type": "wins_material",
+      "difficulty": "intermediate"
     }
   ]
 }

@@ -992,5 +992,324 @@
       "Bishop pair is an advantage.",
       "Central control wins endgames."
     ]
+  },
+  "scotch_game": {
+    "name": "Scotch Game",
+    "color": "white",
+    "summary": "Open the center on move three. Sharper than the Italian. Trade in the middle and push the d-pawn.",
+    "difficulty": "intermediate",
+    "setup_order": [
+      "e4",
+      "Nf3",
+      "d4",
+      "Nxd4",
+      "Nc3",
+      "Be3"
+    ],
+    "golden_rules": [
+      "d4 on move three — fight for the center immediately.",
+      "Trade in the centre, develop, then push.",
+      "Don't fear early queen trades — your pieces are more active.",
+      "Watch for c-file pressure and the Nf5 jump."
+    ],
+    "traps": [],
+    "tree": {},
+    "middlegame_plans": {
+      "when_ahead": {
+        "plan": "Trade pieces. The d-pawn becomes a monster.",
+        "ideas": [
+          "Push d5",
+          "Trade queens if you can",
+          "Rook on the e-file"
+        ]
+      },
+      "when_equal": {
+        "plan": "Keep pieces active. Look for c-file or e-file pressure.",
+        "ideas": [
+          "Nf5 jump",
+          "Bishop pair",
+          "Castle short"
+        ]
+      },
+      "when_behind": {
+        "plan": "Stay sharp. Avoid trades into a worse endgame.",
+        "ideas": [
+          "Keep queens on",
+          "Active pieces",
+          "Threaten kingside"
+        ]
+      }
+    },
+    "endgame_tips": [
+      "An advanced d-pawn is a winning weapon.",
+      "Bishop pair is strong with open files.",
+      "Centralise rooks before pushing."
+    ]
+  },
+  "petrov_defense": {
+    "name": "Petrov Defense",
+    "color": "black",
+    "summary": "Mirror White's knight. The most solid answer to 1.e4 e5 — equalise and grind.",
+    "difficulty": "intermediate",
+    "setup_order": [
+      "e5",
+      "Nf6",
+      "d6",
+      "Nxe4",
+      "d5",
+      "Be7",
+      "O-O"
+    ],
+    "golden_rules": [
+      "Nf6 mirrors White's knight — symmetric and solid.",
+      "After Nxe5, retreat with d6 first, then take on e4.",
+      "Play d5 to anchor your central knight.",
+      "Trade favourably — solid endgames are your friend."
+    ],
+    "traps": [],
+    "tree": {},
+    "middlegame_plans": {
+      "when_ahead": {
+        "plan": "Simplify into a comfortable endgame.",
+        "ideas": [
+          "Trade pieces",
+          "Solid pawn chain",
+          "Activate rooks"
+        ]
+      },
+      "when_equal": {
+        "plan": "Develop, castle, keep the position simple.",
+        "ideas": [
+          "Be7 + O-O",
+          "c6 reinforces d5",
+          "Reroute knights"
+        ]
+      },
+      "when_behind": {
+        "plan": "Hold the centre. Don't let pieces get pushed back.",
+        "ideas": [
+          "Stay solid",
+          "Avoid weak pawns",
+          "Trade attackers"
+        ]
+      }
+    },
+    "endgame_tips": [
+      "Symmetric pawn endgames usually draw — that's often fine.",
+      "Active rook beats a passive bishop.",
+      "Keep your king centralised in the endgame."
+    ]
+  },
+  "kings_indian_defense": {
+    "name": "King's Indian Defense",
+    "color": "black",
+    "summary": "Let White build a big centre, then smash it. Fianchetto, castle, push f5 and attack.",
+    "difficulty": "advanced",
+    "setup_order": [
+      "Nf6",
+      "g6",
+      "Bg7",
+      "d6",
+      "O-O",
+      "e5"
+    ],
+    "golden_rules": [
+      "Fianchetto the bishop to g7 — long diagonal at the queenside.",
+      "Castle early, attack later. Safety first.",
+      "Push e5 (or c5) to challenge the centre.",
+      "When White locks the centre, your f5 break is the main plan."
+    ],
+    "traps": [],
+    "tree": {},
+    "middlegame_plans": {
+      "when_ahead": {
+        "plan": "Convert the kingside attack — pawns roll forward.",
+        "ideas": [
+          "f5 → f4 → f3",
+          "Open lines to king",
+          "Sacrifice for attack"
+        ]
+      },
+      "when_equal": {
+        "plan": "Build the kingside attack patiently. Trade only if it helps the attack.",
+        "ideas": [
+          "Reroute the knight to f4 or h5",
+          "Get the queen across",
+          "Don't trade dark bishop"
+        ]
+      },
+      "when_behind": {
+        "plan": "Activate pieces. The dark bishop is your soul.",
+        "ideas": [
+          "Find tactical chances",
+          "Keep the dark bishop",
+          "Look for f5"
+        ]
+      }
+    },
+    "endgame_tips": [
+      "The dark-square bishop is worth more than a passive rook.",
+      "King centralisation matters — use yours.",
+      "Passed pawns on the kingside can decide."
+    ]
+  },
+  "nimzo_indian_defense": {
+    "name": "Nimzo-Indian Defense",
+    "color": "black",
+    "summary": "Pin White's c3 knight on move three. Cripple their pawns, take the bishop pair, play solid.",
+    "difficulty": "advanced",
+    "setup_order": [
+      "Nf6",
+      "e6",
+      "Bb4",
+      "O-O",
+      "d5",
+      "c5"
+    ],
+    "golden_rules": [
+      "Bb4 pins the c3 knight — main idea of the opening.",
+      "Aim to trade your bishop for the knight, doubling White's c-pawns.",
+      "Castle, then play d5 or c5 to challenge the centre.",
+      "After Bxc3+, develop the queen bishop on b7 or e6."
+    ],
+    "traps": [],
+    "tree": {},
+    "middlegame_plans": {
+      "when_ahead": {
+        "plan": "Exploit doubled c-pawns. Pressure them and trade.",
+        "ideas": [
+          "Blockade on c4",
+          "Knight to c4",
+          "Trade light bishops"
+        ]
+      },
+      "when_equal": {
+        "plan": "Solid structure. Look for the right pawn break.",
+        "ideas": [
+          "c5 break",
+          "Knight reroute to e4 or g4",
+          "Active rook on c-file"
+        ]
+      },
+      "when_behind": {
+        "plan": "Stay solid. Don't open the position for White's bishops.",
+        "ideas": [
+          "Keep pawns fixed",
+          "Trade pieces",
+          "Defend doubled pawns"
+        ]
+      }
+    },
+    "endgame_tips": [
+      "Doubled isolated c-pawns are a long-term weakness — target them.",
+      "Knight beats bishop in closed endgames.",
+      "Active king in the endgame is worth a pawn."
+    ]
+  },
+  "slav_defense": {
+    "name": "Slav Defense",
+    "color": "black",
+    "summary": "Support d5 with c6 instead of e6. Keeps the queen bishop free. Solid and respectable.",
+    "difficulty": "intermediate",
+    "setup_order": [
+      "d5",
+      "c6",
+      "Nf6",
+      "dxc4",
+      "b5",
+      "Bb7"
+    ],
+    "golden_rules": [
+      "c6 holds d5 without locking in the bishop.",
+      "Develop the queen bishop OUTSIDE the pawn chain — to f5 or g4.",
+      "After dxc4, hold the pawn with b5 if you can.",
+      "Don't rush e6 — keep options open."
+    ],
+    "traps": [],
+    "tree": {},
+    "middlegame_plans": {
+      "when_ahead": {
+        "plan": "Trade favourably. Solid pawn structure converts.",
+        "ideas": [
+          "Trade queens",
+          "Active rook on c-file",
+          "Push queenside pawns"
+        ]
+      },
+      "when_equal": {
+        "plan": "Develop calmly. Look for e5 or c5 breaks.",
+        "ideas": [
+          "e5 break",
+          "Knight reroute to d5",
+          "Bishop pair"
+        ]
+      },
+      "when_behind": {
+        "plan": "Stay solid. Slav is hard to crack.",
+        "ideas": [
+          "Defend d5",
+          "Trade pieces",
+          "Don't weaken pawns"
+        ]
+      }
+    },
+    "endgame_tips": [
+      "Solid pawns convert small advantages.",
+      "Bishop pair shines in open positions.",
+      "Centralise your king in the endgame."
+    ]
+  },
+  "english_opening": {
+    "name": "English Opening",
+    "color": "white",
+    "summary": "Start with c4. Control d5 from a distance. Calm positional play, often with a fianchetto.",
+    "difficulty": "intermediate",
+    "setup_order": [
+      "c4",
+      "Nc3",
+      "g3",
+      "Bg2",
+      "Nf3",
+      "O-O"
+    ],
+    "golden_rules": [
+      "c4 controls d5 — no rush to push pawns in the centre.",
+      "Fianchetto the bishop to g2 — long diagonal at the queenside.",
+      "Develop knights to c3 and f3 before committing the centre.",
+      "Pawn breaks come later: e4, d4, or even b4."
+    ],
+    "traps": [],
+    "tree": {},
+    "middlegame_plans": {
+      "when_ahead": {
+        "plan": "Convert the queenside space advantage.",
+        "ideas": [
+          "b4 break",
+          "Trade pieces",
+          "Push queenside pawns"
+        ]
+      },
+      "when_equal": {
+        "plan": "Manoeuvre patiently. Look for the right break.",
+        "ideas": [
+          "d4 or e4 at the right moment",
+          "Trade dark bishops",
+          "Rook on c-file"
+        ]
+      },
+      "when_behind": {
+        "plan": "Stay flexible. The English is hard to attack.",
+        "ideas": [
+          "Don't weaken pawns",
+          "Trade pieces",
+          "Centralise"
+        ]
+      }
+    },
+    "endgame_tips": [
+      "The fianchettoed bishop is your best endgame piece.",
+      "Knight outposts on d5 or e4 are killer.",
+      "Queenside majority converts to a passed pawn."
+    ]
   }
 }
