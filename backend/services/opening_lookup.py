@@ -89,21 +89,43 @@ def _moves_for_color(played_moves_san: List[str], color: str) -> List[str]:
     return played_moves_san[1::2]
 
 
+DEFAULT_MIN_MATCHED_STEPS = 3
+"""How many setup moves of an opening must be played in order before
+we declare the opening matched. Three lines up with the 'commitment'
+move of every opening in opening_curriculum.json:
+
+  - Italian Game (white): e4, Nf3, **Bc4** — Bc4 is the signature move
+    that distinguishes Italian from Ruy Lopez (Bb5), Scotch (d4), etc.
+  - Italian Game (black): e5, Nc6, **Bc5** — Bc5 distinguishes from
+    Two Knights (Nf6), Petroff, Philidor, etc.
+  - London System: d4, Nf3, **Bf4** — Bf4 distinguishes London from
+    Colle, Torre, Queen's Gambit lines, etc.
+
+Below 3 matched setup moves we deliberately return None so the LLM
+doesn't claim a specific opening prematurely — moves 1 and 2 fall
+back to primary_reason category teaching ("claims the centre",
+"develops a knight").
+"""
+
+
 def match_opening_for_mover(
     played_moves_san: List[str],
     mover_color: str,
+    min_matched_steps: int = DEFAULT_MIN_MATCHED_STEPS,
 ) -> Optional[Dict[str, Any]]:
     """Return the deepest-matching opening for the side that just moved.
 
     Args:
         played_moves_san: full played-move SAN sequence so far (both sides).
         mover_color: "white" or "black" — the side whose move just landed.
+        min_matched_steps: don't declare until this many of the side's
+            setup moves have been played in order. Default 3 — see the
+            DEFAULT_MIN_MATCHED_STEPS docstring for why.
 
     Returns:
-        Dict with the matched opening's authored content, or None if no
-        match. The returned dict's `matched_steps` reflects how many of
-        the side's own setup moves have been played in order, and
-        `next_expected` is the next setup move (or None at end of setup).
+        Dict with the matched opening's authored content, or None if
+        no opening's setup has been played at least `min_matched_steps`
+        moves into.
     """
     if not played_moves_san:
         return None
@@ -130,7 +152,7 @@ def match_opening_for_mover(
             best = entry
             best_steps = match_len
 
-    if best is None or best_steps == 0:
+    if best is None or best_steps < min_matched_steps:
         return None
 
     next_expected = (
