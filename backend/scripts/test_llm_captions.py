@@ -45,6 +45,7 @@ from llm_service import call_llm
 from services.coach_voice_prompt import with_coach_voice
 from services.shape_patterns import SHAPE_PATTERNS
 from services.caption_principles import PRINCIPLES
+from services.trap_recognition import detect_trap_setup
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
@@ -85,14 +86,31 @@ def build_shape_catalog_block() -> str:
     return "\n".join(lines)
 
 
-# Tightened prompt v2:
-# - Forbidden phrases moved to top (was rule #6, now rule #1+#2).
-# - Explicit "Good move!" / "Nice!" ban (anti-pattern from v1 output).
-# - Explicit "if facts give nothing concrete → empty" reinforcement with example.
-# - Anti-hallucination: only use squares/pieces/moves from facts JSON.
+# Prompt v3:
+# - Forbidden phrases moved to top.
+# - Explicit "Queen Fork" ban (rule D).
+# - Best-move fabrication ban (rule E).
+# - Perspective lock on opp moves (rule H).
+# - TRAP OVERRIDE — when facts.trap is present, mechanical principles
+#   describe the BAIT; the trap IS the teaching idea.
 CAPTION_TASK_PROMPT = """You write ONE-SENTENCE captions for chess moves, for players rated 600-1500.
 
 You receive a facts dict about ONE move. Your only job: find a TEACHING IDEA grounded in those facts.
+
+═════ TRAP OVERRIDE — HIGHEST PRIORITY ═════
+
+If facts.trap is present, this position IS a named opening trap. Everything else in the facts (TAC_HANGING_PIECE, OP_SAME_PIECE_TWICE, etc.) describes SURFACE features of how the trap looks — a piece appears loose, a piece moved twice. These are BAIT. The trap setup is INTENTIONAL.
+
+When facts.trap is present:
+  - Name the trap. Use facts.trap.name verbatim.
+  - State the IDEA in ≤ 14 more words. Use facts.trap.description as the source of truth for what the trap does.
+  - You may reference the next expected move (facts.trap.trap_line[0]) if it helps.
+  - IGNORE the mechanical principles in facts.principles_present. Do not say "hangs a piece" or "moves the same piece twice" when a trap is present — those critiques are wrong because the move is intentional bait.
+
+Form: "{played_move} — {trap_name}. {one short clause about the idea}."
+Example: "Nd4 — Blackburne Shilling Gambit. The e5 pawn is bait; if they grab it with Nxe5, you punish with Qg5!"
+
+If facts.trap is null/absent, continue to the regular rules below.
 
 ═════ NEVER DO THESE — each one fails the task ═════
 
@@ -157,6 +175,8 @@ Just the sentence text. No labels, no quotes, no JSON. Empty allowed."""
 
 def has_teaching_signal(move: Dict[str, Any]) -> bool:
     """Decide whether to even call the LLM. Hard gate on hallucination."""
+    if move.get("_trap"):  # known opening trap — always teach
+        return True
     if move.get("shape_pattern_name"):
         return True
     if move.get("caption_facts_principles_violated"):
@@ -205,6 +225,10 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
             "targets": move.get("shape_pattern_targets") or [],
             "executing_move": move.get("shape_pattern_executing_move"),
         }
+    # Trap is computed at iteration time by the script (not yet in V5 DB)
+    # and attached on the move dict under a runtime-only key.
+    if move.get("_trap"):
+        facts["trap"] = move["_trap"]
     return facts
 
 
@@ -259,6 +283,8 @@ async def generate_caption(move: Dict[str, Any], sys_prompt: str) -> str:
 
 def format_facts_inline(move: Dict[str, Any]) -> str:
     parts = []
+    if move.get("_trap"):
+        parts.append(f"TRAP={move['_trap']['name']}")
     if move.get("best_move_san"):
         parts.append(f"best={move['best_move_san']}")
     if move.get("caption_facts_primary_reason"):
@@ -331,6 +357,21 @@ async def main():
             continue
 
         moves = analysis["decryption_v5_data"]
+
+        # Walk the game's SAN sequence so we can fire the trap detector
+        # against the played-moves prefix on every move. When the setup
+        # completes, attach the trap fact to the move under a runtime key
+        # that build_move_facts picks up.
+        played_san_so_far: List[str] = []
+        for m in moves:
+            san = m.get("move_san")
+            if san:
+                played_san_so_far.append(san)
+                hit = detect_trap_setup(played_san_so_far)
+                if hit:
+                    m["_trap"] = hit
+                    print(f"\n  ▶ TRAP DETECTED on move {m.get('move_number')}: "
+                          f"{hit['name']} ({hit['family']})")
 
         for m in moves:
             totals["moves"] += 1
