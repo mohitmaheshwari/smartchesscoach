@@ -598,14 +598,14 @@ async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
     """
     import os
     import json
-    from llm_helper import LlmChat, UserMessage
+    from llm_service import call_llm
     from player_profile_service import get_or_create_profile, update_profile_after_analysis
     from rag_service import build_rag_context
     from stockfish_service import analyze_game_with_stockfish, QUICK_DEPTH
-    
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-    if not OPENAI_API_KEY:
-        logger.error("OPENAI_API_KEY not configured - skipping auto-analysis")
+
+    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not ANTHROPIC_API_KEY:
+        logger.error("ANTHROPIC_API_KEY not configured - skipping auto-analysis")
         return None
     
     game_id = game_doc.get("game_id")
@@ -702,20 +702,14 @@ RULES:
 - For blunders, suggest the best_move
 """
         
-        chat = LlmChat(
-            api_key=OPENAI_API_KEY,
-            session_id=f"auto_analysis_{game_id}",
-            system_message=system_prompt
-        ).with_model(LLM_PROVIDER, LLM_MODEL)
-        
-        user_message = UserMessage(text=f"Analyze this game:\n\n{pgn}")
-        response = await chat.send_message(user_message)
-        
-        # Parse response - handle both string and object response
-        if hasattr(response, 'text'):
-            response_text = response.text.strip()
-        else:
-            response_text = str(response).strip()
+        response = await call_llm(
+            system_message=system_prompt,
+            user_message=f"Analyze this game:\n\n{pgn}",
+            model=LLM_MODEL,
+            max_tokens=4096,
+        )
+
+        response_text = response.strip()
         
         if response_text.startswith("```"):
             response_text = response_text.split("```")[1]

@@ -7,14 +7,15 @@ Change settings here - they apply everywhere.
 # LLM CONFIGURATION
 # =============================================================================
 
-# Main LLM for commentary and analysis
-LLM_PROVIDER = "openai"
-LLM_MODEL = "gpt-4o-mini"
+# Main LLM for commentary and analysis (Anthropic Claude).
+# Provider routing happens inside llm_service.call_llm based on model prefix.
+LLM_PROVIDER = "anthropic"
+LLM_MODEL = "claude-sonnet-4-6"
 
-# Alternative models (uncomment to switch):
-# LLM_MODEL = "gpt-5.2"           # Best quality, expensive
-# LLM_MODEL = "gpt-4o"            # Great quality, moderate cost
-# LLM_MODEL = "gpt-4o-mini"       # Good quality, cheap (RECOMMENDED)
+# Alternative models (set LLM_MODEL to switch):
+# LLM_MODEL = "claude-opus-4-7"     # Best quality, expensive
+# LLM_MODEL = "claude-sonnet-4-6"   # Strong + 2K-token cache minimum (RECOMMENDED)
+# LLM_MODEL = "claude-haiku-4-5"    # Fast + cheap, 4K-token cache minimum
 
 # Text-to-Speech model
 TTS_MODEL = "tts-1"
