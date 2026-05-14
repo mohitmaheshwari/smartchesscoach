@@ -78,6 +78,25 @@ except Exception as _shape_import_exc:  # pragma: no cover — defensive
     _select_shape_for_position = None
     logger.warning(f"[shape_v3] import failed; shape layer disabled: {_shape_import_exc}")
 
+# Trap recognition (named opening traps from data/traps.json). Stateful:
+# fires on setup-completing move and again on each move that follows the
+# authored trap_line. Pure Python, no engine call.
+try:
+    from services.trap_recognition import detect_trap_setup, match_trap_line_step
+except Exception as _trap_import_exc:  # pragma: no cover — defensive
+    detect_trap_setup = None
+    match_trap_line_step = None
+    logger.warning(f"[trap] import failed; trap layer disabled: {_trap_import_exc}")
+
+# Opening curriculum lookup (data/opening_curriculum.json). Matches the
+# moving side's played-move prefix against setup_order. Returns name +
+# summary + golden_rules when on-book ≥ 3 setup moves.
+try:
+    from services.opening_lookup import match_opening_for_mover
+except Exception as _opening_import_exc:  # pragma: no cover — defensive
+    match_opening_for_mover = None
+    logger.warning(f"[opening] import failed; opening layer disabled: {_opening_import_exc}")
+
 # Load theory data
 THEORY_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "theory")
 COACHING_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "coaching")
@@ -2750,6 +2769,14 @@ async def generate_game_decryption_v5(
         # memorable marker instead of a repeated label.
         shapes_fired_this_game: set = set()
 
+        # Trap + opening recognition state (walked statefully across the game).
+        # `played_san_so_far` accumulates SAN of every move played; trap and
+        # opening lookup compare against this sequence each move.
+        played_san_so_far: List[str] = []
+        active_trap: Optional[Dict[str, Any]] = None
+        active_trap_setup_completed_by_user: Optional[bool] = None
+        active_trap_step_cursor: int = 0
+
         for idx, move in enumerate(moves):
             # Defensive: a small share of corpus games have PGN ↔
             # move_evaluations drift where the next mainline move
@@ -3252,7 +3279,74 @@ async def generate_game_decryption_v5(
                 except Exception as _shape_exc:
                     logger.info(f"[shape_v3] detect failed on move {full_move_number}: {_shape_exc}")
                     shape_pattern_record = None
-            
+
+            # ── Trap + opening recognition ─────────────────────────
+            # Pure-Python detectors. Append the played SAN before running
+            # so the matchers see the full prefix INCLUDING this move.
+            played_san_so_far.append(move_san)
+
+            trap_record: Optional[Dict[str, Any]] = None
+            if detect_trap_setup is not None and match_trap_line_step is not None:
+                try:
+                    if active_trap is None:
+                        hit = detect_trap_setup(played_san_so_far)
+                        if hit:
+                            active_trap = hit
+                            active_trap_setup_completed_by_user = bool(is_user)
+                            active_trap_step_cursor = 0
+                            trap_record = {
+                                "name": hit["name"],
+                                "family": hit["family"],
+                                "description": hit["description"],
+                                "step": 0,
+                                "step_label": "setup_completed",
+                                "completed_by_user": active_trap_setup_completed_by_user,
+                                "this_move_by_user": bool(is_user),
+                                "next_expected_move": hit["trap_line"][0] if hit["trap_line"] else None,
+                            }
+                    else:
+                        step_index = active_trap_step_cursor
+                        if match_trap_line_step(active_trap, move_san, step_index):
+                            step_label = "victim_falls" if step_index % 2 == 0 else "trap_player_punishes"
+                            step_expl = ""
+                            steps = active_trap.get("trap_line_steps") or []
+                            if step_index < len(steps):
+                                step_expl = steps[step_index].get("explanation", "")
+                            next_mv = None
+                            if step_index + 1 < len(active_trap["trap_line"]):
+                                next_mv = active_trap["trap_line"][step_index + 1]
+                            trap_record = {
+                                "name": active_trap["name"],
+                                "family": active_trap["family"],
+                                "description": active_trap["description"],
+                                "step": step_index + 1,
+                                "step_label": step_label,
+                                "step_explanation": step_expl,
+                                "completed_by_user": active_trap_setup_completed_by_user,
+                                "this_move_by_user": bool(is_user),
+                                "next_expected_move": next_mv,
+                            }
+                            active_trap_step_cursor = step_index + 1
+                            if active_trap_step_cursor >= len(active_trap["trap_line"]):
+                                active_trap = None
+                                active_trap_step_cursor = 0
+                        else:
+                            # Player deviated from trap_line — drop tracking.
+                            active_trap = None
+                            active_trap_step_cursor = 0
+                except Exception as _trap_exc:
+                    logger.info(f"[trap] detect failed on move {full_move_number}: {_trap_exc}")
+                    trap_record = None
+
+            opening_record: Optional[Dict[str, Any]] = None
+            if match_opening_for_mover is not None:
+                try:
+                    mover_color = "white" if is_white else "black"
+                    opening_record = match_opening_for_mover(played_san_so_far, mover_color)
+                except Exception as _open_exc:
+                    logger.info(f"[opening] detect failed on move {full_move_number}: {_open_exc}")
+                    opening_record = None
+
             move_output = {
                 "move_number": full_move_number,
                 "move_san": move_san,
@@ -3363,6 +3457,17 @@ async def generate_game_decryption_v5(
                 "shape_pattern_mover": shape_pattern_record["mover"] if shape_pattern_record else None,
                 "shape_pattern_targets": shape_pattern_record["targets"] if shape_pattern_record else [],
                 "shape_pattern_executing_move": shape_pattern_record["executing_move"] if shape_pattern_record else None,
+
+                # ── Trap recognition (data/traps.json) ─────────────
+                # Set on the move that completes a known trap setup, and on
+                # subsequent moves that follow the authored trap_line.
+                # Fields nested under one dict to keep the move record clean.
+                "trap": trap_record,
+
+                # ── Opening curriculum match (data/opening_curriculum.json) ─
+                # Set when the mover's played-move prefix matches an opening's
+                # setup_order ≥ 3 steps. Carries name, summary, golden_rules.
+                "opening": opening_record,
             }
 
             decryption_data.append(move_output)
