@@ -2126,26 +2126,22 @@ async def explain_milestone(
 
     explanation = await generate_position_explanation(db, milestone_data, use_llm=True)
 
-    # If LLM humanization needed, call GPT
+    # If LLM humanization needed, call Claude
     if explanation.get("needs_llm_humanization"):
         try:
-            from llm_helper import LlmChat, UserMessage
-            import os
+            from llm_service import call_llm
+            from config import LLM_MODEL
 
-            api_key = os.environ.get("EMERGENT_LLM_KEY", OPENAI_API_KEY)
-
-            chat = LlmChat(
-                api_key=api_key,
-                session_id=f"explain_{os.urandom(8).hex()}",
-                system_message="You are a chess coach explaining moves to amateur players. Be concrete and simple. Focus on the 'what happens' not abstract strategy."
-            ).with_model("openai", "gpt-4o-mini")
-
-            response = await chat.send_message(UserMessage(text=explanation["llm_prompt"]))
+            response = await call_llm(
+                system_message="You are a chess coach explaining moves to amateur players. Be concrete and simple. Focus on the 'what happens' not abstract strategy.",
+                user_message=explanation["llm_prompt"],
+                model=LLM_MODEL,
+                max_tokens=512,
+            )
 
             explanation["human_explanation"] = response
         except Exception as e:
             logger.error(f"Error generating explanation: {e}")
-            # Fallback to stockfish analysis
             sf_analysis = explanation.get("stockfish_analysis", {})
             explanation["human_explanation"] = f"{sf_analysis.get('position_context', 'In this position')}, you played {explanation['move_played']} but {explanation['best_move']} was better. {sf_analysis.get('threat_missed', '')} {sf_analysis.get('cp_lost', '')}."
 
@@ -2308,20 +2304,17 @@ async def get_ai_insights(user: User = Depends(get_current_user)):
     if not suggestion_data.get("ready_for_ai"):
         return suggestion_data
 
-    # Use GPT to generate insights
+    # Use Claude to generate insights
     try:
-        from llm_helper import LlmChat, UserMessage
-        import os
+        from llm_service import call_llm
+        from config import LLM_MODEL
 
-        api_key = os.environ.get("EMERGENT_LLM_KEY", OPENAI_API_KEY)
-
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"insights_{os.urandom(8).hex()}",
-            system_message="You are a chess coach analyzing a player's thinking patterns. Be specific, reference their actual words, and give actionable advice."
-        ).with_model("openai", "gpt-4o-mini")
-
-        response = await chat.send_message(UserMessage(text=suggestion_data["prompt"]))
+        response = await call_llm(
+            system_message="You are a chess coach analyzing a player's thinking patterns. Be specific, reference their actual words, and give actionable advice.",
+            user_message=suggestion_data["prompt"],
+            model=LLM_MODEL,
+            max_tokens=1024,
+        )
 
         return {
             "has_insights": True,
