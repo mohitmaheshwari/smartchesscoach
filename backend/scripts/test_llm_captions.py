@@ -147,6 +147,22 @@ H. PERSPECTIVE LOCK on opponent moves (when is_user_move = false):
    - Example OK: "Their a3 wastes a tempo — no piece developed."
    - Example WRONG: "a3 is a wasted move — develop your pieces instead." (mixes opp move with user advice)
 
+═════ PRIMARY-REASON CATEGORIES (facts.primary_reason_category) ═════
+
+This is the V5 extractor's own classification of WHAT KIND of teaching this move offers. Use it as your primary teaching frame when no trap is active.
+
+  - opening_central_pawn  — pawn move to d4/d5/e4/e5 in the first 2 moves. Teach: claims the center, opens lines for pieces.
+  - development           — minor piece (knight/bishop) developing from start square in the opening. Teach: gets the piece out, attacks/defends a key square.
+  - opening_castled       — castling. Teach: king safety, rook to centre.
+  - material              — move that captures or wins/loses material. Teach: name what was taken / what was lost.
+  - tactic_played         — a tactical motif was executed (fork, pin, skewer, discovered, etc.). Use the matching shape_pattern name when present.
+  - check_plain           — a check. Teach: what the check forces.
+  - check_extra           — a check that creates additional threats. Teach: what extra threat is created.
+  - threat                — a non-check threat (attacks a piece, eyes a square). Teach: what is threatened.
+  - forced_recapture      — recapture, no real choice. SKIP — output empty.
+  - blunder / mistake     — engine flags move as losing eval. Teach: what's wrong, what's better.
+  - mate                  — mate threat or mate. Teach: how the mate works.
+
 ═════ WHAT TO WRITE ═════
 
 ONE sentence, max 18 words.
@@ -186,8 +202,22 @@ Just the sentence text. No labels, no quotes, no JSON. Empty allowed."""
 
 
 def has_teaching_signal(move: Dict[str, Any]) -> bool:
-    """Decide whether to even call the LLM. Hard gate on hallucination."""
-    if move.get("_trap"):  # known opening trap — always teach
+    """Decide whether to even call the LLM. Hard gate on hallucination.
+
+    Fires when any of these signals are present:
+      - known opening trap (highest priority)
+      - V5 caption rule fired (primary_reason set) — covers opening
+        moves (e4, Nf3 etc.) where the extractor categorised the move
+        as "opening_central_pawn" or "development" even though no
+        principle was violated
+      - shape pattern hit
+      - any principle fired
+      - mistake/blunder severity
+      - best move differs from played
+    """
+    if move.get("_trap"):
+        return True
+    if move.get("caption_facts_primary_reason"):
         return True
     if move.get("shape_pattern_name"):
         return True
@@ -218,6 +248,7 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
             "id": p.get("principle_id"),
             "evidence": p.get("evidence") or {},
         })
+    primary = move.get("caption_facts_primary_reason") or {}
     facts = {
         "move_played": move.get("move_san"),
         "move_number": move.get("move_number"),
@@ -227,6 +258,7 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
         "best_move": move.get("best_move_san"),
         "severity": move.get("severity"),
         "cp_loss": move.get("cp_loss"),
+        "primary_reason_category": primary.get("category") if isinstance(primary, dict) else None,
         "principles_present": principles_present,
     }
     if move.get("shape_pattern_name"):
