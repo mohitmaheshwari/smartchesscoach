@@ -10,7 +10,7 @@ Key Principles:
 3. Focus on the PLAN, not just the move
 4. Make it memorable (user should remember this forever)
 
-Uses GPT-4.1-mini via emergentintegrations.
+Uses Anthropic Claude via the central llm_service abstraction.
 """
 
 import json
@@ -19,10 +19,13 @@ import logging
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
+from llm_service import call_llm
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+NARRATOR_MODEL = os.environ.get("V5_NARRATOR_MODEL", "claude-sonnet-4-6")
 
 # System prompt for concise narrative generation.
 #
@@ -62,7 +65,7 @@ async def generate_concise_narrative(
 ) -> str:
     """
     Generate a concise (under 20 words) coaching narrative using LLM.
-    
+
     Args:
         move_san: The move in SAN notation
         plan_data: Structured plan from V5 service containing:
@@ -74,53 +77,44 @@ async def generate_concise_narrative(
         phase: "opening" | "middlegame" | "endgame"
         severity: "good" | "inaccuracy" | "mistake" | "blunder"
         is_user_move: True if this is user's move
-    
+
     Returns:
         Concise narrative string (under 20 words)
     """
-    if not EMERGENT_LLM_KEY:
-        # EMERGENT_LLM_KEY intentionally unconfigured — fallback is the
-        # default path. Warning silenced 2026-05-12 (docker-log noise).
+    if not ANTHROPIC_API_KEY:
         return _generate_fallback_narrative(move_san, plan_data, severity)
-    
+
+    # Build the grounded context. Only pass what the upstream plan
+    # actually contains — no invented fields, no assumptions. If plan_data
+    # is empty, the LLM has nothing to rewrite; we go straight to fallback.
+    if not plan_data:
+        return _generate_fallback_narrative(move_san, plan_data, severity)
+
+    problem = (plan_data.get("current_problem") or "").strip()
+    better = (plan_data.get("better_approach") or "").strip()
+
+    if not problem and not better:
+        return _generate_fallback_narrative(move_san, plan_data, severity)
+
+    lines = [f"Move played: {move_san}"]
+    if problem:
+        lines.append(f"Problem: {problem}")
+    if better:
+        lines.append(f"What was better: {better}")
+
+    user_prompt = (
+        "\n".join(lines)
+        + "\n\nRewrite the critique above as one short coach-voice sentence. "
+        "Use only the moves and ideas already named. Do not add anything."
+    )
+
     try:
-        from llm_helper import LlmChat, UserMessage
-        import uuid
-        
-        # Build the grounded context. Only pass what the upstream plan
-        # actually contains — no invented fields, no assumptions. If plan_data
-        # is empty, the LLM has nothing to rewrite; we go straight to fallback.
-        if not plan_data:
-            return _generate_fallback_narrative(move_san, plan_data, severity)
-
-        problem = (plan_data.get("current_problem") or "").strip()
-        better = (plan_data.get("better_approach") or "").strip()
-
-        if not problem and not better:
-            return _generate_fallback_narrative(move_san, plan_data, severity)
-
-        # Construct the input plan as a plain sentence or two. The LLM's job
-        # is to restate THIS, not to add to it.
-        lines = [f"Move played: {move_san}"]
-        if problem:
-            lines.append(f"Problem: {problem}")
-        if better:
-            lines.append(f"What was better: {better}")
-
-        user_prompt = (
-            "\n".join(lines)
-            + "\n\nRewrite the critique above as one short coach-voice sentence. "
-            "Use only the moves and ideas already named. Do not add anything."
+        response = await call_llm(
+            system_message=NARRATOR_SYSTEM_PROMPT,
+            user_message=user_prompt,
+            model=NARRATOR_MODEL,
+            max_tokens=120,
         )
-
-        chat_instance = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"narrator-{uuid.uuid4().hex[:8]}",
-            system_message=NARRATOR_SYSTEM_PROMPT
-        )
-        chat_instance.with_model("openai", "gpt-4.1-mini")
-
-        response = await chat_instance.send_message(UserMessage(text=user_prompt))
 
         narrative = response.strip().strip('"').strip("'")
 
@@ -133,7 +127,7 @@ async def generate_concise_narrative(
             return _generate_fallback_narrative(move_san, plan_data, severity)
 
         return narrative
-        
+
     except Exception as e:
         logger.error(f"LLM narrator error: {e}")
         return _generate_fallback_narrative(move_san, plan_data, severity)
@@ -147,26 +141,21 @@ async def generate_opponent_narrative(
 ) -> tuple:
     """
     Generate narrative for opponent's move from user's perspective.
-    
+
     Returns:
         (narrative, your_plan_now)
     """
-    if not EMERGENT_LLM_KEY:
+    if not ANTHROPIC_API_KEY:
         return _fallback_opponent_narrative(move_san, eval_swing, weak_squares)
-    
-    try:
-        from llm_helper import LlmChat, UserMessage
-        import uuid
-        
-        # Determine situation
-        if eval_swing > 150:
-            situation = "Opponent blundered"
-        elif eval_swing > 50:
-            situation = "Opponent made a small mistake"
-        else:
-            situation = "Normal move"
-        
-        user_prompt = f"""Opponent played: {move_san}
+
+    if eval_swing > 150:
+        situation = "Opponent blundered"
+    elif eval_swing > 50:
+        situation = "Opponent made a small mistake"
+    else:
+        situation = "Normal move"
+
+    user_prompt = f"""Opponent played: {move_san}
 Situation: {situation}
 User plays: {user_color}
 {f'Weak squares created: {", ".join(weak_squares)}' if weak_squares else ''}
@@ -177,21 +166,20 @@ Generate TWO things (each under 15 words):
 
 Format: Line 1 = observation, Line 2 = plan"""
 
-        chat_instance = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"opp-narrator-{uuid.uuid4().hex[:8]}",
-            system_message="You are a chess coach. Be concise and actionable. Max 15 words per line."
+    try:
+        response = await call_llm(
+            system_message="You are a chess coach. Be concise and actionable. Max 15 words per line.",
+            user_message=user_prompt,
+            model=NARRATOR_MODEL,
+            max_tokens=120,
         )
-        chat_instance.with_model("openai", "gpt-4.1-mini")
-        
-        response = await chat_instance.send_message(UserMessage(text=user_prompt))
-        
+
         lines = response.strip().split("\n")
         narrative = lines[0].strip() if lines else f"Opponent played {move_san}."
         plan = lines[1].strip() if len(lines) > 1 else None
-        
+
         return narrative, plan
-        
+
     except Exception as e:
         logger.error(f"LLM opponent narrator error: {e}")
         return _fallback_opponent_narrative(move_san, eval_swing, weak_squares)
@@ -206,35 +194,29 @@ async def generate_good_move_praise(
     """
     Generate praise for a good move. Keep it short and genuine.
     """
-    if not EMERGENT_LLM_KEY:
+    if not ANTHROPIC_API_KEY:
         return _fallback_good_move(move_san, concept_applied, is_best_move)
-    
-    try:
-        from llm_helper import LlmChat, UserMessage
-        import uuid
-        
-        context = f"Move: {move_san}\nPhase: {phase}\n"
-        if is_best_move:
-            context += "This was the BEST move in the position!\n"
-        if concept_applied:
-            context += f"User demonstrated understanding of: {concept_applied.replace('_', ' ')}"
-        
-        user_prompt = f"""{context}
+
+    context = f"Move: {move_san}\nPhase: {phase}\n"
+    if is_best_move:
+        context += "This was the BEST move in the position!\n"
+    if concept_applied:
+        context += f"User demonstrated understanding of: {concept_applied.replace('_', ' ')}"
+
+    user_prompt = f"""{context}
 
 Generate a SHORT (max 10 words) genuine praise that feels human, not robotic.
 Don't say "great move" or "well done" - be more specific."""
 
-        chat_instance = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"praise-{uuid.uuid4().hex[:8]}",
-            system_message="You are a warm but honest chess coach. Be concise."
+    try:
+        response = await call_llm(
+            system_message="You are a warm but honest chess coach. Be concise.",
+            user_message=user_prompt,
+            model=NARRATOR_MODEL,
+            max_tokens=80,
         )
-        chat_instance.with_model("openai", "gpt-4.1-mini")
-        
-        response = await chat_instance.send_message(UserMessage(text=user_prompt))
-        
         return response.strip().strip('"').strip("'")
-        
+
     except Exception as e:
         logger.error(f"LLM good move error: {e}")
         return _fallback_good_move(move_san, concept_applied, is_best_move)
@@ -252,17 +234,11 @@ def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) 
     problem = (plan_data.get("current_problem") or "").strip() if plan_data else ""
     better = (plan_data.get("better_approach") or "").strip() if plan_data else ""
 
-    # If we have a concrete problem sentence, use it as-is. It was built
-    # upstream from Stockfish's best_move — trusting that is safer than
-    # prepending speculative hooks.
     if problem:
-        # Keep it short. If the problem already names the move, we don't
-        # need to prefix with move_san again.
         if move_san and move_san in problem:
             return problem
         return f"{move_san}: {problem}" if move_san else problem
 
-    # No problem text — fall through to a severity-only acknowledgement.
     if better:
         return f"{move_san} — {better}" if move_san else better
     if severity == "blunder":
@@ -285,7 +261,7 @@ def _fallback_opponent_narrative(move_san: str, eval_swing: int, weak_squares: L
     else:
         narrative = f"Opponent played {move_san}."
         plan = "Check: what does this threaten? What did it weaken?"
-    
+
     return narrative, plan
 
 
@@ -295,23 +271,20 @@ def _fallback_good_move(move_san: str, concept_applied: Optional[str], is_best_m
         if concept_applied:
             return f"You found the best move! Great {concept_applied.replace('_', ' ')}."
         return f"You found the best move! {move_san} is exactly right."
-    
+
     if concept_applied:
         return f"Solid — good {concept_applied.replace('_', ' ')}."
-    
+
     return f"Good — {move_san}."
 
 
-# Batch processing for efficiency
 async def generate_narratives_batch(moves_data: List[Dict]) -> Dict[int, str]:
     """
     Generate narratives for multiple moves in a single batch.
-    
-    This is more efficient than calling the LLM for each move individually.
+
     Returns: Dict mapping move_index to narrative
     """
-    if not EMERGENT_LLM_KEY:
-        # Return fallback for all
+    if not ANTHROPIC_API_KEY:
         return {
             i: _generate_fallback_narrative(
                 m.get("move_san", ""),
@@ -320,16 +293,11 @@ async def generate_narratives_batch(moves_data: List[Dict]) -> Dict[int, str]:
             )
             for i, m in enumerate(moves_data)
         }
-    
-    try:
-        from llm_helper import LlmChat, UserMessage
-        import uuid
-        
-        # Build batch prompt
-        moves_context = []
-        for i, m in enumerate(moves_data):
-            plan = m.get("plan", {})
-            moves_context.append(f"""
+
+    moves_context = []
+    for i, m in enumerate(moves_data):
+        plan = m.get("plan", {}) or {}
+        moves_context.append(f"""
 Move {i+1}: {m.get('move_san', '')}
 Severity: {m.get('severity', 'good')}
 Problem: {plan.get('current_problem', 'N/A')}
@@ -337,27 +305,25 @@ Consequence: {plan.get('consequence', 'N/A')}
 Better: {plan.get('better_approach', 'N/A')}
 Learning: {plan.get('transferable_learning', 'N/A')}
 """)
-        
-        user_prompt = f"""Generate a MEMORABLE coaching sentence for each move below.
+
+    user_prompt = f"""Generate a MEMORABLE coaching sentence for each move below.
 CRITICAL: Maximum 20 words each. Make each one stick in memory.
 
 {chr(10).join(moves_context)}
 
 Return as JSON: {{"1": "narrative for move 1", "2": "narrative for move 2", ...}}"""
 
-        chat_instance = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"batch-narrator-{uuid.uuid4().hex[:8]}",
-            system_message=NARRATOR_SYSTEM_PROMPT + "\n\nReturn ONLY valid JSON."
+    try:
+        response = await call_llm(
+            system_message=NARRATOR_SYSTEM_PROMPT + "\n\nReturn ONLY valid JSON.",
+            user_message=user_prompt,
+            model=NARRATOR_MODEL,
+            max_tokens=1024,
         )
-        chat_instance.with_model("openai", "gpt-4.1-mini")
-        
-        response = await chat_instance.send_message(UserMessage(text=user_prompt))
-        
-        # Parse JSON response
+
         try:
             narratives = json.loads(response.strip())
-            return {int(k)-1: v for k, v in narratives.items()}
+            return {int(k) - 1: v for k, v in narratives.items()}
         except json.JSONDecodeError:
             logger.warning("Failed to parse batch response, falling back")
             return {
@@ -368,7 +334,7 @@ Return as JSON: {{"1": "narrative for move 1", "2": "narrative for move 2", ...}
                 )
                 for i, m in enumerate(moves_data)
             }
-        
+
     except Exception as e:
         logger.error(f"Batch narrative error: {e}")
         return {
