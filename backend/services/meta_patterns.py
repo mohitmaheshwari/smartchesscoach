@@ -1108,28 +1108,23 @@ def _count_material(board: chess.Board, color: chess.Color) -> int:
 
 async def default_llm_call(prompt: str) -> str:
     """
-    Default LLM adapter using emergentintegrations. Used when caller
+    Default LLM adapter using Anthropic Claude via llm_service. Used when caller
     doesn't supply their own llm_call_fn. Returns empty string on failure
     so the fallback path kicks in cleanly.
     """
     import os
-    try:
-        from llm_helper import LlmChat, UserMessage
-    except Exception:
-        return ""
-
-    api_key = os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("OPENAI_API_KEY")
-    if not api_key:
+    if not os.environ.get("ANTHROPIC_API_KEY"):
         return ""
 
     try:
-        chat = LlmChat(
-            api_key=api_key,
-            session_id="meta_pattern_commentary",
+        from llm_service import call_llm
+        from config import LLM_MODEL
+        response = await call_llm(
             system_message="You are a warm Indian chess coach. Output strict JSON only, no prose.",
-        ).with_model("openai", "gpt-4o-mini")
-        msg = UserMessage(text=prompt)
-        response = await chat.send_message(msg)
+            user_message=prompt,
+            model=LLM_MODEL,
+            max_tokens=1024,
+        )
         return (response or "").strip()
     except Exception as e:
         logger.warning(f"[META] default_llm_call failed: {e}")
