@@ -705,7 +705,6 @@ class SmartPatternExtractor:
     
     def __init__(self):
         self.analyzer = DeepPositionAnalyzer()
-        self.api_key = os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("OPENAI_API_KEY")
     
     async def extract_pattern(self, feedback: Dict) -> Optional[Dict]:
         """
