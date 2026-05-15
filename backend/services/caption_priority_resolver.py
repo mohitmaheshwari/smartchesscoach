@@ -15,17 +15,30 @@ the "verbalize what?" decision — code, not prompt.
 OUTPUT CONTRACT
 ───────────────
     {
-      "should_skip"    : bool,
-      "focus"          : "trap" | "shape" | "principle" | "opening"
-                       | "mistake" | "category" | "empty",
-      "anchor_name"    : str | None,     # what to NAME (e.g. "Knight Fork")
-      "anchor_detail"  : str | None,     # one-sentence ground-truth fact
-      "allowed_moves"  : List[str],      # SANs the LLM may reference
-      "allowed_pieces" : List[str],      # "knight on f3"-style strings
-      "voice_hint"     : "praise" | "critique" | "observe",
-      "perspective"    : "user" | "opp",
-      "move_played"    : str,
+      "should_skip"        : bool,
+      "focus"              : "trap" | "shape" | "principle" | "opening"
+                           | "mistake" | "category" | "empty",
+      "anchor_name"        : str | None,     # PRIMARY — what to NAME
+      "anchor_detail"      : str | None,     # one-sentence ground-truth fact
+      "secondary_focus"    : str | None,     # OPTIONAL second concept
+      "secondary_anchor"   : str | None,     # name of secondary
+      "secondary_detail"   : str | None,     # ground-truth for secondary
+      "allowed_moves"      : List[str],      # SANs the LLM may reference
+      "allowed_pieces"     : List[str],      # "knight on f3"-style strings
+      "voice_hint"         : "praise" | "critique" | "observe",
+      "perspective"        : "user" | "opp",
+      "move_played"        : str,
+      "move_role_phrase"   : str | None,     # generic fallback ("claims the
+                                              # centre", "develops a piece")
+                                              # — used by verifier for repair
     }
+
+PRIMARY + SECONDARY pattern (2026-05-15 evolution)
+────────────────────────────────────────────────────
+The first non-None branch is the primary anchor. The second non-None,
+non-redundant branch becomes the secondary — the LLM is told it may
+weave it in IF natural within the 18-word limit. Redundant pairs
+(same focus, same anchor_name, or category-as-secondary) are dropped.
 
 PRIORITY ORDER (highest first)
 ──────────────────────────────
@@ -114,6 +127,44 @@ def _piece_string(piece_type: str, square: Optional[str]) -> str:
     if square:
         return f"{piece_type} on {square}"
     return piece_type
+
+
+# Central squares for "claims the centre" detection.
+_CENTRAL_PAWN_TARGETS = {"d4", "d5", "e4", "e5"}
+_CENTRE_ADJACENT      = {"c4", "c5", "f4", "f5", "d3", "d6", "e3", "e6"}
+
+
+def _move_role_phrase(san: str) -> Optional[str]:
+    """Generic, board-free phrase describing what a move does in plain
+    coach English. Used by the verifier when it strips a disallowed
+    opening/shape name and needs a SAFE replacement clause.
+
+    Pure string lookup — no chess imports, no FEN, no PV. Allowed by
+    the locked rule renderer_never_computes_chess_meaning.
+    """
+    if not san:
+        return None
+    if san in ("O-O", "O-O-O"):
+        return "castles for king safety"
+
+    piece = _moving_piece_from_san(san)
+    target = _target_square_from_san(san)
+
+    if piece == "pawn":
+        if target in _CENTRAL_PAWN_TARGETS:
+            return "claims the centre"
+        if target in _CENTRE_ADJACENT:
+            return "fights for the centre"
+        return "pushes the pawn forward"
+    if piece in ("knight", "bishop"):
+        return "develops a piece"
+    if piece == "rook":
+        return "swings the rook to a better file"
+    if piece == "queen":
+        return "moves the queen"
+    if piece == "king":
+        return "walks the king"
+    return None
 
 
 # ───────────────────────────────────────────────────────────────────
@@ -428,21 +479,41 @@ def _resolve_category(move: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 # ───────────────────────────────────────────────────────────────────
 
 
+# Focuses too generic to ever be a SECONDARY anchor (they'd dilute the
+# primary teaching point rather than blend with it).
+_DISALLOWED_AS_SECONDARY = {"category", "mistake"}
+
+
+def _is_redundant_secondary(primary: Dict[str, Any], candidate: Dict[str, Any]) -> bool:
+    """True if `candidate` would just repeat the primary's teaching."""
+    if candidate.get("focus") in _DISALLOWED_AS_SECONDARY:
+        return True
+    if candidate.get("focus") == primary.get("focus"):
+        return True
+    p_name = (primary.get("anchor_name") or "").strip().lower()
+    c_name = (candidate.get("anchor_name") or "").strip().lower()
+    if p_name and c_name and p_name == c_name:
+        return True
+    return False
+
+
 def resolve_priority(move: Dict[str, Any]) -> Dict[str, Any]:
     """Decide what the LLM should focus on for this move.
 
-    Returns the contract documented at the top of this module.
-    Always returns a dict; empty-output cases are signalled by
-    should_skip=True.
+    Collects ALL non-None branch decisions in priority order, picks the
+    first as primary, and the first non-redundant follow-up as secondary.
+    The secondary is OPTIONAL — the LLM may weave it in or omit it
+    depending on word budget.
     """
     move_played = move.get("move_san") or ""
+    role_phrase = _move_role_phrase(move_played)
 
     # Forced recapture: hard skip, regardless of other facts.
-    primary = move.get("caption_facts_primary_reason") or {}
-    if isinstance(primary, dict) and primary.get("category") == "forced_recapture":
-        return _empty(move_played)
+    primary_facts = move.get("caption_facts_primary_reason") or {}
+    if isinstance(primary_facts, dict) and primary_facts.get("category") == "forced_recapture":
+        return _empty(move_played, role_phrase)
 
-    # Try resolvers in priority order. First non-None wins.
+    decisions: List[Dict[str, Any]] = []
     for resolver in (
         _resolve_trap,
         _resolve_shape,
@@ -451,24 +522,42 @@ def resolve_priority(move: Dict[str, Any]) -> Dict[str, Any]:
         _resolve_mistake,
         _resolve_category,
     ):
-        decision = resolver(move)
-        if decision is not None:
-            decision["should_skip"] = False
-            decision["move_played"] = move_played
-            return decision
+        d = resolver(move)
+        if d is not None:
+            decisions.append(d)
 
-    return _empty(move_played)
+    if not decisions:
+        return _empty(move_played, role_phrase)
+
+    primary = decisions[0]
+    secondary: Optional[Dict[str, Any]] = None
+    for cand in decisions[1:]:
+        if not _is_redundant_secondary(primary, cand):
+            secondary = cand
+            break
+
+    primary["should_skip"]       = False
+    primary["move_played"]       = move_played
+    primary["move_role_phrase"]  = role_phrase
+    primary["secondary_focus"]   = secondary["focus"] if secondary else None
+    primary["secondary_anchor"]  = secondary["anchor_name"] if secondary else None
+    primary["secondary_detail"]  = secondary["anchor_detail"] if secondary else None
+    return primary
 
 
-def _empty(move_played: str) -> Dict[str, Any]:
+def _empty(move_played: str, role_phrase: Optional[str] = None) -> Dict[str, Any]:
     return {
-        "should_skip":   True,
-        "focus":         "empty",
-        "anchor_name":   None,
-        "anchor_detail": None,
-        "allowed_moves": [],
-        "allowed_pieces": [],
-        "voice_hint":    "observe",
-        "perspective":   "user",
-        "move_played":   move_played,
+        "should_skip":       True,
+        "focus":             "empty",
+        "anchor_name":       None,
+        "anchor_detail":     None,
+        "secondary_focus":   None,
+        "secondary_anchor":  None,
+        "secondary_detail":  None,
+        "allowed_moves":     [],
+        "allowed_pieces":    [],
+        "voice_hint":        "observe",
+        "perspective":       "user",
+        "move_played":       move_played,
+        "move_role_phrase":  role_phrase,
     }

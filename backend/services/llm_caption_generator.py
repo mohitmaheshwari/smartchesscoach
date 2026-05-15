@@ -35,52 +35,78 @@ from services.opening_lookup import match_opening_for_mover
 logger = logging.getLogger(__name__)
 
 
-# Compact voice block — distilled from the 65-line coach voice rules to
-# the 4 hard rules that matter for one-shot caption generation. The
-# full canonical rules still live in services/coach_voice_prompt.py;
-# this is the inline reminder for the LLM.
-_VOICE_BLOCK = """You are a smart chess friend writing ONE coaching sentence for a 600-1500 rated player.
+# Voice block — distilled from the 65-line coach voice rules, with
+# explicit LEXICON priors and calibration examples so a small model
+# inherits ChessGuru's coaching atmosphere rather than producing flat
+# correctness. Total ~1300 chars: well under the 21K original, well
+# above the 800-char "safe but sterile" version.
+_VOICE_BLOCK = """You are a sharp chess friend writing ONE coaching sentence for a 600-1500 rated player.
 
-VOICE: short, concrete, names the move and the square. Use contractions.
-RULES (each one fails the task):
+VOICE: short, direct, concrete. Names a specific piece and square. Empathy without softness. Contractions ok.
+
+LEXICON
+  USE these words freely: claims, fights for, attacks, defends, threatens, hits, eyes, ties down, opens, drops, hangs, walks into, gives up, loses tempo, no defender, no escape.
+  AVOID textbook jargon: controls, establishes, outpost, fianchetto, repositions, minority attack, luft, dominates, central tension.
+
+VOICE EXAMPLES (the rhythm we want)
+  • "You hung the bishop on c4 — it had no defender."
+  • "Nd5 was sharper; Nf3 gives up the centre."
+  • "Their king has no escape squares now."
+  • "Free Piece — their rook on h1 had no defender."
+  • "Same knight moved twice; fresh pieces still home."
+
+HARD RULES (each one fails the task)
   1. Max 18 words. One sentence.
-  2. No engine talk: no cp, no eval, no "centipawns", no "%".
+  2. No engine talk: no cp, no eval, no "centipawns", no "%", no "+/-".
   3. No generic praise: "Nice!", "Great move!", "Well done!".
-  4. No advice tail: never end with "consider", "try", "focus on", "watch for", "should", "be careful", "remember to"."""
+  4. No advice tail: never end with "consider", "try", "focus on", "watch for", "should", "be careful", "remember to".
+  5. Only name moves listed in YOU MAY MENTION — never invent a SAN."""
 
 
-# Focus-specific framing. Each block is small and tells the LLM EXACTLY
-# what to do for that focus. The LLM never sees the other branches.
+# Focus-specific framing. Each block carries 2 calibration examples so
+# the small model picks up the voice rhythm specific to that branch.
 _FOCUS_BLOCKS = {
     "trap":
         "FOCUS — TRAP. Name the trap by its anchor. State the IDEA in the rest of the sentence.\n"
         "  Form: \"{move} — {anchor}. {one-clause idea}.\"\n"
-        "  Example: \"Nd4 — Blackburne Shilling Gambit. The e5 pawn is bait; if they grab, Qg5! wins.\"",
+        "  Examples:\n"
+        "    • \"Nd4 — Blackburne Shilling Gambit. The e5 pawn is bait; grab it and Qg5 wins.\"\n"
+        "    • \"Bxf7+ — Légal's Mate setup. The pinned knight can't recapture.\"",
 
     "shape":
-        "FOCUS — SHAPE PATTERN. Name the pattern (anchor). Describe what this move does using the pattern's idea.\n"
+        "FOCUS — SHAPE PATTERN. Name the pattern (anchor). Describe what this move does with the pattern's idea.\n"
         "  Form: \"{move} — {anchor}. {what fires}.\"\n"
-        "  Example: \"Qxh1+ — Free Piece. Their rook on h1 had no defender.\"",
+        "  Examples:\n"
+        "    • \"Qxh1+ — Free Piece. Their rook on h1 had no defender.\"\n"
+        "    • \"Nf6 — Knight Fork. Hits the queen on d5 and the rook on e8.\"",
 
     "principle":
         "FOCUS — PRINCIPLE. Name the principle (anchor) and describe the specific issue on the board.\n"
         "  Form: \"{move} — {anchor}: {specific fact}.\"\n"
-        "  Example: \"Nd4 — Loose piece on the board: black knight on d4 has no defender.\"",
+        "  Examples:\n"
+        "    • \"Nd4 — Loose piece on the board: black knight on d4 has no defender.\"\n"
+        "    • \"Qh5 — Queen out early: chase it with Nc6 and you gain tempo.\"",
 
     "opening":
         "FOCUS — OPENING. Name the opening (anchor) and say what THIS move does in the opening's plan.\n"
         "  Form: \"{move} — {anchor}. {role of this move}.\"\n"
-        "  Example: \"c5 — Caro-Kann Defense. Challenges white's d4 pawn directly.\"",
+        "  Examples:\n"
+        "    • \"c5 — Caro-Kann Defense. Challenges white's d4 pawn directly.\"\n"
+        "    • \"Nf3 — Italian Game. Develops the knight and eyes the e5 pawn.\"",
 
     "mistake":
-        "FOCUS — MISTAKE. Name what went wrong with the played move (anchor = 'Mistake' / 'Blunder'). Suggest the engine's best.\n"
+        "FOCUS — MISTAKE. Name what went wrong with the played move. Anchor is 'Mistake' / 'Blunder'. Suggest the engine's best.\n"
         "  Form: \"{move} {what went wrong}; better was {best}.\"\n"
-        "  Example: \"Ng4+ blunders the knight; better was Qf3+ keeping pressure.\"",
+        "  Examples:\n"
+        "    • \"Ng4 hangs the knight; better was Qf3 keeping pressure.\"\n"
+        "    • \"Bxh2+ drops the bishop; better was O-O finishing development.\"",
 
     "category":
         "FOCUS — POSITION. Describe what this move does on the board, using the anchor as a guide.\n"
         "  Form: \"{move} {what it does}.\"\n"
-        "  Example: \"e4 claims the centre and opens lines for the bishop.\"",
+        "  Examples:\n"
+        "    • \"e4 claims the centre and opens lines for the bishop.\"\n"
+        "    • \"O-O tucks the king away and connects the rooks.\"",
 }
 
 
@@ -94,13 +120,17 @@ def _build_voice_prompt(_dummy: bool = False) -> str:
 
 
 def build_user_prompt(decision: Dict[str, Any]) -> str:
-    """Tight per-move prompt body. Whitelists the entities the LLM may
-    name; everything else is implicitly disallowed (verifier strips it).
+    """Per-move prompt body. Whitelists the entities the LLM may name
+    (verifier repairs anything else) and surfaces the resolver's
+    PRIMARY + OPTIONAL SECONDARY anchors so the LLM can blend two
+    teaching ideas when they both fit in 18 words.
     """
     focus = decision.get("focus", "empty")
     move = decision.get("move_played", "")
     anchor = decision.get("anchor_name") or ""
     detail = decision.get("anchor_detail") or ""
+    sec_anchor = decision.get("secondary_anchor") or ""
+    sec_detail = decision.get("secondary_detail") or ""
     allowed_moves = decision.get("allowed_moves") or []
     allowed_pieces = decision.get("allowed_pieces") or []
     voice_hint = decision.get("voice_hint", "observe")
@@ -125,15 +155,30 @@ def build_user_prompt(decision: Dict[str, Any]) -> str:
         if allowed_pieces else "Pieces/squares: (none specified — keep general)"
     )
 
+    # Anchor section: PRIMARY must be named; SECONDARY is optional weave.
+    if sec_anchor:
+        anchor_section = (
+            f"ANCHORS:\n"
+            f"  PRIMARY (must name):     {anchor}\n"
+            f"    Fact: {detail}\n"
+            f"  SECONDARY (optional weave — only if it fits in 18 words): {sec_anchor}\n"
+            f"    Fact: {sec_detail}"
+        )
+    else:
+        anchor_section = (
+            f"ANCHOR:\n"
+            f"  Name (must use): {anchor}\n"
+            f"  Fact:            {detail}"
+        )
+
     return f"""{focus_block}
 
 {perspective_line}
 {voice_line}
 
-GROUND TRUTH for this move:
-  Move:    {move}
-  Anchor:  {anchor}
-  Detail:  {detail}
+THIS MOVE: {move}
+
+{anchor_section}
 
 YOU MAY MENTION ONLY THESE ENTITIES:
   Moves: {', '.join(allowed_moves) if allowed_moves else move}

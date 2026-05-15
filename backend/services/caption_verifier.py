@@ -1,35 +1,45 @@
 """
-Caption verifier — strips hallucinated entities from LLM caption output.
+Caption verifier — semantic repair layer for LLM caption output.
 
-Refactor 2026-05-15: works against the resolver's `decision` contract
-instead of raw move facts. Catches FOUR classes of LLM leak:
+Evolution 2026-05-15 (bounded improvisation): the verifier is no
+longer a destructive strip-everything-suspicious filter. It REPAIRS:
 
-  1. Alt-suggestion clauses where the SAN isn't on the whitelist
-  2. Opening names mentioned when focus != "opening"
-     (or named opening doesn't match anchor)
-  3. Shape pattern names mentioned when focus != "shape"
-     (or named pattern doesn't match anchor)
-  4. Advice-tail phrases at the end of the sentence
+  • Alt-suggestion clauses ("better was X" where X isn't allowed) →
+    still STRIPPED (these are pure hallucinations, no safe repair)
+  • Opening name not allowed by decision focus → name REPLACED by the
+    move's generic role phrase ("Italian Game" → "claims the centre")
+  • Shape pattern name not allowed → name REPLACED with a neutral
+    "tactical idea" phrasing (preserves the clause's information)
+  • Advice-tail phrases ("consider X", "watch for Y") → still STRIPPED
 
-Per the locked rule renderer_never_computes_chess_meaning: this is a
-VERIFIER, not a renderer. It validates LLM-generated text against the
-deterministic decision contract — no chess imports needed.
+The goal is to keep the LLM's voice and rhythm intact while removing
+fabricated entities. Compare:
+
+  OLD (destructive):   "c5 — Italian Game. Bishop on c4 eyes f7." → "c5."
+  NEW (repair):        "c5 — Italian Game. Bishop on c4 eyes f7." →
+                       "c5 claims the centre. Bishop on c4 eyes f7."
+
+Per the locked rule renderer_never_computes_chess_meaning: this remains
+a VERIFIER, not a renderer. All chess-meaning lookups (role phrase,
+allowed entity names) come PRE-COMPUTED on the decision dict from the
+resolver. No FENs parsed here.
 
 INPUT
 ─────
     caption  : raw LLM string
     decision : output of caption_priority_resolver.resolve_priority(move)
-               (allowed_moves, anchor_name, focus all used here)
+               Uses: allowed_moves, anchor_name, secondary_anchor,
+               focus, move_played, move_role_phrase.
 
 OUTPUT
 ──────
-    str — cleaned caption (same string if no strips needed)
+    str — repaired caption (same string if no repairs needed)
 """
 from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +152,9 @@ def _tidy(text: str) -> str:
     text = re.sub(r"\s+([,.;:!?])", r"\1", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
     text = re.sub(r"[—–\-,;]+\s*$", "", text).strip()
+    text = re.sub(r"([.!?])\1+", r"\1", text)         # dedupe "..!?" → ".!?"
+    text = re.sub(r"\.\s*\.", ".", text)               # ". ." → "."
+    text = re.sub(r"\s{2,}", " ", text).strip()
     if text and text[-1] not in ".!?":
         text += "."
     return text
@@ -167,45 +180,107 @@ def _strip_alt_suggestions(caption: str, allowed_sans: set) -> Tuple[str, List[s
     return _strip_spans(caption, spans), stripped
 
 
-def _strip_disallowed_openings(caption: str, allowed_name: str) -> Tuple[str, List[str]]:
-    """Strip any opening name that doesn't match allowed_name.
-    Comparison is whitespace-tolerant ('Caro-Kann' vs 'Caro Kann')."""
-    allowed_norm = re.sub(r"[\s\-]+", " ", (allowed_name or "")).lower().strip()
-    spans: List[Tuple[int, int]] = []
-    stripped: List[str] = []
+def _repair_disallowed_openings(
+    caption: str,
+    allowed_names: List[str],
+    repair_phrase: Optional[str],
+) -> Tuple[str, List[str]]:
+    """REPAIR (don't strip) opening names that aren't on the allowed list.
+
+    Strategy:
+      • Replace the bare name with `repair_phrase` if we have one
+        (e.g. "Italian Game" → "claims the centre").
+      • If no repair phrase, drop only the bare name token plus a
+        trailing dangling " — " or "," — preserving any meaningful
+        clause that may follow.
+    """
+    allowed_norms = {
+        re.sub(r"[\s\-]+", " ", (n or "")).lower().strip()
+        for n in (allowed_names or []) if n
+    }
+    edits: List[Tuple[int, int, str]] = []
+    repaired_names: List[str] = []
+
     for opening in _OPENING_NAMES:
         opening_norm = re.sub(r"[\s\-]+", " ", opening).lower()
-        if opening_norm == allowed_norm:
+        if opening_norm in allowed_norms:
             continue
-        # Match the opening name AND a small surrounding context to remove
-        # awkward dangling text like " — Caro-Kann Defense."
+        # Match "[em-dash or comma] OpeningName" — narrower than the
+        # old "name + everything up to next punctuation" so we leave
+        # adjacent teaching clauses alive.
         pat = re.compile(
-            r"\s*[,;—–\-]?\s*\b" + re.escape(opening) + r"\b[^,.;]*",
+            r"(?P<lead>\s*[,;—–\-]?\s*)\b" + re.escape(opening) + r"\b",
             re.IGNORECASE,
         )
         for m in pat.finditer(caption):
-            spans.append((m.start(), m.end()))
-            stripped.append(opening)
-    return _strip_spans(caption, spans), stripped
+            if repair_phrase:
+                # "— Italian Game" → " claims the centre"  (preserve leading space, drop the dash)
+                replacement = " " + repair_phrase
+            else:
+                replacement = ""
+            edits.append((m.start(), m.end(), replacement))
+            repaired_names.append(opening)
+
+    return _apply_edits(caption, edits), repaired_names
 
 
-def _strip_disallowed_shapes(caption: str, allowed_name: str) -> Tuple[str, List[str]]:
-    """Strip any shape pattern name that doesn't match allowed_name."""
-    allowed_norm = re.sub(r"[\s\-]+", " ", (allowed_name or "")).lower().strip()
-    spans: List[Tuple[int, int]] = []
-    stripped: List[str] = []
+def _repair_disallowed_shapes(
+    caption: str,
+    allowed_names: List[str],
+) -> Tuple[str, List[str]]:
+    """REPAIR shape pattern names that aren't on the allowed list.
+
+    Most shape-name hallucinations come with a teaching clause attached
+    ("Free Piece. Their rook had no defender."). Stripping the whole
+    clause murders the teaching. Instead we replace only the name,
+    leaving the explanatory clause intact.
+    """
+    allowed_norms = {
+        re.sub(r"[\s\-]+", " ", (n or "")).lower().strip()
+        for n in (allowed_names or []) if n
+    }
+    edits: List[Tuple[int, int, str]] = []
+    repaired_names: List[str] = []
+
     for shape in _SHAPE_NAMES:
         shape_norm = re.sub(r"[\s\-]+", " ", shape).lower()
-        if shape_norm == allowed_norm:
+        if shape_norm in allowed_norms:
             continue
-        pat = re.compile(
-            r"\s*[,;—–\-]?\s*\b" + re.escape(shape) + r"\b[^,.;]*",
+        # Two-pass: first try to consume the name PLUS surrounding
+        # boilerplate ("A Knight Fork was also possible") so we don't
+        # leave dangling articles. Fall back to dropping just the name.
+        pat_with_boilerplate = re.compile(
+            r"(?P<lead>\s*[,;—–\-]?\s*)"
+            r"(?P<article>\b(?:a|an|the)\s+)?"
+            r"\b" + re.escape(shape) + r"\b"
+            r"(?P<tail>\s+(?:was|is|would\s+(?:be|have\s+(?:been|worked))|will\s+be)"
+            r"\s+(?:also\s+)?"
+            r"(?:possible|here|available|on|too|good|sharper|better))?",
             re.IGNORECASE,
         )
-        for m in pat.finditer(caption):
-            spans.append((m.start(), m.end()))
-            stripped.append(shape)
-    return _strip_spans(caption, spans), stripped
+        for m in pat_with_boilerplate.finditer(caption):
+            edits.append((m.start(), m.end(), ""))
+            repaired_names.append(shape)
+
+    return _apply_edits(caption, edits), repaired_names
+
+
+def _apply_edits(text: str, edits: List[Tuple[int, int, str]]) -> str:
+    """Apply (start, end, replacement) edits to text, with overlap
+    handling. Later edits inside an earlier edit's range are dropped.
+    """
+    if not edits:
+        return text
+    edits.sort(key=lambda x: x[0])
+    merged: List[Tuple[int, int, str]] = []
+    for s, e, rep in edits:
+        if merged and s < merged[-1][1]:
+            continue  # overlapping/inside a previous edit — skip
+        merged.append((s, e, rep))
+    out = text
+    for s, e, rep in reversed(merged):
+        out = out[:s] + rep + out[e:]
+    return out
 
 
 def _strip_advice_tails(caption: str) -> Tuple[str, List[str]]:
@@ -225,15 +300,18 @@ def _strip_advice_tails(caption: str) -> Tuple[str, List[str]]:
 
 
 def verify_caption(caption: str, decision: Dict[str, Any]) -> str:
-    """Strip hallucinated alt-suggestions, opening names, shape names,
-    and advice tails from the LLM caption.
+    """Repair hallucinated entities and strip illegal alt-suggestions /
+    advice tails from the LLM caption.
 
     `decision` is the resolver output. We use:
-      - allowed_moves   → which SANs may be named
-      - anchor_name     → the SINGLE legitimate entity name
-      - focus           → drives which strip-class runs
+      - allowed_moves     → SANs that may appear
+      - anchor_name       → primary legitimate entity
+      - secondary_anchor  → optional second legitimate entity
+      - focus             → drives which entity-class is allowed
+      - move_role_phrase  → generic fallback used when repairing
+                            an opening name ("claims the centre")
 
-    Returns the cleaned caption. Same string if nothing stripped.
+    Returns the repaired caption. Same string if no edits needed.
     """
     if not caption or not caption.strip():
         return caption or ""
@@ -243,37 +321,50 @@ def verify_caption(caption: str, decision: Dict[str, Any]) -> str:
     allowed_moves = decision.get("allowed_moves") or []
     allowed_sans = {_normalize_san(s) for s in allowed_moves if s}
 
-    anchor = decision.get("anchor_name") or ""
+    primary_anchor = decision.get("anchor_name") or ""
+    secondary_anchor = decision.get("secondary_anchor") or ""
     focus = decision.get("focus", "")
+    secondary_focus = decision.get("secondary_focus") or ""
+    role_phrase = decision.get("move_role_phrase")
+
+    # Which opening / shape names the caption is allowed to contain.
+    allowed_openings: List[str] = []
+    if focus == "opening" and primary_anchor:
+        allowed_openings.append(primary_anchor)
+    if secondary_focus == "opening" and secondary_anchor:
+        allowed_openings.append(secondary_anchor)
+
+    allowed_shapes: List[str] = []
+    if focus == "shape" and primary_anchor:
+        allowed_shapes.append(primary_anchor)
+    if secondary_focus == "shape" and secondary_anchor:
+        allowed_shapes.append(secondary_anchor)
 
     original = caption
-    stripped_log: List[str] = []
+    log: List[str] = []
 
-    # 1. Alt-suggestions outside whitelist
+    # 1. Alt-suggestions outside whitelist → STRIP (no safe repair)
     caption, stripped = _strip_alt_suggestions(caption, allowed_sans)
     if stripped:
-        stripped_log.append(f"alt-sans={stripped}")
+        log.append(f"alt-sans={stripped}")
 
-    # 2. Opening names — when focus is NOT opening, strip ALL opening names.
-    #    When focus IS opening, strip everything except the anchor.
-    allowed_opening = anchor if focus == "opening" else ""
-    caption, stripped = _strip_disallowed_openings(caption, allowed_opening)
-    if stripped:
-        stripped_log.append(f"openings={stripped}")
+    # 2. Opening names → REPAIR (replace with role phrase)
+    caption, repaired = _repair_disallowed_openings(caption, allowed_openings, role_phrase)
+    if repaired:
+        log.append(f"openings_repaired={repaired}")
 
-    # 3. Shape pattern names — same: allow only when focus == shape AND matches anchor.
-    allowed_shape = anchor if focus == "shape" else ""
-    caption, stripped = _strip_disallowed_shapes(caption, allowed_shape)
-    if stripped:
-        stripped_log.append(f"shapes={stripped}")
+    # 3. Shape pattern names → REPAIR (drop just the name)
+    caption, repaired = _repair_disallowed_shapes(caption, allowed_shapes)
+    if repaired:
+        log.append(f"shapes_repaired={repaired}")
 
-    # 4. Advice-tail clauses
+    # 4. Advice-tail clauses → STRIP (no safe repair)
     caption, stripped = _strip_advice_tails(caption)
     if stripped:
-        stripped_log.append(f"advice={stripped}")
+        log.append(f"advice={stripped}")
 
     caption = _tidy(caption)
 
     if caption != original:
-        logger.info(f"[caption-verifier] '{original}' → '{caption}'  stripped={stripped_log}")
+        logger.info(f"[caption-verifier] '{original}' → '{caption}'  edits={log}")
     return caption
