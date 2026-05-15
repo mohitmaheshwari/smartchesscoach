@@ -249,6 +249,10 @@ Before you emit the caption, scan it and answer each:
   5. Did I use internal labels: "context", "context move", "severity", "primary reason", "category", "step"?
      IF YES → strip them. Player never sees these.
 
+  6. Did I name a SHAPE PATTERN (e.g., "Free Pawn", "Pin", "Skewer", "Knight Fork", "Back-Rank Trap", "No Safe Square", "Free Piece", "Open Long Line", "h7 Attack", "Hidden Attack", "Tired Defender", "Strong Knight Square", "Long Diagonal Bishop", "Remove the Guard", "Force the King", "In-Between Move", "Knight Mate", "Queen-Knight Mate", "Pawn Hole at g6", "Weak Squares", "Double Attack Line", "Bishop Fork", "Rook Fork")?
+     IF YES — does facts.shape_pattern exist in the facts dict (not null) AND match the name?
+     IF facts.shape_pattern is null/absent → REMOVE the shape name. No exceptions. The detector did not fire that pattern on this move. Inventing it is hallucination.
+
 If any check fails, fix the sentence. Then output.
 
 ═════ OUTPUT ═════
@@ -256,13 +260,31 @@ If any check fails, fix the sentence. Then output.
 Just the sentence text. No labels, no quotes, no JSON, no preamble like "Here is the caption:". Empty string allowed."""
 
 
-def build_system_prompt() -> str:
-    """Assemble Coach Voice + Task + Principle catalog + Shape catalog."""
-    return with_coach_voice(
-        CAPTION_TASK_PROMPT
-        + "\n\n" + build_principle_catalog_block()
-        + "\n\n" + build_shape_catalog_block()
-    )
+from functools import lru_cache
+
+
+@lru_cache(maxsize=4)
+def _build_system_prompt_cached(include_shape_catalog: bool) -> str:
+    """Build the system prompt; cached on the catalog inclusion flag.
+
+    When include_shape_catalog=False the shape catalog block is omitted
+    entirely. The LLM is then explicitly told (via CHECKLIST item 6) not
+    to name any shape pattern, and it doesn't have the catalog text in
+    context as bait. This kills the "LLM invents Free Pawn / Pin / Skewer
+    on moves where no shape fired" hallucination class.
+    """
+    parts = [CAPTION_TASK_PROMPT, build_principle_catalog_block()]
+    if include_shape_catalog:
+        parts.append(build_shape_catalog_block())
+    return with_coach_voice("\n\n".join(parts))
+
+
+def build_system_prompt(include_shape_catalog: bool = True) -> str:
+    """Public entry point. include_shape_catalog selects between two
+    cached prompt variants. Callers that don't care can omit the arg
+    (default True preserves prior behaviour); generate_caption_for_move
+    auto-selects per move."""
+    return _build_system_prompt_cached(include_shape_catalog)
 
 
 # ─── Per-move gate + facts builder ─────────────────────────────────────
@@ -493,7 +515,7 @@ async def call_with_retry(
 
 async def generate_caption_for_move(
     move: Dict[str, Any],
-    sys_prompt: str,
+    sys_prompt: Optional[str] = None,
     model: str = "gpt-4o-mini",
 ) -> str:
     """End-to-end per-move flow: gate, build facts, call LLM with retry.
@@ -502,9 +524,17 @@ async def generate_caption_for_move(
       - empty string if the move has no teaching signal (gated)
       - LLM caption text (possibly empty if the model decided nothing to teach)
       - "[ERROR: ...]" if all retries failed
+
+    The `sys_prompt` parameter is ignored — the function auto-selects
+    between the shape-catalog-included and shape-catalog-excluded
+    variants based on whether facts.shape_pattern is present on the
+    move. Callers retain the parameter for backward-compatibility but
+    do not need to build a prompt themselves.
     """
     if not has_teaching_signal(move):
         return ""
     facts = build_move_facts(move)
+    has_shape = facts.get("shape_pattern") is not None
+    actual_sys_prompt = build_system_prompt(include_shape_catalog=has_shape)
     user_prompt = f"MOVE FACTS:\n{json.dumps(facts, indent=2)}\n\nWrite the caption."
-    return await call_with_retry(sys_prompt, user_prompt, model=model)
+    return await call_with_retry(actual_sys_prompt, user_prompt, model=model)
