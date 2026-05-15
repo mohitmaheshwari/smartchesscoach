@@ -1180,7 +1180,7 @@ const MoveCoachingCardV5 = ({
     source: "lab",
     gameId,
     moveNumber: move.move_number,
-    fen: move.fen || "",
+    fen: move.fen_before || move.fen || "",
     moveSan: move.move_san,
     side: isUser ? "user" : "opponent",
     severity,
