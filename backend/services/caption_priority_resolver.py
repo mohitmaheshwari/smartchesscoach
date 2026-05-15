@@ -356,6 +356,35 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
         n = evidence.get("own_pawn_moves_so_far")
         if n:
             return f"{n} pawn moves so far — pieces still on starting squares."
+    if pid == "TAC_DISCOVERED_PATTERN":
+        # match_kind=missed_chance — player did NOT play the discovery,
+        # engine wanted it. Without explicit framing the LLM applies the
+        # principle text to the played move ("your move uncovers..."),
+        # which is wrong.
+        return "A discovered attack was available — the played move missed it."
+    if pid == "TAC_FORK_PATTERN":
+        return "A fork was available — the played move missed it."
+    if pid == "TAC_PIN_PATTERN":
+        return "A pin was available — the played move missed it."
+    if pid == "TAC_SKEWER_PATTERN":
+        return "A skewer was available — the played move missed it."
+    if pid == "OP_FINISH_DEVELOPMENT":
+        # Fires only when player attacks (threat or queen-sortie) with
+        # 2+ undeveloped minor pieces. The detail must reflect THAT —
+        # not the principle's name. Without specific phrasing the LLM
+        # hallucinates content like "you delay developing" on what is
+        # often a piece-moving-back move.
+        n_undev = evidence.get("undeveloped_minor_count")
+        trigger = evidence.get("trigger_kind", "")
+        target = evidence.get("premature_attack_target")
+        if trigger == "queen_sortie":
+            return (f"Queen sortie with {n_undev} minor pieces still home — "
+                    "develop first." if n_undev
+                    else "Queen out early while minor pieces still home.")
+        if target and n_undev:
+            return f"Attacks {target} with {n_undev} minor pieces still on starting squares."
+        if n_undev:
+            return f"{n_undev} minor pieces still home — finish development before attacking."
     # Fallback: principle label, lower-cased.
     return _PRINCIPLE_LABEL.get(pid, pid).lower() + "."
 
@@ -364,16 +393,19 @@ def _resolve_opening(move: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if move.get("phase") != "opening":
         return None
     op = move.get("_opening")
-    if op:
-        family = op.get("name") or ""
-        summary = op.get("summary") or ""
-        rules = op.get("golden_rules") or []
-        # Pick the first golden rule as the teaching anchor; summary as fallback.
-        detail = (rules[0] if rules else summary).strip()
-    else:
-        # Curriculum didn't match — fall back to ECO family trim.
-        family = _trim_opening_family(move.get("opening_name")) or ""
-        detail = ""
+    if not op:
+        # No curriculum match → no opening anchor. Previously fell back
+        # to the game's whole-game `opening_name` field, but that name
+        # is the post-hoc ECO classification of the FULL game — naming
+        # it on move 1 ("e4 — Caro-Kann Defense") is anachronistic. The
+        # curriculum's min_matched_steps=3 gate exists precisely so we
+        # don't claim an opening before its signature move is played.
+        return None
+
+    family = op.get("name") or ""
+    summary = op.get("summary") or ""
+    rules = op.get("golden_rules") or []
+    detail = (rules[0] if rules else summary).strip()
 
     if not family:
         return None

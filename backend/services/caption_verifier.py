@@ -147,6 +147,35 @@ def _strip_spans(text: str, spans: List[Tuple[int, int]]) -> str:
     return out
 
 
+# Canonical hyphenated forms of opening names the LLM tends to
+# de-hyphenate. Word-boundary match so "Caro Kann" → "Caro-Kann"
+# without affecting "Carolan" or unrelated tokens.
+_OPENING_HYPHEN_CANONICAL = [
+    ("Caro Kann",       "Caro-Kann"),
+    ("Nimzo Indian",    "Nimzo-Indian"),
+    ("Queen's Indian",  "Queen's Indian"),  # already canonical, here for symmetry
+    ("Bogo Indian",     "Bogo-Indian"),
+    ("Ruy Lopez",       "Ruy Lopez"),       # no hyphen by convention
+    ("Kings Gambit",    "King's Gambit"),
+    ("Kings Indian",    "King's Indian"),
+    ("Queens Gambit",   "Queen's Gambit"),
+]
+
+
+def _canonicalize_openings(text: str) -> str:
+    """Restore canonical hyphenation/apostrophes on opening names the
+    LLM commonly rewrites. Word-boundaried so we don't damage other
+    text.
+    """
+    out = text
+    for raw, canon in _OPENING_HYPHEN_CANONICAL:
+        if raw == canon:
+            continue
+        pat = re.compile(r"\b" + re.escape(raw) + r"\b")
+        out = pat.sub(canon, out)
+    return out
+
+
 def _tidy(text: str) -> str:
     """Collapse extra whitespace and trailing punctuation residue."""
     text = re.sub(r"\s+([,.;:!?])", r"\1", text)
@@ -362,6 +391,12 @@ def verify_caption(caption: str, decision: Dict[str, Any]) -> str:
     caption, stripped = _strip_advice_tails(caption)
     if stripped:
         log.append(f"advice={stripped}")
+
+    # 5. Canonicalize opening names the LLM de-hyphenated.
+    canonicalized = _canonicalize_openings(caption)
+    if canonicalized != caption:
+        log.append("opening_canonicalized")
+        caption = canonicalized
 
     caption = _tidy(caption)
 
