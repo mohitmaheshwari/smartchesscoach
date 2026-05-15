@@ -3228,8 +3228,19 @@ async def generate_game_decryption_v5(
                             "top_n": "cue_top_n",
                             "absent": "cue_absent",
                         }.get(_endorsement, "cue_absent")
-                        principle_cue = _entry.get(_cue_key) or _entry.get("cue_absent") or ""
-                        principle_id_used = _top_pid
+                        # Gate cue_absent on engine-approved moves.
+                        # Parth flagged Re1+ (cp_loss=-55, BEST move) and Rxd6
+                        # (cp_loss=0, best move) where principle fired with
+                        # absent endorsement, producing "Engine has another
+                        # plan" cues on moves the engine actually liked. The
+                        # principle simply didn't apply — its cue_absent
+                        # text reads as critique. Skip surfacing in that case.
+                        _played_cp_loss = (cp_loss if is_user else opp_cp_loss) or 0
+                        if _endorsement == "absent" and _played_cp_loss < 30:
+                            pass  # principle didn't apply; engine endorsed the move
+                        else:
+                            principle_cue = _entry.get(_cue_key) or _entry.get("cue_absent") or ""
+                            principle_id_used = _top_pid
                 except Exception as _caption_exc:
                     # Downgraded warning → info after audit noise: these
                     # fire predictably on PGN ↔ eval-data drift games
