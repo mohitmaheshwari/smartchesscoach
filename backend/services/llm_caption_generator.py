@@ -148,6 +148,7 @@ C. NEVER name a square, piece, or move that is NOT in the facts dict (including 
 D. NEVER invent principle or shape names. The shape catalog has Knight Fork, Bishop Fork, Rook Fork — NO "Queen Fork", NO "Pawn Fork". If TAC_FORK_PATTERN fires but no matching catalog shape is named in facts.shape_pattern, write "fork" lowercase as a generic noun, not as a named pattern.
 
 E. NEVER fabricate what the best_move does. best_move is the engine's safer alternative — describe what it DOES only if facts contain explicit support (a shape pattern, a principle evidence). Otherwise just name it: "Better was Nf6." Don't say "Nf6 hits...", "Nf6 attacks...", "Nf6 captures..." unless facts back that claim.
+   ADDITIONAL: NEVER name a move that isn't either facts.move_played or facts.best_move. Don't suggest "Nc3+", "Qf5", "Qxh2" etc. as alternatives unless they appear in those two fields. Inventing moves is hallucination.
 
 F. NEVER use engine words or internal labels: cp, eval, evaluation, centipawn, accuracy, %, "context", "context move", "good move tag", "severity", "primary reason", "category". These are internal terms the player never sees.
 
@@ -177,6 +178,21 @@ K. PIECE TYPE comes from the MOVE SAN, not from squares:
    - SAN starts with a-h → pawn
    - "Nxh8" means a KNIGHT captured on h8. The piece on h8 after the move is a knight, regardless of what used to be on that square.
    - NEVER infer "rook" because h8 is rook's starting square. The move tells you what landed there.
+
+═════ ENGINE-BEST FLAG (facts.is_engine_best) ═════
+
+If facts.is_engine_best is true, the engine confirms this move is the best (or among the best) in the position. Acknowledge that positively in the caption — don't treat it as neutral observation.
+
+  - For user moves with is_engine_best=true: praise specifically. Form: "{move} — {what it does, using a principle/shape name if facts have one}." OR "Best move — {idea}."
+  - For opponent moves with is_engine_best=true: name the move and what it does. Don't critique it. Form: "Their {move} — {what it does, neutrally}." NOT "Their {move} is wasted/inactive/etc."
+
+Don't say "Best move" if the move had any teaching issue. Reserve the positive label for moves where the engine truly approves AND no principle was violated.
+
+═════ FEN VERIFICATION (facts.fen_before) ═════
+
+facts.fen_before is the FEN string of the position BEFORE the move was made. Format: rank8/rank7/.../rank1, then side-to-move and metadata. Letters are pieces (uppercase = white, lowercase = black; K/Q/R/B/N/P). Numbers = empty squares.
+
+Use it to verify ANY piece-on-square claim you write. If you want to say "their rook on a8" — check fen_before. If a8 is empty or holds something else, you're hallucinating. Cut the claim.
 
 ═════ PRIMARY-REASON CATEGORIES (facts.primary_reason_category) ═════
 
@@ -252,6 +268,13 @@ Before you emit the caption, scan it and answer each:
   6. Did I name a SHAPE PATTERN (e.g., "Free Pawn", "Pin", "Skewer", "Knight Fork", "Back-Rank Trap", "No Safe Square", "Free Piece", "Open Long Line", "h7 Attack", "Hidden Attack", "Tired Defender", "Strong Knight Square", "Long Diagonal Bishop", "Remove the Guard", "Force the King", "In-Between Move", "Knight Mate", "Queen-Knight Mate", "Pawn Hole at g6", "Weak Squares", "Double Attack Line", "Bishop Fork", "Rook Fork")?
      IF YES — does facts.shape_pattern exist in the facts dict (not null) AND match the name?
      IF facts.shape_pattern is null/absent → REMOVE the shape name. No exceptions. The detector did not fire that pattern on this move. Inventing it is hallucination.
+
+  7. Did I make any piece-on-square claim ("their rook on a8", "knight on f3", "pawn on d5")?
+     IF YES — verify the square contains EXACTLY that piece in facts.fen_before. Parse the FEN: ranks 8→1 separated by /, letters are pieces (uppercase=white, lowercase=black; K/Q/R/B/N/P), numbers are empty squares.
+     IF the square is empty OR holds a different piece → CUT the claim. The piece you named is not there. Hallucination.
+
+  8. Did I name a move OTHER than facts.move_played or facts.best_move?
+     IF YES → cut it. Don't suggest "Qxd1+", "Nc3+", "Qh2" or any move that isn't in those two fields. Inventing moves is hallucination — they may not even be legal in the position.
 
 If any check fails, fix the sentence. Then output.
 
@@ -357,6 +380,17 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
         and (severity in TEACHING_SEVERITIES or cp_loss_raw > 30)
     )
 
+    # Engine-best flag: when cp_loss is negative (engine sees the move
+    # IMPROVING eval) OR the played move equals the engine's best move
+    # with negligible cp_loss, this move is engine-approved. Parth
+    # flagged Re1+ (cp_loss=-55) and Qxd4 (cp_loss=-64) where the system
+    # didn't acknowledge these as best — caption read as neutral or
+    # critical. Surfacing the flag lets the LLM label positively.
+    is_engine_best = (
+        cp_loss_raw < -30
+        or (cp_loss_raw <= 5 and best_move_played and best_move_played == played_san)
+    )
+
     facts = {
         "move_played": played_san,
         "move_number": move.get("move_number"),
@@ -365,6 +399,7 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
         "best_move": best_move_played if surface_best_move else None,
         "severity": severity,
         "cp_loss": cp_loss_raw,
+        "is_engine_best": is_engine_best,
         "primary_reason_category": primary.get("category") if isinstance(primary, dict) else None,
         "principles_present": principles_present,
         # What was captured on this move (pawn / knight / bishop / rook /
@@ -372,6 +407,12 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
         # actually a knight was captured. Surfacing the type kills that
         # hallucination class.
         "captured_piece_type": move.get("captured_piece_type"),
+        # Raw FEN of the position the move was made from. Surfaced so the
+        # LLM can verify any piece/square claim it makes against the
+        # actual board state. CHECKLIST rule 7 enforces this — Parth
+        # flagged "rook on a8" when no rook was there, and "Nc3+ keeping
+        # pressure" when Nc3+ loses the knight.
+        "fen_before": move.get("fen_before"),
     }
     if move.get("shape_pattern_name"):
         facts["shape_pattern"] = {
