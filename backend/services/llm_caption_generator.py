@@ -312,12 +312,17 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
             "evidence": p.get("evidence") or {},
         })
     primary = move.get("caption_facts_primary_reason") or {}
+    # opening_name from V5 (ECO classification) is NOT sent — it ships
+    # the full ECO label ("Caro Kann Defense Advance Botvinnik Carls
+    # Defense") and the LLM repeats it on every move including
+    # middlegame/endgame. Parth flagged this multiple times. The
+    # curriculum-matched `_opening` (with the 3-step-match gate and
+    # clean family name) is the only opening info we surface.
     facts = {
         "move_played": move.get("move_san"),
         "move_number": move.get("move_number"),
         "is_user_move": move.get("is_user_move"),
         "phase": move.get("phase"),
-        "opening_name": move.get("opening_name"),
         "best_move": move.get("best_move_san"),
         "severity": move.get("severity"),
         "cp_loss": move.get("cp_loss"),
