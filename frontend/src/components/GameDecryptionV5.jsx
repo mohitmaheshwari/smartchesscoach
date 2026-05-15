@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
 import ClickableLine, { extractMovesFromText } from "@/components/ClickableLine";
+import ClickableCaption from "@/components/ClickableCaption";
 import TruthHeadline from "@/components/TruthHeadline";
 import PlayerDecryption from "@/components/PlayerDecryption";
 import PatternEvidence from "@/components/PatternEvidence";
@@ -916,7 +917,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             onBegin={goForward}
           />
         ) : (
-          <MoveCoachingCardV5 
+          <MoveCoachingCardV5
             move={currentMove}
             gameId={gameId}
             acknowledgedConcepts={acknowledgedConcepts}
@@ -924,6 +925,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             onShowFutureMoves={showFutureMoves}
             onShowAlternativeMove={showAlternativeMove}
             onFeedbackClick={() => setFeedbackOpen(true)}
+            // Caption move click: draw arrow on the main board for any
+            // SAN clicked in the narrative or principle_cue. Arrow
+            // colour amber so it visually differs from green (last move).
+            onCaptionMoveClick={(san, from, to) => setArrows([[from, to, "amber"]])}
             // Thought reflection props
             userThought={userThoughts[currentMove?.move_number]}
             thoughtInputOpen={thoughtInputOpen[currentMove?.move_number]}
@@ -1136,6 +1141,9 @@ const MoveCoachingCardV5 = ({
   openingAnalysis,
   patternContext,
   onPlayBestLine,
+  // Caption move-click: parent draws an arrow on the main board when
+  // any chess move SAN in narrative or principle_cue is clicked.
+  onCaptionMoveClick,
 }) => {
   const [expanded, setExpanded] = useState(false);
   if (!move) return null;
@@ -1225,7 +1233,12 @@ const MoveCoachingCardV5 = ({
         {/* ─── NARRATIVE ────────────────────────────────────── */}
         {move.narrative && (
           <div className="leading-relaxed group" data-testid="move-narrative">
-            <p className="text-sm text-gray-700 inline">{move.narrative}</p>
+            <ClickableCaption
+              text={move.narrative}
+              fen={move.fen_before}
+              onMoveSelect={onCaptionMoveClick}
+              className="text-sm text-gray-700"
+            />
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
           </div>
         )}
@@ -1240,9 +1253,12 @@ const MoveCoachingCardV5 = ({
             className="leading-relaxed group mt-1.5 pl-3 border-l-2 border-amber-500/30"
             data-testid="move-principle-cue"
           >
-            <p className="text-xs italic text-amber-700 dark:text-amber-300/80 inline">
-              {move.principle_cue}
-            </p>
+            <ClickableCaption
+              text={move.principle_cue}
+              fen={move.fen_before}
+              onMoveSelect={onCaptionMoveClick}
+              className="text-xs italic text-amber-700 dark:text-amber-300/80"
+            />
             <InlineFlag
               section="principle_cue"
               flaggedText={move.principle_cue}
