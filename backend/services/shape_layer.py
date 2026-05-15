@@ -56,6 +56,14 @@ def _is_relevant_to_move(
       2. Pattern is positional (no executing_move): fires if the played
          move's from or to square overlaps mover/targets — i.e., the
          move involves a piece named in the pattern.
+
+    Pin/Skewer exception (added 2026-05-15 after Parth flagged Bxf3):
+      For pin/skewer, the played move CAPTURING the front piece
+      (targets[0]) means the pattern was just cashed in as a trade,
+      not exploited as a tactical setup. The geometry exists pre-move,
+      but after the capture the pinned/skewered piece is gone and the
+      "pin/skewer" framing misleads (the player just made a trade).
+      Suppress in that case.
     """
     ex = ev.get("executing_move")
     played_uci = played_move.uci() if played_move else ""
@@ -64,6 +72,20 @@ def _is_relevant_to_move(
     if played_move is None:
         # No move context — can't gate. Pass through (used for tests).
         return True
+
+    # Pin/skewer execution-by-capture: suppress.
+    if ev.get("pattern_id") in ("pin", "skewer"):
+        targets = ev.get("targets") or []
+        if targets:
+            front_target = targets[0]
+            if isinstance(front_target, str):
+                try:
+                    front_target = chess.parse_square(front_target)
+                except Exception:
+                    front_target = None
+            if isinstance(front_target, int) and played_move.to_square == front_target:
+                return False
+
     involved: Set[int] = set()
     if ev.get("mover"):
         try:
