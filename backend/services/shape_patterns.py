@@ -15,6 +15,28 @@ the coach can name on the board. Each entry pairs:
                      'engine_in_top_3'        : engine PV top-3 must include the idea
                      'heuristic_only'         : positional, no direct engine confirm
 
+  - dynamic_policy : how the pattern's DYNAMIC condition is verified beyond
+                     geometric alignment. Added 2026-05-15 after Parth flagged
+                     3 detectors firing on positions with valid geometry but
+                     no real tactical mechanic. Policies are dispatched in
+                     services.shape_layer.verify_dynamics():
+                     'geometry_only'              : default; geometry suffices
+                     'mate_in_1_simulated'        : a candidate piece must
+                                                    have a move that delivers
+                                                    checkmate (simulated)
+                     'pin_capture_suppress'       : suppress when the played
+                                                    move CAPTURES the pinned
+                                                    front piece (just a trade,
+                                                    not a tactical setup)
+                     'skewer_front_defended'      : require the front piece to
+                                                    be defended (else it's
+                                                    just a hanging-piece
+                                                    capture, not a skewer);
+                                                    king-front is exempt
+                                                    (forced-move by check).
+                     New policies are added when new bug classes surface;
+                     keep this list synchronized with the dispatcher.
+
 Locked rule: 22 board-verified + 1 heuristic. Tactical patterns MUST verify.
 
 Language rules (signed off 2026-05-12):
@@ -70,6 +92,7 @@ SHAPE_PATTERNS = [
         "priority": 88,
         "geometry_hint": "own slider on a ray; enemy piece on the ray; behind that enemy piece on the same ray is a higher-value enemy piece (or the king for absolute pin)",
         "verifier_policy": "engine_confirms_target",
+        "dynamic_policy": "pin_capture_suppress",
     },
     {
         "id": "skewer",
@@ -79,6 +102,7 @@ SHAPE_PATTERNS = [
         "priority": 88,
         "geometry_hint": "own slider on a ray; higher-value enemy piece on the ray; behind it on the same ray is a lower-value enemy piece; front piece must legally move",
         "verifier_policy": "engine_confirms_target",
+        "dynamic_policy": "skewer_front_defended",
     },
     {
         "id": "double_attack_line",
@@ -97,6 +121,7 @@ SHAPE_PATTERNS = [
         "priority": 96,
         "geometry_hint": "enemy king on its back rank; all three squares in front blocked by own pawns or pieces (no escape); own rook/queen has access to back rank or can reach it",
         "verifier_policy": "engine_confirms_target",
+        "dynamic_policy": "mate_in_1_simulated",
     },
     {
         "id": "h7_attack",

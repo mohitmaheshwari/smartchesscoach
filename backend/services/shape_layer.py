@@ -57,13 +57,10 @@ def _is_relevant_to_move(
          move's from or to square overlaps mover/targets — i.e., the
          move involves a piece named in the pattern.
 
-    Pin/Skewer exception (added 2026-05-15 after Parth flagged Bxf3):
-      For pin/skewer, the played move CAPTURING the front piece
-      (targets[0]) means the pattern was just cashed in as a trade,
-      not exploited as a tactical setup. The geometry exists pre-move,
-      but after the capture the pinned/skewered piece is gone and the
-      "pin/skewer" framing misleads (the player just made a trade).
-      Suppress in that case.
+    Pattern-specific dynamic checks (mate-in-1 simulation, defended-front,
+    capture-by-played-move suppression) now live in verify_dynamics()
+    keyed on each pattern's `dynamic_policy` field. This function only
+    handles geometric move-relevance.
     """
     ex = ev.get("executing_move")
     played_uci = played_move.uci() if played_move else ""
@@ -72,19 +69,6 @@ def _is_relevant_to_move(
     if played_move is None:
         # No move context — can't gate. Pass through (used for tests).
         return True
-
-    # Pin/skewer execution-by-capture: suppress.
-    if ev.get("pattern_id") in ("pin", "skewer"):
-        targets = ev.get("targets") or []
-        if targets:
-            front_target = targets[0]
-            if isinstance(front_target, str):
-                try:
-                    front_target = chess.parse_square(front_target)
-                except Exception:
-                    front_target = None
-            if isinstance(front_target, int) and played_move.to_square == front_target:
-                return False
 
     involved: Set[int] = set()
     if ev.get("mover"):
@@ -105,6 +89,164 @@ def _is_relevant_to_move(
         except Exception:
             pass
     return played_move.from_square in involved or played_move.to_square in involved
+
+
+def _coerce_square(s) -> Optional[int]:
+    """Best-effort coerce mover/target value to a chess square int."""
+    if s is None:
+        return None
+    if isinstance(s, int):
+        return s
+    try:
+        return chess.parse_square(str(s))
+    except Exception:
+        return None
+
+
+def _verify_mate_in_1_simulated(
+    ev: Dict,
+    board: chess.Board,
+    played_move: Optional[chess.Move],
+) -> bool:
+    """Pattern passes iff some candidate piece has a legal move that
+    delivers checkmate against the enemy king. Catches Parth's flagged
+    Qd4 false-positive (back-rank-trap geometry but no real mate).
+    """
+    if board.turn != _own_color(board):
+        # We don't have the move — fall through, trust geometry.
+        return True
+    them = not _own_color(board)
+    them_king_sq = board.king(them)
+    if them_king_sq is None:
+        return True
+    back_rank = 7 if them == chess.BLACK else 0
+    # Candidates: any of our R/Q (the typical mating pieces). Could extend
+    # for knight_mate (knights) etc. by inspecting pattern_id.
+    pid = ev.get("pattern_id")
+    if pid == "back_rank_trap":
+        candidate_types = (chess.ROOK, chess.QUEEN)
+    elif pid == "knight_mate":
+        candidate_types = (chess.KNIGHT,)
+    elif pid == "queen_knight_mate":
+        candidate_types = (chess.QUEEN, chess.KNIGHT)
+    elif pid == "h7_attack":
+        candidate_types = (chess.QUEEN, chess.BISHOP, chess.KNIGHT, chess.ROOK)
+    else:
+        candidate_types = (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT)
+    for piece_type in candidate_types:
+        for sq in board.pieces(piece_type, _own_color(board)):
+            for move in board.legal_moves:
+                if move.from_square != sq:
+                    continue
+                # For back-rank we constrain landing on the back rank;
+                # other mates can land anywhere.
+                if pid == "back_rank_trap" and chess.square_rank(move.to_square) != back_rank:
+                    continue
+                test_board = board.copy()
+                test_board.push(move)
+                if test_board.is_checkmate():
+                    return True
+    return False
+
+
+def _verify_pin_capture_suppress(
+    ev: Dict,
+    board: chess.Board,
+    played_move: Optional[chess.Move],
+) -> bool:
+    """Suppress pin when the played move captures the pinned front piece.
+    The pin geometry exists pre-move but the player just cashes it in as
+    a trade — pedagogically misleading to call it a pin afterwards
+    (Parth flagged Bxf3 on game 1b196a4f move 12).
+    """
+    if played_move is None:
+        return True
+    targets = ev.get("targets") or []
+    if not targets:
+        return True
+    front = _coerce_square(targets[0])
+    if front is None:
+        return True
+    if played_move.to_square == front:
+        return False
+    return True
+
+
+def _verify_skewer_front_defended(
+    ev: Dict,
+    board: chess.Board,
+    played_move: Optional[chess.Move],
+) -> bool:
+    """Require the front piece (targets[0]) to be defended unless it's the
+    king. An undefended front piece means our slider just captures it for
+    free — there's no "forces opponent to move" dilemma. Parth flagged
+    Qxd2 (game 1b196a4f move 14) where black bishop on d2 was hanging.
+    """
+    if played_move is None:
+        # No move context; let geometric detector decide.
+        return True
+    targets = ev.get("targets") or []
+    if not targets:
+        return True
+    front = _coerce_square(targets[0])
+    if front is None:
+        return True
+    piece = board.piece_at(front)
+    if piece is None:
+        return True
+    if piece.piece_type == chess.KING:
+        return True  # check-skewers: forced-move comes from check, not defender
+    # Also suppress if the played move captures the front piece (covers
+    # the case Parth flagged: Qxd2 captured a hanging bishop).
+    if played_move.to_square == front:
+        return False
+    them = piece.color
+    defenders = board.attackers(them, front)
+    if not defenders:
+        return False  # hanging — not a tactical skewer
+    return True
+
+
+# Dispatcher: each pattern's `dynamic_policy` maps to a verifier function.
+# Patterns without a policy (or with "geometry_only") pass through.
+# When a new bug class is identified, add a new policy here AND set the
+# field on the relevant entries in shape_patterns.py.
+_DYNAMIC_POLICY_VERIFIERS = {
+    "mate_in_1_simulated":      _verify_mate_in_1_simulated,
+    "pin_capture_suppress":     _verify_pin_capture_suppress,
+    "skewer_front_defended":    _verify_skewer_front_defended,
+}
+
+
+def verify_dynamics(
+    candidates: List[Dict],
+    board: chess.Board,
+    played_move: Optional[chess.Move],
+) -> List[Dict]:
+    """Filter candidates by their pattern's dynamic_policy. A pattern
+    survives only if its policy's verifier returns True (or no policy
+    is declared — defaults to geometry_only / pass-through).
+    """
+    out: List[Dict] = []
+    for ev in candidates:
+        spec = PATTERNS_BY_ID.get(ev.get("pattern_id", ""), {})
+        policy = spec.get("dynamic_policy", "geometry_only")
+        verifier = _DYNAMIC_POLICY_VERIFIERS.get(policy)
+        if verifier is None:
+            out.append(ev)  # geometry_only / unknown policy → pass through
+            continue
+        try:
+            if verifier(ev, board, played_move):
+                out.append(ev)
+        except Exception as e:
+            # Defensive: a buggy verifier shouldn't crash the pipeline.
+            # Fall back to passing the candidate through.
+            out.append(ev)
+    return out
+
+
+def _own_color(board: chess.Board) -> chess.Color:
+    return board.turn
 
 
 def select_shape_for_position(
@@ -133,6 +275,15 @@ def select_shape_for_position(
     # move-4 Nf6 firing back_rank_trap and hidden_attack was exactly this.
     best_move_uci = (eval_data or {}).get("best_move_uci", "") if eval_data else ""
     candidates = [ev for ev in candidates if _is_relevant_to_move(ev, prev_move, best_move_uci)]
+    if not candidates:
+        return None
+
+    # Dynamic-policy gate: each pattern's `dynamic_policy` (declared in
+    # shape_patterns.py) controls a per-class semantic check beyond static
+    # geometry. Added 2026-05-15 to centralize the back_rank_trap mate-in-1
+    # check, pin capture-suppress, and skewer defended-front check that
+    # Parth's bug round surfaced. See verify_dynamics().
+    candidates = verify_dynamics(candidates, board, prev_move)
     if not candidates:
         return None
 
