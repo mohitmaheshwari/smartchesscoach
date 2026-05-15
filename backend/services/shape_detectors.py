@@ -490,14 +490,33 @@ def detect_skewer(board: chess.Board) -> List[Dict]:
                 else:
                     v1 = PIECE_VALUE_CP.get(p1.piece_type, 0)
                     v2 = PIECE_VALUE_CP.get(p2.piece_type, 0)
-                if v1 > v2:
-                    out.append(_ev(
-                        "skewer",
-                        mover=s_sq,
-                        targets=[p1_sq, p2_sq],
-                        executing_move=None,
-                        evidence=f"{chess.piece_name(p1.piece_type)} on {chess.square_name(p1_sq)} skewered to {chess.piece_name(p2.piece_type)} on {chess.square_name(p2_sq)}",
-                    ))
+                if v1 <= v2:
+                    continue
+                # FRONT-DEFENDER CHECK (added 2026-05-15 after Parth flagged
+                # Qxd2, FEN .../PP1b3P/R2QKB1R w - white queen on d1 was
+                # called a "skewer" of bishop d2 + pawn d4. But the bishop
+                # was undefended — white just captures it directly,
+                # nothing to do with a skewer mechanic).
+                #
+                # Real skewer = front piece can't be safely captured, so
+                # opponent is FORCED to move it, exposing the back piece.
+                # If front piece is undefended, the slider just captures
+                # for free; back piece is incidental, no skewer dilemma.
+                #
+                # Exception: front=king. Kings have no defenders in the
+                # piece-attackers sense but are forced to move (check) —
+                # the original detector docstring already notes this case.
+                if p1.piece_type != chess.KING:
+                    defenders = board.attackers(them, p1_sq)
+                    if not defenders:
+                        continue  # hanging front — not a tactical skewer
+                out.append(_ev(
+                    "skewer",
+                    mover=s_sq,
+                    targets=[p1_sq, p2_sq],
+                    executing_move=None,
+                    evidence=f"{chess.piece_name(p1.piece_type)} on {chess.square_name(p1_sq)} skewered to {chess.piece_name(p2.piece_type)} on {chess.square_name(p2_sq)}",
+                ))
     return out
 
 
