@@ -50,6 +50,31 @@ logger = logging.getLogger(__name__)
 TEACHING_SEVERITIES = {"mistake", "blunder", "opp_mistake", "opp_blunder"}
 
 
+# ECO opening names are verbose ("Caro Kann Defense Advance Botvinnik
+# Carls Defense"). For teaching, we want just the family name —
+# everything up to and including the first family-marker word.
+# Parth specifically flagged this: "we can't say Botvinnik Carls just
+# yet, just Caro-Kann Defense".
+_OPENING_FAMILY_RE = re.compile(
+    r"^(.+?\b(?:Defense|Defence|Game|Opening|Gambit|Attack|System|Variation))\b",
+    re.IGNORECASE,
+)
+
+
+def _trim_opening_family(opening_name: str) -> Optional[str]:
+    """Return just the family head of an ECO-style opening name.
+
+    "Caro Kann Defense Advance Botvinnik Carls Defense" → "Caro Kann Defense"
+    "Italian Game"                                      → "Italian Game"
+    "Sicilian Defense Najdorf Variation"                → "Sicilian Defense"
+    None / empty                                        → None
+    """
+    if not opening_name:
+        return None
+    m = _OPENING_FAMILY_RE.match(opening_name)
+    return m.group(1) if m else opening_name
+
+
 # ─── Catalog blocks ────────────────────────────────────────────────────
 
 def build_principle_catalog_block() -> str:
@@ -188,6 +213,22 @@ If facts.is_engine_best is true, the engine confirms this move is the best (or a
   - For opponent moves with is_engine_best=true: name the move and what it does. Don't critique it. Form: "Their {move} — {what it does, neutrally}." NOT "Their {move} is wasted/inactive/etc."
 
 Don't say "Best move" if the move had any teaching issue. Reserve the positive label for moves where the engine truly approves AND no principle was violated.
+
+═════ OPENING FAMILY (facts.opening_family) ═════
+
+On opening-phase moves, facts.opening_family is set to the chess
+opening's family name (e.g., "Caro-Kann Defense", "Italian Game",
+"Queen's Gambit"). Use it for teaching context — name the opening and
+describe the move's role in that opening's idea.
+
+  - Form: "{move} — {opening_family}. {what this move does in this opening}."
+  - Example: "c5 — Caro-Kann Defense. Challenges white's pawn chain head-on."
+  - Example: "Nc6 — Italian Game. Defends e5 and develops the knight."
+
+If facts.opening_family is null/absent (middlegame, endgame, or no
+match): do NOT name any opening. Parth flagged repeated mentions of
+"Caro-Kann Defense" on middlegame moves — opening_family is the ONLY
+place an opening name should come from.
 
 ═════ FEN VERIFICATION (facts.fen_before) ═════
 
@@ -415,6 +456,17 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
         # pressure" when Nc3+ loses the knight.
         "fen_before": move.get("fen_before"),
     }
+
+    # Opening family name — surfaced ONLY on opening-phase moves so the
+    # LLM has teaching context (e.g. "Caro-Kann Defense — challenges
+    # the d-pawn"). Trimmed to family ONLY (drops verbose sub-variation
+    # suffixes) per Parth's note "we can't say Botvinnik Carls yet".
+    # Middlegame/endgame moves don't get this — keeps the LLM from
+    # repeating "Caro-Kann Defense" on move 17.
+    if move.get("phase") == "opening":
+        family = _trim_opening_family(move.get("opening_name"))
+        if family:
+            facts["opening_family"] = family
     if move.get("shape_pattern_name"):
         facts["shape_pattern"] = {
             "name": move["shape_pattern_name"],
