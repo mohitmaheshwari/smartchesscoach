@@ -41,6 +41,7 @@ from services.shape_patterns import SHAPE_PATTERNS
 from services.caption_principles import PRINCIPLES
 from services.trap_recognition import detect_trap_setup, match_trap_line_step
 from services.opening_lookup import match_opening_for_mover
+from services.caption_verifier import verify_caption
 
 
 logger = logging.getLogger(__name__)
@@ -600,4 +601,8 @@ async def generate_caption_for_move(
     has_shape = facts.get("shape_pattern") is not None
     actual_sys_prompt = build_system_prompt(include_shape_catalog=has_shape)
     user_prompt = f"MOVE FACTS:\n{json.dumps(facts, indent=2)}\n\nWrite the caption."
-    return await call_with_retry(actual_sys_prompt, user_prompt, model=model)
+    raw_caption = await call_with_retry(actual_sys_prompt, user_prompt, model=model)
+    # Python post-filter: strip alt-suggestion clauses whose SAN isn't
+    # the engine's best_move. Catches the d5-hallucination class
+    # (Parth flagged "but better was d5..." on a move where best was Bf5).
+    return verify_caption(raw_caption, facts)
