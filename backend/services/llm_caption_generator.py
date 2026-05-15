@@ -340,14 +340,31 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
     # middlegame/endgame. Parth flagged this multiple times. The
     # curriculum-matched `_opening` (with the 3-step-match gate and
     # clean family name) is the only opening info we surface.
+
+    # Best-move gate: surface best_move to the LLM ONLY when it
+    # meaningfully differs from the played move AND there's a real
+    # mistake to teach. Parth flagged multiple captions like Rxd6
+    # cp_loss=0 "Better was Kb8" and Bb4 cp_loss=0 "better was Nge7"
+    # where the played move WAS the best — the LLM was fabricating
+    # alternatives because the facts surfaced a best_move field at all.
+    cp_loss_raw = move.get("cp_loss") or 0
+    severity = move.get("severity") or ""
+    best_move_played = move.get("best_move_san")
+    played_san = move.get("move_san")
+    surface_best_move = (
+        best_move_played is not None
+        and best_move_played != played_san
+        and (severity in TEACHING_SEVERITIES or cp_loss_raw > 30)
+    )
+
     facts = {
-        "move_played": move.get("move_san"),
+        "move_played": played_san,
         "move_number": move.get("move_number"),
         "is_user_move": move.get("is_user_move"),
         "phase": move.get("phase"),
-        "best_move": move.get("best_move_san"),
-        "severity": move.get("severity"),
-        "cp_loss": move.get("cp_loss"),
+        "best_move": best_move_played if surface_best_move else None,
+        "severity": severity,
+        "cp_loss": cp_loss_raw,
         "primary_reason_category": primary.get("category") if isinstance(primary, dict) else None,
         "principles_present": principles_present,
     }
