@@ -703,6 +703,32 @@ def detect_back_rank_trap(board: chess.Board) -> List[Dict]:
         if path_clear:
             invader_sq = c_sq
             break
+
+    # FINAL CORRECTNESS CHECK (added 2026-05-15 after Parth flagged false
+    # positive on Qd4, FEN 2R4r/2QP1pkp/6p1/8/8/3qn3/PP5P/K1R5 b - - 8 31).
+    # Path-to-back-rank isn't enough — the invader has to actually deliver
+    # mate, not just reach the back rank. In the flagged position black's
+    # queen on d3 had a clear path to d1, but:
+    #   - Qd1 doesn't even check (c1 rook blocks the back rank)
+    #   - Qb1+ loses the queen (Kxb1, queen undefended)
+    # No real trap. Verify by simulating each candidate's moves to the
+    # enemy back rank and requiring at least one to be checkmate.
+    if board.turn == us:  # only simulate when it's our turn to play
+        real_mate_exists = False
+        for c_sq in candidates:
+            for move in [m for m in board.legal_moves if m.from_square == c_sq]:
+                if chess.square_rank(move.to_square) != back_rank:
+                    continue
+                test_board = board.copy()
+                test_board.push(move)
+                if test_board.is_checkmate():
+                    real_mate_exists = True
+                    break
+            if real_mate_exists:
+                break
+        if not real_mate_exists:
+            return []
+
     return [_ev(
         "back_rank_trap",
         mover=invader_sq,
