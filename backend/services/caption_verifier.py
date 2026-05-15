@@ -1,29 +1,29 @@
 """
-Caption verifier — strips hallucinated move-suggestions from LLM output.
+Caption verifier — strips hallucinated entities from LLM caption output.
 
-Purpose: the LLM caption generator's prompt has explicit rules (Rule E,
-Checklist 7 & 8) telling the model to only name moves from
-facts.move_played or facts.best_move. gpt-4o-mini does NOT reliably
-follow these. This module catches the leak in Python after the LLM
-returns.
+Refactor 2026-05-15: works against the resolver's `decision` contract
+instead of raw move facts. Catches FOUR classes of LLM leak:
 
-Bug class this addresses (Parth flagged 2026-05-15):
-    "c5 — claims the center, but better was d5 to challenge the pawn
-     directly."
-        - move_played = c5
-        - best_move   = Bf5
-        - d5 is neither AND illegal (own pawn already on d5)
-        - → strip the "but better was d5..." clause
-
-Strategy: find alternative-suggestion clauses ("better was X",
-"X was stronger", etc.). When the suggested SAN doesn't match
-move_played or best_move, strip the entire clause.
+  1. Alt-suggestion clauses where the SAN isn't on the whitelist
+  2. Opening names mentioned when focus != "opening"
+     (or named opening doesn't match anchor)
+  3. Shape pattern names mentioned when focus != "shape"
+     (or named pattern doesn't match anchor)
+  4. Advice-tail phrases at the end of the sentence
 
 Per the locked rule renderer_never_computes_chess_meaning: this is a
-VERIFIER, not a renderer. New module, distinct from caption_renderer.py.
-The rule's intent is to keep chess analysis out of the caption-PRODUCING
-pipeline; verification of LLM output against facts is a separate
-quality-control layer.
+VERIFIER, not a renderer. It validates LLM-generated text against the
+deterministic decision contract — no chess imports needed.
+
+INPUT
+─────
+    caption  : raw LLM string
+    decision : output of caption_priority_resolver.resolve_priority(move)
+               (allowed_moves, anchor_name, focus all used here)
+
+OUTPUT
+──────
+    str — cleaned caption (same string if no strips needed)
 """
 from __future__ import annotations
 
@@ -34,11 +34,42 @@ from typing import Any, Dict, List, Tuple
 logger = logging.getLogger(__name__)
 
 
-# Phrases the LLM uses when suggesting an alternative move. When the
-# alternative's SAN doesn't match the engine's best_move, the WHOLE
-# clause needs stripping. Each pattern captures the SAN in group "san".
+# ───────────────────────────────────────────────────────────────────
+# Pattern catalogues
+# ───────────────────────────────────────────────────────────────────
+
+# All opening family names that might appear in LLM output. Kept short
+# — we strip ANY of these unless they match decision.anchor_name.
+_OPENING_NAMES = [
+    "Italian Game", "Caro-Kann Defense", "Caro Kann Defense",
+    "Sicilian Defense", "French Defense", "Scandinavian Defense",
+    "Queen's Gambit", "Queens Gambit", "Slav Defense", "London System",
+    "Ruy Lopez", "King's Indian Defense", "Kings Indian Defense",
+    "Nimzo-Indian Defense", "Nimzo Indian Defense", "English Opening",
+    "Scotch Game", "Petrov Defense", "Vienna Game", "Pirc Defense",
+    "Modern Defense", "King's Gambit", "Kings Gambit",
+    "Philidor Defense", "Budapest Gambit", "Dutch Defense",
+    "Bird Opening", "Reti Opening", "Catalan Opening",
+    "Grunfeld Defense", "Benoni Defense", "Trompowsky Attack",
+    "Bogo-Indian", "Queens Indian", "Queen's Indian",
+]
+
+# Shape pattern names from data/shape_patterns.py (just the strings,
+# duplicated here so we don't need a runtime import dance).
+_SHAPE_NAMES = [
+    "Knight Fork", "Bishop Fork", "Rook Fork", "Hidden Attack", "Pin",
+    "Skewer", "Double Attack Line", "Back-Rank Trap", "Back Rank Trap",
+    "h7 Attack", "Queen-Knight Mate", "Queen Knight Mate",
+    "Strong Knight Square", "Weak Squares", "Free Pawn",
+    "Open Long Line", "No Safe Square", "Tired Defender",
+    "Free Piece", "Long Diagonal Bishop", "Remove the Guard",
+    "Force the King", "In-Between Move", "Knight Mate",
+    "Pawn Hole at g6", "Passed Pawn",
+]
+
+
+# Alt-suggestion clauses (carried over from prior version).
 _ALT_SUGGESTION_PATTERNS = [
-    # ", but better was X ..."  /  "— better was X ..."  /  "; stronger was X"
     re.compile(
         r"\s*[,;—–\-]\s*(?:but\s+|though\s+|however\s+)?"
         r"(?:better|stronger|sharper|safer|harder|sound)\s+(?:would\s+be|was|is)\s+"
@@ -46,7 +77,6 @@ _ALT_SUGGESTION_PATTERNS = [
         r"[^,.;]*",
         re.IGNORECASE,
     ),
-    # ", X was better ..."  /  ", X is stronger ..."  /  ", X would be sharper"
     re.compile(
         r"\s*[,;—–\-]\s*(?:but\s+|though\s+|however\s+)?"
         r"(?P<san>[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]*|O-O-O|O-O)"
@@ -55,7 +85,6 @@ _ALT_SUGGESTION_PATTERNS = [
         r"[^,.;]*",
         re.IGNORECASE,
     ),
-    # ", but X keeps the pressure ..."  / "; but X wins ..."  (action verb after alt-SAN)
     re.compile(
         r"\s*[,;—–\-]\s*(?:but|though|however)\s+"
         r"(?P<san>[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]*|O-O-O|O-O)"
@@ -66,65 +95,185 @@ _ALT_SUGGESTION_PATTERNS = [
 ]
 
 
+# Advice-tail patterns — strip the trailing clause if it ends with one
+# of these instructive phrases.
+_ADVICE_TAIL_PATTERNS = [
+    re.compile(
+        r"\s*[,;—–\-]\s*"
+        r"(?:focus on|try to|consider|watch for|be careful|remember to|"
+        r"keep the pressure|scan every|attack it again|reroute|just take|"
+        r"look for|be ready|should\s+\w+|don't forget)"
+        r"\s+[^.!?]*",
+        re.IGNORECASE,
+    ),
+]
+
+
+# ───────────────────────────────────────────────────────────────────
+# Helpers
+# ───────────────────────────────────────────────────────────────────
+
+
 def _normalize_san(san: str) -> str:
-    """Drop trailing +/# markers so SAN comparison is tolerant."""
     return (san or "").rstrip("+#")
 
 
-def verify_caption(caption: str, facts: Dict[str, Any]) -> str:
-    """Strip alt-suggestion clauses whose suggested SAN isn't the
-    engine's best_move (or move_played, for sanity).
-
-    Args:
-        caption: raw LLM output string
-        facts: facts dict from build_move_facts (uses move_played, best_move)
-
-    Returns:
-        Cleaned caption. Same string if nothing to strip.
+def _strip_spans(text: str, spans: List[Tuple[int, int]]) -> str:
+    """Apply a list of (start, end) cuts to text, returning the cleaned
+    string. Spans are merged and applied in reverse.
     """
-    if not caption or not caption.strip():
-        return caption or ""
+    if not spans:
+        return text
+    spans.sort(key=lambda x: x[0])
+    merged: List[Tuple[int, int]] = []
+    for s, e in spans:
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    out = text
+    for s, e in reversed(merged):
+        out = out[:s] + out[e:]
+    return out
 
-    move_played = _normalize_san(facts.get("move_played") or "")
-    best_move = _normalize_san(facts.get("best_move") or "")
-    allowed = {s for s in (move_played, best_move) if s}
 
-    # Collect spans to strip across all patterns.
-    spans: List[Tuple[int, int, str]] = []  # (start, end, san_found)
+def _tidy(text: str) -> str:
+    """Collapse extra whitespace and trailing punctuation residue."""
+    text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    text = re.sub(r"[—–\-,;]+\s*$", "", text).strip()
+    if text and text[-1] not in ".!?":
+        text += "."
+    return text
+
+
+# ───────────────────────────────────────────────────────────────────
+# Per-class verifiers
+# ───────────────────────────────────────────────────────────────────
+
+
+def _strip_alt_suggestions(caption: str, allowed_sans: set) -> Tuple[str, List[str]]:
+    """Strip "better was X" clauses where X isn't allowed.
+    Returns (new_caption, list_of_stripped_sans)."""
+    stripped: List[str] = []
+    spans: List[Tuple[int, int]] = []
     for pat in _ALT_SUGGESTION_PATTERNS:
         for m in pat.finditer(caption):
             san = _normalize_san(m.group("san"))
-            if san in allowed:
-                continue  # legitimate reference, leave it
-            spans.append((m.start(), m.end(), san))
+            if san in allowed_sans:
+                continue
+            spans.append((m.start(), m.end()))
+            stripped.append(san)
+    return _strip_spans(caption, spans), stripped
 
-    if not spans:
+
+def _strip_disallowed_openings(caption: str, allowed_name: str) -> Tuple[str, List[str]]:
+    """Strip any opening name that doesn't match allowed_name.
+    Comparison is whitespace-tolerant ('Caro-Kann' vs 'Caro Kann')."""
+    allowed_norm = re.sub(r"[\s\-]+", " ", (allowed_name or "")).lower().strip()
+    spans: List[Tuple[int, int]] = []
+    stripped: List[str] = []
+    for opening in _OPENING_NAMES:
+        opening_norm = re.sub(r"[\s\-]+", " ", opening).lower()
+        if opening_norm == allowed_norm:
+            continue
+        # Match the opening name AND a small surrounding context to remove
+        # awkward dangling text like " — Caro-Kann Defense."
+        pat = re.compile(
+            r"\s*[,;—–\-]?\s*\b" + re.escape(opening) + r"\b[^,.;]*",
+            re.IGNORECASE,
+        )
+        for m in pat.finditer(caption):
+            spans.append((m.start(), m.end()))
+            stripped.append(opening)
+    return _strip_spans(caption, spans), stripped
+
+
+def _strip_disallowed_shapes(caption: str, allowed_name: str) -> Tuple[str, List[str]]:
+    """Strip any shape pattern name that doesn't match allowed_name."""
+    allowed_norm = re.sub(r"[\s\-]+", " ", (allowed_name or "")).lower().strip()
+    spans: List[Tuple[int, int]] = []
+    stripped: List[str] = []
+    for shape in _SHAPE_NAMES:
+        shape_norm = re.sub(r"[\s\-]+", " ", shape).lower()
+        if shape_norm == allowed_norm:
+            continue
+        pat = re.compile(
+            r"\s*[,;—–\-]?\s*\b" + re.escape(shape) + r"\b[^,.;]*",
+            re.IGNORECASE,
+        )
+        for m in pat.finditer(caption):
+            spans.append((m.start(), m.end()))
+            stripped.append(shape)
+    return _strip_spans(caption, spans), stripped
+
+
+def _strip_advice_tails(caption: str) -> Tuple[str, List[str]]:
+    """Strip imperative-advice clauses at the end of the sentence."""
+    spans: List[Tuple[int, int]] = []
+    stripped: List[str] = []
+    for pat in _ADVICE_TAIL_PATTERNS:
+        for m in pat.finditer(caption):
+            spans.append((m.start(), m.end()))
+            stripped.append(m.group(0).strip())
+    return _strip_spans(caption, spans), stripped
+
+
+# ───────────────────────────────────────────────────────────────────
+# Public entry point
+# ───────────────────────────────────────────────────────────────────
+
+
+def verify_caption(caption: str, decision: Dict[str, Any]) -> str:
+    """Strip hallucinated alt-suggestions, opening names, shape names,
+    and advice tails from the LLM caption.
+
+    `decision` is the resolver output. We use:
+      - allowed_moves   → which SANs may be named
+      - anchor_name     → the SINGLE legitimate entity name
+      - focus           → drives which strip-class runs
+
+    Returns the cleaned caption. Same string if nothing stripped.
+    """
+    if not caption or not caption.strip():
+        return caption or ""
+    if not isinstance(decision, dict):
         return caption
 
-    # Merge overlapping spans.
-    spans.sort(key=lambda x: x[0])
-    merged: List[Tuple[int, int]] = []
-    for start, end, _san in spans:
-        if merged and start <= merged[-1][1]:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
-        else:
-            merged.append((start, end))
+    allowed_moves = decision.get("allowed_moves") or []
+    allowed_sans = {_normalize_san(s) for s in allowed_moves if s}
 
-    # Strip in reverse so earlier indices stay valid.
-    result = caption
-    for start, end in reversed(merged):
-        result = result[:start] + result[end:]
+    anchor = decision.get("anchor_name") or ""
+    focus = decision.get("focus", "")
 
-    # Tidy up dangling whitespace / punctuation left by strips.
-    result = re.sub(r"\s+([,.;:!?])", r"\1", result)
-    result = re.sub(r"\s{2,}", " ", result).strip()
-    result = re.sub(r"[—–\-,;]+\s*$", "", result).strip()
-    if result and result[-1] not in ".!?":
-        result += "."
+    original = caption
+    stripped_log: List[str] = []
 
-    if result != caption:
-        logger.info(
-            f"[caption-verifier] stripped alt-suggestion(s) "
-            f"{[s[2] for s in spans]}: '{caption}' → '{result}'"
-        )
-    return result
+    # 1. Alt-suggestions outside whitelist
+    caption, stripped = _strip_alt_suggestions(caption, allowed_sans)
+    if stripped:
+        stripped_log.append(f"alt-sans={stripped}")
+
+    # 2. Opening names — when focus is NOT opening, strip ALL opening names.
+    #    When focus IS opening, strip everything except the anchor.
+    allowed_opening = anchor if focus == "opening" else ""
+    caption, stripped = _strip_disallowed_openings(caption, allowed_opening)
+    if stripped:
+        stripped_log.append(f"openings={stripped}")
+
+    # 3. Shape pattern names — same: allow only when focus == shape AND matches anchor.
+    allowed_shape = anchor if focus == "shape" else ""
+    caption, stripped = _strip_disallowed_shapes(caption, allowed_shape)
+    if stripped:
+        stripped_log.append(f"shapes={stripped}")
+
+    # 4. Advice-tail clauses
+    caption, stripped = _strip_advice_tails(caption)
+    if stripped:
+        stripped_log.append(f"advice={stripped}")
+
+    caption = _tidy(caption)
+
+    if caption != original:
+        logger.info(f"[caption-verifier] '{original}' → '{caption}'  stripped={stripped_log}")
+    return caption
