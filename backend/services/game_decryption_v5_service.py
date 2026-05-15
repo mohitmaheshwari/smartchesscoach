@@ -3136,6 +3136,7 @@ async def generate_game_decryption_v5(
             caption_principles_violated: List[Dict] = []
             principle_cue = ""
             principle_id_used: Optional[str] = None
+            caption_captured_piece: Optional[str] = None
             if CAPTION_V5_PIPELINE_ENABLED and _extract_caption_facts and _render_caption_dict:
                 try:
                     # Rebuild SAN history from board.move_stack so the
@@ -3170,6 +3171,12 @@ async def generate_game_decryption_v5(
                     )
                     caption_payload = _render_caption_dict(caption_facts)
                     caption_primary_reason = caption_facts.get("primary_reason")
+                    # Surface what was captured (pawn / knight / bishop / rook /
+                    # queen / None) for downstream caption generation. Parth
+                    # flagged exd6 captioned "won a pawn" when actually the
+                    # captured piece was a knight (won the exchange overall).
+                    # caption_facts already extracts this — V5 just propagates.
+                    caption_captured_piece = caption_facts.get("captured_piece_type")
                     # Teaching layer — apply per-principle suppression
                     # against the running game-state. Detectors are
                     # pure; this layer dedupes per the catalog's
@@ -3449,6 +3456,12 @@ async def generate_game_decryption_v5(
                 # Audit script reads this; renderer integration is a
                 # later commit once enough detectors are live.
                 "caption_facts_principles_violated": caption_principles_violated,
+                # Captured piece type (pawn/knight/bishop/rook/queen/None).
+                # Surfaced from caption_facts so the LLM caption generator
+                # can name what was actually taken instead of guessing
+                # "won a pawn". Parth flagged exd6 captioned "won a pawn"
+                # when actually a knight was captured.
+                "captured_piece_type": caption_captured_piece,
                 # Teaching cue — highest-priority principle's
                 # endorsement-tiered cue string. Frontend renders this
                 # as a separate italic line under the main caption so

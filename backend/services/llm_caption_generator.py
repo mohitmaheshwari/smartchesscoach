@@ -367,6 +367,11 @@ def build_move_facts(move: Dict[str, Any]) -> Dict[str, Any]:
         "cp_loss": cp_loss_raw,
         "primary_reason_category": primary.get("category") if isinstance(primary, dict) else None,
         "principles_present": principles_present,
+        # What was captured on this move (pawn / knight / bishop / rook /
+        # queen / null). Parth flagged exd6 captioned "won a pawn" when
+        # actually a knight was captured. Surfacing the type kills that
+        # hallucination class.
+        "captured_piece_type": move.get("captured_piece_type"),
     }
     if move.get("shape_pattern_name"):
         facts["shape_pattern"] = {
