@@ -133,6 +133,7 @@ def build_user_prompt(decision: Dict[str, Any]) -> str:
     detail = decision.get("anchor_detail") or ""
     sec_anchor = decision.get("secondary_anchor") or ""
     sec_detail = decision.get("secondary_detail") or ""
+    punishment = decision.get("punishment_move") or ""
     allowed_moves = decision.get("allowed_moves") or []
     allowed_pieces = decision.get("allowed_pieces") or []
     voice_hint = decision.get("voice_hint", "observe")
@@ -173,6 +174,21 @@ def build_user_prompt(decision: Dict[str, Any]) -> str:
             f"  Fact:            {detail}"
         )
 
+    # Punishment block — only present on mistake/blunder severities and
+    # only when V5 captured the opponent's PV. Teaches WHY the move is
+    # bad (the threat that follows), in addition to what should have
+    # been played instead.
+    punishment_section = ""
+    if punishment:
+        punishment_section = (
+            f"\n\nPUNISHMENT (opponent's best reply to the played move):\n"
+            f"  {punishment} — this is the threat the played move WALKS INTO.\n"
+            f"  Frame the caption to name BOTH:\n"
+            f"    1. What goes wrong (the punishment).\n"
+            f"    2. What should have been played instead (from allowed moves).\n"
+            f"  Example: \"Qd6 walks into e5; dxe4 was the capture that stops it.\""
+        )
+
     return f"""{focus_block}
 
 {perspective_line}
@@ -180,7 +196,7 @@ def build_user_prompt(decision: Dict[str, Any]) -> str:
 
 THIS MOVE: {move}
 
-{anchor_section}
+{anchor_section}{punishment_section}
 
 YOU MAY MENTION ONLY THESE ENTITIES:
   Moves: {', '.join(allowed_moves) if allowed_moves else move}

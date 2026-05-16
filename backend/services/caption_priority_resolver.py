@@ -31,6 +31,11 @@ OUTPUT CONTRACT
       "move_role_phrase"   : str | None,     # generic fallback ("claims the
                                               # centre", "develops a piece")
                                               # — used by verifier for repair
+      "punishment_move"    : str | None,     # opponent's best reply to a
+                                              # mistake/blunder — the PUNISHMENT
+                                              # the move walks into. Surfaces
+                                              # pv_after_played[0] when severity
+                                              # is in TEACHING_SEVERITIES.
     }
 
 PRIMARY + SECONDARY pattern (2026-05-15 evolution)
@@ -608,10 +613,20 @@ def resolve_priority(move: Dict[str, Any]) -> Dict[str, Any]:
     move_played = move.get("move_san") or ""
     role_phrase = _move_role_phrase(move_played)
 
+    # Punishment move: opponent's best reply to a mistake/blunder. This is
+    # the LINE that teaches WHY the played move was bad — not just what
+    # should have been played instead. Only meaningful when severity is
+    # mistake-class and the V5 extractor captured the PV.
+    punishment_move: Optional[str] = None
+    if move.get("severity") in TEACHING_SEVERITIES:
+        pv_after_played = move.get("pv_after_played") or []
+        if pv_after_played:
+            punishment_move = pv_after_played[0]
+
     # Forced recapture: hard skip, regardless of other facts.
     primary_facts = move.get("caption_facts_primary_reason") or {}
     if isinstance(primary_facts, dict) and primary_facts.get("category") == "forced_recapture":
-        return _empty(move_played, role_phrase)
+        return _empty(move_played, role_phrase, punishment_move)
 
     decisions: List[Dict[str, Any]] = []
     for resolver in (
@@ -627,7 +642,7 @@ def resolve_priority(move: Dict[str, Any]) -> Dict[str, Any]:
             decisions.append(d)
 
     if not decisions:
-        return _empty(move_played, role_phrase)
+        return _empty(move_played, role_phrase, punishment_move)
 
     primary = decisions[0]
     secondary: Optional[Dict[str, Any]] = None
@@ -639,13 +654,19 @@ def resolve_priority(move: Dict[str, Any]) -> Dict[str, Any]:
     primary["should_skip"]       = False
     primary["move_played"]       = move_played
     primary["move_role_phrase"]  = role_phrase
+    primary["punishment_move"]   = punishment_move
     primary["secondary_focus"]   = secondary["focus"] if secondary else None
     primary["secondary_anchor"]  = secondary["anchor_name"] if secondary else None
     primary["secondary_detail"]  = secondary["anchor_detail"] if secondary else None
+    # Also surface punishment_move on the allowed_moves list — without
+    # this, the verifier strips it as a hallucinated SAN.
+    if punishment_move and punishment_move not in primary["allowed_moves"]:
+        primary["allowed_moves"].append(punishment_move)
     return primary
 
 
-def _empty(move_played: str, role_phrase: Optional[str] = None) -> Dict[str, Any]:
+def _empty(move_played: str, role_phrase: Optional[str] = None,
+           punishment_move: Optional[str] = None) -> Dict[str, Any]:
     return {
         "should_skip":       True,
         "focus":             "empty",
@@ -660,4 +681,5 @@ def _empty(move_played: str, role_phrase: Optional[str] = None) -> Dict[str, Any
         "perspective":       "user",
         "move_played":       move_played,
         "move_role_phrase":  role_phrase,
+        "punishment_move":   punishment_move,
     }

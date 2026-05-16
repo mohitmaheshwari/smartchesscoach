@@ -3386,6 +3386,15 @@ async def generate_game_decryption_v5(
                 # the LLM narrator to guess the reason.
                 "best_move_uci": eval_data.get("best_move_uci", ""),
                 "pv_after_best": pv_after_best,
+                # The opponent's best reply to the played move — the
+                # PUNISHMENT line. Stockfish computes this for bad
+                # moves (mistake/blunder/inaccuracy in stockfish_service
+                # lines 628-640) but until now it was dropped on the
+                # floor instead of carried forward. Captions need it
+                # to teach WHY a blunder is bad (the threat that
+                # follows), not just WHAT the better move was. Mohit
+                # feedback fb_eb1d11ba227f.
+                "pv_after_played": pv_after_played,
                 "severity": severity,
                 "is_mistake": severity in ("mistake", "blunder", "opp_blunder", "opp_mistake"),
                 
