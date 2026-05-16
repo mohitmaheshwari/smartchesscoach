@@ -392,6 +392,13 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
 def _resolve_opening(move: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if move.get("phase") != "opening":
         return None
+    # Severity guard: a mistake/blunder during the opening is a more
+    # urgent teaching moment than the opening's principles. Yield to
+    # _resolve_mistake (which runs later in the priority chain) rather
+    # than emitting a "Caro-Kann Defense — they develop ..." caption
+    # on a +6.7 → +2.2 eval drop. Mohit feedback fb_eb1d11ba227f.
+    if move.get("severity") in TEACHING_SEVERITIES:
+        return None
     op = move.get("_opening")
     if not op:
         # No curriculum match → no opening anchor. Previously fell back
@@ -430,8 +437,6 @@ def _resolve_mistake(move: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
     played = move.get("move_san") or ""
     best = move.get("best_move_san") or ""
-    if not best or best == played:
-        return None
 
     is_user = bool(move.get("is_user_move"))
     voice = "critique" if is_user else "observe"
@@ -439,13 +444,24 @@ def _resolve_mistake(move: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
     # Anchor: "blunder" / "mistake" / similar
     label = severity.replace("opp_", "").capitalize()
-    detail = f"Better was {best}."
+
+    if best and best != played:
+        detail = f"Better was {best}."
+        allowed_moves = [played, best]
+    else:
+        # No clear alternative on file (Stockfish couldn't or didn't
+        # surface a single best). Still surface that the move is a
+        # mistake — silence on a blunder is worse than no suggestion.
+        # Mohit feedback fb_eb1d11ba227f exposed this: opening branch
+        # had been masking a +6.7→+2.2 opp_blunder.
+        detail = ""
+        allowed_moves = [played]
 
     return {
         "focus":         "mistake",
         "anchor_name":   label,
         "anchor_detail": detail,
-        "allowed_moves": [played, best],
+        "allowed_moves": allowed_moves,
         "allowed_pieces": [],
         "voice_hint":    voice,
         "perspective":   perspective,
