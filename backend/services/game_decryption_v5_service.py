@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 5  # v5: PV-based consequence analysis (captures > static piece checks)
+V5_COACHING_VERSION = 6  # v6 (2026-05-16, Mohit fb_eb1d11ba227f): pv_after_played plumbed + post-move shape detection (pawn_fork etc.)
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
