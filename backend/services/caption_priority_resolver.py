@@ -139,6 +139,100 @@ _CENTRAL_PAWN_TARGETS = {"d4", "d5", "e4", "e5"}
 _CENTRE_ADJACENT      = {"c4", "c5", "f4", "f5", "d3", "d6", "e3", "e6"}
 
 
+# ───────────────────────────────────────────────────────────────────
+# Three-tier mode dispatch + protected entity extraction
+# ───────────────────────────────────────────────────────────────────
+#
+# Architecture (Mohit signoff 2026-05-16):
+#   Tier 1 (polish):    deterministic draft exists → LLM polishes for voice
+#                       while preserving all protected entities verbatim
+#   Tier 2 (controlled_gen): no draft but resolver has strong anchor →
+#                       current anchor-driven prompt (build sentence from
+#                       resolver decision)
+#   Tier 3 (silent):    weak/no semantic signal → return empty string
+#
+# Protected entities are the chess primitives (SAN moves, squares, piece
+# names, pattern names) that must survive any LLM rewrite character-for-
+# character. The verifier enforces this — falling back to the draft as-is
+# if the LLM strips one.
+
+_PIECE_WORDS = {"queen", "knight", "bishop", "rook", "king", "pawn"}
+
+# SAN matcher — accepts piece + optional disambig + optional x + dest,
+# pawn captures (axb4), pawn moves (e4), promotions (e8=Q), castling.
+_SAN_RE = re.compile(
+    r"\b("
+    r"[KQRBN][a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?"
+    r"|[a-h]x[a-h][1-8](?:=[QRBN])?[+#]?"
+    r"|[a-h][1-8](?:=[QRBN])?[+#]?"
+    r"|O-O-O|O-O"
+    r")\b"
+)
+_SQUARE_RE = re.compile(r"\b[a-h][1-8]\b")
+
+
+def _extract_protected_entities(draft: str, decision: Dict[str, Any]) -> List[str]:
+    """Pull every concrete chess token from the draft + key entities from
+    the resolver decision. These are the spans the LLM must preserve.
+
+    What counts as protected:
+      - Every SAN move in the draft (case-sensitive; SAN is conventional)
+      - Every square name (case-sensitive lowercase, e.g. "d6")
+      - Every piece word (case-insensitive: queen, knight, ...)
+      - The shape pattern name from the resolver, if any
+      - The principle anchor name when it's a NAMED pattern the player
+        should recognise (Queen out early gets chased, etc.)
+    """
+    if not draft:
+        draft = ""
+    protected: List[str] = []
+    seen: set = set()
+
+    def _add(token: str):
+        if not token:
+            return
+        key = token.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        protected.append(token)
+
+    for m in _SAN_RE.findall(draft):
+        _add(m)
+    for sq in _SQUARE_RE.findall(draft):
+        _add(sq)
+    for word in re.findall(r"[A-Za-z]+", draft):
+        if word.lower() in _PIECE_WORDS:
+            _add(word.lower())
+
+    focus = decision.get("focus", "")
+    anchor = decision.get("anchor_name") or ""
+    if focus == "shape" and anchor:
+        _add(anchor)
+    if decision.get("punishment_move"):
+        _add(decision["punishment_move"])
+    for mv in (decision.get("allowed_moves") or []):
+        _add(mv)
+
+    return protected
+
+
+def _resolve_caption_mode(move: Dict[str, Any], decision: Dict[str, Any]) -> str:
+    """Pick which generation mode the LLM should run in.
+
+    Never falls back to a giant prompt — Tier 2 is the current bounded
+    controlled-generation path, and Tier 3 is silence.
+    """
+    if decision.get("should_skip"):
+        return "silent"
+    draft = (move.get("caption") or "").strip()
+    if draft:
+        return "polish"
+    if decision.get("anchor_name"):
+        return "controlled_gen"
+    return "silent"
+
+
 def _move_role_phrase(san: str) -> Optional[str]:
     """Generic, board-free phrase describing what a move does in plain
     coach English. Used by the verifier when it strips a disallowed
@@ -662,24 +756,33 @@ def resolve_priority(move: Dict[str, Any]) -> Dict[str, Any]:
     # this, the verifier strips it as a hallucinated SAN.
     if punishment_move and punishment_move not in primary["allowed_moves"]:
         primary["allowed_moves"].append(punishment_move)
+
+    # Three-tier mode dispatch + protected entities (Mohit 2026-05-16).
+    deterministic_draft = (move.get("caption") or "").strip()
+    primary["deterministic_draft"] = deterministic_draft
+    primary["caption_mode"]        = _resolve_caption_mode(move, primary)
+    primary["protected_entities"]  = _extract_protected_entities(deterministic_draft, primary)
     return primary
 
 
 def _empty(move_played: str, role_phrase: Optional[str] = None,
            punishment_move: Optional[str] = None) -> Dict[str, Any]:
     return {
-        "should_skip":       True,
-        "focus":             "empty",
-        "anchor_name":       None,
-        "anchor_detail":     None,
-        "secondary_focus":   None,
-        "secondary_anchor":  None,
-        "secondary_detail":  None,
-        "allowed_moves":     [],
-        "allowed_pieces":    [],
-        "voice_hint":        "observe",
-        "perspective":       "user",
-        "move_played":       move_played,
-        "move_role_phrase":  role_phrase,
-        "punishment_move":   punishment_move,
+        "should_skip":         True,
+        "focus":               "empty",
+        "anchor_name":         None,
+        "anchor_detail":       None,
+        "secondary_focus":     None,
+        "secondary_anchor":    None,
+        "secondary_detail":    None,
+        "allowed_moves":       [],
+        "allowed_pieces":      [],
+        "voice_hint":          "observe",
+        "perspective":         "user",
+        "move_played":         move_played,
+        "move_role_phrase":    role_phrase,
+        "punishment_move":     punishment_move,
+        "deterministic_draft": "",
+        "caption_mode":        "silent",
+        "protected_entities":  [],
     }

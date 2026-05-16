@@ -341,25 +341,79 @@ def build_system_prompt(include_shape_catalog: bool = True) -> str:
     return _build_voice_prompt(False)
 
 
+def build_polish_prompt(decision: Dict[str, Any]) -> str:
+    """Tier 1 prompt — LLM polishes the deterministic draft for voice
+    while preserving every protected entity character-for-character.
+    """
+    move = decision.get("move_played", "")
+    draft = decision.get("deterministic_draft", "")
+    protected = decision.get("protected_entities") or []
+    anchor = decision.get("anchor_name") or ""
+    focus = decision.get("focus", "")
+    perspective = decision.get("perspective", "user")
+
+    perspective_line = (
+        "PERSPECTIVE: this is the user's move — use 'you/your'."
+        if perspective == "user"
+        else "PERSPECTIVE: this is the OPPONENT's move — use 'they/their'. Never 'you/your'."
+    )
+
+    pattern_line = ""
+    if focus == "shape" and anchor:
+        pattern_line = f"PATTERN TO NAME: {anchor} (lead the caption with this name)."
+    elif focus == "trap" and anchor:
+        pattern_line = f"TRAP TO NAME: {anchor} (lead the caption with this name)."
+
+    protected_str = "  " + "\n  ".join(repr(e) for e in protected) if protected else "  (none)"
+
+    return f"""THIS MOVE: {move}
+
+{perspective_line}
+
+DETERMINISTIC DRAFT (the ground truth — every chess fact in here is correct):
+  "{draft}"
+
+PROTECTED ENTITIES — every one of these MUST appear in your output, character-for-character:
+{protected_str}
+
+{pattern_line}
+
+YOUR JOB — polish the draft into a coach-voice sentence:
+  1. Output 18 words MAXIMUM, one sentence.
+  2. Preserve every PROTECTED entity exactly as written (SAN moves, squares, piece names, pattern name).
+  3. REPLACE engine talk with concrete plain English:
+       "loses about N pawns" / "drops N cp" / "evaluation" → name the consequence ("queen has no safe square", "wins the knight", "no defender").
+  4. Lead with the pattern/trap name when present (e.g. "Qd6 — Pawn Fork. ...").
+  5. Do NOT invent new moves, squares, or pieces beyond what's in the draft or anchor.
+  6. Use contractions. Apply the voice rules (no advice tail, no generic praise, no abstract jargon like "loses tempo", "creates pressure", "key squares").
+
+Output the sentence. Nothing else. No labels, no quotes."""
+
+
 async def generate_caption_for_move(
     move: Dict[str, Any],
     sys_prompt: Optional[str] = None,
     model: str = "gpt-4.1-mini",
 ) -> str:
-    """End-to-end per-move flow.
+    """End-to-end per-move flow with three-tier mode dispatch.
 
-    1. resolve_priority(move) decides the focus
-    2. If should_skip → return empty
-    3. Build a compact user prompt around the focus + whitelist
-    4. Call the LLM with the compact voice system prompt
-    5. Pass through caption_verifier to strip residual hallucinations
+    Tier 1 (polish):        deterministic draft exists → LLM polishes
+    Tier 2 (controlled_gen): no draft but anchor strong → current
+                             anchor-driven prompt
+    Tier 3 (silent):        return empty
     """
     decision = resolve_priority(move)
-    if decision["should_skip"]:
+    mode = decision.get("caption_mode", "silent")
+
+    if mode == "silent":
         return ""
 
     sys_text = _build_voice_prompt(False)
-    user_text = build_user_prompt(decision)
+
+    if mode == "polish":
+        user_text = build_polish_prompt(decision)
+    else:  # controlled_gen
+        user_text = build_user_prompt(decision)
 
     raw = await call_with_retry(sys_text, user_text, model=model)
     return verify_caption(raw, decision)

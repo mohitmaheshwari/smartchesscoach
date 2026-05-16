@@ -329,6 +329,60 @@ def _strip_advice_tails(caption: str) -> Tuple[str, List[str]]:
 # ───────────────────────────────────────────────────────────────────
 
 
+_PIECE_WORDS_LOWER = {"queen", "knight", "bishop", "rook", "king", "pawn"}
+_SQUARE_RE_VERIFY = re.compile(r"^[a-h][1-8]$")
+
+
+def _looks_like_san(token: str) -> bool:
+    """Quick check: SAN moves start with a piece letter (KQRBN), a file
+    letter (a-h), or 'O' (castling). Used to decide whether case-sensitive
+    matching applies for a protected entity.
+    """
+    if not token:
+        return False
+    if token in ("O-O", "O-O-O"):
+        return True
+    return token[0] in "KQRBNabcdefgh"
+
+
+def _check_protected_entities(caption: str, protected: List[str]) -> List[str]:
+    """Returns the list of protected entities NOT found in the caption.
+    Empty list means all entities preserved.
+
+    Matching rules:
+      - Pieces (queen/knight/...): case-insensitive substring
+      - Squares (a1-h8) and SAN moves: case-sensitive substring
+      - Pattern names (multi-word): case-insensitive substring
+    """
+    if not caption or not protected:
+        return []
+    missing: List[str] = []
+    caption_lower = caption.lower()
+    for entity in protected:
+        if not entity:
+            continue
+        e_lower = entity.lower()
+        # Pieces — case-insensitive (caption may say "queen" or "Queen")
+        if e_lower in _PIECE_WORDS_LOWER:
+            if e_lower not in caption_lower:
+                missing.append(entity)
+            continue
+        # Squares — case-sensitive (don't want "D6" to match a square name)
+        if _SQUARE_RE_VERIFY.match(entity):
+            if entity not in caption:
+                missing.append(entity)
+            continue
+        # SAN moves — case-sensitive
+        if _looks_like_san(entity) and len(entity) <= 6:
+            if entity not in caption:
+                missing.append(entity)
+            continue
+        # Pattern / opening / multi-word names — case-insensitive
+        if e_lower not in caption_lower:
+            missing.append(entity)
+    return missing
+
+
 def verify_caption(caption: str, decision: Dict[str, Any]) -> str:
     """Repair hallucinated entities and strip illegal alt-suggestions /
     advice tails from the LLM caption.
@@ -400,6 +454,25 @@ def verify_caption(caption: str, decision: Dict[str, Any]) -> str:
         caption = canonicalized
 
     caption = _tidy(caption)
+
+    # 6. Protected entity enforcement (Mohit 2026-05-16).
+    # If the LLM stripped any entity that MUST appear (SAN move, square,
+    # piece name, named pattern), fall back to the deterministic draft
+    # as-is. Better to show the draft (which may have engine talk) than
+    # an LLM rewrite that lost critical instructional content. Only
+    # applied in polish mode where a draft exists — in controlled_gen
+    # mode there's no draft to fall back to.
+    protected = decision.get("protected_entities") or []
+    caption_mode = decision.get("caption_mode", "")
+    if protected and caption_mode == "polish":
+        missing = _check_protected_entities(caption, protected)
+        if missing:
+            draft = decision.get("deterministic_draft") or ""
+            log.append(f"protected_missing={missing} → fellback to draft")
+            if draft:
+                caption = draft
+            # If no draft (shouldn't happen in polish mode but safety):
+            # leave caption as-is, log the breach so we can spot it.
 
     if caption != original:
         logger.info(f"[caption-verifier] '{original}' → '{caption}'  edits={log}")
