@@ -46,8 +46,14 @@ GAME_IDS = [
 ]
 
 
-async def regen_one(db, gid: str) -> None:
+def _p(*args, **kwargs):
+    """Unbuffered print so progress shows up immediately in `docker exec`."""
+    print(*args, **kwargs, flush=True)
+
+
+async def regen_one(db, gid: str, idx: int, total: int) -> None:
     t0 = time.time()
+    _p(f"\n[{idx}/{total}] {gid[:8]} — loading game record...")
     game = await db.games.find_one(
         {"game_id": gid},
         {"_id": 0, "pgn": 1, "user_color": 1, "user_id": 1},
@@ -57,22 +63,26 @@ async def regen_one(db, gid: str) -> None:
         {"_id": 0, "stockfish_analysis": 1, "user_id": 1},
     )
     if not game or not a:
-        print(f"  {gid[:8]} SKIP (game or analysis missing)")
+        _p(f"  {gid[:8]} SKIP (game or analysis missing)")
         return
 
     user_id = game.get("user_id") or a.get("user_id")
     user_color = game.get("user_color") or "white"
     pgn = game.get("pgn", "")
     move_evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+    _p(f"  user_color={user_color}  stockfish_moves={len(move_evals)}")
 
     from services.game_decryption_v5_service import (
         generate_game_decryption_v5,
         V5_COACHING_VERSION,
     )
 
+    _p(f"  running generate_game_decryption_v5 (this is the slow part)...")
+    t_v5 = time.time()
     decryption_data = await generate_game_decryption_v5(
         pgn, user_color, move_evals, user_id, db
     )
+    _p(f"  V5 generation done in {time.time() - t_v5:.1f}s, {len(decryption_data or [])} move records")
 
     await db.game_analyses.update_one(
         {"game_id": gid},
@@ -83,6 +93,7 @@ async def regen_one(db, gid: str) -> None:
             "decryption_v5_generating": False,
         }},
     )
+    _p(f"  saved decryption_v5_data with version={V5_COACHING_VERSION}")
 
     from services.llm_caption_generator import (
         annotate_runtime_facts,
@@ -92,38 +103,43 @@ async def regen_one(db, gid: str) -> None:
 
     annotate_runtime_facts(decryption_data)
 
-    called = 0
+    # Count moves needing captions first, so progress is meaningful.
+    teaching_indices = [i for i, m in enumerate(decryption_data) if has_teaching_signal(m)]
+    _p(f"  regenerating captions on {len(teaching_indices)} teaching moves...")
+
     pawn_fork_hits = []
-    for idx, m in enumerate(decryption_data):
-        if not has_teaching_signal(m):
-            continue
+    for n, i in enumerate(teaching_indices, 1):
+        m = decryption_data[i]
         cap = await generate_caption_for_move(m)
-        called += 1
         await db.game_analyses.update_one(
             {"game_id": gid},
-            {"$set": {f"decryption_v5_data.{idx}.caption_llm": cap}},
+            {"$set": {f"decryption_v5_data.{i}.caption_llm": cap}},
         )
         if m.get("shape_pattern_id") == "pawn_fork":
             pawn_fork_hits.append((m.get("move_number"), m.get("move_san"), cap))
+        # Print every 10 captions so progress is visible.
+        if n % 10 == 0 or n == len(teaching_indices):
+            _p(f"    {n}/{len(teaching_indices)} captions written")
 
     elapsed = time.time() - t0
-    print(
-        f"  {gid[:8]}  v{V5_COACHING_VERSION}  moves={len(decryption_data)}  "
-        f"captions={called}  elapsed={elapsed:.1f}s"
+    _p(
+        f"  DONE {gid[:8]}  v{V5_COACHING_VERSION}  total_moves={len(decryption_data)}  "
+        f"captions={len(teaching_indices)}  elapsed={elapsed:.1f}s"
     )
     for mn, san, cap in pawn_fork_hits:
-        print(f"    PAWN FORK on {mn}.{san}:  {cap}")
+        _p(f"    PAWN FORK on {mn}.{san}:  {cap}")
 
 
 async def main() -> None:
     db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
-    print(f"Regenerating {len(GAME_IDS)} pilot games...")
-    for gid in GAME_IDS:
+    _p(f"Regenerating {len(GAME_IDS)} pilot games...")
+    overall_start = time.time()
+    for n, gid in enumerate(GAME_IDS, 1):
         try:
-            await regen_one(db, gid)
+            await regen_one(db, gid, n, len(GAME_IDS))
         except Exception as e:
-            print(f"  {gid[:8]} FAILED: {e}")
-    print("Done.")
+            _p(f"  {gid[:8]} FAILED: {e}")
+    _p(f"\nAll games done in {time.time() - overall_start:.1f}s total.")
 
 
 if __name__ == "__main__":
