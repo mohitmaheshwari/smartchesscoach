@@ -207,7 +207,13 @@ def _extract_protected_entities(draft: str, decision: Dict[str, Any]) -> List[st
 
     focus = decision.get("focus", "")
     anchor = decision.get("anchor_name") or ""
-    if focus == "shape" and anchor:
+    # Protect anchor for shape / trap / named principles (Rule of the
+    # Square, The Opposition, etc.). These are proper-noun teaching
+    # concepts the LLM must preserve verbatim. For generic principle
+    # labels ("Loose piece on the board") protection is also OK — the
+    # verifier matches case-insensitively, so the LLM can use sentence
+    # case without triggering a fallback.
+    if focus in ("shape", "trap", "principle") and anchor:
         _add(anchor)
     if decision.get("punishment_move"):
         _add(decision["punishment_move"])
@@ -475,6 +481,26 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
         n = evidence.get("own_pawn_moves_so_far")
         if n:
             return f"{n} pawn moves so far — pieces still on starting squares."
+    if pid == "END_RULE_OF_SQUARE":
+        # Mohit's template (2026-05-16 signoff):
+        # "Their pawn on {pawn_square} runs to promotion. Your king on
+        #  {king_square_played} is too far ({king_distance_before} >
+        #  {pawn_distance}). {king_should_move_to} catches it in time."
+        # Trimmed to keep within the LLM's 18-word cap after the
+        # anchor "Rule of the Square — " is prepended.
+        pawn_sq = evidence.get("pawn_square")
+        king_played = evidence.get("king_square_played")
+        king_target = evidence.get("king_should_move_to")
+        pawn_dist = evidence.get("pawn_distance")
+        king_dist = evidence.get("king_distance_before")
+        if pawn_sq and king_played and king_target and pawn_dist is not None and king_dist is not None:
+            return (
+                f"Their pawn on {pawn_sq} runs to promotion. "
+                f"Your king on {king_played} is too far ({king_dist} > {pawn_dist}). "
+                f"{king_target} catches it in time."
+            )
+        # Fallback if evidence shape changes — never lose the principle name.
+        return "Step into the square — your king must catch their passed pawn."
     if pid == "OP_QUEEN_OUT_EARLY":
         sq = evidence.get("queen_to")
         n_minors = evidence.get("minor_pieces_developed")

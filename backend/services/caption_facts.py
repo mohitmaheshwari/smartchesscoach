@@ -2908,6 +2908,179 @@ def _p_mid_pawn_break(
     }
 
 
+# ────────────────────────────────────────────────────────────────────
+# Shared endgame helpers (added 2026-05-16, Mohit signoff)
+# ────────────────────────────────────────────────────────────────────
+
+
+def _pawn_promotion_square(pawn_sq: int, pawn_color: chess.Color) -> int:
+    """Promotion square for a pawn of `pawn_color` currently on `pawn_sq`.
+    White promotes on rank 8 (index 7); black on rank 1 (index 0)."""
+    file_ = chess.square_file(pawn_sq)
+    promo_rank = 7 if pawn_color == chess.WHITE else 0
+    return chess.square(file_, promo_rank)
+
+
+def _pawn_distance_to_promote(pawn_sq: int, pawn_color: chess.Color) -> int:
+    """Number of pawn pushes needed to reach promotion. Pawns on their
+    starting rank can double-push, so effective distance is one less.
+
+    For white: starting rank = 1 (index 1). For black: rank 7 (index 6).
+    """
+    rank = chess.square_rank(pawn_sq)
+    if pawn_color == chess.WHITE:
+        dist = 7 - rank
+        if rank == 1:
+            dist -= 1  # double-push available
+    else:
+        dist = rank
+        if rank == 6:
+            dist -= 1
+    return dist
+
+
+def _king_inside_pawn_square(
+    king_sq: int,
+    pawn_sq: int,
+    pawn_color: chess.Color,
+) -> bool:
+    """Rule of the Square — king is in the box iff its Chebyshev
+    distance to the promotion square does not exceed the pawn's
+    remaining distance to promote.
+
+    Single rule, no move-order dependency. This is the PEDAGOGICAL
+    formulation 1200-1500 players learn. The strict K-vs-K+P
+    "king-to-move ≤; pawn-to-move <" distinction is technically
+    correct in pure-king-and-pawn endings but pedagogically
+    misleading (it says e3 doesn't catch a g3 pawn even though in
+    practice the defending side survives via post-promotion capture).
+
+    Pure geometry. Doesn't account for own pieces blocking the king's
+    path — known v1 limitation (rare in K+P endings).
+    """
+    promo = _pawn_promotion_square(pawn_sq, pawn_color)
+    king_dist = chess.square_distance(king_sq, promo)
+    pawn_dist = _pawn_distance_to_promote(pawn_sq, pawn_color)
+    return king_dist <= pawn_dist
+
+
+# ── Detector #24: END_RULE_OF_SQUARE ────────────────────────────────
+#
+# Fires when:
+#   1. Phase is endgame.
+#   2. cp_loss >= 30 (the move was sub-optimal enough to be a missed
+#      teaching moment).
+#   3. Opponent has at least one passed pawn (uses _own_passed_pawns
+#      with the opponent's color — the helper is color-parameterised
+#      despite its name).
+#   4. For some opponent passed pawn P:
+#      - Our king's Chebyshev distance to P's promotion square exceeds
+#        the pawn's distance to promote (king is OUTSIDE the square).
+#      - The engine's best move IS a king move.
+#      - After that king move, the king is INSIDE the square (a real
+#        catching move, not just any king step).
+#      - The played move did NOT step into the square (if it did, no
+#        teaching moment — we caught the pawn).
+#
+# Edge cases enumerated (Phase 0 audit):
+#   A. Multiple opp passed pawns — fires on the first that triggers.
+#   B. Pawn double-push from starting rank — handled in
+#      _pawn_distance_to_promote.
+#   C. King already inside square — don't fire (no risk).
+#   D. Engine's best isn't a king move — don't fire.
+#   E. Best king move lands OUTSIDE the square — don't fire.
+#   F. Played move IS the catching king move — don't fire.
+#   G. SAN parse failures — return None safely.
+#   H. Own pieces blocking king path — NOT handled v1 (flag in audit).
+def _p_end_rule_of_square(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Rule of the Square — defending king failed to step into the box
+    of an opposing passed pawn."""
+    if facts.get("phase") != "endgame":
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+
+    best_san = _normalize_san(facts.get("best_move_san") or "")
+    played_san = _normalize_san(facts.get("played_san") or "")
+    if not best_san:
+        return None
+
+    us = board_before.turn
+    them = not us
+
+    # Opponent's passed pawns. _own_passed_pawns is color-parameterised
+    # — name is historical, function is generic.
+    opp_passed = _own_passed_pawns(board_before, them)
+    if not opp_passed:
+        return None
+
+    our_king_sq = board_before.king(us)
+    if our_king_sq is None:
+        return None
+
+    # The engine's best must be a king move.
+    try:
+        best_move = board_before.parse_san(best_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+        return None
+    best_piece = board_before.piece_at(best_move.from_square)
+    if not best_piece or best_piece.piece_type != chess.KING or best_piece.color != us:
+        return None
+    best_king_dest = best_move.to_square
+
+    # Parse the played move (may not be a king move — we still want to
+    # know whether the player coincidentally caught the pawn).
+    played_king_dest: Optional[int] = None
+    try:
+        played_move = board_before.parse_san(played_san)
+        played_piece = board_before.piece_at(played_move.from_square)
+        if played_piece and played_piece.piece_type == chess.KING and played_piece.color == us:
+            played_king_dest = played_move.to_square
+    except Exception:
+        played_king_dest = None
+
+    # Scan each opponent passed pawn for the square-rule violation.
+    for pawn_sq in opp_passed:
+        # Case C: king already in the square — skip this pawn.
+        if _king_inside_pawn_square(our_king_sq, pawn_sq, them):
+            continue
+
+        # Case E: best move must LAND in the square.
+        if not _king_inside_pawn_square(best_king_dest, pawn_sq, them):
+            continue
+
+        # Case F: played move is a king move that ALSO lands in the
+        # square — no fire (we caught it via a different square).
+        if played_king_dest is not None and _king_inside_pawn_square(
+            played_king_dest, pawn_sq, them
+        ):
+            continue
+
+        promo_sq = _pawn_promotion_square(pawn_sq, them)
+        return {
+            "principle_id": "END_RULE_OF_SQUARE",
+            "evidence": {
+                "pawn_square":            chess.square_name(pawn_sq),
+                "pawn_color":             "white" if them == chess.WHITE else "black",
+                "promotion_square":       chess.square_name(promo_sq),
+                "pawn_distance":          _pawn_distance_to_promote(pawn_sq, them),
+                "king_square_played":     chess.square_name(our_king_sq),
+                "king_distance_before":   chess.square_distance(our_king_sq, promo_sq),
+                "king_should_move_to":    chess.square_name(best_king_dest),
+                "king_distance_after_best": chess.square_distance(best_king_dest, promo_sq),
+                "played_san":             facts.get("played_san") or "",
+                "best_san":               facts.get("best_move_san") or "",
+            },
+            "engine_endorsement": "best",
+            "aligned_moves_offered": [best_san],
+        }
+
+    return None
+
+
 # ── Detector #23: END_KING_ACTIVE ───────────────────────────────────
 #
 # Edge cases enumerated:
@@ -3271,6 +3444,7 @@ def _principles_violated(
         _p_mid_rook_open_file,
         _p_mid_pawn_break,
         _p_end_king_active,
+        _p_end_rule_of_square,   # added 2026-05-16 (Mohit signoff)
         _p_mid_king_safety,
         _p_mid_keep_attackers,
         _p_def_trade_attackers,
