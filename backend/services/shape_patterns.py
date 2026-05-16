@@ -83,6 +83,12 @@ SHAPE_PATTERNS = [
         "priority": 93,
         "geometry_hint": "two enemy pieces of value >= knight on same rank, 2 files apart; own pawn one rank behind the file between them; push square clear; push is legal",
         "verifier_policy": "engine_confirms_target",
+        # 2026-05-16 (Mohit fb_eb1d11ba227f): "you walked into this"
+        # patterns must be detected on the POST-move board, then
+        # attached to the move that CREATED the vulnerability — not
+        # the next move that could execute the fork. Default for all
+        # other patterns is "pre_move" (your opportunity).
+        "detect_phase": "post_move",
     },
     {
         "id": "hidden_attack",

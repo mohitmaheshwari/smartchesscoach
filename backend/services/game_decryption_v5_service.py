@@ -74,8 +74,14 @@ except Exception as _caption_import_exc:  # pragma: no cover — defensive
 # wedge the V5 pipeline.
 try:
     from services.shape_layer import select_shape_for_position as _select_shape_for_position
+    from services.shape_detectors import detect_all_shapes as _detect_all_shapes
+    from services.shape_detectors import verify_with_engine_data as _verify_shapes_with_engine
+    from services.shape_patterns import PATTERNS_BY_ID as _SHAPE_PATTERNS_BY_ID
 except Exception as _shape_import_exc:  # pragma: no cover — defensive
     _select_shape_for_position = None
+    _detect_all_shapes = None
+    _verify_shapes_with_engine = None
+    _SHAPE_PATTERNS_BY_ID = {}
     logger.warning(f"[shape_v3] import failed; shape layer disabled: {_shape_import_exc}")
 
 # Trap recognition (named opening traps from data/traps.json). Stateful:
@@ -3297,6 +3303,60 @@ async def generate_game_decryption_v5(
                 except Exception as _shape_exc:
                     logger.info(f"[shape_v3] detect failed on move {full_move_number}: {_shape_exc}")
                     shape_pattern_record = None
+
+            # ── Post-move shape detection (Mohit fb_eb1d11ba227f) ──
+            # Patterns in shape_patterns.py flagged `detect_phase=post_move`
+            # describe "you walked into this" geometry — the vulnerability
+            # was CREATED by the just-played move, the opposing side can
+            # now execute it. These must be detected on the POST-move
+            # board so the pattern is attached to the move that created
+            # the geometry (e.g., black's Qd6 walks into white's e5 pawn
+            # fork). Engine confirmation uses pv_after_played[0] — the
+            # opponent's best response IS the executing move.
+            if (
+                shape_pattern_record is None
+                and _detect_all_shapes is not None
+                and severity in ("mistake", "blunder", "opp_mistake", "opp_blunder")
+                and pv_after_played
+            ):
+                try:
+                    # `board` is the post-move state (board.push(move) at line ~3277).
+                    post_move_board = board.copy()
+                    opp_best_uci = ""
+                    try:
+                        opp_best_uci = post_move_board.parse_san(pv_after_played[0]).uci()
+                    except Exception:
+                        opp_best_uci = ""
+                    post_phase_ids = {
+                        pid for pid, p in _SHAPE_PATTERNS_BY_ID.items()
+                        if p.get("detect_phase") == "post_move"
+                    }
+                    if post_phase_ids:
+                        all_post = _detect_all_shapes(post_move_board, prev_move=move)
+                        post_candidates = [c for c in all_post if c["pattern_id"] in post_phase_ids]
+                        post_candidates = _verify_shapes_with_engine(
+                            post_candidates, {"best_move_uci": opp_best_uci}
+                        )
+                        if post_candidates:
+                            post_candidates.sort(
+                                key=lambda c: -_SHAPE_PATTERNS_BY_ID[c["pattern_id"]].get("priority", 0)
+                            )
+                            ev = post_candidates[0]
+                            spec = _SHAPE_PATTERNS_BY_ID[ev["pattern_id"]]
+                            shape_pattern_record = {
+                                "pattern_id":         ev["pattern_id"],
+                                "pattern_name":       spec["name"],
+                                "mover_square":       ev.get("mover"),
+                                "target_squares":     ev.get("targets", []),
+                                "executing_move":     ev.get("executing_move"),
+                                "evidence":           ev.get("evidence", ""),
+                            }
+                            shapes_fired_this_game.add(ev["pattern_id"])
+                except Exception as _post_shape_exc:
+                    logger.info(
+                        f"[shape_post_move] detect failed on move {full_move_number}: "
+                        f"{_post_shape_exc}"
+                    )
 
             # ── Trap + opening recognition ─────────────────────────
             # Pure-Python detectors. Append the played SAN before running
