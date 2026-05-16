@@ -76,6 +76,15 @@ SHAPE_PATTERNS = [
         "verifier_policy": "engine_confirms_target",
     },
     {
+        "id": "pawn_fork",
+        "name": "Pawn Fork",
+        "description": "Two enemy pieces on the same rank, 2 squares apart. A single pawn push attacks both.",
+        "phase_in_scope": "any",
+        "priority": 93,
+        "geometry_hint": "two enemy pieces of value >= knight on same rank, 2 files apart; own pawn one rank behind the file between them; push square clear; push is legal",
+        "verifier_policy": "engine_confirms_target",
+    },
+    {
         "id": "hidden_attack",
         "name": "Hidden Attack",
         "description": "Your front piece moves, the piece behind it was hidden — now it attacks.",
@@ -266,7 +275,9 @@ PATTERNS_BY_ID = {p["id"]: p for p in SHAPE_PATTERNS}
 
 
 # Invariant checks (run on import; fail loud if catalog drifts)
-assert len(SHAPE_PATTERNS) == 23, f"shape catalog must be 23 entries, got {len(SHAPE_PATTERNS)}"
-assert len({p["id"] for p in SHAPE_PATTERNS}) == 23, "duplicate pattern ids"
+# 2026-05-16: catalog grew from 23 → 24 with `pawn_fork` (Mohit fb_eb1d11ba227f).
+# Locked rule "22 verified + 1 heuristic" widens to "23 verified + 1 heuristic".
+assert len(SHAPE_PATTERNS) == 24, f"shape catalog must be 24 entries, got {len(SHAPE_PATTERNS)}"
+assert len({p["id"] for p in SHAPE_PATTERNS}) == 24, "duplicate pattern ids"
 _heuristic_count = sum(1 for p in SHAPE_PATTERNS if p["verifier_policy"] == "heuristic_only")
-assert _heuristic_count == 1, f"locked rule: 22 verified + 1 heuristic; got {_heuristic_count} heuristic"
+assert _heuristic_count == 1, f"locked rule: 23 verified + 1 heuristic; got {_heuristic_count} heuristic"

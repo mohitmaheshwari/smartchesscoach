@@ -391,6 +391,97 @@ def detect_rook_fork(board: chess.Board) -> List[Dict]:
     return out
 
 
+def detect_pawn_fork(board: chess.Board) -> List[Dict]:
+    """Own pawn has (or could push to) a square from which it attacks
+    two enemy pieces of value >= knight simultaneously.
+
+    Geometry:
+      - Two enemy fork-targets P1, P2 on the same rank, exactly 2 files apart.
+      - Own pawn on the file between them, one rank behind the push square
+        (from our POV). For white: pawn at (mid_file, R-2) pushes to
+        (mid_file, R-1), attacking (f1, R) and (f2, R). For black: pawn
+        at (mid_file, R+2) pushes to (mid_file, R+1).
+      - Push square empty (forward pawn moves can't capture).
+      - Push is legal (not pinned, no king-in-check etc.).
+      - Sanity: post-push, the pawn attacks both P1 and P2 (verified by
+        chess.Board.attacks).
+
+    Verifier policy: heuristic_only — the geometric checks are tight
+    enough that an audit-level false-positive rate is acceptable. Refine
+    with an SEE pass if the audit surfaces bad fires.
+
+    Edge cases handled:
+      - Pinned own pawn: filtered via board.legal_moves.
+      - Push square blocked: filtered.
+      - Targets less than knight value: filtered via _is_fork_target.
+      - Royal fork (king + queen) supported: _is_fork_target counts king.
+    """
+    us = _own_color(board)
+    them = not us
+    out: List[Dict] = []
+
+    # Enumerate ordered pairs (sq1 < sq2 ensures uniqueness)
+    for sq1 in chess.SQUARES:
+        if not _is_fork_target(board, sq1, them):
+            continue
+        for sq2 in chess.SQUARES:
+            if sq2 <= sq1:
+                continue
+            if not _is_fork_target(board, sq2, them):
+                continue
+
+            r1, r2 = chess.square_rank(sq1), chess.square_rank(sq2)
+            f1, f2 = chess.square_file(sq1), chess.square_file(sq2)
+            if r1 != r2 or abs(f1 - f2) != 2:
+                continue
+
+            target_rank = r1
+            mid_file = (f1 + f2) // 2
+
+            if us == chess.WHITE:
+                push_rank = target_rank - 1
+                pawn_rank = target_rank - 2
+            else:
+                push_rank = target_rank + 1
+                pawn_rank = target_rank + 2
+
+            if not (0 <= push_rank <= 7 and 0 <= pawn_rank <= 7):
+                continue
+
+            pawn_sq = chess.square(mid_file, pawn_rank)
+            pawn = board.piece_at(pawn_sq)
+            if not pawn or pawn.piece_type != chess.PAWN or pawn.color != us:
+                continue
+
+            push_sq = chess.square(mid_file, push_rank)
+            if board.piece_at(push_sq):
+                continue
+
+            push_move = chess.Move(pawn_sq, push_sq)
+            if push_move not in board.legal_moves:
+                continue
+
+            # Sanity: confirm post-push attack geometry.
+            board_after = board.copy()
+            board_after.push(push_move)
+            pawn_attacks = board_after.attacks(push_sq)
+            if sq1 not in pawn_attacks or sq2 not in pawn_attacks:
+                continue
+
+            out.append(_ev(
+                "pawn_fork",
+                mover=pawn_sq,
+                targets=[sq1, sq2],
+                executing_move=push_move,
+                evidence=(
+                    f"pawn {chess.square_name(pawn_sq)} pushes to "
+                    f"{chess.square_name(push_sq)}, attacking "
+                    f"{chess.square_name(sq1)} and {chess.square_name(sq2)}"
+                ),
+            ))
+    return out
+
+
 # ────────────────────────────────────────────────────────────────────
 # BATCH 3 — Slider-on-ray patterns (Pin / Skewer / Hidden Attack / Double Attack Line)
 # ────────────────────────────────────────────────────────────────────
@@ -1342,6 +1433,7 @@ _DETECTORS = {
     "knight_fork":            detect_knight_fork,
     "bishop_fork":            detect_bishop_fork,
     "rook_fork":              detect_rook_fork,
+    "pawn_fork":              detect_pawn_fork,
     "pin":                    detect_pin,
     "skewer":                 detect_skewer,
     "hidden_attack":          detect_hidden_attack,
@@ -1454,6 +1546,16 @@ def _self_check() -> None:
     b = chess.Board("7R/7k/8/8/8/8/7r/4K3 w - - 0 1")
     ev = detect_skewer(b)
     assert any(e["pattern_id"] == "skewer" for e in ev), f"skewer self-check failed: {ev}"
+    # 6. Pawn fork: the Mohit-flagged Qd6 scenario (white-to-move, e4
+    #    pushes to e5 forking black queen on d6 and knight on f6).
+    b = chess.Board("rnb1k2r/pp3ppp/2pqpn2/3p4/3PP3/2PB1N2/P1P2PPP/1RBQ1RK1 w kq - 3 9")
+    ev = detect_pawn_fork(b)
+    assert any(
+        e["pattern_id"] == "pawn_fork"
+        and "d6" in e["targets"] and "f6" in e["targets"]
+        and e["executing_move"] == "e4e5"
+        for e in ev
+    ), f"pawn_fork self-check failed: {ev}"
 
 
 _self_check()

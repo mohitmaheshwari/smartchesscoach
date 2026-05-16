@@ -80,7 +80,8 @@ _FOCUS_BLOCKS = {
         "  Form: \"{move} — {anchor}. {what fires}.\"\n"
         "  Examples:\n"
         "    • \"Qxh1+ — Free Piece. Their rook on h1 had no defender.\"\n"
-        "    • \"Nf6 — Knight Fork. Hits the queen on d5 and the rook on e8.\"",
+        "    • \"Nf6 — Knight Fork. Hits the queen on d5 and the rook on e8.\"\n"
+        "    • \"Qd6 — Pawn Fork: queen on d6 and knight on f6; e5 attacks both.\"",
 
     "principle":
         "FOCUS — PRINCIPLE. Name the principle (anchor) and describe the specific issue on the board.\n"

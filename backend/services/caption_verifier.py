@@ -67,7 +67,8 @@ _OPENING_NAMES = [
 # Shape pattern names from data/shape_patterns.py (just the strings,
 # duplicated here so we don't need a runtime import dance).
 _SHAPE_NAMES = [
-    "Knight Fork", "Bishop Fork", "Rook Fork", "Hidden Attack", "Pin",
+    "Knight Fork", "Bishop Fork", "Rook Fork", "Pawn Fork",
+    "Hidden Attack", "Pin",
     "Skewer", "Double Attack Line", "Back-Rank Trap", "Back Rank Trap",
     "h7 Attack", "Queen-Knight Mate", "Queen Knight Mate",
     "Strong Knight Square", "Weak Squares", "Free Pawn",
