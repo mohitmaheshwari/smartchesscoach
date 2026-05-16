@@ -3343,13 +3343,19 @@ async def generate_game_decryption_v5(
                             )
                             ev = post_candidates[0]
                             spec = _SHAPE_PATTERNS_BY_ID[ev["pattern_id"]]
+                            # Key names must match select_shape_for_position's
+                            # return contract (shape_layer.py:310-318) — V5
+                            # move_output reads pattern_id / pattern_name /
+                            # pattern_desc / mover / targets / executing_move
+                            # at lines 3547-3552.
                             shape_pattern_record = {
-                                "pattern_id":         ev["pattern_id"],
-                                "pattern_name":       spec["name"],
-                                "mover_square":       ev.get("mover"),
-                                "target_squares":     ev.get("targets", []),
-                                "executing_move":     ev.get("executing_move"),
-                                "evidence":           ev.get("evidence", ""),
+                                "pattern_id":     ev["pattern_id"],
+                                "pattern_name":   spec.get("name", ""),
+                                "pattern_desc":   spec.get("description", ""),
+                                "mover":          ev.get("mover"),
+                                "targets":        ev.get("targets", []),
+                                "executing_move": ev.get("executing_move"),
+                                "evidence":       ev.get("evidence", ""),
                             }
                             shapes_fired_this_game.add(ev["pattern_id"])
                 except Exception as _post_shape_exc:
