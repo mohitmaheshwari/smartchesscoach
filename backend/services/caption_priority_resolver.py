@@ -246,8 +246,23 @@ def _resolve_principle(move: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     principles = move.get("caption_facts_principles_violated") or []
     if not principles:
         return None
-    # Take the FIRST principle (already priority-sorted upstream).
-    top = principles[0]
+    # Prefer the principle the V5 deterministic renderer already chose
+    # (principle_id_used). The rule engine prioritizes by relevance —
+    # e.g. for a blunder where dxe4 was the forcing move, it picks
+    # TAC_CHECKS_CAPTURES_THREATS over OP_QUEEN_OUT_EARLY even though
+    # the queen-out-early principle also fires. Resolver previously
+    # took principles[0] which was source-order, leading to abstract
+    # framing ("queen out early") on what should be tactical teaching
+    # ("dxe4 was the forcing move"). Mohit feedback fb_eb1d11ba227f.
+    used_id = move.get("principle_id_used") or ""
+    top: Optional[Dict[str, Any]] = None
+    if used_id:
+        for p in principles:
+            if p.get("principle_id") == used_id:
+                top = p
+                break
+    if top is None:
+        top = principles[0]
     pid = top.get("principle_id") or ""
     evidence = top.get("evidence") or {}
 
