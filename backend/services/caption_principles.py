@@ -628,7 +628,13 @@ PRINCIPLES: List[Dict[str, Any]] = [
     },
 
     # ══════════════════════════════════════════════════════════════════
-    # ENDGAME (2) — fewer because 600–1400 games rarely reach pure endgames.
+    # ENDGAME (5) — 2 original + 3 added 2026-05-16 (Mohit signoff,
+    # see project_endgame_principles_backlog.md). The new three:
+    #   END_RULE_OF_SQUARE       — geometric king-catches-pawn check
+    #   END_OPPOSITION           — kings facing one square apart in K+P
+    #   END_ROOK_BEHIND_PASSER   — Tarrasch rule (single-passer only v1)
+    # All three use vocabulary aligned with endgames.json lesson library
+    # so coaching → lesson → caption all share the same names.
     # ══════════════════════════════════════════════════════════════════
 
     {
@@ -667,6 +673,69 @@ PRINCIPLES: List[Dict[str, Any]] = [
             "arrows": [("king_square", "centre_square", "green")],
         },
         "drill_outline": "5 simple endgames where the king should march to the centre; correct answer takes the first step.",
+    },
+
+    # ── ADDED 2026-05-16 (Mohit signoff) ────────────────────────────
+    # Three foundational endgame principles for 1200-1500 players.
+    # Vocabulary matches data/endgames.json lesson library so the same
+    # name appears across coaching surfaces.
+
+    {
+        "id": "END_RULE_OF_SQUARE",
+        "name": "Rule of the Square",
+        "phase_in_scope": ["endgame"],
+        "priority": 12,   # high — geometric certainty, often game-deciding
+        "match_kind": "missed_chance",
+        "aligned_moves": "the king move that lands inside the box from opponent's passed pawn to its promotion square",
+        "gate_policy": "endorsement_required + cp_loss_strict",
+        "suppress": "once_per_state_entry",
+        "cue_best":   "Step into the square. Engine agrees — your king catches the pawn from there.",
+        "cue_top_n":  "Rule of the Square — count squares from the pawn to promotion; your king must reach that many squares to catch it.",
+        "cue_absent": "Their passed pawn promotes if your king's too far. Step inside the box — count squares.",
+        "visual_signature": {
+            "highlight": ["passed_pawn_square", "promotion_square", "king_square_played", "king_should_move_to"],
+            "arrows": [("king_square_played", "king_should_move_to", "green"),
+                       ("passed_pawn_square", "promotion_square", "red")],
+        },
+        "drill_outline": "5 K+P races where the defending king must enter the square; correct answer is the king step into the box.",
+    },
+
+    {
+        "id": "END_OPPOSITION",
+        "name": "The Opposition",
+        "phase_in_scope": ["endgame"],
+        "priority": 28,   # high in K+P endings; only fires when material is reduced AND the best move is a king move
+        "match_kind": "missed_chance",
+        "aligned_moves": "the king move that takes direct or distant opposition (engine-confirmed king move only)",
+        "gate_policy": "endorsement_required + cp_loss_strict + king_move_required",
+        "suppress": "once_per_state_entry",
+        "cue_best":   "Take the opposition. Engine wants this king move — they must step aside.",
+        "cue_top_n":  "The Opposition — kings facing one square apart, opponent to move means you have it. They must give ground.",
+        "cue_absent": "Kings face on the same line. The side NOT to move has the opposition — force them aside.",
+        "visual_signature": {
+            "highlight": ["your_king_square", "their_king_square", "your_king_should_move_to"],
+            "arrows": [("your_king_square", "your_king_should_move_to", "green")],
+        },
+        "drill_outline": "5 K+P positions where seizing the opposition wins; correct answer is the king move that creates direct opposition.",
+    },
+
+    {
+        "id": "END_ROOK_BEHIND_PASSER",
+        "name": "Rook behind the passed pawn",
+        "phase_in_scope": ["endgame", "middlegame"],
+        "priority": 35,
+        "match_kind": "missed_chance",
+        "aligned_moves": "the rook move that places your rook directly behind the single passed pawn (yours: supporting from behind; theirs: restraining from behind)",
+        "gate_policy": "endorsement_required + cp_loss_strict + single_passer_only",
+        "suppress": "once_per_game",
+        "cue_best":   "Rook behind the passed pawn — Tarrasch's rule. Engine's top choice.",
+        "cue_top_n":  "Tarrasch rule: the rook belongs behind the passed pawn. It supports yours, restrains theirs.",
+        "cue_absent": "Rook + passed pawn? Behind is the right square — either to push it (yours) or hold it back (theirs).",
+        "visual_signature": {
+            "highlight": ["passed_pawn_square", "rook_square_played", "rook_target_square"],
+            "arrows": [("rook_square_played", "rook_target_square", "green")],
+        },
+        "drill_outline": "5 R+P endgames where rook-behind-pawn is the only winning idea; correct answer is the rook lift to the square behind the passed pawn.",
     },
 
 ]

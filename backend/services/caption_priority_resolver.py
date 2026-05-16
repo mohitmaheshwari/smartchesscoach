@@ -438,6 +438,11 @@ _PRINCIPLE_LABEL = {
     "DEF_WALK_KING":              "Walk the king to safety",
     "END_PASSED_PAWN":            "Passed pawns must be pushed",
     "END_KING_ACTIVE":            "King is a fighter in the endgame",
+    # Added 2026-05-16 (Mohit signoff). See
+    # project_endgame_principles_backlog.md for the full plan.
+    "END_RULE_OF_SQUARE":         "Rule of the Square",
+    "END_OPPOSITION":             "The Opposition",
+    "END_ROOK_BEHIND_PASSER":     "Rook behind the passed pawn",
 }
 
 

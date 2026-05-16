@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 6  # v6 (2026-05-16, Mohit fb_eb1d11ba227f): pv_after_played plumbed + post-move shape detection (pawn_fork etc.)
+V5_COACHING_VERSION = 7  # v7 (2026-05-16): endgame principles Tier 1 data — END_RULE_OF_SQUARE, END_OPPOSITION, END_ROOK_BEHIND_PASSER (Phase 1: data only; detectors land in Phase 2-4)
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
