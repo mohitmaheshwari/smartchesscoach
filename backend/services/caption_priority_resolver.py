@@ -356,6 +356,43 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
         n = evidence.get("own_pawn_moves_so_far")
         if n:
             return f"{n} pawn moves so far — pieces still on starting squares."
+    if pid == "OP_QUEEN_OUT_EARLY":
+        sq = evidence.get("queen_to")
+        n_minors = evidence.get("minor_pieces_developed")
+        aligned = evidence.get("aligned_moves_offered") or []
+        aligned_str = aligned[0] if aligned else ""
+        if sq and aligned_str and n_minors is not None:
+            piece = "piece" if n_minors == 1 else "pieces"
+            return (f"Queen to {sq} with only {n_minors} minor {piece} developed — "
+                    f"{aligned_str} keeps her safer.")
+        if sq:
+            return f"Queen to {sq} early — develop minor pieces first; queens get chased."
+    if pid == "OP_CLAIM_CENTER":
+        return "The centre pawns control key squares; claim them before pieces move."
+    if pid == "OP_KNIGHT_ON_RIM":
+        sq = evidence.get("knight_to")
+        if sq:
+            return f"Knight on {sq} (rim) controls fewer squares than from a central post."
+        return "Knight on the rim — central squares give the knight more reach."
+    if pid == "OP_NOT_CASTLED":
+        return "King still in the centre past move 12 — castle to tuck him away."
+    if pid == "TAC_BACK_RANK":
+        sq = evidence.get("king_square")
+        if sq:
+            return f"King on {sq} has no escape squares — back rank weakness."
+        return "Back rank weakness — your king has no luft."
+    if pid == "TAC_DEFENDER_COUNT":
+        sq = evidence.get("piece_square")
+        pt = evidence.get("piece_type")
+        att = evidence.get("attacker_count")
+        defn = evidence.get("defender_count")
+        if sq and pt and att is not None and defn is not None:
+            return f"{pt.capitalize()} on {sq} — {att} attackers vs {defn} defenders."
+    if pid == "TAC_CHECKS_CAPTURES_THREATS":
+        best = evidence.get("best_move")
+        kind = evidence.get("best_kind")  # "capture" | "check" | "threat"
+        if best and kind:
+            return f"A {kind} was available: {best} was the forcing move."
     if pid == "TAC_DISCOVERED_PATTERN":
         # match_kind=missed_chance — player did NOT play the discovery,
         # engine wanted it. Without explicit framing the LLM applies the
