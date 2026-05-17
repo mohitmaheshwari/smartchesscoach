@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 8  # v8 (2026-05-17): END_RULE_OF_SQUARE Pass 4 eval-bracket gate — drops fires where STM already winning by >+300cp (8 survivors on prod corpus, all pedagogically valid per Mohit signoff)
+V5_COACHING_VERSION = 9  # v9 (2026-05-17): caption_priority_resolver deterministic_draft sourcing — when focus == "principle" and anchor_detail exists, use "{anchor_name} — {detail}" as polish draft (was falling through to legacy R12 renderer output, so principle text never reached users)
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

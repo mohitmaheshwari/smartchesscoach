@@ -226,12 +226,15 @@ def _extract_protected_entities(draft: str, decision: Dict[str, Any]) -> List[st
 def _resolve_caption_mode(move: Dict[str, Any], decision: Dict[str, Any]) -> str:
     """Pick which generation mode the LLM should run in.
 
-    Never falls back to a giant prompt — Tier 2 is the current bounded
-    controlled-generation path, and Tier 3 is silence.
+    Reads `decision["deterministic_draft"]` (set upstream — may come
+    from the principle anchor's specialised detail OR move["caption"],
+    whichever the upstream draft resolver picked). Never falls back to
+    a giant prompt — Tier 2 is the current bounded controlled-generation
+    path, and Tier 3 is silence.
     """
     if decision.get("should_skip"):
         return "silent"
-    draft = (move.get("caption") or "").strip()
+    draft = (decision.get("deterministic_draft") or "").strip()
     if draft:
         return "polish"
     if decision.get("anchor_name"):
@@ -789,7 +792,29 @@ def resolve_priority(move: Dict[str, Any]) -> Dict[str, Any]:
         primary["allowed_moves"].append(punishment_move)
 
     # Three-tier mode dispatch + protected entities (Mohit 2026-05-16).
-    deterministic_draft = (move.get("caption") or "").strip()
+    #
+    # Deterministic draft source priority (added 2026-05-17 — Mohit
+    # signoff after audit showed the principle anchor_detail wasn't
+    # reaching the polish prompt, so users saw the R12 generic
+    # blunder template instead of "Rule of the Square — ..."):
+    #
+    #   1. When focus == "principle" AND the resolver built a
+    #      specialised anchor_detail, use "{anchor_name} — {detail}"
+    #      as the draft. The principle's specialised text IS the
+    #      semantic IR per [[llm-as-controlled-narrator]]; that's
+    #      what the polish step should preserve.
+    #   2. Fall back to move["caption"] (legacy R01-R14 renderer-rule
+    #      output) for non-principle anchors and for principles
+    #      that don't have a specialised detail yet.
+    focus_for_draft = primary.get("focus")
+    anchor_name_for_draft = primary.get("anchor_name") or ""
+    anchor_detail_for_draft = primary.get("anchor_detail") or ""
+    if (focus_for_draft == "principle"
+            and anchor_name_for_draft
+            and anchor_detail_for_draft):
+        deterministic_draft = f"{anchor_name_for_draft} — {anchor_detail_for_draft}"
+    else:
+        deterministic_draft = (move.get("caption") or "").strip()
     primary["deterministic_draft"] = deterministic_draft
     primary["caption_mode"]        = _resolve_caption_mode(move, primary)
     primary["protected_entities"]  = _extract_protected_entities(deterministic_draft, primary)
