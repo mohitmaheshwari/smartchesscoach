@@ -190,9 +190,19 @@ def _r03_shape_is_worth_captioning(s):
     """Pawn-front shapes are trivial unless rear is king — pin the pawn
     on d2 against the queen on d1 isn't actionable for a 1200 (R03 was
     firing 23k times in corpus audit, ~30%+ of which were these). Pawn
-    pinned against king IS absolute and stays in."""
-    if s.get("rear_piece_value_cp", 0) < MIN_ALIGNED_REAR_VALUE_CP:
-        return False
+    pinned against king IS absolute and stays in.
+
+    2026-05-17: rear-is-king exemption added to the value-floor check
+    too. PIECE_VALUE_CP[KING]=0 (SEE-capped), so rear-is-king shapes
+    fail `rear_value < MIN_ALIGNED_REAR_VALUE_CP` unconditionally. The
+    "Pins X to the king" branch in _r03_render was unreachable —
+    surfaced during Fix #1 (king-front skewer) verification when a
+    Ruy Lopez Bb5 regression test produced R11_development instead
+    of the expected pin caption.
+    """
+    if not s.get("rear_is_king", False):
+        if s.get("rear_piece_value_cp", 0) < MIN_ALIGNED_REAR_VALUE_CP:
+            return False
     if s.get("front_piece_type") == "pawn" and not s.get("rear_is_king", False):
         return False
     return True

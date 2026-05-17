@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 14  # v14 (2026-05-17): caption_principles.py cue_absent sweep — replaced 9 "Engine sees/likes/wants/prefers/has..." engine-meta phrasings with concrete principle teaching per [[teaching-not-reading]]. Parth fb_0f57acc84791 + fb_c64e76a26a74 directly; the rest as a consistency sweep across all cue_absent variants.
+V5_COACHING_VERSION = 15  # v15 (2026-05-17): R03 rear-is-king exemption — rear-is-king pins were blocked by MIN_ALIGNED_REAR_VALUE_CP floor (king value=0). "Pins X to the king" branch was unreachable. Discovered during Fix #1 regression check (Ruy Lopez Bb5 rendered as development not pin).
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
