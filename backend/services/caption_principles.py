@@ -399,9 +399,13 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that pins an enemy piece against a more valuable one",
         "gate_policy": "endorsement_required",
         "suppress": "once_per_move",
-        "cue_best":   "Pin the front piece — it can't move without losing the rear piece. Strongest move here.",
-        "cue_top_n":  "Two enemy pieces on a line — pin the front one with a slider.",
-        "cue_absent": "When two enemy pieces sit on a line, a bishop / rook / queen can pin them.",
+        # 2026-05-17: cues had to neutralize "pin" wording because the
+        # detector fires on both pin (front non-king) AND skewer (front
+        # is the king under check) — Parth fb_05356cf43f98: "Not pin.
+        # King cannot be pinned. Skewer is the correct term."
+        "cue_best":   "Two enemy pieces on a line — pin or skewer the front one with a slider. Strongest move here.",
+        "cue_top_n":  "Two enemy pieces on a line — pin or skewer the front one with a slider.",
+        "cue_absent": "When two enemy pieces sit on a line, a bishop / rook / queen can pin or skewer them.",
         "visual_signature": {
             "highlight": ["pinner_square", "front_square", "rear_square"],
             "arrows": [("pinner_square", "rear_square", "red")],

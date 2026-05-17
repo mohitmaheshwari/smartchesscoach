@@ -209,6 +209,7 @@ def _r03_render(f):
     shape = max(shapes, key=lambda s: s["rear_piece_value_cp"])
     front_lower = shape["front_value_vs_rear"] == "lower"
     rear_is_king = shape.get("rear_is_king", False)
+    front_is_king = shape.get("front_is_king", False)
     front_pt = shape["front_piece_type"]
     rear_pt = shape["rear_piece_type"]
     front_sq = shape["front_piece_square"]
@@ -217,6 +218,14 @@ def _r03_render(f):
 
     if rear_is_king:
         cap = f"{_played(f)}. Pins the {front_pt} on {front_sq} to the king."
+    elif front_is_king:
+        # Front is the king under check from this attacker — by definition
+        # a SKEWER, not a pin. King is forced to move (it's in check),
+        # exposing the rear piece behind. Parth flagged fb_e76ee83db3e8 +
+        # fb_05356cf43f98 (2026-05-17): "You cannot pin the king."
+        # Value-based front_lower check hit the wrong branch because
+        # PIECE_VALUE_CP[KING] = 0 (SEE-capped); king < queen → false pin.
+        cap = f"{_played(f)}. Skewers the king on {front_sq} — when it moves, the {rear_pt} on {rear_sq} falls."
     elif front_lower:
         cap = f"{_played(f)}. Pins the {front_pt} on {front_sq} against the {rear_pt} on {rear_sq}."
     else:

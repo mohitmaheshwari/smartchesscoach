@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 9  # v9 (2026-05-17): caption_priority_resolver deterministic_draft sourcing — when focus == "principle" and anchor_detail exists, use "{anchor_name} — {detail}" as polish draft (was falling through to legacy R12 renderer output, so principle text never reached users)
+V5_COACHING_VERSION = 10  # v10 (2026-05-17): pin/skewer king-front fix — R03 adds skewer branch for front_is_king (was rendering "Pins the king" because PIECE_VALUE_CP[KING]=0 made front<rear), TAC_PIN_PATTERN cues neutralized to "pin or skewer". Parth fb_e76ee83db3e8 + fb_05356cf43f98.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

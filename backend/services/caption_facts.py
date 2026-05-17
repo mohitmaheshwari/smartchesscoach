@@ -1826,6 +1826,7 @@ def _p_tac_pin_pattern(
             "rear_piece_type": shape.get("rear_piece_type"),
             "rear_square": shape.get("rear_piece_square"),
             "rear_is_king": shape.get("rear_is_king", False),
+            "front_is_king": shape.get("front_is_king", False),
         },
         "engine_endorsement": endorsement,
         "aligned_moves_offered": [played],
