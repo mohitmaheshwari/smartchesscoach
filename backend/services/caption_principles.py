@@ -124,7 +124,11 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_game",
         "cue_best":   "Develop your remaining pieces before attacking. The engine wants this immediately.",
         "cue_top_n":  "Attacks with two pieces still on their starting squares fail. Finish development first.",
-        "cue_absent": "Engine likes the attack here. Most positions, develop fully first — early attacks fail.",
+        # Was "Engine likes the attack here. Most positions, develop fully
+        # first — early attacks fail." — Parth fb_c64e76a26a74 2026-05-17
+        # flagged engine-meta as vague. Rewriting concrete per
+        # [[teaching-not-reading]].
+        "cue_absent": "This position rewards attacking, but most positions don't. As a default: develop every piece before attacking.",
         "visual_signature": {
             "highlight": ["undeveloped_piece_squares"],
             "arrows": [("attacker_square", "attacked_square", "amber")],
@@ -181,7 +185,10 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_game",
         "cue_best":   "Develop a new piece. Engine agrees — a fresh piece is the better move here.",
         "cue_top_n":  "Develop a new piece each turn. Multiple pieces are still on their starting squares.",
-        "cue_absent": "Engine sees something tactical. Even so — develop a new piece each turn is the default.",
+        # Was "Engine sees something tactical. Even so..." — Parth
+        # fb_0f57acc84791 2026-05-17 flagged as unclear. Rewriting per
+        # [[teaching-not-reading]].
+        "cue_absent": "This move solves a specific threat. As a default: a fresh piece each turn keeps the opening flowing.",
         "visual_signature": {
             "highlight": ["piece_first_move_square", "this_move_to_square"],
             "arrows": [("piece_first_move_square", "this_move_to_square", "amber")],
@@ -219,7 +226,10 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_game",
         "cue_best":   "Take the centre with a pawn. Strongest move here.",
         "cue_top_n":  "e4 and d4 open lines for your pieces immediately.",
-        "cue_absent": "Engine sees a tactic this move. Still — e4 / d4 is the default. Most positions reward central pawns.",
+        # Was "Engine sees a tactic this move..." — engine-meta language
+        # banned per [[teaching-not-reading]]. 2026-05-17 sweep alongside
+        # Parth's flagged cue_absent variants.
+        "cue_absent": "Tactics work here. As a default: e4 or d4 first — central pawns open lines for every piece.",
         "visual_signature": {
             "highlight": ["d4", "e4", "d5", "e5"],
             "arrows": [],
@@ -281,7 +291,9 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_state_entry",
         "cue_best":   "Castle now. Best move — O-O is the top engine pick.",
         "cue_top_n":  "Castle when you can. King safety is the priority before any attack.",
-        "cue_absent": "Engine has something tactical this move. Still — castle as soon as you can. It saves games.",
+        # 2026-05-17 sweep: replacing engine-meta cue_absent variants
+        # per [[teaching-not-reading]].
+        "cue_absent": "Tactics this move. Either way — castle as soon as you can. King safety saves games.",
         "visual_signature": {
             "highlight": ["king_starting_square", "castled_target_square"],
             "arrows": [("king_starting_square", "castled_target_square", "green")],
@@ -515,7 +527,8 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_state_entry",
         "cue_best":   "Defend the king first. Best move — the pawn weakness needs attention.",
         "cue_top_n":  "Your king pawns are loose. Defend before you attack.",
-        "cue_absent": "Engine wants something else. Still — loose king pawns mean defend before attack.",
+        # 2026-05-17 sweep: engine-meta cue_absent rewrite.
+        "cue_absent": "Other priorities this move. Either way — loose pawns near your king mean defend before attack.",
         "visual_signature": {
             "highlight": ["king_square", "weak_pawn_squares"],
             "arrows": [],
@@ -553,7 +566,8 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_game",
         "cue_best":   "Put your rook on the open file. Nothing blocks it there.",
         "cue_top_n":  "Open files are for rooks. Move yours there before the opponent does.",
-        "cue_absent": "Engine prefers a different move here. Most positions — your rook belongs on the open file.",
+        # 2026-05-17 sweep: engine-meta cue_absent rewrite.
+        "cue_absent": "Tactics shift things this move. Most positions — your rook belongs on the open file.",
         "visual_signature": {
             "highlight": ["rook_square", "open_file_target_square"],
             "arrows": [("rook_square", "open_file_target_square", "green")],
@@ -572,7 +586,8 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_game",
         "cue_best":   "Trade their attacker. Engine agrees — fewer attackers means less danger.",
         "cue_top_n":  "Under attack? Each trade of an attacker reduces the pressure.",
-        "cue_absent": "Engine prefers a different defence. Usually — under attack, trade off their attackers first.",
+        # 2026-05-17 sweep: engine-meta cue_absent rewrite.
+        "cue_absent": "A different defence works this move. Usually — under attack, trade off their attackers first.",
         "visual_signature": {
             "highlight": ["own_defender_square", "opp_attacker_square"],
             "arrows": [],
@@ -591,7 +606,9 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_game",
         "cue_best":   "Reroute the bishop. Best move — your bad bishop is in the way.",
         "cue_top_n":  "Bishop locked behind your own pawns is a bad bishop. Reroute or trade it.",
-        "cue_absent": "Engine sees something else this move. Long-term — your bad bishop needs a plan.",
+        # Was "Engine sees something else..." — engine-meta language
+        # banned per [[teaching-not-reading]]. 2026-05-17 sweep.
+        "cue_absent": "Other priorities this move. Long-term: your bad bishop is locked behind pawns and needs a reroute or trade.",
         "visual_signature": {
             "highlight": ["bad_bishop_square", "own_pawn_squares"],
             "arrows": [],
@@ -677,7 +694,8 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_state_entry",
         "cue_best":   "Activate the king. Engine's top choice — centre is where it fights.",
         "cue_top_n":  "Endgames need an active king. Walk it toward the centre, one square at a time.",
-        "cue_absent": "Engine has another plan. Generally — endgames need an active king, walk it to the centre.",
+        # 2026-05-17 sweep: engine-meta cue_absent rewrite.
+        "cue_absent": "Other plans this move. Generally — endgames need an active king, walk it to the centre.",
         "visual_signature": {
             "highlight": ["king_square", "centre_square"],
             "arrows": [("king_square", "centre_square", "green")],

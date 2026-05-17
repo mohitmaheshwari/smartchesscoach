@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 13  # v13 (2026-05-17): multi_target_attack king-defender filter — drops targets defended only by enemy king when attacker is worth more than target (SEE skips kings as attackers, so see_cp > 0 misfires on king-only-defended targets). Parth fb_e5fff03bdde6 "no fork here."
+V5_COACHING_VERSION = 14  # v14 (2026-05-17): caption_principles.py cue_absent sweep — replaced 9 "Engine sees/likes/wants/prefers/has..." engine-meta phrasings with concrete principle teaching per [[teaching-not-reading]]. Parth fb_0f57acc84791 + fb_c64e76a26a74 directly; the rest as a consistency sweep across all cue_absent variants.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
