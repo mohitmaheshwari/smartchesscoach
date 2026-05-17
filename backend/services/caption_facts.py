@@ -1901,6 +1901,15 @@ def _p_tac_hanging_piece(
     if not (best and played != best):
         return None
 
+    # The hanging piece always belongs to the side that just moved.
+    # Capture whether that side is the user (vs the opponent) so the
+    # resolver detail + cue can render "your" vs "their" correctly.
+    # Parth fb_b31dacc286bf (2026-05-17): the resolver_detail used
+    # `owner == "user"` but evidence stored actual color ("black"),
+    # so all captions read "their piece" even when the user hung
+    # their own knight.
+    mover_is_user = facts.get("mover_is_user")
+
     # PRIMARY: moving piece itself lands on losing-exchange square.
     if facts.get("is_exchange_losing"):
         loss = facts.get("exchange_loss_cp", 0) or 0
@@ -1910,6 +1919,7 @@ def _p_tac_hanging_piece(
                 "hanging_piece_square": facts.get("target_square"),
                 "hanging_piece_type": facts.get("moving_piece_type"),
                 "piece_color": facts.get("moving_piece_color"),
+                "mover_is_user": mover_is_user,
                 "exchange_loss_cp": loss,
                 "trigger": "moved_into_hanging_square",
             },
@@ -1933,6 +1943,7 @@ def _p_tac_hanging_piece(
             "hanging_piece_square": worst.get("square"),
             "hanging_piece_type": worst.get("piece_type"),
             "piece_color": worst.get("piece_color"),
+            "mover_is_user": mover_is_user,
             "trigger": "lost_defender",
         },
         "engine_endorsement": "best",

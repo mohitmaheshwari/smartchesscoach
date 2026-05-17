@@ -340,7 +340,13 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that defends or captures the hanging piece",
         "gate_policy": "endorsement_required + cp_loss_strict",
         "suppress": "once_per_move",
-        "cue_best":   "A piece is hanging with no defender. Best move: take it.",
+        # 2026-05-17 Parth fb_b31dacc286bf: the old cue_best said
+        # "Best move: take it" — but TAC_HANGING_PIECE fires on the
+        # MOVER hanging their own piece (could be the user OR the
+        # opponent). When the user hangs their own piece, "take it"
+        # is nonsense. Rewriting neutral; resolver detail surfaces
+        # whose-piece-it-is via mover_is_user.
+        "cue_best":   "A piece is now hanging with no defender — there's a stronger move available.",
         "cue_top_n":  "Loose piece with no defender — yours or theirs. Scan every move.",
         "cue_absent": "Scan for pieces with no defender — yours and theirs — before every move.",
         "visual_signature": {

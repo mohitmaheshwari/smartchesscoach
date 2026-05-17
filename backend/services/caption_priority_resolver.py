@@ -464,10 +464,19 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
     if pid == "TAC_HANGING_PIECE":
         sq = evidence.get("hanging_piece_square")
         pt = evidence.get("hanging_piece_type")
-        owner = evidence.get("piece_color")
-        side = "your" if owner == "user" else "their" if owner else "a"
+        # The hanging piece always belongs to the side that just moved.
+        # `mover_is_user` tells us whose perspective we're writing for.
+        # Fix 2026-05-17 (Parth fb_b31dacc286bf): the old branch read
+        # `piece_color` and compared against "user", but evidence
+        # stores actual color ("white"/"black"), so it always picked
+        # "their" — wrong when the user hung their own piece.
+        mover_is_user = evidence.get("mover_is_user")
         if sq and pt:
-            return f"{side.capitalize()} {pt} on {sq} has no defender."
+            if mover_is_user is True:
+                return f"Your {pt} on {sq} has no defender."
+            if mover_is_user is False:
+                return f"Their {pt} on {sq} has no defender."
+            return f"A {pt} on {sq} has no defender."
     if pid == "OP_BISHOP_BLOCKED":
         sq = evidence.get("bishop_square")
         blocker = evidence.get("blocking_pawn_to")
