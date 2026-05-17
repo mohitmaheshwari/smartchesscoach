@@ -2939,6 +2939,35 @@ def _pawn_distance_to_promote(pawn_sq: int, pawn_color: chess.Color) -> int:
     return dist
 
 
+def _pawn_promotion_path_clear(board: chess.Board, pawn_sq: int, pawn_color: chess.Color) -> bool:
+    """True if every square between the pawn and its promotion rank is
+    empty. A "passed" pawn whose path is blocked by ANY piece (own or
+    enemy) can't actually race — the race is delayed by however many
+    tempi it takes to clear the path.
+
+    Audit 2026-05-17 found two false-positive shapes that this filter
+    eliminates:
+      • Fire #6: doubled-pawn case (a5 blocked by own a4)
+      • Fire #12: own piece blocks (d5 blocked by own knight on d6)
+
+    For pure Rule of the Square teaching, the pawn must be on a clear
+    runway. With blockers in the way, the lesson is more nuanced
+    (clear-the-path-then-race) and the simple Chebyshev calculation
+    misleads.
+    """
+    file_ = chess.square_file(pawn_sq)
+    rank_ = chess.square_rank(pawn_sq)
+    promo_rank = 7 if pawn_color == chess.WHITE else 0
+    if pawn_color == chess.WHITE:
+        ranks_to_check = range(rank_ + 1, promo_rank + 1)
+    else:
+        ranks_to_check = range(promo_rank, rank_)
+    for r in ranks_to_check:
+        if board.piece_at(chess.square(file_, r)) is not None:
+            return False
+    return True
+
+
 def _is_clean_king_and_pawn_endgame(board: chess.Board) -> bool:
     """Pedagogical purity gate for Rule of the Square.
 
@@ -3080,6 +3109,13 @@ def _p_end_rule_of_square(
 
     # Scan each opponent passed pawn for the square-rule violation.
     for pawn_sq in opp_passed:
+        # Clear-runway filter: the pawn must have an unobstructed
+        # path to its promotion rank. Doubled own pawn (fire #6) or
+        # any own/enemy piece on the path (fire #12) muddies the
+        # Rule of the Square lesson. Audit 2026-05-17.
+        if not _pawn_promotion_path_clear(board_before, pawn_sq, them):
+            continue
+
         # Case C: king already in the square — skip this pawn.
         if _king_inside_pawn_square(our_king_sq, pawn_sq, them):
             continue
