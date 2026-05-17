@@ -50,6 +50,11 @@ def _facts_from_move(m: dict) -> dict:
     """Reconstruct the minimal facts dict the detector needs from a
     `decryption_v5_data` move record. Only fields _p_end_rule_of_square
     reads are included.
+
+    `eval_before_cp` is the white-POV eval stored by the V5 generator
+    (the detector flips per-side internally). Field is named
+    `eval_before` in the V5 record but the detector parameter name is
+    `eval_before_cp` — keep both aligned.
     """
     return {
         "phase":             m.get("phase"),
@@ -57,6 +62,7 @@ def _facts_from_move(m: dict) -> dict:
         "best_move_san":     m.get("best_move_san") or "",
         "played_san":        m.get("move_san") or "",
         "moving_piece_color": "white" if m.get("is_white") else "black",
+        "eval_before_cp":    m.get("eval_before"),
     }
 
 
@@ -157,6 +163,10 @@ async def main() -> None:
             if not ev:
                 continue
             verdict = _verify_geometry(board, ev["evidence"])
+            eb_white_pov = m.get("eval_before")
+            stm_eb = None
+            if eb_white_pov is not None:
+                stm_eb = eb_white_pov if m.get("is_white") else -eb_white_pov
             fires.append({
                 "game_id":     a["game_id"],
                 "move_number": m.get("move_number"),
@@ -164,6 +174,7 @@ async def main() -> None:
                 "fen_before":  fen_before,
                 "evidence":    ev["evidence"],
                 "verdict":     verdict,
+                "stm_eval_before": stm_eb,
             })
 
     print(f"Audit complete.")
@@ -187,6 +198,13 @@ async def main() -> None:
               f"{f['evidence'].get('king_should_move_to')} "
               f"(dist {f['evidence'].get('king_distance_before')}→{f['evidence'].get('king_distance_after_best')}, "
               f"pawn_dist {f['evidence'].get('pawn_distance')})")
+        # Pedagogical purity scope clause (per [[audit-coverage-tracks-surface]]):
+        # show STM eval-before so the reviewer can see where each fire
+        # sits in the eval bracket. Production gate drops STM > +300cp.
+        eb = f.get("stm_eval_before")
+        if eb is not None:
+            label = "balanced" if abs(eb) <= 300 else ("losing" if eb < 0 else "winning")
+            print(f"      stm_eval_before: {eb:+d}cp ({label})")
         if f["verdict"] != "OK":
             print(f"      VERDICT: {f['verdict']}")
         print()
@@ -198,9 +216,18 @@ async def main() -> None:
         sys.exit(1)
     print("=" * 70)
     print(f"All {len(fires)} fires passed geometric verification.")
-    print("Next step: manually review each fire above for false positives")
-    print("(i.e., positions where the rule of the square WOULD apply but")
-    print("the played move was actually defensible for other reasons).")
+    print()
+    print("Audit scope COVERS:")
+    print("  - Geometric: passed pawn real, distances consistent, king-outside-")
+    print("    before/inside-after-best.")
+    print("  - Pedagogical purity: STM eval bracket shown per fire (production")
+    print("    detector drops STM > +300cp via Pass 4 gate added 2026-05-17).")
+    print()
+    print("Audit scope does NOT cover:")
+    print("  - Resolver routing (whether END_RULE_OF_SQUARE actually anchors")
+    print("    the caption vs being shadowed by a higher-priority principle).")
+    print("  - LLM Tier 1 polish output preserving protected entities.")
+    print("  - 1200-test compliance of the rendered caption text.")
 
 
 if __name__ == "__main__":

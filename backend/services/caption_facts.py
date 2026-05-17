@@ -3050,6 +3050,8 @@ def _king_inside_pawn_square(
 #   F. Played move IS the catching king move — don't fire.
 #   G. SAN parse failures — return None safely.
 #   H. Own pieces blocking king path — NOT handled v1 (flag in audit).
+#   I. STM already winning by >+300cp — pedagogical purity gate
+#      drops (added Pass 4, 2026-05-17).
 def _p_end_rule_of_square(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -3061,12 +3063,33 @@ def _p_end_rule_of_square(
     if (facts.get("cp_loss") or 0) < 30:
         return None
 
-    # Pedagogical purity gate — Rule of the Square only applies in
-    # clean K+P (+ ≤1 minor) endgames. With rooks or queens, other
-    # dynamics dominate and the teaching becomes misleading. Added
-    # 2026-05-17 after corpus audit revealed ~75% false-positive rate.
+    # Pedagogical purity gate #1 — material composition. Rule of the
+    # Square only applies in clean K+P (+ ≤1 minor) endgames. With
+    # rooks or queens, other dynamics dominate and the teaching
+    # becomes misleading. Added 2026-05-17 after corpus audit
+    # revealed ~75% false-positive rate (135 → 13 fires).
     if not _is_clean_king_and_pawn_endgame(board_before):
         return None
+
+    # Pedagogical purity gate #2 — eval bracket. If the side-to-move
+    # is already winning by more than +300cp, Rule of the Square
+    # isn't the load-bearing lesson — the player just chose a slower
+    # win. Telling a player up 3+ pawns "your king is too far" reads
+    # as factually wrong about their game state and erodes trust.
+    #
+    # Asymmetric: LOSING positions are kept (Mohit signoff 2026-05-17:
+    # named-pattern teaching value > position-saving value — a 1200
+    # player still benefits from seeing the geometric pattern even
+    # when the game can't be saved).
+    #
+    # Audit 2026-05-17 found this pattern in 2/10 fires on prod corpus
+    # (both fires in game b4c2d442, player up ~6 pawns).
+    eval_before_white_pov = facts.get("eval_before_cp")
+    if eval_before_white_pov is not None:
+        side_white = facts.get("moving_piece_color") == "white"
+        stm_eval = eval_before_white_pov if side_white else -eval_before_white_pov
+        if stm_eval > 300:
+            return None
 
     best_san = _normalize_san(facts.get("best_move_san") or "")
     played_san = _normalize_san(facts.get("played_san") or "")
