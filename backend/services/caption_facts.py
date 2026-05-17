@@ -2939,6 +2939,35 @@ def _pawn_distance_to_promote(pawn_sq: int, pawn_color: chess.Color) -> int:
     return dist
 
 
+def _is_clean_king_and_pawn_endgame(board: chess.Board) -> bool:
+    """Pedagogical purity gate for Rule of the Square.
+
+    Returns True only for positions where Rule-of-the-Square is the
+    actual relevant teaching: no queens or rooks for either side, and
+    at most one minor piece (knight or bishop) per side. With heavier
+    pieces present, OTHER dynamics dominate — rook activity, tactical
+    threats — and Rule of the Square fires correctly by geometry but
+    teaches the wrong lesson.
+
+    Audit on 2026-05-17 (Mohit verification of 135 fires across the
+    corpus): ~75% of fires were positions with rooks/queens where
+    Rule of the Square was technically correct but pedagogically
+    irrelevant. This gate eliminates those.
+    """
+    for color in (chess.WHITE, chess.BLACK):
+        if board.pieces(chess.QUEEN, color):
+            return False
+        if board.pieces(chess.ROOK, color):
+            return False
+        minors = (
+            len(board.pieces(chess.KNIGHT, color))
+            + len(board.pieces(chess.BISHOP, color))
+        )
+        if minors > 1:
+            return False
+    return True
+
+
 def _king_inside_pawn_square(
     king_sq: int,
     pawn_sq: int,
@@ -3001,6 +3030,13 @@ def _p_end_rule_of_square(
     if facts.get("phase") != "endgame":
         return None
     if (facts.get("cp_loss") or 0) < 30:
+        return None
+
+    # Pedagogical purity gate — Rule of the Square only applies in
+    # clean K+P (+ ≤1 minor) endgames. With rooks or queens, other
+    # dynamics dominate and the teaching becomes misleading. Added
+    # 2026-05-17 after corpus audit revealed ~75% false-positive rate.
+    if not _is_clean_king_and_pawn_endgame(board_before):
         return None
 
     best_san = _normalize_san(facts.get("best_move_san") or "")
