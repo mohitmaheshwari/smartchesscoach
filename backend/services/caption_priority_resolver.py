@@ -513,6 +513,33 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
             )
         # Fallback if evidence shape changes — never lose the principle name.
         return "Step into the square — your king must catch their passed pawn."
+    if pid == "END_OPPOSITION":
+        # Phase 3 — 2026-05-17. Template:
+        #   "Your king to {target} faces theirs on {their_king}. They
+        #    must step aside."
+        # After the anchor "The Opposition — " is prepended, that's
+        # well within the LLM 18-word cap.
+        your_king = evidence.get("your_king_square")
+        their_king = evidence.get("their_king_square")
+        target = evidence.get("your_king_should_move_to")
+        kind = evidence.get("opposition_kind") or "direct"
+        if your_king and their_king and target:
+            if kind == "distant":
+                return (
+                    f"Distant opposition — your king to {target}, "
+                    f"theirs on {their_king}. They must step aside."
+                )
+            if kind == "diagonal":
+                return (
+                    f"Diagonal opposition — your king to {target} "
+                    f"faces theirs on {their_king}. They give way."
+                )
+            return (
+                f"Your king to {target} faces theirs on {their_king}. "
+                f"They must step aside."
+            )
+        # Fallback if evidence shape changes — never lose the principle name.
+        return "Take the opposition — face their king on the same line."
     if pid == "OP_QUEEN_OUT_EARLY":
         sq = evidence.get("queen_to")
         n_minors = evidence.get("minor_pieces_developed")

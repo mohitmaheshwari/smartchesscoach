@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 15  # v15 (2026-05-17): R03 rear-is-king exemption — rear-is-king pins were blocked by MIN_ALIGNED_REAR_VALUE_CP floor (king value=0). "Pins X to the king" branch was unreachable. Discovered during Fix #1 regression check (Ruy Lopez Bb5 rendered as development not pin).
+V5_COACHING_VERSION = 16  # v16 (2026-05-17): END_OPPOSITION Phase 3 ship — detector + resolver detail. king_move_required gate per Mohit signoff 2026-05-16. Same K+P purity + eval-bracket structure as RULE_OF_SQUARE Pass 4. Awaiting per-fire audit on prod corpus.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

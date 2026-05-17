@@ -3251,6 +3251,154 @@ def _p_end_rule_of_square(
     return None
 
 
+# ── Opposition geometry helper ──────────────────────────────────────
+#
+# Direct opposition: kings on the same file OR rank with exactly ONE
+# square between them. Side to move must give way → the side NOT to
+# move has the opposition.
+#
+# Distant opposition: same file or rank with 3 or 5 squares between
+# (Chebyshev 4 or 6). Harder for 1200-1500 but still a named pattern.
+#
+# Diagonal opposition: kings on the same diagonal with 1 square between.
+# Less common but valid. Included for completeness.
+def _kings_in_opposition(king1_sq: int, king2_sq: int) -> Optional[str]:
+    """Returns "direct" / "distant" / "diagonal" if the two king squares
+    sit in an opposition shape, else None.
+
+    Does NOT check whose turn it is — that's the caller's job. The
+    pattern is purely geometric.
+    """
+    f1, r1 = chess.square_file(king1_sq), chess.square_rank(king1_sq)
+    f2, r2 = chess.square_file(king2_sq), chess.square_rank(king2_sq)
+    df = abs(f1 - f2)
+    dr = abs(r1 - r2)
+    # Same file: rank diff 2 = direct; 4 or 6 = distant
+    if df == 0 and dr in (2, 4, 6):
+        return "direct" if dr == 2 else "distant"
+    # Same rank: file diff 2 = direct; 4 or 6 = distant
+    if dr == 0 and df in (2, 4, 6):
+        return "direct" if df == 2 else "distant"
+    # Same diagonal with 1 square between (Chebyshev 2)
+    if df == dr == 2:
+        return "diagonal"
+    return None
+
+
+# ── Detector #25: END_OPPOSITION ────────────────────────────────────
+#
+# Fires when:
+#   1. Phase is endgame.
+#   2. cp_loss >= 30 — engine confirms the move was suboptimal.
+#   3. Clean K+P endgame (≤1 minor per side, no rooks/queens) —
+#      pedagogical-purity gate inherited from END_RULE_OF_SQUARE.
+#   4. STM eval <= +300cp — drop already-winning positions (Pass-4
+#      style asymmetric filter; losing positions kept because the
+#      Opposition concept is teachable even when the game is lost).
+#   5. King_move_required (Mohit signoff 2026-05-16 locked refinement):
+#      engine's best (best_move_san) MUST be a king move. Without this
+#      gate, technically-true opposition fires on positions where
+#      triangulation / breakthrough is the actual lesson.
+#   6. After the engine's best king move, your king is in DIRECT
+#      (or distant / diagonal) opposition with the enemy king.
+#   7. You did NOT ALREADY have opposition before the played move
+#      (kings on opposition shape with YOU to move — that's the
+#      "you've lost it" lesson, different from "missed taking it").
+#   8. The played move did NOT also take opposition.
+#
+# Edge cases enumerated:
+#   A. Multiple king moves could create opposition — fire on engine's #1.
+#   B. Kings already in opposition with us to move — DON'T fire.
+#   C. Diagonal opposition included for completeness; rare but valid.
+#   D. SAN parse failures — return None safely.
+#   E. Eval data missing — fall back to geometric only.
+def _p_end_opposition(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """The Opposition — your king should have moved to face the enemy
+    king on the same line, leaving them to move with no good square."""
+    if facts.get("phase") != "endgame":
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+
+    # Pedagogical purity gate #1 — clean K+P endgame.
+    if not _is_clean_king_and_pawn_endgame(board_before):
+        return None
+
+    # Pedagogical purity gate #2 — eval bracket. Asymmetric: keep
+    # losing positions (named-pattern teaching value > position saving),
+    # drop already-winning (caption would frame a non-issue as a miss).
+    eval_before_white_pov = facts.get("eval_before_cp")
+    if eval_before_white_pov is not None:
+        side_white = facts.get("moving_piece_color") == "white"
+        stm_eval = eval_before_white_pov if side_white else -eval_before_white_pov
+        if stm_eval > 300:
+            return None
+
+    best_san = _normalize_san(facts.get("best_move_san") or "")
+    played_san = _normalize_san(facts.get("played_san") or "")
+    if not best_san:
+        return None
+
+    us = board_before.turn
+    them = not us
+
+    # king_move_required gate — engine's #1 must be a king move.
+    try:
+        best_move = board_before.parse_san(best_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+        return None
+    best_piece = board_before.piece_at(best_move.from_square)
+    if not best_piece or best_piece.piece_type != chess.KING or best_piece.color != us:
+        return None
+    best_king_dest = best_move.to_square
+
+    our_king_sq = board_before.king(us)
+    their_king_sq = board_before.king(them)
+    if our_king_sq is None or their_king_sq is None:
+        return None
+
+    # Case B: we ALREADY have opposition with us to move — we've actually
+    # lost it (the side NOT to move has opposition). Different lesson;
+    # don't fire here.
+    if _kings_in_opposition(our_king_sq, their_king_sq):
+        return None
+
+    # After best king move, do we create opposition?
+    opposition_kind = _kings_in_opposition(best_king_dest, their_king_sq)
+    if not opposition_kind:
+        return None
+
+    # Case E: played move ALSO takes opposition (a different king move
+    # that happens to land on a valid opposition square) — no fire.
+    try:
+        played_move = board_before.parse_san(played_san)
+        played_piece = board_before.piece_at(played_move.from_square)
+        if (played_piece
+                and played_piece.piece_type == chess.KING
+                and played_piece.color == us
+                and _kings_in_opposition(played_move.to_square, their_king_sq)):
+            return None
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+        pass
+
+    return {
+        "principle_id": "END_OPPOSITION",
+        "evidence": {
+            "your_king_square":          chess.square_name(our_king_sq),
+            "their_king_square":         chess.square_name(their_king_sq),
+            "your_king_should_move_to":  chess.square_name(best_king_dest),
+            "opposition_kind":           opposition_kind,
+            "played_san":                facts.get("played_san") or "",
+            "best_san":                  facts.get("best_move_san") or "",
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_san],
+    }
+
+
 # ── Detector #23: END_KING_ACTIVE ───────────────────────────────────
 #
 # Edge cases enumerated:
@@ -3615,6 +3763,7 @@ def _principles_violated(
         _p_mid_pawn_break,
         _p_end_king_active,
         _p_end_rule_of_square,   # added 2026-05-16 (Mohit signoff)
+        _p_end_opposition,       # added 2026-05-17 (Mohit signoff) — king_move_required gate
         _p_mid_king_safety,
         _p_mid_keep_attackers,
         _p_def_trade_attackers,
