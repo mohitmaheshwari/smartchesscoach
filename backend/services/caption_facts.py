@@ -641,7 +641,10 @@ def _pieces_now_undefended(
 # evidence of the line."
 # ────────────────────────────────────────────────────────────────────
 
-def _multi_target_attack_evidence(threats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _multi_target_attack_evidence(
+    threats: List[Dict[str, Any]],
+    board_after: Optional[chess.Board] = None,
+) -> List[Dict[str, Any]]:
     """Group `threats_created` entries by attacker_square. Any attacker
     with ≥2 separately-winning threats forms a multi-target-attack shape.
 
@@ -649,6 +652,14 @@ def _multi_target_attack_evidence(threats: List[Dict[str, Any]]) -> List[Dict[st
     is "one piece, multiple targets." The renderer decides whether to
     call it "fork" / "double attack" / "pressure on two pieces" based on
     context (piece type, target values, position).
+
+    King-defender filter (2026-05-17 Parth fb_e5fff03bdde6 "no fork"):
+    static_exchange_eval explicitly skips the king as an attacker
+    (caption_facts.py:272-273) — a known SEE limitation. Targets
+    defended ONLY by the enemy king register as see_cp > 0 even when
+    capturing them would clearly lose the attacker (queen takes pawn,
+    king takes queen). Drop targets where attacker_value > target_value
+    AND the enemy king is among the target's defenders in board_after.
     """
     by_attacker: Dict[str, List[Dict[str, Any]]] = {}
     for t in threats:
@@ -656,6 +667,8 @@ def _multi_target_attack_evidence(threats: List[Dict[str, Any]]) -> List[Dict[st
 
     out: List[Dict[str, Any]] = []
     for attacker_sq, ts in by_attacker.items():
+        if board_after is not None:
+            ts = _filter_king_defended_overvalue_targets(ts, board_after)
         if len(ts) < 2:
             continue
         # Sort targets by value descending so renderer sees the most valuable first
@@ -677,6 +690,56 @@ def _multi_target_attack_evidence(threats: List[Dict[str, Any]]) -> List[Dict[st
     # Sort fork shapes by the highest-value target descending
     out.sort(key=lambda f: -f["attacked_targets"][0]["value_cp"])
     return out
+
+
+def _filter_king_defended_overvalue_targets(
+    ts: List[Dict[str, Any]],
+    board_after: chess.Board,
+) -> List[Dict[str, Any]]:
+    """Drop threat entries where capturing the target loses the attacker.
+
+    Specifically: target defended by enemy king AND attacker value >
+    target value. SEE misses this because it skips kings as attackers.
+    """
+    kept: List[Dict[str, Any]] = []
+    for t in ts:
+        attacker_sq_name = t.get("attacker_square")
+        target_sq_name = t.get("target_square")
+        attacker_piece_type_name = t.get("attacker_piece_type", "")
+        # Map piece-type name back to chess.PieceType for value lookup.
+        type_lookup = {
+            "pawn": chess.PAWN, "knight": chess.KNIGHT, "bishop": chess.BISHOP,
+            "rook": chess.ROOK, "queen": chess.QUEEN, "king": chess.KING,
+        }
+        attacker_pt = type_lookup.get(attacker_piece_type_name)
+        attacker_value = PIECE_VALUE_CP.get(attacker_pt, 0) if attacker_pt else 0
+        target_value = t.get("target_value_cp", 0) or 0
+        try:
+            target_sq = chess.parse_square(target_sq_name)
+            attacker_sq = chess.parse_square(attacker_sq_name)
+        except (TypeError, ValueError):
+            kept.append(t)
+            continue
+        attacker_piece = board_after.piece_at(attacker_sq)
+        if attacker_piece is None:
+            kept.append(t)
+            continue
+        enemy_color = not attacker_piece.color
+        defenders = board_after.attackers(enemy_color, target_sq)
+        if not defenders:
+            kept.append(t)
+            continue
+        # Is the king among the defenders?
+        king_defends = any(
+            board_after.piece_at(sq) is not None
+            and board_after.piece_at(sq).piece_type == chess.KING
+            for sq in defenders
+        )
+        if king_defends and attacker_value > target_value:
+            # Capturing loses the attacker — not a real fork target.
+            continue
+        kept.append(t)
+    return kept
 
 
 # Pin/skewer shapes share a common geometry: a sliding own piece lines
@@ -3770,7 +3833,7 @@ def extract_facts(
     #   aligned_pieces     — "three pieces on a line" (renderer picks
     #                        pin/skewer/x-ray via front_value_vs_rear)
     #   discovered_attack  — "uncovered attacker via played move"
-    multi_target_attack_evidence = _multi_target_attack_evidence(threats_created)
+    multi_target_attack_evidence = _multi_target_attack_evidence(threats_created, board_after)
     # User-flagged bug 2026-05-13 (fb_69b32c5fdcbf): R03 fired
     # "Nf3. Pins the knight on f6 against the queen on d8" — knight Nf3
     # can't pin (knights aren't sliders), so the pin must have been

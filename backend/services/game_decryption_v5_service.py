@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 12  # v12 (2026-05-17): "Free piece" eval-compensation gate — new fact free_capture_uncontested = geometric free_capture AND eval swing >= captured/2 (mover's POV). R08 uses uncontested for the "Free X — nothing recaptures" caption; geometric free_capture stays for _material_explains_eval. Parth fb_0467dc2bc44f + fb_5d4a86e264e6.
+V5_COACHING_VERSION = 13  # v13 (2026-05-17): multi_target_attack king-defender filter — drops targets defended only by enemy king when attacker is worth more than target (SEE skips kings as attackers, so see_cp > 0 misfires on king-only-defended targets). Parth fb_e5fff03bdde6 "no fork here."
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
