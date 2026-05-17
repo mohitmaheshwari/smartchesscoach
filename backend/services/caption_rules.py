@@ -337,16 +337,21 @@ def _r08_render(f):
     delta = f["material_delta_played_cp"]
     mover_is_user = f.get("mover_is_user")
     captured = f.get("captured_piece_type", "piece")
+    # Use the pedagogical gate (geometric + eval-supported) for the
+    # "Free X" celebratory line. Parth 2026-05-17 fb_0467dc2bc44f +
+    # fb_5d4a86e264e6 flagged captions that were geometrically true
+    # but ignored positional compensation in the eval.
+    uncontested = f.get("free_capture_uncontested")
     if mover_is_user is False:
         # Opp grabbed material from us. User-actionable framing.
-        if f.get("free_capture"):
+        if uncontested:
             cap = f"{_played(f)}. Opponent grabs the {captured} — nothing was defending it."
         elif f.get("is_capture"):
             cap = f"{_played(f)}. Opponent wins material in the exchange."
         else:
             cap = f"{_played(f)}. Opponent gains {delta} cp."
     else:
-        if f.get("free_capture"):
+        if uncontested:
             cap = f"{_played(f)}. Free {captured} — nothing recaptures."
         elif f.get("is_capture"):
             cap = f"{_played(f)} wins material. Net {delta} cp in the exchange."

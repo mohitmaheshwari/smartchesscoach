@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 11  # v11 (2026-05-17): TAC_HANGING_PIECE perspective fix — evidence now carries mover_is_user; resolver detail renders "your"/"their" correctly (was always "their" due to broken owner=="user" check); cue_best neutralized (was "take it" which only fits opp-blunder, but detector also fires on user-blunder). Parth fb_b31dacc286bf.
+V5_COACHING_VERSION = 12  # v12 (2026-05-17): "Free piece" eval-compensation gate — new fact free_capture_uncontested = geometric free_capture AND eval swing >= captured/2 (mover's POV). R08 uses uncontested for the "Free X — nothing recaptures" caption; geometric free_capture stays for _material_explains_eval. Parth fb_0467dc2bc44f + fb_5d4a86e264e6.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

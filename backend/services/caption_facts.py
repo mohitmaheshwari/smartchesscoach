@@ -3836,6 +3836,44 @@ def extract_facts(
         recapturers = board_after.attackers(owner_color, played_move.to_square)
         free_capture = len(recapturers) == 0
 
+    # ── free_capture_uncontested ──────────────────────────────────────
+    # `free_capture` (above) is purely geometric — "no piece attacks the
+    # target after the capture." But that's not enough for the
+    # user-facing "Free X — nothing recaptures" caption: a player can
+    # take a geometrically undefended piece AND pay positional
+    # compensation (king exposure, weakened structure) such that the
+    # eval barely moves.
+    #
+    # Parth fb_0467dc2bc44f (exf6 free bishop, swing 0cp vs bishop
+    # ~300cp) and fb_5d4a86e264e6 (Kxf7 free pawn, swing 22cp vs pawn
+    # 100cp) both flagged "Free X" captions on captures where eval
+    # showed no real material gain.
+    #
+    # Gate: require swing >= half the captured piece's value (mover's
+    # perspective). Below that, the move is geometric-free but
+    # compensated; the renderer falls back to "wins material in the
+    # exchange" / silence rather than the celebratory "Free X" line.
+    #
+    # `free_capture` itself stays untouched — `_material_explains_eval`'s
+    # short-circuit (d7ce40cf #22 USER Rxc6) keeps relying on it.
+    # Tradeoff: that celebration moment may downgrade if the
+    # "punish opp's hung piece" eval swing is ~0; acceptable since
+    # the alternative caption ("wins material in the exchange") is
+    # still accurate.
+    free_capture_uncontested = False
+    if free_capture and captured_piece is not None:
+        cap_value_cp = PIECE_VALUE_CP.get(captured_piece.piece_type, 0) or 0
+        if eval_before_cp is not None and eval_after_cp is not None:
+            swing_white_pov = eval_after_cp - eval_before_cp
+            swing_mover_pov = (
+                swing_white_pov if own_color == chess.WHITE else -swing_white_pov
+            )
+            if swing_mover_pov >= cap_value_cp // 2:
+                free_capture_uncontested = True
+        else:
+            # No eval data — fall back to geometric (legacy behavior).
+            free_capture_uncontested = True
+
     # ── Mate threat evidence (commit #4a) ───────────────────────────────
     mate_threat_evidence = _mate_threat_evidence(
         eval_after_cp, pv_after_played, pv_after_best, own_color,
@@ -3991,6 +4029,7 @@ def extract_facts(
         "material_delta_played_cp": material_delta_played_cp,
         "material_delta_best_cp": material_delta_best_cp,
         "free_capture": free_capture,
+        "free_capture_uncontested": free_capture_uncontested,
 
         # MATE THREAT EVIDENCE (commit #4a) — highest priority reason.
         # When present, any primary_reason picker MUST prefer this
