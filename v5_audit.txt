@@ -1,0 +1,354 @@
+==============================================================================
+V5 CAPTION PIPELINE — CORPUS AUDIT
+==============================================================================
+games examined          : 3614
+  succeeded             : 3614
+  skipped (no data)     : 0
+  failed                : 0
+  written to DB         : 3614
+elapsed                 : 1330.4s
+
+total move records      : 226135
+silent moves            : 66870  (29.6%)
+user moves              : 113074
+  blunders (cpl≥100)    : 22829
+  blunders captioned    : 22829  (100.0%)
+distinct caption texts  : 41716
+
+──────────────────────────────────────────────────────────────────────────────
+RULE HISTOGRAM
+──────────────────────────────────────────────────────────────────────────────
+  R_FALLBACK_no_primary               66666  (29.5%)
+  R12_blunder                         33657  (14.9%)
+  R11_development                     25583  (11.3%)
+  R07_forced_recapture                20467  (9.1%)
+  R01_mate                            19119  (8.5%)
+  R06_check_plain                     12240  (5.4%)
+  R10_threat                          11951  (5.3%)
+  R08_material                         9811  (4.3%)
+  R03_aligned_pieces                   6697  (3.0%)
+  R13_opening_central_pawn             6332  (2.8%)
+  R02_multi_target_attack              4425  (2.0%)
+  R09_king_safety                      4402  (1.9%)
+  R05_check_extra                      2735  (1.2%)
+  R04_discovered_attack                1619  (0.7%)
+  R14_forced_best                       227  (0.1%)
+  R_FALLBACK_extractor_crashed          204  (0.1%)
+
+──────────────────────────────────────────────────────────────────────────────
+SUSPECTS (architecturally wrong-looking captions)
+──────────────────────────────────────────────────────────────────────────────
+
+  [S7_mate_no_sentinel]  count seen: 5 (showing first 5)
+    coach_2b  m 35 USER Qxg2#    cpl=    0  R01_mate                   Qxg2#. Checkmate.
+    coach_a2  m 23 USER Qxe2#    cpl=    0  R01_mate                   Qxe2#. Checkmate.
+    coach_80  m 33 USER Qd7#     cpl=10000  R01_mate                   Qd7#. Checkmate.
+    caa745d5  m 20 USER Qxf7     cpl=  284  R01_mate                   Qxf7 allows mate in 2.
+    game_186  m 20 USER Qxf7     cpl=  284  R01_mate                   Qxf7 allows mate in 2.
+
+──────────────────────────────────────────────────────────────────────────────
+TEMPLATE REPETITION (caption texts seen ≥ 5 times)
+──────────────────────────────────────────────────────────────────────────────
+  2011× O-O. King is safe; rook joins the game.
+  1763× O-O. Opponent tucks their king away.
+  1586× Develops the knight to f3.
+  1352× Opponent develops the knight to f3.
+  1298× Develops the knight to c6.
+  1297× e4. Stakes a claim in the center.
+  1260× Develops the knight to f6.
+  1250× Develops the knight to c3.
+  1225× Opponent develops the knight to f6.
+  1180× e4. Opponent claims the center.
+  1082× Opponent develops the knight to c6.
+   913× Opponent develops the knight to c3.
+   811× e5. Opponent claims the center.
+   759× e5. Stakes a claim in the center.
+   614× d4. Stakes a claim in the center.
+   608× Develops the bishop to c4.
+   588× d5. Opponent claims the center.
+   528× d5. Stakes a claim in the center.
+   524× d4. Opponent claims the center.
+   517× Opponent develops the bishop to c4.
+   390× Bg4. Pins the knight on f3 against the queen on d1.
+   386× exd5. Opponent forced to recapture the pawn.
+   357× Opponent develops the bishop to e7.
+   335× exd5 — only move. Takes back the pawn.
+   324× O-O-O. Opponent tucks their king away.
+   309× Opponent develops the knight to d7.
+   309× Develops the bishop to d3.
+   305× Develops the bishop to c5.
+   304× O-O-O. King is safe; rook joins the game.
+   293× Bb5+ — check. King must move or block.
+   285× Opponent develops the bishop to e2.
+   282× Develops the bishop to f4.
+   281× h3 threatens the bishop on g4.
+   279× Opponent develops the bishop to d3.
+   279× Bg5. Pins the knight on f6 against the queen on d8.
+   273× Develops the bishop to e7.
+   265× Develops the bishop to e2.
+   261× Develops the bishop to e3.
+   247× Opponent develops the bishop to e3.
+   245× exd4. Opponent forced to recapture the pawn.
+   241× Opponent develops the bishop to g7.
+   241× Opponent develops the knight to d2.
+   239× Develops the bishop to g7.
+   236× Opponent develops the bishop to c5.
+   227× h6 threatens the bishop on g5.
+   225× Bb4+ — check. King must move or block.
+   220× Develops the knight to e5.
+   210× Opponent develops the bishop to b5.
+   209× Opponent develops the bishop to f4.
+   205× dxe5. Opponent forced to recapture the pawn.
+
+──────────────────────────────────────────────────────────────────────────────
+RULE SAMPLES (a few non-silent captions per rule for spot-check)
+──────────────────────────────────────────────────────────────────────────────
+
+  [R01_mate]
+    d1273603  m 52 OPP  Ke5      cpl= 9100  Ke5. Opp's position is lost.
+    d1273603  m 53 USER f7       cpl=    0  f7. Wins by force.
+    d1273603  m 53 OPP  Ke6      cpl=    0  Ke6. Opp's position is lost.
+
+  [R02_multi_target_attack]
+    84d8c8aa  m 20 USER Nxc6     cpl=   50  Nxc6 forks the bishop on a7 and the pawn on e5.
+    d1273603  m 22 OPP  Be2      cpl=   -1  Be2 forks the rook on f1 and the pawn on c4.
+    d1273603  m 36 USER Ra6      cpl=   48  Ra6 attacks the pawns on a5 and g6 — likely wins one.
+
+  [R03_aligned_pieces]
+    84d8c8aa  m  5 USER Bg4      cpl=   57  Bg4. Pins the knight on f3 against the queen on d1.
+    84d8c8aa  m  6 USER Bxf3     cpl=   26  Bxf3. Pins the bishop on e2 against the queen on d1.
+    84d8c8aa  m 19 OPP  f4       cpl=    7  f4. Pins the bishop on d6 against the rook on d7.
+
+  [R04_discovered_attack]
+    d1273603  m 16 OPP  Bh3      cpl=   40  Bh3 uncovers the rook hitting the bishop on a8.
+    4a61e917  m 10 USER Nb3      cpl=   32  Nb3 uncovers the bishop hitting the pawn on h6.
+    4a61e917  m 12 USER Nfd4     cpl=   64  Nfd4 uncovers the bishop hitting the knight on d5.
+
+  [R05_check_extra]
+    84d8c8aa  m 24 OPP  Rxf7+    cpl=  -22  Rxf7+ — check, and attacks the pawn on g7 too.
+    84d8c8aa  m 32 OPP  Nc7+     cpl=  -70  Nc7+ — check, and attacks the rook on a8 too.
+    d1273603  m 19 OPP  Bd4+     cpl=  195  Bd4+ — check, and attacks the pawn on b2 too.
+
+  [R06_check_plain]
+    84d8c8aa  m 12 OPP  Qa4+     cpl=   -2  Qa4+ — check. King must move or block.
+    84d8c8aa  m 13 OPP  Bxc6+    cpl=  165  Bxc6+ — check. King must move or block.
+    84d8c8aa  m 17 OPP  Qxc6+    cpl=    0  Qxc6+ — check. King must move or block.
+
+  [R07_forced_recapture]
+    84d8c8aa  m  7 OPP  Bxf3     cpl=    0  Bxf3. Opponent forced to recapture the bishop.
+    84d8c8aa  m  8 OPP  cxd4     cpl=   -3  cxd4. Opponent forced to recapture the pawn.
+    84d8c8aa  m 21 USER Rxd6     cpl=   36  Rxd6 — only move. Takes back the rook.
+
+  [R08_material]
+    84d8c8aa  m 10 OPP  Bxd5     cpl=    4  Bxd5. Opponent grabs the pawn — nothing was defending it.
+    84d8c8aa  m 22 USER Nxa7     cpl=   19  Nxa7. Free bishop — nothing recaptures.
+    84d8c8aa  m 25 OPP  Rxa7     cpl=  -20  Rxa7. Opponent grabs the knight — nothing was defending it.
+
+  [R09_king_safety]
+    84d8c8aa  m  9 OPP  O-O      cpl=  100  O-O. Opponent tucks their king away.
+    d1273603  m  5 OPP  O-O      cpl=   -6  O-O. Opponent tucks their king away.
+    d1273603  m  6 USER O-O      cpl=    4  O-O. King is safe; rook joins the game.
+
+  [R10_threat]
+    84d8c8aa  m 10 USER Rd8      cpl=   36  Rd8 threatens the bishop on d5.
+    84d8c8aa  m 11 USER e6       cpl=    0  e6 threatens the bishop on d5.
+    84d8c8aa  m 14 OPP  Bg5      cpl=   59  Bg5 threatens the rook on d8.
+
+  [R11_development]
+    84d8c8aa  m  4 USER Nc6      cpl=    0  Develops the knight to c6.
+    84d8c8aa  m  5 OPP  Nf3      cpl=   32  Opponent develops the knight to f3.
+    84d8c8aa  m  6 OPP  Be2      cpl=   59  Opponent develops the bishop to e2.
+
+  [R12_blunder]
+    84d8c8aa  m  8 USER Qb6      cpl=  101  Qb6 loses about 1 pawn. e6 was better.
+    84d8c8aa  m  9 USER Nxd4     cpl=  235  Nxd4 loses about 2 pawns. e6 was better.
+    84d8c8aa  m 13 USER bxc6     cpl=  187  bxc6 loses about 2 pawns. Qxc6 was better.
+
+  [R13_opening_central_pawn]
+    84d8c8aa  m  1 OPP  e4       cpl=    0  e4. Opponent claims the center.
+    84d8c8aa  m  2 OPP  d4       cpl=    8  d4. Opponent claims the center.
+    84d8c8aa  m  2 USER d5       cpl=   10  d5. Stakes a claim in the center.
+
+  [R14_forced_best]
+    84d8c8aa  m 34 USER Kd6      cpl=  287  Kd6 — only move. Best you've got in this position.
+    de8c160a  m 55 USER Ke4      cpl=  135  Ke4 — only move. Best you've got in this position.
+    f13917ab  m 49 USER Rxc5     cpl=  314  Rxc5 — only move. Best you've got in this position.
+
+──────────────────────────────────────────────────────────────────────────────
+TEACHING LAYER — principle firing summary
+──────────────────────────────────────────────────────────────────────────────
+  total principle firings : 65956
+  firings per move record : 29.17%
+
+  TAC_CHANGED_AFTER_MOVE             16110   (best=16110)
+  TAC_CHECKS_CAPTURES_THREATS         6525   (best=6525)
+  TAC_HANGING_PIECE                   5610   (best=5610)
+  TAC_DEFENDER_COUNT                  3663   (best=3663)
+  OP_SAME_PIECE_TWICE                 3392   (absent=3176 · best=216)
+  TAC_DISCOVERED_PATTERN              2332   (best=2332)
+  OP_FINISH_DEVELOPMENT               2329   (absent=2000 · best=329)
+  MID_KING_SAFETY                     2058   (absent=2058)
+  END_KING_ACTIVE                     2049   (absent=1980 · best=69)
+  TAC_PIN_PATTERN                     1941   (best=1941)
+  OP_BISHOP_BLOCKED                   1936   (absent=1615 · best=321)
+  OP_QUEEN_OUT_EARLY                  1808   (absent=1605 · best=203)
+  OP_NOT_CASTLED                      1760   (absent=1698 · best=62)
+  OP_PAWN_HEAVY                       1695   (absent=1418 · best=277)
+  MID_ROOK_OPEN_FILE                  1682   (best=1682)
+  OP_LOOSE_KING_PAWNS                 1631   (absent=1395 · best=236)
+  MID_KEEP_ATTACKERS                  1354   (best=1354)
+  DEF_MOST_ATTACKED                   1268   (best=1268)
+  OP_CLAIM_CENTER                     1097   (best=1097)
+  DEF_WALK_KING                       1090   (best=1090)
+  TAC_FORK_PATTERN                     995   (best=995)
+  MID_BAD_BISHOP                       978   (absent=978)
+  MID_PAWN_BREAK                       857   (best=857)
+  DEF_TRADE_ATTACKERS                  855   (best=855)
+  END_PASSED_PAWN                      395   (best=395)
+  OP_KNIGHT_ON_RIM                     267   (absent=237 · best=30)
+  TAC_SKEWER_PATTERN                   234   (best=234)
+  TAC_BACK_RANK                         45   (best=45)
+
+──────────────────────────────────────────────────────────────────────────────
+PRINCIPLE SAMPLES (a few firings per principle for spot-check)
+──────────────────────────────────────────────────────────────────────────────
+
+  [DEF_MOST_ATTACKED]
+    92c11a8b  m 12 USER Nh2      cpl=   38  endorsement=best    evidence={'most_attacked_square': 'd4', 'most_attacked_piece_type': 'pawn', 'attacked_pieces_count': 2}
+    e0a078a0  m 12 USER Qb8      cpl=   37  endorsement=best    evidence={'most_attacked_square': 'f6', 'most_attacked_piece_type': 'knight', 'attacked_pieces_count': 2}
+    50817880  m 32 USER Qc8      cpl=  104  endorsement=best    evidence={'most_attacked_square': 'c6', 'most_attacked_piece_type': 'rook', 'attacked_pieces_count': 2}
+
+  [DEF_TRADE_ATTACKERS]
+    4a61e917  m 22 USER Be1      cpl=  237  endorsement=best    evidence={'engine_capture': 'Qxd5', 'attacker_square': 'd5', 'attacker_piece': 'bishop', 'attacks_own_pieces_at': ['e4']}
+    10a9f1b7  m 20 USER cxd6     cpl=   94  endorsement=best    evidence={'engine_capture': 'Nxd6', 'attacker_square': 'd6', 'attacker_piece': 'pawn', 'attacks_own_pieces_at': ['c7', 'e7']}
+    6f5fef5c  m 16 USER Bxf6     cpl=   75  endorsement=best    evidence={'engine_capture': 'Qxf6', 'attacker_square': 'f6', 'attacker_piece': 'knight', 'attacks_own_pieces_at': ['h7', 'g8']}
+
+  [DEF_WALK_KING]
+    84d8c8aa  m 30 USER e4       cpl=   47  endorsement=best    evidence={'engine_king_move': 'Kc4', 'played': 'e4'}
+    d1273603  m 21 USER Rf1      cpl=   93  endorsement=best    evidence={'engine_king_move': 'Kg2', 'played': 'Rf1'}
+    6c13e278  m 14 USER e6       cpl=   74  endorsement=best    evidence={'engine_king_move': 'Kd6', 'played': 'e6'}
+
+  [END_KING_ACTIVE]
+    84d8c8aa  m 21 OPP  Rxd6     cpl=   -1  endorsement=absent  evidence={'king_square': 'g1'}
+    d1273603  m 16 USER Nd5      cpl=   31  endorsement=absent  evidence={'king_square': 'g1'}
+    6c13e278  m 16 OPP  Nf7+     cpl=   57  endorsement=absent  evidence={'king_square': 'e1'}
+
+  [END_PASSED_PAWN]
+    d1273603  m 35 USER Rd6+     cpl=  702  endorsement=best    evidence={'passed_pawn_squares': ['c4', 'c5'], 'engine_chose_push': 'c6', 'player_chose': 'Rd6'}
+    10a9f1b7  m 36 USER Ke4      cpl=   33  endorsement=best    evidence={'passed_pawn_squares': ['d5', 'e6'], 'engine_chose_push': 'd4', 'player_chose': 'Ke4'}
+    92c11a8b  m 38 USER Bc3      cpl=  163  endorsement=best    evidence={'passed_pawn_squares': ['f2', 'g3'], 'engine_chose_push': 'g4', 'player_chose': 'Bc3'}
+
+  [MID_BAD_BISHOP]
+    92c11a8b  m 16 USER Bxh8     cpl=    0  endorsement=absent  evidence={'bad_bishop_square': 'd4', 'same_color_pawn_count': 5}
+    6f5fef5c  m 16 OPP  Nxf6+    cpl=   56  endorsement=absent  evidence={'bad_bishop_square': 'f1', 'same_color_pawn_count': 5}
+    0757c4e2  m 22 OPP  f4       cpl=  -16  endorsement=absent  evidence={'bad_bishop_square': 'b4', 'same_color_pawn_count': 5}
+
+  [MID_KEEP_ATTACKERS]
+    84d8c8aa  m 16 USER Qxe5     cpl=  331  endorsement=best    evidence={'trade_made': 'Qxe5', 'engine_alternative': 'Nh6'}
+    10a9f1b7  m 20 USER cxd6     cpl=   94  endorsement=best    evidence={'trade_made': 'cxd6', 'engine_alternative': 'Nxd6'}
+    92c11a8b  m 18 USER Qxg6+    cpl=  124  endorsement=best    evidence={'trade_made': 'Qxg6', 'engine_alternative': 'Qc4'}
+
+  [MID_KING_SAFETY]
+    84d8c8aa  m 20 OPP  fxe5     cpl=  404  endorsement=absent  evidence={'king_square': 'g1', 'front_pawns_missing': 1}
+    d1273603  m 15 OPP  Rxd8     cpl=    9  endorsement=absent  evidence={'king_square': 'g8', 'front_pawns_missing': 1}
+    752eb0a2  m 16 USER Bb5      cpl=  452  endorsement=absent  evidence={'king_square': 'g1', 'front_pawns_missing': 2}
+
+  [MID_PAWN_BREAK]
+    f43805b1  m 15 USER Nc4      cpl= 9076  endorsement=best    evidence={'pawn_break_move': 'c6', 'pawn_break_target': 'c6'}
+    01d57ac5  m 17 USER h5       cpl=   86  endorsement=best    evidence={'pawn_break_move': 'a6', 'pawn_break_target': 'a6'}
+    e0a078a0  m 19 USER Qc3      cpl=  169  endorsement=best    evidence={'pawn_break_move': 'e5', 'pawn_break_target': 'e5'}
+
+  [MID_ROOK_OPEN_FILE]
+    84d8c8aa  m 26 USER Kc5      cpl=   31  endorsement=best    evidence={'rook_target_file': 'b', 'rook_target_square': 'b8', 'engine_chose': 'Rb8'}
+    d1273603  m 19 USER f4       cpl=  392  endorsement=best    evidence={'rook_target_file': 'd', 'rook_target_square': 'd2', 'engine_chose': 'Rd2'}
+    2cf4ee2b  m 17 USER g6       cpl=  134  endorsement=best    evidence={'rook_target_file': 'a', 'rook_target_square': 'a5', 'engine_chose': 'Ra5'}
+
+  [OP_BISHOP_BLOCKED]
+    6c13e278  m 14 USER e6       cpl=   74  endorsement=absent  evidence={'bishop_square': 'd5', 'blocking_pawn_to': 'e6'}
+    f5c306b3  m  7 OPP  d3       cpl=   94  endorsement=absent  evidence={'bishop_square': 'c4', 'blocking_pawn_to': 'd3'}
+    e409a41a  m  5 OPP  c4       cpl=   52  endorsement=absent  evidence={'bishop_square': 'f1', 'blocking_pawn_to': 'c4'}
+
+  [OP_CLAIM_CENTER]
+    4a61e917  m  2 USER c4       cpl=   34  endorsement=best    evidence={'played': 'c4', 'engine_central_choice': 'e4'}
+    ed7f4858  m  4 USER Bc5      cpl=  101  endorsement=best    evidence={'played': 'Bc5', 'engine_central_choice': 'd5'}
+    f43805b1  m  6 USER Nf6      cpl=   55  endorsement=best    evidence={'played': 'Nf6', 'engine_central_choice': 'd5'}
+
+  [OP_FINISH_DEVELOPMENT]
+    84d8c8aa  m  8 USER Qb6      cpl=  101  endorsement=absent  evidence={'undeveloped_minor_count': 2, 'premature_attack_target': 'd4', 'trigger_kind': 'threat_created'}
+    6c13e278  m  4 OPP  Qe2      cpl=   90  endorsement=absent  evidence={'undeveloped_minor_count': 3, 'premature_attack_target': 'e4', 'trigger_kind': 'threat_created'}
+    752eb0a2  m  6 USER Bc4      cpl=   74  endorsement=best    evidence={'undeveloped_minor_count': 2, 'premature_attack_target': 'f7', 'trigger_kind': 'threat_created'}
+
+  [OP_KNIGHT_ON_RIM]
+    c36704d0  m 14 OPP  Na6      cpl=  138  endorsement=absent  evidence={'knight_from': 'b8', 'knight_to': 'a6'}
+    fabf469f  m  9 USER Nh6      cpl=  139  endorsement=absent  evidence={'knight_from': 'g8', 'knight_to': 'h6'}
+    a9c381a8  m 13 USER Nh6      cpl=  138  endorsement=best    evidence={'knight_from': 'g8', 'knight_to': 'h6'}
+
+  [OP_LOOSE_KING_PAWNS]
+    6c13e278  m  7 USER h6       cpl=  496  endorsement=absent  evidence={'loosened_pawn_to': 'h6', 'king_still_on': 'e8'}
+    752eb0a2  m  2 USER f4       cpl=   83  endorsement=best    evidence={'loosened_pawn_to': 'f4', 'king_still_on': 'e1'}
+    e409a41a  m  2 OPP  f4       cpl=   83  endorsement=absent  evidence={'loosened_pawn_to': 'f4', 'king_still_on': 'e1'}
+
+  [OP_NOT_CASTLED]
+    84d8c8aa  m 13 USER bxc6     cpl=  187  endorsement=absent  evidence={'king_square': 'e8', 'full_move_number': 13, 'has_kingside_rights': True, 'has_queenside_rights': False}
+    6c13e278  m 13 OPP  Bb5      cpl=   27  endorsement=absent  evidence={'king_square': 'e1', 'full_move_number': 13, 'has_kingside_rights': True, 'has_queenside_rights': True}
+    2cf4ee2b  m 13 OPP  Bf5      cpl=   83  endorsement=absent  evidence={'king_square': 'e1', 'full_move_number': 13, 'has_kingside_rights': True, 'has_queenside_rights': True}
+
+  [OP_PAWN_HEAVY]
+    e409a41a  m  5 OPP  c4       cpl=   52  endorsement=absent  evidence={'own_pawn_moves_so_far': 4, 'own_moves_so_far': 5, 'this_move_from': 'c2', 'this_move_to': 'c4'}
+    4a61e917  m  4 OPP  c5       cpl=   40  endorsement=absent  evidence={'own_pawn_moves_so_far': 3, 'own_moves_so_far': 4, 'this_move_from': 'c7', 'this_move_to': 'c5'}
+    ff61a253  m  4 USER g3       cpl=   93  endorsement=absent  evidence={'own_pawn_moves_so_far': 3, 'own_moves_so_far': 4, 'this_move_from': 'g2', 'this_move_to': 'g3'}
+
+  [OP_QUEEN_OUT_EARLY]
+    84d8c8aa  m  8 USER Qb6      cpl=  101  endorsement=absent  evidence={'queen_from': 'd8', 'queen_to': 'b6', 'queen_move_index_in_opening': 1, 'minor_pieces_developed': 1}
+    6c13e278  m  4 OPP  Qe2      cpl=   90  endorsement=absent  evidence={'queen_from': 'd1', 'queen_to': 'e2', 'queen_move_index_in_opening': 1, 'minor_pieces_developed': 1}
+    2cf4ee2b  m  9 OPP  Qc2      cpl=   32  endorsement=absent  evidence={'queen_from': 'd1', 'queen_to': 'c2', 'queen_move_index_in_opening': 1, 'minor_pieces_developed': 3}
+
+  [OP_SAME_PIECE_TWICE]
+    84d8c8aa  m 11 OPP  Nc3      cpl=   91  endorsement=absent  evidence={'piece_type': 'knight', 'first_move_to_square': 'f3', 'this_move_from': 'b1', 'this_move_to': 'c3'}
+    d1273603  m 11 USER Be3      cpl=  409  endorsement=absent  evidence={'piece_type': 'bishop', 'first_move_to_square': 'g2', 'this_move_from': 'c1', 'this_move_to': 'e3'}
+    6c13e278  m  6 USER Bc6      cpl=  272  endorsement=best    evidence={'piece_type': 'bishop', 'first_move_to_square': 'd7', 'this_move_from': 'd7', 'this_move_to': 'c6'}
+
+  [TAC_BACK_RANK]
+    bb04300b  m 11 USER Qe1      cpl= 9513  endorsement=best    evidence={'mating_move': 'Qxd8#', 'mating_square': 'd8'}
+    a81929c7  m 47 USER Qc1#     cpl=19990  endorsement=best    evidence={'mating_move': 'Qbb1#', 'mating_square': 'b1'}
+    9e87d9f9  m 18 USER Qe1#     cpl=19990  endorsement=best    evidence={'mating_move': 'Re1#', 'mating_square': 'e1'}
+
+  [TAC_CHANGED_AFTER_MOVE]
+    84d8c8aa  m  8 USER Qb6      cpl=  101  endorsement=best    evidence={'played': 'Qb6', 'cp_loss': 101, 'is_exchange_losing': False, 'pieces_lost_defender_count': 4}
+    84d8c8aa  m  9 USER Nxd4     cpl=  235  endorsement=best    evidence={'played': 'Nxd4', 'cp_loss': 235, 'is_exchange_losing': False, 'pieces_lost_defender_count': 2}
+    84d8c8aa  m 16 USER Qxe5     cpl=  331  endorsement=best    evidence={'played': 'Qxe5', 'cp_loss': 331, 'is_exchange_losing': False, 'pieces_lost_defender_count': 3}
+
+  [TAC_CHECKS_CAPTURES_THREATS]
+    84d8c8aa  m  5 USER Bg4      cpl=   57  endorsement=best    evidence={'best_move': 'cxd4', 'best_kind': 'capture', 'played': 'Bg4'}
+    84d8c8aa  m 19 USER Ne7      cpl=  127  endorsement=best    evidence={'best_move': 'Bc5+', 'best_kind': 'check', 'played': 'Ne7'}
+    d1273603  m 17 USER Rfd1     cpl=  300  endorsement=best    evidence={'best_move': 'Nxe7+', 'best_kind': 'check', 'played': 'Rfd1'}
+
+  [TAC_DEFENDER_COUNT]
+    84d8c8aa  m 17 USER Rd7      cpl=   64  endorsement=best    evidence={'target_square': 'd7', 'moving_piece_type': 'rook', 'exchange_loss_cp': 500, 'attackers': 1, 'defenders': 1}
+    84d8c8aa  m 18 USER Bd6      cpl=  410  endorsement=best    evidence={'target_square': 'd6', 'moving_piece_type': 'bishop', 'exchange_loss_cp': 300, 'attackers': 2, 'defenders': 2}
+    d1273603  m 32 USER b4       cpl=   73  endorsement=best    evidence={'target_square': 'b4', 'moving_piece_type': 'pawn', 'exchange_loss_cp': 100, 'attackers': 2, 'defenders': 1}
+
+  [TAC_DISCOVERED_PATTERN]
+    d1273603  m 12 USER Nxe5     cpl=   16  endorsement=best    evidence={'slider_square': 'g2', 'slider_piece_type': 'bishop', 'moved_from': 'f3', 'target_square': 'a8', 'target_piece_type': 'rook'}
+    6c13e278  m  2 USER dxe4     cpl=    0  endorsement=best    evidence={'slider_square': 'd8', 'slider_piece_type': 'queen', 'moved_from': 'd5', 'target_square': 'd2', 'target_piece_type': 'pawn'}
+    6c13e278  m  9 USER Ke8      cpl=   10  endorsement=best    evidence={'slider_square': 'd8', 'slider_piece_type': 'queen', 'moved_from': 'd7', 'target_square': 'd2', 'target_piece_type': 'pawn'}
+
+  [TAC_FORK_PATTERN]
+    84d8c8aa  m 20 USER Nxc6     cpl=   50  endorsement=best    evidence={'attacker_square': 'c6', 'attacker_piece_type': 'knight', 'targets': [{'square': 'a7', 'piece_type': 'bishop'}, {'square': 'e5', 'piece_type': 'pawn'}]}
+    752eb0a2  m 20 USER Qxd6     cpl=    0  endorsement=best    evidence={'attacker_square': 'd6', 'attacker_piece_type': 'queen', 'targets': [{'square': 'c7', 'piece_type': 'knight'}, {'square': 'd7', 'piece_type': 'knight'}]}
+    e0a078a0  m 13 USER Qxb2     cpl=    0  endorsement=best    evidence={'attacker_square': 'b2', 'attacker_piece_type': 'queen', 'targets': [{'square': 'a1', 'piece_type': 'rook'}, {'square': 'c2', 'piece_type': 'pawn'}]}
+
+  [TAC_HANGING_PIECE]
+    84d8c8aa  m  8 USER Qb6      cpl=  101  endorsement=best    evidence={'hanging_piece_square': 'd5', 'hanging_piece_type': 'pawn', 'piece_color': 'black', 'trigger': 'lost_defender'}
+    84d8c8aa  m 16 USER Qxe5     cpl=  331  endorsement=best    evidence={'hanging_piece_square': 'c6', 'hanging_piece_type': 'pawn', 'piece_color': 'black', 'trigger': 'lost_defender'}
+    84d8c8aa  m 17 USER Rd7      cpl=   64  endorsement=best    evidence={'hanging_piece_square': 'd7', 'hanging_piece_type': 'rook', 'piece_color': 'black', 'exchange_loss_cp': 500, 'trigger': 'moved_into_hanging_square'}
+
+  [TAC_PIN_PATTERN]
+    d1273603  m 12 USER Nxe5     cpl=   16  endorsement=best    evidence={'attacker_square': 'd1', 'front_piece_type': 'knight', 'front_square': 'd7', 'rear_piece_type': 'queen', 'rear_square': 'd8', 'rear_is_king': False}
+    d1273603  m 13 USER Bxa8     cpl=    0  endorsement=best    evidence={'attacker_square': 'd1', 'front_piece_type': 'knight', 'front_square': 'd7', 'rear_piece_type': 'queen', 'rear_square': 'd8', 'rear_is_king': False}
+    2cf4ee2b  m  5 USER e6       cpl=    0  endorsement=best    evidence={'attacker_square': 'g4', 'front_piece_type': 'knight', 'front_square': 'f3', 'rear_piece_type': 'queen', 'rear_square': 'd1', 'rear_is_king': False}
+
+  [TAC_SKEWER_PATTERN]
+    9414857d  m 33 USER Rxa1     cpl=  417  endorsement=best    evidence={'checking_move': 'Bd5+', 'enemy_king_square': 'e6', 'behind_piece_square': 'g8', 'behind_piece_type': 'rook'}
+    6e4c47dc  m 33 USER Rxa1     cpl=  417  endorsement=best    evidence={'checking_move': 'Bd5+', 'enemy_king_square': 'e6', 'behind_piece_square': 'g8', 'behind_piece_type': 'rook'}
+    f13917ab  m 60 USER Qxb5     cpl=  657  endorsement=best    evidence={'checking_move': 'Qd5+', 'enemy_king_square': 'f7', 'behind_piece_square': 'g8', 'behind_piece_type': 'rook'}
