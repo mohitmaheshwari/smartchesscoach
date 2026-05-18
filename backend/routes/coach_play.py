@@ -6691,6 +6691,31 @@ async def _process_move_and_respond(
                 session_fired_state_keys=_fired_sks,
             )
             if _v5_block is not None:
+                # Phase 1.2 — structured material-value gate. Build the
+                # realtime tag from data we already have, check if V5
+                # would duplicate. Suppress when so.
+                try:
+                    from services.live_v5_teaching import (
+                        build_move_feedback_tag,
+                        should_suppress_v5_for_tag,
+                    )
+                    _rt_tag = build_move_feedback_tag(
+                        played_san=user_move,
+                        best_move_san=analysis.get("best_move"),
+                        cp_loss=int(analysis.get("cp_loss", 0) or 0),
+                        user_rating=user_rating,
+                    )
+                    _suppress, _reason = should_suppress_v5_for_tag(_rt_tag, _v5_block)
+                    if _suppress:
+                        logger.info(
+                            f"[live_v5] gated session={session_id[:8]} "
+                            f"move={move_number}.{user_move} reason={_reason}"
+                        )
+                        _v5_block = None
+                except Exception:
+                    logger.exception(f"[live_v5] gate evaluation failed; falling through")
+
+            if _v5_block is not None:
                 update_session_suppression(_fired_pids, _fired_sks, _v5_block)
                 await db.coach_sessions.update_one(
                     {"session_id": session_id},

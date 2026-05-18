@@ -27,15 +27,186 @@ only; if polish fails / times out / contradicts, the draft stays.
 from __future__ import annotations
 
 import logging
+import re
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import chess
 
 from services.caption_facts import extract_facts
-from services.caption_principles import CAPTION_PRINCIPLES
+from services.caption_principles import PRINCIPLES as CAPTION_PRINCIPLES
 from services.caption_priority_resolver import resolve_priority
 
 logger = logging.getLogger(__name__)
+
+
+# ─────────────────────────────────────────────────────────────────
+# Phase 1.2 — structured material-value gate (Mohit signoff 2026-05-18)
+#
+# Goal: avoid surfacing the V5 teaching block when the existing
+# realtime coaching message already names the same pattern/target.
+#
+# Mohit's spec explicitly says NOT to string-match against the
+# realtime message text. Compare structured fields instead.
+#
+# In this Phase 1.2 ship, realtime emits the fields it ALREADY has
+# (severity, target/piece squares parsed from SAN, best_move_family
+# heuristically derived from best_move_san). The richer fields
+# (principle_id, pattern_id, tactic_type) stay None until a later
+# refactor of realtime_coaching_feedback adds principle detection.
+# The gate is built to handle None gracefully — it suppresses only
+# when there's clear evidence of duplication.
+# ─────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class MoveFeedbackTag:
+    """Structured signal from the realtime feedback path. Used by the
+    V5 surfacing gate to decide whether V5 adds a new abstraction or
+    is duplicating what realtime already said.
+    """
+    severity: str  # excellent / good / inaccuracy / mistake / blunder
+    principle_id: Optional[str] = None      # filled by future refactor
+    pattern_id: Optional[str] = None        # filled by future refactor
+    tactic_type: Optional[str] = None       # filled by future refactor
+    target_square: Optional[str] = None     # parsable from SAN today
+    piece_square: Optional[str] = None      # parsable from SAN today
+    best_move_family: Optional[str] = None  # heuristic from best_move_san
+
+
+_SAN_TARGET_RE = re.compile(r"([a-h][1-8])(?:=[QRBN])?[+#]?$")
+_SAN_PIECE_FROM_RE = re.compile(r"^[NBRQK]?([a-h]?[1-8]?)x?[a-h][1-8]")
+
+
+def _target_square_from_san(san: Optional[str]) -> Optional[str]:
+    """Extract the destination square from a SAN like 'Nxe5+' or 'O-O'.
+
+    Returns None for castling and unparsable input.
+    """
+    if not san or san in ("O-O", "O-O-O", "0-0", "0-0-0"):
+        return None
+    m = _SAN_TARGET_RE.search(san)
+    return m.group(1) if m else None
+
+
+def _classify_rating_band(user_rating: Optional[int]) -> str:
+    """Same banding as deterministic_coach_service.RATING_BANDS."""
+    if user_rating is None:
+        return "beginner_high"
+    if user_rating < 1000:
+        return "beginner_low"
+    if user_rating < 1400:
+        return "beginner_high"
+    if user_rating < 1800:
+        return "intermediate"
+    return "advanced"
+
+
+# Rating-aware classification thresholds — mirrors
+# realtime_coaching_feedback._classify_move_quality so the V5 gate
+# uses the same severity vocabulary the realtime path uses.
+_SEVERITY_THRESHOLDS_CP = {
+    "beginner_low":  {"inaccuracy": 150, "mistake": 300, "blunder": 300},
+    "beginner_high": {"inaccuracy": 75,  "mistake": 200, "blunder": 200},
+    "intermediate":  {"inaccuracy": 50,  "mistake": 150, "blunder": 150},
+    "advanced":      {"inaccuracy": 30,  "mistake": 100, "blunder": 100},
+}
+
+
+def _severity_from_cp_loss(cp_loss: int, user_rating: Optional[int]) -> str:
+    band = _classify_rating_band(user_rating)
+    t = _SEVERITY_THRESHOLDS_CP.get(band, _SEVERITY_THRESHOLDS_CP["beginner_high"])
+    if cp_loss >= t["blunder"]:
+        return "blunder"
+    if cp_loss >= t["mistake"]:
+        return "mistake"
+    if cp_loss >= t["inaccuracy"]:
+        return "inaccuracy"
+    if cp_loss <= 5:
+        return "excellent"
+    return "good"
+
+
+def build_move_feedback_tag(
+    *,
+    played_san: str,
+    best_move_san: Optional[str],
+    cp_loss: int,
+    user_rating: Optional[int],
+) -> MoveFeedbackTag:
+    """Build the structured tag from the data realtime already has.
+
+    Phase 1.2 MVP: severity + parsed squares. Optional fields
+    (principle_id, pattern_id, tactic_type) stay None until the
+    realtime path is refactored to compute them.
+    """
+    severity = _severity_from_cp_loss(int(cp_loss or 0), user_rating)
+    target_sq = _target_square_from_san(played_san)
+    best_target_sq = _target_square_from_san(best_move_san)
+    # best_move_family: rough heuristic from the best move's piece
+    bm = (best_move_san or "").lstrip()
+    best_move_family: Optional[str] = None
+    if bm:
+        if bm in ("O-O", "O-O-O", "0-0", "0-0-0"):
+            best_move_family = "castle"
+        elif bm[0] == "K":
+            best_move_family = "K_move"
+        elif bm[0] in "NBRQ":
+            best_move_family = {
+                "N": "developing_minor", "B": "developing_minor",
+                "R": "rook_move", "Q": "queen_move",
+            }.get(bm[0])
+        else:
+            best_move_family = "pawn_move"
+    return MoveFeedbackTag(
+        severity=severity,
+        target_square=target_sq,
+        piece_square=None,  # realtime path doesn't currently track piece origin
+        best_move_family=best_move_family,
+        principle_id=None,
+        pattern_id=None,
+        tactic_type=None,
+    )
+
+
+def should_suppress_v5_for_tag(
+    tag: MoveFeedbackTag,
+    v5_block: Dict[str, Any],
+) -> Tuple[bool, str]:
+    """Material-value gate. Returns (suppress, reason).
+
+    Suppress V5 when the realtime tag already names what V5 would
+    say. The check is structured (Mohit signoff 2026-05-18): no
+    string matching against message text.
+    """
+    # Rule 1 — severity says no teaching needed.
+    # Per Mohit: V5 must respect rating-aware silence. If realtime
+    # classifies the move as fine for this user's rating, there's
+    # no teaching gap to fill, even if V5 detected a principle.
+    if tag.severity in ("excellent", "good"):
+        return True, f"realtime severity={tag.severity!r}"
+
+    # Rule 2 — principle_id duplicates (will activate when realtime
+    # path emits principle_id; today this always passes through).
+    if tag.principle_id and v5_block.get("principle_id"):
+        if tag.principle_id == v5_block["principle_id"]:
+            return True, "principle_id duplicate"
+
+    # Rule 3 — pattern_id duplicates (same).
+    if tag.pattern_id and v5_block.get("shape_pattern_id"):
+        if tag.pattern_id == v5_block["shape_pattern_id"]:
+            return True, "pattern_id duplicate"
+
+    # Rule 4 — same tactic_type + same target square.
+    if tag.tactic_type and tag.target_square:
+        # Probe v5 evidence for matching tactic + target (the v5_block
+        # exposes anchor_name but not raw evidence — degrade gracefully
+        # until the v5 block layer carries tactic_type explicitly).
+        anchor = (v5_block.get("anchor_name") or "").lower()
+        if tag.tactic_type in anchor and tag.target_square in (v5_block.get("deterministic_draft") or ""):
+            return True, f"tactic+target overlap ({tag.tactic_type})"
+
+    return False, "no duplication"
 
 
 # Build a quick lookup so we can read each principle's suppress policy.
