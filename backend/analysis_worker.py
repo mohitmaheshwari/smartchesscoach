@@ -41,6 +41,7 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from stockfish_service import analyze_game_with_stockfish
+from services.trap_scanner import scan_pgn_for_traps, TRAP_SCANNER_VERSION
 from config import STOCKFISH_DEPTH
 from analysis.intent_recognition_service import recognize_intent, get_game_phase
 from analysis.intent_quality_calibrator import calibrate_with_forcing_context, build_full_intent_explanation
@@ -1049,7 +1050,22 @@ def process_job(db, job):
             "worker_id": WORKER_ID,
             "engine_version": "P2.4"  # Step 6: Intent Recognition Layer
         }
-        
+
+        # Trap-library scan (41 named traps from data/traps.json).
+        # SAN-prefix match → fire list classified by gold/celebration/lucky/
+        # warning per [[surface-teaching-gold-proactively]]. Persisted as
+        # trap_fires + trap_fires_version so Lab page / Pattern Training /
+        # clickable-rule pages can read pre-computed fires without
+        # re-running the scanner on every page load.
+        # Cheap (~5-30ms per PGN), no Stockfish needed.
+        try:
+            analysis_doc["trap_fires"] = scan_pgn_for_traps(pgn, user_color)
+            analysis_doc["trap_fires_version"] = TRAP_SCANNER_VERSION
+        except Exception as trap_err:
+            logger.warning(f"[traps] scan failed (non-fatal): {trap_err}")
+            analysis_doc["trap_fires"] = []
+            analysis_doc["trap_fires_version"] = TRAP_SCANNER_VERSION
+
         # Upsert analysis (update if exists, insert if not)
         db.game_analyses.update_one(
             {"game_id": game_id, "user_id": user_id},
