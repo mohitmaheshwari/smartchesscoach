@@ -1066,6 +1066,45 @@ def process_job(db, job):
             analysis_doc["trap_fires"] = []
             analysis_doc["trap_fires_version"] = TRAP_SCANNER_VERSION
 
+        # V5 detector fires (Path A per worker-side-detector-migration —
+        # only decryption_v5_data + version are written eagerly here;
+        # the downstream pipeline cct/habits/truth_line continues to be
+        # lazy-generated in routes/coach.py on first Lab/Reflect read).
+        # Calls the existing async V5 service via a temporary motor
+        # client so detector logic isn't duplicated. Slowest worker step
+        # (~3-10s incl. LLM narrative) — runs after Stockfish + traps.
+        try:
+            import asyncio
+            from motor.motor_asyncio import AsyncIOMotorClient
+            from services.game_decryption_v5_service import (
+                generate_game_decryption_v5, V5_COACHING_VERSION,
+            )
+
+            mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+            db_name = os.environ.get("DB_NAME", "chess_coach")
+
+            async def _run_v5_for_new_game():
+                async_client = AsyncIOMotorClient(mongo_url)
+                async_db = async_client[db_name]
+                try:
+                    return await generate_game_decryption_v5(
+                        pgn, user_color, move_evaluations, user_id, async_db
+                    )
+                finally:
+                    async_client.close()
+
+            v5_data = asyncio.run(_run_v5_for_new_game())
+            if v5_data:
+                analysis_doc["decryption_v5_data"] = v5_data
+                analysis_doc["decryption_v5_version"] = V5_COACHING_VERSION
+                analysis_doc["decryption_v5_generated_at"] = datetime.now(timezone.utc).isoformat()
+                logger.info(f"[V5] Generated {len(v5_data)} move records for {game_id}")
+            else:
+                logger.warning(f"[V5] Empty result for {game_id} (non-fatal)")
+        except Exception as v5_err:
+            logger.warning(f"[V5] Generation failed (non-fatal, falls back to lazy regen on read): {v5_err}")
+            # Don't set fields — leaves them absent, lazy regen will fill on first read
+
         # Upsert analysis (update if exists, insert if not)
         db.game_analyses.update_one(
             {"game_id": game_id, "user_id": user_id},
