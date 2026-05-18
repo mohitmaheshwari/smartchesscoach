@@ -427,6 +427,22 @@ NOT covered (separate work):
 3. ✅ Structured material-value gate (compare IDs/squares, not strings).
 4. ✅ Guarded async polish (same principle/target, no contradiction, ≤1.4× length, ≤3s).
 
+## SHIP STATUS as of 2026-05-19
+
+| Phase | What | Status |
+|---|---|---|
+| 0.5 | State-keyed suppression overhaul | ✅ |
+| 1.1 | Deterministic V5 block behind feature flag | ✅ |
+| 1.2 | Structured material-value gate | ✅ |
+| 1.3 | Adaptive coach-move teaching with 2/6 cooldown | ✅ |
+| 1.4 | Guarded async LLM polish | ✅ |
+| 1.6 | `coaching_encounter_weights` collection + decay logic | ✅ (commit 8aa4bcff, 2026-05-19) |
+| 1.7 | Three-layer silence (necessity layer) | ✅ (commit 8aa4bcff, 2026-05-19) |
+| 1.11 | Frontend hot-swap UI | ⚠️ works via polling, no animation — post-playtest refinement |
+| 1.12 | Live-session audit script | ⏳ deferred — Mohit's playtest IS the audit signal |
+
+**Ready for live playtest 2026-05-19.** All ship-blockers cleared. Pull working-code + restart backend + flip `pwc_v5_teaching.enabled=True` on the test user. Frontend already renders the v5_teaching block (CoachPlaySidebar.jsx).
+
 ## Related memories
 
 - `[[play-with-coach-teaching-integration]]` — the parent deep plan; this is its Phase 1 detail.
