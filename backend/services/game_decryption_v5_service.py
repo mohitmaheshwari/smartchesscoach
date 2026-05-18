@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 18  # v18 (2026-05-18): Phase 4 — END_ROOK_BEHIND_PASSER detector. Tarrasch's rule, single-passer-only restriction (Mohit signoff 2026-05-16 locked refinement). cp_loss>=30 + eval-bracket gate + same K+P/eval-bracket shape as RULE_OF_SQUARE Phase 4. once_per_state_key suppression keyed on (passer_square, rook_target_square).
+V5_COACHING_VERSION = 19  # v19 (2026-05-18): Phase 5 — END_PASSED_PAWN + END_KING_ACTIVE resolver detail refinements (last Tier-1 item). Both were falling through to the generic principle_label.lower() fallback; now render concrete passer-square / king-square evidence per [[1200-test]]. No detector logic changes; pure resolver-detail upgrade.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

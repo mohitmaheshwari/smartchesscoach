@@ -561,6 +561,38 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
             )
         # Fallback if evidence shape changes — never lose the principle name.
         return "Take the opposition — face their king on the same line."
+    if pid == "END_PASSED_PAWN":
+        # Phase 5 — 2026-05-18. Was falling through to the generic
+        # principle_label.lower() fallback ("passed pawns must be pushed.")
+        # which has no concrete board reference. 1200-test fail.
+        # Now: name the passer and the engine pick.
+        passers = evidence.get("passed_pawn_squares") or []
+        best = evidence.get("engine_chose_push") or evidence.get("best_san") or ""
+        if passers and best:
+            if len(passers) == 1:
+                return (
+                    f"Your pawn on {passers[0]} is passed. Push it — "
+                    f"{best} is engine's pick. Every square forces them to react."
+                )
+            return (
+                f"You have passed pawns on {' and '.join(passers[:2])}. "
+                f"Push — engine's pick: {best}."
+            )
+        if best:
+            return f"Push the passed pawn — {best} is engine's pick."
+        return "Passed pawns must be pushed — every square forces opponent to react."
+    if pid == "END_KING_ACTIVE":
+        # Phase 5 — 2026-05-18. Was falling through to "king is a
+        # fighter in the endgame." which is conceptually right but
+        # gives no concrete next step. Now: name where the king is
+        # and orient toward the centre.
+        king_sq = evidence.get("king_square")
+        if king_sq:
+            return (
+                f"Your king on {king_sq} stays on the back rank. "
+                f"Endgame — walk it toward the centre to fight."
+            )
+        return "Activate your king — in the endgame it's a fighter, walk it to the centre."
     if pid == "OP_QUEEN_OUT_EARLY":
         sq = evidence.get("queen_to")
         n_minors = evidence.get("minor_pieces_developed")
