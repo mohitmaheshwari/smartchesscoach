@@ -273,6 +273,207 @@ def v5_teaching_decision_for_live_move(
     return v5_block
 
 
+def build_polish_move_record(
+    *,
+    v5_block: Dict[str, Any],
+    fen_before: str,
+    played_san: str,
+    best_move_san: Optional[str],
+    eval_before_cp: Optional[int],
+    eval_after_cp: Optional[int],
+    cp_loss: int,
+    pv_after_played: Optional[List[str]],
+    pv_after_best: Optional[List[str]],
+    move_history_san: Optional[List[str]],
+    full_move_number: Optional[int],
+    mover_is_user: bool,
+) -> Optional[Dict[str, Any]]:
+    """Construct the `move` dict required by
+    llm_caption_generator.generate_caption_for_move().
+
+    Re-runs extract_facts to populate the caption_facts fields that
+    the LLM polish prompt needs. Returns None if extraction fails
+    (the polish task will then silently abandon).
+    """
+    try:
+        facts = extract_facts(
+            fen_before=fen_before,
+            played_san=played_san,
+            best_move_san=best_move_san,
+            eval_before_cp=eval_before_cp,
+            eval_after_cp=eval_after_cp,
+            cp_loss=cp_loss,
+            pv_after_played=pv_after_played or [],
+            pv_after_best=pv_after_best or [],
+            move_history_san=move_history_san or [],
+            full_move_number=full_move_number,
+            mover_is_user=mover_is_user,
+        )
+    except Exception:
+        return None
+
+    return {
+        "caption_facts_principles_violated": facts.get("principles_violated") or [],
+        "shape_pattern_id": facts.get("shape_pattern_id"),
+        "shape_pattern_name": facts.get("shape_pattern_name"),
+        "shape_pattern_desc": facts.get("shape_pattern_desc"),
+        "shape_pattern_targets": facts.get("shape_pattern_targets"),
+        "shape_pattern_executing_move": facts.get("shape_pattern_executing_move"),
+        "shape_pattern_mover": facts.get("shape_pattern_mover"),
+        "move_san": played_san,
+        "best_move_san": best_move_san,
+        "cp_loss": cp_loss,
+        "phase": facts.get("phase"),
+        "is_user_move": mover_is_user,
+        "is_white": facts.get("moving_piece_color") == "white",
+        "fen_before": fen_before,
+        "fen_after": facts.get("fen_after"),
+        "caption": "",
+        "principle_cue": "",
+        "principle_id_used": None,
+        "rule_name": None,
+    }
+
+
+def _polish_guards_pass(
+    *,
+    draft: str,
+    polished: str,
+    v5_block: Dict[str, Any],
+) -> Tuple[bool, str]:
+    """Apply the four Phase 1.4 guards (Mohit signoff 2026-05-18):
+
+      1. same principle/target — every protected entity from the draft
+         must still appear in the polished string.
+      2. no contradiction — polished doesn't drop the anchor_name AND
+         doesn't introduce explicit "not" / "isn't" / "doesn't" negation
+         of the lesson.
+      3. length cap — polished length ≤ 1.4× draft length.
+      4. deadline — enforced at the caller via asyncio.wait_for(timeout=3.0).
+
+    Returns (passed, reason). When passed=False, reason names which guard
+    rejected (logged for debugging).
+    """
+    if not polished or not polished.strip():
+        return False, "empty polish output"
+
+    # Guard 1: protected entities (SAN moves, squares, piece words,
+    # named patterns, principle anchor_name)
+    protected = v5_block.get("protected_entities") or []
+    missing = [e for e in protected if e and e not in polished]
+    if missing:
+        return False, f"missing protected entity {missing[0]!r}"
+
+    # Guard 1b: anchor_name must survive (it's the click-target for
+    # the future clickable-rule UI)
+    anchor_name = v5_block.get("anchor_name") or ""
+    if anchor_name and anchor_name not in polished:
+        return False, f"anchor_name {anchor_name!r} dropped"
+
+    # Guard 2: contradiction — explicit negation of the named pattern
+    # No-pattern-name = drop already caught by Guard 1b. Here we catch
+    # the wider case of "not a pin" / "isn't a fork" introducing a
+    # contradicting claim. Heuristic; conservative on false positives.
+    lower = polished.lower()
+    contradictions = (
+        "not a pin", "not a fork", "not a skewer", "not hanging",
+        "isn't a pin", "isn't a fork", "isn't a skewer",
+        "doesn't catch", "doesn't pin", "doesn't fork", "doesn't skewer",
+    )
+    if any(c in lower for c in contradictions):
+        return False, "contains contradiction phrase"
+
+    # Guard 3: length cap (1.4× draft length, by character)
+    if len(polished) > int(len(draft) * 1.4):
+        return False, f"polish too long ({len(polished)} > 1.4*{len(draft)})"
+
+    return True, "ok"
+
+
+async def polish_v5_block_async(
+    *,
+    db,
+    message_id: Any,  # MongoDB _id of the coach_messages document
+    v5_block: Dict[str, Any],
+    fen_before: str,
+    played_san: str,
+    best_move_san: Optional[str],
+    eval_before_cp: Optional[int],
+    eval_after_cp: Optional[int],
+    cp_loss: int,
+    pv_after_played: Optional[List[str]],
+    pv_after_best: Optional[List[str]],
+    move_history_san: Optional[List[str]],
+    full_move_number: Optional[int],
+    mover_is_user: bool,
+    timeout_seconds: float = 3.0,
+) -> None:
+    """Phase 1.4 — run LLM polish on the v5_block, with the four guards.
+
+    Designed to be scheduled via `asyncio.create_task(...)` AFTER the
+    move response has been sent. Updates the coach_messages document
+    when guards pass. Stays at polish_status='draft' on any failure
+    (rate limit, timeout, contradiction, length, missing entities).
+
+    Never raises — logs only. The move response has already been sent
+    by the time this runs; an exception here can't degrade UX.
+    """
+    import asyncio
+    try:
+        from services.llm_caption_generator import generate_caption_for_move
+
+        move_record = build_polish_move_record(
+            v5_block=v5_block,
+            fen_before=fen_before,
+            played_san=played_san,
+            best_move_san=best_move_san,
+            eval_before_cp=eval_before_cp,
+            eval_after_cp=eval_after_cp,
+            cp_loss=cp_loss,
+            pv_after_played=pv_after_played,
+            pv_after_best=pv_after_best,
+            move_history_san=move_history_san,
+            full_move_number=full_move_number,
+            mover_is_user=mover_is_user,
+        )
+        if move_record is None:
+            logger.info(f"[live_v5.polish] could not build move_record; staying at draft")
+            return
+
+        try:
+            polished = await asyncio.wait_for(
+                generate_caption_for_move(move_record),
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            logger.info(f"[live_v5.polish] timeout after {timeout_seconds}s; staying at draft")
+            return
+        except Exception:
+            logger.exception(f"[live_v5.polish] LLM call failed; staying at draft")
+            return
+
+        draft = v5_block.get("deterministic_draft") or ""
+        passed, reason = _polish_guards_pass(
+            draft=draft, polished=polished, v5_block=v5_block,
+        )
+        if not passed:
+            logger.info(f"[live_v5.polish] guard rejected: {reason}; staying at draft")
+            return
+
+        # All guards passed — hot-swap.
+        await db.coach_messages.update_one(
+            {"_id": message_id},
+            {"$set": {
+                "message": polished,
+                "anchor_detail": polished,
+                "polish_status": "polished",
+            }},
+        )
+        logger.info(f"[live_v5.polish] swapped to polished caption for message {message_id}")
+    except Exception:
+        logger.exception(f"[live_v5.polish] unexpected error; staying at draft")
+
+
 def update_session_suppression(
     session_fired_principles: Set[str],
     session_fired_state_keys: Set[Tuple],
