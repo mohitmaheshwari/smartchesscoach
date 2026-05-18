@@ -556,17 +556,24 @@ def _polish_guards_pass(
     if not polished or not polished.strip():
         return False, "empty polish output"
 
-    # Guard 1: protected entities (SAN moves, squares, piece words,
-    # named patterns, principle anchor_name)
+    # Guard 1: protected entities the DRAFT actually mentions must
+    # survive in the polish. Filtering to draft-mentioned entities is
+    # the right semantic — the LLM can only preserve what was in the
+    # draft, not invent SAN moves the resolver listed for safety.
+    # Self-audit 2026-05-18 caught this: protected_entities includes
+    # the played + best SAN (Nc4, Ke3) but Walloo21's draft mentions
+    # neither. Guard was rejecting EVERY polish for that reason.
     protected = v5_block.get("protected_entities") or []
-    missing = [e for e in protected if e and e not in polished]
+    draft_protected = [e for e in protected if e and e in draft]
+    missing = [e for e in draft_protected if e not in polished]
     if missing:
         return False, f"missing protected entity {missing[0]!r}"
 
     # Guard 1b: anchor_name must survive (it's the click-target for
-    # the future clickable-rule UI)
+    # the future clickable-rule UI). Only enforced if anchor_name
+    # was in the draft.
     anchor_name = v5_block.get("anchor_name") or ""
-    if anchor_name and anchor_name not in polished:
+    if anchor_name and anchor_name in draft and anchor_name not in polished:
         return False, f"anchor_name {anchor_name!r} dropped"
 
     # Guard 2: contradiction — explicit negation of the named pattern
@@ -694,10 +701,13 @@ _COACH_TEACHING_PRINCIPLES: Set[str] = {
     # Principles that fire when the played move CREATES a positive
     # pattern — useful as coach-move teaching ("Coach plays Bg5 — Pin").
     # 2026-05-18 self-audit follow-up: populated with the principles
-    # whose detectors fire on engine-best (player creates the pattern)
-    # not "missed chance" (which doesn't apply when coach IS the engine).
-    "TAC_PIN_PATTERN",         # coach creates pin/skewer alignment
-    "TAC_DISCOVERED_PATTERN",  # coach uncovers a piece's attack via the move
+    # whose detectors fire on engine-best (coach plays the best move
+    # AND that move creates a pattern). Excluded: principles whose
+    # detectors fire on the mover hanging their own piece / missing
+    # a chance — those don't apply when coach IS the engine.
+    "TAC_PIN_PATTERN",          # coach creates pin/skewer alignment
+    "TAC_DISCOVERED_PATTERN",   # coach uncovers a piece's attack via the move
+    "TAC_FORK_PATTERN",         # coach forks via multi-target attack
 }
 
 
