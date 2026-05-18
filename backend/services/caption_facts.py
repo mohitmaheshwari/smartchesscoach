@@ -1885,12 +1885,20 @@ def _p_tac_pin_pattern(
     rear piece worth at least a rook AND the front piece is not a pawn
     (unless rear is king), AND the engine endorses the move."""
     shapes = facts.get("aligned_pieces_evidence") or []
-    # Apply the same filter R03 uses (caption_rules._r03_shape_is_worth_captioning):
+    # Apply the filter, with rear-is-king exemption added 2026-05-18.
+    # Previously this filter excluded king-rear shapes because the king's
+    # PIECE_VALUE_CP is 0 (SEE-capped) and 0 < MIN_ALIGNED_REAR_VALUE_CP (500).
+    # That excluded the MOST COMMON pin a 1200 ever sees — Ruy Lopez Bb5
+    # pinning c6 knight to e8 king (the absolute pin, where the front
+    # piece is LITERALLY illegal to move). Self-audit 2026-05-18 caught
+    # this when coach-move teaching wouldn't fire on Bb5.
+    # Symmetric with the R03 renderer fix (caption_rules.py 2349b2d2).
     relevant = []
     for s in shapes:
-        if s.get("rear_piece_value_cp", 0) < 500:
+        is_king_rear = s.get("rear_is_king", False)
+        if not is_king_rear and s.get("rear_piece_value_cp", 0) < 500:
             continue
-        if s.get("front_piece_type") == "pawn" and not s.get("rear_is_king", False):
+        if s.get("front_piece_type") == "pawn" and not is_king_rear:
             continue
         relevant.append(s)
     if not relevant:
