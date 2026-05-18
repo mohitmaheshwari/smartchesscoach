@@ -139,6 +139,27 @@ def _normalize_san(san: str) -> str:
     return (san or "").rstrip("!?+#")
 
 
+def _freeze_state_key(components: Dict[str, Any]) -> Tuple:
+    """Convert a state-key components dict to a hashable tuple.
+
+    Used by the Phase 0.5 state-keyed suppression layer
+    (see project_suppression_key_overhaul.md).
+
+    Sorted by key so the tuple is stable across detectors. Nested
+    lists are converted to tuples; everything else must be already
+    hashable (str / int / bool / None).
+    """
+    items = []
+    for k in sorted(components):
+        v = components[k]
+        if isinstance(v, list):
+            v = tuple(v)
+        elif isinstance(v, dict):
+            v = _freeze_state_key(v)
+        items.append((k, v))
+    return tuple(items)
+
+
 def _piece_type_at(board: chess.Board, square: int) -> Optional[int]:
     p = board.piece_at(square)
     return p.piece_type if p else None
@@ -2492,6 +2513,14 @@ def _p_end_passed_pawn(
             "engine_chose_push": best,
             "player_chose": played,
         },
+        "state_key": _freeze_state_key({
+            "principle_id":     "END_PASSED_PAWN",
+            "phase":            phase or "endgame",
+            "intent_type":      "promotion_push",
+            "focal_squares":    tuple(sorted(chess.square_name(s) for s in passed)),
+            "involved_piece":   "pawn",
+            "best_move_family": "pawn_push",
+        }),
         "engine_endorsement": "best",
         "aligned_moves_offered": aligned[:5],
     }
@@ -3244,6 +3273,14 @@ def _p_end_rule_of_square(
                 "played_san":             facts.get("played_san") or "",
                 "best_san":               facts.get("best_move_san") or "",
             },
+            "state_key": _freeze_state_key({
+                "principle_id":     "END_RULE_OF_SQUARE",
+                "phase":            "endgame",
+                "intent_type":      "defensive_geometry",
+                "focal_squares":    (chess.square_name(pawn_sq), chess.square_name(best_king_dest)),
+                "involved_piece":   "king",
+                "best_move_family": "K_move",
+            }),
             "engine_endorsement": "best",
             "aligned_moves_offered": [best_san],
         }
@@ -3394,6 +3431,15 @@ def _p_end_opposition(
             "played_san":                facts.get("played_san") or "",
             "best_san":                  facts.get("best_move_san") or "",
         },
+        "state_key": _freeze_state_key({
+            "principle_id":     "END_OPPOSITION",
+            "phase":            "endgame",
+            "intent_type":      "positional_squeeze",
+            "focal_squares":    (chess.square_name(best_king_dest), chess.square_name(their_king_sq)),
+            "opposition_kind":  opposition_kind,
+            "involved_piece":   "king",
+            "best_move_family": "K_move",
+        }),
         "engine_endorsement": "best",
         "aligned_moves_offered": [best_san],
     }
@@ -3438,6 +3484,18 @@ def _p_end_king_active(
         "evidence": {
             "king_square": chess.square_name(king_sq),
         },
+        # END_KING_ACTIVE is a one-time-per-game lesson (catalog declares
+        # once_per_game). state_key is included for consistency but the
+        # suppression layer keys on principle_id when policy is
+        # once_per_game.
+        "state_key": _freeze_state_key({
+            "principle_id":     "END_KING_ACTIVE",
+            "phase":            "endgame",
+            "intent_type":      "king_activation",
+            "focal_squares":    (chess.square_name(king_sq),),
+            "involved_piece":   "king",
+            "best_move_family": "K_move",
+        }),
         "engine_endorsement": endorsement,
         "aligned_moves_offered": aligned[:5],
     }

@@ -672,7 +672,11 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "match_kind": "missed_chance",
         "aligned_moves": "the passed pawn pushes one square",
         "gate_policy": "endorsement_required + cp_loss_strict",
-        "suppress": "once_per_game",
+        # Phase 0.5 (2026-05-18): state-keyed. Re-arms when the set of
+        # passed pawns changes (new pawn becomes passed, or a passed
+        # pawn promotes). Avoids the "push your passer" cue repeating
+        # uselessly when the same passer sits for many moves.
+        "suppress": "once_per_state_key",
         "cue_best":   "Push the passed pawn. Engine agrees — every step is progress.",
         "cue_top_n":  "Passed pawns must be pushed. Every step forces the opponent to stop it.",
         "cue_absent": "A passed pawn has no enemy pawn in front of it. Push it — every square is progress.",
@@ -691,7 +695,10 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "match_kind": "state_entry",
         "aligned_moves": "any king move toward the centre",
         "gate_policy": "endorsement_preferred",
-        "suppress": "once_per_state_entry",
+        # Phase 0.5 (2026-05-18): one-time-per-game lesson. The "activate
+        # the king" cue is a structural reminder; once shown, the player
+        # carries it through the rest of the endgame.
+        "suppress": "once_per_game",
         "cue_best":   "Activate the king. Engine's top choice — centre is where it fights.",
         "cue_top_n":  "Endgames need an active king. Walk it toward the centre, one square at a time.",
         # 2026-05-17 sweep: engine-meta cue_absent rewrite.
@@ -716,7 +723,10 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "match_kind": "missed_chance",
         "aligned_moves": "the king move that lands inside the box from opponent's passed pawn to its promotion square",
         "gate_policy": "endorsement_required + cp_loss_strict",
-        "suppress": "once_per_state_entry",
+        # Phase 0.5 (2026-05-18): state-keyed suppression. Re-arms when
+        # the (pawn_square, king_should_move_to) pair changes — different
+        # pawn or different king target = different lesson.
+        "suppress": "once_per_state_key",
         "cue_best":   "Step into the square. Engine agrees — your king catches the pawn from there.",
         "cue_top_n":  "Rule of the Square — count squares from the pawn to promotion; your king must reach that many squares to catch it.",
         "cue_absent": "Their passed pawn promotes if your king's too far. Step inside the box — count squares.",
@@ -736,7 +746,12 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "match_kind": "missed_chance",
         "aligned_moves": "the king move that takes direct or distant opposition (engine-confirmed king move only)",
         "gate_policy": "endorsement_required + cp_loss_strict + king_move_required",
-        "suppress": "once_per_state_entry",
+        # Phase 0.5 (2026-05-18): state-keyed suppression. Re-arms when
+        # the (your_king_should_move_to, their_king_square, opposition_kind)
+        # tuple changes — repeated fires with same king pair + same kind
+        # (the audit's 10c19d0c case with 4 Kf2/g4/direct fires) dedupe
+        # to one visible caption.
+        "suppress": "once_per_state_key",
         "cue_best":   "Take the opposition. Engine wants this king move — they must step aside.",
         "cue_top_n":  "The Opposition — kings facing one square apart, opponent to move means you have it. They must give ground.",
         "cue_absent": "Kings face on the same line. The side NOT to move has the opposition — force them aside.",

@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 16  # v16 (2026-05-17): END_OPPOSITION Phase 3 ship — detector + resolver detail. king_move_required gate per Mohit signoff 2026-05-16. Same K+P purity + eval-bracket structure as RULE_OF_SQUARE Pass 4. Awaiting per-fire audit on prod corpus.
+V5_COACHING_VERSION = 17  # v17 (2026-05-18): Phase 0.5 — state-keyed suppression. Replaces Set[principle_id] / once_per_state_entry collapse with three policies (once_per_move / once_per_state_key / once_per_game) keyed on detector-emitted state_key tuples. Four endgame principles migrated (RULE_OF_SQUARE, OPPOSITION, KING_ACTIVE, PASSED_PAWN). See project_suppression_key_overhaul.md.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -2770,6 +2770,12 @@ async def generate_game_decryption_v5(
         # surfaced the gap).
         principles_fired_this_game: set = set()
         principles_fired_last_move: set = set()
+        # State-keyed suppression set (Phase 0.5, 2026-05-18):
+        # tracks (principle_id, state_key) tuples so the same principle
+        # CAN fire again when board state meaningfully changes (different
+        # focal squares, different king pair, different best-move family).
+        # See project_suppression_key_overhaul.md for the design.
+        state_keys_fired_this_game: set = set()
         # TIER 3 shape-pattern suppression — same convention as principles:
         # each pattern fires at most once per game, so the cue stays a
         # memorable marker instead of a repeated label.
@@ -3200,17 +3206,29 @@ async def generate_game_decryption_v5(
                             continue
                         _entry = _CAPTION_PRINCIPLES_BY_ID.get(_pid, {}) if _CAPTION_PRINCIPLES_BY_ID else {}
                         _suppress = _entry.get("suppress", "once_per_move")
-                        # Audit #2 reveal: once_per_state_entry's "fire
-                        # when not in last-move set" semantics leak on
-                        # alternating sides — END_KING_ACTIVE checks the
-                        # MOVER's king, so the OTHER side's move "breaks"
-                        # the last-move-set membership, and the next own
-                        # move re-fires. For sub-1500 teaching, the cue
-                        # is needed once per game anyway. Collapse
-                        # state_entry → game-level suppression.
-                        if _suppress in ("once_per_game", "once_per_state_entry"):
+                        # Phase 0.5 suppression overhaul (2026-05-18):
+                        # three policies replace the previous two.
+                        #   once_per_move        — no game-state filter (default)
+                        #   once_per_state_key   — fires while detector's state_key changes
+                        #                          (re-arms when focal squares / piece /
+                        #                          best-move family / phase change)
+                        #   once_per_game        — fires exactly once across the game
+                        #   once_per_state_entry — DEPRECATED; treated as once_per_game
+                        #                          for backward compat
+                        if _suppress == "once_per_game" or _suppress == "once_per_state_entry":
                             if _pid in principles_fired_this_game:
                                 continue
+                        elif _suppress == "once_per_state_key":
+                            _sk = _ev.get("state_key")
+                            if _sk is None:
+                                # Detector didn't emit state_key — degrade
+                                # gracefully to once_per_game semantics.
+                                if _pid in principles_fired_this_game:
+                                    continue
+                            else:
+                                if _sk in state_keys_fired_this_game:
+                                    continue
+                                state_keys_fired_this_game.add(_sk)
                         # once_per_move (default) → no further filter
                         caption_principles_violated.append(_ev)
                         _this_move_fired.add(_pid)
