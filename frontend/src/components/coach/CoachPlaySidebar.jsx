@@ -451,7 +451,9 @@ const LegacyChatMessages = ({
       <div
         key={i}
         className={`p-3 rounded-lg ${
-          msg.type === "coach"
+          msg.type === "v5_teaching"
+            ? "bg-violet-50 border border-violet-500/30"
+            : msg.type === "coach"
             ? msg.trigger === "warning"
               ? "bg-red-500/10 border border-red-500/20"
               : msg.trigger === "teaching"
@@ -465,7 +467,9 @@ const LegacyChatMessages = ({
         }`}
       >
         <div className="flex items-start gap-2">
-          {msg.type === "coach" ? (
+          {msg.type === "v5_teaching" ? (
+            <BookOpen className="w-4 h-4 mt-0.5 flex-shrink-0 text-violet-700" />
+          ) : msg.type === "coach" ? (
             <Brain
               className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
                 msg.trigger === "warning"
@@ -483,6 +487,19 @@ const LegacyChatMessages = ({
             <MessageCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
           )}
           <div className="text-sm flex-1">
+            {msg.type === "v5_teaching" && msg.anchor_name && (
+              <Badge
+                variant="outline"
+                className="text-xs mb-1 border-violet-300 text-violet-700"
+              >
+                {msg.anchor_name}
+              </Badge>
+            )}
+            {msg.type === "v5_teaching" && msg.move_san && (
+              <span className="text-xs text-muted-foreground block">
+                {msg.is_coach_move_teaching ? "Coach played" : "After"} {msg.move_san}:
+              </span>
+            )}
             {msg.type === "coach" && msg.trigger && (
               <Badge
                 variant="outline"
@@ -513,14 +530,16 @@ const LegacyChatMessages = ({
             )}
             <p
               className={`group ${
-                msg.type === "coach"
+                msg.type === "v5_teaching"
+                  ? "text-violet-900"
+                  : msg.type === "coach"
                   ? ""
                   : msg.type === "thinking"
                   ? "text-primary italic"
                   : "text-muted-foreground"
               }`}
             >
-              {msg.message}
+              {msg.type === "v5_teaching" ? (msg.anchor_detail || msg.message) : msg.message}
               {msg.type === "coach" && (
                 <InlineFlag
                   section={`coach_chat_${msg.trigger || "general"}`}

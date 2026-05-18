@@ -645,6 +645,14 @@ const CoachPlay = ({ user }) => {
                 question: msg.question,  // For Socratic questions
                 isSocratic: msg.is_socratic,  // Track Socratic messages
                 emotionalState: msg.emotional_state,  // Track emotional adaptation
+                // Phase 1.1 V5 teaching block fields (when type === "v5_teaching")
+                anchor_name: msg.anchor_name,
+                anchor_detail: msg.anchor_detail,
+                principle_id: msg.principle_id,
+                shape_pattern_id: msg.shape_pattern_id,
+                polish_status: msg.polish_status,
+                is_coach_move_teaching: msg.is_coach_move_teaching,
+                move_san: msg.move_san,
                 context: {
                   fen: msg.fen,
                   move_number: msg.move_number,

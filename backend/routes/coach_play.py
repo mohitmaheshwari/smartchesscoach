@@ -1218,7 +1218,17 @@ async def get_coach_messages(
             msg_data["lesson_name"] = msg.get("lesson_name")
             msg_data["key_concepts"] = msg.get("key_concepts")
             msg_data["options"] = msg.get("options")
-        
+
+        # Include V5 teaching block fields (Phase 1.1, 2026-05-18)
+        if msg.get("type") == "v5_teaching":
+            msg_data["anchor_name"] = msg.get("anchor_name")
+            msg_data["anchor_detail"] = msg.get("anchor_detail")
+            msg_data["principle_id"] = msg.get("principle_id")
+            msg_data["shape_pattern_id"] = msg.get("shape_pattern_id")
+            msg_data["polish_status"] = msg.get("polish_status", "draft")
+            msg_data["is_coach_move_teaching"] = msg.get("is_coach_move_teaching", False)
+            msg_data["move_san"] = msg.get("move_san")
+
         messages.append(msg_data)
         message_ids.append(msg["_id"])
     
@@ -6624,6 +6634,96 @@ async def _process_move_and_respond(
                                 {"$set": {"opening_teaching_index": new_index}}
                             )
         
+        # ═══════════════════════════════════════════════════════════
+        # Phase 1.1 — Live V5 teaching wedge (Mohit signoff 2026-05-18)
+        # ═══════════════════════════════════════════════════════════
+        # Behind feature flag pwc_v5_teaching. Surfaces V5 caption-
+        # pipeline named-pattern teaching (RULE_OF_SQUARE, OPPOSITION,
+        # pin/skewer, hanging-piece perspective, fork, free-piece eval
+        # gate — every fix from this session) as a separate
+        # v5_teaching coach_message alongside the existing realtime
+        # message path. Deterministic draft only here; async polish
+        # is Phase 1.4. State-keyed session suppression via Phase 0.5.
+        try:
+            from services.live_v5_teaching import (
+                v5_teaching_decision_for_live_move,
+                update_session_suppression,
+            )
+            _user_doc = await db.users.find_one({"user_id": session_doc.get("user_id")}) or {}
+            _fired_pids: set = set(session_doc.get("v5_fired_principles") or [])
+            _fired_sks: set = set()
+            for _s in (session_doc.get("v5_fired_state_keys") or []):
+                # state_keys stored as repr() strings of tuples-of-tuples
+                # of plain strings/ints. eval-with-no-builtins is safe
+                # for that subset; future hardening: replace with json
+                # codec using a tuple-marker.
+                try:
+                    _fired_sks.add(tuple(eval(_s, {"__builtins__": {}})))  # noqa: S307
+                except Exception:
+                    pass
+
+            _eval_before_cp = None
+            _eval_after_cp = None
+            try:
+                _eval_before_cp = int(round((analysis.get("eval_before") or 0) * 100))
+                _eval_after_cp = int(round((analysis.get("eval_after") or 0) * 100))
+            except (TypeError, ValueError):
+                pass
+
+            _v5_block = v5_teaching_decision_for_live_move(
+                fen_before=fen_before,
+                played_san=user_move,
+                best_move_san=analysis.get("best_move"),
+                eval_before_cp=_eval_before_cp,
+                eval_after_cp=_eval_after_cp,
+                cp_loss=int(analysis.get("cp_loss", 0) or 0),
+                pv_after_played=analysis.get("pv_after_played") or [],
+                pv_after_best=analysis.get("pv_after_best") or [],
+                move_history_san=[
+                    m.get("move", "") for m in (session_doc.get("move_history") or [])
+                    if m.get("move")
+                ],
+                full_move_number=move_number,
+                mover_is_user=True,
+                user_doc=_user_doc,
+                session_doc=session_doc,
+                session_fired_principles=_fired_pids,
+                session_fired_state_keys=_fired_sks,
+            )
+            if _v5_block is not None:
+                update_session_suppression(_fired_pids, _fired_sks, _v5_block)
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {
+                        "v5_fired_principles": list(_fired_pids),
+                        "v5_fired_state_keys": [repr(sk) for sk in _fired_sks],
+                    }},
+                )
+                await db.coach_messages.insert_one({
+                    "session_id": session_id,
+                    "type": "v5_teaching",
+                    "move_number": move_number,
+                    "move_san": user_move,
+                    "anchor_name": _v5_block["anchor_name"],
+                    "anchor_detail": _v5_block["anchor_detail"],
+                    "message": _v5_block["deterministic_draft"],
+                    "principle_id": _v5_block.get("principle_id"),
+                    "shape_pattern_id": _v5_block.get("shape_pattern_id"),
+                    "polish_status": _v5_block.get("polish_status", "draft"),
+                    "is_coach_move_teaching": _v5_block.get("is_coach_move_teaching", False),
+                    "protected_entities": _v5_block.get("protected_entities") or [],
+                    "created_at": datetime.now(timezone.utc),
+                    "read": False,
+                })
+                logger.info(
+                    f"[live_v5] session={session_id[:8]} move={move_number} "
+                    f"anchor={_v5_block['anchor_name']!r} "
+                    f"principle={_v5_block.get('principle_id')!r}"
+                )
+        except Exception:
+            # V5 teaching is additive — never fail the move response.
+            logger.exception(f"[live_v5] error surfacing teaching for session={session_id}")
+
         # ═══════════════════════════════════════════════════════════
         # NEW: Message Decision Engine (Step 2.5)
         # Replaces ALL old emitters when enabled.
