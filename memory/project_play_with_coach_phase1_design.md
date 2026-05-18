@@ -5,17 +5,27 @@ metadata:
   type: project
 ---
 
-## Inputs locked (Mohit 2026-05-18)
+## Inputs locked (Mohit 2026-05-18, with corrections)
 
 | Question | Decision |
 |---|---|
 | Latency | Deterministic draft <400-700ms immediately; LLM polish async swap-in within 2-3s. Truth layer = deterministic. LLM = presentation only. |
 | Composition | Two visual blocks (primary realtime on top, V5 underneath). NEVER merge into one string. Suppress V5 if it adds no new abstraction. |
-| Coach-move teaching | YES, but ~10-20% of coach moves max. Strategic transformations / opening plans / tactical setups / endgame conversion. NOT routine recaptures. |
+| Coach-move teaching | YES, ~20% default but ADAPTIVE — lower for quiet moves, higher for clear plans / tactical setups / endgame conversion. Hard cooldown: max 2 coach captions per 6 coach moves. NOT routine recaptures. |
 | Silence rules | V5 must respect rating-aware silence. Eligibility ≠ necessity ≠ interruption-worthiness — three separate layers. |
-| Suppression scope | Per-game hard suppression + per-session soft decay weighting. No permanent per-player. Cross-game recurrence is GOOD (how humans learn). |
+| Suppression scope | State-based per-game hard suppression via state_key (see `[[suppression-key-overhaul]]`) + per-session soft decay weighting. **NOT** Set[principle_id] (too blunt). No permanent per-player. Cross-game recurrence is GOOD. |
+| Material-value gate | **Structured comparison** (principle_id, pattern_id, target_square, piece_square, tactic_type, best_move_family) — NOT string match against primary_text. |
+| Async polish swap | **Guarded** — hot-swap only if all four hold: same principle/target as draft, no contradiction with draft, polished length ≤1.4× draft length, arrives within 3s. Otherwise keep draft. |
 | Pre-existing features | Independent for Phase 1. Long-term: shared interruption governor with pre-move guardian. |
 | Feature flag | Per-user first; per-game override for A/B. Avoid global-only rollout. |
+
+## Order (final)
+
+1. **Phase 0.5** — Suppression-key overhaul (state_key + re-arm). See `[[suppression-key-overhaul]]`. Lands FIRST — live teaching must not ship on the current once_per_game blunt suppression.
+2. **Phase 1.1** — Deterministic V5 block behind feature flag.
+3. **Phase 1.2** — Structured material-value gate.
+4. **Phase 1.3** — Adaptive coach-move teaching with 2/6 cooldown.
+5. **Phase 1.4** — Guarded async polish.
 
 ## Architecture sketch
 
@@ -80,14 +90,25 @@ Slow components to skip in the draft path:
 
 The draft sent to the user is `anchor_name + " — " + anchor_detail` from the resolver decision dict. Already 1200-test compliant by construction (the resolver detail is the IR).
 
-### Async polish swap
+### Async polish swap — GUARDED (Mohit 2026-05-18)
 
-After the live move response is sent, the route schedules an async task (`asyncio.create_task`) that:
-1. Runs `generate_caption_for_move(move)` → polished string.
-2. Updates the stored `coach_messages` record with `polish_status: "polished"` and the polished string.
-3. Frontend's next poll picks up the swap.
+After the live move response is sent, the route schedules `asyncio.create_task(polish_task)`. The polish task:
+1. Runs `generate_caption_for_move(move)` → polished string with a 3s deadline.
+2. Applies guards before swapping:
+   - **Same principle/target**: polished output must mention the same `principle_id` AND `target_square` (or `pattern_id`) as the draft. Use the resolver decision's protected_entities list to verify.
+   - **No contradiction**: polished must not contradict the draft (no negation of named pattern, no flipping mover-perspective).
+   - **Length cap**: polished length ≤ 1.4× draft length. Prevents the LLM from over-elaborating and replacing a crisp draft with a verbose paragraph.
+   - **Deadline**: arrives within 3s of move-response send. After that, user has likely already moved on; abandon.
+3. If all guards pass: update `coach_messages.v5_block.anchor_detail = polished`, `polish_status = "polished"`. Frontend's next poll hot-swaps.
+4. If any guard fails: keep draft. Log the rejection reason (debugging tool).
 
-If polish takes longer than the user's next move, the swap is silently abandoned (user has already moved on; old draft stays in record for review later).
+Failure modes (no regression in any case):
+- LLM call fails → guard 3 (deadline) trips; draft stays.
+- LLM exceeds 3s → guard 3; draft stays.
+- LLM contradicts draft → guard 2; draft stays.
+- LLM elaborates verbosely → guard 4; draft stays.
+- Backend restart during polish → polish task lost; record stays at draft.
+- User left session → polish completes, record updates anyway (consistency with later /lab review).
 
 ### Failure modes
 
@@ -122,17 +143,52 @@ If polish takes longer than the user's next move, the swap is silently abandoned
 - Material-value gate rejects (see below)
 - Interruption-worthiness gate rejects (see below)
 
-### Material-value gate ("does V5 add a new abstraction?")
+### Material-value gate ("does V5 add a new abstraction?") — STRUCTURED
 
-Suppress `v5_block` when the principle teaching would be redundant with `primary_text`. Concretely:
+Mohit 2026-05-18: do NOT string-match. Compare structured fields the realtime path emits alongside its text.
+
+Phase 1.2 augments the realtime path to emit a structured tag on every message:
+
+```python
+@dataclass
+class MoveFeedbackTag:
+    severity: str           # excellent / good / inaccuracy / mistake / blunder
+    principle_id: Optional[str]   # if realtime path already named a principle
+    pattern_id: Optional[str]     # if realtime path already named a shape pattern
+    target_square: Optional[str]
+    piece_square: Optional[str]
+    tactic_type: Optional[str]    # "fork" / "pin" / "skewer" / "hang" / ...
+    best_move_family: Optional[str]
+```
+
+V5 block is suppressed when:
 
 ```
-suppress v5_block when:
-  primary_text already contains the anchor_name string, OR
-  primary_text already names the same target square AND same piece type
-    as anchor_detail, OR
-  primary_text severity is "excellent" / "good"  # nothing to teach
+realtime_tag.severity in ("excellent", "good") AND
+no V5 principle hit OR
+(realtime_tag.principle_id == v5.principle_id) OR
+(realtime_tag.pattern_id == v5.pattern_id) OR
+(realtime_tag.tactic_type == v5.principle.tactic_type AND
+ realtime_tag.target_square == v5.evidence.target_square) OR
+(realtime_tag.best_move_family == v5.state_key.best_move_family AND
+ realtime_tag.piece_square == v5.evidence.piece_square)
 ```
+
+Concrete examples:
+
+KEEP (V5 adds new abstraction):
+- Realtime tag: { severity=blunder, principle_id=null, tactic_type=null, target_square="e5", piece_square="e5" }
+- Realtime text: "You left the knight on e5 hanging."
+- V5 block: { principle_id="TAC_HANGING_PIECE", anchor_name="Loose piece on the board", target_square="e5" }
+- → Different abstraction level (consequence vs. pattern name). Keep V5.
+
+SUPPRESS (V5 duplicates):
+- Realtime tag: { tactic_type="pin", target_square="c6" }
+- Realtime text: "Good — Bb5 pins the knight on c6 against the king."
+- V5 block: { principle_id="TAC_PIN_PATTERN", tactic_type="pin", target_square="c6" }
+- → Same pattern + same target. Suppress V5.
+
+Phase 1.2 ships the realtime tag emission AND the gate. Without structured tags from the realtime path, the gate degrades to "always show V5 when present" (acceptable Phase 1.1 behavior).
 
 Example to KEEP (V5 adds value):
 - Primary: "You left the knight on e5 hanging."
@@ -158,11 +214,42 @@ Coach-move V5 surface is SUPPRESSED for:
 - Engine-best moves with cp_loss < 30 AND no principle hit.
 - Mate-search noise (eval already at mate territory).
 
-### Frequency cap
+### Adaptive frequency cap (Mohit 2026-05-18)
 
-Per-game soft cap: at most ~20% of coach's moves get a V5 block. If the cap is exceeded, the lower-priority candidate is silenced (priority = principle.priority number; lower wins per existing scheme).
+Default 20%, but ADAPTIVE based on the type of move:
+- **Quiet moves** (no principle hit, routine play): much lower than 20% (maybe 0-5%).
+- **Clear plans** (strategic transformation, opening plan transition): can exceed 20% in that window.
+- **Tactical setup moments** (creating threats, pin/fork setup): can exceed 20%.
+- **Endgame conversion ideas** (transitioning to a winning technique): can exceed 20%.
 
-The cap exists because at >20% the coach feels chatty and "engine-narrating." Mohit's instinct: coach moves should feel intentional, not robotic.
+**Hard cooldown** (non-negotiable): at most 2 coach-V5 captions per 6 consecutive coach moves. If 2 have surfaced in the last 6 coach moves, suppress all further coach-V5 until the window resets.
+
+Implementation:
+
+```python
+class CoachGameSession:
+    ...
+    coach_v5_surfaced_indices: List[int] = []   # coach move numbers where V5 surfaced
+    coach_moves_made: int = 0
+
+def coach_v5_within_cooldown(session) -> bool:
+    """True if surfacing a new coach-V5 would violate 2-per-6 cooldown."""
+    if session.coach_moves_made < 6:
+        return False  # ramp-in: no cap for first 6 coach moves
+    recent_surfaced = [
+        i for i in session.coach_v5_surfaced_indices
+        if i > session.coach_moves_made - 6
+    ]
+    return len(recent_surfaced) >= 2
+```
+
+The adaptive cap (higher for clear plans) is implemented via a per-candidate "teaching weight" 0-1 that combines:
+- principle priority (lower priority number = higher weight)
+- shape-pattern presence (+0.2)
+- strategic transformation marker (+0.3)
+- routine-recapture marker (-0.5)
+
+Surface if weight × random_uniform > 0.7 AND not within cooldown. Threshold tuned empirically.
 
 ### Voice tone for coach-move teaching
 
@@ -202,18 +289,24 @@ These thresholds will need real-corpus calibration. Ship the structure; tune the
 
 Two tiers of state:
 
-### Hard suppression (per-game)
+### Hard suppression (per-game) — STATE-KEYED, not Set[principle_id]
 
-Already exists in V5 wiring layer (`game_decryption_v5_service.py` line 3211-3213). Same mechanism, but state belongs to the Play-with-Coach SESSION:
+Mohit 2026-05-18 corrected this — Set[principle_id] is too blunt. Phase 0.5 (`[[suppression-key-overhaul]]`) lands the state_key infrastructure FIRST. Phase 1.1 then uses it:
 
 ```python
-# CoachGameSession augmentation:
+# CoachGameSession augmentation (after Phase 0.5 lands):
 class CoachGameSession:
     ...
+    v5_state_keys_fired_this_session: Set[Tuple] = field(default_factory=set)
     v5_principles_fired_this_session: Set[str] = field(default_factory=set)
 ```
 
-Reset on session start. Persists across moves within the same live game.
+Suppression check on each fire:
+- If principle's `suppress == "once_per_game"` → check `v5_principles_fired_this_session`.
+- If principle's `suppress == "once_per_state_key"` → check `v5_state_keys_fired_this_session`.
+- If `suppress == "once_per_move"` → no game-state filter (each move independent).
+
+Reset on session start. Persists across moves within the same live game. Same mechanism as the review path now uses (single source of truth).
 
 ### Soft per-session weighting
 
@@ -327,15 +420,12 @@ NOT covered (separate work):
 - Coach memory / identity wiring (out of scope).
 - Real-corpus per-fire audit of the LIVE pipeline (will be its own audit script analogous to `audit_rule_of_square.py` but for the live-message decisions).
 
-## Decisions still needed before coding
+## Decisions LOCKED (Mohit 2026-05-18)
 
-1. **Order with respect to the suppression overhaul.** Should I do the suppression-key + re-arm architecture FIRST (since it's foundational and benefits both surfaces), or land Phase 1 on the current once_per_game and migrate later? Both have risk: doing suppression first delays the live teaching ship; doing Phase 1 first means churning through it again on the suppression overhaul.
-
-2. **Coach-move teaching frequency cap implementation.** Static 20% cap, or adaptive based on game length / user engagement / rating band?
-
-3. **Material-value gate phrasing match.** I've sketched "primary_text contains anchor_name" — this is a string match. More robust: passing structured fields (target_square, piece_type) through the realtime path and comparing those instead. Slightly bigger refactor in realtime_coaching_feedback.
-
-4. **Async polish swap UX confirmation.** Showing a deterministic draft and then "swapping in" a polished version on the next poll — does that feel smooth or jarring to a user? Worth a quick UX mock or live test.
+1. ✅ Suppression overhaul FIRST. Phase 0.5 (`[[suppression-key-overhaul]]`) lands before Phase 1.1.
+2. ✅ Adaptive coach cap with 2/6 cooldown.
+3. ✅ Structured material-value gate (compare IDs/squares, not strings).
+4. ✅ Guarded async polish (same principle/target, no contradiction, ≤1.4× length, ≤3s).
 
 ## Related memories
 
