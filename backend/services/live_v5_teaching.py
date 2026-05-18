@@ -645,6 +645,246 @@ async def polish_v5_block_async(
         logger.exception(f"[live_v5.polish] unexpected error; staying at draft")
 
 
+# ─────────────────────────────────────────────────────────────────
+# Phase 1.3 — adaptive coach-move teaching (Mohit signoff 2026-05-18)
+#
+# When the coach plays, occasionally surface a brief named-pattern
+# observation ("Coach plays Bg5 — Pin. Watches your knight against
+# your queen."). Frequency target: ~20% of coach moves on average,
+# higher on clear plans / tactical setups, lower on quiet moves.
+# Hard cooldown: max 2 coach captions per 6 coach moves.
+# ─────────────────────────────────────────────────────────────────
+
+# Subset of principle IDs that fire MEANINGFULLY on a coach's move
+# (i.e., the principle is about a positive pattern the coach JUST
+# CREATED, not a mistake the player JUST MADE). The cp_loss gates
+# in caption_facts will suppress most "missed chance" principles
+# when cp_loss is 0 — but TIER 3 shape patterns ALWAYS fire when
+# the geometry is present.
+_COACH_TEACHING_SHAPE_PATTERNS = True   # always allow shape patterns
+_COACH_TEACHING_PRINCIPLES: Set[str] = {
+    # Add principles that detect POSITIVE created patterns here.
+    # Phase 1.3 MVP scope: keep this empty and rely on shapes.
+    # Future: add "OP_DEVELOPMENT_FINISHED", "MID_PIECE_REROUTE", etc.
+    # as those detectors land.
+}
+
+
+@dataclass
+class CoachMoveTeachingDecision:
+    """Result of evaluating whether to surface coach-move teaching."""
+    should_surface: bool
+    reason: str
+    v5_block: Optional[Dict[str, Any]] = None
+    teaching_weight: float = 0.0
+
+
+def _coach_move_teaching_weight(
+    *,
+    has_shape_pattern: bool,
+    has_principle: bool,
+    is_forced_recapture: bool,
+    cp_loss: int,
+) -> float:
+    """Compute the adaptive surfacing weight for a coach move per
+    Mohit's Phase 1.3 spec.
+
+    Higher = more likely to surface. Surfacing decision applies
+    `weight * random_uniform > 0.7`.
+
+    Base: 0.4 (most coach moves are below threshold and stay silent).
+    Modifiers:
+      +0.4 — shape pattern detected (clear tactical pattern)
+      +0.2 — principle from the coach-teaching subset
+      -0.5 — forced recapture (routine, no teaching value)
+      +0.2 — coach move was a significant improvement (cp_loss=0
+             when prev position had a different best — proxy for
+             strategic transformation)
+    """
+    weight = 0.4
+    if has_shape_pattern:
+        weight += 0.4
+    if has_principle:
+        weight += 0.2
+    if is_forced_recapture:
+        weight -= 0.5
+    # cp_loss for coach moves is typically 0 (coach plays best).
+    # If we had a cp_loss > 0 it'd indicate coach made a sub-optimal
+    # move — definitely don't surface those.
+    if cp_loss > 50:
+        weight -= 0.3
+    return max(0.0, min(1.0, weight))
+
+
+def _coach_in_cooldown(
+    coach_v5_surfaced_indices: List[int],
+    coach_moves_made: int,
+) -> bool:
+    """Per Mohit's spec: max 2 coach V5 captions per 6 coach moves.
+
+    Ramp-in: no cap for the first 6 coach moves of the session.
+    """
+    if coach_moves_made < 6:
+        return False
+    window_start = coach_moves_made - 6
+    recent = [i for i in coach_v5_surfaced_indices if i > window_start]
+    return len(recent) >= 2
+
+
+def _build_coach_perspective_caption(
+    *,
+    anchor_name: str,
+    coach_move_san: str,
+    shape_pattern_desc: Optional[str] = None,
+) -> str:
+    """Intention-framed brief observation per Mohit's spec.
+
+    NOT engine narration. Just a named-pattern observation.
+
+    Examples:
+      "Coach plays Bg5 — Pin."
+      "Coach plays Ne5 — Pawn Fork. The knight attacks two pawns."
+    """
+    base = f"Coach plays {coach_move_san} — {anchor_name}."
+    if shape_pattern_desc:
+        return f"{base} {shape_pattern_desc.rstrip('.').rstrip()}."
+    return base
+
+
+def evaluate_coach_move_teaching(
+    *,
+    fen_before_coach_move: str,
+    coach_move_san: str,
+    pv_after_coach: Optional[List[str]] = None,
+    move_history_san: Optional[List[str]] = None,
+    full_move_number: Optional[int] = None,
+    user_doc: Dict[str, Any],
+    session_doc: Dict[str, Any],
+    coach_moves_made: int,
+    coach_v5_surfaced_indices: List[int],
+    rng_value: Optional[float] = None,
+) -> CoachMoveTeachingDecision:
+    """Decide whether to surface a V5 teaching block for the coach's
+    move, per Phase 1.3 spec.
+
+    Logic:
+      1. Feature flag check (same flag as user-move V5).
+      2. Run extract_facts with mover_is_user=False, cp_loss=0.
+      3. Check for shape pattern OR coach-teaching-subset principle hit.
+      4. Compute adaptive weight.
+      5. Cooldown check (2 per 6 coach moves).
+      6. Stochastic surface decision: weight * random > 0.7.
+
+    rng_value: pass a deterministic value 0-1 for testing; otherwise
+    a fresh random.random() is used.
+    """
+    import random
+
+    if not _is_user_flag_enabled(user_doc, session_doc):
+        return CoachMoveTeachingDecision(should_surface=False, reason="feature flag off")
+
+    # Cooldown gate FIRST — no point detecting if we can't surface.
+    if _coach_in_cooldown(coach_v5_surfaced_indices, coach_moves_made):
+        return CoachMoveTeachingDecision(
+            should_surface=False,
+            reason=f"cooldown (2/6 cap; {coach_moves_made} moves, "
+                   f"{len(coach_v5_surfaced_indices)} surfaced)",
+        )
+
+    # Run V5 detection on the coach's move.
+    try:
+        facts = extract_facts(
+            fen_before=fen_before_coach_move,
+            played_san=coach_move_san,
+            best_move_san=coach_move_san,  # assume coach played best
+            eval_before_cp=0,
+            eval_after_cp=0,
+            cp_loss=0,
+            pv_after_played=pv_after_coach or [],
+            pv_after_best=pv_after_coach or [],
+            move_history_san=move_history_san or [],
+            full_move_number=full_move_number,
+            mover_is_user=False,
+        )
+    except Exception:
+        return CoachMoveTeachingDecision(should_surface=False, reason="extract_facts failed")
+
+    has_shape = bool(facts.get("shape_pattern_id"))
+    eligible_principles = [
+        ev for ev in (facts.get("principles_violated") or [])
+        if ev.get("principle_id") in _COACH_TEACHING_PRINCIPLES
+    ]
+    has_principle = bool(eligible_principles)
+    if not has_shape and not has_principle:
+        return CoachMoveTeachingDecision(
+            should_surface=False, reason="no shape or coach-teaching principle"
+        )
+
+    is_forced_recapture = bool(facts.get("forced_recapture"))
+    weight = _coach_move_teaching_weight(
+        has_shape_pattern=has_shape,
+        has_principle=has_principle,
+        is_forced_recapture=is_forced_recapture,
+        cp_loss=0,
+    )
+    if rng_value is None:
+        rng_value = random.random()
+    if weight * rng_value <= 0.7:
+        return CoachMoveTeachingDecision(
+            should_surface=False,
+            reason=f"weight*rng below threshold (w={weight:.2f} r={rng_value:.2f})",
+            teaching_weight=weight,
+        )
+
+    # Build the v5_block. For shape patterns, use shape_pattern_name +
+    # shape_pattern_desc; for principles, use the resolver.
+    anchor_name: Optional[str] = None
+    anchor_detail: Optional[str] = None
+    principle_id: Optional[str] = None
+    shape_pattern_id: Optional[str] = None
+    deterministic_draft: Optional[str] = None
+
+    if has_shape:
+        anchor_name = facts.get("shape_pattern_name") or "Pattern"
+        shape_pattern_id = facts.get("shape_pattern_id")
+        shape_desc = facts.get("shape_pattern_desc")
+        deterministic_draft = _build_coach_perspective_caption(
+            anchor_name=anchor_name,
+            coach_move_san=coach_move_san,
+            shape_pattern_desc=shape_desc,
+        )
+        anchor_detail = shape_desc or anchor_name
+    elif has_principle:
+        ev = eligible_principles[0]
+        principle_id = ev.get("principle_id")
+        entry = _CAPTION_PRINCIPLES_BY_ID.get(principle_id or "", {})
+        anchor_name = entry.get("name") or principle_id
+        deterministic_draft = _build_coach_perspective_caption(
+            anchor_name=anchor_name,
+            coach_move_san=coach_move_san,
+        )
+        anchor_detail = anchor_name
+
+    v5_block = {
+        "anchor_name":          anchor_name,
+        "anchor_detail":        anchor_detail,
+        "deterministic_draft":  deterministic_draft,
+        "principle_id":         principle_id,
+        "shape_pattern_id":     shape_pattern_id,
+        "polish_status":        "draft",
+        "is_coach_move_teaching": True,
+        "protected_entities":   [coach_move_san, anchor_name] if anchor_name else [coach_move_san],
+        "state_key":            None,  # coach-move V5 doesn't use state-key suppression today
+        "principle_suppress_policy": None,
+    }
+    return CoachMoveTeachingDecision(
+        should_surface=True,
+        reason=f"surface (w={weight:.2f} r={rng_value:.2f})",
+        v5_block=v5_block,
+        teaching_weight=weight,
+    )
+
+
 def update_session_suppression(
     session_fired_principles: Set[str],
     session_fired_state_keys: Set[Tuple],

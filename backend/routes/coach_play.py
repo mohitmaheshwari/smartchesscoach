@@ -6346,6 +6346,69 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
         )
         logger.info(f"[COACH MOVE] {coach_move_san} applied to {session_id}")
 
+        # Phase 1.3 — adaptive coach-move teaching (Mohit 2026-05-18).
+        # Surface V5 named-pattern teaching for the coach's move when
+        # a shape/principle hit + adaptive weight + 2/6 cooldown all
+        # agree. Wraps everything; never fails coach-move application.
+        try:
+            from services.live_v5_teaching import evaluate_coach_move_teaching
+
+            _session_doc = await db.coach_sessions.find_one({"session_id": session_id}) or {}
+            _user_doc = await db.users.find_one({"user_id": _session_doc.get("user_id")}) or {}
+            _coach_moves_made = sum(
+                1 for m in _session_doc.get("move_history", []) if m.get("by") == "coach"
+            )
+            _coach_v5_surfaced = _session_doc.get("coach_v5_surfaced_indices", []) or []
+            _move_history_san = [
+                m.get("move", "") for m in (_session_doc.get("move_history") or [])
+                if m.get("move")
+            ]
+
+            _decision = evaluate_coach_move_teaching(
+                fen_before_coach_move=fen,
+                coach_move_san=coach_move_san,
+                pv_after_coach=None,
+                move_history_san=_move_history_san[:-1],  # exclude this just-pushed coach move
+                full_move_number=_session_doc.get("move_history", [{}])[-1].get("move_number"),
+                user_doc=_user_doc,
+                session_doc=_session_doc,
+                coach_moves_made=_coach_moves_made,
+                coach_v5_surfaced_indices=_coach_v5_surfaced,
+            )
+            if _decision.should_surface and _decision.v5_block is not None:
+                _coach_v5_surfaced = list(_coach_v5_surfaced) + [_coach_moves_made]
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {"coach_v5_surfaced_indices": _coach_v5_surfaced}},
+                )
+                await db.coach_messages.insert_one({
+                    "session_id": session_id,
+                    "type": "v5_teaching",
+                    "move_san": coach_move_san,
+                    "anchor_name": _decision.v5_block.get("anchor_name"),
+                    "anchor_detail": _decision.v5_block.get("anchor_detail"),
+                    "message": _decision.v5_block.get("deterministic_draft"),
+                    "principle_id": _decision.v5_block.get("principle_id"),
+                    "shape_pattern_id": _decision.v5_block.get("shape_pattern_id"),
+                    "polish_status": "draft",
+                    "is_coach_move_teaching": True,
+                    "protected_entities": _decision.v5_block.get("protected_entities") or [],
+                    "created_at": datetime.now(timezone.utc),
+                    "read": False,
+                })
+                logger.info(
+                    f"[live_v5.coach] surfaced session={session_id[:8]} "
+                    f"coach_move={coach_move_san} anchor={_decision.v5_block.get('anchor_name')!r} "
+                    f"weight={_decision.teaching_weight:.2f}"
+                )
+            else:
+                logger.debug(
+                    f"[live_v5.coach] no surface session={session_id[:8]} "
+                    f"coach_move={coach_move_san} reason={_decision.reason}"
+                )
+        except Exception:
+            logger.exception(f"[live_v5.coach] error evaluating teaching for session={session_id}")
+
         # Push: coach turn is ready. Frontend fetches /move-feedback on this signal.
         publish_session_event(session_id, {
             "type": "coach_turn_ready",
