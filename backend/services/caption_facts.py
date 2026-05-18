@@ -3582,6 +3582,603 @@ def _p_end_rook_behind_passer(
     }
 
 
+# ── Helper: count pawns on a file for a color ──────────────────────
+def _pawns_on_file(board: chess.Board, file_: int, color: chess.Color) -> int:
+    """Count own pawns on a given file. Used by OP_BISHOP_TRADE_DOUBLES_PAWN
+    to detect when a recapture would create (or extend) doubled pawns."""
+    count = 0
+    for rank in range(8):
+        sq = chess.square(file_, rank)
+        p = board.piece_at(sq)
+        if p and p.piece_type == chess.PAWN and p.color == color:
+            count += 1
+    return count
+
+
+# ── Detector #27: OP_BISHOP_TRADE_DOUBLES_PAWN ──────────────────────
+#
+# The classic English / Nimzo-Indian / Vienna structural concession:
+# Bxc3 → bxc3 (or Bxf6 → gxf6), where the player trades their bishop
+# for an enemy minor piece and forces the opponent to recapture with
+# a pawn that creates doubled pawns on that file. Long-term target.
+#
+# Fires when:
+#   1. Phase in (opening, middlegame). Cross-opening pattern, but the
+#      teaching value is highest while pawn structures are still fluid.
+#   2. Played move is a CAPTURE.
+#   3. Mover's piece is a BISHOP.
+#   4. Captured piece is an enemy MINOR (knight or bishop).
+#   5. After the played move, the opponent's CHEAPEST legal recapture
+#      onto the capture square is a PAWN (i.e., the SEE recapture sequence
+#      starts with a pawn). This is the "forced recapture" definition.
+#   6. The pawn that would recapture comes from a DIFFERENT file than
+#      the capture square (so the recapture is a diagonal pawn move
+#      that CREATES doubled pawns on the capture-square's file).
+#   7. After the hypothetical recapture, the capture-square's file
+#      contains ≥2 enemy pawns (the doubled-pawn outcome).
+#   8. The capture square is not already on a file with multiple enemy
+#      pawns BEFORE the trade — otherwise we'd fire on a position that
+#      was already doubled (no teaching value).
+#
+# Edge cases enumerated:
+#   A. Captured piece is the queen / rook — different lesson (material gain).
+#      Filter to minor pieces only.
+#   B. The recapture COULD be a non-pawn (e.g., bishop trade where a
+#      queen, rook, or other minor can also recapture). We only fire
+#      when the pawn IS the engine's preferred recapture or the only
+#      legal recapture. For v1: fire when ALL pawn-recaptures from
+#      adjacent files would double, AND there are no non-pawn
+#      recaptures of equal or higher value (pawn recapture would be
+#      the rational choice).
+#   C. The bishop is captured back by something other than a pawn
+#      (e.g., the opponent has a rook on c-file ready to recapture
+#      with Rxc3). Don't fire — the pawn isn't forced.
+#   D. The trade is SEE-losing for the mover (e.g., they sacrificed
+#      a bishop for a pawn). Don't fire — different lesson.
+#   E. Eval bracket — drop already-winning positions per existing
+#      pedagogical-purity pattern.
+#   F. SAN parse failures — return None.
+#   G. Same-file pawn recapture (rare, possible with en passant
+#      mechanics?) — would NOT double pawns, don't fire.
+def _p_op_bishop_trade_doubles_pawn(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the player's bishop takes an enemy minor on a square
+    whose forced pawn recapture doubles the opponent's pawns on that
+    file. The Bxc3 / Bxf6 structural-concession pattern."""
+    if facts.get("phase") not in ("opening", "middlegame"):
+        return None
+
+    # Played move must be a capture by a bishop.
+    if not facts.get("is_capture"):
+        return None
+    if facts.get("moving_piece_type") != "bishop":
+        return None
+
+    # Captured piece must be a minor (knight or bishop).
+    captured = facts.get("captured_piece_type")
+    if captured not in ("knight", "bishop"):
+        return None
+
+    played_san = _normalize_san(facts.get("played_san") or "")
+    if not played_san:
+        return None
+
+    # Eval bracket — drop already-winning per existing pattern.
+    eval_before_white_pov = facts.get("eval_before_cp")
+    if eval_before_white_pov is not None:
+        side_white = facts.get("moving_piece_color") == "white"
+        stm_eval = eval_before_white_pov if side_white else -eval_before_white_pov
+        if stm_eval > 300:
+            return None
+
+    try:
+        played_move = board_before.parse_san(played_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+        return None
+
+    target_sq = played_move.to_square
+    from_sq = played_move.from_square
+    us = board_before.turn
+    them = not us
+    target_file = chess.square_file(target_sq)
+
+    # Edge case D — the trade must not be SEE-losing (i.e., bishop for
+    # less than equivalent material). If the bishop is captured back
+    # cleanly with material loss, that's a different lesson.
+    played_see = _see_for_played_move(board_before, played_move)
+    if played_see is not None and played_see < -50:
+        # Bishop-for-pawn-style sacrifice — different lesson.
+        return None
+
+    # Edge case H — opponent's pawns on target_file BEFORE the trade
+    # must NOT already include multiple pawns. Otherwise we'd fire on
+    # an already-doubled file, removing the "you CREATED doubling"
+    # teaching. Note we count BEFORE the move because the captured
+    # piece on target_sq is a knight/bishop, not a pawn — but we still
+    # want to compare apples-to-apples.
+    enemy_pawns_on_target_file_before = _pawns_on_file(board_before, target_file, them)
+    if enemy_pawns_on_target_file_before >= 2:
+        return None
+
+    # Now simulate the played move on a copy of the board and look at
+    # what the OPPONENT's cheapest legal recapture onto target_sq is.
+    board_after = board_before.copy()
+    board_after.push(played_move)
+
+    # Enumerate opponent's legal recaptures onto target_sq.
+    pawn_recapturers: List[int] = []
+    non_pawn_recapturers: List[int] = []
+    for move in board_after.legal_moves:
+        if move.to_square != target_sq:
+            continue
+        if not board_after.is_capture(move):
+            continue
+        piece = board_after.piece_at(move.from_square)
+        if not piece or piece.color != them:
+            continue
+        if piece.piece_type == chess.PAWN:
+            pawn_recapturers.append(move.from_square)
+        else:
+            non_pawn_recapturers.append(move.from_square)
+
+    # Edge case C — must have at least one pawn recapture available.
+    if not pawn_recapturers:
+        return None
+
+    # Edge case B — if a NON-pawn recapture is available AND its piece
+    # value is comparable to or cheaper than a pawn (impossible since
+    # pawn is the cheapest piece), pawn is preferred. But if a non-pawn
+    # is also legal, we need a tie-breaker. For v1: still fire (because
+    # in practice the engine still often chooses bxc3 to keep pieces
+    # active, AND the doubled-pawn LESSON is the same). However, if
+    # the engine's BEST move (what opponent would actually play) is a
+    # non-pawn recapture, the doubled-pawn structure never materialises
+    # in the played game — drop those cases.
+    #
+    # Simpler v1 gate: fire when the pawn recapture is from a
+    # DIFFERENT FILE than the target (so it would create doubled
+    # pawns). If multiple pawn recapturers exist, pick the one from
+    # an adjacent file (the one that creates doubling).
+    doubling_recapturers: List[int] = []
+    for pawn_sq in pawn_recapturers:
+        if chess.square_file(pawn_sq) != target_file:
+            doubling_recapturers.append(pawn_sq)
+
+    # Edge case G — same-file pawn recapture would NOT double pawns.
+    # If only same-file recaptures exist, skip.
+    if not doubling_recapturers:
+        return None
+
+    # Verify the post-recapture state would have ≥2 enemy pawns on
+    # target_file. Simulate one of the doubling recaptures.
+    sample_pawn_sq = doubling_recapturers[0]
+    board_check = board_after.copy()
+    # Find the matching legal move and push it.
+    sim_move = None
+    for move in board_check.legal_moves:
+        if move.from_square == sample_pawn_sq and move.to_square == target_sq:
+            sim_move = move
+            break
+    if sim_move is None:
+        return None
+    board_check.push(sim_move)
+    enemy_pawns_after = _pawns_on_file(board_check, target_file, them)
+    if enemy_pawns_after < 2:
+        return None
+
+    # Compute engine endorsement — was this trade engine-preferred?
+    best_san_raw = _normalize_san(facts.get("best_move_san") or "")
+    if best_san_raw and best_san_raw == played_san:
+        endorsement = "best"
+    else:
+        # Even if not engine-best, the structural lesson still fires
+        # (educationally — "here's what this trade DOES to their
+        # pawns"). Use top_n bucket so cue_top_n voice runs.
+        endorsement = "top_n"
+
+    recapture_file_letter = chess.FILE_NAMES[target_file]
+
+    return {
+        "principle_id": "OP_BISHOP_TRADE_DOUBLES_PAWN",
+        "evidence": {
+            "bishop_from_square":   chess.square_name(from_sq),
+            "capture_square":       chess.square_name(target_sq),
+            "captured_piece_type":  captured,
+            "recapture_pawn_from":  chess.square_name(sample_pawn_sq),
+            "doubled_pawn_file":    recapture_file_letter,
+            "enemy_pawns_after_on_file": enemy_pawns_after,
+            "perspective":          "creating" if facts.get("mover_is_user") else "conceding",
+            "played_san":           facts.get("played_san") or "",
+            "best_san":             facts.get("best_move_san") or "",
+        },
+        "state_key": _freeze_state_key({
+            "principle_id":     "OP_BISHOP_TRADE_DOUBLES_PAWN",
+            "phase":            facts.get("phase") or "opening",
+            "intent_type":      "structural_concession",
+            "focal_squares":    (chess.square_name(target_sq), recapture_file_letter),
+            "involved_piece":   "bishop",
+            "best_move_family": "BxN",
+        }),
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": [played_san],
+    }
+
+
+# ── Detector #28: OP_F2_F7_STRIKE ───────────────────────────────────
+#
+# The classic Fried-Liver / Légal-trap / Scholar's-mate-defense theme:
+# capture on f7 (white attacker) or f2 (black attacker) — the square
+# is defended only by the king in the starting position, and many
+# opening blunders leave it that way through the first 10–15 moves.
+#
+# Fires when:
+#   1. Phase in (opening, middlegame).
+#   2. Played move is a CAPTURE.
+#   3. Capture square is f7 (when mover is white) OR f2 (when mover
+#      is black). Geometric definition of "the weak square."
+#   4. Before the played move, the ONLY defender of the capture
+#      square was the enemy king. (If a knight / bishop / rook also
+#      defends, the strike is no longer thematic — it's a standard
+#      trade.)
+#   5. The played move's SEE is non-negative (the strike actually
+#      wins material — sacrifices that fail SEE are a different
+#      pattern, e.g., Greek Gift, and need their own detector).
+#   6. Eval bracket — drop already-winning STM > +300cp.
+#
+# Edge cases enumerated:
+#   A. The capture is a pure piece exchange (e.g., Nxf7 by a knight
+#      that's also defended adequately) — caught by SEE >= 0.
+#   B. f7/f2 has another defender (a knight on c6 defends f7 in some
+#      positions; bxc6 first might be needed). Don't fire.
+#   C. SAN parse failures — return None safely.
+#   D. Mover_is_user not relevant here — the lesson applies symmetrically.
+#      But the resolver detail flips voice (you struck / they struck).
+#   E. Endgame phase — exclude. f7/f2 weakness vanishes once king
+#      castles + middlegame trades complete.
+#   F. The captured piece is a pawn (e.g., exf7 from e6) — fire.
+#      The thematic teaching IS about the f-square, not what's on it.
+#      But if there's another piece on f7 (a pawn that was pushed
+#      there from f6, say), we still fire — same square, same lesson.
+#   G. f7 / f2 attacked but not captured (e.g., Bc4 eyes f7) — don't
+#      fire. v1 covers captures only; threat-only is a future v2.
+def _p_op_f2_f7_strike(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the player captures on f7 (white) or f2 (black) and
+    the strike square was defended only by the enemy king."""
+    if facts.get("phase") not in ("opening", "middlegame"):
+        return None
+    if not facts.get("is_capture"):
+        return None
+
+    own_color_str = facts.get("moving_piece_color")
+    if own_color_str not in ("white", "black"):
+        return None
+    own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    enemy_color = not own_color
+
+    # f7 if mover is white, f2 if mover is black.
+    strike_sq_name = "f7" if own_color == chess.WHITE else "f2"
+    target = facts.get("target_square") or ""
+    if target != strike_sq_name:
+        return None
+
+    played_san = _normalize_san(facts.get("played_san") or "")
+    if not played_san:
+        return None
+
+    # Eval bracket — drop already-winning per existing pattern.
+    eval_before_white_pov = facts.get("eval_before_cp")
+    if eval_before_white_pov is not None:
+        side_white = (own_color == chess.WHITE)
+        stm_eval = eval_before_white_pov if side_white else -eval_before_white_pov
+        if stm_eval > 300:
+            return None
+
+    try:
+        played_move = board_before.parse_san(played_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+        return None
+
+    strike_sq = chess.parse_square(strike_sq_name)
+
+    # Edge case B — defenders BEFORE the move must be only the king.
+    defenders = board_before.attackers(enemy_color, strike_sq)
+    non_king_defenders = []
+    has_king_defender = False
+    for sq in defenders:
+        p = board_before.piece_at(sq)
+        if not p:
+            continue
+        if p.piece_type == chess.KING:
+            has_king_defender = True
+        else:
+            non_king_defenders.append(sq)
+    if non_king_defenders:
+        return None
+    if not has_king_defender:
+        # The king doesn't even defend the strike square — likely the
+        # king already moved off its starting rank. The thematic lesson
+        # ("the only defender is the king") doesn't apply. Skip.
+        return None
+
+    # Edge case A — SEE must be non-negative (the strike wins material).
+    played_see = _see_for_played_move(board_before, played_move)
+    if played_see is None:
+        # Not a capture (shouldn't reach here since is_capture is set),
+        # bail.
+        return None
+    if played_see < 0:
+        # Sacrifice that fails SEE — different lesson (Greek Gift etc).
+        return None
+
+    enemy_king_sq = board_before.king(enemy_color)
+    if enemy_king_sq is None:
+        return None
+
+    # Engine endorsement — if the played move IS the engine's best,
+    # full endorsement. Otherwise the lesson is still teachable
+    # (top_n) — the capture exists, the geometric pattern holds.
+    best_san_raw = _normalize_san(facts.get("best_move_san") or "")
+    if best_san_raw and best_san_raw == played_san:
+        endorsement = "best"
+    elif played_see > 0:
+        # Material-winning strike — even if not engine #1, the lesson
+        # is real. Voice will use cue_top_n.
+        endorsement = "top_n"
+    else:
+        # Even-trade strike (SEE == 0). Less material-claim teaching.
+        endorsement = "absent"
+
+    moving_piece_sq = played_move.from_square
+
+    return {
+        "principle_id": "OP_F2_F7_STRIKE",
+        "evidence": {
+            "strike_square":          strike_sq_name,
+            "attacker_from_square":   chess.square_name(moving_piece_sq),
+            "attacker_piece_type":    facts.get("moving_piece_type") or "",
+            "captured_piece_type":    facts.get("captured_piece_type") or "",
+            "enemy_king_square":      chess.square_name(enemy_king_sq),
+            "see_cp":                 played_see,
+            "perspective":            "attacker" if facts.get("mover_is_user") else "defender",
+            "played_san":             facts.get("played_san") or "",
+            "best_san":               facts.get("best_move_san") or "",
+        },
+        "state_key": _freeze_state_key({
+            "principle_id":     "OP_F2_F7_STRIKE",
+            "phase":            facts.get("phase") or "opening",
+            "intent_type":      "tactical_attack",
+            "focal_squares":    (strike_sq_name, chess.square_name(enemy_king_sq)),
+            "involved_piece":   facts.get("moving_piece_type") or "",
+            "best_move_family": "capture_on_weak_square",
+        }),
+        "engine_endorsement": endorsement,
+        "aligned_moves_offered": [played_san],
+    }
+
+
+# ── Helper: is a square "safe" for a piece of given color? ──────────
+def _square_is_safe_for_piece(
+    board: chess.Board,
+    target_sq: int,
+    piece_color: chess.Color,
+    piece_value_cp: int,
+) -> bool:
+    """True if a piece of `piece_color` and `piece_value_cp` could
+    occupy `target_sq` without losing material.
+
+    Implementation: simulate the piece on target_sq (assume it's there
+    after a move) and check whether the OPPONENT'S SEE on target_sq
+    wins more than 0. If they can win material, square is unsafe.
+
+    Note: this assumes the piece is ALREADY on target_sq (i.e., we've
+    moved it there). For knight-move-safety we set up a hypothetical
+    board with the knight on target_sq and ask: can the opponent capture
+    it for material?
+    """
+    enemy_color = not piece_color
+    # Compute SEE on target_sq with enemy as initiator.
+    see = static_exchange_eval(board, target_sq, enemy_color)
+    # SEE is from initiator's POV — positive means enemy wins material.
+    # The piece itself sitting on target_sq IS the material at stake.
+    # If enemy SEE > 0 (they net material), the square is unsafe.
+    # Threshold of 50cp matches EXCHANGE_LOSS_THRESHOLD_CP for
+    # consistency with other detectors.
+    return see <= 50
+
+
+# ── Detector #29: OP_TRAPPED_KNIGHT ─────────────────────────────────
+#
+# A knight is "trapped" when EVERY legal destination square either
+# (a) is attacked by an enemy piece with insufficient defense, OR
+# (b) would lose material on SEE. Combined: every escape is unsafe.
+#
+# This is distinct from OP_KNIGHT_ON_RIM (which fires on opening-
+# development-to-rim regardless of mobility). TRAPPED_KNIGHT is
+# about LOSS OF MOBILITY caused by the opponent's structure — a
+# Nh5 attacked by g4-g5 with no safe retreat, or a Na5 cornered
+# by b4-c3-d4 with no return path.
+#
+# Fires when:
+#   1. Phase in (opening, middlegame). Endgames have different knight
+#      patterns (e.g., shepherd / blockader) so excluded.
+#   2. Player has at least one knight whose every legal-move
+#      destination is unsafe.
+#   3. The knight isn't already captured (obviously).
+#   4. The knight has at least one pseudo-legal destination (a knight
+#      with NO legal moves at all is either pinned — different lesson —
+#      or boxed by own pieces, also different). If literally zero
+#      legal moves: skip; this is a state-entry detector for the
+#      "every option is unsafe" case.
+#   5. eval bracket: drop already-winning (STM > +300cp) per pedagogy.
+#
+# match_kind = state_entry: the trapped state can hold for several
+# moves before the knight is lost. State_key (knight_square + phase)
+# dedupes — same trapped knight, one lesson.
+#
+# Edge cases enumerated:
+#   A. Knight has NO legal moves at all (pinned, blocked by own
+#      pieces only). Different lesson. Skip.
+#   B. Knight could be defended ENOUGH that SEE-safe on every square
+#      (e.g., own queen + bishop + rook covering its destinations).
+#      Don't fire — it's not really trapped.
+#   C. Knight could be CAPTURED-then-replaced safely (defended on its
+#      current square). Doesn't matter — the question is whether it
+#      can MOVE. We don't fire on "your knight is defended but stuck"
+#      because that's still a lesson; the cue text covers it.
+#   D. Two knights — fire on the first one detected. State_key keys on
+#      the knight's square so a second trapped knight in the same
+#      game re-fires.
+#   E. The "trapped" claim must include enemy attackers on the
+#      knight's CURRENT square too — if the knight is currently
+#      hanging AND has no safe move, it's about to be won. Don't
+#      special-case this; the trapped condition holds.
+#   F. SAN-parse-required: NO. The detector doesn't need to parse
+#      the played move; it inspects the board state.
+#   G. mover_is_user perspective: fire when the user's OWN knight
+#      is trapped (cue_best path), OR when the OPPONENT'S knight is
+#      trapped (a winnable position — different voice but same
+#      pattern). For v1: fire only on the side-to-move's own knight.
+#      The mover is the side whose knight just got cornered, OR the
+#      side whose previous move trapped the opponent. We use
+#      board.turn = side-to-move. If side-to-move has a trapped
+#      knight, fire (they need to rescue it). If opponent has a
+#      trapped knight, the mover could win it — that's a different
+#      teaching surface and would conflict with TAC_HANGING_PIECE.
+#      Keep v1 focused: own-knight-trapped only.
+def _p_op_trapped_knight(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when the side-to-move has a knight whose every legal
+    destination is unsafe — the knight has no safe square."""
+    if facts.get("phase") not in ("opening", "middlegame"):
+        return None
+
+    # Eval bracket — drop already-winning per pedagogy.
+    eval_before_white_pov = facts.get("eval_before_cp")
+    if eval_before_white_pov is not None:
+        own_color_str = facts.get("moving_piece_color")
+        side_white = (own_color_str == "white")
+        stm_eval = eval_before_white_pov if side_white else -eval_before_white_pov
+        if stm_eval > 300:
+            return None
+
+    us = board_before.turn
+
+    knight_value_cp = PIECE_VALUE_CP[chess.KNIGHT]
+    # Find every own knight.
+    own_knight_squares = list(board_before.pieces(chess.KNIGHT, us))
+    if not own_knight_squares:
+        return None
+
+    # For each knight, compute its legal destinations and check safety.
+    for knight_sq in own_knight_squares:
+        # Enumerate legal moves originating from knight_sq.
+        legal_destinations = []
+        for move in board_before.legal_moves:
+            if move.from_square != knight_sq:
+                continue
+            # Sanity — should be a knight move (board.legal_moves
+            # already filters by piece on from_square).
+            legal_destinations.append(move.to_square)
+
+        # Edge case A — knight has zero legal moves. Pinned or blocked
+        # by own pieces. Different lesson; skip.
+        if not legal_destinations:
+            continue
+
+        # Check safety of each destination. A destination is "safe" if
+        # the knight could land there without losing material to a
+        # forced recapture.
+        any_safe = False
+        unsafe_destinations: List[int] = []
+        for dest_sq in legal_destinations:
+            # Simulate: push the candidate move and check whether the
+            # opponent's SEE on dest_sq wins material on the knight.
+            # We find the matching legal Move object for this dest.
+            sim_move = None
+            for move in board_before.legal_moves:
+                if move.from_square == knight_sq and move.to_square == dest_sq:
+                    sim_move = move
+                    break
+            if sim_move is None:
+                continue
+            board_after_sim = board_before.copy()
+            board_after_sim.push(sim_move)
+            # Now opponent is to move. Their SEE on dest_sq tells us
+            # if they win material.
+            opp_see = static_exchange_eval(board_after_sim, dest_sq, not us)
+            if opp_see <= 50:
+                # This destination is safe — they don't win meaningful
+                # material. Knight has an escape.
+                any_safe = True
+                break
+            else:
+                unsafe_destinations.append(dest_sq)
+
+        if any_safe:
+            continue
+
+        # Every legal destination is unsafe — knight is trapped.
+        # Also confirm at least one ENEMY attacker on the knight's
+        # current square (otherwise the knight isn't actually under
+        # threat — the "trapped but unattacked" case is less urgent
+        # and is covered by other pattern detectors). This guards
+        # against false fires on closed positions where the knight
+        # has no good square but no enemy threat either.
+        enemy_attackers_on_knight = list(board_before.attackers(not us, knight_sq))
+        if not enemy_attackers_on_knight:
+            continue
+
+        # Found a trapped knight. Build evidence.
+        # Aligned moves: any move that resolves the trap. Hard to
+        # enumerate concretely — skip the aligned_moves list (use
+        # the gate_policy=endorsement_preferred path).
+        endorsement_word = "absent"  # default — engine prefers something
+        best_san_raw = _normalize_san(facts.get("best_move_san") or "")
+        if best_san_raw:
+            # If engine's best move ORIGINATES from the trapped knight,
+            # the engine sees a rescue — mark as best.
+            try:
+                best_move = board_before.parse_san(best_san_raw)
+                if best_move.from_square == knight_sq:
+                    endorsement_word = "best"
+            except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+                pass
+
+        # List enemy attackers for evidence (helps resolver detail
+        # surface "they're hit by the pawn on g4" etc).
+        enemy_attacker_squares = [chess.square_name(s) for s in enemy_attackers_on_knight]
+
+        return {
+            "principle_id": "OP_TRAPPED_KNIGHT",
+            "evidence": {
+                "trapped_knight_square":   chess.square_name(knight_sq),
+                "knight_color":            "white" if us == chess.WHITE else "black",
+                "legal_destination_count": len(legal_destinations),
+                "enemy_attacker_squares":  enemy_attacker_squares,
+                "best_san":                facts.get("best_move_san") or "",
+            },
+            "state_key": _freeze_state_key({
+                "principle_id":     "OP_TRAPPED_KNIGHT",
+                "phase":            facts.get("phase") or "opening",
+                "intent_type":      "piece_safety",
+                "focal_squares":    (chess.square_name(knight_sq),),
+                "involved_piece":   "knight",
+                "best_move_family": "rescue_or_trade",
+            }),
+            "engine_endorsement": endorsement_word,
+            "aligned_moves_offered": [best_san_raw] if best_san_raw and endorsement_word == "best" else [],
+        }
+
+    return None
+
+
 # ── Detector #23: END_KING_ACTIVE ───────────────────────────────────
 #
 # Edge cases enumerated:
@@ -3960,6 +4557,9 @@ def _principles_violated(
         _p_end_rule_of_square,   # added 2026-05-16 (Mohit signoff)
         _p_end_opposition,       # added 2026-05-17 (Mohit signoff) — king_move_required gate
         _p_end_rook_behind_passer, # added 2026-05-18 (Phase 4) — Tarrasch's rule, single-passer-only
+        _p_op_bishop_trade_doubles_pawn,  # added 2026-05-18 (Phase 6) — cross-opening structural concession
+        _p_op_f2_f7_strike,               # added 2026-05-18 (Phase 6) — weak-king-square strike
+        _p_op_trapped_knight,             # added 2026-05-18 (Phase 6) — knight with zero safe squares
         _p_mid_king_safety,
         _p_mid_keep_attackers,
         _p_def_trade_attackers,

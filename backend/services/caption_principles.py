@@ -785,6 +785,84 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "drill_outline": "5 R+P endgames where rook-behind-pawn is the only winning idea; correct answer is the rook lift to the square behind the passed pawn.",
     },
 
+    # ══════════════════════════════════════════════════════════════════
+    # CROSS-OPENING THEMES (3) — added 2026-05-18 (Mohit signoff).
+    # Geometric patterns that appear across many openings (English /
+    # Nimzo-Indian / Vienna / Italian / Fried Liver / etc.) and live
+    # in no single opening file. They fire on the SHAPE, not on the
+    # opening identity. See project_endgame_principles_backlog.md for
+    # the pattern this followed.
+    #
+    # The three:
+    #   OP_BISHOP_TRADE_DOUBLES_PAWN — Bxc3 / bxc3 doubled-pawn trade
+    #   OP_F2_F7_STRIKE              — early capture on the weak king square
+    #   OP_TRAPPED_KNIGHT            — knight with no safe destination
+    # ══════════════════════════════════════════════════════════════════
+
+    {
+        "id": "OP_BISHOP_TRADE_DOUBLES_PAWN",
+        "name": "Bishop trade doubles their pawns",
+        "phase_in_scope": ["opening", "middlegame"],
+        "priority": 37,
+        "match_kind": "played_move",
+        "aligned_moves": "the bishop capture of an enemy minor piece whose forced recapture is a pawn that doubles an enemy pawn file",
+        "gate_policy": "endorsement_preferred",
+        # State-keyed: re-arms if a DIFFERENT bishop trade doubles a
+        # different file (rare — usually once per game per file).
+        "suppress": "once_per_state_key",
+        "cue_best":   "Trade bishop for knight — they must recapture with a pawn, doubling their pawns. Engine's top choice.",
+        "cue_top_n":  "Bishop takes their knight — the pawn recapture doubles their pawn file. Long-term target.",
+        "cue_absent": "When BxN forces a pawn recapture that doubles their pawns, you've created a long-term weakness.",
+        "visual_signature": {
+            "highlight": ["capture_square", "doubled_pawn_file_squares"],
+            "arrows": [("bishop_from_square", "capture_square", "green")],
+        },
+        "drill_outline": "5 positions (English / Nimzo / Vienna setups) where Bxc3 / Bxf6 forces a doubled-pawn recapture; correct answer is the trade.",
+    },
+
+    {
+        "id": "OP_F2_F7_STRIKE",
+        "name": "Strike on f7 / f2",
+        "phase_in_scope": ["opening", "middlegame"],
+        "priority": 8,   # high — material claim on the king's weak square
+        "match_kind": "played_move",
+        "aligned_moves": "the capture on f7 (white attacker) or f2 (black attacker) defended only by the king",
+        "gate_policy": "endorsement_required",
+        # State-keyed: re-arms if the strike square changes (shouldn't
+        # happen — once per game), but state_key gives consistency.
+        "suppress": "once_per_state_key",
+        "cue_best":   "Capture on f7 — defended only by the king. Engine's top choice.",
+        "cue_top_n":  "f7 (or f2) is defended only by the king in the opening. Take it when you can win material.",
+        "cue_absent": "f7 (and f2) is the weakest square at the start — only the king defends it. Watch for tactical strikes there.",
+        "visual_signature": {
+            "highlight": ["strike_square", "enemy_king_square"],
+            "arrows": [("attacker_from_square", "strike_square", "red")],
+        },
+        "drill_outline": "5 opening positions where Bxf7+ / Nxf7 / Qxf7 wins material; correct answer captures on the weak square.",
+    },
+
+    {
+        "id": "OP_TRAPPED_KNIGHT",
+        "name": "Knight has no safe square",
+        "phase_in_scope": ["opening", "middlegame"],
+        "priority": 11,  # piece-loss claim — high priority near hanging-piece tier
+        "match_kind": "state_entry",
+        "aligned_moves": "any move that gives the knight a safe escape, or trades / defends it",
+        "gate_policy": "endorsement_preferred",
+        # State-keyed on the trapped knight's square — re-arms if a
+        # DIFFERENT knight gets trapped later in the game (rare but
+        # possible: two knights in the same game).
+        "suppress": "once_per_state_key",
+        "cue_best":   "Your knight on the trap square has no safe move. Engine wants the rescue immediately.",
+        "cue_top_n":  "A knight with zero safe squares loses next move. Get it out now or trade it.",
+        "cue_absent": "When every square a knight can reach is attacked with no defender, it's trapped — rescue it before they win it.",
+        "visual_signature": {
+            "highlight": ["trapped_knight_square"],
+            "arrows": [],
+        },
+        "drill_outline": "5 positions where a knight has been forced to the rim and lost mobility; correct answer is the only safe retreat or a trade.",
+    },
+
 ]
 
 

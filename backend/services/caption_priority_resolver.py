@@ -452,6 +452,10 @@ _PRINCIPLE_LABEL = {
     "END_RULE_OF_SQUARE":         "Rule of the Square",
     "END_OPPOSITION":             "The Opposition",
     "END_ROOK_BEHIND_PASSER":     "Rook behind the passed pawn",
+    # Added 2026-05-18 (Phase 6) — cross-opening theme detectors.
+    "OP_BISHOP_TRADE_DOUBLES_PAWN": "Bishop trade doubles their pawns",
+    "OP_F2_F7_STRIKE":             "Strike on f7 / f2",
+    "OP_TRAPPED_KNIGHT":           "Knight has no safe square",
 }
 
 
@@ -656,6 +660,52 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
         return "A pin was available — the played move missed it."
     if pid == "TAC_SKEWER_PATTERN":
         return "A skewer was available — the played move missed it."
+    # ── Cross-opening theme detectors (Phase 6, 2026-05-18) ────────
+    if pid == "OP_BISHOP_TRADE_DOUBLES_PAWN":
+        # Template: "Your bishop took on {capture_square} — their pawn
+        # from {recapture_pawn_from} must recapture, doubling pawns
+        # on the {file}-file. Long-term target."
+        cap_sq = evidence.get("capture_square")
+        pawn_from = evidence.get("recapture_pawn_from")
+        file_letter = evidence.get("doubled_pawn_file")
+        if cap_sq and pawn_from and file_letter:
+            return (
+                f"Bishop takes on {cap_sq} — their pawn from {pawn_from} must "
+                f"recapture, doubling their pawns on the {file_letter}-file. "
+                f"Long-term target."
+            )
+        return "Bishop trade forces a doubled-pawn recapture — long-term target."
+    if pid == "OP_F2_F7_STRIKE":
+        # Template: "Capture on {strike_square} — only the king on
+        # {enemy_king_square} defends. {attacker_piece} wins material."
+        strike = evidence.get("strike_square")
+        king_sq = evidence.get("enemy_king_square")
+        attacker = evidence.get("attacker_piece_type") or "piece"
+        if strike and king_sq:
+            return (
+                f"Capture on {strike} — only the king on {king_sq} defends it. "
+                f"Your {attacker} wins material on the weak square."
+            )
+        return "Strike on f7 / f2 — the square only the king defends in the opening."
+    if pid == "OP_TRAPPED_KNIGHT":
+        # Template: "Your knight on {square} has no safe square — "
+        # "every escape is attacked. Rescue or trade it now."
+        knight_sq = evidence.get("trapped_knight_square")
+        attackers = evidence.get("enemy_attacker_squares") or []
+        if knight_sq and attackers:
+            if len(attackers) == 1:
+                return (
+                    f"Your knight on {knight_sq} has no safe square. "
+                    f"The piece on {attackers[0]} hits it and every escape is "
+                    f"attacked. Rescue or trade now."
+                )
+            return (
+                f"Your knight on {knight_sq} has no safe square — every escape "
+                f"is attacked. Rescue or trade now."
+            )
+        if knight_sq:
+            return f"Your knight on {knight_sq} has no safe square — rescue or trade."
+        return "Knight has no safe square — rescue or trade before they win it."
     if pid == "OP_FINISH_DEVELOPMENT":
         # Fires only when player attacks (threat or queen-sortie) with
         # 2+ undeveloped minor pieces. The detail must reflect THAT —
