@@ -561,6 +561,20 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
             )
         # Fallback if evidence shape changes — never lose the principle name.
         return "Take the opposition — face their king on the same line."
+    if pid == "DEF_WALK_KING":
+        # 2026-05-18 self-audit: DEF_WALK_KING was falling through to the
+        # generic principle_label.lower() fallback ("walk the king to
+        # safety."), producing tautological captions like "Walk the king
+        # to safety — walk the king to safety." when this principle won
+        # the anchor (e.g., when END_RULE_OF_SQUARE is suppressed and
+        # DEF_WALK_KING is the next-priority survivor).
+        king_move = evidence.get("engine_king_move")
+        if king_move:
+            return (
+                f"Castling rights are gone — walk your king to safety by hand. "
+                f"{king_move} is engine's pick."
+            )
+        return "Castling rights are gone — walk the king to safety by hand."
     if pid == "END_PASSED_PAWN":
         # Phase 5 — 2026-05-18. Was falling through to the generic
         # principle_label.lower() fallback ("passed pawns must be pushed.")

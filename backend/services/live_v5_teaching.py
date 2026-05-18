@@ -366,6 +366,27 @@ def v5_teaching_decision_for_live_move(
             surviving.append(ev)
     facts["principles_violated"] = surviving
 
+    # Mirror the V5 wiring layer's principle-priority selection so the
+    # resolver picks the SAME principle the review pipeline would.
+    # Without this, resolve_priority falls back to source-order
+    # (whichever detector fired first), which can land on a lower-
+    # priority "walk the king" framing when the high-priority
+    # END_RULE_OF_SQUARE is the right anchor.
+    # Surfaced by Test 3 self-audit 2026-05-18 — Walloo21 was rendering
+    # "Walk the king to safety — walk the king to safety." (tautology)
+    # because resolver picked principles[0] = DEF_WALK_KING (priority 47)
+    # instead of the priority-12 END_RULE_OF_SQUARE.
+    _surviving = facts.get("principles_violated") or []
+    _picked_principle_id: Optional[str] = None
+    if _surviving:
+        _sorted = sorted(
+            _surviving,
+            key=lambda ev: _CAPTION_PRINCIPLES_BY_ID.get(
+                ev.get("principle_id") or "", {}
+            ).get("priority", 99),
+        )
+        _picked_principle_id = _sorted[0].get("principle_id")
+
     # Build the resolver decision off the suppression-filtered facts.
     try:
         # resolve_priority operates on a move-record-shaped dict, not
@@ -388,7 +409,7 @@ def v5_teaching_decision_for_live_move(
             "fen_after": facts.get("fen_after"),
             "caption": "",  # let resolver build the draft from anchor_detail per Phase 0 fix
             "principle_cue": "",
-            "principle_id_used": None,
+            "principle_id_used": _picked_principle_id,  # priority-sorted, mirrors V5 wiring
             "rule_name": None,
         }
         decision = resolve_priority(move_record)
@@ -663,10 +684,13 @@ async def polish_v5_block_async(
 # the geometry is present.
 _COACH_TEACHING_SHAPE_PATTERNS = True   # always allow shape patterns
 _COACH_TEACHING_PRINCIPLES: Set[str] = {
-    # Add principles that detect POSITIVE created patterns here.
-    # Phase 1.3 MVP scope: keep this empty and rely on shapes.
-    # Future: add "OP_DEVELOPMENT_FINISHED", "MID_PIECE_REROUTE", etc.
-    # as those detectors land.
+    # Principles that fire when the played move CREATES a positive
+    # pattern — useful as coach-move teaching ("Coach plays Bg5 — Pin").
+    # 2026-05-18 self-audit follow-up: populated with the principles
+    # whose detectors fire on engine-best (player creates the pattern)
+    # not "missed chance" (which doesn't apply when coach IS the engine).
+    "TAC_PIN_PATTERN",         # coach creates pin/skewer alignment
+    "TAC_DISCOVERED_PATTERN",  # coach uncovers a piece's attack via the move
 }
 
 
