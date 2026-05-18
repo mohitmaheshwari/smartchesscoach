@@ -7,6 +7,25 @@ metadata:
 
 **Revised 2026-05-18 after architectural pushback from Mohit ([[no-yes-man]]). Mohit explicitly tested the hybrid answer ("so you are saying everything should be in the worker?") and signed off when the model held. This is a USER-VALIDATED decision, not just a Claude proposal — treat it as load-bearing.**
 
+**Updated 2026-05-19 — Path A shipped for V5 (commit 65b1a3d3).** Original "all 55 detectors stay lazy" stance was right for one workflow (re-run cost on version bumps) but wrong for another (corpus-wide gold queries need every analyzed game to have detector fires written). The fix: split V5 lifecycle into two phases by cost.
+
+**Live state as of 2026-05-19:**
+
+Worker eager (per-game persistence at analysis time):
+- Stockfish analysis (was already)
+- `trap_fires` + `trap_fires_version` (commit e3c5b9a6)
+- `decryption_v5_data` + `decryption_v5_version` (commit 65b1a3d3, Path A scope only)
+
+Lazy on read (routes/coach.py):
+- `cct_narrative`, `habits_report`, `truth_line`, `player_decryption`, `decryption_block`, `pattern_evidence`, `game_summary` — these are per-game review surfaces, only needed when a user actually opens the game. Lazy is correct for them.
+
+**Path A vs Path B vs Path C (decided 2026-05-19):**
+- **Path A (shipped):** worker writes only `decryption_v5_data` + version. Downstream review-surface fields stay lazy. 30 lines of worker code. Closes the corpus-wide gold-query gap without migrating the full pipeline.
+- Path B (deferred): full 6-step pipeline in worker. ~150-200 lines. Same end-state but bigger blast radius. Revisit when downstream surfaces also become corpus-query targets.
+- Path C (rejected): backfill-only, no worker code. Would re-open the coverage gap for every new game that nobody views.
+
+**Discipline locked at 2026-05-19:** every detector version bump (V5_COACHING_VERSION, TRAP_SCANNER_VERSION) now requires running the corresponding backfill script in the same ship as the code change. Without this, the lazy regen path will catch up old games on read but corpus queries see mixed-version data. Backfill scripts: `backfill_trap_fires.py`, `backfill_v5_fires.py`.
+
 The earlier version of this memo proposed migrating all 52 existing V5 detectors from lazy on-read regeneration ([[v5-lazy-generation]]) into `analysis_worker.py`. **That was over-engineered.** This memo captures the correct hybrid model.
 
 **The decision rule:**
