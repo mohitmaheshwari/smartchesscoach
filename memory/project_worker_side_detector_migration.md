@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-**Revised 2026-05-18 after architectural pushback from Mohit ([[no-yes-man]]).**
+**Revised 2026-05-18 after architectural pushback from Mohit ([[no-yes-man]]). Mohit explicitly tested the hybrid answer ("so you are saying everything should be in the worker?") and signed off when the model held. This is a USER-VALIDATED decision, not just a Claude proposal — treat it as load-bearing.**
 
 The earlier version of this memo proposed migrating all 52 existing V5 detectors from lazy on-read regeneration ([[v5-lazy-generation]]) into `analysis_worker.py`. **That was over-engineered.** This memo captures the correct hybrid model.
 
