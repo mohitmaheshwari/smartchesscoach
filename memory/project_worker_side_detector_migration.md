@@ -1,39 +1,48 @@
 ---
 name: worker-side-detector-migration
-description: Phase-7 backlog — migrate V5 caption detectors (named principles + tactical traps) from lazy on-read regeneration into analysis_worker.py so they run once per game and persist on game_analyses docs.
+description: Hybrid model — cheap geometric detectors stay lazy on-read; expensive Stockfish-dependent detectors (TAC_LEGAL and sisters) are born worker-side. NOT a wholesale migration.
 metadata:
   type: project
 ---
 
-Phase-7 backlog: migrate V5 caption detectors from lazy on-read regeneration (current state, [[v5-lazy-generation]]) into `analysis_worker.py` so they run once per game and persist on the game_analyses doc.
+**Revised 2026-05-18 after architectural pushback from Mohit ([[no-yes-man]]).**
 
-**Current state (locked truth, [[no-yes-man]]):**
-- `decryption_v5_data` is regenerated lazily in `routes/coach.py` on every read, gated by `V5_COACHING_VERSION`.
-- All Tier-1 endgame principles (Phases 2-5), all 23 shape patterns, and the 3 Phase-6 cross-opening detectors run on-read.
-- Mohit and I have **discussed** moving to worker-side, but no migration code exists yet (confirmed 2026-05-18).
+The earlier version of this memo proposed migrating all 52 existing V5 detectors from lazy on-read regeneration ([[v5-lazy-generation]]) into `analysis_worker.py`. **That was over-engineered.** This memo captures the correct hybrid model.
 
-**Why migrate:**
-1. Detectors are growing too expensive for read-time. The forthcoming TAC_LEGAL_PATTERN detector ([[tac-legal-geometry-detector]]) needs a 3-ply Stockfish forcing-continuation probe per fire — unacceptable latency on the dashboard/Lab read path.
-2. Play-with-Coach live coaching needs pre-computed fires for instant lookup, not a re-run of detectors per move.
-3. Same outputs every time → caching them is "free" reliability.
-4. Decouples ship cadence: detector logic changes no longer require version bumps + cold cache pain on every page load.
+**The decision rule:**
+- Detector needs only FEN + geometry to fire → **stay lazy**.
+- Detector needs Stockfish during its own check (e.g. forcing-continuation probe, multi-ply tactical verification) → **born worker-side**.
 
-**How to apply:**
-- Add a `v5_decryption` field to game_analyses documents written by analysis_worker.py
-- Run all 28 V5 principles + 24 shape patterns + 3 Phase-6 detectors + future TAC_LEGAL etc. inside the worker after Stockfish analysis completes
-- Keep `V5_COACHING_VERSION` for migration gating: if doc.v5_coaching_version < current → re-run on read OR queue a re-analysis job
-- routes/coach.py reads from the persisted field, falls back to lazy generation only when missing or stale
-- Add a backfill script that re-runs detectors over the existing 4400+ analyzed games in batches
+**Why lazy is correct for cheap detectors:**
+1. **Version-churn cost.** `V5_COACHING_VERSION` bumped 22 times in ~3 weeks during active build-out. Worker-side = 4400 games × ~5s = 6 hours of compute per bump. Lazy = free (next read picks up).
+2. **Bug self-healing.** Per [[design-clean-code-leaky]] — implementation leaks bugs. Lazy regen is the de facto safety net; bad caption ships → fix code → next page load is correct. Worker-side persists bugs as DB rows until backfill.
+3. **Iteration speed.** Edit → push → next read picks up vs Edit → push → backfill → wait → verify.
+4. **Latency budget.** 28 principles + 24 shape patterns are FEN-only, <100ms per game on read. Lab page already loads 200KB of analysis JSON — sub-100ms detector work is invisible.
 
-**Risks:**
-- Worker latency grows. Current Stockfish pass is ~5-15s per game; detectors add ~1-3s; TAC_LEGAL forcing-probe adds another ~3-10s per candidate position.
-- Version-mismatch handling needs robust fallback to lazy regen to avoid blank captions while backfill runs.
+**Why worker-side is correct for expensive detectors:**
+- TAC_LEGAL_PATTERN's forcing-continuation probe = ~2s per candidate × N candidates. Unacceptable on read path.
+- Same will apply to BODEN / SMOTHERED / GRECO / FRIED_LIVER and any future Stockfish-dependent detector.
 
-**Ship order (proposed):**
-1. Migrate the 28 deterministic V5 principle detectors first (cheapest, no Stockfish dependency in detector layer beyond what's already in worker).
-2. Migrate the 24 shape patterns next.
-3. Migrate the 3 Phase-6 cross-opening detectors.
-4. THEN ship TAC_LEGAL_PATTERN directly into the worker (skip the lazy stage entirely).
-5. Repeat for sister tactical detectors (BODEN, SMOTHERED, GRECO, FRIED_LIVER).
+**Implementation pattern for worker-side detectors:**
+1. Detector runs in `analysis_worker.py` AFTER the Stockfish per-move pass completes.
+2. Output is a list of fires persisted as a NEW field on `game_analyses` (e.g. `tac_legal_fires`, `tac_boden_fires`).
+3. The V5 caption pipeline (lazy reader) checks the field; if present, uses pre-computed fires; if absent (older games before detector shipped), runs detector inline as fallback.
+4. A separate backfill script can re-run the detector over historical games when needed (but only when the detector logic actually changes — not on every V5 version bump).
+5. Each worker-side detector gets its own version field (e.g. `tac_legal_version`) independent of `V5_COACHING_VERSION` so cheap-detector bumps don't trigger expensive backfills.
 
-**Why this order:** prove the migration mechanics on cheap detectors before introducing the expensive ones.
+**Current detector inventory:**
+
+| Detector class | Cost per game | Location |
+|---|---|---|
+| 28 V5 principles (incl. 5 endgame: SQUARE_RULE, OPPOSITION, ROOK_BEHIND_PASSER, PASSED_PAWN_KING_ACTIVE, ACTIVE_KING) | <50ms | **Stays lazy** |
+| 24 shape patterns | <50ms | **Stays lazy** |
+| 3 Phase-6 cross-opening (BISHOP_TRADE_DOUBLES_PAWN, F2_F7_STRIKE, TRAPPED_KNIGHT) | <50ms | **Stays lazy** |
+| TAC_LEGAL_PATTERN ([[tac-legal-geometry-detector]]) | ~2s × N | **Born worker-side** |
+| Sister tactical traps (BODEN, SMOTHERED, GRECO, FRIED_LIVER) | 2-10s | **Born worker-side** |
+
+**When to revisit:**
+- If lazy-side read latency ever exceeds ~500ms p95 → migrate the heaviest cheap detectors to worker.
+- If V5 detector churn slows down (post-build-out, maintenance mode) → reconsider full migration since the backfill cost is amortized over fewer version bumps.
+- For now (active build-out phase) the hybrid model wins.
+
+**Companion memories:** [[v5-lazy-generation]], [[tac-legal-geometry-detector]], [[design-clean-code-leaky]], [[geometric-recognition-over-named-sequences]].
