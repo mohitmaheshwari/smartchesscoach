@@ -6352,6 +6352,10 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
         # agree. Wraps everything; never fails coach-move application.
         try:
             from services.live_v5_teaching import evaluate_coach_move_teaching
+            from services.coaching_encounter_weights import (
+                get_user_principle_weights,
+                record_principle_fire,
+            )
 
             _session_doc = await db.coach_sessions.find_one({"session_id": session_id}) or {}
             _user_doc = await db.users.find_one({"user_id": _session_doc.get("user_id")}) or {}
@@ -6363,6 +6367,11 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
                 m.get("move", "") for m in (_session_doc.get("move_history") or [])
                 if m.get("move")
             ]
+            # Phase 1.6 — same encounter-weights read as the user-move
+            # path. Cross-session principle repetition gate.
+            _encounter_weights = await get_user_principle_weights(
+                db, _session_doc.get("user_id") or ""
+            )
 
             _decision = evaluate_coach_move_teaching(
                 fen_before_coach_move=fen,
@@ -6374,6 +6383,7 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
                 session_doc=_session_doc,
                 coach_moves_made=_coach_moves_made,
                 coach_v5_surfaced_indices=_coach_v5_surfaced,
+                encounter_weights=_encounter_weights,
             )
             if _decision.should_surface and _decision.v5_block is not None:
                 _coach_v5_surfaced = list(_coach_v5_surfaced) + [_coach_moves_made]
@@ -6381,6 +6391,18 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
                     {"session_id": session_id},
                     {"$set": {"coach_v5_surfaced_indices": _coach_v5_surfaced}},
                 )
+                # Phase 1.6 — record the fire so cross-session decay
+                # tracks coach-move teaching too. Best-effort, non-fatal.
+                try:
+                    _fire_pid = _decision.v5_block.get("principle_id")
+                    if _fire_pid and _session_doc.get("user_id"):
+                        await record_principle_fire(
+                            db, _session_doc["user_id"], _fire_pid
+                        )
+                except Exception:
+                    logger.exception(
+                        "[live_v5.coach] record_principle_fire failed (non-fatal)"
+                    )
                 await db.coach_messages.insert_one({
                     "session_id": session_id,
                     "type": "v5_teaching",
@@ -6712,6 +6734,10 @@ async def _process_move_and_respond(
                 v5_teaching_decision_for_live_move,
                 update_session_suppression,
             )
+            from services.coaching_encounter_weights import (
+                get_user_principle_weights,
+                record_principle_fire,
+            )
             _user_doc = await db.users.find_one({"user_id": session_doc.get("user_id")}) or {}
             _fired_pids: set = set(session_doc.get("v5_fired_principles") or [])
             _fired_sks: set = set()
@@ -6724,6 +6750,16 @@ async def _process_move_and_respond(
                     _fired_sks.add(tuple(eval(_s, {"__builtins__": {}})))  # noqa: S307
                 except Exception:
                     pass
+
+            # Phase 1.6 — necessity gate read. Decays each row forward to
+            # NOW so the live decision sees fresh values. Best-effort: on
+            # DB error, returns {} and the gate becomes a no-op (legacy
+            # behavior — fire surfaces normally). [[surface-teaching-gold-
+            # proactively]] does NOT apply here because we're avoiding
+            # over-firing, not surfacing.
+            _encounter_weights = await get_user_principle_weights(
+                db, session_doc.get("user_id") or ""
+            )
 
             _eval_before_cp = None
             _eval_after_cp = None
@@ -6752,6 +6788,7 @@ async def _process_move_and_respond(
                 session_doc=session_doc,
                 session_fired_principles=_fired_pids,
                 session_fired_state_keys=_fired_sks,
+                encounter_weights=_encounter_weights,
             )
             if _v5_block is not None:
                 # Phase 1.2 — structured material-value gate. Build the
@@ -6787,6 +6824,19 @@ async def _process_move_and_respond(
                         "v5_fired_state_keys": [repr(sk) for sk in _fired_sks],
                     }},
                 )
+                # Phase 1.6 — record the fire in the cross-session
+                # encounter-weights collection. Best-effort, non-fatal.
+                try:
+                    _fire_pid = _v5_block.get("principle_id")
+                    if _fire_pid and session_doc.get("user_id"):
+                        await record_principle_fire(
+                            db, session_doc["user_id"], _fire_pid
+                        )
+                except Exception:
+                    logger.exception(
+                        "[live_v5] record_principle_fire failed (non-fatal)"
+                    )
+
                 _insert_result = await db.coach_messages.insert_one({
                     "session_id": session_id,
                     "type": "v5_teaching",

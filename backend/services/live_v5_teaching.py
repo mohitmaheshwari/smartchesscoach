@@ -36,6 +36,7 @@ import chess
 from services.caption_facts import extract_facts
 from services.caption_principles import PRINCIPLES as CAPTION_PRINCIPLES
 from services.caption_priority_resolver import resolve_priority
+from services.coaching_encounter_weights import passes_necessity_gate
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +293,7 @@ def v5_teaching_decision_for_live_move(
     session_doc: Dict[str, Any],
     session_fired_principles: Optional[Set[str]] = None,
     session_fired_state_keys: Optional[Set[Tuple]] = None,
+    encounter_weights: Optional[Dict[str, float]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Deterministic V5 teaching block for one live move.
 
@@ -365,6 +367,28 @@ def v5_teaching_decision_for_live_move(
         if _passes_suppression(pid, sk, fired_principles, fired_state_keys):
             surviving.append(ev)
     facts["principles_violated"] = surviving
+
+    # Necessity gate (Phase 1.6/1.7 — coaching_encounter_weights).
+    # Even if a principle survives session-level suppression, we may
+    # have taught it to this user recently enough that re-teaching is
+    # noise. The decay model (~20%/day) lets concepts re-arm naturally.
+    # Higher-rated players have lower thresholds: an 1800+ doesn't need
+    # to be told "develop your knights first" twice in one week.
+    # See [[play-with-coach-phase1-design]] §4 and §5.
+    if encounter_weights:
+        user_rating = user_doc.get("rating") if user_doc else None
+        necessity_filtered: List[Dict[str, Any]] = []
+        for ev in surviving:
+            pid = ev.get("principle_id")
+            if passes_necessity_gate(pid, encounter_weights, user_rating):
+                necessity_filtered.append(ev)
+            else:
+                logger.info(
+                    f"[live_v5_teaching] necessity gate suppressed "
+                    f"principle={pid} (decay_score={encounter_weights.get(pid, 0):.2f}, "
+                    f"rating={user_rating})"
+                )
+        facts["principles_violated"] = necessity_filtered
 
     # Mirror the V5 wiring layer's principle-priority selection so the
     # resolver picks the SAME principle the review pipeline would.
@@ -804,6 +828,7 @@ def evaluate_coach_move_teaching(
     coach_moves_made: int,
     coach_v5_surfaced_indices: List[int],
     rng_value: Optional[float] = None,
+    encounter_weights: Optional[Dict[str, float]] = None,
 ) -> CoachMoveTeachingDecision:
     """Decide whether to surface a V5 teaching block for the coach's
     move, per Phase 1.3 spec.
@@ -855,6 +880,14 @@ def evaluate_coach_move_teaching(
         ev for ev in (facts.get("principles_violated") or [])
         if ev.get("principle_id") in _COACH_TEACHING_PRINCIPLES
     ]
+    # Necessity gate for coach-move teaching too — same threshold model
+    # as user-move path. Coach shouldn't teach forks 5x to a 1700 either.
+    if encounter_weights:
+        user_rating = user_doc.get("rating") if user_doc else None
+        eligible_principles = [
+            ev for ev in eligible_principles
+            if passes_necessity_gate(ev.get("principle_id"), encounter_weights, user_rating)
+        ]
     has_principle = bool(eligible_principles)
     if not has_shape and not has_principle:
         return CoachMoveTeachingDecision(
