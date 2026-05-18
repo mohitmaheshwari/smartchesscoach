@@ -522,7 +522,14 @@ def build_polish_move_record(
         "fen_after": facts.get("fen_after"),
         "caption": "",
         "principle_cue": "",
-        "principle_id_used": None,
+        # Carry forward the principle the live decision already picked.
+        # Without this, generate_caption_for_move's internal resolve_priority
+        # call falls through to principles[0] (source-order), which can
+        # pick a different lower-priority principle. Polished output then
+        # mentions the wrong anchor and guards reject every time.
+        # Self-audit 2026-05-18 caught this — the rejection was correct
+        # but wasted an LLM call per move.
+        "principle_id_used": v5_block.get("principle_id"),
         "rule_name": None,
     }
 
