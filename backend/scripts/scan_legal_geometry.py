@@ -227,7 +227,14 @@ def replay_pgn_and_scan(pgn_text: str, game_id: str, engine: Optional[chess.engi
         # Scan BEFORE the move is played (i.e. what the side-to-move could do)
         candidates = scan_position(board)
         if candidates:
+            # Capture the actual SAN about to be played so we can classify
+            # missed-vs-played teaching gold without a DB re-query.
+            try:
+                actual_san = board.san(mv)
+            except Exception:
+                actual_san = mv.uci()
             for c in candidates:
+                played_correct = actual_san in c.get("candidate_jumps_san", [])
                 fire = {
                     "game_id": game_id,
                     "ply": ply,
@@ -235,6 +242,8 @@ def replay_pgn_and_scan(pgn_text: str, game_id: str, engine: Optional[chess.engi
                     "side_to_move": c["stm"],
                     "fen_before": board.fen(),
                     "candidate": c,
+                    "actual_move_san": actual_san,
+                    "legal_jump_played": played_correct,
                 }
                 if engine is not None:
                     try:
@@ -314,6 +323,18 @@ def main():
         print(f"Stockfish-approved (jump in top-3): {sf_approved}/{total_fires}")
         sf_punished = sum(1 for f in all_fires if (f.get("stockfish") or {}).get("greedy_queen_grab_loses_for_pinner"))
         print(f"Greedy queen-grab loses for pinner: {sf_punished}/{total_fires}")
+
+        # Teaching-gold breakdown (the actual product output)
+        confirmed = [f for f in all_fires if (f.get("stockfish") or {}).get("greedy_queen_grab_loses_for_pinner")]
+        user_missed = [f for f in confirmed if f.get("user_color") == f["candidate"]["stm"] and not f.get("legal_jump_played")]
+        user_played = [f for f in confirmed if f.get("user_color") == f["candidate"]["stm"] and f.get("legal_jump_played")]
+        opp_missed = [f for f in confirmed if f.get("user_color") != f["candidate"]["stm"] and not f.get("legal_jump_played")]
+        opp_played = [f for f in confirmed if f.get("user_color") != f["candidate"]["stm"] and f.get("legal_jump_played")]
+        print(f"\n=== TEACHING-GOLD BREAKDOWN ===")
+        print(f"  GOLD (user had Legal, missed it):       {len(user_missed)}")
+        print(f"  CELEBRATION (user played Legal):        {len(user_played)}")
+        print(f"  LUCKY (opponent had Legal, missed):     {len(opp_missed)}")
+        print(f"  WARNING (opponent landed Legal on you): {len(opp_played)}")
     print(f"\nFull report: {out_path}")
 
 
