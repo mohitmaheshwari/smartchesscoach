@@ -513,6 +513,27 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
             )
         # Fallback if evidence shape changes — never lose the principle name.
         return "Step into the square — your king must catch their passed pawn."
+    if pid == "END_ROOK_BEHIND_PASSER":
+        # Phase 4 — 2026-05-18. Two templates by perspective:
+        #   supporting (own passer): "Your rook to {target} sits behind
+        #     the pawn on {passer} — Tarrasch's rule. Supports the push."
+        #   restraining (opp's passer): "Your rook to {target} sits
+        #     behind their pawn on {passer} — Tarrasch's rule. Restrains
+        #     the advance."
+        rook_to = evidence.get("rook_target_square")
+        passer = evidence.get("passer_square")
+        perspective = evidence.get("perspective", "supporting")
+        if rook_to and passer:
+            if perspective == "restraining":
+                return (
+                    f"Your rook to {rook_to} sits behind their pawn on {passer} — "
+                    f"Tarrasch's rule. Restrains the advance."
+                )
+            return (
+                f"Your rook to {rook_to} sits behind the pawn on {passer} — "
+                f"Tarrasch's rule. Supports the push."
+            )
+        return "Rook behind the passed pawn — Tarrasch's rule."
     if pid == "END_OPPOSITION":
         # Phase 3 — 2026-05-17. Template:
         #   "Your king to {target} faces theirs on {their_king}. They

@@ -770,7 +770,11 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "match_kind": "missed_chance",
         "aligned_moves": "the rook move that places your rook directly behind the single passed pawn (yours: supporting from behind; theirs: restraining from behind)",
         "gate_policy": "endorsement_required + cp_loss_strict + single_passer_only",
-        "suppress": "once_per_game",
+        # Phase 0.5 / 4 (2026-05-18): state-keyed suppression. Re-arms
+        # when the (passer_square, rook_target_square) pair changes —
+        # different passer or different rook destination = different
+        # Tarrasch moment.
+        "suppress": "once_per_state_key",
         "cue_best":   "Rook behind the passed pawn — Tarrasch's rule. Engine's top choice.",
         "cue_top_n":  "Tarrasch rule: the rook belongs behind the passed pawn. It supports yours, restrains theirs.",
         "cue_absent": "Rook + passed pawn? Behind is the right square — either to push it (yours) or hold it back (theirs).",

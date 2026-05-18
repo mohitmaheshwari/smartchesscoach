@@ -3445,6 +3445,135 @@ def _p_end_opposition(
     }
 
 
+# ── Helper: squares behind a passed pawn ────────────────────────────
+#
+# Tarrasch's rule: rook belongs BEHIND the passed pawn — defined
+# relative to the pawn's origin side (its own back rank). So for a
+# WHITE passer, "behind" = lower ranks (toward rank 1). For a BLACK
+# passer, "behind" = higher ranks (toward rank 8).
+def _passed_pawn_behind_squares(pawn_sq: int, pawn_color: chess.Color) -> List[int]:
+    """Return all squares on the same file as pawn_sq that are 'behind'
+    it from the pawn's origin perspective (excluding the pawn square
+    itself).
+    """
+    pf = chess.square_file(pawn_sq)
+    pr = chess.square_rank(pawn_sq)
+    behind: List[int] = []
+    if pawn_color == chess.WHITE:
+        for r in range(pr - 1, -1, -1):
+            behind.append(chess.square(pf, r))
+    else:
+        for r in range(pr + 1, 8):
+            behind.append(chess.square(pf, r))
+    return behind
+
+
+# ── Detector #26: END_ROOK_BEHIND_PASSER ────────────────────────────
+#
+# Tarrasch's rule — rook belongs behind the passed pawn, yours or
+# theirs. Mohit signoff 2026-05-16 locked refinement: single-passer-
+# only in v1. Multi-passer positions deferred to v2 once the simple
+# case audit is clean.
+#
+# Fires when:
+#   1. Phase in (middlegame, endgame).
+#   2. cp_loss >= 30 — engine confirms the move was suboptimal.
+#   3. Exactly ONE passed pawn on the board (either color).
+#   4. Eval bracket: drop STM > +300cp (already-winning case where
+#      Tarrasch isn't the load-bearing lesson). Losing positions
+#      KEPT per Mohit's directive ("fire with lost positions too").
+#   5. Engine's best (best_move_san) is a rook move by OUR rook.
+#   6. That rook move lands on the same file as the passed pawn,
+#      on the side BEHIND the pawn (the pawn-color's origin side).
+#   7. Played move was NOT this rook lift.
+#
+# Edge cases enumerated:
+#   A. Multiple passers — skip (single-passer-only v1).
+#   B. Best move is not a rook move — skip.
+#   C. Rook lands on the pawn's file but in front (between pawn
+#      and promotion) — skip (that's "rook in front", not Tarrasch).
+#   D. SAN parse failures — return None.
+#   E. Eval data missing — fall back to geometric only.
+#   F. Our own rook is already behind the passer — engine's best
+#      is something else; principle doesn't fire (correctly).
+def _p_end_rook_behind_passer(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Tarrasch's rule — your rook should have gone to the square
+    behind the single passed pawn on the board."""
+    if facts.get("phase") not in ("endgame", "middlegame"):
+        return None
+    if (facts.get("cp_loss") or 0) < 30:
+        return None
+
+    # Eval bracket — asymmetric, drop already-winning per Mohit 2026-05-17.
+    eval_before_white_pov = facts.get("eval_before_cp")
+    if eval_before_white_pov is not None:
+        side_white = facts.get("moving_piece_color") == "white"
+        stm_eval = eval_before_white_pov if side_white else -eval_before_white_pov
+        if stm_eval > 300:
+            return None
+
+    # Single-passer-only restriction.
+    all_passers: List[Tuple[int, chess.Color]] = []
+    for color in (chess.WHITE, chess.BLACK):
+        for sq in _own_passed_pawns(board_before, color):
+            all_passers.append((sq, color))
+    if len(all_passers) != 1:
+        return None
+    passer_sq, passer_color = all_passers[0]
+
+    best_san = _normalize_san(facts.get("best_move_san") or "")
+    played_san = _normalize_san(facts.get("played_san") or "")
+    if not best_san or best_san == played_san:
+        return None
+
+    us = board_before.turn
+
+    # Engine's best must be a rook move by us.
+    try:
+        best_move = board_before.parse_san(best_san)
+    except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError):
+        return None
+    best_piece = board_before.piece_at(best_move.from_square)
+    if not best_piece or best_piece.piece_type != chess.ROOK or best_piece.color != us:
+        return None
+
+    # Target must be on the passer's file AND on the "behind" side
+    # of the pawn (passer's origin-side).
+    behind_squares = _passed_pawn_behind_squares(passer_sq, passer_color)
+    if best_move.to_square not in behind_squares:
+        return None
+
+    is_own_passer = (passer_color == us)
+    perspective = "supporting" if is_own_passer else "restraining"
+
+    return {
+        "principle_id": "END_ROOK_BEHIND_PASSER",
+        "evidence": {
+            "passer_square":       chess.square_name(passer_sq),
+            "passer_color":        "white" if passer_color == chess.WHITE else "black",
+            "rook_square_played":  chess.square_name(best_move.from_square),
+            "rook_target_square":  chess.square_name(best_move.to_square),
+            "perspective":         perspective,
+            "played_san":          facts.get("played_san") or "",
+            "best_san":            facts.get("best_move_san") or "",
+        },
+        "state_key": _freeze_state_key({
+            "principle_id":     "END_ROOK_BEHIND_PASSER",
+            "phase":            facts.get("phase") or "endgame",
+            "intent_type":      "tarrasch_rule",
+            "focal_squares":    (chess.square_name(passer_sq), chess.square_name(best_move.to_square)),
+            "perspective":      perspective,
+            "involved_piece":   "rook",
+            "best_move_family": "rook_move",
+        }),
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_san],
+    }
+
+
 # ── Detector #23: END_KING_ACTIVE ───────────────────────────────────
 #
 # Edge cases enumerated:
@@ -3822,6 +3951,7 @@ def _principles_violated(
         _p_end_king_active,
         _p_end_rule_of_square,   # added 2026-05-16 (Mohit signoff)
         _p_end_opposition,       # added 2026-05-17 (Mohit signoff) — king_move_required gate
+        _p_end_rook_behind_passer, # added 2026-05-18 (Phase 4) — Tarrasch's rule, single-passer-only
         _p_mid_king_safety,
         _p_mid_keep_attackers,
         _p_def_trade_attackers,
