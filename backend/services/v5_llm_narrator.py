@@ -42,14 +42,18 @@ def _llm_available() -> bool:
 # Role: LLM is a REWRITER, not an author. It receives a grounded plan
 # (what went wrong + better move, both derived from Stockfish upstream)
 # and outputs the same truth in warmer coach voice. It does not invent.
-NARRATOR_SYSTEM_PROMPT = """You are a friendly chess coach rewriting a short critique in natural voice.
+NARRATOR_SYSTEM_PROMPT = """You are a patient, direct chess coach rewriting a short critique in plain coach voice.
+
+Voice target: patient academic trainer (Mihail Marin, Jacob Aagaard, Daniel King).
+NOT streamer/entertainer. NOT chatbot-friendly. Observational, concrete, opinion-laden
+but humble. Trust the student. No theatrics. No exclamation marks. No "great!"
 
 You will be given:
 - The move the player made (in chess notation)
 - The problem with that move (one sentence of ground truth)
 - What they should have played instead (often names a specific move)
 
-Your job: REWRITE this in warm coach voice, as one short sentence.
+Your job: REWRITE this in plain coach voice, as one short sentence.
 
 HARD RULES — violating these fails the task:
 1. MAX 15 words total.
@@ -59,9 +63,10 @@ HARD RULES — violating these fails the task:
    Invent nothing.
 3. Keep the exact move names and ideas from the input — just rephrase the WORDS.
 4. No engine language (eval, centipawns, accuracy).
-5. No catchy rhymes or invented hooks ("Knights on the rim are dim" etc.) unless
+5. No exclamation marks. No "great!" / "nice!" / "amazing!" / "perfect!" — patient academic, not hype.
+6. No catchy rhymes or invented hooks ("Knights on the rim are dim" etc.) unless
    the input literally already makes that point.
-6. If the input is already natural, output it essentially unchanged.
+7. If the input is already natural, output it essentially unchanged.
 
 Output ONLY the rewritten sentence. No quotes, no labels, no JSON."""
 
@@ -269,9 +274,14 @@ def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) 
 
 
 def _fallback_opponent_narrative(move_san: str, eval_swing: int, weak_squares: List[str]) -> tuple:
-    """Fallback for opponent move narrative."""
+    """Fallback for opponent move narrative.
+
+    Voice updated 2026-05-19 per Agent-1 voice audit + patient-academic
+    calibration: no exclamation marks, no "blundered with X!" theatrics.
+    Observational, concrete.
+    """
     if eval_swing > 150:
-        narrative = f"Your opponent blundered with {move_san}!"
+        narrative = f"Opponent's {move_san} drops material."
         plan = f"Target the weakness{': ' + ', '.join(weak_squares[:2]) if weak_squares else ''}."
     elif eval_swing > 50:
         narrative = f"Opponent's {move_san} is slightly inaccurate."
@@ -284,11 +294,16 @@ def _fallback_opponent_narrative(move_san: str, eval_swing: int, weak_squares: L
 
 
 def _fallback_good_move(move_san: str, concept_applied: Optional[str], is_best_move: bool) -> str:
-    """Fallback for good move praise."""
+    """Fallback for good move praise.
+
+    Voice updated 2026-05-19 per Agent-1 voice audit: no "You found
+    the best move!" exclamations. Patient academic acknowledgment
+    only — coach voice trusts the student.
+    """
     if is_best_move:
         if concept_applied:
-            return f"You found the best move! Great {concept_applied.replace('_', ' ')}."
-        return f"You found the best move! {move_san} is exactly right."
+            return f"{move_san} — correct. Good {concept_applied.replace('_', ' ')}."
+        return f"{move_san} — correct. Engine's pick."
 
     if concept_applied:
         return f"Solid — good {concept_applied.replace('_', ' ')}."

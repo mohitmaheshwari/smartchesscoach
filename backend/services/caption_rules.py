@@ -719,12 +719,15 @@ def _r15_render(f):
     # rule fires repeatedly in the same game.
     phase = f.get("phase") or "middlegame"
     played = _played(f)
+    # Voice 2026-05-19: patient academic, NOT streamer. Removed
+    # "nice / solid / clean" adjectives and "too" filler — per voice
+    # audit, those leaned chatty. Plain acknowledgment.
     if phase == "opening":
-        cap = f"{played} — solid. Engine's pick too."
+        cap = f"{played} — engine's pick."
     elif phase == "endgame":
-        cap = f"{played} — clean. Engine agrees."
+        cap = f"{played} — engine's pick."
     else:
-        cap = f"{played} — nice. Engine sees it the same way."
+        cap = f"{played} — engine's pick."
     return CaptionOutput(
         caption=cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],

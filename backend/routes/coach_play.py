@@ -2686,7 +2686,10 @@ async def get_interactive_coaching(
                 if adaptation.get("momentum") == "hot_streak" and coaching.severity in ("good", "brilliant"):
                     streak = adaptation.get("good_moves_streak", 0)
                     if streak >= 3:
-                        coaching_dict["encouragement"] = f"{streak} good moves in a row. You're locked in."
+                        # Voice 2026-05-19 per Agent-1 voice audit: removed
+                        # "You're locked in" (streamer slang) per patient-
+                        # academic calibration. Plain process framing.
+                        coaching_dict["encouragement"] = f"{streak} consecutive good decisions. Keep the process."
 
                 coaching_dict["adaptation"] = {
                     "tempo": adaptation.get("tempo", "unknown"),
@@ -7079,8 +7082,10 @@ async def _process_move_and_respond(
                         "move_number": move_number,
                         "opening_name": _open_name,
                         "message": (
-                            f"You're playing the {_open_name}. "
-                            "Keep developing pieces and watch the centre."
+                            # Voice 2026-05-19 per Agent-1 audit: dropped
+                            # "Keep developing pieces and watch the centre"
+                            # (double instruction + chatty). Concrete + brief.
+                            f"You're in the {_open_name}. Finish development and contest the centre."
                         ),
                         "created_at": datetime.now(timezone.utc),
                         "read": False,
@@ -7120,8 +7125,11 @@ async def _process_move_and_respond(
                             "trap_name": _trap_name,
                             "opening_key": _opening_key,
                             "message": (
-                                f"Heads up — this position is the setup for the "
-                                f"{_trap_name}. Look both ways before your next move."
+                                # Voice 2026-05-19 per Agent-1 audit: dropped
+                                # "Heads up" / "Look both ways" filler.
+                                # Concrete + neutral.
+                                f"This is the setup for the {_trap_name}. "
+                                f"Know your next move before playing."
                             ),
                             "created_at": datetime.now(timezone.utc),
                             "read": False,

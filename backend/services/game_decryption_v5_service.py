@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 26  # v26 (2026-05-19): 800-1400 vocab + cadence fixes — (1) beginner-glossary first-encounter prefix for 9 tactical/endgame principles (pin/fork/skewer/discovered/hanging-piece/defender-count/rule-of-square/opposition/rook-behind-passer) — only fires on first time a sub-1400 user sees the principle; (2) habit-prompt cadence at every 5th user-move for sub-1400 (new "habit_prompt" message type, decoupled from V5 caption pipeline). v25 (2026-05-19): habit-principle bypass + R15 good-move. v24 (2026-05-19): R01 no-ply fallback concretization. v23 (2026-05-19): Parth bug triage. v22 (2026-05-18): Phase 6 cross-opening theme detectors.
+V5_COACHING_VERSION = 27  # v27 (2026-05-19): patient-academic voice pass per Agent-1 audit — narrator system prompt + fallbacks de-streamerized (no exclamation marks, no "You found the best move!" theatrics); R15 phase variants collapsed to plain "engine's pick" (dropped "nice/solid/clean" chatty adjectives); resolver "luft" jargon + "tuck him away" colloquialism removed; "You're locked in" streamer slang → "Keep the process"; opening_announcement + critical_moment scripts tightened. teaching_recall.py voice rewritten to competence-based (Agent 3, dbf56ae5). v26: 800-1400 vocab + cadence. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

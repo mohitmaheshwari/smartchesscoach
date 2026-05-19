@@ -630,12 +630,12 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
             return f"Knight on {sq} (rim) controls fewer squares than from a central post."
         return "Knight on the rim — central squares give the knight more reach."
     if pid == "OP_NOT_CASTLED":
-        return "King still in the centre past move 12 — castle to tuck him away."
+        return "King still in the centre past move 12 — castle to move it to a safe flank."
     if pid == "TAC_BACK_RANK":
         sq = evidence.get("king_square")
         if sq:
             return f"King on {sq} has no escape squares — back rank weakness."
-        return "Back rank weakness — your king has no luft."
+        return "Back rank weakness — your king has no escape square."
     if pid == "TAC_DEFENDER_COUNT":
         sq = evidence.get("piece_square")
         pt = evidence.get("piece_type")
