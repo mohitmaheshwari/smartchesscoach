@@ -240,6 +240,17 @@ def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) 
     pattern-based prefixes ("Your bishop needs an open diagonal…"): those
     were template lies that prepended a generic claim regardless of whether
     the actual problem was about diagonals.
+
+    Updated 2026-05-19: when no concrete plan data exists (problem +
+    better both empty), returns "" instead of hollow severity-only
+    strings ("X was a blunder.", "X wasn't the best here."). Per audit
+    1519831c surfaced 9,870 hollow-narrative violations in the corpus,
+    same root cause as Parth's R12 empty-WHY (caption_rules.py fixed
+    in 9b991160) — honest silence > fluffy template
+    ([[no-hollow-coverage]]). The V5 caption pipeline (caption field)
+    still provides a caption for these moves; suppressing the narrator
+    here leaves the user with the V5-caption-only path, not no text.
+    Callers already handle empty strings via `if narrative:` check.
     """
     problem = (plan_data.get("current_problem") or "").strip() if plan_data else ""
     better = (plan_data.get("better_approach") or "").strip() if plan_data else ""
@@ -251,13 +262,10 @@ def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) 
 
     if better:
         return f"{move_san} — {better}" if move_san else better
-    if severity == "blunder":
-        return f"{move_san} was a blunder."
-    if severity == "mistake":
-        return f"{move_san} wasn't the best here."
-    if severity == "inaccuracy":
-        return f"{move_san} — a small inaccuracy."
-    return f"{move_san}."
+
+    # No concrete data — return empty to signal "suppress narrative,
+    # fall through to V5 caption pipeline."
+    return ""
 
 
 def _fallback_opponent_narrative(move_san: str, eval_swing: int, weak_squares: List[str]) -> tuple:
