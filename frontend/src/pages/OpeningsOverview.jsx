@@ -72,6 +72,8 @@ const OpeningsOverview = ({ user }) => {
   const [expandedKey, setExpandedKey] = useState(null);
   const [endgameCategories, setEndgameCategories] = useState([]);
   const [endgameLoading, setEndgameLoading] = useState(false);
+  // Phase-3 Component 4: per-user opening profile (data-driven repertoire view)
+  const [openingProfile, setOpeningProfile] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -91,15 +93,18 @@ const OpeningsOverview = ({ user }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [repRes, progRes] = await Promise.all([
+      // Phase-3 Component 4 added /openings/profile to the parallel fetch.
+      const [repRes, progRes, profRes] = await Promise.all([
         fetch(`${API}/openings/repertoire`, { credentials: "include" }),
         fetch(`${API}/training/opening-progress`, { credentials: "include" }),
+        fetch(`${API}/openings/profile`, { credentials: "include" }),
       ]);
       if (repRes.ok) setRepertoire(await repRes.json());
       if (progRes.ok) {
         const data = await progRes.json();
         setProgress(data.progress || []);
       }
+      if (profRes.ok) setOpeningProfile(await profRes.json());
     } catch (e) {
       console.error("Failed to load openings:", e);
     } finally {
@@ -197,17 +202,23 @@ const OpeningsOverview = ({ user }) => {
 
         {/* Tab Content */}
         {activeTab === "openings" ? (
-          <OpeningsTab
-            totalGames={totalGames}
-            coachTaught={coachTaught}
-            focusOpening={focusOpening}
-            allWhite={allWhite}
-            allBlack={allBlack}
-            progress={progress}
-            expandedKey={expandedKey}
-            handleToggleExpand={handleToggleExpand}
-            navigate={navigate}
-          />
+          <>
+            {/* Phase-3 Component 4 — Your Repertoire (data-driven from
+                user_opening_profile). Surfaces above existing content
+                so we don't restructure the page that's already shipped. */}
+            <YourRepertoireCard profile={openingProfile} navigate={navigate} />
+            <OpeningsTab
+              totalGames={totalGames}
+              coachTaught={coachTaught}
+              focusOpening={focusOpening}
+              allWhite={allWhite}
+              allBlack={allBlack}
+              progress={progress}
+              expandedKey={expandedKey}
+              handleToggleExpand={handleToggleExpand}
+              navigate={navigate}
+            />
+          </>
         ) : (
           <EndgamesTab
             categories={endgameCategories}
@@ -745,5 +756,112 @@ const CoachProgress = ({ items, navigate }) => (
     </div>
   </div>
 );
+
+/* ============================================================
+ * YOUR REPERTOIRE — Phase-3 Component 4 (locked 2026-05-19)
+ * Data-driven view of what the user actually plays, with
+ * recurring deviation patterns. Pulls from /api/openings/profile
+ * which aggregates from games + game_analyses.
+ * ============================================================ */
+const YourRepertoireCard = ({ profile, navigate }) => {
+  if (!profile || !profile.total_analyzed_games) {
+    return null;  // Empty/missing — hide silently, existing content still shows.
+  }
+  const whiteTop = (profile.white?.openings || []).slice(0, 5);
+  const blackTop = (profile.black?.openings || []).slice(0, 5);
+  const deviations = (profile.recurring_deviations || []).slice(0, 5);
+  const totalDeviations = deviations.reduce((s, r) => s + (r.total_deviations || 0), 0);
+
+  return (
+    <Card className="mb-4 border-emerald-300/40 bg-emerald-50/40 dark:bg-emerald-950/20" data-testid="your-repertoire-card">
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-emerald-700" />
+          <h2 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+            Your Repertoire ({profile.total_analyzed_games} games)
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* WHITE */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Crown className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-medium">As White ({profile.white?.total_games || 0})</span>
+            </div>
+            <div className="space-y-1">
+              {whiteTop.length === 0 ? (
+                <div className="text-xs text-muted-foreground">No white games yet.</div>
+              ) : (
+                whiteTop.map((o, i) => (
+                  <div key={`w-${i}`} className="flex items-center justify-between text-sm">
+                    <span className="truncate" title={o.name}>{o.name}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap ml-2">
+                      {o.games}g · {Math.round((o.win_rate || 0) * 100)}%
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* BLACK */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="w-4 h-4 text-zinc-500" />
+              <span className="text-sm font-medium">As Black ({profile.black?.total_games || 0})</span>
+            </div>
+            <div className="space-y-1">
+              {blackTop.length === 0 ? (
+                <div className="text-xs text-muted-foreground">No black games yet.</div>
+              ) : (
+                blackTop.map((o, i) => (
+                  <div key={`b-${i}`} className="flex items-center justify-between text-sm">
+                    <span className="truncate" title={o.name}>{o.name}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap ml-2">
+                      {o.games}g · {Math.round((o.win_rate || 0) * 100)}%
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RECURRING DEVIATIONS — the highest-leverage teaching surface */}
+        {totalDeviations > 0 && (
+          <div className="pt-2 border-t border-emerald-300/40">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500" />
+              <span className="text-sm font-medium">Recurring Deviations from Theory</span>
+            </div>
+            <div className="space-y-2">
+              {deviations.map((rd, i) => {
+                const top = (rd.patterns || [])[0];
+                return (
+                  <div key={`d-${i}`} className="text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-orange-900 dark:text-orange-100">{rd.opening_family}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {rd.total_deviations}× off-book
+                      </span>
+                    </div>
+                    {top && (
+                      <div className="text-xs text-muted-foreground pl-2">
+                        Most often: played <span className="font-mono text-orange-700">{top.played_san}</span>
+                        {" "}when book was <span className="font-mono">{top.expected_san}</span>
+                        {" "}({top.count}×)
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 export default OpeningsOverview;

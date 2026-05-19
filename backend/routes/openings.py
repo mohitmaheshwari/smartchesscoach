@@ -92,6 +92,49 @@ async def get_opening_repertoire(user: User = Depends(get_current_user)):
     return repertoire
 
 
+@router.get("/openings/profile")
+async def get_user_opening_profile(user: User = Depends(get_current_user)):
+    """Return the calling user's per-opening identity profile.
+
+    Phase-3 Component 4 (locked 2026-05-19). Pulls from the cached
+    db.user_opening_profiles collection (auto-recomputes if stale via
+    get_opening_profile staleness check). Frontend uses this to show
+    the user's actual repertoire — top openings as W/B, win rates,
+    recurring deviations, trap exposure.
+
+    Schema documented in services/user_opening_profile.py module
+    docstring.
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    try:
+        from services.user_opening_profile import get_opening_profile
+    except ImportError as e:
+        raise HTTPException(status_code=500, detail=f"Profile service unavailable: {e}")
+    profile = await get_opening_profile(db, user.user_id)
+    if not profile:
+        # No data yet — return clean empty shape so frontend doesn't crash.
+        return {
+            "success": True,
+            "user_id": user.user_id,
+            "total_analyzed_games": 0,
+            "white": {"total_games": 0, "openings": []},
+            "black": {"total_games": 0, "openings": []},
+            "trap_exposure": {"by_trap": []},
+            "recurring_deviations": [],
+            "computed_at": None,
+        }
+    # Strip mongo-internal field, format datetime for JSON
+    profile.pop("_id", None)
+    if profile.get("computed_at"):
+        try:
+            profile["computed_at"] = profile["computed_at"].isoformat()
+        except Exception:
+            pass
+    return {"success": True, **profile}
+
+
 @router.get("/openings/library")
 async def get_opening_library():
     """
