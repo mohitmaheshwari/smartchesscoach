@@ -450,6 +450,84 @@ class CoachPlayFeedbackRequest(BaseModel):
 # - POST /coach/play/teaching/skip
 
 
+@router.get("/export/{session_id}")
+async def export_coach_session_bundle(
+    session_id: str,
+    user: User = Depends(get_current_user),
+):
+    """
+    Export the full debug bundle for a Play with Coach session as one
+    JSON document. Designed for Mohit + Parth (and any is_reviewer
+    user) to snapshot a complete coaching game and share it for
+    offline debugging.
+
+    Bundle contents:
+      _export    : exported_at, session_id, exported_by, schema version
+      session    : the full coach_sessions doc (move_history is the
+                   main payload — every move by both sides with
+                   fen_before/fen_after, eval_before/after, best_move,
+                   is_best_move, evaluation, time_spent, timestamp)
+      messages   : every coach_messages record for this session
+                   (message text, quality, teaching_type, trigger),
+                   sorted by created_at
+      postgame   : the postgame_analyses doc if generated (accuracy,
+                   blunders, habits_improved/weak, performance_rating)
+
+    Access:
+      - Session owner: always allowed.
+      - Reviewers (is_reviewer / role=super_admin): allowed across all
+        users' sessions.
+      - Anyone else: 403.
+
+    Mirror of /api/lab/export/{game_id} but for the live PvC surface
+    instead of imported games. Built after Mohit's 2026-05-19 request
+    to debug a game-in-progress end-state.
+    """
+    global db
+
+    session = await db.coach_sessions.find_one(
+        {"session_id": session_id}, {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    is_reviewer = (
+        getattr(user, "is_reviewer", False)
+        or getattr(user, "role", None) == "super_admin"
+    )
+    if session.get("user_id") != user.user_id and not is_reviewer:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    # Coach messages — chronological so a debugger reading the bundle
+    # can pair each message with the move it commented on.
+    msg_cursor = db.coach_messages.find(
+        {"session_id": session_id}, {"_id": 0}
+    ).sort("created_at", 1)
+    messages = await msg_cursor.to_list(length=2000)
+
+    # Postgame analysis — present only if game ended and analyzer ran.
+    postgame = await db.postgame_analyses.find_one(
+        {"session_id": session_id}, {"_id": 0}
+    )
+
+    return {
+        "_export": {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_by": {
+                "user_id": user.user_id,
+                "email": getattr(user, "email", None),
+                "is_reviewer": is_reviewer,
+            },
+            "session_id": session_id,
+            "bundle_schema_version": 1,
+            "surface": "play_with_coach",
+        },
+        "session": session,
+        "messages": messages,
+        "postgame": postgame,
+    }
+
+
 @router.get("/stats")
 async def get_coach_play_stats(user: User = Depends(get_current_user)):
     """

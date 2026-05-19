@@ -364,38 +364,83 @@ const InlineFeedbackModal = ({
 };
 
 /* ── Game Over Summary Card ── */
-const GameOverCard = ({ gameResult, summary }) => (
-  <div className="p-4 border-t border-border">
-    <Card
-      className={`${
-        gameResult === "win"
-          ? "border-emerald-200 bg-green-500/5"
-          : gameResult === "loss"
-          ? "border-red-200 bg-red-500/5"
-          : "border-yellow-200 bg-yellow-500/5"
-      }`}
-    >
-      <CardContent className="p-3">
-        <div className="flex items-center gap-2">
-          {gameResult === "win" ? (
-            <Trophy className="w-5 h-5 text-green-500" />
-          ) : gameResult === "loss" ? (
-            <XCircle className="w-5 h-5 text-red-500" />
-          ) : (
-            <CheckCircle2 className="w-5 h-5 text-yellow-500" />
+const GameOverCard = ({ gameResult, summary, sessionId }) => {
+  // Export the full session bundle (every move + coach messages +
+  // postgame analysis) as one JSON file. Built so Mohit / Parth can
+  // snapshot a game-in-progress at end and debug offline. Visible to
+  // anyone with this card open (own sessions always work; reviewers
+  // can hit it on shared session_ids too).
+  const handleExportSession = async () => {
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`${API}/coach/play/export/${sessionId}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        console.warn(`Coach session export failed: ${res.status}`);
+        return;
+      }
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `chessguru-coach-session-${sessionId}-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn("Coach session export error:", e);
+    }
+  };
+
+  return (
+    <div className="p-4 border-t border-border">
+      <Card
+        className={`${
+          gameResult === "win"
+            ? "border-emerald-200 bg-green-500/5"
+            : gameResult === "loss"
+            ? "border-red-200 bg-red-500/5"
+            : "border-yellow-200 bg-yellow-500/5"
+        }`}
+      >
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            {gameResult === "win" ? (
+              <Trophy className="w-5 h-5 text-green-500" />
+            ) : gameResult === "loss" ? (
+              <XCircle className="w-5 h-5 text-red-500" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-yellow-500" />
+            )}
+            <span className="font-medium capitalize">{gameResult || "Draw"}</span>
+          </div>
+          {summary && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {summary.total_moves} moves •{" "}
+              {Math.floor(summary.duration_seconds / 60)}m
+            </p>
           )}
-          <span className="font-medium capitalize">{gameResult || "Draw"}</span>
-        </div>
-        {summary && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {summary.total_moves} moves •{" "}
-            {Math.floor(summary.duration_seconds / 60)}m
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  </div>
-);
+          {sessionId && (
+            <button
+              onClick={handleExportSession}
+              className="mt-3 w-full text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground/80 hover:text-foreground border border-border hover:border-foreground/40 rounded px-2 py-1.5 transition-colors"
+              data-testid="export-coach-session-bundle"
+              title="Download full session JSON (every move + coach messages + postgame analysis)"
+            >
+              Export session JSON
+            </button>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 /* ── Legacy Chat Messages ── */
 const LegacyChatMessages = ({
@@ -1542,7 +1587,11 @@ const CoachPlaySidebar = ({
 
           {/* Game over summary */}
           {gameOver && (
-            <GameOverCard gameResult={gameResult} summary={summary} />
+            <GameOverCard
+              gameResult={gameResult}
+              summary={summary}
+              sessionId={session?.session_id}
+            />
           )}
 
           {/* Legacy Move History */}
