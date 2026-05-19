@@ -1578,6 +1578,30 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "priority_level": 11,
         }
 
+    # Priority 12: good_move — user played the engine's pick in a
+    # not-already-lost position, AND no other celebratory category
+    # claimed this move. Mohit signoff 2026-05-19 after the 800-1400
+    # band review: criticism-heavy tone was the gap. Even a quiet
+    # best-move needs a small "nice" so the user gets reinforcement,
+    # not just blame. Sub-1400 players especially need this.
+    #
+    # Gated tight to avoid celebrating every move:
+    #   - played_is_best must be True
+    #   - cp_loss must be 0 (no eval-loss whatsoever)
+    #   - mover must be the user (not the opponent — we don't
+    #     compliment the opponent's good moves at them)
+    if (
+        _tactic_ok
+        and facts.get("played_is_best")
+        and (_move_cpl == 0)
+        and facts.get("mover_is_user") is True
+    ):
+        return {
+            "category": "good_move",
+            "ref_field": "played_is_best",
+            "priority_level": 12,
+        }
+
     return None
 
 

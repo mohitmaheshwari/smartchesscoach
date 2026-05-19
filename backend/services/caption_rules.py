@@ -699,6 +699,40 @@ def _r14_render(f):
     )
 
 
+# R15 — Good move acknowledgment.
+# Fires for user moves that are engine-best with cp_loss == 0 when no
+# higher-priority celebratory category claimed the move. Sub-1400
+# players need positive reinforcement, not just blame — see Mohit 2026-
+# 05-19 review of 800-1400 coaching tone.
+def _r15_trigger(f):
+    # Belt + suspenders — the category gate in caption_facts.py already
+    # ensures this, but trigger checks the same conditions defensively.
+    return (
+        bool(f.get("played_is_best"))
+        and (f.get("cp_loss") or 0) == 0
+        and f.get("mover_is_user") is True
+    )
+
+
+def _r15_render(f):
+    # Vary the phrasing slightly by phase to avoid monotony when the
+    # rule fires repeatedly in the same game.
+    phase = f.get("phase") or "middlegame"
+    played = _played(f)
+    if phase == "opening":
+        cap = f"{played} — solid. Engine's pick too."
+    elif phase == "endgame":
+        cap = f"{played} — clean. Engine agrees."
+    else:
+        cap = f"{played} — nice. Engine sees it the same way."
+    return CaptionOutput(
+        caption=cap,
+        highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
+        arrows=[],
+        rule_name="R15_good_move",
+    )
+
+
 # R_FALLBACK — no rule matched. Silence.
 def _r_fallback_trigger(f):
     return True  # always fires last
@@ -729,4 +763,5 @@ RULES: List[Rule] = [
     Rule("R11_development",         "development",     11, _r11_trigger, _r11_render),
     Rule("R14_forced_best",         "forced_best",     11, _r14_trigger, _r14_render),
     Rule("R12_blunder",             "blunder",         12, _r12_trigger, _r12_render),
+    Rule("R15_good_move",           "good_move",       12, _r15_trigger, _r15_render),
 ]

@@ -43,6 +43,21 @@ RATING_BAND_THRESHOLDS = {
     "advanced":      2.0,   # 1800+   — see it twice and we move on
 }
 
+# Habit principles bypass the necessity gate entirely for sub-1400
+# players. Rationale: "count attackers vs defenders" and "check what
+# opponent threatens" are PROCESS habits, not one-time lessons. An 800-
+# rated player hangs pieces 5-10x per game on the same geometry; we
+# need to fire on every occurrence to drum the habit in.
+#
+# Locked 2026-05-19 after the audit-coverage-tracks-surface review of
+# coaching quality at the 800-1400 band.
+HABIT_PRINCIPLE_IDS = frozenset({
+    "TAC_HANGING_PIECE",
+    "TAC_DEFENDER_COUNT",
+    "TAC_CHECKS_CAPTURES_THREATS",
+    "DEF_MOST_ATTACKED",
+})
+
 
 def _classify_rating_band(user_rating: Optional[int]) -> str:
     if user_rating is None:
@@ -166,9 +181,18 @@ def passes_necessity_gate(
     Returns True for None / unknown principle (gate doesn't apply to
     shape-pattern-only fires — those have their own freshness via the
     suppression layer).
+
+    Habit principles ([[HABIT_PRINCIPLE_IDS]]) bypass the gate for
+    sub-1400 players — process habits need repetition, not silence.
+    For 1400+ players, the gate still applies because they've already
+    internalized the habit.
     """
     if not principle_id:
         return True
+    # Habit-principle bypass for the bands that need repetition.
+    if principle_id in HABIT_PRINCIPLE_IDS:
+        if user_rating is None or user_rating < 1400:
+            return True
     threshold = necessity_threshold_for_user(user_rating)
     current = weights.get(principle_id, 0.0)
     return current < threshold
