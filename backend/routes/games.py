@@ -680,10 +680,16 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
             if not fen:
                 continue
 
-            # Position commentary for this moment
+            # Position commentary for this moment. Pass best_move_san so
+            # the commentary can't advertise a capture the best move
+            # never makes (Mohit's h2-pawn misfire across Qf3+, Qxd1+,
+            # Qxh2 — 2026-05-19).
             commentary = None
             try:
-                commentary = read_board_like_a_coach(fen, user_color, 1200)
+                commentary = read_board_like_a_coach(
+                    fen, user_color, 1200,
+                    best_move_san=e.get("best_move") or None,
+                )
             except Exception:
                 pass
 

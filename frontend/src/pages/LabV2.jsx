@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/Layout";
 import EvalBadge from "@/components/shared/EvalBadge";
+import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -1806,9 +1807,21 @@ const LabV2 = ({ user }) => {
                                   : "border-amber-400/25 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]"
                               }`}
                             >
-                              <button
+                              {/* The clickable region jumps the board on click,
+                                  but it's a div (not a button) so it can host
+                                  the InlineFlag button child without nesting
+                                  interactive controls. */}
+                              <div
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => navigateToMoveNumber(m.move_number)}
-                                className="w-full text-left"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    navigateToMoveNumber(m.move_number);
+                                  }
+                                }}
+                                className="w-full text-left cursor-pointer outline-none group"
                                 data-testid={`key-moment-jump-${i}`}
                               >
                                 <div className="flex items-baseline gap-2.5 mb-2 flex-wrap">
@@ -1834,9 +1847,27 @@ const LabV2 = ({ user }) => {
                                 {m.commentary?.summary && (
                                   <p className="font-serif text-[14.5px] leading-snug text-foreground/85">
                                     {m.commentary.summary}
+                                    <InlineFlag
+                                      section="key_moment_commentary"
+                                      flaggedText={m.commentary.summary}
+                                      context={{
+                                        source: "lab_key_moments",
+                                        gameId,
+                                        fen: m.fen,
+                                        moveSan: m.move,
+                                        moveNumber: m.move_number,
+                                        side: userColor,
+                                        severity: m.severity,
+                                        cpLoss: m.cp_loss,
+                                        bestMove: m.best_move,
+                                        phase: m.phase,
+                                        component: "lab_key_moments",
+                                        rule_name: "position_intelligence_summary",
+                                      }}
+                                    />
                                   </p>
                                 )}
-                              </button>
+                              </div>
                               {canSolve && (
                                 <button
                                   onClick={(e) => {

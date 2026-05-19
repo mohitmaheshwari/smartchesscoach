@@ -15,7 +15,7 @@ Not what to PLAY — what to SEE.
 
 import chess
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -31,14 +31,36 @@ class PositionFeature:
     actionable: str     # What to do about it
 
 
-def read_position(fen: str, user_color: str = "white", user_rating: int = 1200) -> Dict:
+def read_position(
+    fen: str,
+    user_color: str = "white",
+    user_rating: int = 1200,
+    best_move_san: Optional[str] = None,
+) -> Dict:
     """
     Read a position and return the most important features for this player's level.
+
+    When `best_move_san` is provided (Lab key-moments use case), tactical
+    "you can capture X" claims are gated to only fire when the best move
+    actually executes that capture. Without that gate the detector
+    advertises whatever's hanging on the board, regardless of whether
+    the truly best move is a capture — that's the Qf3+/Qxd1+/Qxh2 false
+    pattern Mohit flagged 2026-05-19.
     """
     try:
         board = chess.Board(fen)
     except Exception:
         return {"features": [], "eval_text": "Invalid position"}
+
+    # Parse best move once so the detectors can consult its target square.
+    best_move_to_sq: Optional[int] = None
+    if best_move_san:
+        try:
+            mv = board.parse_san(best_move_san)
+            best_move_to_sq = mv.to_square
+        except Exception:
+            # Invalid SAN — fall through; detectors revert to legacy behavior.
+            best_move_to_sq = None
 
     user_is_white = user_color == "white"
     user_color_bool = chess.WHITE if user_is_white else chess.BLACK
@@ -50,7 +72,9 @@ def read_position(fen: str, user_color: str = "white", user_rating: int = 1200) 
     features.extend(_analyze_king_safety(board, user_color_bool, opp_color_bool))
 
     # ─── HANGING PIECES (all levels) ───
-    features.extend(_analyze_hanging_pieces(board, user_color_bool, opp_color_bool))
+    features.extend(_analyze_hanging_pieces(
+        board, user_color_bool, opp_color_bool, best_move_to_sq=best_move_to_sq
+    ))
 
     # ─── DEVELOPMENT (800+) ───
     features.extend(_analyze_development(board, user_color_bool))
@@ -261,7 +285,27 @@ def _count_escape_squares(board, king_color, king_sq, attacker_color) -> List[st
     return escapes
 
 
-def _analyze_hanging_pieces(board, user_color, opp_color) -> List[PositionFeature]:
+def _analyze_hanging_pieces(
+    board,
+    user_color,
+    opp_color,
+    best_move_to_sq: Optional[int] = None,
+) -> List[PositionFeature]:
+    """
+    Surface tactical opportunities the user could exploit, plus their
+    own hanging pieces.
+
+    `best_move_to_sq` (added 2026-05-19): when provided, the
+    "opponent's X is undefended, your Y can take it" claim is gated
+    so it only fires when the best move actually lands on that
+    square. Without this gate, the detector advertises whatever
+    looks hanging — even when the genuine best move is a check or
+    a positional improvement elsewhere. Mohit flagged three side-
+    by-side misfires (Qxh2 caption appearing on Qf3+ and Qxd1+
+    moves) on 2026-05-19. Per [[no-hollow-coverage]] we suppress
+    the false claim entirely; the plan-rule fallback picks a more
+    honest message.
+    """
     features = []
     piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
 
@@ -285,7 +329,9 @@ def _analyze_hanging_pieces(board, user_color, opp_color) -> List[PositionFeatur
                 continue
             attacker_value = piece_values.get(attacker_piece.piece_type, 0)
             target_value = piece_values.get(piece.piece_type, 0)
-            # Only flag if we don't lose material (e.g. don't take pawn with queen if they can recapture)
+            # Only flag if we don't lose material (e.g. don't take pawn
+            # with queen if they can recapture). When the target is
+            # undefended, the capture is free regardless of piece values.
             if target_value >= attacker_value or not defended:
                 if target_value > best_target_value:
                     best_target = (sq, piece, attacker_piece)
@@ -293,17 +339,26 @@ def _analyze_hanging_pieces(board, user_color, opp_color) -> List[PositionFeatur
 
     if best_target:
         sq, piece, attacker = best_target
-        piece_name = chess.piece_name(piece.piece_type)
-        sq_name = chess.square_name(sq)
-        attacker_name = chess.piece_name(attacker.piece_type)
-        features.append(PositionFeature(
-            priority=1,
-            category="tactics",
-            title=f"Opponent's {piece_name} is undefended",
-            description=f"Their {piece_name} on {sq_name} has no defender. Your {attacker_name} can take it.",
-            min_rating=800,
-            actionable=f"Take their {piece_name} on {sq_name} with your {attacker_name}.",
-        ))
+        # Gate: when caller passed best_move_to_sq (Lab key-moments use
+        # case), only fire the capture-prompt feature when the BEST move
+        # actually lands on this square. The hanging piece is real, but
+        # if the best move is doing something else, advertising the
+        # capture would be coaching dishonesty.
+        capture_gate_ok = (
+            best_move_to_sq is None or best_move_to_sq == sq
+        )
+        if capture_gate_ok:
+            piece_name = chess.piece_name(piece.piece_type)
+            sq_name = chess.square_name(sq)
+            attacker_name = chess.piece_name(attacker.piece_type)
+            features.append(PositionFeature(
+                priority=1,
+                category="tactics",
+                title=f"Opponent's {piece_name} is undefended",
+                description=f"Their {piece_name} on {sq_name} has no defender. Your {attacker_name} can take it.",
+                min_rating=800,
+                actionable=f"Take their {piece_name} on {sq_name} with your {attacker_name}.",
+            ))
 
     # Your hanging pieces — only flag if it's actually under attack AND undefended
     for sq in chess.SQUARES:

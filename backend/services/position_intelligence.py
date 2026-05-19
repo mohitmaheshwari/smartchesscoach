@@ -555,14 +555,20 @@ def _extract_board_facts(board: chess.Board, user_color: chess.Color, opp_color:
 def read_board_like_a_coach(
     fen: str,
     user_color: str = "white",
-    user_rating: int = 1200
+    user_rating: int = 1200,
+    best_move_san: Optional[str] = None,
 ) -> Dict:
     """
     Read the board the way a coach would — connect the dots between
     individual observations into one coherent message.
+
+    When `best_move_san` is provided, tactical "you can capture X"
+    claims are gated to fire only when the best move actually
+    executes that capture. Used by Lab key-moments commentary so the
+    caption can't advertise a capture the best move never makes.
     """
     # Step 1: Get raw observations from position_reader
-    raw = read_position(fen, user_color, user_rating)
+    raw = read_position(fen, user_color, user_rating, best_move_san=best_move_san)
     features = raw.get("features", [])
     eval_text = raw.get("eval_text", "")
     phase = raw.get("phase", "middlegame")
