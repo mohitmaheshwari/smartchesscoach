@@ -943,7 +943,13 @@ async def coach_play_events(
     )
 
 
+from services.pwc_tracer import trace_pwc_endpoint as _trace_pwc_endpoint
+def _pwc_get_db():
+    return db
+
+
 @router.get("/move-feedback/{session_id}")
+@_trace_pwc_endpoint("GET /coach/play/move-feedback", _pwc_get_db)
 async def get_coach_play_move_feedback(
     session_id: str,
     user: User = Depends(get_current_user)
@@ -5625,6 +5631,7 @@ async def get_opening_suggestions(user: User = Depends(get_current_user)):
 # ══════════════════════════════════════════════════════════════════════
 
 @router.post("/start")
+@_trace_pwc_endpoint("POST /coach/play/start", _pwc_get_db)
 async def start_play_with_coach(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
@@ -6017,6 +6024,7 @@ async def start_play_with_coach(
 
 
 @router.post("/move")
+@_trace_pwc_endpoint("POST /coach/play/move", _pwc_get_db)
 async def make_coach_play_move(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
