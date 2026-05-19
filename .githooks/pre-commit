@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+#
+# ChessGuru caption-voice pre-commit hook.
+#
+# Blocks commits that reintroduce forbidden phrases caught in prior
+# bug rounds. Right now the only enforced rule is:
+#
+#   "drops about N pawns" / "loses about N pawns" / "costs about N pawns"
+#       — centipawn loss is the eval shift, NOT material lost. Mohit
+#         flagged 2026-05-19 (Nxf7 cp_loss=426 captioned as "drops 4
+#         pawns" when the actual loss was a knight + positional
+#         collapse). See memory/feedback_cp_loss_is_not_material.md
+#         and commit e0e71127.
+#
+# This hook fires only on STAGED .py files. It scans for the forbidden
+# regex and blocks the commit if any match is found. Override (rare
+# legitimate use, e.g. comments quoting the bad pattern for context) is
+# possible by adding `# allow-cp-loss-phrase` at end of the line.
+#
+# Setup (one-time, per clone):
+#   git config core.hooksPath .githooks
+# Confirm:
+#   git config --get core.hooksPath  # should print .githooks
+#
+# Bypass once (DO NOT NORMALIZE):
+#   git commit --no-verify
+# but per project rules, --no-verify is reserved for emergencies.
+# Prefer fixing the wording.
+
+set -euo pipefail
+
+# Forbidden regex — case-insensitive. Catches both rendered strings
+# ("drops about 4 pawns", "loses about 2.5 pawns") AND the f-string /
+# template source form ("drops about {pawns} pawns", "loses about
+# {cpl/100} pawns", "drops about %s pawns").
+#
+# The middle token can be:
+#   - a literal number:     [0-9]+(\.[0-9]+)?
+#   - an f-string slot:     \{[^}]+\}
+#   - a printf/format slot: %[sdif]
+#
+# Trailing "pawns?" anchors the misframing — we only block when the
+# unit is "pawns" (not "centipawns", which is the honest engine term).
+FORBIDDEN_REGEX='(drops|loses|costs) about ([0-9]+(\.[0-9]+)?|\{[^}]+\}|%[sdif]) (pawn|pawns)\b'
+
+# Only check staged .py files (the surfaces that compose user-facing
+# captions). Excludes:
+#   - the audit script itself (it intentionally documents the pattern)
+#   - the memory file (it intentionally documents the pattern)
+#   - tests/audits that grep FOR the pattern
+EXCLUDE_PATHS=(
+    'backend/scripts/audit_caption_render_surface.py'
+    'backend/tests/'
+    'memory/'
+    '.githooks/'
+)
+
+# Build a grep -v filter from EXCLUDE_PATHS
+build_exclude() {
+    local out=""
+    for p in "${EXCLUDE_PATHS[@]}"; do
+        if [[ -z "$out" ]]; then
+            out="$p"
+        else
+            out="$out|$p"
+        fi
+    done
+    echo "$out"
+}
+EXCLUDE_PATTERN="$(build_exclude)"
+
+# Collect staged Python files, filtering out the allowlist.
+mapfile -t STAGED < <(
+    git diff --cached --name-only --diff-filter=ACMR \
+        | grep -E '\.py$' \
+        | grep -Ev "$EXCLUDE_PATTERN" \
+        || true
+)
+
+if [[ ${#STAGED[@]} -eq 0 ]]; then
+    exit 0
+fi
+
+violations=0
+for f in "${STAGED[@]}"; do
+    # Skip if file no longer exists (e.g. deleted in same commit).
+    [[ -f "$f" ]] || continue
+    # Scan the STAGED content of the file (not the working tree), so a
+    # post-staging local edit doesn't fool the hook.
+    while IFS= read -r line; do
+        # Strip ANSI color codes (git show output is clean already, but
+        # be defensive).
+        clean="${line//$'\033'\[*([0-9;])m/}"
+        # Allow opt-out marker for the rare quote-in-comment case.
+        if [[ "$clean" == *"allow-cp-loss-phrase"* ]]; then
+            continue
+        fi
+        if echo "$clean" | grep -qiE "$FORBIDDEN_REGEX"; then
+            if [[ $violations -eq 0 ]]; then
+                printf '\n\033[31m✗ Caption voice violation:\033[0m forbidden "X pawns" framing detected.\n\n' >&2
+                printf 'Rule: centipawn loss is the eval shift, not material lost.\n' >&2
+                printf 'Use severity tier instead:\n' >&2
+                printf '  cp < 250  -> "is a mistake"\n' >&2
+                printf '  250-399   -> "is a serious mistake"\n' >&2
+                printf '  cp >= 400 -> "is a major blunder"\n\n' >&2
+                printf 'See: memory/feedback_cp_loss_is_not_material.md\n\n' >&2
+                printf 'Offending lines:\n' >&2
+            fi
+            printf '  %s: %s\n' "$f" "$clean" >&2
+            violations=$((violations + 1))
+        fi
+    done < <(git show ":$f")
+done
+
+if [[ $violations -gt 0 ]]; then
+    printf '\n%d violation(s) blocked. Fix and re-stage, or add \n' "$violations" >&2
+    printf '`# allow-cp-loss-phrase` to end of any line that legitimately\n' >&2
+    printf 'quotes the bad pattern (e.g. inside an audit/test file).\n\n' >&2
+    exit 1
+fi
+
+exit 0
