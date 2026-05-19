@@ -690,6 +690,127 @@ async def explain_mistake(req: MistakeExplanationRequest, user: User = Depends(g
 
 
 
+@router.get("/lab/export/{game_id}")
+async def export_session_bundle(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Export the full debug bundle for a Lab session as a single JSON
+    document. Built for Mohit + Parth (and any is_reviewer user) to
+    snapshot the entire coaching surface for a game and share it
+    out-of-band when debugging caption misfires or voice issues.
+
+    Bundle contents:
+      - game metadata (pgn, result, user_color, opening, dates, etc.)
+      - stockfish analysis (eval per move + best_move / cp_loss)
+      - decryption_v5_data (per-move facts + captions + rule_names)
+      - V5 voice fields (truth_line, player_decryption, decryption_block)
+      - pattern_evidence + habits_report + cct_narrative
+      - coach_review (phases, behaviors, key_moments, fundamentals)
+      - export header (exported_at, v5_version, exported_by)
+
+    Heavy intentionally. Bigger debug payload > round-tripping multiple
+    endpoints to reconstruct context.
+
+    Access:
+      - Reviewers (is_reviewer or role=super_admin): can export any
+        user's game.
+      - Regular users: can export only their own games.
+    """
+    from datetime import datetime, timezone
+
+    global db
+    is_reviewer = getattr(user, "is_reviewer", False) or (
+        getattr(user, "role", None) == "super_admin"
+    )
+
+    # Look up the game — reviewers bypass user_scope_filter to access
+    # any game's data; regular users are scoped to their own.
+    game_query = {"game_id": game_id}
+    if not is_reviewer:
+        game_query.update(user_scope_filter(user))
+    game = await db.games.find_one(game_query, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis_query = {"game_id": game_id}
+    if not is_reviewer:
+        analysis_query.update(user_scope_filter(user))
+    analysis = await db.game_analyses.find_one(analysis_query, {"_id": 0})
+
+    # Optional: coach-review payload (the same shape /games/{id}/coach-review
+    # returns). If it fails we just omit — the bundle should still be useful
+    # without it.
+    coach_review_payload = None
+    try:
+        # Re-use the existing endpoint logic by importing the function. The
+        # /games/.../coach-review handler lives in routes/games.py; we don't
+        # call it directly to avoid auth context juggling. Instead we just
+        # surface the analysis fields the frontend reads from it.
+        coach_review_payload = {
+            "phases": (analysis or {}).get("phases"),
+            "behaviors": (analysis or {}).get("behaviors"),
+            "fundamentals": (analysis or {}).get("fundamentals"),
+            "opening_analysis": (analysis or {}).get("opening_analysis"),
+            "key_moments": (analysis or {}).get("key_moments"),
+        }
+    except Exception:
+        coach_review_payload = None
+
+    bundle = {
+        # Export header — first thing a debugger looks at.
+        "_export": {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_by": {
+                "user_id": user.user_id,
+                "email": getattr(user, "email", None),
+                "is_reviewer": is_reviewer,
+            },
+            "game_id": game_id,
+            "v5_coaching_version": (analysis or {}).get("decryption_v5_version"),
+            "bundle_schema_version": 1,
+        },
+        # Game record (PGN, dates, opening, etc.)
+        "game": game,
+        # Full analysis doc minus the bulky decryption_v5_data (broken
+        # out below so it's easy to scroll past).
+        "analysis": _shallow_analysis(analysis),
+        # Stockfish move-by-move (eval_before/after, cp_loss, best_move,
+        # pv_after_best, fen_before).
+        "stockfish_analysis": (analysis or {}).get("stockfish_analysis"),
+        # V5 caption records — per-move facts + caption + rule_name.
+        # This is the heaviest field but the most useful for debugging.
+        "decryption_v5_data": (analysis or {}).get("decryption_v5_data"),
+        # V5 voice layer fields.
+        "truth_line": (analysis or {}).get("truth_line"),
+        "player_decryption": (analysis or {}).get("player_decryption"),
+        "decryption_block": (analysis or {}).get("decryption_block"),
+        "pattern_evidence": (analysis or {}).get("pattern_evidence"),
+        "habits_report": (analysis or {}).get("habits_report"),
+        "cct_narrative": (analysis or {}).get("cct_narrative"),
+        # Coach review surface used by the Lab right rail.
+        "coach_review": coach_review_payload,
+    }
+    return bundle
+
+
+def _shallow_analysis(analysis):
+    """Return the analysis doc with the bulky V5 / voice fields stripped
+    (they're surfaced separately in the export bundle so each field is
+    easier to scan in a JSON viewer)."""
+    if not analysis:
+        return None
+    HEAVY = {
+        "decryption_v5_data",
+        "stockfish_analysis",
+        "truth_line",
+        "player_decryption",
+        "decryption_block",
+        "pattern_evidence",
+        "habits_report",
+        "cct_narrative",
+    }
+    return {k: v for k, v in analysis.items() if k not in HEAVY}
+
+
 @router.get("/lab/{game_id}/coach-review")
 async def get_coach_review(game_id: str, user: User = Depends(get_current_user)):
     """

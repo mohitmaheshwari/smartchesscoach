@@ -985,20 +985,71 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         {/* Authoring fact-dump panel — only when ?show_facts=1 is on URL.
             Shows the raw per-move record from decryption_v5_data so the
             caption author can see exactly which facts the extractor
-            produced for this move. */}
+            produced for this move. The header carries an Export-session
+            button that downloads the full debug bundle (game + analysis
+            + V5 records + voice layer + coach review) as a single JSON
+            file. Built for offline debugging / sharing a session. */}
         {showFacts && currentMove && (() => {
           const rec = factsByMove[`${currentMove.move_number}|${currentMove.move_san}`];
-          if (!rec) return (
-            <div className="mt-3 p-3 rounded border border-zinc-700 bg-zinc-900/50">
-              <p className="text-[11px] uppercase tracking-wider text-zinc-400 mb-1">authoring · facts</p>
-              <p className="text-xs text-zinc-500">No raw record found for this move.</p>
+
+          // Bundle exporter — fetches /api/lab/export/{gameId} and saves
+          // the response as chessguru-session-{gameId}-{date}.json.
+          const handleExport = async () => {
+            try {
+              const res = await fetch(`${API}/lab/export/${gameId}`, {
+                credentials: "include",
+              });
+              if (!res.ok) {
+                console.warn(`Export failed: ${res.status}`);
+                return;
+              }
+              const data = await res.json();
+              const blob = new Blob([JSON.stringify(data, null, 2)], {
+                type: "application/json",
+              });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              const date = new Date().toISOString().slice(0, 10);
+              a.href = url;
+              a.download = `chessguru-session-${gameId}-${date}.json`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            } catch (e) {
+              console.warn("Export error:", e);
+            }
+          };
+
+          const Header = (
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-400">
+                {rec
+                  ? `authoring · facts (move ${rec.move_number} ${rec.move_san})`
+                  : "authoring · facts"}
+              </p>
+              <button
+                onClick={handleExport}
+                className="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded px-2 py-1 transition-colors"
+                data-testid="export-session-bundle"
+                title="Download full session debug bundle as JSON"
+              >
+                Export session JSON
+              </button>
             </div>
           );
+
+          if (!rec) {
+            return (
+              <div className="mt-3 p-3 rounded border border-zinc-700 bg-zinc-900/50">
+                {Header}
+                <p className="text-xs text-zinc-500">No raw record found for this move.</p>
+              </div>
+            );
+          }
           return (
             <div className="mt-3 p-3 rounded border border-zinc-700 bg-zinc-900/50">
-              <p className="text-[11px] uppercase tracking-wider text-zinc-400 mb-2">
-                authoring · facts (move {rec.move_number} {rec.move_san})
-              </p>
+              {Header}
               <pre className="text-[11px] text-zinc-300 whitespace-pre-wrap break-all max-h-[420px] overflow-y-auto font-mono">
                 {JSON.stringify(rec, null, 2)}
               </pre>
