@@ -42,6 +42,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from stockfish_service import analyze_game_with_stockfish
 from services.trap_scanner import scan_pgn_for_traps, TRAP_SCANNER_VERSION
+from services.user_opening_profile import (
+    compute_opening_profile, persist_opening_profile,
+)
 from config import STOCKFISH_DEPTH
 from analysis.intent_recognition_service import recognize_intent, get_game_phase
 from analysis.intent_quality_calibrator import calibrate_with_forcing_context, build_full_intent_explanation
@@ -1111,7 +1114,32 @@ def process_job(db, job):
             {"$set": analysis_doc},
             upsert=True
         )
-        
+
+        # Per-user opening profile refresh (Phase-3 Component 1).
+        # The newly-analyzed game is now in the corpus; recompute the
+        # user's opening identity so Lab / Play-with-Coach / /openings
+        # see the latest. Async + isolated client per the existing
+        # worker pattern; cheap (~50-200ms total for typical users).
+        try:
+            import asyncio as _asyncio
+            from motor.motor_asyncio import AsyncIOMotorClient as _AsyncMotor
+            _mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+            _db_name = os.environ.get("DB_NAME", "chess_coach")
+
+            async def _refresh_opening_profile():
+                _client = _AsyncMotor(_mongo_url)
+                _db = _client[_db_name]
+                try:
+                    _profile = await compute_opening_profile(_db, user_id)
+                    await persist_opening_profile(_db, _profile)
+                finally:
+                    _client.close()
+
+            _asyncio.run(_refresh_opening_profile())
+            logger.info(f"[opening-profile] refreshed for {user_id}")
+        except Exception as _op_err:
+            logger.warning(f"[opening-profile] refresh failed (non-fatal): {_op_err}")
+
         # Update game status
         db.games.update_one(
             {"game_id": game_id},
