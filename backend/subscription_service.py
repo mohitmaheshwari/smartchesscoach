@@ -244,7 +244,12 @@ DEV_MODE_PRO = True
 
 async def get_effective_plan(db, user_id: str) -> Dict:
     """
-    Get effective plan considering dev mode.
+    Get effective plan considering dev mode + admin/reviewer bypass.
+
+    Admins and reviewers ALWAYS get PRO access. They need to be able to
+    play the product they own/audit without being blocked by the same
+    freemium gates regular users hit. Locked 2026-05-19 after Mohit got
+    paywalled out of his own Play with Coach session mid-debug.
     """
     import os
     if os.environ.get("DEV_MODE", "").lower() == "true" and DEV_MODE_PRO:
@@ -252,7 +257,21 @@ async def get_effective_plan(db, user_id: str) -> Dict:
             "plan": UserPlan.PRO.value,
             "limits": PLAN_LIMITS[UserPlan.PRO],
             "usage": {"analyses_used": 0, "analyses_remaining": 999},
-            "dev_mode": True
+            "dev_mode": True,
         }
-    
+
+    # Admin / reviewer bypass — these users need full product access to
+    # do their job (build the product, audit content, run debug sessions).
+    user = await db.users.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "role": 1, "is_reviewer": 1},
+    )
+    if user and (user.get("role") == "super_admin" or user.get("is_reviewer") is True):
+        return {
+            "plan": UserPlan.PRO.value,
+            "limits": PLAN_LIMITS[UserPlan.PRO],
+            "usage": {"analyses_used": 0, "analyses_remaining": 999},
+            "admin_bypass": True,
+        }
+
     return await get_user_plan(db, user_id)
