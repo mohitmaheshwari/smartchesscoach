@@ -398,7 +398,10 @@ const LabV2 = ({ user }) => {
   const [interactiveMoment, setInteractiveMoment] = useState(null); // Current moment user is trying to solve
   const [userAttemptResult, setUserAttemptResult] = useState(null); // Result of user's move attempt
   const [interactiveFen, setInteractiveFen] = useState(null); // FEN for interactive mode (to allow resetting)
-  
+  // Holds the pending "play the right line after a wrong answer" timeout so
+  // handleTryAgain can cancel it if the user retries before the line fires.
+  const wrongAnswerLineTimeoutRef = useRef(null);
+
   // UI states
   const [activeTab, setActiveTab] = useState("summary");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -948,7 +951,9 @@ const LabV2 = ({ user }) => {
           fen: interactiveMoment.fen,
           user_move: userMoveUci,
           best_move: interactiveMoment.best_move,
-          original_move: interactiveMoment.your_move || null
+          // key_moments from /coach-review use `move` for the user's
+          // actually-played move; older callers use `your_move`.
+          original_move: interactiveMoment.your_move || interactiveMoment.move || null
         })
       });
       
@@ -1094,7 +1099,9 @@ const LabV2 = ({ user }) => {
             punishingMove: null
           });
           
-          // For bad moves, show Try Again after punishment
+          // For bad moves, show Try Again after punishment, then auto-replay
+          // the right line. Per the locked spec: wrong answers are exactly
+          // when users most need to SEE the right line played, not just told.
           if (!isOkay) {
             setTimeout(() => {
               setUserAttemptResult(prev => prev ? ({
@@ -1102,8 +1109,23 @@ const LabV2 = ({ user }) => {
                 showTryAgain: true
               }) : null);
             }, 2500);
+
+            const momentForLine = interactiveMoment;
+            if (wrongAnswerLineTimeoutRef.current) {
+              clearTimeout(wrongAnswerLineTimeoutRef.current);
+            }
+            // t=4500ms: after the 3s punishment toast clears, reset the board
+            // to the original moment FEN and play the correct line.
+            wrongAnswerLineTimeoutRef.current = setTimeout(() => {
+              wrongAnswerLineTimeoutRef.current = null;
+              if (momentForLine) {
+                setBoardArrows([]);
+                setInteractiveFen(momentForLine.fen);
+                playBestLine(momentForLine);
+              }
+            }, 4500);
           }
-          
+
           // Show appropriate toast
           if (isOkay) {
             toast.info(evalResult.feedback);
@@ -1150,13 +1172,33 @@ const LabV2 = ({ user }) => {
         showTryAgain: true
       });
       toast.error("Not quite right. Try again!");
+
+      // Local-fallback wrong path: no quality dimension, no punishment
+      // animation. Still want the user to SEE the right line so they
+      // understand what they missed.
+      const momentForLine = interactiveMoment;
+      if (wrongAnswerLineTimeoutRef.current) {
+        clearTimeout(wrongAnswerLineTimeoutRef.current);
+      }
+      wrongAnswerLineTimeoutRef.current = setTimeout(() => {
+        wrongAnswerLineTimeoutRef.current = null;
+        if (momentForLine) {
+          setBoardArrows([]);
+          setInteractiveFen(momentForLine.fen);
+          playBestLine(momentForLine);
+        }
+      }, 1500);
     }
-    
+
     return isCorrect;
   };
   
   // Clear interactive mode
   const clearInteractiveMoment = () => {
+    if (wrongAnswerLineTimeoutRef.current) {
+      clearTimeout(wrongAnswerLineTimeoutRef.current);
+      wrongAnswerLineTimeoutRef.current = null;
+    }
     setInteractiveMoment(null);
     setUserAttemptResult(null);
     setInteractiveFen(null);
@@ -1164,6 +1206,17 @@ const LabV2 = ({ user }) => {
   
   // Reset for try again - go back to original position
   const handleTryAgain = () => {
+    // Cancel any pending or in-flight "play the right line" replay so the
+    // user gets their fresh attempt instead of an animation barging in.
+    if (wrongAnswerLineTimeoutRef.current) {
+      clearTimeout(wrongAnswerLineTimeoutRef.current);
+      wrongAnswerLineTimeoutRef.current = null;
+    }
+    if (isPlayingBestLine) {
+      setIsPlayingBestLine(false);
+      setCurrentBestLine(null);
+      setBestLineIndex(0);
+    }
     if (interactiveMoment) {
       setUserAttemptResult(null);
       setBoardArrows([]);
@@ -1389,13 +1442,13 @@ const LabV2 = ({ user }) => {
                 <LichessBoard
                   fen={displayFen}
                   orientation={boardOrientation}
-                  viewOnly={!interactiveMoment}
-                  interactive={!!interactiveMoment}
+                  viewOnly={!interactiveMoment || isPlayingBestLine}
+                  interactive={!!interactiveMoment && !isPlayingBestLine}
                   planMode={false}
-                  movableColor={interactiveMoment ? userColor : undefined}
+                  movableColor={(interactiveMoment && !isPlayingBestLine) ? userColor : undefined}
                   lastMove={displayLastMove}
                   arrows={boardArrows}
-                  onMove={interactiveMoment ? (moveData) => {
+                  onMove={(interactiveMoment && !isPlayingBestLine) ? (moveData) => {
                     handleUserMoveAttempt(moveData.from, moveData.to);
                   } : undefined}
                   moveClassification={
@@ -1738,42 +1791,65 @@ const LabV2 = ({ user }) => {
                       <div className="space-y-3">
                         {coachReview.key_moments.slice(0, 3).map((m, i) => {
                           const isBlunder = m.severity === "blunder";
+                          // Card click jumps the board to that ply. The
+                          // "Try yourself" button drops the user into
+                          // interactive solve mode at the position before
+                          // the mistake — that's the highlight-then-quiz
+                          // flow the locked spec describes.
+                          const canSolve = !!m.fen && !!m.best_move;
                           return (
-                            <button
+                            <div
                               key={i}
-                              onClick={() => navigateToMoveNumber(m.move_number)}
                               className={`w-full text-left rounded-xl border p-4 transition-colors ${
                                 isBlunder
                                   ? "border-rose-400/25 bg-rose-500/[0.03] hover:bg-rose-500/[0.06]"
                                   : "border-amber-400/25 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]"
                               }`}
                             >
-                              <div className="flex items-baseline gap-2.5 mb-2 flex-wrap">
-                                <span
-                                  className={`text-[10.5px] uppercase tracking-[0.22em] font-semibold ${
-                                    isBlunder
-                                      ? "text-rose-500 dark:text-rose-300"
-                                      : "text-amber-600 dark:text-amber-300"
-                                  }`}
+                              <button
+                                onClick={() => navigateToMoveNumber(m.move_number)}
+                                className="w-full text-left"
+                                data-testid={`key-moment-jump-${i}`}
+                              >
+                                <div className="flex items-baseline gap-2.5 mb-2 flex-wrap">
+                                  <span
+                                    className={`text-[10.5px] uppercase tracking-[0.22em] font-semibold ${
+                                      isBlunder
+                                        ? "text-rose-500 dark:text-rose-300"
+                                        : "text-amber-600 dark:text-amber-300"
+                                    }`}
+                                  >
+                                    {m.severity} · move {m.move_number}
+                                  </span>
+                                  <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
+                                    <span className="text-rose-500/80 dark:text-rose-300/80">
+                                      {m.move}
+                                    </span>
+                                    <span className="text-muted-foreground/40 mx-1.5">→</span>
+                                    <span className="text-emerald-600/90 dark:text-emerald-300/80">
+                                      {m.best_move || "?"}
+                                    </span>
+                                  </span>
+                                </div>
+                                {m.commentary?.summary && (
+                                  <p className="font-serif text-[14.5px] leading-snug text-foreground/85">
+                                    {m.commentary.summary}
+                                  </p>
+                                )}
+                              </button>
+                              {canSolve && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startInteractiveMoment(m);
+                                  }}
+                                  className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary hover:text-primary/80 transition-colors"
+                                  data-testid={`key-moment-try-${i}`}
                                 >
-                                  {m.severity} · move {m.move_number}
-                                </span>
-                                <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
-                                  <span className="text-rose-500/80 dark:text-rose-300/80">
-                                    {m.move}
-                                  </span>
-                                  <span className="text-muted-foreground/40 mx-1.5">→</span>
-                                  <span className="text-emerald-600/90 dark:text-emerald-300/80">
-                                    {m.best_move || "?"}
-                                  </span>
-                                </span>
-                              </div>
-                              {m.commentary?.summary && (
-                                <p className="font-serif text-[14.5px] leading-snug text-foreground/85">
-                                  {m.commentary.summary}
-                                </p>
+                                  Try yourself →
+                                </button>
                               )}
-                            </button>
+                            </div>
                           );
                         })}
                       </div>

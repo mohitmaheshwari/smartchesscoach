@@ -691,6 +691,11 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
                 "move_number": e.get("move_number"),
                 "move": e.get("move", ""),
                 "best_move": e.get("best_move", ""),
+                # fen is the position BEFORE the mistake — needed so the
+                # frontend can drop the user into interactive solve mode
+                # for this exact moment.
+                "fen": fen,
+                "pv_after_best": e.get("pv_after_best") or [],
                 "cp_loss": cp_loss,
                 "severity": "blunder" if cp_loss >= 300 else "mistake",
                 "phase": "opening" if (e.get("move_number", 0) or 0) <= 12
