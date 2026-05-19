@@ -45,6 +45,9 @@ from services.trap_scanner import scan_pgn_for_traps, TRAP_SCANNER_VERSION
 from services.user_opening_profile import (
     compute_opening_profile, persist_opening_profile,
 )
+from services.opening_deviation import (
+    detect_opening_deviation, OPENING_DEVIATION_VERSION,
+)
 from config import STOCKFISH_DEPTH
 from analysis.intent_recognition_service import recognize_intent, get_game_phase
 from analysis.intent_quality_calibrator import calibrate_with_forcing_context, build_full_intent_explanation
@@ -1053,6 +1056,22 @@ def process_job(db, job):
             "worker_id": WORKER_ID,
             "engine_version": "P2.4"  # Step 6: Intent Recognition Layer
         }
+
+        # Opening deviation detection (Phase-3 Component 2). Walks the
+        # game ply-by-ply to find the FIRST user move that left opening
+        # theory. Surfaces in Lab game review as "you played the Italian
+        # through move 6; at move 7 you played O-O (book was c3)."
+        # Pure-python, fast (~10-50ms per game).
+        try:
+            analysis_doc["opening_deviation"] = detect_opening_deviation(pgn, user_color)
+        except Exception as _od_err:
+            logger.warning(f"[opening-deviation] failed (non-fatal): {_od_err}")
+            analysis_doc["opening_deviation"] = {
+                "user_color": user_color,
+                "in_book_through_user_move": 0,
+                "deviation": None,
+                "version": OPENING_DEVIATION_VERSION,
+            }
 
         # Trap-library scan (41 named traps from data/traps.json).
         # SAN-prefix match → fire list classified by gold/celebration/lucky/

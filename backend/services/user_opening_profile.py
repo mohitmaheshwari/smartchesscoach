@@ -57,7 +57,7 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-USER_OPENING_PROFILE_VERSION = 2  # v2: added family normalization (real-prod test surfaced raw-name fragmentation)
+USER_OPENING_PROFILE_VERSION = 3  # v3: added recurring-deviation aggregation (Phase-3 Component 2 — needs opening_deviation data on game_analyses)
 
 
 # Base opening families — match by prefix. Real-prod test 2026-05-19
@@ -284,20 +284,60 @@ async def compute_opening_profile(db, user_id: str) -> Dict[str, Any]:
         })
         total_games += 1
 
-    # Trap exposure from game_analyses.trap_fires
+    # Trap exposure + deviation aggregation from game_analyses
     per_trap_buckets: Dict[str, Counter] = defaultdict(Counter)
+    # deviation_patterns[opening_family][(deviating_san, expected_san)] = count
+    deviation_patterns: Dict[str, Counter] = defaultdict(Counter)
+    deviation_game_refs: Dict[str, List[str]] = defaultdict(list)
     try:
         ta_cursor = db.game_analyses.find(
-            {"user_id": user_id, "trap_fires": {"$exists": True, "$ne": []}},
-            {"_id": 0, "trap_fires": 1},
+            {
+                "user_id": user_id,
+                "$or": [
+                    {"trap_fires": {"$exists": True, "$ne": []}},
+                    {"opening_deviation": {"$exists": True}},
+                ],
+            },
+            {"_id": 0, "game_id": 1, "trap_fires": 1, "opening_deviation": 1},
         )
         async for a in ta_cursor:
             for f in a.get("trap_fires") or []:
                 tname = f.get("trap_name") or "Unknown"
                 gc = f.get("gold_class") or "none"
                 per_trap_buckets[tname][gc] += 1
+
+            # Aggregate deviations by normalized family
+            dev_record = a.get("opening_deviation") or {}
+            dev = dev_record.get("deviation") if dev_record else None
+            if dev:
+                raw_opening = dev.get("last_opening_name") or "Unknown"
+                family = _normalize_opening_family(raw_opening)
+                key = (dev.get("played_san") or "?", dev.get("expected_san") or "?")
+                deviation_patterns[family][key] += 1
+                # Keep up to 5 game refs per family for click-through
+                if len(deviation_game_refs[family]) < 5 and a.get("game_id"):
+                    deviation_game_refs[family].append(a["game_id"])
     except Exception as e:
-        logger.warning(f"[opening_profile] trap aggregate failed (non-fatal): {e}")
+        logger.warning(f"[opening_profile] analysis aggregate failed (non-fatal): {e}")
+
+    # Build per-family recurring deviation summary
+    recurring_deviations: List[Dict[str, Any]] = []
+    for family, key_counts in deviation_patterns.items():
+        patterns = [
+            {
+                "played_san": played,
+                "expected_san": expected,
+                "count": cnt,
+            }
+            for (played, expected), cnt in key_counts.most_common(5)
+        ]
+        recurring_deviations.append({
+            "opening_family": family,
+            "total_deviations": sum(key_counts.values()),
+            "patterns": patterns,
+            "recent_game_ids": deviation_game_refs[family],
+        })
+    recurring_deviations.sort(key=lambda r: (-r["total_deviations"], r["opening_family"]))
 
     return {
         "user_id": user_id,
@@ -307,6 +347,7 @@ async def compute_opening_profile(db, user_id: str) -> Dict[str, Any]:
         "white": _build_color_summary(by_color_opening["white"], "white"),
         "black": _build_color_summary(by_color_opening["black"], "black"),
         "trap_exposure": _build_trap_exposure(per_trap_buckets),
+        "recurring_deviations": recurring_deviations,
     }
 
 
@@ -319,6 +360,7 @@ def _empty_profile() -> Dict[str, Any]:
         "white": {"total_games": 0, "openings": []},
         "black": {"total_games": 0, "openings": []},
         "trap_exposure": {"by_trap": []},
+        "recurring_deviations": [],
     }
 
 
