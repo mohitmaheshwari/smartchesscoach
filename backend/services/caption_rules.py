@@ -601,44 +601,56 @@ def _r12_compose_why_opp(f):
 
 def _r12_render(f):
     cpl = f.get("cp_loss") or 0
-    pawns = max(1, min(9, round(cpl / 100)))
-    pawns_word = "pawn" if pawns == 1 else "pawns"
     played = _played(f)
     best = _best(f)
     mover_is_user = f.get("mover_is_user")
+
+    # Severity-tier framing replaces the old "drops about N pawns" / "loses
+    # about N pawns" pattern (Mohit 2026-05-19): centipawn loss is the
+    # eval shift, NOT material lost. A 426cp swing includes positional
+    # collapse, exposed-king resolution, tempo, etc. — translating it as
+    # "drops 4 pawns" mis-teaches sub-1500 players who read it as a
+    # literal material count. The tier label is honest about magnitude
+    # without overclaiming material delta; the concrete WHY clause (when
+    # present) carries the actionable detail.
+    def _severity_phrase(cp: int) -> str:
+        if cp >= 400:
+            return "is a major blunder"
+        if cp >= 250:
+            return "is a serious mistake"
+        return "is a mistake"
+
     if mover_is_user is False:
         # Opp blundered — frame as user-actionable news.
         why = _r12_compose_why_opp(f)
         # Per [[no-hollow-coverage]] / [[feedback_1200_test]] — when we
         # have no concrete chess content to say (no opp-WHY clause)
         # AND the loss isn't blunder-tier, suppress entirely rather
-        # than emit "Opponent's X drops about N pawns" with nothing
+        # than emit a bare severity announcement with nothing
         # actionable. Honest silence > fluffy template.
-        # For blunder-tier opp loss (cp_loss >= 250), keep firing with
-        # the pawn-count so user knows opp gave up significant material,
-        # even if we don't know the exact follow-up.
+        # For blunder-tier opp loss (cp_loss >= 250), keep firing so
+        # the user knows opp gave up significant ground, even if we
+        # don't know the exact follow-up.
         if not why and cpl < 250:
             return None
-        cap = f"Opponent's {played} drops about {pawns} {pawns_word}."
+        cap = f"Opponent's {played} {_severity_phrase(cpl)}."
         if why:
             cap = cap + " " + why
     elif best and best != played:
         why = _r12_compose_why(f)
         # Same gate for user moves: if cp_loss is below blunder-tier
         # AND we have no WHY clause, suppress so a downstream rule (or
-        # silence) takes over. Parth 2026-05-18 fb_47f9536059a6,
-        # fb_f20bd8755a27, fb_62a02dd0ff9b: bare "loses about N pawns.
-        # Y was better." is the hollow-WHY bug. Suppress it.
+        # silence) takes over.
         if not why and cpl < 250:
             return None
-        cap = f"{played} loses about {pawns} {pawns_word}. {best} was better."
+        cap = f"{played} {_severity_phrase(cpl)}. {best} was better."
         if why:
             cap = cap + " " + why
     else:
         why = _r12_compose_why(f)
         if not why and cpl < 250:
             return None
-        cap = f"{played} loses about {pawns} {pawns_word}."
+        cap = f"{played} {_severity_phrase(cpl)}."
         if why:
             cap = cap + " " + why
     return CaptionOutput(

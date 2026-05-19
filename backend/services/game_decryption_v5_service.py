@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 27  # v27 (2026-05-19): patient-academic voice pass per Agent-1 audit — narrator system prompt + fallbacks de-streamerized (no exclamation marks, no "You found the best move!" theatrics); R15 phase variants collapsed to plain "engine's pick" (dropped "nice/solid/clean" chatty adjectives); resolver "luft" jargon + "tuck him away" colloquialism removed; "You're locked in" streamer slang → "Keep the process"; opening_announcement + critical_moment scripts tightened. teaching_recall.py voice rewritten to competence-based (Agent 3, dbf56ae5). v26: 800-1400 vocab + cadence. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
+V5_COACHING_VERSION = 28  # v28 (2026-05-19): "drops about N pawns" / "loses about N pawns" framing replaced with severity-tier across R12 (caption_rules) + game_decryption_v5 fallbacks (lines 1766 + 3116) + line_parser fallback + position_analysis_service. Centipawn loss is eval shift not material; Mohit flagged Nxf7 cp_loss=426 captioned as "drops about 4 pawns" which conflates positional collapse with material delta. v27: patient-academic voice pass — narrator system prompt + fallbacks de-streamerized (no exclamation marks, no "You found the best move!" theatrics); R15 phase variants collapsed to plain "engine's pick" (dropped "nice/solid/clean" chatty adjectives); resolver "luft" jargon + "tuck him away" colloquialism removed; "You're locked in" streamer slang → "Keep the process"; opening_announcement + critical_moment scripts tightened. teaching_recall.py voice rewritten to competence-based (Agent 3, dbf56ae5). v26: 800-1400 vocab + cadence. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -1761,10 +1761,16 @@ def _analyze_opponent_mistake(
             your_plan_now = f"Play {best_response}!"
             return narrative, your_plan_now, highlight_squares
     
-    # Last resort - at least mention the eval swing
-    pawn_swing = eval_swing / 100
-    narrative = f"{move_san} loses about {pawn_swing:.1f} pawns worth of advantage."
-    your_plan_now = f"Look for the best continuation — you're winning here!"
+    # Last resort severity tier — don't translate centipawn swing
+    # to a literal pawn count. Eval shift includes positional collapse
+    # / king exposure / tempo, not just material (Mohit 2026-05-19).
+    if eval_swing >= 400:
+        narrative = f"{move_san} is a major mistake."
+    elif eval_swing >= 250:
+        narrative = f"{move_san} is a serious mistake."
+    else:
+        narrative = f"{move_san} is a mistake."
+    your_plan_now = "Look for the best continuation."
     
     return narrative, your_plan_now, highlight_squares
 
@@ -3112,8 +3118,14 @@ async def generate_game_decryption_v5(
                     )
                     future_moves = pv_after_played[:4] if pv_after_played else []
                 else:
-                    # Fallback narrative
-                    narrative = f"{move_san} loses about {cp_loss // 100} pawns. {best_move} was better."
+                    # Fallback narrative — severity tier, not literal
+                    # pawn-count (centipawn loss != material lost).
+                    if cp_loss >= 400:
+                        narrative = f"{move_san} is a major mistake. {best_move} was better."
+                    elif cp_loss >= 250:
+                        narrative = f"{move_san} is a serious mistake. {best_move} was better."
+                    else:
+                        narrative = f"{move_san} is a mistake. {best_move} was better."
                     future_moves = pv_after_played[:3] if pv_after_played else []
             
             # Check weakness match — boost priority if move matches known pattern

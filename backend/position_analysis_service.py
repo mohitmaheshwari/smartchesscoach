@@ -398,11 +398,17 @@ def generate_verified_insight(
         attacks = [f"{a['piece']} on {a['square']}" for a in user_analysis["attacks_after_move"]]
         impact_parts.append(f"This attacks the {', '.join(attacks)}.")
     
-    # What's the problem with this move?
-    if eval_change < -1:
-        impact_parts.append(f"However, this loses about {abs(eval_change):.1f} pawns worth of advantage.")
+    # What's the problem with this move? Severity-tier framing rather
+    # than literal "loses N pawns" — eval shift includes positional
+    # factors, not just material (Mohit 2026-05-19).
+    if eval_change < -4:
+        impact_parts.append("However, this is a major mistake.")
+    elif eval_change < -2.5:
+        impact_parts.append("However, this is a serious mistake.")
+    elif eval_change < -1:
+        impact_parts.append("However, this is a mistake.")
     elif eval_change < -0.5:
-        impact_parts.append(f"This is slightly inaccurate, costing about {abs(eval_change):.1f} pawns.")
+        impact_parts.append("This is slightly inaccurate.")
     
     insights["verified_impact"] = " ".join(impact_parts)
     

@@ -415,9 +415,20 @@ def generate_explanation(
     if best_move_uci and len(best_move_uci) >= 4:
         arrows.append([best_move_uci[:2], best_move_uci[2:4], "green"])
 
+    # Severity-tier fallback — eval shift includes positional collapse,
+    # not just material; literal "loses N pawns" mis-teaches.
+    if explanation_parts:
+        explanation = " ".join(explanation_parts)
+    elif eval_loss >= 400:
+        explanation = f"Playing {played_move} is a major mistake. {best_move} was better."
+    elif eval_loss >= 250:
+        explanation = f"Playing {played_move} is a serious mistake. {best_move} was better."
+    else:
+        explanation = f"Playing {played_move} is a mistake. {best_move} was better."
+
     return {
         "headline": headline[:50],
-        "explanation": " ".join(explanation_parts) if explanation_parts else f"Playing {played_move} loses about {eval_loss // 100} pawns. {best_move} was better.",
+        "explanation": explanation,
         "rule": rule_data.get("rule", "Calculate your opponent's best response before moving."),
         "arrows": arrows,
         "category": category
