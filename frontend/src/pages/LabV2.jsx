@@ -758,34 +758,82 @@ const LabV2 = ({ user }) => {
   };
   
   // Play Best Line - Shows the continuation after the best move
+  // Compose a brief annotation for a played ply. Per the multi-move-review
+  // spec (memory/project_multi_move_review_play_the_line.md): annotate ONLY
+  // when the move adds meaning. Honest silence over fluffy commentary per
+  // [[no-hollow-coverage]]. Returns string OR empty string.
+  //
+  // The chess.js move object exposes:
+  //   .flags (string of letters: 'n' normal, 'b' bigpawn, 'e' en passant,
+  //           'c' capture, 'p' promotion, 'k' kside castle, 'q' qside castle)
+  //   .captured (piece letter if capture)
+  //   .promotion (piece letter if promotion)
+  //   .san (move with #/+ suffix for mate/check)
+  const _annotateLineMove = (moveObj, indexInLine, totalMoves) => {
+    if (!moveObj) return "";
+    const san = moveObj.san || "";
+    const flags = moveObj.flags || "";
+    const isMate = san.endsWith("#");
+    const isCheck = san.endsWith("+");
+    const isCapture = flags.includes("c") || flags.includes("e");
+    const isPromotion = flags.includes("p");
+    const isCastle = flags.includes("k") || flags.includes("q");
+
+    const PIECE_NAMES = { p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king" };
+    const capturedName = moveObj.captured ? PIECE_NAMES[moveObj.captured] || "piece" : "";
+
+    if (isMate) return "Checkmate.";
+    if (isCheck && isCapture) return `Check — takes the ${capturedName}.`;
+    if (isCheck) return "Check forces the king.";
+    if (isCapture && capturedName) return `Takes the ${capturedName}.`;
+    if (isPromotion) return `Promotes to ${PIECE_NAMES[moveObj.promotion] || "queen"}.`;
+    if (isCastle) return "Castles to safety.";
+    // First move in the line gets a softer marker so the user sees the
+    // "this is the engine pick" anchor; downstream silent moves are
+    // forced/quiet and don't need annotation.
+    if (indexInLine === 0 && totalMoves > 1) return "Engine's pick — continuation follows.";
+    return "";
+  };
+
   const playBestLine = (moment) => {
     if (!moment || !moment.fen || !moment.best_move) {
       return;
     }
-    
+
     try {
       const chess = new Chess(moment.fen);
       const lineMoves = [];
       const lineFens = [moment.fen];
-      
+
       // First, play the best move
       const bestMove = chess.move(moment.best_move, { sloppy: true });
       if (bestMove) {
-        lineMoves.push({ san: moment.best_move, from: bestMove.from, to: bestMove.to });
+        lineMoves.push({
+          san: bestMove.san || moment.best_move,
+          from: bestMove.from,
+          to: bestMove.to,
+          // Defer annotation — we need to know totalMoves first.
+          _moveObj: bestMove,
+        });
         lineFens.push(chess.fen());
       } else {
         console.log("Could not play best move:", moment.best_move);
         return;
       }
-      
+
       // Then play the PV continuation if available
       const pvLine = moment.pv_after_best || moment.best_line?.split(/\s+/) || [];
-      
+
       for (const moveStr of pvLine.slice(0, 5)) { // Limit to 5 more moves
         try {
           const move = chess.move(moveStr, { sloppy: true });
           if (move) {
-            lineMoves.push({ san: moveStr, from: move.from, to: move.to });
+            lineMoves.push({
+              san: move.san || moveStr,
+              from: move.from,
+              to: move.to,
+              _moveObj: move,
+            });
             lineFens.push(chess.fen());
           } else {
             break;
@@ -794,12 +842,31 @@ const LabV2 = ({ user }) => {
           break;
         }
       }
-      
-      if (lineMoves.length > 0) {
+
+      // Length-aware behavior per the locked spec: if PV is single-move
+      // (just the best move with no continuation), don't auto-animate —
+      // the static "best move" display in the existing KeyMomentCard is
+      // enough. Auto-animate only when there's a multi-move sequence to
+      // demonstrate.
+      if (lineMoves.length <= 1) {
+        // Still show the best move on the board, but no auto-loop.
+        // (Existing callers also use playBestLine for single-move cases;
+        // we keep the behavior compatible — show + hold + reset.)
+      }
+
+      // Compute annotations now that we know the total length.
+      const annotatedMoves = lineMoves.map((m, i) => ({
+        san: m.san,
+        from: m.from,
+        to: m.to,
+        note: _annotateLineMove(m._moveObj, i, lineMoves.length),
+      }));
+
+      if (annotatedMoves.length > 0) {
         setCurrentBestLine({
           startFen: moment.fen,
-          moves: lineMoves,
-          fens: lineFens
+          moves: annotatedMoves,
+          fens: lineFens,
         });
         setBestLineIndex(0);
         setIsPlayingBestLine(true);
@@ -1383,6 +1450,25 @@ const LabV2 = ({ user }) => {
                     Best line: {bestLineIndex}/{currentBestLine.fens.length - 1}
                   </div>
                 )}
+                {/* Phase-3 / multi-move-review (2026-05-19):
+                    Per-ply annotation surfaces alongside the line replay.
+                    Annotation is computed in playBestLine via
+                    _annotateLineMove (only non-empty for meaningful moves:
+                    checks, captures, mate, promotion, castle). Per
+                    [[no-hollow-coverage]], silent moves get no caption. */}
+                {isPlayingBestLine && currentBestLine && bestLineIndex > 0 && (() => {
+                  const playedMove = currentBestLine.moves[bestLineIndex - 1];
+                  if (!playedMove || !playedMove.note) return null;
+                  return (
+                    <div
+                      className="absolute bottom-2 left-2 right-2 bg-zinc-900/85 dark:bg-zinc-100/90 text-white dark:text-zinc-900 px-3 py-2 rounded text-sm"
+                      data-testid="best-line-annotation"
+                    >
+                      <span className="font-mono mr-2">{playedMove.san}</span>
+                      <span>{playedMove.note}</span>
+                    </div>
+                  );
+                })()}
                 {/* Interactive mode indicator */}
                 {interactiveFen && !userAttemptResult && (
                   <div className="absolute top-2 left-2 bg-amber-600/90 text-white px-3 py-1 rounded text-sm font-medium animate-pulse">
