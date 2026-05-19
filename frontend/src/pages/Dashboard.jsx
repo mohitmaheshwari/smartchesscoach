@@ -482,7 +482,10 @@ const Dashboard = ({ user }) => {
                       return (
                         <button
                           key={g.game_id}
-                          onClick={() => navigate(`/game/${g.game_id}`)}
+                          // 2026-05-19: redirect to /lab/game/:id (LabV2 — interactive
+                          // review WITH V5 captions) instead of /game/:id (legacy
+                          // GameAnalysis.jsx — missing interactive flow AND V5).
+                          onClick={() => navigate(`/lab/game/${g.game_id}`)}
                           className={`w-full text-left flex items-baseline gap-3 text-[13px] py-2 px-2 rounded transition-colors ${
                             isUrgent
                               ? "border-l-2 border-rose-500/70 bg-rose-500/[0.03] hover:bg-rose-500/[0.06]"
@@ -647,7 +650,9 @@ const Dashboard = ({ user }) => {
                     <button
                       onClick={() =>
                         navigate(
-                          `/game/${featuredGame.game_id}${
+                          // 2026-05-19: route to interactive LabV2 surface,
+                          // not the static legacy GameAnalysis page.
+                          `/lab/game/${featuredGame.game_id}${
                             featuredGame.critical_move
                               ? `?move=${featuredGame.critical_move}`
                               : ""
@@ -951,7 +956,8 @@ const Dashboard = ({ user }) => {
                   return (
                     <div
                       key={g.game_id || g._id}
-                      onClick={() => navigate(`/game/${g.game_id}`)}
+                      // 2026-05-19: route to interactive LabV2 surface (has V5 + guided-review quiz).
+                      onClick={() => navigate(`/lab/game/${g.game_id}`)}
                       className="group grid grid-cols-[12px_1fr_40px_60px_14px] md:grid-cols-[12px_1fr_48px_80px_14px] gap-4 md:gap-5 items-center py-3.5 border-b border-border/40 hover:bg-muted/30 -mx-3 px-3 transition-colors cursor-pointer"
                     >
                       {/* Reviewed dot */}
