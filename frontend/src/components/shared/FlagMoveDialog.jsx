@@ -72,6 +72,9 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
           consequence: context.consequence || null,
           better_approach: context.betterApproach || null,
           your_plan_now: context.yourPlanNow || null,
+          // Narrative-flag fields: which rule generated the text and why it's wrong.
+          rule_name: context.rule_name || null,
+          inaccuracy_reason: note.trim() || null,
         }),
       });
       if (res.ok) {

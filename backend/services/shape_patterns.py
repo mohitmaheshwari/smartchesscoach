@@ -34,6 +34,19 @@ the coach can name on the board. Each entry pairs:
                                                     capture, not a skewer);
                                                     king-front is exempt
                                                     (forced-move by check).
+                     'open_line_move_uses_diagonal': for open_long_line —
+                                                    suppress unless the
+                                                    played move's to_square
+                                                    lands ON the long
+                                                    diagonal (i.e., the
+                                                    player actually moved a
+                                                    piece onto the line, not
+                                                    merely departed from it).
+                                                    Prevents from_square
+                                                    coincidence fires (queen
+                                                    on b2 captures a2 —
+                                                    b2 is on the a1-h8 diag
+                                                    but the queen LEFT it).
                      New policies are added when new bug classes surface;
                      keep this list synchronized with the dispatcher.
 
@@ -191,6 +204,15 @@ SHAPE_PATTERNS = [
         "priority": 65,
         "geometry_hint": "enemy fianchetto pawn moved (g6/g3/b6/b3) AND enemy bishop of that colour no longer on board OR not on the long diagonal; own piece can access the diagonal",
         "verifier_policy": "engine_in_top_3",
+        # 2026-05-19 (Mohit Lab review, move 21 Qxa2): open_long_line fired as
+        # secondary narrative on a material-capture move where the queen's
+        # FROM square (b2) was on the a1-h8 diagonal — but the queen moved
+        # OFF the diagonal onto a2.  The _is_relevant_to_move gate treats
+        # from_square overlap as "relevant", but for a purely positional
+        # pattern the teaching only makes sense when the played move brings a
+        # piece ONTO the diagonal, not when it leaves it.  Policy suppresses
+        # any fire where to_square is not on the long diagonal.
+        "dynamic_policy": "open_line_move_uses_diagonal",
     },
     {
         "id": "no_safe_square",

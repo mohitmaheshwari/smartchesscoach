@@ -148,6 +148,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [boardFen, setBoardFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackRuleName, setFeedbackRuleName] = useState(null);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
   const [habitsReport, setHabitsReport] = useState(null);
@@ -653,24 +654,45 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     const m = decryptionData[currentMoveIndex];
     try {
       setSubmittingFeedback(true);
-      const res = await fetch(`${API}/coach/decryption/feedback`, {
+      // Post to /feedback/flag (writes to move_feedback) so the admin queue
+      // has full diagnostics + rule_name. The old /coach/decryption/feedback
+      // wrote to coaching_feedback with no rule context — insufficient for
+      // the authoring queue to act on shape-pattern misfires.
+      const res = await fetch(`${API}/feedback/flag`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
+          source: "lab",
           game_id: gameId,
           move_number: m.move_number,
-          fen: m.fen_before,
-          coach_explanation: m.narrative || "",
-          user_feedback: "not_helpful",
-          user_correction: feedbackText,
-          is_user_move: m.is_user_move
+          fen: m.fen_before || "",
+          move_san: m.move_san || null,
+          // coaching_text: the narrative the user saw (primary caption).
+          // When the user flags a secondary (shape pattern) we also send
+          // rule_name so the queue knows which layer misfired.
+          coaching_text: m.narrative || "",
+          user_note: feedbackText.trim(),
+          severity: m.severity || null,
+          cp_loss: m.cp_loss != null ? m.cp_loss : null,
+          best_move: m.best_move || null,
+          eval_before: m.eval_before != null ? m.eval_before : null,
+          eval_after: m.eval_after != null ? m.eval_after : null,
+          phase: m.phase || null,
+          component: "GameDecryptionV5",
+          concept_id: "not_helpful_flag",
+          // rule_name: tracks which caption layer the user found inaccurate.
+          // When a shape pattern (secondary narrative) is visible, default to
+          // flagging that; otherwise flag the primary rule_name.
+          rule_name: feedbackRuleName || m.rule_name || null,
+          inaccuracy_reason: feedbackText.trim(),
         })
       });
       if (res.ok) {
-        toast.success("Feedback saved — thanks!");
+        toast.success("Flagged — thanks for the report.");
         setFeedbackOpen(false);
         setFeedbackText("");
+        setFeedbackRuleName(null);
       }
     } catch (err) {
       toast.error("Failed to send feedback");
@@ -924,7 +946,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             onAcknowledge={acknowledgeConceptHandler}
             onShowFutureMoves={showFutureMoves}
             onShowAlternativeMove={showAlternativeMove}
-            onFeedbackClick={() => setFeedbackOpen(true)}
+            onFeedbackClick={(ruleName) => {
+              setFeedbackRuleName(ruleName || null);
+              setFeedbackOpen(true);
+            }}
             // Caption move click: draw arrow on the main board for any
             // SAN clicked in the narrative or principle_cue. Arrow
             // colour amber so it visually differs from green (last move).
@@ -982,13 +1007,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         })()}
 
         {feedbackOpen && currentMove && (
-          <FeedbackPanel 
-            move={currentMove} 
-            feedbackText={feedbackText} 
+          <FeedbackPanel
+            move={currentMove}
+            ruleName={feedbackRuleName}
+            feedbackText={feedbackText}
             setFeedbackText={setFeedbackText}
-            onSubmit={handleSubmitFeedback} 
-            onCancel={() => { setFeedbackOpen(false); setFeedbackText(""); }}
-            submitting={submittingFeedback} 
+            onSubmit={handleSubmitFeedback}
+            onCancel={() => { setFeedbackOpen(false); setFeedbackText(""); setFeedbackRuleName(null); }}
+            submitting={submittingFeedback}
           />
         )}
         
@@ -1286,6 +1312,11 @@ const MoveCoachingCardV5 = ({
                 </span>
               )}
             </p>
+            <InlineFlag
+              section="shape_pattern"
+              flaggedText={`${move.shape_pattern_name}${move.shape_pattern_desc ? ` — ${move.shape_pattern_desc}` : ""}`}
+              context={{ ...flagCtx, rule_name: move.shape_pattern_id }}
+            />
           </div>
         )}
 
@@ -1722,14 +1753,15 @@ const MoveCoachingCardV5 = ({
 
         {/* ─── FEEDBACK ──────────────────────────────────────── */}
         <div className="flex items-center justify-end pt-2 border-t border-gray-200/50">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={onFeedbackClick} 
-            className="text-xs text-gray-500 hover:text-red-400" 
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onFeedbackClick(move.shape_pattern_id || move.rule_name || null)}
+            className="text-xs text-gray-500 hover:text-red-400"
             data-testid="btn-not-helpful"
+            title="Report an inaccurate narrative"
           >
-            <ThumbsDown className="w-3 h-3 mr-1" /> Not helpful
+            <ThumbsDown className="w-3 h-3 mr-1" /> Report
           </Button>
         </div>
       </CardContent>
@@ -1802,27 +1834,46 @@ const ClickableMoves = ({ text, moves, onMoveClick }) => {
 
 
 // ─── FEEDBACK PANEL ─────────────────────────────────────────────────
+// Inline expand-on-click form. Shows which rule is being flagged so the
+// admin queue knows whether the complaint is about the primary caption or
+// the secondary shape-pattern narrative. No modal — sits inline below
+// the coaching card. Per [[no-parallel-surfaces]]: posts to the same
+// /feedback/flag endpoint used by InlineFlag; writes to move_feedback.
 
-const FeedbackPanel = ({ move, feedbackText, setFeedbackText, onSubmit, onCancel, submitting }) => (
-  <Card className="bg-white border-gray-200" data-testid="feedback-panel">
+const FeedbackPanel = ({ move, ruleName, feedbackText, setFeedbackText, onSubmit, onCancel, submitting }) => (
+  <Card className="bg-red-50 border-red-200" data-testid="feedback-panel">
     <CardContent className="p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-900">What should the explanation say?</p>
+        <div>
+          <p className="text-sm font-medium text-gray-900">What is wrong with this explanation?</p>
+          {ruleName && (
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Flagging: <span className="font-mono text-red-500">{ruleName}</span>
+            </p>
+          )}
+        </div>
         <Button variant="ghost" size="icon" onClick={onCancel} className="h-6 w-6">
           <X className="w-4 h-4" />
         </Button>
       </div>
-      <Textarea 
-        value={feedbackText} 
+      {move?.narrative && (
+        <div className="bg-white rounded border border-red-100 px-3 py-2">
+          <p className="text-[11px] text-gray-400 mb-0.5">Narrative shown</p>
+          <p className="text-xs text-gray-700 leading-relaxed">{move.narrative}</p>
+        </div>
+      )}
+      <Textarea
+        value={feedbackText}
         onChange={(e) => setFeedbackText(e.target.value)}
-        placeholder="Write a better explanation..." 
-        className="min-h-[100px] bg-gray-100 border-gray-200 text-gray-900" 
-        data-testid="feedback-textarea" 
+        placeholder="What's wrong? e.g., 'Queen moved to a2, not to the diagonal — Open Long Line doesn't apply here.'"
+        className="min-h-[80px] bg-white border-red-200 text-gray-900"
+        data-testid="feedback-textarea"
+        autoFocus
       />
       <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
         <Button size="sm" onClick={onSubmit} disabled={!feedbackText.trim() || submitting} data-testid="submit-feedback-btn">
-          {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />} Submit
+          {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />} Submit report
         </Button>
       </div>
     </CardContent>

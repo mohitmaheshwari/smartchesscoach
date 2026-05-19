@@ -114,6 +114,15 @@ class FlagMoveRequest(BaseModel):
     consequence: Optional[str] = None        # V5 coaching consequence text
     better_approach: Optional[str] = None    # V5 coaching better_approach text
     your_plan_now: Optional[str] = None      # V5 your_plan_now text
+    # Narrative-flag fields (added 2026-05-19, Mohit request).
+    # rule_name  — the caption rule that produced the flagged text, e.g.
+    #   "open_long_line" (shape/secondary) or "R08_material" (primary).
+    #   Lets the authoring queue filter by exact rule.
+    # inaccuracy_reason — free-text from the user describing WHY the
+    #   narrative is wrong. Stored alongside user_note so the admin queue
+    #   has both a short label (user_note) and the detailed diagnosis.
+    rule_name: Optional[str] = None          # pattern/rule that generated the text
+    inaccuracy_reason: Optional[str] = None  # free-text: what's wrong with this narrative
 
 
 class UpdateFeedbackRequest(BaseModel):
@@ -716,7 +725,13 @@ async def flag_move(req: FlagMoveRequest, user: User = Depends(get_current_user)
             "consequence": req.consequence,
             "better_approach": req.better_approach,
             "your_plan_now": req.your_plan_now,
-        }
+        },
+        # Narrative-flag fields — which rule fired and why it's wrong.
+        # rule_name distinguishes primary vs secondary caption (e.g.
+        # "open_long_line" vs "R08_material") so the authoring queue
+        # can filter by rule without full-text search.
+        "rule_name": (req.rule_name or "").strip() or None,
+        "inaccuracy_reason": (req.inaccuracy_reason or "").strip() or None,
     }
 
     # Try to get user rating

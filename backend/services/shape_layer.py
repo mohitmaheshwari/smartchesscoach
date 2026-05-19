@@ -172,6 +172,36 @@ def _verify_pin_capture_suppress(
     return True
 
 
+def _verify_open_line_move_uses_diagonal(
+    ev: Dict,
+    board: chess.Board,
+    played_move: Optional[chess.Move],
+) -> bool:
+    """Suppress open_long_line when the played move's to_square does NOT land
+    on one of the long diagonal squares listed in targets.
+
+    Root cause (2026-05-19): the pattern's targets list is all 8 squares of a
+    long diagonal.  _is_relevant_to_move passes when the FROM square is on the
+    diagonal — i.e., a queen departs from b2 (on the a1-h8 diagonal) to
+    capture on a2.  The pattern is geometrically valid (the diagonal is open,
+    their bishop is gone) but the coaching is dishonest: the player did not USE
+    the diagonal.  Suppress unless the move lands on the diagonal (teaches
+    "you planted a piece on the open line").
+    """
+    if played_move is None:
+        return True
+    targets = ev.get("targets") or []
+    if not targets:
+        return True
+    diag_squares: set = set()
+    for t in targets:
+        sq = _coerce_square(t)
+        if sq is not None:
+            diag_squares.add(sq)
+    # Pass only when the piece LANDS on the diagonal.
+    return played_move.to_square in diag_squares
+
+
 def _verify_skewer_front_defended(
     ev: Dict,
     board: chess.Board,
@@ -212,9 +242,10 @@ def _verify_skewer_front_defended(
 # When a new bug class is identified, add a new policy here AND set the
 # field on the relevant entries in shape_patterns.py.
 _DYNAMIC_POLICY_VERIFIERS = {
-    "mate_in_1_simulated":      _verify_mate_in_1_simulated,
-    "pin_capture_suppress":     _verify_pin_capture_suppress,
-    "skewer_front_defended":    _verify_skewer_front_defended,
+    "mate_in_1_simulated":           _verify_mate_in_1_simulated,
+    "pin_capture_suppress":          _verify_pin_capture_suppress,
+    "skewer_front_defended":         _verify_skewer_front_defended,
+    "open_line_move_uses_diagonal":  _verify_open_line_move_uses_diagonal,
 }
 
 
