@@ -1228,6 +1228,24 @@ async def get_coach_messages(
             msg_data["polish_status"] = msg.get("polish_status", "draft")
             msg_data["is_coach_move_teaching"] = msg.get("is_coach_move_teaching", False)
             msg_data["move_san"] = msg.get("move_san")
+            # Phase 2.4 — cross-game recall block. Optional; absent
+            # when no past gold moment matched. Frontend renders this
+            # under the V5 block with click-through to the past game.
+            _recall = msg.get("recall_block")
+            if _recall:
+                msg_data["recall_block"] = {
+                    "recall_text":      _recall.get("recall_text"),
+                    "ref_game_id":      _recall.get("ref_game_id"),
+                    "ref_move_number":  _recall.get("ref_move_number"),
+                    "ref_occurred_at":  (
+                        _recall["ref_occurred_at"].isoformat()
+                        if hasattr(_recall.get("ref_occurred_at"), "isoformat")
+                        else _recall.get("ref_occurred_at")
+                    ),
+                    "anchor_name":      _recall.get("anchor_name"),
+                    "gold_class":       _recall.get("gold_class"),
+                    "source":           _recall.get("source"),
+                }
 
         messages.append(msg_data)
         message_ids.append(msg["_id"])
@@ -6837,7 +6855,46 @@ async def _process_move_and_respond(
                         "[live_v5] record_principle_fire failed (non-fatal)"
                     )
 
-                _insert_result = await db.coach_messages.insert_one({
+                # Phase 2.2-2.4 — cross-game teaching recall.
+                # If a principle fired and the user has a past gold
+                # entry for it (within ELO band, time-control match,
+                # recent enough), attach a recall_block. Session-level
+                # suppression: don't surface the same recall game
+                # twice; cap at 1 recall per session by default to
+                # preserve the "rare and haunting" effect.
+                _recall_block = None
+                try:
+                    _recall_pid = _v5_block.get("principle_id")
+                    _session_user_id = session_doc.get("user_id")
+                    _session_recall_pids = set(
+                        session_doc.get("v5_recall_principles_surfaced") or []
+                    )
+                    _session_recall_count = int(
+                        session_doc.get("v5_recall_count", 0) or 0
+                    )
+                    _recall_session_cap = int(
+                        session_doc.get("v5_recall_session_cap", 1) or 1
+                    )
+                    if (
+                        _recall_pid
+                        and _session_user_id
+                        and _recall_pid not in _session_recall_pids
+                        and _session_recall_count < _recall_session_cap
+                    ):
+                        from services.teaching_recall import get_recall_for_principle
+                        _recall_block = await get_recall_for_principle(
+                            db,
+                            user_id=_session_user_id,
+                            principle_id=_recall_pid,
+                            current_game_id=session_id,
+                            current_rating=_user_doc.get("rating"),
+                            current_time_control=session_doc.get("time_control"),
+                        )
+                except Exception:
+                    logger.exception("[live_v5.recall] lookup failed (non-fatal)")
+                    _recall_block = None
+
+                _insert_doc = {
                     "session_id": session_id,
                     "type": "v5_teaching",
                     "move_number": move_number,
@@ -6852,11 +6909,30 @@ async def _process_move_and_respond(
                     "protected_entities": _v5_block.get("protected_entities") or [],
                     "created_at": datetime.now(timezone.utc),
                     "read": False,
-                })
+                }
+                if _recall_block is not None:
+                    _insert_doc["recall_block"] = _recall_block
+                _insert_result = await db.coach_messages.insert_one(_insert_doc)
+
+                # Persist the recall-suppression state so the next
+                # move's lookup sees it.
+                if _recall_block is not None:
+                    try:
+                        _new_recall_pids = list(_session_recall_pids | {_v5_block.get("principle_id")})
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {
+                                "v5_recall_principles_surfaced": _new_recall_pids,
+                                "v5_recall_count": _session_recall_count + 1,
+                            }},
+                        )
+                    except Exception:
+                        logger.exception("[live_v5.recall] suppression persist failed (non-fatal)")
                 logger.info(
                     f"[live_v5] session={session_id[:8]} move={move_number} "
                     f"anchor={_v5_block['anchor_name']!r} "
-                    f"principle={_v5_block.get('principle_id')!r}"
+                    f"principle={_v5_block.get('principle_id')!r} "
+                    f"recall={bool(_recall_block)}"
                 )
 
                 # Phase 1.4 — guarded async polish task. Runs OFF the move

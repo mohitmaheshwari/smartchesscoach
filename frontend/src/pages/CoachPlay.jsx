@@ -653,6 +653,8 @@ const CoachPlay = ({ user }) => {
                 polish_status: msg.polish_status,
                 is_coach_move_teaching: msg.is_coach_move_teaching,
                 move_san: msg.move_san,
+                // Phase 2.4 — cross-game recall block (optional, may be undefined)
+                recall_block: msg.recall_block,
                 context: {
                   fen: msg.fen,
                   move_number: msg.move_number,

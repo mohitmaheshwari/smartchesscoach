@@ -556,6 +556,30 @@ const LegacyChatMessages = ({
               )}
             </p>
 
+            {/* Phase 2.4 — cross-game teaching recall.
+                "You've been here before" — rare, haunting, max 1 per
+                session. Click-through to past game review. */}
+            {msg.type === "v5_teaching" && msg.recall_block?.recall_text && (
+              <div className="mt-2 p-2 rounded border border-amber-300/60 bg-amber-50/60 dark:bg-amber-950/20">
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-700 text-xs mt-0.5">↻</span>
+                  <div className="flex-1 text-xs text-amber-900 dark:text-amber-200">
+                    {msg.recall_block.recall_text}
+                    {msg.recall_block.ref_game_id && (
+                      <a
+                        href={`/game/${msg.recall_block.ref_game_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-1 underline text-amber-700 hover:text-amber-900"
+                      >
+                        view game
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Quick Action Buttons */}
             {msg.type === "coach" &&
               msg.trigger === "teaching" &&
