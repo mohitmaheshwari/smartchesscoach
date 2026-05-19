@@ -126,13 +126,26 @@ def _r01_render(f):
         # Mover walked into mate against themselves. The "Position is
         # lost" caption was rendering on OPP moves where opp had blundered
         # into a losing line — from user POV that's actually winning news.
+        cpl = f.get("cp_loss") or 0
+        # Convert mate-score artifact (cp_loss > 2000) to pawn-count for
+        # the no-ply fallbacks. Audit 1519831c showed these mate-territory
+        # cases routinely have cp_loss=9000+ (mate-score numbers). Bound
+        # to 9 pawns for sensible display.
+        pawn_swing = max(1, min(9, round(cpl / 100))) if cpl > 0 else 0
         if mover_is_user is False:
             if ply == 1:
                 cap = f"{_played(f)}. Mate is on for you next move."
             elif ply:
                 cap = f"{_played(f)}. Mate is on for you in {ply}."
             else:
-                cap = f"{_played(f)}. Opp's position is lost."
+                # No ply count — replace bare "Opp's position is lost."
+                # (abstract per [[no-hollow-coverage]]) with concrete
+                # consequence framing. Audit 1519831c surfaced ~9870
+                # ABSTRACT_LOSS_CLAIM hits from this branch.
+                if pawn_swing:
+                    cap = f"{_played(f)}. Opponent gives up about {pawn_swing} pawns of advantage."
+                else:
+                    cap = f"{_played(f)}. Opponent's position swings against them."
         else:
             # Parth 2026-05-18 fb_d576bbf21a65: "Ne4 allows mate in 2"
             # framed wrong because mate was ALREADY on the board pre-move
@@ -150,14 +163,21 @@ def _r01_render(f):
                 elif ply:
                     cap = f"{_played(f)} misses the defense against mate in {ply}."
                 else:
-                    cap = f"{_played(f)}. Position was already lost."
+                    # Mate-already-on-board, no ply count. Replace bare
+                    # "Position was already lost." with concrete framing.
+                    cap = f"{_played(f)} — the position was already lost before this move."
             else:
                 if ply == 1:
                     cap = f"{_played(f)} allows mate next move."
                 elif ply:
                     cap = f"{_played(f)} allows mate in {ply}."
                 else:
-                    cap = f"{_played(f)}. Position is lost."
+                    # Walked into a losing-eval state without a defined
+                    # mate-ply. Use cp_loss to ground the caption.
+                    if pawn_swing:
+                        cap = f"{_played(f)} swings the position by about {pawn_swing} pawns."
+                    else:
+                        cap = f"{_played(f)} — engine sees the position turning against you."
     return CaptionOutput(
         caption=cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],

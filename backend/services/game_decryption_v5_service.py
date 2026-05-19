@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 23  # v23 (2026-05-19): Parth bug triage — 5 core-level caption fixes addressing 22 bugs. R08 cp-leak removed + cp_loss gate (defers to R12 on mistakes). R12 hollow-WHY suppression + opp-side WHY composer (closes 12 hollow-template bugs). R01 allows/misses split based on pre-move eval. R03 skewer verb softened (falls→is exposed). Hollow-cue rewrites for TAC_HANGING_PIECE + DEF_WALK_KING. Renderer falls through on None/empty caption.  // v22 (2026-05-18): Phase 6 — 3 cross-opening theme detectors. v20 OP_BISHOP_TRADE_DOUBLES_PAWN, v21 OP_F2_F7_STRIKE, v22 OP_TRAPPED_KNIGHT.
+V5_COACHING_VERSION = 24  # v24 (2026-05-19): R01 no-ply fallback concretization (closes the remaining 590 ABSTRACT_LOSS_CLAIM violations the audit at v23 surfaced — uses cp_loss to name a pawn-swing magnitude instead of bare "Position is lost."). Also v23 (2026-05-19): Parth bug triage — 5 core-level caption fixes (R08 cp-leak + gate, R12 hollow-WHY suppression + opp-side WHY composer, R01 allows/misses split, R03 verb softening, hollow-cue rewrites, renderer fall-through). v22 (2026-05-18): Phase 6 cross-opening theme detectors.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
