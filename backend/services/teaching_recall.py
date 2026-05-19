@@ -137,16 +137,26 @@ def _time_control_match(
 
 
 def _build_recall_voice(entry: Dict[str, Any]) -> str:
-    """Compose the recall caption — "you've been here before" tone.
+    """Compose the recall caption — competence-based voice.
 
-    Privacy: opponent names are stripped. Anchor on the LESSON, not the
-    loss. Format options based on what data the entry has:
+    Per the corrected vision locked 2026-05-19: 1500-and-below players
+    don't remember games, opponents, or move sequences. They remember
+    NAMED PRINCIPLES and GEOMETRIC SHAPES. So recall voice anchors on
+    proven competence with the principle, not on when it happened.
 
-      "You faced this same {anchor_name} {N} {days/weeks} ago. Same
-       idea here."
+    Forbidden framing:
+      - "earlier today" / "yesterday" / "4 days ago"
+      - "You've been here before. {time-phrase} you missed..."
+      - any timestamp citation
 
-      "You missed exactly this idea {N} days ago — {consequence}.
-       Watch for it."
+    Required framing — one of:
+      - "You've shown you know this rule."
+      - "You've handled this same {anchor} before."
+      - "This is the same {anchor} idea you've seen before."
+
+    The anchor (named principle / trap / pattern) IS the memory hook
+    — keep it. The click-through (ref_game_id) stays in the recall
+    block; the voice just doesn't lead with timestamp.
     """
     # Source of truth for human-readable principle names is
     # caption_principles.PRINCIPLES (the "name" field). The recall
@@ -165,74 +175,47 @@ def _build_recall_voice(entry: Dict[str, Any]) -> str:
         catalog_entry = _principles_by_id().get(pid) or {}
         anchor = catalog_entry.get("name") or "this idea"
 
-    occurred = entry.get("occurred_at")
-    if isinstance(occurred, str):
-        try:
-            occurred = datetime.fromisoformat(occurred.replace("Z", "+00:00"))
-        except Exception:
-            occurred = None
-    when_phrase = "earlier"
-    if isinstance(occurred, datetime):
-        if occurred.tzinfo is None:
-            occurred = occurred.replace(tzinfo=timezone.utc)
-        seconds = max(0.0, (datetime.now(timezone.utc) - occurred).total_seconds())
-        hours = seconds / 3600.0
-        days = int(seconds / 86400.0)
-        if hours < 12:
-            when_phrase = "earlier today"
-        elif days < 1:
-            when_phrase = "yesterday" if hours >= 12 else "earlier today"
-        elif days == 1:
-            when_phrase = "yesterday"
-        elif days < 7:
-            when_phrase = f"{days} days ago"
-        elif days < 14:
-            when_phrase = "a week ago"
-        elif days < 35:
-            weeks = max(2, days // 7)
-            when_phrase = f"{weeks} weeks ago"
-        else:
-            months = max(1, days // 30)
-            when_phrase = f"{months} month{'s' if months > 1 else ''} ago"
+    # Anchor tag — preserved as-written so proper-noun trap names
+    # (e.g. "Fried Liver Attack") stay capitalized and verb-phrase
+    # anchors (e.g. "Walk the king to safety") read naturally as tags.
+    anchor_tag = anchor or "this idea"
 
     gold_class = entry.get("gold_class") or ""
     consequence = entry.get("best_move_consequence")
 
-    # Present the anchor as a tag after an em-dash rather than nested
-    # mid-sentence. This avoids two grammar pitfalls caught 2026-05-19:
-    #   - Proper nouns ("Fried Liver Attack") shouldn't be lowercased.
-    #   - Verb-phrase anchors ("Walk the king to safety") read
-    #     awkwardly when nested as "the X idea".
-    # Tag-style works uniformly for all anchor shapes.
-    anchor_tag = anchor or "this idea"
-
     if gold_class == "gold":
         if consequence:
             return (
-                f"You've been here before. You missed this idea {when_phrase} "
-                f"— {consequence}. Watch for it now."
+                f"You've shown you know this rule — {anchor_tag}. "
+                f"Don't miss it this time: {consequence}."
             )
         return (
-            f"You've been here before. {when_phrase.capitalize()} you missed "
-            f"the same idea — {anchor_tag}. Watch for it now."
+            f"You've shown you know this rule — {anchor_tag}. "
+            f"Apply it here."
         )
 
     if gold_class == "lucky":
         return (
-            f"You've been here before. {when_phrase.capitalize()} this same "
-            f"shape was on the board — {anchor_tag} — and your opponent "
-            f"missed it. Don't count on it twice."
+            f"You've handled this same {anchor_tag} shape before. "
+            f"Don't expect your opponent to miss it twice."
         )
 
     if gold_class == "celebration":
         return (
-            f"You nailed this exact idea {when_phrase} — {anchor_tag}. "
-            f"Same shape on the board now."
+            f"You've handled this same {anchor_tag} before — "
+            f"same shape on the board now. Stay consistent."
         )
 
+    # Default branch: if the anchor degraded to the generic fallback
+    # ("this idea"), drop the trailing " idea" to avoid "this idea idea".
+    if anchor_tag == "this idea":
+        return (
+            "This is the same idea you've seen before. "
+            "Apply what you know."
+        )
     return (
-        f"You've been here before. {when_phrase.capitalize()} the same idea "
-        f"appeared — {anchor_tag}."
+        f"This is the same {anchor_tag} idea you've seen before. "
+        f"Apply what you know."
     )
 
 
