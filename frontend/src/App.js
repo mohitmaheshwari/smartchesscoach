@@ -32,6 +32,7 @@ import UnifiedProgress from "@/pages/UnifiedProgress";  // Merged progress + jou
 import JourneyIntelligence from "@/pages/JourneyIntelligence";
 import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
+import DiagnosticPuzzles from "@/pages/DiagnosticPuzzles";
 import MissionRunner from "@/pages/MissionRunner";
 import PostLossRecovery from "@/pages/PostLossRecovery";
 import CoachPlay from "@/pages/CoachPlay";
@@ -198,6 +199,11 @@ function AppRouter() {
       <Route path="/onboarding" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <Onboarding user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/diagnostic" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <DiagnosticPuzzles />}
         </ProtectedRoute>
       } />
       <Route path="/coach" element={

@@ -151,27 +151,14 @@ const Onboarding = () => {
         }
       } catch { /* fall through */ }
 
-      // Fallback: if instant DNA fails, try legacy Stockfish polling briefly
-      setAnalysisProgress(70);
-      let attempts = 0;
-      while (attempts < 15) {
-        await new Promise(r => setTimeout(r, 1000));
-        attempts++;
-        setAnalysisProgress(70 + (attempts / 15) * 25);
-        try {
-          const pr = await fetch(`${API}/cognitive/patterns`, { credentials: "include" });
-          if (pr.ok) {
-            const patterns = await pr.json();
-            if (patterns.games_analyzed > 0) {
-              setAnalysisProgress(100);
-              setAnalysisResult(patterns);
-              return;
-            }
-          }
-        } catch { /* keep polling */ }
-      }
+      // No instant DNA yet — games are still in the analysis queue (or
+      // there were none). Send the user to the 20-puzzle diagnostic
+      // instead of staring at a spinner. The diagnostic IS the
+      // productive use of waiting time, and it produces a real
+      // rating-band + per-area readout to seed dashboard recommendations
+      // until real-game data takes over.
       setAnalysisProgress(100);
-      navigate("/home");
+      navigate("/diagnostic");
     } catch {
       setError("Something went wrong. Please try again.");
       setAnalyzing(false);

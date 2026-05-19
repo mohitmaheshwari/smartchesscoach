@@ -5,9 +5,13 @@ metadata:
   type: project
 ---
 
-**Onboarding design (locked by Mohit 2026-05-19):** new users with no analyzed games go through a **20-puzzle diagnostic**, not a generic "welcome to ChessGuru" tour. Each puzzle tests a chess concept. The output is a real DIAGNOSIS — approximate rating + which principles they understand vs which they struggle with. This becomes the seed for everything else (Coach's Pick, Pattern Training, etc.).
+**Onboarding design (locked by Mohit 2026-05-19, refined same day):** new users go through a **20-puzzle diagnostic**, not a generic "welcome to ChessGuru" tour. Each puzzle tests a chess concept. The output is a real DIAGNOSIS — approximate rating + which principles they understand vs which they struggle with. This becomes the seed for everything else (Coach's Pick, Pattern Training, etc.).
 
-**Why this shape:** Mohit's framing — "if you can analyze their games, that's good otherwise meanwhile we will take them to the puzzle from community and see how good are they." The 20 puzzles substitute for game history. Better than asking the user to self-rate (most are wrong) and better than starting them at a generic baseline.
+**Two trigger modes (BOTH required):**
+1. **No-history mode** — user can't / won't link Chess.com/Lichess, or has linked but the platform returned zero games. The 20 puzzles ARE the diagnostic.
+2. **Analysis-in-flight mode** — user linked an account and games are in the analysis_worker queue. While Stockfish chews through games (30s-2min per game × many games on first import), throw puzzles at them so they're not staring at a loading spinner. Diagnostic output still produced from the puzzles; once 10+ real-game analyses land, real-game diagnostic supersedes.
+
+**Why this shape:** Mohit 2026-05-19 — "if you can analyze their games, that's good otherwise meanwhile we will take them to the puzzle from community and see how good are they... even if user has imported games and they are in analysis worker, we should still throw puzzles at him, so he doesn't get bored." Empty waiting screens kill first-session retention.
 
 **How to apply:** Build a new diagnostic flow with these requirements:
 

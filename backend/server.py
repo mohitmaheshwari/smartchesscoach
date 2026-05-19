@@ -266,6 +266,7 @@ from routes import oauth as oauth_routes
 from routes import public_seo as public_seo_routes
 from routes import billing as billing_routes
 from routes import reviewer as reviewer_routes
+from routes import diagnostic as diagnostic_routes
 
 
 # ==================== INJECT DEPENDENCIES ====================
@@ -324,6 +325,7 @@ oauth_routes.init_db(db)
 coach_advanced_routes.set_llm(call_llm)
 billing_routes.set_db(db)
 reviewer_routes.set_db(db)
+diagnostic_routes.set_db(db)
 
 
 # ==================== REGISTER ROUTERS ====================
@@ -362,6 +364,7 @@ app.include_router(oauth_routes.router, prefix="/api")
 app.include_router(public_seo_routes.router, prefix="/api")
 app.include_router(billing_routes.router, prefix="/api")
 app.include_router(reviewer_routes.router, prefix="/api")
+app.include_router(diagnostic_routes.router, prefix="/api")
 
 
 # ==================== CORS ====================
