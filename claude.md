@@ -360,6 +360,22 @@ python3 tests/test_all_flows.py          # Core suite: 38 tests (RUN AFTER EVERY
 python3 -m pytest tests/test_rating_aware_feedback.py  # Rating-aware: 19 tests
 ```
 
+### Pre-commit Hook (one-time setup per clone)
+The repo ships a versioned pre-commit hook in `.githooks/pre-commit`
+that blocks specific caption-voice regressions (currently the
+"drops/loses/costs about N pawns" misframing — see
+[memory/feedback_cp_loss_is_not_material.md](memory/feedback_cp_loss_is_not_material.md)).
+
+Activate it once per clone:
+```bash
+git config core.hooksPath .githooks
+```
+Verify with `git config --get core.hooksPath` → should print `.githooks`.
+
+To allow a legitimate quote of a forbidden phrase (e.g. inside an
+audit/test file), append `# allow-cp-loss-phrase` to that line. Never
+use `git commit --no-verify` to bypass — fix the wording instead.
+
 ### Test Credentials
 - Dev mode: `DEV_MODE=true` in backend/.env
 - Dev user: `dev_user_local` (auto-authenticated via cookie `dev_mode=true`)
