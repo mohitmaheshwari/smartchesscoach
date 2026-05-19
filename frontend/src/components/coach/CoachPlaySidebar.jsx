@@ -455,6 +455,10 @@ const LegacyChatMessages = ({
             ? "bg-violet-50 border border-violet-500/30"
             : msg.type === "habit_prompt"
             ? "bg-sky-50 border border-sky-500/30 dark:bg-sky-950/30 dark:border-sky-500/40"
+            : msg.type === "opening_announcement"
+            ? "bg-emerald-50 border border-emerald-300/50 dark:bg-emerald-950/30 dark:border-emerald-500/40"
+            : msg.type === "opening_critical_moment"
+            ? "bg-orange-50 border border-orange-400/60 dark:bg-orange-950/30 dark:border-orange-500/40"
             : msg.type === "coach"
             ? msg.trigger === "warning"
               ? "bg-red-500/10 border border-red-500/20"
@@ -473,6 +477,10 @@ const LegacyChatMessages = ({
             <BookOpen className="w-4 h-4 mt-0.5 flex-shrink-0 text-violet-700" />
           ) : msg.type === "habit_prompt" ? (
             <span className="text-sky-700 text-base mt-0.5 flex-shrink-0">⏸</span>
+          ) : msg.type === "opening_announcement" ? (
+            <span className="text-emerald-700 text-base mt-0.5 flex-shrink-0">📖</span>
+          ) : msg.type === "opening_critical_moment" ? (
+            <span className="text-orange-700 text-base mt-0.5 flex-shrink-0">⚠</span>
           ) : msg.type === "coach" ? (
             <Brain
               className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
@@ -546,6 +554,10 @@ const LegacyChatMessages = ({
                   ? "text-violet-900"
                   : msg.type === "habit_prompt"
                   ? "text-sky-900 dark:text-sky-100 italic"
+                  : msg.type === "opening_announcement"
+                  ? "text-emerald-900 dark:text-emerald-100"
+                  : msg.type === "opening_critical_moment"
+                  ? "text-orange-900 dark:text-orange-100 font-medium"
                   : msg.type === "coach"
                   ? ""
                   : msg.type === "thinking"

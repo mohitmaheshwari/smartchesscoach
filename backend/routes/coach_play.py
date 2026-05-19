@@ -7044,6 +7044,102 @@ async def _process_move_and_respond(
             logger.exception("[habit-prompt] failed (non-fatal)")
 
         # ═══════════════════════════════════════════════════════════
+        # Phase-3 Component 3 — Light opening announcement during PWC
+        # ═══════════════════════════════════════════════════════════
+        # Once-per-session, around move 4-6: announce the opening the
+        # user is in. Light context only — NOT a YouTube-IM lecture.
+        # Also surfaces ONE critical-moment alert when a known trap
+        # setup is on the board (also once per trap per session).
+        try:
+            from services.opening_lookup import match_opening_for_mover
+            from services.trap_library import get_all_traps
+
+            _opening_session = await db.coach_sessions.find_one(
+                {"session_id": session_id},
+                {"_id": 0, "opening_announced": 1, "trap_alerts_shown": 1,
+                 "move_history": 1, "user_color": 1},
+            ) or {}
+
+            _move_history = _opening_session.get("move_history") or []
+            _played_san_list = [m.get("move", "") for m in _move_history if m.get("move")]
+            _po_color = (_opening_session.get("user_color") or "white").lower()
+
+            # Opening announcement (move 4-6 window, only once)
+            if (
+                not _opening_session.get("opening_announced")
+                and 4 <= (move_number or 0) <= 6
+                and _played_san_list
+            ):
+                _opening_match = match_opening_for_mover(_played_san_list, _po_color)
+                if _opening_match:
+                    _open_name = _opening_match.get("name") or "this opening"
+                    await db.coach_messages.insert_one({
+                        "session_id": session_id,
+                        "type": "opening_announcement",
+                        "move_number": move_number,
+                        "opening_name": _open_name,
+                        "message": (
+                            f"You're playing the {_open_name}. "
+                            "Keep developing pieces and watch the centre."
+                        ),
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                    })
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$set": {"opening_announced": True,
+                                  "opening_announced_as": _open_name}},
+                    )
+                    logger.info(
+                        f"[opening-announcement] session={session_id[:8]} "
+                        f"move={move_number} opening={_open_name!r}"
+                    )
+
+            # Trap critical-moment alert (once per trap per session)
+            _trap_shown = set(_opening_session.get("trap_alerts_shown") or [])
+            if len(_trap_shown) < 1:  # cap at 1 trap alert per session for "rare and haunting"
+                _traps = get_all_traps()
+                for _opening_key, _trap_list in _traps.items():
+                    if len(_trap_shown) >= 1:
+                        break
+                    for _trap in _trap_list:
+                        _setup = _trap.get("setup_moves") or []
+                        if not _setup or len(_setup) > len(_played_san_list):
+                            continue
+                        # Match: setup_moves must be exact prefix of played_san
+                        if _played_san_list[:len(_setup)] != _setup:
+                            continue
+                        _trap_name = _trap.get("name", "Unknown")
+                        if _trap_name in _trap_shown:
+                            continue
+                        # Found a trap setup just reached. Surface neutrally.
+                        await db.coach_messages.insert_one({
+                            "session_id": session_id,
+                            "type": "opening_critical_moment",
+                            "move_number": move_number,
+                            "trap_name": _trap_name,
+                            "opening_key": _opening_key,
+                            "message": (
+                                f"Heads up — this position is the setup for the "
+                                f"{_trap_name}. Look both ways before your next move."
+                            ),
+                            "created_at": datetime.now(timezone.utc),
+                            "read": False,
+                        })
+                        _trap_shown.add(_trap_name)
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {"trap_alerts_shown": list(_trap_shown)}},
+                        )
+                        logger.info(
+                            f"[opening-critical] session={session_id[:8]} "
+                            f"move={move_number} trap={_trap_name!r}"
+                        )
+                        break
+        except Exception:
+            logger.exception("[opening-announcement/critical] failed (non-fatal)")
+
+        # ═══════════════════════════════════════════════════════════
         # NEW: Message Decision Engine (Step 2.5)
         # Replaces ALL old emitters when enabled.
         # ═══════════════════════════════════════════════════════════
