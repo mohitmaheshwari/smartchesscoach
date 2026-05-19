@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 28  # v28 (2026-05-19): "drops about N pawns" / "loses about N pawns" framing replaced with severity-tier across R12 (caption_rules) + game_decryption_v5 fallbacks (lines 1766 + 3116) + line_parser fallback + position_analysis_service. Centipawn loss is eval shift not material; Mohit flagged Nxf7 cp_loss=426 captioned as "drops about 4 pawns" which conflates positional collapse with material delta. v27: patient-academic voice pass — narrator system prompt + fallbacks de-streamerized (no exclamation marks, no "You found the best move!" theatrics); R15 phase variants collapsed to plain "engine's pick" (dropped "nice/solid/clean" chatty adjectives); resolver "luft" jargon + "tuck him away" colloquialism removed; "You're locked in" streamer slang → "Keep the process"; opening_announcement + critical_moment scripts tightened. teaching_recall.py voice rewritten to competence-based (Agent 3, dbf56ae5). v26: 800-1400 vocab + cadence. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
+V5_COACHING_VERSION = 29  # v29 (2026-05-20): content promotion fix — when main caption renderer returns silence but detection layers fired (shape_pattern_name + shape_pattern_desc OR principle_cue), surface that content as the main caption (R_PROMOTED_shape:* / R_PROMOTED_principle:* rule label). Mohit 2026-05-20: detection layer was alive, render layer was silent; the rich principle/geometric content sat in side fields the frontend rendered as tiny italic/teal afterthought instead of as the diagnosis. Now the main-caption block reads like a coach said something. v28: "drops about N pawns" framing replaced with severity-tier across R12 + 3 fallback sites + position_analysis (cp_loss is eval shift not material; Mohit Nxf7 cp=426 pushback). v27: patient-academic voice pass — narrator/R15/resolver de-streamerized. v26: 800-1400 vocab. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -3460,6 +3460,87 @@ async def generate_game_decryption_v5(
                 except Exception as _open_exc:
                     logger.info(f"[opening] detect failed on move {full_move_number}: {_open_exc}")
                     opening_record = None
+
+            # ── CONTENT PROMOTION (Mohit 2026-05-20) ───────────────
+            # When the main caption renderer returned silence but the
+            # detection layers found teachable content (shape pattern
+            # OR named principle), promote that content into the main
+            # caption slot. The frontend's main-caption block was
+            # rendering empty (looked like "nothing fired") while rich
+            # principle cues and geometric pattern names sat below it
+            # in tiny italic / teal text that read as decoration.
+            #
+            # Priority:
+            #   1. Shape pattern (geometric, sub-1500 anchors per
+            #      [[sub1500-memory-anchors]] — patterns over move
+            #      sequences).
+            #   2. Principle cue (named-principle habit reminder).
+            #
+            # Voice: prefix with the move SAN so the caption is
+            # grounded to the move that triggered the teaching. The
+            # shape_pattern_name + principle_cue text is already
+            # authored to be concrete and 1200-test-clean; we just
+            # surface it. NOT a fallback template — concrete content
+            # the detectors produced for THIS move.
+            try:
+                if not caption_payload.get("caption"):
+                    promoted: Optional[str] = None
+                    promoted_source: Optional[str] = None
+                    sp_name = (
+                        shape_pattern_record.get("pattern_name")
+                        if shape_pattern_record else None
+                    )
+                    sp_desc = (
+                        shape_pattern_record.get("pattern_desc")
+                        if shape_pattern_record else None
+                    )
+                    if sp_name and sp_desc:
+                        promoted = f"{move_san} — {sp_name}. {sp_desc}"
+                        promoted_source = (
+                            f"R_PROMOTED_shape:{shape_pattern_record.get('pattern_id')}"
+                        )
+                    elif principle_cue:
+                        # Move-ground the cue so it doesn't read as a
+                        # generic principle quote.
+                        promoted = f"{move_san}. {principle_cue}"
+                        promoted_source = (
+                            f"R_PROMOTED_principle:{principle_id_used or 'unknown'}"
+                        )
+                    elif (
+                        is_user
+                        and (cp_loss or 0) >= 50
+                        and best_move
+                        and best_move != move_san
+                    ):
+                        # Last-resort: real mistake with NO shape, NO
+                        # principle, NO firing R-rule. Happens on
+                        # checks-that-are-mistakes (R06 declines because
+                        # cp_loss >= 30, R12 doesn't pick up because
+                        # the category is "check_plain" not "blunder").
+                        # Rather than ship silence on a 100cp+ swing,
+                        # surface the basic move-vs-best diagnosis.
+                        # Severity tier per [[cp-loss-is-not-material]]
+                        # — never translate to "X pawns lost."
+                        if (cp_loss or 0) >= 400:
+                            sev_phrase = "is a major blunder"
+                        elif (cp_loss or 0) >= 250:
+                            sev_phrase = "is a serious mistake"
+                        else:
+                            sev_phrase = "is a mistake"
+                        promoted = f"{move_san} {sev_phrase}. {best_move} was better."
+                        promoted_source = "R_PROMOTED_basic_mistake"
+                    if promoted:
+                        caption_payload["caption"] = promoted
+                        # Tag the rule_name so the audit script can see
+                        # the promotion path. Original rule_name (the
+                        # R_FALLBACK_* label) is preserved as a prefix.
+                        prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
+                        caption_payload["rule_name"] = f"{prev_rule}→{promoted_source}"
+            except Exception as _promote_exc:
+                logger.info(
+                    f"[content_promotion] move {full_move_number} "
+                    f"{move_san} failed: {_promote_exc}"
+                )
 
             move_output = {
                 "move_number": full_move_number,
