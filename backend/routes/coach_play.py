@@ -985,6 +985,7 @@ async def get_coach_play_move_feedback(
 
 
 @router.post("/end")
+@_trace_pwc_endpoint("POST /coach/play/end", _pwc_get_db)
 async def end_coach_play_session(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
@@ -1118,6 +1119,7 @@ async def end_coach_play_session(
 
 
 @router.post("/analysis")
+@_trace_pwc_endpoint("POST /coach/play/analysis", _pwc_get_db)
 async def get_postgame_analysis(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
@@ -1247,6 +1249,7 @@ async def get_postgame_analysis(
 
 
 @router.get("/messages/{session_id}")
+@_trace_pwc_endpoint("GET /coach/play/messages", _pwc_get_db)
 async def get_coach_messages(
     session_id: str,
     user: User = Depends(get_current_user)
@@ -1431,6 +1434,7 @@ async def get_coach_reflection_feedback(
 
 
 @router.post("/chat")
+@_trace_pwc_endpoint("POST /coach/play/chat", _pwc_get_db)
 async def coach_chat_message(
     request: Dict = Body(...),
     user: User = Depends(get_current_user)
