@@ -358,7 +358,12 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # opponent). When the user hangs their own piece, "take it"
         # is nonsense. Rewriting neutral; resolver detail surfaces
         # whose-piece-it-is via mover_is_user.
-        "cue_best":   "A piece is now hanging with no defender — there's a stronger move available.",
+        # Parth 2026-05-18 fb_a30cab50da3d: previous cue ended with
+        # "there's a stronger move available" — empty calorie since the
+        # cue itself can't name the move (no evidence binding at this
+        # layer). Rewritten 2026-05-19 to be observational + actionable
+        # without overpromising the missing concrete recommendation.
+        "cue_best":   "A piece on the board has no defender. Always count attackers vs defenders before each move.",
         "cue_top_n":  "Loose piece with no defender — yours or theirs. Scan every move.",
         "cue_absent": "Scan for pieces with no defender — yours and theirs — before every move.",
         "visual_signature": {
@@ -644,7 +649,14 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any king move that increases distance from attackers and moves toward safer pawn cover",
         "gate_policy": "endorsement_preferred + cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Walk the king to safety. Engine agrees — short steps toward shelter.",
+        # Parth 2026-05-18 fb_7950be24f981: "short steps toward shelter"
+        # is hollow — no concrete target square named here. The
+        # resolver-detail branch (caption_priority_resolver.py:568) DOES
+        # name the engine's king target square; this cue is only used in
+        # surfaces that don't run the resolver. Made the cue more
+        # observational so it doesn't promise a recommendation it can't
+        # deliver at this layer.
+        "cue_best":   "Castling rights are gone — walk the king toward pawn cover, one square at a time.",
         "cue_top_n":  "Castling unavailable? Walk the king toward pawn cover. Short steps, no risks.",
         "cue_absent": "Different defence works here. Usually — castling gone, walk the king to safety, one square at a time.",
         "visual_signature": {

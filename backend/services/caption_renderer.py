@@ -55,6 +55,13 @@ def render_caption(facts: Dict[str, Any]) -> CaptionOutput:
         try:
             if rule.trigger(facts):
                 output = rule.render(facts)
+                # A rule may return None or a CaptionOutput with an
+                # empty caption to signal "I matched but have nothing
+                # concrete to say." Per [[no-hollow-coverage]] / Parth
+                # 2026-05-18 — honest silence > fluffy template. Fall
+                # through to the next rule in priority order.
+                if output is None or not output.caption:
+                    continue
                 output.caption = _enforce_word_cap(output.caption)
                 return output
         except Exception as exc:

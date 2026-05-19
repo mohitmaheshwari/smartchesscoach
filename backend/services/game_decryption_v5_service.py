@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 22  # v22 (2026-05-18): Phase 6 — 3 cross-opening theme detectors. v20 OP_BISHOP_TRADE_DOUBLES_PAWN (Bxc3-bxc3 structural concession across English / Nimzo / Vienna). v21 OP_F2_F7_STRIKE (weak-king-square capture, only king defends). v22 OP_TRAPPED_KNIGHT (every legal destination SEE-unsafe, distinct from OP_KNIGHT_ON_RIM). All three use state-keyed suppression (Phase 0.5) and per-principle audit scripts in backend/scripts.
+V5_COACHING_VERSION = 23  # v23 (2026-05-19): Parth bug triage — 5 core-level caption fixes addressing 22 bugs. R08 cp-leak removed + cp_loss gate (defers to R12 on mistakes). R12 hollow-WHY suppression + opp-side WHY composer (closes 12 hollow-template bugs). R01 allows/misses split based on pre-move eval. R03 skewer verb softened (falls→is exposed). Hollow-cue rewrites for TAC_HANGING_PIECE + DEF_WALK_KING. Renderer falls through on None/empty caption.  // v22 (2026-05-18): Phase 6 — 3 cross-opening theme detectors. v20 OP_BISHOP_TRADE_DOUBLES_PAWN, v21 OP_F2_F7_STRIKE, v22 OP_TRAPPED_KNIGHT.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")

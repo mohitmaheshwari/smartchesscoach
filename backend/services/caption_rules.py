@@ -134,12 +134,30 @@ def _r01_render(f):
             else:
                 cap = f"{_played(f)}. Opp's position is lost."
         else:
-            if ply == 1:
-                cap = f"{_played(f)} allows mate next move."
-            elif ply:
-                cap = f"{_played(f)} allows mate in {ply}."
+            # Parth 2026-05-18 fb_d576bbf21a65: "Ne4 allows mate in 2"
+            # framed wrong because mate was ALREADY on the board pre-move
+            # (eval_before in mate-territory). The move didn't CAUSE the
+            # mate, it failed to defend against it. Split "allows" vs
+            # "misses defense against" based on pre-move eval state.
+            eval_before_cp = f.get("eval_before_cp")
+            mate_already_on_board = (
+                isinstance(eval_before_cp, (int, float))
+                and eval_before_cp <= -2000
+            )
+            if mate_already_on_board:
+                if ply == 1:
+                    cap = f"{_played(f)} misses the defense against mate next move."
+                elif ply:
+                    cap = f"{_played(f)} misses the defense against mate in {ply}."
+                else:
+                    cap = f"{_played(f)}. Position was already lost."
             else:
-                cap = f"{_played(f)}. Position is lost."
+                if ply == 1:
+                    cap = f"{_played(f)} allows mate next move."
+                elif ply:
+                    cap = f"{_played(f)} allows mate in {ply}."
+                else:
+                    cap = f"{_played(f)}. Position is lost."
     return CaptionOutput(
         caption=cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
@@ -235,7 +253,12 @@ def _r03_render(f):
         # fb_05356cf43f98 (2026-05-17): "You cannot pin the king."
         # Value-based front_lower check hit the wrong branch because
         # PIECE_VALUE_CP[KING] = 0 (SEE-capped); king < queen → false pin.
-        cap = f"{_played(f)}. Skewers the king on {front_sq} — when it moves, the {rear_pt} on {rear_sq} falls."
+        # Verb softened 2026-05-19 (fb_52bf0a0b813a): "falls" overclaims —
+        # the rear piece is EXPOSED on the king's escape squares, but
+        # depending on which way the king moves, the rear piece may or
+        # may not actually be lost. "is exposed" stays true across all
+        # king escape choices.
+        cap = f"{_played(f)}. Skewers the king on {front_sq} — when it moves, the {rear_pt} on {rear_sq} is exposed."
     elif front_lower:
         cap = f"{_played(f)}. Pins the {front_pt} on {front_sq} against the {rear_pt} on {rear_sq}."
     else:
@@ -339,12 +362,17 @@ def _r07_render(f):
 
 # R08 — Material (eval-gated; primary_reason already checked gating)
 def _r08_trigger(f):
+    # Step aside when the engine flags this as a mistake — R12 takes
+    # over and frames it correctly. Parth 2026-05-18 fb_d111aa020ab8:
+    # Qxc7 with cp_loss=129 fired "wins material" while it was actually
+    # a mistake. Mirror the same gate R05 already uses (line 280).
+    if (f.get("cp_loss") or 0) >= 80:
+        return False
     delta = f.get("material_delta_played_cp") or 0
     return delta >= MIN_MATERIAL_CAPTION_GAIN_CP
 
 
 def _r08_render(f):
-    delta = f["material_delta_played_cp"]
     mover_is_user = f.get("mover_is_user")
     captured = f.get("captured_piece_type", "piece")
     # Use the pedagogical gate (geometric + eval-supported) for the
@@ -357,16 +385,20 @@ def _r08_render(f):
         if uncontested:
             cap = f"{_played(f)}. Opponent grabs the {captured} — nothing was defending it."
         elif f.get("is_capture"):
-            cap = f"{_played(f)}. Opponent wins material in the exchange."
+            cap = f"{_played(f)}. Opponent takes the {captured}."
         else:
-            cap = f"{_played(f)}. Opponent gains {delta} cp."
+            cap = f"{_played(f)}. Opponent improves."
     else:
+        # No "Net N cp in the exchange" wording — Parth 2026-05-18
+        # fb_f5f6c2b44ae3 / fb_ef69bde92d3e: internal cp numbers leak
+        # into user-facing text per [[feedback_1200_test]]. Describe
+        # the capture concretely instead.
         if uncontested:
             cap = f"{_played(f)}. Free {captured} — nothing recaptures."
         elif f.get("is_capture"):
-            cap = f"{_played(f)} wins material. Net {delta} cp in the exchange."
+            cap = f"{_played(f)} — takes the {captured}."
         else:
-            cap = f"{_played(f)}. Wins {delta} cp in the resulting line."
+            cap = f"{_played(f)}. Wins material in the resulting line."
     return CaptionOutput(
         cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
@@ -506,6 +538,47 @@ def _r12_compose_why(f):
     return ""
 
 
+def _r12_compose_why_opp(f):
+    """Compose a user-actionable WHY when OPPONENT blundered.
+
+    Mirror of `_r12_compose_why` but from the user's perspective: the
+    user is the one with the strong reply now. Reads facts the extractor
+    produces. Returns "" if no concrete fact is available.
+
+    Closes Parth 2026-05-18 Group B (#7-#11) and parts of Group D
+    (#18-#20): "Opponent's X drops about N pawns" with no clue what
+    we should DO about it.
+    """
+    # 1. User's best reply directly punishes the blunder.
+    user_best = f.get("user_best_reply_san") or f.get("best_move_after_opp_blunder_san")
+    if user_best:
+        # What does our best reply DO?
+        cap_pt = f.get("user_best_reply_captures_piece_type")
+        if cap_pt:
+            return f"You can play {user_best} winning the {cap_pt}."
+        if user_best.endswith("+") or user_best.endswith("#"):
+            return f"You can play {user_best} with a forcing reply."
+        return f"You can play {user_best} to punish it."
+
+    # 2. Opp's move left a piece undefended; we can take it.
+    pieces_undef = f.get("opp_pieces_now_undefended") or f.get("pieces_now_undefended_by_opp") or []
+    hanging = [p for p in pieces_undef if p.get("now_attacked") and p.get("is_now_hanging")]
+    if hanging:
+        worst = max(hanging, key=lambda p: p.get("piece_value_cp", 0) or 0)
+        piece = worst.get("piece_type", "piece")
+        sq = worst.get("square", "")
+        if sq:
+            return f"Their {piece} on {sq} is now undefended — take it."
+
+    # 3. Opp's move stranded one of their own pieces — name the square.
+    moving_piece = f.get("moving_piece_type") or "piece"
+    target_sq = f.get("target_square") or ""
+    if f.get("opp_played_landed_unsafe") and target_sq:
+        return f"Their {moving_piece} on {target_sq} has no escape."
+
+    return ""
+
+
 def _r12_render(f):
     cpl = f.get("cp_loss") or 0
     pawns = max(1, min(9, round(cpl / 100)))
@@ -514,17 +587,38 @@ def _r12_render(f):
     best = _best(f)
     mover_is_user = f.get("mover_is_user")
     if mover_is_user is False:
-        # Opp blundered — frame as user-actionable news, not coaching the
-        # opponent on what they should have played.
+        # Opp blundered — frame as user-actionable news.
+        why = _r12_compose_why_opp(f)
+        # Per [[no-hollow-coverage]] / [[feedback_1200_test]] — when we
+        # have no concrete chess content to say (no opp-WHY clause)
+        # AND the loss isn't blunder-tier, suppress entirely rather
+        # than emit "Opponent's X drops about N pawns" with nothing
+        # actionable. Honest silence > fluffy template.
+        # For blunder-tier opp loss (cp_loss >= 250), keep firing with
+        # the pawn-count so user knows opp gave up significant material,
+        # even if we don't know the exact follow-up.
+        if not why and cpl < 250:
+            return None
         cap = f"Opponent's {played} drops about {pawns} {pawns_word}."
+        if why:
+            cap = cap + " " + why
     elif best and best != played:
-        cap = f"{played} loses about {pawns} {pawns_word}. {best} was better."
         why = _r12_compose_why(f)
+        # Same gate for user moves: if cp_loss is below blunder-tier
+        # AND we have no WHY clause, suppress so a downstream rule (or
+        # silence) takes over. Parth 2026-05-18 fb_47f9536059a6,
+        # fb_f20bd8755a27, fb_62a02dd0ff9b: bare "loses about N pawns.
+        # Y was better." is the hollow-WHY bug. Suppress it.
+        if not why and cpl < 250:
+            return None
+        cap = f"{played} loses about {pawns} {pawns_word}. {best} was better."
         if why:
             cap = cap + " " + why
     else:
-        cap = f"{played} loses about {pawns} {pawns_word}."
         why = _r12_compose_why(f)
+        if not why and cpl < 250:
+            return None
+        cap = f"{played} loses about {pawns} {pawns_word}."
         if why:
             cap = cap + " " + why
     return CaptionOutput(
