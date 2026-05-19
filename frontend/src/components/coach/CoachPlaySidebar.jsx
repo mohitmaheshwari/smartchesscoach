@@ -453,6 +453,8 @@ const LegacyChatMessages = ({
         className={`p-3 rounded-lg ${
           msg.type === "v5_teaching"
             ? "bg-violet-50 border border-violet-500/30"
+            : msg.type === "habit_prompt"
+            ? "bg-sky-50 border border-sky-500/30 dark:bg-sky-950/30 dark:border-sky-500/40"
             : msg.type === "coach"
             ? msg.trigger === "warning"
               ? "bg-red-500/10 border border-red-500/20"
@@ -469,6 +471,8 @@ const LegacyChatMessages = ({
         <div className="flex items-start gap-2">
           {msg.type === "v5_teaching" ? (
             <BookOpen className="w-4 h-4 mt-0.5 flex-shrink-0 text-violet-700" />
+          ) : msg.type === "habit_prompt" ? (
+            <span className="text-sky-700 text-base mt-0.5 flex-shrink-0">⏸</span>
           ) : msg.type === "coach" ? (
             <Brain
               className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
@@ -499,6 +503,14 @@ const LegacyChatMessages = ({
               <span className="text-xs text-muted-foreground block">
                 {msg.is_coach_move_teaching ? "Coach played" : "After"} {msg.move_san}:
               </span>
+            )}
+            {/* Phase 800-1400 vocab — first-encounter glossary prefix.
+                Shown above the main caption in a smaller, distinct
+                style so it reads as "definition", not as the main lesson. */}
+            {msg.type === "v5_teaching" && msg.glossary_prefix && (
+              <div className="text-xs italic text-violet-700/80 dark:text-violet-300/80 mb-1 border-l-2 border-violet-300/60 pl-2">
+                {msg.glossary_prefix}
+              </div>
             )}
             {msg.type === "coach" && msg.trigger && (
               <Badge
@@ -532,6 +544,8 @@ const LegacyChatMessages = ({
               className={`group ${
                 msg.type === "v5_teaching"
                   ? "text-violet-900"
+                  : msg.type === "habit_prompt"
+                  ? "text-sky-900 dark:text-sky-100 italic"
                   : msg.type === "coach"
                   ? ""
                   : msg.type === "thinking"

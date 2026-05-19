@@ -38,6 +38,44 @@ from services.caption_principles import PRINCIPLES as CAPTION_PRINCIPLES
 from services.caption_priority_resolver import resolve_priority
 from services.coaching_encounter_weights import passes_necessity_gate
 
+
+# ─────────────────────────────────────────────────────────────────
+# Beginner-vocab glossary — first-encounter definitions for sub-1400
+# players. Locked 2026-05-19: assumed chess literacy ("pin", "skewer",
+# "defender") was a gap for 800-1000 players. On the FIRST time a user
+# sees one of these principles, prepend a short one-sentence
+# definition. After acknowledgment (any subsequent encounter), drop it.
+# Each definition passes [[1200-test]]: concrete, no jargon.
+# ─────────────────────────────────────────────────────────────────
+BEGINNER_GLOSSARY: Dict[str, str] = {
+    "TAC_PIN_PATTERN": "A pin happens when a piece can't move because something more valuable is behind it on the same line.",
+    "TAC_FORK_PATTERN": "A fork is when one piece attacks two enemy pieces at once — one of them is going to fall.",
+    "TAC_SKEWER_PATTERN": "A skewer is the opposite of a pin — the more valuable piece is in front and is forced to move, so what's behind falls.",
+    "TAC_DISCOVERED_PATTERN": "A discovered attack — when one piece moves out of the way, the piece behind it suddenly attacks something.",
+    "TAC_HANGING_PIECE": "A piece is 'hanging' when nothing defends it. Always count attackers vs defenders before each move.",
+    "TAC_DEFENDER_COUNT": "Defenders are pieces that protect a square or piece. If attackers outnumber defenders, the target falls.",
+    "END_RULE_OF_SQUARE": "Rule of the Square — to catch a passed pawn, draw an imaginary box from the pawn to its promotion square. If your king can step into the box, you catch it.",
+    "END_OPPOSITION": "Opposition — when kings face each other one square apart with no piece between them. The side NOT to move usually wins the key squares.",
+    "END_ROOK_BEHIND_PASSER": "Rook behind the passer — keep your rook behind a passed pawn (yours or theirs). Your pawn pushes safely; theirs is held back.",
+}
+
+# Only show glossary for users at this rating or below. Above, assume
+# they know the terms.
+GLOSSARY_RATING_CAP = 1400
+
+
+def _glossary_for_principle(
+    principle_id: Optional[str], user_rating: Optional[int]
+) -> Optional[str]:
+    """Return the glossary definition for this principle, or None if
+    (a) no glossary entry exists, (b) user is above rating cap, or
+    (c) principle_id is None."""
+    if not principle_id:
+        return None
+    if user_rating is not None and user_rating > GLOSSARY_RATING_CAP:
+        return None
+    return BEGINNER_GLOSSARY.get(principle_id)
+
 logger = logging.getLogger(__name__)
 
 

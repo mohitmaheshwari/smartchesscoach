@@ -1246,6 +1246,12 @@ async def get_coach_messages(
                     "gold_class":       _recall.get("gold_class"),
                     "source":           _recall.get("source"),
                 }
+            # Phase 800-1400 vocab — first-encounter glossary prefix.
+            # Present only on the FIRST time a sub-1400 user sees this
+            # named principle. Frontend renders above the main caption.
+            _glossary = msg.get("glossary_prefix")
+            if _glossary:
+                msg_data["glossary_prefix"] = _glossary
 
         messages.append(msg_data)
         message_ids.append(msg["_id"])
@@ -6751,10 +6757,12 @@ async def _process_move_and_respond(
             from services.live_v5_teaching import (
                 v5_teaching_decision_for_live_move,
                 update_session_suppression,
+                _glossary_for_principle,
             )
             from services.coaching_encounter_weights import (
                 get_user_principle_weights,
                 record_principle_fire,
+                is_first_encounter,
             )
             _user_doc = await db.users.find_one({"user_id": session_doc.get("user_id")}) or {}
             _fired_pids: set = set(session_doc.get("v5_fired_principles") or [])
@@ -6894,6 +6902,26 @@ async def _process_move_and_respond(
                     logger.exception("[live_v5.recall] lookup failed (non-fatal)")
                     _recall_block = None
 
+                # Phase 800-1400 vocab — first-encounter glossary prefix.
+                # Sub-1400 players don't know "pin"/"skewer"/etc. as
+                # vocab. On FIRST principle fire for this user, prepend a
+                # one-line definition. After acknowledgment (any later
+                # encounter), drop it. Best-effort; failure is silent.
+                _glossary_prefix = None
+                try:
+                    _glossary_pid = _v5_block.get("principle_id")
+                    _glossary_text = _glossary_for_principle(
+                        _glossary_pid, _user_doc.get("rating")
+                    )
+                    if _glossary_text and session_doc.get("user_id"):
+                        if await is_first_encounter(
+                            db, session_doc["user_id"], _glossary_pid
+                        ):
+                            _glossary_prefix = _glossary_text
+                except Exception:
+                    logger.exception("[live_v5.glossary] lookup failed (non-fatal)")
+                    _glossary_prefix = None
+
                 _insert_doc = {
                     "session_id": session_id,
                     "type": "v5_teaching",
@@ -6912,6 +6940,8 @@ async def _process_move_and_respond(
                 }
                 if _recall_block is not None:
                     _insert_doc["recall_block"] = _recall_block
+                if _glossary_prefix:
+                    _insert_doc["glossary_prefix"] = _glossary_prefix
                 _insert_result = await db.coach_messages.insert_one(_insert_doc)
 
                 # Persist the recall-suppression state so the next
@@ -6968,6 +6998,50 @@ async def _process_move_and_respond(
         except Exception:
             # V5 teaching is additive — never fail the move response.
             logger.exception(f"[live_v5] error surfacing teaching for session={session_id}")
+
+        # ═══════════════════════════════════════════════════════════
+        # 800-1400 habit-prompt cadence (locked 2026-05-19).
+        # ═══════════════════════════════════════════════════════════
+        # Fires every 5th USER move for sub-1400 players. Different
+        # message type ("habit_prompt") so frontend can style it as a
+        # process-reminder, not a tactical alert. Decoupled from the V5
+        # caption pipeline because this is a CADENCE behavior, not a
+        # per-move event detector. Best-effort; failure is silent.
+        try:
+            _hp_user_doc = await db.users.find_one(
+                {"user_id": session_doc.get("user_id")}
+            ) or {}
+            _hp_rating = _hp_user_doc.get("rating")
+            if (_hp_rating is None or _hp_rating < 1400) and move_number and move_number % 5 == 0:
+                # Don't double-fire if a habit_prompt was already
+                # surfaced for this exact move_number this session.
+                _hp_existing = await db.coach_messages.find_one({
+                    "session_id": session_id,
+                    "type": "habit_prompt",
+                    "move_number": move_number,
+                })
+                if not _hp_existing:
+                    _HABIT_PROMPTS = [
+                        "Pause — what is your opponent threatening right now?",
+                        "Quick check — any of your pieces hanging with no defender?",
+                        "Before moving — count attackers and defenders on every piece you might touch.",
+                        "Look at every check, capture, and threat — for both sides — before you commit.",
+                    ]
+                    _prompt_text = _HABIT_PROMPTS[(move_number // 5) % len(_HABIT_PROMPTS)]
+                    await db.coach_messages.insert_one({
+                        "session_id": session_id,
+                        "type": "habit_prompt",
+                        "move_number": move_number,
+                        "message": _prompt_text,
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                    })
+                    logger.info(
+                        f"[habit-prompt] session={session_id[:8]} move={move_number} "
+                        f"rating={_hp_rating} prompt={_prompt_text!r}"
+                    )
+        except Exception:
+            logger.exception("[habit-prompt] failed (non-fatal)")
 
         # ═══════════════════════════════════════════════════════════
         # NEW: Message Decision Engine (Step 2.5)

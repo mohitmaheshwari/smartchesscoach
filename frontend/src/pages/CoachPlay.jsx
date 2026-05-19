@@ -655,6 +655,8 @@ const CoachPlay = ({ user }) => {
                 move_san: msg.move_san,
                 // Phase 2.4 — cross-game recall block (optional, may be undefined)
                 recall_block: msg.recall_block,
+                // 800-1400 vocab — first-encounter glossary prefix (optional)
+                glossary_prefix: msg.glossary_prefix,
                 context: {
                   fen: msg.fen,
                   move_number: msg.move_number,

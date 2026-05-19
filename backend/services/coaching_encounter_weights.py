@@ -171,6 +171,27 @@ def necessity_threshold_for_user(user_rating: Optional[int]) -> float:
     return RATING_BAND_THRESHOLDS[_classify_rating_band(user_rating)]
 
 
+async def is_first_encounter(db, user_id: str, principle_id: str) -> bool:
+    """True if this is the user's first time seeing this principle —
+    no prior fire-count record exists. Used by the beginner-vocab
+    glossary expansion to prepend a definition on first encounter only.
+    Best-effort; on DB error returns False (no glossary prefix).
+    """
+    if not (db is not None and user_id and principle_id):
+        return False
+    try:
+        existing = await db.coaching_encounter_weights.find_one(
+            {"user_id": user_id, "principle_id": principle_id},
+            {"_id": 0, "fire_count": 1},
+        )
+        if not existing:
+            return True
+        return int(existing.get("fire_count") or 0) == 0
+    except Exception as e:
+        logger.warning(f"[encounter-weights] is_first_encounter failed (non-fatal): {e}")
+        return False
+
+
 def passes_necessity_gate(
     principle_id: Optional[str],
     weights: Dict[str, float],
