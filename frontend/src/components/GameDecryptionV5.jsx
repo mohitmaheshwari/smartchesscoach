@@ -833,13 +833,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           Pattern Evidence (visual proof on a mini board) shipped
           2026-05-05 — rendered when the game has tracked-pattern
           evidence (king-safety / piece-safety so far). */}
-      {/* TruthHeadline + GameMoments retired for "show only what's been
-          upgraded" testing — both are LLM voice surfaces (separate from
-          the new V5 caption pipeline). PatternEvidence stays — it's a
-          factual mini-board visualisation, not prose. */}
+      {/* TruthHeadline stays retired (LLM voice, separate workstream).
+          GameMoments restored 2026-05-20 (Mohit): the 3-candidate
+          turning-point puzzles is the load-bearing "highlights with
+          options" UX. PatternEvidence stays — factual mini-board. */}
       {false && <TruthHeadline truthLine={truthLine} decryptionBlock={decryptionBlock} userColor={userColor} />}
       <PatternEvidence patternEvidence={patternEvidence} userColor={userColor} />
-      {false && <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} gameId={gameId} />}
+      <GameMoments moments={decryptionBlock?.moments || []} userColor={userColor} gameId={gameId} />
 
     <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 p-4" data-testid="game-decryption-v5">
       {/* LEFT: Board + Controls */}
