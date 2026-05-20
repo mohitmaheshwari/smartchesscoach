@@ -44,8 +44,12 @@ import asyncio
 import json
 import os
 import re
+import sys
 from collections import Counter, defaultdict
 from typing import Any, Dict, List, Optional, Tuple
+
+# Make `services.*` importable when this script runs from /app/backend/scripts
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -91,11 +95,16 @@ def classify_caption(caption: str) -> Tuple[str, str]:
 
 # ── Audit ────────────────────────────────────────────────────────────
 
-async def audit(sample_size: int, user_filter: Optional[str]) -> None:
+async def audit(sample_size: int, user_filter: Optional[str], force_regen: bool) -> None:
     mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     db_name = os.environ.get("DB_NAME", "chess_coach")
     client = AsyncIOMotorClient(mongo_url)
     db = client[db_name]
+
+    from services.game_decryption_v5_service import (
+        generate_game_decryption_v5, V5_COACHING_VERSION,
+    )
+    from datetime import datetime, timezone
 
     # Pick recently-analyzed games with V5 data
     query: Dict[str, Any] = {"decryption_v5_data": {"$exists": True, "$ne": None}}
@@ -112,6 +121,55 @@ async def audit(sample_size: int, user_filter: Optional[str]) -> None:
     if not games:
         print("No analyzed games found. Exiting.")
         return
+
+    # Force regenerate any game whose stored V5 version is below the
+    # currently-shipped V5_COACHING_VERSION. Without this the audit
+    # measures stale cached captions, not what current code produces.
+    # Default: force-regen on (use --no-force-regen to measure the
+    # historical cache instead).
+    if force_regen:
+        stale_games = [g for g in games if g.get("decryption_v5_version", 0) < V5_COACHING_VERSION]
+        if stale_games:
+            print(f"Forcing regen of {len(stale_games)}/{len(games)} stale games at v{V5_COACHING_VERSION}...")
+            for i, g in enumerate(stale_games):
+                gid = g["game_id"]
+                full_game = await db.games.find_one({"game_id": gid}, {"_id": 0, "pgn": 1, "user_color": 1, "user_id": 1})
+                full_analysis = await db.game_analyses.find_one({"game_id": gid}, {"_id": 0, "stockfish_analysis": 1})
+                if not full_game or not full_analysis:
+                    continue
+                sa = full_analysis.get("stockfish_analysis") or {}
+                move_evals = sa.get("move_evaluations") or sa.get("moves") or []
+                if not full_game.get("pgn") or not move_evals:
+                    continue
+                try:
+                    new_v5 = await generate_game_decryption_v5(
+                        full_game["pgn"],
+                        full_game.get("user_color", "white"),
+                        move_evals,
+                        full_game.get("user_id") or "",
+                        db,
+                    )
+                except Exception as exc:
+                    print(f"  [{i+1}/{len(stale_games)}] {gid[:8]} regen failed: {exc}")
+                    continue
+                if not new_v5:
+                    continue
+                await db.game_analyses.update_one(
+                    {"game_id": gid},
+                    {"$set": {
+                        "decryption_v5_data": new_v5,
+                        "decryption_v5_version": V5_COACHING_VERSION,
+                        "decryption_v5_generated_at": datetime.now(timezone.utc).isoformat(),
+                    }},
+                )
+                # Update in-memory game with fresh data so the
+                # classification pass below measures it.
+                g["decryption_v5_data"] = new_v5
+                g["decryption_v5_version"] = V5_COACHING_VERSION
+                if (i + 1) % 5 == 0:
+                    print(f"  [{i+1}/{len(stale_games)}] regenerated...")
+            print(f"Regen complete. All {len(games)} games at v{V5_COACHING_VERSION}.")
+            print()
 
     # Walk user blunder moves
     by_tier = Counter()
@@ -206,8 +264,12 @@ def main():
     parser = argparse.ArgumentParser(description="V5 caption coverage audit")
     parser.add_argument("--sample", type=int, default=50, help="Number of games to scan (default 50)")
     parser.add_argument("--user", type=str, default=None, help="Restrict to one user_id")
+    parser.add_argument(
+        "--no-force-regen", action="store_true",
+        help="Skip force-regen; measure whatever's stored (use only to compare historical cache vs current code).",
+    )
     args = parser.parse_args()
-    asyncio.run(audit(args.sample, args.user))
+    asyncio.run(audit(args.sample, args.user, not args.no_force_regen))
 
 
 if __name__ == "__main__":
