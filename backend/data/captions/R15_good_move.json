@@ -1,0 +1,12 @@
+{
+  "rule_name": "R15_good_move",
+  "description": "Plain acknowledgment for user moves that match the engine with cp_loss == 0 and no higher-priority celebratory rule fired. Sub-1400 players need positive reinforcement.",
+  "fact_glossary": {
+    "played_san": "SAN of the move",
+    "phase": "Game phase — opening / middlegame / endgame (currently unused but available for future variants)"
+  },
+  "requires": ["played_san"],
+  "variants": {
+    "default": "{played_san} — engine's pick."
+  }
+}

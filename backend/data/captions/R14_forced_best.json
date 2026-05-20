@@ -1,0 +1,12 @@
+{
+  "rule_name": "R14_forced_best",
+  "description": "Fires when played is the engine's top choice in a losing position (cp_loss >= 100 but played_is_best). The player picked the best damage-control move available.",
+  "fact_glossary": {
+    "played_san": "SAN of the move"
+  },
+  "requires": ["played_san"],
+  "variants": {
+    "user": "{played_san} — only move. Best you've got in this position.",
+    "opp": "{played_san}. Opponent had no better move here."
+  }
+}

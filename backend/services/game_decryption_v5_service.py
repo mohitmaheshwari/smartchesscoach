@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 33  # v33 (2026-05-20): start of content/code split — R10_threat text moved out of caption_rules.py f-string into backend/data/captions/R10_threat.json. Python now calls render_template("R10_threat", "default", facts); JSON owns the phrasing. First rule migrated; remaining R-rules + promotion ladder migrate one-by-one in follow-up commits. LAW R3 updated: no user-facing strings in Python. v32: trap-defense celebration — when user plays a move IN the trap_line and engine likes it (cp_loss ≤ 20), promote a caption recognizing the precise defense ("d5 — correct response in the Fried Liver Attack. Keep playing precisely; the line isn't over."). Trap library labels move 'victim_falls' regardless of whether the victim defends or falls in, so we cross-reference with engine eval to distinguish. Mohit Italian Game / Fried Liver test — m4 USER d5 (the correct Fried Liver defense) was silent because R10/R11 didn't fire on a quiet good move and the trap_record was ignored. Now opening_record + trap_record + trap-defense + shape/principle/basic_mistake all surface through the promotion ladder. v31: silence R11_development — "Develops the X to Y" / "Opponent develops the X to Y" was pure narration of board events the user can already see. Mohit pushed back: tell user what they don't know, not what's on the board. R11 trigger conditions already exclude tactical content (cp<30, no capture/check/threat), so when R11 would fire there is by definition nothing new to teach. Honest silence per [[no-hollow-coverage]]; the promotion ladder still surfaces opening/trap/principle/shape teaching when those detectors hit. v30: opening + trap promotion (OVERRIDE). Mohit Italian Game / Fried Liver test — m3 Bc4 captioned "Opponent develops the bishop to c4" while opening_record carried {name:"Italian Game", summary:"A classic opening. Develop quickly, point your bishop at f7..."}. m4 Ng5 captioned "Opponent develops the knight to g5" while trap_record carried {name:"Fried Liver Attack", description:"A deadly knight sacrifice on f7..."}. Both fired in the data, both ignored by the renderer, replaced by useless narration. Now trap setup_completed and opening_record (matched ≥3 setup steps) OVERRIDE the main caption (not just fill empty). v29: shape+principle+basic_mistake promotion (FILL when caption empty). v28: "drops/loses N pawns" → severity tier. v27: patient-academic voice pass. v26: 800-1400 vocab. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
+V5_COACHING_VERSION = 34  # v34 (2026-05-20): full content/code split complete. All user-facing caption strings moved out of Python into backend/data/captions/*.json: R01_mate, R02_multi_target_attack, R03_aligned_pieces, R04_discovered_attack, R05_check_extra, R06_check_plain, R07_forced_recapture, R08_material, R09_king_safety, R10_threat (already done in v33), R12_blunder (severity tiers + 13 why-clause variants), R13_opening_central_pawn, R14_forced_best, R15_good_move + promotion ladder (trap_setup / trap_defense / opening / shape / principle / basic_mistake). LAW R3 ("no user-facing strings in Python") is now literally true across caption_rules.py and the V5 promotion ladder. Architecture docs moved to backend/data/captions/README.md so even prose lives outside .py files. Authoring is now JSON-only for Mohit + Parth. v33: start of content/code split (R10 only) — R10_threat text moved out of caption_rules.py f-string into backend/data/captions/R10_threat.json. Python now calls render_template("R10_threat", "default", facts); JSON owns the phrasing. First rule migrated; remaining R-rules + promotion ladder migrate one-by-one in follow-up commits. LAW R3 updated: no user-facing strings in Python. v32: trap-defense celebration — when user plays a move IN the trap_line and engine likes it (cp_loss ≤ 20), promote a caption recognizing the precise defense ("d5 — correct response in the Fried Liver Attack. Keep playing precisely; the line isn't over."). Trap library labels move 'victim_falls' regardless of whether the victim defends or falls in, so we cross-reference with engine eval to distinguish. Mohit Italian Game / Fried Liver test — m4 USER d5 (the correct Fried Liver defense) was silent because R10/R11 didn't fire on a quiet good move and the trap_record was ignored. Now opening_record + trap_record + trap-defense + shape/principle/basic_mistake all surface through the promotion ladder. v31: silence R11_development — "Develops the X to Y" / "Opponent develops the X to Y" was pure narration of board events the user can already see. Mohit pushed back: tell user what they don't know, not what's on the board. R11 trigger conditions already exclude tactical content (cp<30, no capture/check/threat), so when R11 would fire there is by definition nothing new to teach. Honest silence per [[no-hollow-coverage]]; the promotion ladder still surfaces opening/trap/principle/shape teaching when those detectors hit. v30: opening + trap promotion (OVERRIDE). Mohit Italian Game / Fried Liver test — m3 Bc4 captioned "Opponent develops the bishop to c4" while opening_record carried {name:"Italian Game", summary:"A classic opening. Develop quickly, point your bishop at f7..."}. m4 Ng5 captioned "Opponent develops the knight to g5" while trap_record carried {name:"Fried Liver Attack", description:"A deadly knight sacrifice on f7..."}. Both fired in the data, both ignored by the renderer, replaced by useless narration. Now trap setup_completed and opening_record (matched ≥3 setup steps) OVERRIDE the main caption (not just fill empty). v29: shape+principle+basic_mistake promotion (FILL when caption empty). v28: "drops/loses N pawns" → severity tier. v27: patient-academic voice pass. v26: 800-1400 vocab. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -63,9 +63,11 @@ try:
     from services.caption_facts import extract_facts as _extract_caption_facts
     from services.caption_renderer import render_caption_dict as _render_caption_dict
     from services.caption_principles import PRINCIPLES_BY_ID as _CAPTION_PRINCIPLES_BY_ID
+    from services.caption_templates import render_template as _render_promotion_template
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
     _render_caption_dict = None
+    _render_promotion_template = None
     logger.warning(f"[caption_v5] import failed; pipeline disabled: {_caption_import_exc}")
     CAPTION_V5_PIPELINE_ENABLED = False
 
@@ -3486,37 +3488,31 @@ async def generate_game_decryption_v5(
             #
             # Voice: prefix with the move SAN. NOT a fallback template
             # — concrete content the detectors produced for THIS move.
+            # ── CONTENT PROMOTION ────────────────────────────────────
+            # All caption text lives in backend/data/captions/R_PROMOTED_*.json.
+            # Python decides WHICH tier applies; JSON decides WHAT it says.
+            # See backend/data/captions/README.md for authoring guide.
             try:
                 promoted: Optional[str] = None
                 promoted_source: Optional[str] = None
+
                 # ── Tier 1a: trap setup_completed (HIGHEST priority)
-                # Only fires on the move that COMPLETES the trap setup
-                # (step_label="setup_completed"). Subsequent moves in
-                # the trap_line have ambiguous semantics (the "victim
-                # falls" path is the same node whether the user defends
-                # or falls in), so we keep teaching to the setup
-                # moment only.
                 if trap_record and trap_record.get("step_label") == "setup_completed":
                     tn = trap_record.get("name") or ""
                     td = trap_record.get("description") or ""
                     if tn:
                         by_opponent = not bool(trap_record.get("this_move_by_user"))
                         if by_opponent:
-                            promoted = f"{move_san} — {tn} setup."
+                            variant = "by_opp_with_desc" if td else "by_opp"
                         else:
-                            promoted = f"{move_san} — you set up the {tn}."
-                        if td:
-                            promoted = f"{promoted} {td}"
+                            variant = "by_user_with_desc" if td else "by_user"
+                        promoted = _render_promotion_template(
+                            "R_PROMOTED_trap_setup", variant,
+                            {"move_san": move_san, "trap_name": tn, "trap_description": td},
+                        ) if _render_promotion_template else None
                         promoted_source = f"R_PROMOTED_trap:{tn.lower().replace(' ', '_')}"
-                # ── Tier 1a-bis (Mohit 2026-05-20): user defends a trap
-                # When the user plays a move IN a trap_line AND the
-                # engine likes it (cp_loss small), recognize them as
-                # holding the line. The trap library mislabels these
-                # as 'victim_falls' (its semantic is 'move in trap_line
-                # by victim' regardless of whether the victim defends
-                # or falls in) — so we cross-reference with engine eval
-                # to distinguish. Caption celebrates the precise play
-                # and reminds the trap is still on.
+
+                # ── Tier 1a-bis: user defends a named trap (engine approves)
                 elif (
                     trap_record
                     and trap_record.get("this_move_by_user")
@@ -3525,23 +3521,22 @@ async def generate_game_decryption_v5(
                     and (cp_loss or 0) <= 20
                 ):
                     tn = trap_record.get("name") or ""
-                    if tn:
-                        promoted = (
-                            f"{move_san} — correct response in the {tn}. "
-                            "Keep playing precisely; the line isn't over."
+                    if tn and _render_promotion_template:
+                        promoted = _render_promotion_template(
+                            "R_PROMOTED_trap_defense", "default",
+                            {"move_san": move_san, "trap_name": tn},
                         )
-                        promoted_source = (
-                            f"R_PROMOTED_trap_defense:{tn.lower().replace(' ', '_')}"
-                        )
+                        promoted_source = f"R_PROMOTED_trap_defense:{tn.lower().replace(' ', '_')}"
+
                 # ── Tier 1b: opening_record (matched ≥3 setup steps)
-                # opening_record is non-None only on the move where
-                # the opening tree first matched (one per opening per
-                # game). Use its name + summary as the main caption.
                 elif opening_record and opening_record.get("name") and opening_record.get("summary"):
                     on = opening_record["name"]
-                    osum = opening_record["summary"]
-                    promoted = f"{move_san} — {on}. {osum}"
-                    promoted_source = f"R_PROMOTED_opening:{on.lower().replace(' ', '_')}"
+                    if _render_promotion_template:
+                        promoted = _render_promotion_template(
+                            "R_PROMOTED_opening", "default",
+                            {"move_san": move_san, "opening_name": on, "opening_summary": opening_record["summary"]},
+                        )
+                        promoted_source = f"R_PROMOTED_opening:{on.lower().replace(' ', '_')}"
 
                 # ── Tier 2: FILL (only when caption is empty)
                 if not promoted and not caption_payload.get("caption"):
@@ -3553,32 +3548,40 @@ async def generate_game_decryption_v5(
                         shape_pattern_record.get("pattern_desc")
                         if shape_pattern_record else None
                     )
-                    if sp_name and sp_desc:
-                        promoted = f"{move_san} — {sp_name}. {sp_desc}"
-                        promoted_source = (
-                            f"R_PROMOTED_shape:{shape_pattern_record.get('pattern_id')}"
+                    if sp_name and sp_desc and _render_promotion_template:
+                        promoted = _render_promotion_template(
+                            "R_PROMOTED_shape", "default",
+                            {"move_san": move_san, "shape_pattern_name": sp_name, "shape_pattern_desc": sp_desc},
                         )
-                    elif principle_cue:
-                        promoted = f"{move_san}. {principle_cue}"
-                        promoted_source = (
-                            f"R_PROMOTED_principle:{principle_id_used or 'unknown'}"
+                        promoted_source = f"R_PROMOTED_shape:{shape_pattern_record.get('pattern_id')}"
+                    elif principle_cue and _render_promotion_template:
+                        promoted = _render_promotion_template(
+                            "R_PROMOTED_principle", "default",
+                            {"move_san": move_san, "principle_cue": principle_cue},
                         )
+                        promoted_source = f"R_PROMOTED_principle:{principle_id_used or 'unknown'}"
                     elif (
                         is_user
                         and (cp_loss or 0) >= 50
                         and best_move
                         and best_move != move_san
+                        and _render_promotion_template
                     ):
-                        # Last-resort: real mistake with NO shape, NO
-                        # principle, NO firing R-rule. Severity tier
-                        # per [[cp-loss-is-not-material]].
-                        if (cp_loss or 0) >= 400:
-                            sev_phrase = "is a major blunder"
-                        elif (cp_loss or 0) >= 250:
-                            sev_phrase = "is a serious mistake"
+                        # Severity tier per [[cp-loss-is-not-material]].
+                        cpl_int = cp_loss or 0
+                        if cpl_int >= 400:
+                            sev_key = "blunder"
+                        elif cpl_int >= 250:
+                            sev_key = "serious"
                         else:
-                            sev_phrase = "is a mistake"
-                        promoted = f"{move_san} {sev_phrase}. {best_move} was better."
+                            sev_key = "mistake"
+                        from services.caption_templates import _load_all as _load_caption_cfg
+                        sev_cfg = (_load_caption_cfg().get("R_PROMOTED_basic_mistake") or {})
+                        sev_phrase = (sev_cfg.get("severity_phrases") or {}).get(sev_key, "")
+                        promoted = _render_promotion_template(
+                            "R_PROMOTED_basic_mistake", "default",
+                            {"move_san": move_san, "best_move": best_move, "severity_phrase": sev_phrase},
+                        )
                         promoted_source = "R_PROMOTED_basic_mistake"
 
                 if promoted:

@@ -1,0 +1,16 @@
+{
+  "rule_name": "R02_multi_target_attack",
+  "description": "Fires when a move attacks two or more targets at once (fork / double attack). Renders different phrasing for dual-pawn attacks (which aren't true forks) vs piece forks.",
+  "fact_glossary": {
+    "played_san": "SAN of the move",
+    "t0_piece_type": "First target piece type",
+    "t0_square": "First target square",
+    "t1_piece_type": "Second target piece type (if any)",
+    "t1_square": "Second target square (if any)"
+  },
+  "variants": {
+    "single_target": "{played_san} attacks the {t0_piece_type} on {t0_square}.",
+    "fork_pieces": "{played_san} forks the {t0_piece_type} on {t0_square} and the {t1_piece_type} on {t1_square}.",
+    "fork_both_pawns": "{played_san} attacks the pawns on {t0_square} and {t1_square} — likely wins one."
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "rule_name": "R08_material",
+  "description": "Fires when a move wins material. Variant chosen by side (user/opp) × whether the captured piece was uncontested (no defender) × whether the move was an actual capture.",
+  "fact_glossary": {
+    "played_san": "SAN of the move",
+    "captured_piece_type": "Piece type that was captured (or 'piece' as fallback)"
+  },
+  "requires": ["played_san"],
+  "variants": {
+    "user_uncontested": "{played_san}. Free {captured_piece_type} — nothing recaptures.",
+    "user_capture": "{played_san} — takes the {captured_piece_type}.",
+    "user_no_capture": "{played_san}. Wins material in the resulting line.",
+    "opp_uncontested": "{played_san}. Opponent grabs the {captured_piece_type} — nothing was defending it.",
+    "opp_capture": "{played_san}. Opponent takes the {captured_piece_type}.",
+    "opp_no_capture": "{played_san}. Opponent improves."
+  }
+}

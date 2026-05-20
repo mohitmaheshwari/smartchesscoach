@@ -1,0 +1,44 @@
+{
+  "rule_name": "R12_blunder",
+  "description": "Fires on moves with significant eval loss (cp_loss >= 100). Severity tier and side-specific framing. A concrete WHY clause (one of many variants below) is appended when the extractor produced the supporting facts; otherwise the main line stands alone.",
+  "fact_glossary": {
+    "played_san": "SAN of the move played",
+    "best_move_san": "Engine's preferred move (when different from played)",
+    "severity_phrase": "One of: 'is a mistake' / 'is a serious mistake' / 'is a major blunder' — picked from severity_phrases below by cp_loss tier",
+    "why_clause": "Optional appended sentence — rendered from one of the why_* variants below, or empty if no supporting fact",
+    "moving_piece_type": "Type of the piece that just moved",
+    "target_square": "Square the move landed on",
+    "opp_reply_san": "Opponent's strongest reply (PV[0] after the played move)",
+    "captured_piece_type": "Piece type the opponent's reply would capture",
+    "user_best_reply_san": "User's strongest reply after an opp blunder",
+    "piece_type": "Piece-type generic placeholder used by hanging-piece why-clauses",
+    "square": "Square placeholder used by hanging-piece why-clauses"
+  },
+  "severity_phrases": {
+    "blunder": "is a major blunder",
+    "serious": "is a serious mistake",
+    "mistake": "is a mistake"
+  },
+  "variants": {
+    "user_with_best": "{played_san} {severity_phrase}. {best_move_san} was better.",
+    "user_with_best_and_why": "{played_san} {severity_phrase}. {best_move_san} was better. {why_clause}",
+    "user_no_best": "{played_san} {severity_phrase}.",
+    "user_no_best_with_why": "{played_san} {severity_phrase}. {why_clause}",
+    "opp": "Opponent's {played_san} {severity_phrase}.",
+    "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
+
+    "why_user_attacks_played": "After {opp_reply_san}, your {moving_piece_type} on {target_square} has no safe square.",
+    "why_user_exchange_losing_with_reply": "After {opp_reply_san}, your {moving_piece_type} on {target_square} falls.",
+    "why_user_exchange_losing_no_reply": "Your {moving_piece_type} on {target_square} can't be defended.",
+    "why_user_hanging": "Your {piece_type} on {square} is now undefended.",
+    "why_user_capture": "Opponent plays {opp_reply_san} winning your {captured_piece_type}.",
+    "why_user_check": "Opponent has {opp_reply_san} forcing your king.",
+    "why_user_reply": "Opponent's strongest reply: {opp_reply_san}.",
+
+    "why_opp_punish_capture": "You can play {user_best_reply_san} winning the {captured_piece_type}.",
+    "why_opp_punish_check": "You can play {user_best_reply_san} with a forcing reply.",
+    "why_opp_punish_default": "You can play {user_best_reply_san} to punish it.",
+    "why_opp_hanging": "Their {piece_type} on {square} is now undefended — take it.",
+    "why_opp_unsafe": "Their {moving_piece_type} on {target_square} has no escape."
+  }
+}

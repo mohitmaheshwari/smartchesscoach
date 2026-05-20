@@ -1,0 +1,17 @@
+{
+  "rule_name": "R03_aligned_pieces",
+  "description": "Fires when a piece is pinned, skewered, or x-rayed by another. Variant chosen by which piece is in front/behind and which (if any) is the king.",
+  "fact_glossary": {
+    "played_san": "SAN of the move",
+    "front_piece_type": "The closer piece on the line of attack",
+    "front_square": "Front piece's square",
+    "rear_piece_type": "The piece behind",
+    "rear_square": "Rear piece's square"
+  },
+  "variants": {
+    "pin_to_king": "{played_san}. Pins the {front_piece_type} on {front_square} to the king.",
+    "skewer_king": "{played_san}. Skewers the king on {front_square} — when it moves, the {rear_piece_type} on {rear_square} is exposed.",
+    "pin_front_lower": "{played_san}. Pins the {front_piece_type} on {front_square} against the {rear_piece_type} on {rear_square}.",
+    "xray_default": "{played_san}. Lines up the {front_piece_type} on {front_square} in front of the {rear_piece_type}."
+  }
+}

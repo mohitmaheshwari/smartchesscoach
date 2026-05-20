@@ -1,0 +1,14 @@
+{
+  "rule_name": "R04_discovered_attack",
+  "description": "Fires when a move opens a line so a piece behind it attacks a target.",
+  "fact_glossary": {
+    "played_san": "SAN of the move",
+    "discovered_attacker_piece_type": "The piece that was uncovered (now does the attacking)",
+    "target_piece_type": "Piece being attacked",
+    "target_square": "Square of the attacked piece"
+  },
+  "requires": ["played_san", "discovered_attacker_piece_type", "target_piece_type", "target_square"],
+  "variants": {
+    "default": "{played_san} uncovers the {discovered_attacker_piece_type} hitting the {target_piece_type} on {target_square}."
+  }
+}

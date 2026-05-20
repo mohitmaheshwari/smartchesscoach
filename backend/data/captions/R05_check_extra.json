@@ -1,0 +1,13 @@
+{
+  "rule_name": "R05_check_extra",
+  "description": "Fires when a move delivers check AND also attacks another piece. The 'discovered tactic' caption.",
+  "fact_glossary": {
+    "played_san": "SAN of the move",
+    "target_piece_type": "Piece attacked alongside the check",
+    "target_square": "Square of the attacked piece"
+  },
+  "requires": ["played_san", "target_piece_type", "target_square"],
+  "variants": {
+    "default": "{played_san} — check, and attacks the {target_piece_type} on {target_square} too."
+  }
+}

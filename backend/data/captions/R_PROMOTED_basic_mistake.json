@@ -1,0 +1,18 @@
+{
+  "rule_name": "R_PROMOTED_basic_mistake",
+  "description": "Last-resort fallback for a real user mistake (cp_loss >= 50) with a clear better_move but NO shape / NO principle / NO firing R-rule. Severity tier respects the locked rule from memory/feedback_cp_loss_is_not_material.md — never translate cp_loss to 'X pawns lost'.",
+  "fact_glossary": {
+    "move_san": "SAN of the played mistake",
+    "best_move": "Engine's preferred move",
+    "severity_phrase": "Picked from severity_phrases below by cp_loss tier"
+  },
+  "severity_phrases": {
+    "blunder": "is a major blunder",
+    "serious": "is a serious mistake",
+    "mistake": "is a mistake"
+  },
+  "requires": ["move_san", "best_move", "severity_phrase"],
+  "variants": {
+    "default": "{move_san} {severity_phrase}. {best_move} was better."
+  }
+}

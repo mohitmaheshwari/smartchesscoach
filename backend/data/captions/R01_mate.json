@@ -1,0 +1,30 @@
+{
+  "rule_name": "R01_mate",
+  "description": "Fires when the engine sees a mate-in-N in the position. Highest priority. Many sub-templates because the framing depends on (a) who delivers mate (b) from whose POV (c) how many plies away (d) whether mate was already on the board before the move.",
+  "fact_glossary": {
+    "played_san": "SAN of the move played",
+    "ply": "Number of plies to mate (1, 2, 3, ...) or null when engine has no clean ply count",
+    "pawn_swing": "Eval swing rounded to pawns (1-9) — used as a fallback when there's no ply count",
+    "moving_piece_type": "Used by some variants; mostly informational"
+  },
+  "variants": {
+    "delivered": "{played_san}. Checkmate.",
+    "user_forces_p1": "{played_san}. Forces mate next move.",
+    "user_forces_pN": "{played_san}. Forces mate in {ply}.",
+    "user_forces_noplycount": "{played_san}. Wins by force.",
+    "opp_forces_p1": "{played_san}. Opp threatens mate next move.",
+    "opp_forces_pN": "{played_san}. Opp threatens mate in {ply}.",
+    "opp_forces_noplycount": "{played_san}. Opp is winning by force.",
+    "mate_on_for_user_p1": "{played_san}. Mate is on for you next move.",
+    "mate_on_for_user_pN": "{played_san}. Mate is on for you in {ply}.",
+    "mate_on_for_user_pawns": "{played_san}. Opponent gives up about {pawn_swing} pawns of advantage.",
+    "mate_on_for_user_bare": "{played_san}. Opponent's position swings against them.",
+    "user_misses_defense_p1": "{played_san} misses the defense against mate next move.",
+    "user_misses_defense_pN": "{played_san} misses the defense against mate in {ply}.",
+    "user_already_lost": "{played_san} — the position was already lost before this move.",
+    "user_allows_p1": "{played_san} allows mate next move.",
+    "user_allows_pN": "{played_san} allows mate in {ply}.",
+    "user_allows_pawns": "{played_san} swings the position by about {pawn_swing} pawns.",
+    "user_allows_bare": "{played_san} — engine sees the position turning against you."
+  }
+}

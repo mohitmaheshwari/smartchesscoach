@@ -1,0 +1,11 @@
+{
+  "rule_name": "R06_check_plain",
+  "description": "Plain check — no extra tactic alongside. Fires only when cp_loss < 30 (otherwise R12_blunder takes over and frames the check as the mistake it is).",
+  "fact_glossary": {
+    "played_san": "SAN of the move"
+  },
+  "requires": ["played_san"],
+  "variants": {
+    "default": "{played_san} — check. King must move or block."
+  }
+}
