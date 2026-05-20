@@ -11,8 +11,12 @@ ARCHITECTURE LAWS (enforced by review + grep test):
            extractor produces it. Templates only do format-string
            substitution from existing facts.
 
-  LAW R3 — Single template per rule. No variant phrasings in v1.
-           Compression + correctness only.
+  LAW R3 — No user-facing strings in Python (Mohit 2026-05-20). Caption
+           text, severity words, opening/trap/principle blurbs all live
+           in `backend/data/captions/*.json`. Render functions call
+           `render_template(rule_name, variant, facts)` and pass through
+           the result. Python decides WHICH variant to use; JSON decides
+           WHAT it says. Content is authored by Mohit + Parth, not Claude.
 
   LAW R4 — Rules are pure data. A `Rule` is (category, name, priority,
            trigger function, render function). The trigger function
@@ -36,6 +40,7 @@ from services.caption_config import (
     MIN_MATERIAL_CAPTION_GAIN_CP,
     MIN_THREAT_SEE_CP,
 )
+from services.caption_templates import render_template
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -457,10 +462,13 @@ def _r10_trigger(f):
 
 def _r10_render(f):
     threat = max(f["threats_created"], key=lambda t: t.get("see_cp", 0))
-    cap = (
-        f"{_played(f)} threatens the {threat['target_piece_type']} "
-        f"on {threat['target_square']}."
-    )
+    # Caption text is authored in backend/data/captions/R10_threat.json.
+    # Python only assembles the fact bundle and the board annotations.
+    cap = render_template("R10_threat", "default", {
+        "played_san": _played(f),
+        "target_piece_type": threat.get("target_piece_type"),
+        "target_square": threat.get("target_square"),
+    }) or ""
     return CaptionOutput(
         cap,
         highlight_squares=[threat["target_square"], threat["attacker_square"]],

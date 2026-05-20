@@ -1,0 +1,13 @@
+{
+  "rule_name": "R10_threat",
+  "description": "Fires when a move creates a non-trivial threat (see_cp >= MIN_THREAT_SEE_CP) and no higher-priority tactic above it caught it. Authored by content team (Mohit + Parth) — no Python edits.",
+  "fact_glossary": {
+    "played_san": "SAN of the move that was just played (e.g. 'Na5', 'Bxc4')",
+    "target_piece_type": "Type of the threatened piece — one of: pawn, knight, bishop, rook, queen, king",
+    "target_square": "Square the threatened piece sits on (e.g. 'c4', 'h8')"
+  },
+  "requires": ["played_san", "target_piece_type", "target_square"],
+  "variants": {
+    "default": "{played_san} threatens the {target_piece_type} on {target_square}."
+  }
+}
