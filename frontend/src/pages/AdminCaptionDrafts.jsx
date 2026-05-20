@@ -9,13 +9,37 @@
  *
  * Auth: admin-only.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { Chess } from "chess.js";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
 import { Loader2, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+
+
+const sanToArrow = (fen, san, color) => {
+  if (!fen || !san) return null;
+  try {
+    const game = new Chess(fen);
+    const move = game.move(san, { sloppy: true });
+    if (!move) return null;
+    return [move.from, move.to, color];
+  } catch {
+    return null;
+  }
+};
+
+const buildArrowsFromContext = (pos) => {
+  if (!pos) return [];
+  const arrows = [];
+  const played = sanToArrow(pos.fen_before, pos.move_san, "red");
+  if (played) arrows.push(played);
+  const best = sanToArrow(pos.fen_before, pos.best_move_san, "green");
+  if (best) arrows.push(best);
+  return arrows;
+};
 
 const AdminCaptionDrafts = ({ user }) => {
   const [drafts, setDrafts] = useState([]);
@@ -172,12 +196,13 @@ const DraftCard = ({ draft, onApprove, onReject }) => {
 
       {pos.fen_before && (
         <div className="flex gap-4">
-          <div className="w-40 h-40 flex-shrink-0">
+          <div className="w-64 h-64 flex-shrink-0">
             <LichessBoard
               fen={pos.fen_before}
               orientation={pos.is_white ? "white" : "black"}
               interactive={false}
               viewOnly={true}
+              arrows={buildArrowsFromContext(pos)}
             />
           </div>
           <div className="flex-1 text-xs text-zinc-400 space-y-1">
@@ -186,9 +211,18 @@ const DraftCard = ({ draft, onApprove, onReject }) => {
               · {pos.move_san}
             </div>
             <div>cp_loss: {pos.cp_loss}</div>
-            {pos.best_move_san && (
-              <div>best: {pos.best_move_san}</div>
-            )}
+            <div className="flex items-center gap-3 text-[10px] mt-2">
+              <span className="flex items-center gap-1 text-red-300">
+                <span className="inline-block w-3 h-1 bg-red-500" />
+                played: {pos.move_san}
+              </span>
+              {pos.best_move_san && (
+                <span className="flex items-center gap-1 text-emerald-300">
+                  <span className="inline-block w-3 h-1 bg-emerald-500" />
+                  best: {pos.best_move_san}
+                </span>
+              )}
+            </div>
             <div className="text-zinc-500 mt-2">
               Caption observed: {pos.caption_observed || "(none)"}
             </div>

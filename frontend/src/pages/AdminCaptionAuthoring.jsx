@@ -12,11 +12,38 @@
  * Auth: admin-only (backend enforces require_admin on every route).
  */
 import { useState, useEffect, useMemo } from "react";
+import { Chess } from "chess.js";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
 import { Loader2, X, RefreshCw } from "lucide-react";
+
+
+// Resolve a SAN move on a FEN to a [from, to, color] arrow tuple.
+// Returns null when the SAN can't be parsed against the position.
+const sanToArrow = (fen, san, color) => {
+  if (!fen || !san) return null;
+  try {
+    const game = new Chess(fen);
+    const move = game.move(san, { sloppy: true });
+    if (!move) return null;
+    return [move.from, move.to, color];
+  } catch {
+    return null;
+  }
+};
+
+// Build the two arrows for a position: red on the played move,
+// green on the engine's recommended move.
+const buildPositionArrows = (position) => {
+  const arrows = [];
+  const played = sanToArrow(position.fen_before, position.move_san, "red");
+  if (played) arrows.push(played);
+  const best = sanToArrow(position.fen_before, position.best_move_san, "green");
+  if (best) arrows.push(best);
+  return arrows;
+};
 
 const TIER_COLOURS = {
   HIGH: "bg-emerald-500",
@@ -279,15 +306,17 @@ const TemplateCard = ({ tpl, total, onEdit }) => {
 const PositionCard = ({ position, template, onEdit }) => {
   const fen = position.fen_before;
   const orient = position.is_white ? "white" : "black";
+  const arrows = useMemo(() => buildPositionArrows(position), [position]);
   return (
     <div className="border border-zinc-800 rounded p-3 bg-zinc-900/30">
       <div className="flex gap-3">
-        <div className="w-40 h-40 flex-shrink-0">
+        <div className="w-64 h-64 flex-shrink-0">
           <LichessBoard
             fen={fen}
             orientation={orient}
             interactive={false}
             viewOnly={true}
+            arrows={arrows}
           />
         </div>
         <div className="flex-1 min-w-0 space-y-2">
@@ -296,16 +325,23 @@ const PositionCard = ({ position, template, onEdit }) => {
             · {position.move_san}{" "}
             <span className="text-zinc-500">(cp_loss {position.cp_loss})</span>
           </div>
+          <div className="flex items-center gap-3 text-[10px]">
+            <span className="flex items-center gap-1 text-red-300">
+              <span className="inline-block w-3 h-1 bg-red-500" />
+              played: {position.move_san}
+            </span>
+            {position.best_move_san && (
+              <span className="flex items-center gap-1 text-emerald-300">
+                <span className="inline-block w-3 h-1 bg-emerald-500" />
+                best: {position.best_move_san}
+              </span>
+            )}
+          </div>
           <div className="text-sm text-zinc-200 leading-relaxed">
             {position.caption || (
               <span className="italic text-zinc-500">(no caption)</span>
             )}
           </div>
-          {position.best_move_san && (
-            <div className="text-xs text-zinc-500">
-              best: {position.best_move_san}
-            </div>
-          )}
           {template.json_path && (
             <Button
               size="sm"
@@ -449,12 +485,13 @@ const EditModal = ({ target, onClose, onCommitted }) => {
         </div>
 
         <div className="flex gap-4">
-          <div className="w-56 h-56 flex-shrink-0">
+          <div className="w-80 h-80 flex-shrink-0">
             <LichessBoard
               fen={target.position.fen_before}
               orientation={target.position.is_white ? "white" : "black"}
               interactive={false}
               viewOnly={true}
+              arrows={buildPositionArrows(target.position)}
             />
           </div>
           <div className="flex-1 space-y-3">
