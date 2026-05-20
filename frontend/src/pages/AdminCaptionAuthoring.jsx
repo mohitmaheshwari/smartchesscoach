@@ -392,13 +392,14 @@ const EditModal = ({ target, onClose, onCommitted }) => {
     }
   };
 
-  const runCommit = async () => {
-    if (!window.confirm(`Commit new template to ${parsed.file} → ${parsed.variant}?`))
-      return;
+  const [submitMsg, setSubmitMsg] = useState(null);
+
+  const runSubmit = async () => {
     setBusy(true);
     setErr(null);
+    setSubmitMsg(null);
     try {
-      const res = await fetch(`${API}/admin/captions/commit`, {
+      const res = await fetch(`${API}/admin/captions/submit`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -406,6 +407,15 @@ const EditModal = ({ target, onClose, onCommitted }) => {
           file: parsed.file,
           variant: parsed.variant,
           template: draft,
+          position_context: {
+            game_id: target.position.game_id,
+            move_number: target.position.move_number,
+            move_san: target.position.move_san,
+            fen_before: target.position.fen_before,
+            caption_observed: target.position.caption,
+            best_move_san: target.position.best_move_san,
+            cp_loss: target.position.cp_loss,
+          },
         }),
       });
       if (!res.ok) {
@@ -413,7 +423,8 @@ const EditModal = ({ target, onClose, onCommitted }) => {
         setErr(text);
         return;
       }
-      onCommitted();
+      const data = await res.json();
+      setSubmitMsg(`Submitted for review. Draft ID: ${data.draft_id?.slice(0, 8)}. Visit /admin/captions/drafts to approve.`);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -470,14 +481,19 @@ const EditModal = ({ target, onClose, onCommitted }) => {
                 Preview
               </Button>
               <Button
-                onClick={runCommit}
+                onClick={runSubmit}
                 disabled={busy || draft === current}
                 size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                Commit to JSON
+                Submit for review
               </Button>
             </div>
+            {submitMsg && (
+              <div className="text-sm p-2 rounded bg-blue-950/30 border border-blue-800 text-blue-200">
+                {submitMsg}
+              </div>
+            )}
             {preview && (
               <div className="text-sm p-2 rounded bg-emerald-950/30 border border-emerald-800 text-emerald-200">
                 <span className="text-xs text-emerald-400 block mb-1">

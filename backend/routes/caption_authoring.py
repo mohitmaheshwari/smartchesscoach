@@ -228,12 +228,6 @@ async def preview_endpoint(req: PreviewRequest = Body(...), user: User = Depends
 
 # ── /commit endpoint ─────────────────────────────────────────────────
 
-class CommitRequest(BaseModel):
-    file: str  # e.g. "R12_blunder.json"
-    variant: str  # e.g. "why_user_reply"
-    template: str
-
-
 _CAPTIONS_DIR = os.path.join(
     os.path.dirname(__file__), "..", "data", "captions",
 )
@@ -242,38 +236,165 @@ _ALLOWED_FILES = {
 } if os.path.isdir(_CAPTIONS_DIR) else set()
 
 
-@router.post("/admin/captions/commit")
-async def commit_endpoint(req: CommitRequest = Body(...), user: User = Depends(require_admin)):
-    """Write the new template into the JSON file's variants block.
+# ── Drafts queue (Mohit 2026-05-20) ──────────────────────────────────
+# Authors don't write directly to JSON anymore. Submissions land in
+# `caption_drafts` for Claude to review (chess accuracy, placeholder
+# validity, voice), then Mohit/Parth approve in the UI — only then
+# does the template hit the JSON file.
+
+class SubmitRequest(BaseModel):
+    file: str
+    variant: str
+    template: str
+    position_context: Optional[Dict[str, Any]] = None  # FEN, move, caption
+
+
+def _read_current_template(file: str, variant: str) -> Optional[str]:
+    if file not in _ALLOWED_FILES:
+        return None
+    path = os.path.join(_CAPTIONS_DIR, file)
+    with open(path, "r", encoding="utf-8") as fp:
+        data = json.load(fp)
+    return (data.get("variants") or {}).get(variant)
+
+
+@router.post("/admin/captions/submit")
+async def submit_endpoint(req: SubmitRequest = Body(...), user: User = Depends(require_admin)):
+    """Queue a new template for review. Does NOT touch the JSON file.
 
     Path safety:
-      - Filename must be one of the existing JSON files in
-        backend/data/captions/ (no path traversal).
-      - Variant key must already exist in the file's variants dict
-        (we don't allow creating brand-new variants via this endpoint;
-        that's a code-level decision that needs predicate wiring too).
+      - Filename must be in backend/data/captions/.
+      - Variant must already exist (creating new variants needs
+        predicate wiring — not exposed via this endpoint).
     """
+    if db is None:
+        raise HTTPException(500, "Database not initialized")
     if req.file not in _ALLOWED_FILES:
         raise HTTPException(400, f"Unknown file: {req.file}")
-    path = os.path.join(_CAPTIONS_DIR, req.file)
+    current = _read_current_template(req.file, req.variant)
+    if current is None:
+        raise HTTPException(
+            400, f"Variant '{req.variant}' does not exist in {req.file}.",
+        )
+    if req.template == current:
+        raise HTTPException(400, "Proposed template is identical to current.")
+    import uuid
+    from datetime import datetime, timezone
+    draft = {
+        "draft_id": str(uuid.uuid4()),
+        "file": req.file,
+        "variant": req.variant,
+        "current_template": current,
+        "proposed_template": req.template,
+        "position_context": req.position_context or {},
+        "author_email": getattr(user, "email", None),
+        "author_name": getattr(user, "name", None),
+        "status": "pending",
+        "claude_review": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "reviewed_at": None,
+        "approved_at": None,
+    }
+    await db.caption_drafts.insert_one(draft)
+    return {"ok": True, "draft_id": draft["draft_id"]}
+
+
+@router.get("/admin/captions/drafts")
+async def drafts_endpoint(status: str = "pending", user: User = Depends(require_admin)):
+    """List drafts, default to pending only."""
+    if db is None:
+        raise HTTPException(500, "Database not initialized")
+    cursor = db.caption_drafts.find(
+        {"status": status},
+        {"_id": 0},
+    ).sort("created_at", -1).limit(100)
+    return {"drafts": await cursor.to_list(length=100)}
+
+
+class ReviewRequest(BaseModel):
+    claude_review: str  # text review from Claude
+
+
+@router.post("/admin/captions/drafts/{draft_id}/review")
+async def review_endpoint(draft_id: str, req: ReviewRequest = Body(...), user: User = Depends(require_admin)):
+    """Attach Claude's review text to a draft. Doesn't change status —
+    Mohit/Parth still need to approve/reject explicitly."""
+    if db is None:
+        raise HTTPException(500, "Database not initialized")
+    from datetime import datetime, timezone
+    result = await db.caption_drafts.update_one(
+        {"draft_id": draft_id},
+        {"$set": {
+            "claude_review": req.claude_review,
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Draft not found")
+    return {"ok": True}
+
+
+@router.post("/admin/captions/drafts/{draft_id}/approve")
+async def approve_endpoint(draft_id: str, user: User = Depends(require_admin)):
+    """Approve a draft — THIS is what writes the new template to the
+    JSON file. Mohit/Parth click this only after reviewing Claude's
+    feedback (if any)."""
+    if db is None:
+        raise HTTPException(500, "Database not initialized")
+    draft = await db.caption_drafts.find_one({"draft_id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Draft not found")
+    if draft["status"] != "pending":
+        raise HTTPException(400, f"Draft already {draft['status']}")
+    if draft["file"] not in _ALLOWED_FILES:
+        raise HTTPException(400, f"Unknown file: {draft['file']}")
+
+    path = os.path.join(_CAPTIONS_DIR, draft["file"])
     with open(path, "r", encoding="utf-8") as fp:
         data = json.load(fp)
     variants = data.get("variants") or {}
-    if req.variant not in variants:
-        raise HTTPException(
-            400, f"Variant '{req.variant}' does not exist in {req.file}. "
-                 f"Available: {sorted(variants.keys())}",
-        )
-    previous = variants[req.variant]
-    variants[req.variant] = req.template
+    if draft["variant"] not in variants:
+        raise HTTPException(400, f"Variant '{draft['variant']}' missing from {draft['file']}.")
+    previous = variants[draft["variant"]]
+    variants[draft["variant"]] = draft["proposed_template"]
     data["variants"] = variants
     with open(path, "w", encoding="utf-8") as fp:
         json.dump(data, fp, indent=2, ensure_ascii=False)
         fp.write("\n")
-    # Reload in-memory templates so the next render picks up the change.
+
     try:
         from services.caption_templates import reload_templates
         reload_templates()
     except Exception:
         pass
-    return {"ok": True, "previous": previous, "current": req.template}
+
+    from datetime import datetime, timezone
+    await db.caption_drafts.update_one(
+        {"draft_id": draft_id},
+        {"$set": {
+            "status": "approved",
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "approver_email": getattr(user, "email", None),
+            "previous_template_at_approve": previous,
+        }},
+    )
+    return {"ok": True, "previous": previous, "current": draft["proposed_template"]}
+
+
+@router.post("/admin/captions/drafts/{draft_id}/reject")
+async def reject_endpoint(draft_id: str, user: User = Depends(require_admin)):
+    """Reject a draft — marks it dropped, no JSON changes."""
+    if db is None:
+        raise HTTPException(500, "Database not initialized")
+    from datetime import datetime, timezone
+    result = await db.caption_drafts.update_one(
+        {"draft_id": draft_id, "status": "pending"},
+        {"$set": {
+            "status": "rejected",
+            "rejected_at": datetime.now(timezone.utc).isoformat(),
+            "approver_email": getattr(user, "email", None),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Draft not found or already finalized")
+    return {"ok": True}

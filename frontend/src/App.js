@@ -40,6 +40,7 @@ import AdminOpenings from "@/pages/AdminOpenings";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminAuthoring from "@/pages/AdminAuthoring";
 import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
+import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import EndgameLesson from "@/pages/EndgameLesson";
 import CoachReplay from "@/pages/CoachReplay";  // Guided behavioral game review
@@ -335,6 +336,11 @@ function AppRouter() {
       <Route path="/admin/captions" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminCaptionAuthoring user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/captions/drafts" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminCaptionDrafts user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin" element={
