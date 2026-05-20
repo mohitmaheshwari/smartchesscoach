@@ -39,6 +39,7 @@ import CoachPlay from "@/pages/CoachPlay";
 import AdminOpenings from "@/pages/AdminOpenings";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminAuthoring from "@/pages/AdminAuthoring";
+import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import EndgameLesson from "@/pages/EndgameLesson";
 import CoachReplay from "@/pages/CoachReplay";  // Guided behavioral game review
@@ -329,6 +330,11 @@ function AppRouter() {
       <Route path="/review/authoring" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminAuthoring user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/captions" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminCaptionAuthoring user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin" element={

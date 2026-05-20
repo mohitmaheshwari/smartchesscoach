@@ -255,6 +255,7 @@ from routes import streak as streak_routes
 from routes import voice as voice_routes
 from routes import gamification as gamification_routes
 from routes import admin as admin_routes
+from routes import caption_authoring as caption_authoring_routes
 from routes import thinking as thinking_routes
 from routes import home as home_routes
 from routes import interactive as interactive_routes
@@ -353,6 +354,8 @@ app.include_router(streak_routes.router, prefix="/api")
 app.include_router(voice_routes.router, prefix="/api")
 app.include_router(gamification_routes.router, prefix="/api")
 app.include_router(admin_routes.router, prefix="/api")
+caption_authoring_routes.set_db(db)
+app.include_router(caption_authoring_routes.router, prefix="/api")
 app.include_router(thinking_routes.router, prefix="/api")
 app.include_router(home_routes.router, prefix="/api")
 app.include_router(interactive_routes.router, prefix="/api")
