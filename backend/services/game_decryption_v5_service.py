@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 31  # v31 (2026-05-20): silence R11_development — "Develops the X to Y" / "Opponent develops the X to Y" was pure narration of board events the user can already see. Mohit pushed back: tell user what they don't know, not what's on the board. R11 trigger conditions already exclude tactical content (cp<30, no capture/check/threat), so when R11 would fire there is by definition nothing new to teach. Honest silence per [[no-hollow-coverage]]; the promotion ladder still surfaces opening/trap/principle/shape teaching when those detectors hit. v30: opening + trap promotion (OVERRIDE). Mohit Italian Game / Fried Liver test — m3 Bc4 captioned "Opponent develops the bishop to c4" while opening_record carried {name:"Italian Game", summary:"A classic opening. Develop quickly, point your bishop at f7..."}. m4 Ng5 captioned "Opponent develops the knight to g5" while trap_record carried {name:"Fried Liver Attack", description:"A deadly knight sacrifice on f7..."}. Both fired in the data, both ignored by the renderer, replaced by useless narration. Now trap setup_completed and opening_record (matched ≥3 setup steps) OVERRIDE the main caption (not just fill empty). v29: shape+principle+basic_mistake promotion (FILL when caption empty). v28: "drops/loses N pawns" → severity tier. v27: patient-academic voice pass. v26: 800-1400 vocab. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
+V5_COACHING_VERSION = 32  # v32 (2026-05-20): trap-defense celebration — when user plays a move IN the trap_line and engine likes it (cp_loss ≤ 20), promote a caption recognizing the precise defense ("d5 — correct response in the Fried Liver Attack. Keep playing precisely; the line isn't over."). Trap library labels move 'victim_falls' regardless of whether the victim defends or falls in, so we cross-reference with engine eval to distinguish. Mohit Italian Game / Fried Liver test — m4 USER d5 (the correct Fried Liver defense) was silent because R10/R11 didn't fire on a quiet good move and the trap_record was ignored. Now opening_record + trap_record + trap-defense + shape/principle/basic_mistake all surface through the promotion ladder. v31: silence R11_development — "Develops the X to Y" / "Opponent develops the X to Y" was pure narration of board events the user can already see. Mohit pushed back: tell user what they don't know, not what's on the board. R11 trigger conditions already exclude tactical content (cp<30, no capture/check/threat), so when R11 would fire there is by definition nothing new to teach. Honest silence per [[no-hollow-coverage]]; the promotion ladder still surfaces opening/trap/principle/shape teaching when those detectors hit. v30: opening + trap promotion (OVERRIDE). Mohit Italian Game / Fried Liver test — m3 Bc4 captioned "Opponent develops the bishop to c4" while opening_record carried {name:"Italian Game", summary:"A classic opening. Develop quickly, point your bishop at f7..."}. m4 Ng5 captioned "Opponent develops the knight to g5" while trap_record carried {name:"Fried Liver Attack", description:"A deadly knight sacrifice on f7..."}. Both fired in the data, both ignored by the renderer, replaced by useless narration. Now trap setup_completed and opening_record (matched ≥3 setup steps) OVERRIDE the main caption (not just fill empty). v29: shape+principle+basic_mistake promotion (FILL when caption empty). v28: "drops/loses N pawns" → severity tier. v27: patient-academic voice pass. v26: 800-1400 vocab. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -3508,6 +3508,31 @@ async def generate_game_decryption_v5(
                         if td:
                             promoted = f"{promoted} {td}"
                         promoted_source = f"R_PROMOTED_trap:{tn.lower().replace(' ', '_')}"
+                # ── Tier 1a-bis (Mohit 2026-05-20): user defends a trap
+                # When the user plays a move IN a trap_line AND the
+                # engine likes it (cp_loss small), recognize them as
+                # holding the line. The trap library mislabels these
+                # as 'victim_falls' (its semantic is 'move in trap_line
+                # by victim' regardless of whether the victim defends
+                # or falls in) — so we cross-reference with engine eval
+                # to distinguish. Caption celebrates the precise play
+                # and reminds the trap is still on.
+                elif (
+                    trap_record
+                    and trap_record.get("this_move_by_user")
+                    and trap_record.get("step_label") in ("victim_falls",)
+                    and is_user
+                    and (cp_loss or 0) <= 20
+                ):
+                    tn = trap_record.get("name") or ""
+                    if tn:
+                        promoted = (
+                            f"{move_san} — correct response in the {tn}. "
+                            "Keep playing precisely; the line isn't over."
+                        )
+                        promoted_source = (
+                            f"R_PROMOTED_trap_defense:{tn.lower().replace(' ', '_')}"
+                        )
                 # ── Tier 1b: opening_record (matched ≥3 setup steps)
                 # opening_record is non-None only on the move where
                 # the opening tree first matched (one per opening per
