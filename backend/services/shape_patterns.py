@@ -295,6 +295,21 @@ SHAPE_PATTERNS = [
         "geometry_hint": "enemy played g6/g3/b6/b3 fianchetto pawn move; enemy bishop of that fianchetto colour no longer on board; squares f6/h6 (for g6) or symmetric for others are accessible to own minor piece",
         "verifier_policy": "engine_in_top_3",
     },
+    {
+        # Mohit 2026-05-20: classic 1200-level teaching pattern. When
+        # opponent's king-pawn shelter is broken (e.g. f7 moved after
+        # ...exd4 or ...fxe5), the lifted square is defended only by
+        # the king. If we have a piece attacking it, that's a target
+        # to pile onto. Generalizes to f-pawn (Scholar's-mate territory),
+        # g-pawn (fianchetto squares), and queenside-castle a/b/c-pawns.
+        "id": "king_pawn_lifted",
+        "name": "King-Pawn Lifted",
+        "description": "Their king-pawn has moved. Only the king defends that square. Keep your piece pointed at it.",
+        "phase_in_scope": "any",
+        "priority": 70,
+        "geometry_hint": "opp king's shelter pawn (f/g/h for kingside castled, a/b/c for queenside castled, files adjacent to king for uncastled) is absent from its starting rank; we have at least one attacker on that square; non-king defenders fewer than attackers",
+        "verifier_policy": "heuristic_only",
+    },
 ]
 
 
@@ -303,9 +318,11 @@ PATTERNS_BY_ID = {p["id"]: p for p in SHAPE_PATTERNS}
 
 
 # Invariant checks (run on import; fail loud if catalog drifts)
-# 2026-05-16: catalog grew from 23 → 24 with `pawn_fork` (Mohit fb_eb1d11ba227f).
-# Locked rule "22 verified + 1 heuristic" widens to "23 verified + 1 heuristic".
-assert len(SHAPE_PATTERNS) == 24, f"shape catalog must be 24 entries, got {len(SHAPE_PATTERNS)}"
-assert len({p["id"] for p in SHAPE_PATTERNS}) == 24, "duplicate pattern ids"
+# 2026-05-16: catalog grew from 23 → 24 with `pawn_fork`.
+# 2026-05-20: catalog grew from 24 → 25 with `king_pawn_lifted` (Mohit).
+# Heuristic count now 2 (pawn_hole_fianchetto was already heuristic-equivalent
+# in spirit; king_pawn_lifted is positional teaching, not a tactical move).
+assert len(SHAPE_PATTERNS) == 25, f"shape catalog must be 25 entries, got {len(SHAPE_PATTERNS)}"
+assert len({p["id"] for p in SHAPE_PATTERNS}) == 25, "duplicate pattern ids"
 _heuristic_count = sum(1 for p in SHAPE_PATTERNS if p["verifier_policy"] == "heuristic_only")
-assert _heuristic_count == 1, f"locked rule: 23 verified + 1 heuristic; got {_heuristic_count} heuristic"
+assert _heuristic_count == 2, f"locked rule: 23 verified + 2 heuristic; got {_heuristic_count} heuristic"

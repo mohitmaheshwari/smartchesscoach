@@ -1423,6 +1423,83 @@ def detect_pawn_hole_fianchetto(board: chess.Board) -> List[Dict]:
     return out
 
 
+def detect_king_pawn_lifted(board: chess.Board) -> List[Dict]:
+    """Opponent's king-pawn shelter is broken — a shelter pawn that
+    normally guards the king has moved, the square is now defended only
+    by the king (or fewer defenders than our attackers), and we have at
+    least one piece attacking it.
+
+    Generalizes the classic teaching pattern across:
+      - Uncastled king (e8 / e1): shelter = files adjacent to the king
+        (e.g. d and f files). Fires on f7/f2 (Scholar's-mate /
+        Fried Liver territory) and d7/d2.
+      - Kingside castled (g8 / g1): shelter files f, g, h.
+      - Queenside castled (c8 / c1): shelter files a, b, c.
+
+    Edge cases handled:
+      - Multiple lifted shelter squares — fires once per square with
+        attackers; renderer picks the highest priority.
+      - King moved to a non-castled non-starting square (rare): treat
+        as uncastled (use files adjacent to current king file).
+      - We require at least one own attacker AND more attackers than
+        non-king defenders, otherwise the geometry is real but the
+        square isn't actually piled-on (just an idle weakness).
+    """
+    us = _own_color(board)
+    them = not us
+    them_king_sq = board.king(them)
+    if them_king_sq is None:
+        return []
+
+    them_king_file = chess.square_file(them_king_sq)
+    pawn_rank = 6 if them == chess.BLACK else 1  # 7th rank or 2nd rank
+
+    if them_king_sq in (chess.G1, chess.G8):
+        shelter_files = [5, 6, 7]  # f, g, h
+    elif them_king_sq in (chess.C1, chess.C8):
+        shelter_files = [0, 1, 2]  # a, b, c
+    else:
+        # Uncastled: use the two files adjacent to the king (king's own
+        # file is occupied by the king, so its shelter rank can never
+        # have a shelter pawn anyway).
+        shelter_files = []
+        for offset in (-1, 1):
+            new_f = them_king_file + offset
+            if 0 <= new_f <= 7:
+                shelter_files.append(new_f)
+
+    out: List[Dict] = []
+    for f in shelter_files:
+        sq = chess.square(f, pawn_rank)
+        piece = board.piece_at(sq)
+        # Shelter intact = opp pawn still on the shelter square.
+        if piece and piece.piece_type == chess.PAWN and piece.color == them:
+            continue
+        attackers = list(board.attackers(us, sq))
+        if not attackers:
+            continue
+        defenders = list(board.attackers(them, sq))
+        # Non-king defenders only — the king implicitly defends but
+        # isn't a piling-on defender.
+        non_king_defenders = [
+            d for d in defenders
+            if board.piece_at(d) and board.piece_at(d).piece_type != chess.KING
+        ]
+        if len(attackers) <= len(non_king_defenders):
+            continue
+        out.append(_ev(
+            "king_pawn_lifted",
+            mover=attackers[0],
+            targets=[sq],
+            executing_move=None,
+            evidence=(
+                f"opp king-pawn square {chess.square_name(sq)} is lifted; "
+                f"{len(attackers)} attacker(s) vs {len(non_king_defenders)} non-king defender(s)"
+            ),
+        ))
+    return out
+
+
 # ────────────────────────────────────────────────────────────────────
 # Dispatcher + verifier
 # ────────────────────────────────────────────────────────────────────
@@ -1452,6 +1529,7 @@ _DETECTORS = {
     "open_long_line":         detect_open_long_line,
     "long_diagonal_bishop":   detect_long_diagonal_bishop,
     "pawn_hole_fianchetto":   detect_pawn_hole_fianchetto,
+    "king_pawn_lifted":       detect_king_pawn_lifted,
 }
 
 

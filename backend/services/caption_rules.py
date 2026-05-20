@@ -460,6 +460,10 @@ def _r12_render(f):
         "missed_tactic_target_square": missed_tactic_target_square,
         "missed_tactic_ply": missed_tactic_ply,
 
+        # Shape-pattern from pre-move board (e.g. king_pawn_lifted on f7)
+        "shape_pattern_id": f.get("shape_pattern_id"),
+        "shape_pattern_target_square": f.get("shape_pattern_target_square"),
+
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,
         "opp_reply_attacks_played_piece": bool(f.get("opp_reply_attacks_played_piece")),
