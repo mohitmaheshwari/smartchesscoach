@@ -18,6 +18,7 @@
     "shape_pattern_id": "Geometric pattern fired on the pre-move board (e.g. 'king_pawn_lifted', 'h7_attack', 'pin'). Set by V5 service before render via shape_layer.select_shape_for_position.",
     "shape_pattern_target_square": "Square the shape pattern is centered on (e.g. 'f7' for a king_pawn_lifted on Black's f7).",
     "missed_clearance_attack_square": "Square that the engine's best move would have opened up for attack via clearance (Légal's / Fried Liver family). Set by V5 service when simulate_clearance_for_attack(best_move) fires on the pre-move position.",
+    "missed_clearance_attacker_piece": "Lowercase piece name (queen / rook / bishop) of the slider whose line would have been opened by best_move. Used by the missed_clearance_attack why-clause to name the piece in coach voice instead of internal 'slider' jargon.",
     "piece_type": "Piece-type generic placeholder used by hanging-piece why-clauses",
     "square": "Square placeholder used by hanging-piece why-clauses",
     "cp_loss": "Centipawn loss for the move",
@@ -90,7 +91,7 @@
 
     "why_user_missed_mate": "{best_move_san} would have led to mate in {missed_tactic_ply} moves.",
     "why_user_missed_piece": "{best_move_san} wins the {missed_tactic_target_piece} on {missed_tactic_target_square}.",
-    "why_user_missed_clearance_attack": "{best_move_san} clears the line — your slider comes through to attack {missed_clearance_attack_square}.",
+    "why_user_missed_clearance_attack": "{best_move_san} clears the line — your {missed_clearance_attacker_piece} comes through to attack {missed_clearance_attack_square}.",
     "why_user_missed_king_pawn_pressure": "{best_move_san} keeps the pressure on {shape_pattern_target_square}.",
     "why_user_missed_material": "{best_move_san} wins material in the resulting line.",
 

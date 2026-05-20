@@ -1621,18 +1621,26 @@ def detect_clearance_for_attack(board: chess.Board) -> List[Dict]:
                     other_attackers = [a for a in own_attackers if a != slider_sq]
                     if not other_attackers:
                         continue
-                    out.append(_ev(
+                    piece_type_name = {
+                        chess.QUEEN: "queen",
+                        chess.ROOK: "rook",
+                        chess.BISHOP: "bishop",
+                    }.get(sliding_piece_type, "piece")
+                    ev = _ev(
                         "clearance_for_attack",
                         mover=slider_sq,
                         targets=[kz_sq],
                         executing_move=None,
                         evidence=(
-                            f"clearance opened line for {chess.square_name(slider_sq)}; "
-                            f"from {chess.square_name(cleared_sq)} it would attack "
+                            f"clearance opened line for {piece_type_name} on "
+                            f"{chess.square_name(slider_sq)}; from "
+                            f"{chess.square_name(cleared_sq)} it would attack "
                             f"{chess.square_name(kz_sq)} (king zone), supported by "
                             f"{len(other_attackers)} other own attacker(s)"
                         ),
-                    ))
+                    )
+                    ev["clearer_piece_type"] = piece_type_name
+                    out.append(ev)
                     break  # one evidence per slider/cleared_sq
 
     return out

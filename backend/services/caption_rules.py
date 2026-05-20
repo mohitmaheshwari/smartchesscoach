@@ -468,6 +468,7 @@ def _r12_render(f):
         # Fried Liver family — set when best_move would have opened
         # a line for the queen/rook/bishop to attack king zone).
         "missed_clearance_attack_square": f.get("missed_clearance_attack_square"),
+        "missed_clearance_attacker_piece": f.get("missed_clearance_attacker_piece"),
 
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,

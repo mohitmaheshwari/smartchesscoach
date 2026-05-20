@@ -3237,6 +3237,9 @@ async def generate_game_decryption_v5(
                                 _targets = _ev0.get("targets") or []
                                 if _targets:
                                     caption_facts["missed_clearance_attack_square"] = _targets[0]
+                                _piece = _ev0.get("clearer_piece_type")
+                                if _piece:
+                                    caption_facts["missed_clearance_attacker_piece"] = _piece
                         except Exception:
                             pass
 
