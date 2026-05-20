@@ -310,6 +310,24 @@ SHAPE_PATTERNS = [
         "geometry_hint": "opp king's shelter pawn (f/g/h for kingside castled, a/b/c for queenside castled, files adjacent to king for uncastled) is absent from its starting rank; we have at least one attacker on that square; non-king defenders fewer than attackers",
         "verifier_policy": "heuristic_only",
     },
+    {
+        # Mohit 2026-05-20: the Légal's Mate / Fried Liver family.
+        # A piece moves and clears a line for an own slider; from a
+        # newly-reachable square the slider can reach a king-zone
+        # square that ANOTHER own piece also attacks. Captures the
+        # "knight sacrifices to bring the queen out for the mate
+        # threat" idea that engine PVs and material-counting detectors
+        # both miss. The pattern fires on the CLEARANCE move (the
+        # sacrifice or quiet piece-move that opens the line) — not
+        # on the eventual attack move.
+        "id": "clearance_for_attack",
+        "name": "Clearance for Attack",
+        "description": "Your moved piece opens the line. Your slider now has a path to the king zone — bring it out to coordinate the threat.",
+        "phase_in_scope": "any",
+        "priority": 82,
+        "geometry_hint": "moved piece (any) cleared a line that own slider (Q/R/B) was on; the slider can now reach a square from which it attacks a king-zone square; AT LEAST one other own piece also attacks that king-zone square (coordination); pattern fires on the clearance move, not the attack move",
+        "verifier_policy": "heuristic_only",
+    },
 ]
 
 
@@ -318,11 +336,10 @@ PATTERNS_BY_ID = {p["id"]: p for p in SHAPE_PATTERNS}
 
 
 # Invariant checks (run on import; fail loud if catalog drifts)
-# 2026-05-16: catalog grew from 23 → 24 with `pawn_fork`.
-# 2026-05-20: catalog grew from 24 → 25 with `king_pawn_lifted` (Mohit).
-# Heuristic count now 2 (pawn_hole_fianchetto was already heuristic-equivalent
-# in spirit; king_pawn_lifted is positional teaching, not a tactical move).
-assert len(SHAPE_PATTERNS) == 25, f"shape catalog must be 25 entries, got {len(SHAPE_PATTERNS)}"
-assert len({p["id"] for p in SHAPE_PATTERNS}) == 25, "duplicate pattern ids"
+# 2026-05-16: 23 → 24 with `pawn_fork`.
+# 2026-05-20: 24 → 25 with `king_pawn_lifted` (Mohit f7 weakness teaching).
+# 2026-05-20: 25 → 26 with `clearance_for_attack` (Mohit Légal's / Fried Liver family).
+assert len(SHAPE_PATTERNS) == 26, f"shape catalog must be 26 entries, got {len(SHAPE_PATTERNS)}"
+assert len({p["id"] for p in SHAPE_PATTERNS}) == 26, "duplicate pattern ids"
 _heuristic_count = sum(1 for p in SHAPE_PATTERNS if p["verifier_policy"] == "heuristic_only")
-assert _heuristic_count == 2, f"locked rule: 23 verified + 2 heuristic; got {_heuristic_count} heuristic"
+assert _heuristic_count == 3, f"23 verified + 3 heuristic expected; got {_heuristic_count} heuristic"

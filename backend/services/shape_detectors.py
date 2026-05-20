@@ -1500,6 +1500,165 @@ def detect_king_pawn_lifted(board: chess.Board) -> List[Dict]:
     return out
 
 
+def detect_clearance_for_attack(board: chess.Board) -> List[Dict]:
+    """The Légal's Mate / Fried Liver family. The just-played move
+    opens a line for an own slider (Q/R/B) that didn't move; from a
+    newly-reachable square that slider can attack a king-zone square
+    where another own piece ALSO attacks — i.e. multi-piece
+    coordination on or near opponent's king.
+
+    Concrete trigger (Mohit's m5 Nxe5 case):
+      - knight moves f3→e5 (clearance move)
+      - own queen on d1 (didn't move) — the d1-h5 diagonal was
+        blocked by the knight; now clear
+      - from h5 (queen's newly-reachable square), queen would attack
+        f7 (king-zone square)
+      - own bishop on c4 ALSO attacks f7 (coordination)
+      - pattern fires on the clearance move (the f3→e5 knight move)
+
+    Detection approach:
+      1. Reconstruct the pre-move board (board.copy() + pop).
+      2. For each own slider that did NOT move (same piece on same
+         square in board_before AND board), compute squares it attacks
+         now that it didn't attack before. These are "newly reachable
+         squares" — they sit on rays that the moved piece used to block.
+      3. For each newly-reachable square within Chebyshev distance 3
+         of opponent's king, simulate placing the slider there. From
+         that simulated square, what does the slider attack?
+      4. If any attacked square is in opponent's king zone AND another
+         own piece (not the slider itself) ALSO attacks that king-zone
+         square, fire the pattern.
+
+    King-zone definition: opponent king's square + all 8 adjacent
+    squares + 3 squares directly toward our attacking side (so f7 / e7
+    are in zone for a black king on e8 with white attacking).
+
+    Edge cases handled:
+      - First move of the game (no prev move): board.pop() raises;
+        return [].
+      - The slider IS the moved piece: skipped (it moved, so the
+        clearance frame doesn't apply).
+      - Multiple coordinated king-zone squares per slider: one
+        evidence per (slider, cleared_sq) pair.
+      - Wrap-around files: Chebyshev distance correctly uses file/rank
+        diffs in absolute value.
+    """
+    try:
+        board_before = board.copy()
+        board_before.pop()
+    except (IndexError, AssertionError):
+        return []
+
+    # `us` = the side that just moved (opposite of board.turn now)
+    us = not board.turn
+    them = board.turn
+    them_king_sq = board.king(them)
+    if them_king_sq is None:
+        return []
+
+    them_king_file = chess.square_file(them_king_sq)
+    them_king_rank = chess.square_rank(them_king_sq)
+
+    # King zone: king + 8 adjacent + 3 squares one rank "into" our
+    # attacking side (where pieces can pile in).
+    king_zone: set[int] = {them_king_sq}
+    for df in (-1, 0, 1):
+        for dr in (-1, 0, 1):
+            if df == 0 and dr == 0:
+                continue
+            nf, nr = them_king_file + df, them_king_rank + dr
+            if 0 <= nf <= 7 and 0 <= nr <= 7:
+                king_zone.add(chess.square(nf, nr))
+    # Extension toward attacker side
+    attacker_dir = -1 if them == chess.BLACK else 1  # us moves UP the board
+    for df in (-1, 0, 1):
+        nf, nr = them_king_file + df, them_king_rank + attacker_dir + attacker_dir
+        if 0 <= nf <= 7 and 0 <= nr <= 7:
+            king_zone.add(chess.square(nf, nr))
+
+    out: List[Dict] = []
+
+    for sliding_piece_type in (chess.QUEEN, chess.ROOK, chess.BISHOP):
+        for slider_sq in board.pieces(sliding_piece_type, us):
+            before_piece = board_before.piece_at(slider_sq)
+            if (before_piece is None
+                    or before_piece.piece_type != sliding_piece_type
+                    or before_piece.color != us):
+                continue  # slider moved, or wasn't there before
+
+            attacks_before = set(board_before.attacks(slider_sq))
+            attacks_now = set(board.attacks(slider_sq))
+            newly_reachable = attacks_now - attacks_before
+            if not newly_reachable:
+                continue
+
+            for cleared_sq in newly_reachable:
+                # Only consider clearance squares within reach of king
+                cdist = max(
+                    abs(chess.square_file(cleared_sq) - them_king_file),
+                    abs(chess.square_rank(cleared_sq) - them_king_rank),
+                )
+                if cdist > 3:
+                    continue
+
+                # Simulate slider at cleared_sq, check what it attacks.
+                # Use board (current state), move the slider, compute
+                # attacks. Don't actually mutate the real board.
+                temp = board.copy()
+                slider_piece = temp.remove_piece_at(slider_sq)
+                if slider_piece is None:
+                    continue
+                temp.set_piece_at(cleared_sq, slider_piece)
+                attacks_from_cleared = set(temp.attacks(cleared_sq))
+                kz_threats = attacks_from_cleared & king_zone
+                if not kz_threats:
+                    continue
+
+                # Coordination check on actual board (slider hasn't
+                # moved yet — we only simulated).
+                for kz_sq in kz_threats:
+                    own_attackers = list(board.attackers(us, kz_sq))
+                    other_attackers = [a for a in own_attackers if a != slider_sq]
+                    if not other_attackers:
+                        continue
+                    out.append(_ev(
+                        "clearance_for_attack",
+                        mover=slider_sq,
+                        targets=[kz_sq],
+                        executing_move=None,
+                        evidence=(
+                            f"clearance opened line for {chess.square_name(slider_sq)}; "
+                            f"from {chess.square_name(cleared_sq)} it would attack "
+                            f"{chess.square_name(kz_sq)} (king zone), supported by "
+                            f"{len(other_attackers)} other own attacker(s)"
+                        ),
+                    ))
+                    break  # one evidence per slider/cleared_sq
+
+    return out
+
+
+def simulate_clearance_for_attack(
+    pre_fen: str,
+    move_san: str,
+) -> List[Dict]:
+    """Apply `move_san` to the position from `pre_fen` and run
+    detect_clearance_for_attack on the resulting board.
+
+    Used by R12_blunder rendering to ask: "would the engine's best
+    move have been a clearance move?" — without mutating the V5
+    pipeline's actual board state. Returns the same shape as the
+    direct detector. Empty list on parse / state errors.
+    """
+    try:
+        board = chess.Board(pre_fen)
+        move = board.parse_san(move_san)
+        board.push(move)
+    except Exception:
+        return []
+    return detect_clearance_for_attack(board)
+
+
 # ────────────────────────────────────────────────────────────────────
 # Dispatcher + verifier
 # ────────────────────────────────────────────────────────────────────
@@ -1530,6 +1689,7 @@ _DETECTORS = {
     "long_diagonal_bishop":   detect_long_diagonal_bishop,
     "pawn_hole_fianchetto":   detect_pawn_hole_fianchetto,
     "king_pawn_lifted":       detect_king_pawn_lifted,
+    "clearance_for_attack":   detect_clearance_for_attack,
 }
 
 

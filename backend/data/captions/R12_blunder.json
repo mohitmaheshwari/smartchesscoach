@@ -17,6 +17,7 @@
     "missed_tactic_ply": "When missed_tactic_kind = mate: number of plies in the PV to checkmate.",
     "shape_pattern_id": "Geometric pattern fired on the pre-move board (e.g. 'king_pawn_lifted', 'h7_attack', 'pin'). Set by V5 service before render via shape_layer.select_shape_for_position.",
     "shape_pattern_target_square": "Square the shape pattern is centered on (e.g. 'f7' for a king_pawn_lifted on Black's f7).",
+    "missed_clearance_attack_square": "Square that the engine's best move would have opened up for attack via clearance (Légal's / Fried Liver family). Set by V5 service when simulate_clearance_for_attack(best_move) fires on the pre-move position.",
     "piece_type": "Piece-type generic placeholder used by hanging-piece why-clauses",
     "square": "Square placeholder used by hanging-piece why-clauses",
     "cp_loss": "Centipawn loss for the move",
@@ -49,6 +50,7 @@
   "why_clauses_user": [
     {"when": {"missed_tactic_kind": "mate"}, "variant": "why_user_missed_mate"},
     {"when": {"missed_tactic_kind": "piece_capture"}, "variant": "why_user_missed_piece"},
+    {"when": {"missed_clearance_attack_square": "present"}, "variant": "why_user_missed_clearance_attack"},
     {"when": {"shape_pattern_id": "king_pawn_lifted", "shape_pattern_target_square": "present"}, "variant": "why_user_missed_king_pawn_pressure"},
     {"when": {"missed_tactic_kind": "material"}, "variant": "why_user_missed_material"},
     {"when": {"opp_reply_san": "present", "opp_reply_attacks_played_piece": true, "target_square": "present"}, "variant": "why_user_attacks_played"},
@@ -88,6 +90,7 @@
 
     "why_user_missed_mate": "{best_move_san} would have led to mate in {missed_tactic_ply} moves.",
     "why_user_missed_piece": "{best_move_san} wins the {missed_tactic_target_piece} on {missed_tactic_target_square}.",
+    "why_user_missed_clearance_attack": "{best_move_san} clears the line — your slider comes through to attack {missed_clearance_attack_square}.",
     "why_user_missed_king_pawn_pressure": "{best_move_san} keeps the pressure on {shape_pattern_target_square}.",
     "why_user_missed_material": "{best_move_san} wins material in the resulting line.",
 

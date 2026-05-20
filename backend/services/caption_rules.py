@@ -464,6 +464,11 @@ def _r12_render(f):
         "shape_pattern_id": f.get("shape_pattern_id"),
         "shape_pattern_target_square": f.get("shape_pattern_target_square"),
 
+        # Clearance-for-attack from hypothetical best_move (Légal /
+        # Fried Liver family — set when best_move would have opened
+        # a line for the queen/rook/bishop to attack king zone).
+        "missed_clearance_attack_square": f.get("missed_clearance_attack_square"),
+
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,
         "opp_reply_attacks_played_piece": bool(f.get("opp_reply_attacks_played_piece")),
