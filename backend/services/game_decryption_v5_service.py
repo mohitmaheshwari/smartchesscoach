@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # V5 coaching version — increment when coaching logic changes to trigger re-generation
-V5_COACHING_VERSION = 29  # v29 (2026-05-20): content promotion fix — when main caption renderer returns silence but detection layers fired (shape_pattern_name + shape_pattern_desc OR principle_cue), surface that content as the main caption (R_PROMOTED_shape:* / R_PROMOTED_principle:* rule label). Mohit 2026-05-20: detection layer was alive, render layer was silent; the rich principle/geometric content sat in side fields the frontend rendered as tiny italic/teal afterthought instead of as the diagnosis. Now the main-caption block reads like a coach said something. v28: "drops about N pawns" framing replaced with severity-tier across R12 + 3 fallback sites + position_analysis (cp_loss is eval shift not material; Mohit Nxf7 cp=426 pushback). v27: patient-academic voice pass — narrator/R15/resolver de-streamerized. v26: 800-1400 vocab. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
+V5_COACHING_VERSION = 30  # v30 (2026-05-20): extend content promotion to OVERRIDE generic narration with opening + trap teaching. Mohit Italian Game / Fried Liver test — m3 Bc4 captioned "Opponent develops the bishop to c4" while opening_record carried {name:"Italian Game", summary:"A classic opening. Develop quickly, point your bishop at f7..."}. m4 Ng5 captioned "Opponent develops the knight to g5" while trap_record carried {name:"Fried Liver Attack", description:"A deadly knight sacrifice on f7..."}. Both fired in the data, both ignored by the renderer, replaced by useless narration. Now trap setup_completed and opening_record (matched ≥3 setup steps) OVERRIDE the main caption (not just fill empty). v29: shape+principle+basic_mistake promotion (FILL when caption empty). v28: "drops/loses N pawns" → severity tier. v27: patient-academic voice pass. v26: 800-1400 vocab. v25: habit-principle bypass + R15. v24: R01 no-ply concretization. v23: Parth bug triage.
 
 # Stockfish path
 STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
@@ -3462,30 +3462,64 @@ async def generate_game_decryption_v5(
                     opening_record = None
 
             # ── CONTENT PROMOTION (Mohit 2026-05-20) ───────────────
-            # When the main caption renderer returned silence but the
-            # detection layers found teachable content (shape pattern
-            # OR named principle), promote that content into the main
-            # caption slot. The frontend's main-caption block was
-            # rendering empty (looked like "nothing fired") while rich
-            # principle cues and geometric pattern names sat below it
-            # in tiny italic / teal text that read as decoration.
+            # When the detection layers found teachable content
+            # (opening / trap / shape / principle), surface it as the
+            # main caption. Detection layer alive, renderer was silent
+            # or generic ("Develops the bishop to c4" on an Italian
+            # Game move).
             #
-            # Priority:
-            #   1. Shape pattern (geometric, sub-1500 anchors per
-            #      [[sub1500-memory-anchors]] — patterns over move
-            #      sequences).
-            #   2. Principle cue (named-principle habit reminder).
+            # Two classes of promotion:
             #
-            # Voice: prefix with the move SAN so the caption is
-            # grounded to the move that triggered the teaching. The
-            # shape_pattern_name + principle_cue text is already
-            # authored to be concrete and 1200-test-clean; we just
-            # surface it. NOT a fallback template — concrete content
-            # the detectors produced for THIS move.
+            # 1. OVERRIDE (replaces any caption — even non-empty
+            #    R11_development "Develops the X" output):
+            #       a. trap_record (setup_completed step) — must-know
+            #          tactical warning (e.g. Fried Liver setup).
+            #       b. opening_record — names the line + teaches the
+            #          idea (e.g. "Italian Game. Bishop aims at f7.").
+            #    Generic narration of a known opening move is useless
+            #    coaching when we have the opening identified.
+            #
+            # 2. FILL (only when caption is empty):
+            #       c. shape pattern (geometric, sub-1500 anchors).
+            #       d. principle cue (named-principle habit reminder).
+            #       e. basic mistake fallback (cpl >= 50, has best_move).
+            #
+            # Voice: prefix with the move SAN. NOT a fallback template
+            # — concrete content the detectors produced for THIS move.
             try:
-                if not caption_payload.get("caption"):
-                    promoted: Optional[str] = None
-                    promoted_source: Optional[str] = None
+                promoted: Optional[str] = None
+                promoted_source: Optional[str] = None
+                # ── Tier 1a: trap setup_completed (HIGHEST priority)
+                # Only fires on the move that COMPLETES the trap setup
+                # (step_label="setup_completed"). Subsequent moves in
+                # the trap_line have ambiguous semantics (the "victim
+                # falls" path is the same node whether the user defends
+                # or falls in), so we keep teaching to the setup
+                # moment only.
+                if trap_record and trap_record.get("step_label") == "setup_completed":
+                    tn = trap_record.get("name") or ""
+                    td = trap_record.get("description") or ""
+                    if tn:
+                        by_opponent = not bool(trap_record.get("this_move_by_user"))
+                        if by_opponent:
+                            promoted = f"{move_san} — {tn} setup."
+                        else:
+                            promoted = f"{move_san} — you set up the {tn}."
+                        if td:
+                            promoted = f"{promoted} {td}"
+                        promoted_source = f"R_PROMOTED_trap:{tn.lower().replace(' ', '_')}"
+                # ── Tier 1b: opening_record (matched ≥3 setup steps)
+                # opening_record is non-None only on the move where
+                # the opening tree first matched (one per opening per
+                # game). Use its name + summary as the main caption.
+                elif opening_record and opening_record.get("name") and opening_record.get("summary"):
+                    on = opening_record["name"]
+                    osum = opening_record["summary"]
+                    promoted = f"{move_san} — {on}. {osum}"
+                    promoted_source = f"R_PROMOTED_opening:{on.lower().replace(' ', '_')}"
+
+                # ── Tier 2: FILL (only when caption is empty)
+                if not promoted and not caption_payload.get("caption"):
                     sp_name = (
                         shape_pattern_record.get("pattern_name")
                         if shape_pattern_record else None
@@ -3500,8 +3534,6 @@ async def generate_game_decryption_v5(
                             f"R_PROMOTED_shape:{shape_pattern_record.get('pattern_id')}"
                         )
                     elif principle_cue:
-                        # Move-ground the cue so it doesn't read as a
-                        # generic principle quote.
                         promoted = f"{move_san}. {principle_cue}"
                         promoted_source = (
                             f"R_PROMOTED_principle:{principle_id_used or 'unknown'}"
@@ -3513,14 +3545,8 @@ async def generate_game_decryption_v5(
                         and best_move != move_san
                     ):
                         # Last-resort: real mistake with NO shape, NO
-                        # principle, NO firing R-rule. Happens on
-                        # checks-that-are-mistakes (R06 declines because
-                        # cp_loss >= 30, R12 doesn't pick up because
-                        # the category is "check_plain" not "blunder").
-                        # Rather than ship silence on a 100cp+ swing,
-                        # surface the basic move-vs-best diagnosis.
-                        # Severity tier per [[cp-loss-is-not-material]]
-                        # — never translate to "X pawns lost."
+                        # principle, NO firing R-rule. Severity tier
+                        # per [[cp-loss-is-not-material]].
                         if (cp_loss or 0) >= 400:
                             sev_phrase = "is a major blunder"
                         elif (cp_loss or 0) >= 250:
@@ -3529,13 +3555,11 @@ async def generate_game_decryption_v5(
                             sev_phrase = "is a mistake"
                         promoted = f"{move_san} {sev_phrase}. {best_move} was better."
                         promoted_source = "R_PROMOTED_basic_mistake"
-                    if promoted:
-                        caption_payload["caption"] = promoted
-                        # Tag the rule_name so the audit script can see
-                        # the promotion path. Original rule_name (the
-                        # R_FALLBACK_* label) is preserved as a prefix.
-                        prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
-                        caption_payload["rule_name"] = f"{prev_rule}→{promoted_source}"
+
+                if promoted:
+                    prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
+                    caption_payload["caption"] = promoted
+                    caption_payload["rule_name"] = f"{prev_rule}→{promoted_source}"
             except Exception as _promote_exc:
                 logger.info(
                     f"[content_promotion] move {full_move_number} "
