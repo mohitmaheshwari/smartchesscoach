@@ -25,6 +25,11 @@
     "user_best_reply_san_is_forcing": "true when user_best_reply_san ends with '+' or '#'"
   },
   "requires": ["played_san"],
+  "trigger": {
+    "when": {
+      "cp_loss": {"gte": 100}
+    }
+  },
   "severity_tiers": [
     {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
     {"when": {"cp_loss": {"gte": 250}}, "tier": "serious"},

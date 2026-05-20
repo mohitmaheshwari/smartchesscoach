@@ -6,6 +6,12 @@
     "mover_is_user": "true if the player who picked the move is the user"
   },
   "requires": ["played_san"],
+  "trigger": {
+    "when": {
+      "played_is_best": true,
+      "cp_loss": {"gte": 100}
+    }
+  },
   "select_variant": [
     {"when": {"mover_is_user": false}, "variant": "opp"},
     {"variant": "user"}

@@ -1,0 +1,22 @@
+{
+  "rule_name": "R11_development",
+  "description": "Routine minor-piece development moves in the opening. Currently SILENT (variant 'default' is empty) — Mohit 2026-05-20: 'Develops the X to Y' was vapid narration of board events the user already sees. Honest silence > restating the move. The trigger conditions exclude tactical content (cp_loss < 30, no captures/checks/threats — those fire higher-priority rules first), so when R11 would have fired there's by definition NOTHING new to teach. If a future author wants to surface SOMETHING here (e.g. an opening principle reminder), edit variants.default below.",
+  "fact_glossary": {
+    "played_san": "SAN of the developing move",
+    "moving_piece_type": "Type of the piece that just moved",
+    "target_square": "Square the piece moved to",
+    "phase": "Game phase — needs to be 'opening' for this rule",
+    "cp_loss": "Centipawn loss of the move",
+    "mover_is_user": "true if the user just moved"
+  },
+  "trigger": {
+    "when": {
+      "phase": "opening",
+      "moving_piece_type": {"in": ["knight", "bishop"]},
+      "cp_loss": {"lt": 30}
+    }
+  },
+  "variants": {
+    "default": ""
+  }
+}

@@ -257,6 +257,19 @@ def resolve_why_clause(
     return render_template(rule_name, variant, facts)
 
 
+def should_fire(rule_name: str, facts: Dict[str, Any]) -> bool:
+    """Evaluate the rule's `trigger.when` block against facts.
+
+    Rules without a `trigger` block return True (fire unconditionally
+    — the rule's caller already gated it some other way). Otherwise
+    every predicate in `trigger.when` must match for the rule to fire."""
+    cfg = _load_all().get(rule_name) or {}
+    trigger = cfg.get("trigger")
+    if not trigger:
+        return True
+    return evaluate_when(trigger.get("when") or {}, facts)
+
+
 def is_suppressed(rule_name: str, facts: Dict[str, Any]) -> bool:
     """Check if any `suppression` entry's `when` matches. Returns True
     to tell the caller 'render nothing for this move'."""

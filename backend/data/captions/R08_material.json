@@ -9,6 +9,12 @@
     "is_capture": "true when the move actually captured a piece (vs winning material through threats)"
   },
   "requires": ["played_san"],
+  "trigger": {
+    "when": {
+      "material_gain_meets_threshold": true,
+      "cp_loss": {"lt": 80}
+    }
+  },
   "select_variant": [
     {"when": {"mover_is_user": false, "uncontested": true}, "variant": "opp_uncontested"},
     {"when": {"mover_is_user": false, "is_capture": true}, "variant": "opp_capture"},

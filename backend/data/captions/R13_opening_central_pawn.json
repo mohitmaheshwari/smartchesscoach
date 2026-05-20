@@ -6,6 +6,14 @@
     "mover_is_user": "true if the pusher is the user"
   },
   "requires": ["played_san"],
+  "trigger": {
+    "when": {
+      "phase": "opening",
+      "is_pawn_move": true,
+      "full_move_number": {"lte": 2},
+      "target_square": {"in": ["d4", "d5", "e4", "e5"]}
+    }
+  },
   "select_variant": [
     {"when": {"mover_is_user": false}, "variant": "opp"},
     {"variant": "user"}

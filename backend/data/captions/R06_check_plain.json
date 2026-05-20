@@ -5,6 +5,12 @@
     "played_san": "SAN of the move"
   },
   "requires": ["played_san"],
+  "trigger": {
+    "when": {
+      "is_check": true,
+      "cp_loss": {"lt": 30}
+    }
+  },
   "variants": {
     "default": "{played_san} — check. King must move or block."
   }

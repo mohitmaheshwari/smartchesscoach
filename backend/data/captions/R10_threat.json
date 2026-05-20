@@ -7,6 +7,11 @@
     "target_square": "Square the threatened piece sits on (e.g. 'c4', 'h8')"
   },
   "requires": ["played_san", "target_piece_type", "target_square"],
+  "trigger": {
+    "when": {
+      "max_threat_see_cp": {"gte": 200}
+    }
+  },
   "variants": {
     "default": "{played_san} threatens the {target_piece_type} on {target_square}."
   }

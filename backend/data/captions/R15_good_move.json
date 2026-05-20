@@ -6,6 +6,13 @@
     "phase": "Game phase — opening / middlegame / endgame (currently unused but available for future variants)"
   },
   "requires": ["played_san"],
+  "trigger": {
+    "when": {
+      "played_is_best": true,
+      "cp_loss": 0,
+      "mover_is_user": true
+    }
+  },
   "variants": {
     "default": "{played_san} — engine's pick."
   }

@@ -1,0 +1,19 @@
+{
+  "description": "Cross-rule numeric thresholds + global limits. Authors (Mohit + Parth) tune detection sensitivity here without touching Python. Each constant has a single authoritative value — backend/services/caption_config.py reads from this file at import time.",
+  "max_caption_words": 25,
+  "thresholds": {
+    "min_threat_see_cp": 200,
+    "min_aligned_rear_value_cp": 500,
+    "min_material_caption_gain_cp": 100,
+    "max_cp_loss_for_tactic_celebration": 100,
+    "default_visible_tactic_threshold": 2
+  },
+  "fact_glossary": {
+    "max_caption_words": "Hard cap on caption word count. Renderer truncates anything longer with an ellipsis. Rules should self-limit; this is the safety net.",
+    "min_threat_see_cp": "A move's 'threat' must win at least this much SEE (static-exchange evaluation, in centipawns) to be worth captioning. Lower → noisier (every minor pressure becomes a caption). Higher → stricter (only big tactical hits trigger R10).",
+    "min_aligned_rear_value_cp": "R03 only renders a pin/skewer caption when the rear piece is at least this valuable. Lower → captions trivial pawn-on-pawn pins. Higher → only celebrates pins against rooks/queens.",
+    "min_material_caption_gain_cp": "Below this material gain, 'wins material' captions get demoted. Stops small pawn-trade differences from being framed as the story of the move.",
+    "max_cp_loss_for_tactic_celebration": "A tactic caption (fork / pin / discovered attack / threat) only fires when the played move itself ISN'T a mistake or blunder by this much. Above this cp_loss, the story is the cp_loss, not the geometry — the tactic is incidental.",
+    "default_visible_tactic_threshold": "Missed-tactic evidence carries human_visibility_score 1-5 (1=trivial, 5=engine-only). Default surfaces only score <= 2 to a 1200 audience. Higher coaches can raise."
+  }
+}

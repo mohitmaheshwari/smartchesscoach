@@ -1,59 +1,52 @@
-"""
-Caption renderer configuration — thresholds and limits separated from
-rule definitions so different coaching surfaces (1200 coach, 1800 coach,
-puzzle mode, study mode) can override without touching the rule library.
+"""Caption renderer config — thin proxy over `backend/data/captions/caption_config.json`.
 
-Per user instruction 2026-05-11: never hardcode thresholds inside renderer
-rules. Always reference these constants.
+Values are authored in JSON (so Mohit + Parth can tune sensitivity
+without a Python edit). This module re-exports them as module-level
+constants for existing import sites — `from services.caption_config
+import MAX_CAPTION_WORDS` still works exactly as before.
+
+See `backend/data/captions/caption_config.json` for the fact glossary
+explaining each threshold.
 """
 from __future__ import annotations
 
+import json
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+
+_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "data", "captions", "caption_config.json"
+)
+
+
+def _load_config() -> dict:
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as fp:
+            return json.load(fp)
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning(f"[caption_config] load failed: {exc}; using hardcoded defaults")
+        return {}
+
+
+_CFG = _load_config()
+_THRESH = _CFG.get("thresholds") or {}
 
 # ── Caption length ──────────────────────────────────────────────────────
-# Hard cap. The renderer truncates anything longer; rules should produce
-# captions well under this. Per design doc §7.
-MAX_CAPTION_WORDS = 25
-
+MAX_CAPTION_WORDS = _CFG.get("max_caption_words", 25)
 
 # ── Tactic visibility thresholds ────────────────────────────────────────
-# Missed-tactic evidence carries a human_visibility_score 1..5:
-#   1 = trivial (immediate, ≥minor piece)
-#   2 = visible to a 1200 (one forced reply, then clear)
-#   3 = visible to a 1500 (2 plies of forcing)
-#   4 = visible to a 1800 (precise calculation needed)
-#   5 = engine-only (Stockfish ghost tactic)
-#
-# Default: only surface tactics with score ≤ 2 to a 1200 audience.
-# Higher-rated coaches can raise this; puzzle mode might lower it.
-DEFAULT_VISIBLE_TACTIC_THRESHOLD = 2
-
+DEFAULT_VISIBLE_TACTIC_THRESHOLD = _THRESH.get("default_visible_tactic_threshold", 2)
 
 # ── Material thresholds ────────────────────────────────────────────────
-# Below this gain, "wins material" captions get demoted — typically
-# small pawn-trade differences that aren't the story of the move.
-MIN_MATERIAL_CAPTION_GAIN_CP = 100
-
+MIN_MATERIAL_CAPTION_GAIN_CP = _THRESH.get("min_material_caption_gain_cp", 100)
 
 # ── Threat thresholds ──────────────────────────────────────────────────
-# A "threat" must win at least this much SEE to be worth captioning.
-MIN_THREAT_SEE_CP = 200
-
+MIN_THREAT_SEE_CP = _THRESH.get("min_threat_see_cp", 200)
 
 # ── Aligned-pieces (pin/skewer) significance ───────────────────────────
-# Only render a pin/skewer caption when the rear piece is at least this
-# valuable. Otherwise the alignment is geometrically real but trivially
-# uninteresting (e.g. pawn pinned to another pawn).
-MIN_ALIGNED_REAR_VALUE_CP = 500
-
+MIN_ALIGNED_REAR_VALUE_CP = _THRESH.get("min_aligned_rear_value_cp", 500)
 
 # ── Tactic-celebration safety gate ──────────────────────────────────────
-# A "tactic" caption (fork / pin / discovered attack / threat) only
-# fires when the played move ISN'T itself a mistake or blunder. If the
-# engine says the move loses this many centipawns, the story of the
-# move is the cp_loss, not the geometry — the tactic is incidental and
-# will be answered. From the d7ce40cf corpus review:
-#   #19 USER Re7 (286 cp blunder) was rendered "forks c7 and f7"
-#   #17 USER a3  (110 cp mistake) was rendered "threatens b4"
-# Suppress at the primary_reason layer so R02/R03/R04/R10 don't ever
-# get the chance to celebrate a losing move.
-MAX_CP_LOSS_FOR_TACTIC_CELEBRATION = 100
+MAX_CP_LOSS_FOR_TACTIC_CELEBRATION = _THRESH.get("max_cp_loss_for_tactic_celebration", 100)

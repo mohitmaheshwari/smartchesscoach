@@ -27,7 +27,7 @@ from services.caption_config import (
     MIN_MATERIAL_CAPTION_GAIN_CP,
     MIN_THREAT_SEE_CP,
 )
-from services.caption_templates import render_template, render_rule
+from services.caption_templates import render_template, render_rule, should_fire
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -216,18 +216,14 @@ def _r04_render(f):
     )
 
 
-# R05 — Check + extra threat
-#
-# Severity gate added 2026-05-13 (user-flagged bugs fb_77033d853689 +
-# fb_d7e9c60cdeff): R05 fires appreciative voice ("Rd6+ — check, and
-# attacks the pawn on e6 too") even when the played move is a real
-# mistake or blunder (Rd6+ cp_loss 207, c5+ cp_loss 135). Skipping
-# R05 when cp_loss >= 30 lets R12_blunder take over and frame the
-# move as the mistake it actually is.
+# R05 — Check + extra threat. Trigger thresholds (cp_loss < 30) are
+# authored in backend/data/captions/R05_check_extra.json → trigger.when.
 def _r05_trigger(f):
-    if (f.get("cp_loss") or 0) >= 30:
-        return False
-    return f.get("is_check") and bool(f.get("threats_created"))
+    return should_fire("R05_check_extra", {
+        "is_check": bool(f.get("is_check")),
+        "threats_created_present": bool(f.get("threats_created")),
+        "cp_loss": f.get("cp_loss") or 0,
+    })
 
 
 def _r05_render(f):
@@ -245,15 +241,12 @@ def _r05_render(f):
     )
 
 
-# R06 — Plain check
-#
-# Same severity gate as R05 (2026-05-13): praise voice on a check
-# that turns out to be a mistake reads as "appreciative when engine
-# says it's bad." Drop to silence; R12_blunder picks up.
+# R06 — Plain check. Trigger thresholds in R06_check_plain.json.
 def _r06_trigger(f):
-    if (f.get("cp_loss") or 0) >= 30:
-        return False
-    return bool(f.get("is_check"))
+    return should_fire("R06_check_plain", {
+        "is_check": bool(f.get("is_check")),
+        "cp_loss": f.get("cp_loss") or 0,
+    })
 
 
 def _r06_render(f):
@@ -287,16 +280,14 @@ def _r07_render(f):
     )
 
 
-# R08 — Material (eval-gated; primary_reason already checked gating)
+# R08 — Material. Trigger thresholds (cp_loss < 80, material_delta >= 100)
+# in R08_material.json. Python pre-computes the boolean for the JSON.
 def _r08_trigger(f):
-    # Step aside when the engine flags this as a mistake — R12 takes
-    # over and frames it correctly. Parth 2026-05-18 fb_d111aa020ab8:
-    # Qxc7 with cp_loss=129 fired "wins material" while it was actually
-    # a mistake. Mirror the same gate R05 already uses (line 280).
-    if (f.get("cp_loss") or 0) >= 80:
-        return False
     delta = f.get("material_delta_played_cp") or 0
-    return delta >= MIN_MATERIAL_CAPTION_GAIN_CP
+    return should_fire("R08_material", {
+        "material_gain_meets_threshold": delta >= MIN_MATERIAL_CAPTION_GAIN_CP,
+        "cp_loss": f.get("cp_loss") or 0,
+    })
 
 
 def _r08_render(f):
@@ -333,10 +324,12 @@ def _r09_render(f):
     )
 
 
-# R10 — Threat creation (no tactic above)
+# R10 — Threat creation. Threshold (max_threat_see_cp >= 200) authored
+# in R10_threat.json. Python computes the max from the threats list.
 def _r10_trigger(f):
     threats = f.get("threats_created") or []
-    return any(t.get("see_cp", 0) >= MIN_THREAT_SEE_CP for t in threats)
+    max_see = max((t.get("see_cp", 0) for t in threats), default=0)
+    return should_fire("R10_threat", {"max_threat_see_cp": max_see})
 
 
 def _r10_render(f):
@@ -354,19 +347,13 @@ def _r10_render(f):
     )
 
 
-# R11 — Development (opening, minor piece, no tactic)
-#
-# Severity gate added 2026-05-13 (user-flagged fb_2b055c2dd847): R11
-# fired "Develops the bishop to h4" on Bh4 with cp_loss 78 — engine
-# rates it as a positional mistake but R11 framed it as good
-# development. Same R05/R06 pattern. Skip when cp_loss >= 30.
+# R11 — Development. Trigger in R11_development.json (renders silence).
 def _r11_trigger(f):
-    if (f.get("cp_loss") or 0) >= 30:
-        return False
-    return (
-        f.get("phase") == "opening"
-        and f.get("moving_piece_type") in ("knight", "bishop")
-    )
+    return should_fire("R11_development", {
+        "phase": f.get("phase"),
+        "moving_piece_type": f.get("moving_piece_type"),
+        "cp_loss": f.get("cp_loss") or 0,
+    })
 
 
 def _r11_render(f):
@@ -395,13 +382,9 @@ def _r11_render(f):
     )
 
 
-# R12 — Blunder fallback. Fills the silence for moves whose engine
-# evaluation labels them a mistake/blunder and that didn't fire any of
-# the celebratory rules above (those are gated on cp_loss in
-# extract_primary_reason). Phrasing is neutral: it describes loss in
-# pawns and points at the engine's best alternative.
+# R12 — Blunder fallback. cp_loss threshold (>= 100) in R12_blunder.json.
 def _r12_trigger(f):
-    return (f.get("cp_loss") or 0) >= 100
+    return should_fire("R12_blunder", {"cp_loss": f.get("cp_loss") or 0})
 
 
 def _r12_pick_hanging(undef_list):
@@ -477,15 +460,15 @@ def _r12_render(f):
     )
 
 
-# R13 — Opening central pawn move. Covers the first-pair e4/d4/d5/e5
-# pushes that were silent in v1+v2 (no rule). Bend #7.
+# R13 — Opening central pawn. All conditions (phase, move number,
+# target square set) authored in R13_opening_central_pawn.json.
 def _r13_trigger(f):
-    return (
-        f.get("phase") == "opening"
-        and f.get("is_pawn_move")
-        and (f.get("full_move_number") or 0) <= 2
-        and f.get("target_square") in ("d4", "d5", "e4", "e5")
-    )
+    return should_fire("R13_opening_central_pawn", {
+        "phase": f.get("phase"),
+        "is_pawn_move": bool(f.get("is_pawn_move")),
+        "full_move_number": f.get("full_move_number") or 0,
+        "target_square": f.get("target_square"),
+    })
 
 
 def _r13_render(f):
@@ -502,14 +485,12 @@ def _r13_render(f):
     )
 
 
-# R14 — Forced best move in a losing position. Fires when played_is_best
-# is True AND cp_loss is high (≥100). The player picked the engine's
-# top choice — it's not a blunder, it's the best damage control in a
-# bad position. Calling that "good" would be confusing ("if it's good
-# why is cp_loss 392?"); calling it a blunder would be wrong (player
-# played the right move).
+# R14 — Forced best in losing position. Thresholds in R14_forced_best.json.
 def _r14_trigger(f):
-    return bool(f.get("played_is_best")) and (f.get("cp_loss") or 0) >= 100
+    return should_fire("R14_forced_best", {
+        "played_is_best": bool(f.get("played_is_best")),
+        "cp_loss": f.get("cp_loss") or 0,
+    })
 
 
 def _r14_render(f):
@@ -525,19 +506,13 @@ def _r14_render(f):
     )
 
 
-# R15 — Good move acknowledgment.
-# Fires for user moves that are engine-best with cp_loss == 0 when no
-# higher-priority celebratory category claimed the move. Sub-1400
-# players need positive reinforcement, not just blame — see Mohit 2026-
-# 05-19 review of 800-1400 coaching tone.
+# R15 — Good move acknowledgment. Conditions in R15_good_move.json.
 def _r15_trigger(f):
-    # Belt + suspenders — the category gate in caption_facts.py already
-    # ensures this, but trigger checks the same conditions defensively.
-    return (
-        bool(f.get("played_is_best"))
-        and (f.get("cp_loss") or 0) == 0
-        and f.get("mover_is_user") is True
-    )
+    return should_fire("R15_good_move", {
+        "played_is_best": bool(f.get("played_is_best")),
+        "cp_loss": f.get("cp_loss") or 0,
+        "mover_is_user": f.get("mover_is_user") is True,
+    })
 
 
 def _r15_render(f):

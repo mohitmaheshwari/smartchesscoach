@@ -7,6 +7,13 @@
     "target_square": "Square of the attacked piece"
   },
   "requires": ["played_san", "target_piece_type", "target_square"],
+  "trigger": {
+    "when": {
+      "is_check": true,
+      "threats_created_present": true,
+      "cp_loss": {"lt": 30}
+    }
+  },
   "variants": {
     "default": "{played_san} — check, and attacks the {target_piece_type} on {target_square} too."
   }
