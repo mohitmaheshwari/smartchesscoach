@@ -39,6 +39,7 @@ def detect_missed_tactic(
     best_move_san: Optional[str],
     pv_after_best: List[str],
     user_color: str,
+    eval_before_cp: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     """Walk the principal variation after engine's recommended move,
     return a structured payload describing the tactical climax.
@@ -50,6 +51,13 @@ def detect_missed_tactic(
       pv_after_best: List of SAN moves played AFTER best_move was made,
         alternating opp, user, opp, user, ...
       user_color: "white" or "black"
+      eval_before_cp: Stockfish's eval before any move was played (cp,
+        from white's POV). Used to GUARD piece_capture claims — a PV
+        capture only counts as "winning a piece" if the engine's eval
+        truly reflects piece-up territory for the user. Without this
+        check the detector over-claims (e.g. user "wins the queen"
+        when the engine just sees +250cp because of an implicit
+        recapture past the PV horizon).
 
     Returns one of (highest-priority match wins):
       {"kind": "mate", "ply": N, "mating_move": "Qxf7#"}
@@ -58,36 +66,37 @@ def detect_missed_tactic(
       {"kind": "material", "captures": N}
       None — no actionable tactic in the PV
 
-    Returns None on any error (missing FEN, malformed PV, etc.).
-    Caller treats None as "no missed_tactic_kind fact" and falls back
-    to existing why-clauses.
+    Decision logic:
+      - mate found in PV → "mate" (unambiguous, always claim)
+      - user-side piece capture (knight+) in PV AND user_eval_at_best
+        is in piece-up territory (>= +500cp from user POV) AND net
+        captures within PV favor user → "piece_capture"
+      - net captures within PV favor user (any value, including pawns) →
+        "material" (honest about magnitude without overclaiming)
+      - otherwise → None
     """
     if not chess or not fen_before or not best_move_san or not pv_after_best:
         return None
 
     try:
         board = chess.Board(fen_before)
-        # Apply best_move first so the board is at the position the PV
-        # starts from. Detector walks the PV from there.
         best_move_obj = board.parse_san(best_move_san)
         board.push(best_move_obj)
     except Exception as exc:
         logger.warning(f"[tactic_detector] bad fen or best_move: {exc}")
         return None
 
-    user_color_white = (user_color or "").lower() == "white"
     user_piece_captures: List[Dict[str, Any]] = []
     user_pawn_captures = 0
+    opp_captures_value = 0  # net opp gain within PV (recaptures inside the window)
     mate_payload: Optional[Dict[str, Any]] = None
 
-    # Side-to-move in fen_after_best is OPPONENT. So pv[0] is played
-    # by opponent, pv[1] by user, alternating.
+    # pv[0] is played by OPP, pv[1] by user, alternating.
     for ply_index, san in enumerate(pv_after_best):
-        is_user_move = (ply_index % 2 == 1)  # second mover in PV = user
+        is_user_move = (ply_index % 2 == 1)
         try:
             move = board.parse_san(san)
         except Exception:
-            # PV may contain garbage past depth; stop walking.
             break
 
         is_capture = board.is_capture(move)
@@ -96,51 +105,72 @@ def detect_missed_tactic(
         if is_capture:
             captured_square = chess.square_name(move.to_square)
             if board.is_en_passant(move):
-                captured_piece_type = 1  # pawn
+                captured_piece_type = 1
             else:
                 cap_piece = board.piece_at(move.to_square)
                 captured_piece_type = cap_piece.piece_type if cap_piece else None
 
-        # Apply the move so SAN annotations (#, +) reflect resulting state.
         board.push(move)
-        # python-chess uses `is_checkmate` on the resulting board.
         if board.is_checkmate() and is_user_move:
             mate_payload = {
                 "kind": "mate",
                 "ply": ply_index + 1,
                 "mating_move": san,
             }
-            break  # mate is the strongest possible — stop walking
+            break
 
-        if is_user_move and is_capture and captured_piece_type:
-            if captured_piece_type >= 2:  # knight or higher
-                user_piece_captures.append({
-                    "kind": "piece_capture",
-                    "piece_type": _PIECE_NAME.get(captured_piece_type, "piece"),
-                    "piece_value": _PIECE_VALUE.get(captured_piece_type, 0),
-                    "square": captured_square,
-                    "capturing_move": san,
-                    "ply": ply_index + 1,
-                })
+        if is_capture and captured_piece_type:
+            if is_user_move:
+                if captured_piece_type >= 2:
+                    user_piece_captures.append({
+                        "kind": "piece_capture",
+                        "piece_type": _PIECE_NAME.get(captured_piece_type, "piece"),
+                        "piece_value": _PIECE_VALUE.get(captured_piece_type, 0),
+                        "square": captured_square,
+                        "capturing_move": san,
+                        "ply": ply_index + 1,
+                    })
+                else:
+                    user_pawn_captures += 1
             else:
-                user_pawn_captures += 1
+                # Opponent recapture inside the PV window — eats into
+                # the user's gain.
+                opp_captures_value += _PIECE_VALUE.get(captured_piece_type, 0)
 
     if mate_payload:
         return mate_payload
 
-    if user_piece_captures:
-        # Pick the highest-value piece won.
-        best_capture = max(user_piece_captures, key=lambda c: c["piece_value"])
-        # Strip the internal piece_value field — JSON templates don't need it.
-        return {
-            "kind": "piece_capture",
-            "piece_type": best_capture["piece_type"],
-            "square": best_capture["square"],
-            "capturing_move": best_capture["capturing_move"],
-            "ply": best_capture["ply"],
-        }
+    # Net the user gain against any opp recapture seen within the PV.
+    user_gain = sum(c["piece_value"] for c in user_piece_captures) + user_pawn_captures
+    net_user_gain = user_gain - opp_captures_value
 
-    if user_pawn_captures >= 1:
-        return {"kind": "material", "captures": user_pawn_captures}
+    # Threshold guard for piece_capture: the engine's stored eval must
+    # actually support a piece-up advantage from the user's POV. For a
+    # white user, eval_before_cp >= +500 means white has minor-piece-up
+    # territory; for black, eval_before_cp <= -500. Without this guard
+    # the detector over-claims when the PV contains a capture whose
+    # recapture lives past the PV horizon (engine knows about it via
+    # eval; the PV doesn't show it).
+    user_color_white = (user_color or "").lower() == "white"
+    user_eval_at_best = None
+    if eval_before_cp is not None:
+        user_eval_at_best = eval_before_cp if user_color_white else -eval_before_cp
+
+    if user_piece_captures and net_user_gain >= 3:
+        if user_eval_at_best is None or user_eval_at_best >= 500:
+            best_capture = max(user_piece_captures, key=lambda c: c["piece_value"])
+            return {
+                "kind": "piece_capture",
+                "piece_type": best_capture["piece_type"],
+                "square": best_capture["square"],
+                "capturing_move": best_capture["capturing_move"],
+                "ply": best_capture["ply"],
+            }
+        # Piece appears in PV but engine eval doesn't back a piece-up
+        # claim — there's an implicit recapture past the PV horizon.
+        # Downgrade to honest "material" claim.
+
+    if net_user_gain >= 1:
+        return {"kind": "material", "captures": user_pawn_captures + len(user_piece_captures)}
 
     return None

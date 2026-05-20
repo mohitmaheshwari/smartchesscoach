@@ -437,6 +437,7 @@ def _r12_render(f):
                 best_move_san=best,
                 pv_after_best=f.get("pv_after_best") or [],
                 user_color=user_color_inferred,
+                eval_before_cp=f.get("eval_before_cp"),
             )
             if tactic:
                 missed_tactic_kind = tactic.get("kind")
