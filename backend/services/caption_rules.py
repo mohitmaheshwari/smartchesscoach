@@ -485,18 +485,28 @@ def _r11_trigger(f):
 
 
 def _r11_render(f):
-    piece = f.get("moving_piece_type", "piece")
+    """SILENT (Mohit 2026-05-20).
+
+    R11 historically emitted 'Develops the X to Y' / 'Opponent develops
+    the X to Y' on every routine minor-piece move in the opening. Mohit
+    flagged this as vapid coaching — the user already SEES the move on
+    the board; restating it teaches nothing. Per [[no-hollow-coverage]]:
+    honest silence > narration of the obvious.
+
+    R11's trigger gates already exclude tactical content (cp_loss < 30,
+    no captures, no checks, no threats — those fire higher-priority
+    rules first). So when R11 would have fired, there is by definition
+    NOTHING new to teach. Return empty caption; the renderer falls
+    through to no_trigger_fired and the promotion ladder
+    (game_decryption_v5_service.py) can still surface opening / trap /
+    principle / shape teaching when those detectors hit.
+    """
     sq = f.get("target_square", "")
-    mover_is_user = f.get("mover_is_user")
-    if mover_is_user is False:
-        cap = f"Opponent develops the {piece} to {sq}."
-    else:
-        cap = f"Develops the {piece} to {sq}."
     return CaptionOutput(
-        cap,
+        "",
         highlight_squares=[sq] if sq else [],
         arrows=[],
-        rule_name="R11_development",
+        rule_name="R11_development_silent",
     )
 
 
