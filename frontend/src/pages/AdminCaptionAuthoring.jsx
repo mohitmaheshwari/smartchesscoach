@@ -482,6 +482,20 @@ const EditModal = ({ target, onClose, onCommitted }) => {
             {target.position.move_number} · {target.position.move_san}{" "}
             (cp_loss {target.position.cp_loss})
           </div>
+          <div className="flex items-center gap-2 mt-2">
+            <code className="text-[11px] font-mono text-zinc-300 bg-zinc-800/60 border border-zinc-700 rounded px-2 py-1 flex-1 break-all">
+              {target.position.fen_before}
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                navigator.clipboard?.writeText(target.position.fen_before)
+              }
+            >
+              Copy FEN
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-4">
