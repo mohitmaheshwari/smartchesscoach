@@ -417,12 +417,47 @@ def _r12_render(f):
         f.get("opp_pieces_now_undefended") or f.get("pieces_now_undefended_by_opp")
     )
 
+    # Missed-tactic detection — walk pv_after_best with python-chess
+    # to identify the tactical climax (mate / piece win / material).
+    # Highest-priority why-clause when present. Detector module lives
+    # in services/best_move_tactic_detector.py.
+    missed_tactic_kind = None
+    missed_tactic_target_piece = None
+    missed_tactic_target_square = None
+    missed_tactic_ply = None
+    if best and best != played and f.get("mover_is_user") is not False:
+        try:
+            from services.best_move_tactic_detector import detect_missed_tactic
+            # mover_is_user is True for R12 user blunders, so the player
+            # who just moved is the user — moving_piece_color is the
+            # user's color.
+            user_color_inferred = "white" if f.get("moving_piece_color") == "white" else "black"
+            tactic = detect_missed_tactic(
+                fen_before=f.get("fen_before"),
+                best_move_san=best,
+                pv_after_best=f.get("pv_after_best") or [],
+                user_color=user_color_inferred,
+            )
+            if tactic:
+                missed_tactic_kind = tactic.get("kind")
+                missed_tactic_target_piece = tactic.get("piece_type")
+                missed_tactic_target_square = tactic.get("square")
+                missed_tactic_ply = tactic.get("ply")
+        except Exception:  # pragma: no cover — defensive
+            pass
+
     facts = {
         "played_san": played,
         "best_move_san": best,
         "cp_loss": f.get("cp_loss") or 0,
         "mover_is_user": f.get("mover_is_user"),
         "best_move_san_differs": bool(best and best != played),
+
+        # Missed-tactic from pv_after_best (highest priority why-clause)
+        "missed_tactic_kind": missed_tactic_kind,
+        "missed_tactic_target_piece": missed_tactic_target_piece,
+        "missed_tactic_target_square": missed_tactic_target_square,
+        "missed_tactic_ply": missed_tactic_ply,
 
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,

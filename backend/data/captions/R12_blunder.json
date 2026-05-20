@@ -11,6 +11,10 @@
     "opp_reply_san": "Opponent's strongest reply (PV[0] after the played move)",
     "captured_piece_type": "Piece type the opponent's reply would capture",
     "user_best_reply_san": "User's strongest reply after an opp blunder",
+    "missed_tactic_kind": "Climax of pv_after_best — 'mate' | 'piece_capture' | 'material' | absent. Set by best_move_tactic_detector by walking the engine's recommended line and finding the tactical payoff (mate / wins a piece / wins pawns).",
+    "missed_tactic_target_piece": "When missed_tactic_kind = piece_capture: the piece type won (e.g. 'queen', 'rook').",
+    "missed_tactic_target_square": "When missed_tactic_kind = piece_capture: the square on which the piece was won.",
+    "missed_tactic_ply": "When missed_tactic_kind = mate: number of plies in the PV to checkmate.",
     "piece_type": "Piece-type generic placeholder used by hanging-piece why-clauses",
     "square": "Square placeholder used by hanging-piece why-clauses",
     "cp_loss": "Centipawn loss for the move",
@@ -41,6 +45,9 @@
     "mistake": "is a mistake"
   },
   "why_clauses_user": [
+    {"when": {"missed_tactic_kind": "mate"}, "variant": "why_user_missed_mate"},
+    {"when": {"missed_tactic_kind": "piece_capture"}, "variant": "why_user_missed_piece"},
+    {"when": {"missed_tactic_kind": "material"}, "variant": "why_user_missed_material"},
     {"when": {"opp_reply_san": "present", "opp_reply_attacks_played_piece": true, "target_square": "present"}, "variant": "why_user_attacks_played"},
     {"when": {"is_exchange_losing": true, "target_square": "present", "opp_reply_san": "present"}, "variant": "why_user_exchange_losing_with_reply"},
     {"when": {"is_exchange_losing": true, "target_square": "present"}, "variant": "why_user_exchange_losing_no_reply"},
@@ -75,6 +82,10 @@
     "user_no_best_with_why": "{played_san} {severity_phrase}. {why_clause}",
     "opp": "Opponent's {played_san} {severity_phrase}.",
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
+
+    "why_user_missed_mate": "{best_move_san} would have led to mate in {missed_tactic_ply} moves.",
+    "why_user_missed_piece": "{best_move_san} wins the {missed_tactic_target_piece} on {missed_tactic_target_square}.",
+    "why_user_missed_material": "{best_move_san} wins material in the resulting line.",
 
     "why_user_attacks_played": "After {opp_reply_san}, your {moving_piece_type} on {target_square} has no safe square.",
     "why_user_exchange_losing_with_reply": "After {opp_reply_san}, your {moving_piece_type} on {target_square} falls.",
