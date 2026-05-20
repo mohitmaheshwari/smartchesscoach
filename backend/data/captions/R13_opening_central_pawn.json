@@ -2,9 +2,14 @@
   "rule_name": "R13_opening_central_pawn",
   "description": "Fires on the first central pawn pushes (e4/e5/d4/d5) in moves 1-2. Side-specific framing.",
   "fact_glossary": {
-    "played_san": "SAN of the pawn move"
+    "played_san": "SAN of the pawn move",
+    "mover_is_user": "true if the pusher is the user"
   },
   "requires": ["played_san"],
+  "select_variant": [
+    {"when": {"mover_is_user": false}, "variant": "opp"},
+    {"variant": "user"}
+  ],
   "variants": {
     "user": "{played_san}. Stakes a claim in the center.",
     "opp": "{played_san}. Opponent claims the center."

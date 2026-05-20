@@ -1,12 +1,41 @@
 {
   "rule_name": "R01_mate",
-  "description": "Fires when the engine sees a mate-in-N in the position. Highest priority. Many sub-templates because the framing depends on (a) who delivers mate (b) from whose POV (c) how many plies away (d) whether mate was already on the board before the move.",
+  "description": "Highest-priority rule — fires when the engine sees mate in N. Branches by who delivers mate, from whose POV, ply count, and whether mate was already on the board.",
   "fact_glossary": {
     "played_san": "SAN of the move played",
     "ply": "Number of plies to mate (1, 2, 3, ...) or null when engine has no clean ply count",
     "pawn_swing": "Eval swing rounded to pawns (1-9) — used as a fallback when there's no ply count",
-    "moving_piece_type": "Used by some variants; mostly informational"
+    "delivered_on_this_move": "true when this move IS the checkmate move",
+    "mover_delivers": "true when the side that just moved is the side delivering the future mate",
+    "mover_is_user": "true if the user just moved",
+    "mate_already_on_board": "true when mate was already forced before this move (player failed to defend, not caused the mate)"
   },
+  "requires": ["played_san"],
+  "select_variant": [
+    {"when": {"delivered_on_this_move": true}, "variant": "delivered"},
+
+    {"when": {"mover_delivers": true, "mover_is_user": false, "ply": 1}, "variant": "opp_forces_p1"},
+    {"when": {"mover_delivers": true, "mover_is_user": false, "ply": "present"}, "variant": "opp_forces_pN"},
+    {"when": {"mover_delivers": true, "mover_is_user": false}, "variant": "opp_forces_noplycount"},
+
+    {"when": {"mover_delivers": true, "mover_is_user": true, "ply": 1}, "variant": "user_forces_p1"},
+    {"when": {"mover_delivers": true, "mover_is_user": true, "ply": "present"}, "variant": "user_forces_pN"},
+    {"when": {"mover_delivers": true, "mover_is_user": true}, "variant": "user_forces_noplycount"},
+
+    {"when": {"mover_is_user": false, "ply": 1}, "variant": "mate_on_for_user_p1"},
+    {"when": {"mover_is_user": false, "ply": "present"}, "variant": "mate_on_for_user_pN"},
+    {"when": {"mover_is_user": false, "pawn_swing": {"gt": 0}}, "variant": "mate_on_for_user_pawns"},
+    {"when": {"mover_is_user": false}, "variant": "mate_on_for_user_bare"},
+
+    {"when": {"mover_is_user": true, "mate_already_on_board": true, "ply": 1}, "variant": "user_misses_defense_p1"},
+    {"when": {"mover_is_user": true, "mate_already_on_board": true, "ply": "present"}, "variant": "user_misses_defense_pN"},
+    {"when": {"mover_is_user": true, "mate_already_on_board": true}, "variant": "user_already_lost"},
+
+    {"when": {"mover_is_user": true, "ply": 1}, "variant": "user_allows_p1"},
+    {"when": {"mover_is_user": true, "ply": "present"}, "variant": "user_allows_pN"},
+    {"when": {"mover_is_user": true, "pawn_swing": {"gt": 0}}, "variant": "user_allows_pawns"},
+    {"when": {"mover_is_user": true}, "variant": "user_allows_bare"}
+  ],
   "variants": {
     "delivered": "{played_san}. Checkmate.",
     "user_forces_p1": "{played_san}. Forces mate next move.",

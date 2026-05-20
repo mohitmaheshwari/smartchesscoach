@@ -1,24 +1,68 @@
 {
   "rule_name": "R12_blunder",
-  "description": "Fires on moves with significant eval loss (cp_loss >= 100). Severity tier and side-specific framing. A concrete WHY clause (one of many variants below) is appended when the extractor produced the supporting facts; otherwise the main line stands alone.",
+  "description": "Fires on moves with significant eval loss. Severity tier + side-specific framing + a concrete WHY clause when the extractor produced one. Suppression block keeps the rule from saying anything when we have no concrete fact AND the loss isn't blunder-tier.",
   "fact_glossary": {
     "played_san": "SAN of the move played",
     "best_move_san": "Engine's preferred move (when different from played)",
-    "severity_phrase": "One of: 'is a mistake' / 'is a serious mistake' / 'is a major blunder' — picked from severity_phrases below by cp_loss tier",
-    "why_clause": "Optional appended sentence — rendered from one of the why_* variants below, or empty if no supporting fact",
+    "severity_phrase": "Authored phrase ('is a mistake' / 'is a serious mistake' / 'is a major blunder') — picked from severity_phrases by severity_tiers",
+    "why_clause": "Optional appended sentence — Python pre-renders the why_clauses_user/opp entry that matches, sets facts['why_clause'] before evaluating select_variant",
     "moving_piece_type": "Type of the piece that just moved",
     "target_square": "Square the move landed on",
     "opp_reply_san": "Opponent's strongest reply (PV[0] after the played move)",
     "captured_piece_type": "Piece type the opponent's reply would capture",
     "user_best_reply_san": "User's strongest reply after an opp blunder",
     "piece_type": "Piece-type generic placeholder used by hanging-piece why-clauses",
-    "square": "Square placeholder used by hanging-piece why-clauses"
+    "square": "Square placeholder used by hanging-piece why-clauses",
+    "cp_loss": "Centipawn loss for the move",
+    "mover_is_user": "true if the mover is the user",
+    "opp_reply_attacks_played_piece": "true when opp's PV[0] directly attacks the just-moved piece",
+    "is_exchange_losing": "true when the move itself landed on a losing-exchange square",
+    "pieces_now_undefended_present": "true when at least one own piece is now undefended (set by Python from the pieces_now_undefended list)",
+    "opp_pieces_now_undefended_present": "true when at least one opp piece is now undefended after their blunder",
+    "opp_played_landed_unsafe": "true when opp's move stranded their own piece",
+    "best_move_san_differs": "true when best_move_san is present AND != played_san",
+    "opp_reply_san_is_check": "true when opp's PV[0] ends with '+' or '#'",
+    "user_best_reply_san_is_forcing": "true when user_best_reply_san ends with '+' or '#'"
   },
+  "requires": ["played_san"],
+  "severity_tiers": [
+    {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
+    {"when": {"cp_loss": {"gte": 250}}, "tier": "serious"},
+    {"tier": "mistake"}
+  ],
   "severity_phrases": {
     "blunder": "is a major blunder",
     "serious": "is a serious mistake",
     "mistake": "is a mistake"
   },
+  "why_clauses_user": [
+    {"when": {"opp_reply_san": "present", "opp_reply_attacks_played_piece": true, "target_square": "present"}, "variant": "why_user_attacks_played"},
+    {"when": {"is_exchange_losing": true, "target_square": "present", "opp_reply_san": "present"}, "variant": "why_user_exchange_losing_with_reply"},
+    {"when": {"is_exchange_losing": true, "target_square": "present"}, "variant": "why_user_exchange_losing_no_reply"},
+    {"when": {"pieces_now_undefended_present": true}, "variant": "why_user_hanging"},
+    {"when": {"opp_reply_san": "present", "captured_piece_type": "present"}, "variant": "why_user_capture"},
+    {"when": {"opp_reply_san_is_check": true}, "variant": "why_user_check"},
+    {"when": {"opp_reply_san": "present"}, "variant": "why_user_reply"}
+  ],
+  "why_clauses_opp": [
+    {"when": {"user_best_reply_san": "present", "captured_piece_type": "present"}, "variant": "why_opp_punish_capture"},
+    {"when": {"user_best_reply_san_is_forcing": true}, "variant": "why_opp_punish_check"},
+    {"when": {"user_best_reply_san": "present"}, "variant": "why_opp_punish_default"},
+    {"when": {"opp_pieces_now_undefended_present": true}, "variant": "why_opp_hanging"},
+    {"when": {"opp_played_landed_unsafe": true, "target_square": "present"}, "variant": "why_opp_unsafe"}
+  ],
+  "suppression": [
+    {"when": {"mover_is_user": false, "why_clause": "absent", "cp_loss": {"lt": 250}}},
+    {"when": {"mover_is_user": true, "why_clause": "absent", "cp_loss": {"lt": 250}}}
+  ],
+  "select_variant": [
+    {"when": {"mover_is_user": false, "why_clause": "present"}, "variant": "opp_with_why"},
+    {"when": {"mover_is_user": false}, "variant": "opp"},
+    {"when": {"best_move_san_differs": true, "why_clause": "present"}, "variant": "user_with_best_and_why"},
+    {"when": {"best_move_san_differs": true}, "variant": "user_with_best"},
+    {"when": {"why_clause": "present"}, "variant": "user_no_best_with_why"},
+    {"variant": "user_no_best"}
+  ],
   "variants": {
     "user_with_best": "{played_san} {severity_phrase}. {best_move_san} was better.",
     "user_with_best_and_why": "{played_san} {severity_phrase}. {best_move_san} was better. {why_clause}",

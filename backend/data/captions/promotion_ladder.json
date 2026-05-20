@@ -1,0 +1,57 @@
+{
+  "description": "Promotion ladder priority — encodes the order in which V5 service tries the promoted (non-R-rule) caption sources. First entry whose `when` matches the facts wins. Tier 1 entries (trap_setup, trap_defense, opening) OVERRIDE any existing caption. Tier 2 entries (shape, principle, basic_mistake) FILL only when caption_empty=true. The `source_template` is the rule_name suffix written into the move record so authoring tools can attribute each fired caption to a specific rule.",
+  "fact_glossary": {
+    "caption_empty": "true when the R-rule layer left no caption — gates the Tier 2 fill paths",
+    "is_user": "true when the just-moved side is the user",
+    "cp_loss": "Centipawn loss of the move",
+    "best_move_differs": "true when best_move is present AND != move_san",
+    "trap_record.step_label": "Trap state label ('setup_completed' / 'victim_falls' / etc.)",
+    "trap_record.this_move_by_user": "true when the trap-related move is by the user",
+    "opening_record.name": "Set on the first move that matched ≥3 setup steps of a named opening",
+    "shape_pattern_name": "Authored geometric pattern name (set when a shape pattern fired this move)",
+    "principle_cue": "Authored principle teaching note (set when a principle fired this move)"
+  },
+  "priority": [
+    {
+      "rule": "R_PROMOTED_trap_setup",
+      "when": {"trap_record.step_label": "setup_completed", "trap_record.name": "present"},
+      "source_template": "R_PROMOTED_trap:{trap_name_slug}"
+    },
+    {
+      "rule": "R_PROMOTED_trap_defense",
+      "when": {
+        "trap_record.this_move_by_user": true,
+        "trap_record.step_label": {"in": ["victim_falls"]},
+        "trap_record.name": "present",
+        "is_user": true,
+        "cp_loss": {"lte": 20}
+      },
+      "source_template": "R_PROMOTED_trap_defense:{trap_name_slug}"
+    },
+    {
+      "rule": "R_PROMOTED_opening",
+      "when": {"opening_record.name": "present", "opening_record.summary": "present"},
+      "source_template": "R_PROMOTED_opening:{opening_name_slug}"
+    },
+    {
+      "rule": "R_PROMOTED_shape",
+      "when": {"caption_empty": true, "shape_pattern_name": "present", "shape_pattern_desc": "present"},
+      "source_template": "R_PROMOTED_shape:{shape_pattern_id}"
+    },
+    {
+      "rule": "R_PROMOTED_principle",
+      "when": {"caption_empty": true, "principle_cue": "present"},
+      "source_template": "R_PROMOTED_principle:{principle_id_used}"
+    },
+    {
+      "rule": "R_PROMOTED_basic_mistake",
+      "when": {
+        "caption_empty": true,
+        "is_user": true,
+        "cp_loss": {"gte": 50},
+        "best_move_differs": true
+      },
+      "source_template": "R_PROMOTED_basic_mistake"
+    }
+  ]
+}

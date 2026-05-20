@@ -3,9 +3,20 @@
   "description": "Fires when a move wins material. Variant chosen by side (user/opp) × whether the captured piece was uncontested (no defender) × whether the move was an actual capture.",
   "fact_glossary": {
     "played_san": "SAN of the move",
-    "captured_piece_type": "Piece type that was captured (or 'piece' as fallback)"
+    "captured_piece_type": "Piece type that was captured (or 'piece' as fallback)",
+    "mover_is_user": "true if the mover is the user",
+    "uncontested": "true when the capture is free (nothing was defending the target)",
+    "is_capture": "true when the move actually captured a piece (vs winning material through threats)"
   },
   "requires": ["played_san"],
+  "select_variant": [
+    {"when": {"mover_is_user": false, "uncontested": true}, "variant": "opp_uncontested"},
+    {"when": {"mover_is_user": false, "is_capture": true}, "variant": "opp_capture"},
+    {"when": {"mover_is_user": false}, "variant": "opp_no_capture"},
+    {"when": {"uncontested": true}, "variant": "user_uncontested"},
+    {"when": {"is_capture": true}, "variant": "user_capture"},
+    {"variant": "user_no_capture"}
+  ],
   "variants": {
     "user_uncontested": "{played_san}. Free {captured_piece_type} — nothing recaptures.",
     "user_capture": "{played_san} — takes the {captured_piece_type}.",

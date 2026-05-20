@@ -1,12 +1,15 @@
 {
   "rule_name": "R_PROMOTED_shape",
-  "description": "Fires when an authored geometric shape pattern (from data/shape_patterns) matches the position AND the move executes the pattern. Fill-when-empty — only used when no higher-priority R-rule fired.",
+  "description": "Fires when an authored geometric shape pattern matches the position AND the move executes the pattern. Fill-when-empty — only used when no higher-priority R-rule fired.",
   "fact_glossary": {
     "move_san": "SAN of the move executing the pattern",
     "shape_pattern_name": "Authored pattern name (e.g. 'Back-rank weakness')",
     "shape_pattern_desc": "Authored pattern description / teaching note"
   },
   "requires": ["move_san", "shape_pattern_name", "shape_pattern_desc"],
+  "select_variant": [
+    {"variant": "default"}
+  ],
   "variants": {
     "default": "{move_san} — {shape_pattern_name}. {shape_pattern_desc}"
   }

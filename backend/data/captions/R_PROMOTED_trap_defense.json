@@ -1,11 +1,14 @@
 {
   "rule_name": "R_PROMOTED_trap_defense",
-  "description": "Fires when the user plays a move that's IN the trap_line AND the engine likes it (cp_loss <= 20). The trap library labels the move 'victim_falls' regardless of whether the victim defends or falls in — we cross-reference with engine eval to distinguish. Celebrates the precise play and reminds the trap line isn't done.",
+  "description": "Fires when the user plays a move that's IN the trap_line AND the engine likes it (cp_loss <= 20). The trap library labels the move 'victim_falls' regardless of whether the victim defends or falls in — promotion_ladder cross-references with engine eval to distinguish. Celebrates the precise play.",
   "fact_glossary": {
     "move_san": "SAN of the user's defensive move",
     "trap_name": "Authored trap name from data/traps.json"
   },
   "requires": ["move_san", "trap_name"],
+  "select_variant": [
+    {"variant": "default"}
+  ],
   "variants": {
     "default": "{move_san} — correct response in the {trap_name}. Keep playing precisely; the line isn't over."
   }

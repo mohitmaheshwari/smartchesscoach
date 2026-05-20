@@ -1,11 +1,14 @@
 {
   "rule_name": "R_PROMOTED_principle",
-  "description": "Fires when a named principle (from data/coaching/principles) is invoked. The {principle_cue} is the authored teaching note. Fill-when-empty — only used when no higher-priority R-rule fired.",
+  "description": "Fires when a named principle is invoked. The {principle_cue} is the authored teaching note. Fill-when-empty — only used when no higher-priority R-rule fired.",
   "fact_glossary": {
     "move_san": "SAN of the move",
-    "principle_cue": "Authored principle teaching note (e.g. 'Long-term: your bad bishop is locked behind pawns and needs a reroute or trade.')"
+    "principle_cue": "Authored principle teaching note"
   },
   "requires": ["move_san", "principle_cue"],
+  "select_variant": [
+    {"variant": "default"}
+  ],
   "variants": {
     "default": "{move_san}. {principle_cue}"
   }

@@ -2,9 +2,14 @@
   "rule_name": "R09_king_safety",
   "description": "Fires on castling moves. Side-specific framing.",
   "fact_glossary": {
-    "played_san": "SAN of the castling move (O-O or O-O-O)"
+    "played_san": "SAN of the castling move (O-O or O-O-O)",
+    "mover_is_user": "true if the player who just castled is the user"
   },
   "requires": ["played_san"],
+  "select_variant": [
+    {"when": {"mover_is_user": false}, "variant": "opp"},
+    {"variant": "user"}
+  ],
   "variants": {
     "user": "{played_san}. King is safe; rook joins the game.",
     "opp": "{played_san}. Opponent tucks their king away."

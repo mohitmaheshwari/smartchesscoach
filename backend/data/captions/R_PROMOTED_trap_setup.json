@@ -1,12 +1,19 @@
 {
   "rule_name": "R_PROMOTED_trap_setup",
-  "description": "Fires on the move that completes a named trap's setup (step_label='setup_completed'). E.g. m4 Ng5 in the Italian Game completes the Fried Liver setup. The {trap_description} comes from data/traps.json — adding a new trap = adding a JSON entry there, no edits here.",
+  "description": "Fires on the move that completes a named trap's setup (step_label='setup_completed'). The {trap_description} comes from data/traps.json — adding a new trap = adding a JSON entry there, no edits here.",
   "fact_glossary": {
     "move_san": "SAN of the setup-completing move",
     "trap_name": "Authored trap name from data/traps.json (e.g. 'Fried Liver Attack')",
-    "trap_description": "Authored trap description from data/traps.json"
+    "trap_description": "Authored trap description from data/traps.json",
+    "this_move_by_user": "true when the user is the one setting up the trap (rare — usually opp does)"
   },
   "requires": ["move_san", "trap_name"],
+  "select_variant": [
+    {"when": {"this_move_by_user": false, "trap_description": "present"}, "variant": "by_opp_with_desc"},
+    {"when": {"this_move_by_user": false}, "variant": "by_opp"},
+    {"when": {"trap_description": "present"}, "variant": "by_user_with_desc"},
+    {"variant": "by_user"}
+  ],
   "variants": {
     "by_opp": "{move_san} — {trap_name} setup.",
     "by_opp_with_desc": "{move_san} — {trap_name} setup. {trap_description}",

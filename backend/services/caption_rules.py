@@ -27,7 +27,7 @@ from services.caption_config import (
     MIN_MATERIAL_CAPTION_GAIN_CP,
     MIN_THREAT_SEE_CP,
 )
-from services.caption_templates import render_template
+from services.caption_templates import render_template, render_rule
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -85,65 +85,25 @@ def _r01_trigger(f):
 
 
 def _r01_render(f):
+    # Extract chess facts. Variant selection logic lives in R01_mate.json
+    # under `select_variant` — Python doesn't decide which branch fires.
     ev = f["mate_threat_evidence"]
     side_delivering = ev.get("side_delivering_mate")
     moving_color = f.get("moving_piece_color")
-    ply = ev.get("ply_to_mate")
-    delivered_on_this_move = ev.get("delivered_on_this_move", False)
-    mover_is_user = f.get("mover_is_user")
-    mover_delivers = bool(side_delivering and side_delivering == moving_color)
-
-    facts = {"played_san": _played(f), "ply": ply}
-
-    if delivered_on_this_move:
-        variant = "delivered"
-    elif mover_delivers:
-        if mover_is_user is False:
-            variant = "opp_forces_p1" if ply == 1 else ("opp_forces_pN" if ply else "opp_forces_noplycount")
-        else:
-            variant = "user_forces_p1" if ply == 1 else ("user_forces_pN" if ply else "user_forces_noplycount")
-    else:
-        # Mover walked into mate against themselves. Convert mate-score
-        # cp_loss to pawn-count for the no-ply fallbacks (audit 1519831c
-        # showed these routinely have cp_loss=9000+ mate-score numbers).
-        cpl = f.get("cp_loss") or 0
-        pawn_swing = max(1, min(9, round(cpl / 100))) if cpl > 0 else 0
-        facts["pawn_swing"] = pawn_swing
-        if mover_is_user is False:
-            if ply == 1:
-                variant = "mate_on_for_user_p1"
-            elif ply:
-                variant = "mate_on_for_user_pN"
-            elif pawn_swing:
-                variant = "mate_on_for_user_pawns"
-            else:
-                variant = "mate_on_for_user_bare"
-        else:
-            # Parth 2026-05-18 fb_d576bbf21a65: split 'allows' vs
-            # 'misses defense against' based on pre-move eval state.
-            eval_before_cp = f.get("eval_before_cp")
-            mate_already_on_board = (
-                isinstance(eval_before_cp, (int, float))
-                and eval_before_cp <= -2000
-            )
-            if mate_already_on_board:
-                if ply == 1:
-                    variant = "user_misses_defense_p1"
-                elif ply:
-                    variant = "user_misses_defense_pN"
-                else:
-                    variant = "user_already_lost"
-            else:
-                if ply == 1:
-                    variant = "user_allows_p1"
-                elif ply:
-                    variant = "user_allows_pN"
-                elif pawn_swing:
-                    variant = "user_allows_pawns"
-                else:
-                    variant = "user_allows_bare"
-
-    cap = render_template("R01_mate", variant, facts) or ""
+    cpl = f.get("cp_loss") or 0
+    eval_before_cp = f.get("eval_before_cp")
+    facts = {
+        "played_san": _played(f),
+        "ply": ev.get("ply_to_mate"),
+        "delivered_on_this_move": ev.get("delivered_on_this_move", False),
+        "mover_delivers": bool(side_delivering and side_delivering == moving_color),
+        "mover_is_user": f.get("mover_is_user"),
+        "mate_already_on_board": (
+            isinstance(eval_before_cp, (int, float)) and eval_before_cp <= -2000
+        ),
+        "pawn_swing": max(1, min(9, round(cpl / 100))) if cpl > 0 else 0,
+    }
+    cap = render_rule("R01_mate", facts) or ""
     return CaptionOutput(
         caption=cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
@@ -166,22 +126,20 @@ def _r02_render(f):
         "played_san": _played(f),
         "t0_piece_type": t0["piece_type"],
         "t0_square": t0["square"],
+        "t1_piece_type": t1["piece_type"] if t1 else None,
+        "t1_square": t1["square"] if t1 else None,
+        "both_pawns": bool(t1 and t0["piece_type"] == "pawn" and t1["piece_type"] == "pawn"),
     }
     if t1:
-        facts["t1_piece_type"] = t1["piece_type"]
-        facts["t1_square"] = t1["square"]
-        both_pawns = t0["piece_type"] == "pawn" and t1["piece_type"] == "pawn"
-        variant = "fork_both_pawns" if both_pawns else "fork_pieces"
         highlights = [shape["attacker_square"], t0["square"], t1["square"]]
         arrows = [
             (shape["attacker_square"], t0["square"], "red"),
             (shape["attacker_square"], t1["square"], "red"),
         ]
     else:
-        variant = "single_target"
         highlights = [shape["attacker_square"], t0["square"]]
         arrows = [(shape["attacker_square"], t0["square"], "red")]
-    cap = render_template("R02_multi_target_attack", variant, facts) or ""
+    cap = render_rule("R02_multi_target_attack", facts) or ""
     return CaptionOutput(cap, highlights, arrows, "R02_multi_target_attack")
 
 
@@ -216,27 +174,17 @@ def _r03_trigger(f):
 def _r03_render(f):
     shapes = [s for s in f["aligned_pieces_evidence"] if _r03_shape_is_worth_captioning(s)]
     shape = max(shapes, key=lambda s: s["rear_piece_value_cp"])
-    rear_is_king = shape.get("rear_is_king", False)
-    front_is_king = shape.get("front_is_king", False)
-    front_lower = shape["front_value_vs_rear"] == "lower"
-
     facts = {
         "played_san": _played(f),
         "front_piece_type": shape["front_piece_type"],
         "rear_piece_type": shape["rear_piece_type"],
         "front_square": shape["front_piece_square"],
         "rear_square": shape["rear_piece_square"],
+        "rear_is_king": shape.get("rear_is_king", False),
+        "front_is_king": shape.get("front_is_king", False),
+        "front_lower": shape["front_value_vs_rear"] == "lower",
     }
-    if rear_is_king:
-        variant = "pin_to_king"
-    elif front_is_king:
-        variant = "skewer_king"
-    elif front_lower:
-        variant = "pin_front_lower"
-    else:
-        variant = "xray_default"
-
-    cap = render_template("R03_aligned_pieces", variant, facts) or ""
+    cap = render_rule("R03_aligned_pieces", facts) or ""
     return CaptionOutput(
         cap,
         highlight_squares=[shape["attacker_square"], shape["front_piece_square"], shape["rear_piece_square"]],
@@ -254,7 +202,7 @@ def _r04_render(f):
     ev = f["discovered_attack_evidence"][0]
     attacker_sq = ev["discovered_attacker_square"]
     target_sq = ev["target_square"]
-    cap = render_template("R04_discovered_attack", "default", {
+    cap = render_rule("R04_discovered_attack", {
         "played_san": _played(f),
         "discovered_attacker_piece_type": ev["discovered_attacker_piece_type"],
         "target_piece_type": ev["target_piece_type"],
@@ -284,7 +232,7 @@ def _r05_trigger(f):
 
 def _r05_render(f):
     threat = max(f["threats_created"], key=lambda t: t.get("target_value_cp", 0))
-    cap = render_template("R05_check_extra", "default", {
+    cap = render_rule("R05_check_extra", {
         "played_san": _played(f),
         "target_piece_type": threat["target_piece_type"],
         "target_square": threat["target_square"],
@@ -309,7 +257,7 @@ def _r06_trigger(f):
 
 
 def _r06_render(f):
-    cap = render_template("R06_check_plain", "default", {
+    cap = render_rule("R06_check_plain", {
         "played_san": _played(f),
     }) or ""
     return CaptionOutput(
@@ -326,10 +274,10 @@ def _r07_trigger(f):
 
 
 def _r07_render(f):
-    variant = "opp" if f.get("mover_is_user") is False else "user"
-    cap = render_template("R07_forced_recapture", variant, {
+    cap = render_rule("R07_forced_recapture", {
         "played_san": _played(f),
         "captured_piece_type": f.get("captured_piece_type", "piece"),
+        "mover_is_user": f.get("mover_is_user"),
     }) or ""
     return CaptionOutput(
         cap,
@@ -352,26 +300,12 @@ def _r08_trigger(f):
 
 
 def _r08_render(f):
-    mover_is_user = f.get("mover_is_user")
-    uncontested = f.get("free_capture_uncontested")
-    is_capture = f.get("is_capture")
-    if mover_is_user is False:
-        if uncontested:
-            variant = "opp_uncontested"
-        elif is_capture:
-            variant = "opp_capture"
-        else:
-            variant = "opp_no_capture"
-    else:
-        if uncontested:
-            variant = "user_uncontested"
-        elif is_capture:
-            variant = "user_capture"
-        else:
-            variant = "user_no_capture"
-    cap = render_template("R08_material", variant, {
+    cap = render_rule("R08_material", {
         "played_san": _played(f),
         "captured_piece_type": f.get("captured_piece_type", "piece"),
+        "mover_is_user": f.get("mover_is_user"),
+        "uncontested": bool(f.get("free_capture_uncontested")),
+        "is_capture": bool(f.get("is_capture")),
     }) or ""
     return CaptionOutput(
         cap,
@@ -387,9 +321,9 @@ def _r09_trigger(f):
 
 
 def _r09_render(f):
-    variant = "opp" if f.get("mover_is_user") is False else "user"
-    cap = render_template("R09_king_safety", variant, {
+    cap = render_rule("R09_king_safety", {
         "played_san": _played(f),
+        "mover_is_user": f.get("mover_is_user"),
     }) or ""
     return CaptionOutput(
         cap,
@@ -407,9 +341,7 @@ def _r10_trigger(f):
 
 def _r10_render(f):
     threat = max(f["threats_created"], key=lambda t: t.get("see_cp", 0))
-    # Caption text is authored in backend/data/captions/R10_threat.json.
-    # Python only assembles the fact bundle and the board annotations.
-    cap = render_template("R10_threat", "default", {
+    cap = render_rule("R10_threat", {
         "played_san": _played(f),
         "target_piece_type": threat.get("target_piece_type"),
         "target_square": threat.get("target_square"),
@@ -472,160 +404,71 @@ def _r12_trigger(f):
     return (f.get("cp_loss") or 0) >= 100
 
 
-def _r12_compose_why(f):
-    """Pick a why-clause variant key + facts dict for an R12 user blunder.
-
-    Returns (variant_key, facts_dict) or (None, None) when no concrete
-    chess content is available. Order is priority: most-specific cases
-    first. Phrases live in R12_blunder.json (why_user_*).
-    """
-    moving_piece = f.get("moving_piece_type") or "piece"
-    target_sq = f.get("target_square") or ""
-    opp_reply = f.get("opp_reply_san")
-
-    if opp_reply and f.get("opp_reply_attacks_played_piece") and target_sq:
-        return "why_user_attacks_played", {
-            "opp_reply_san": opp_reply,
-            "moving_piece_type": moving_piece,
-            "target_square": target_sq,
-        }
-    if f.get("is_exchange_losing") and target_sq:
-        if opp_reply:
-            return "why_user_exchange_losing_with_reply", {
-                "opp_reply_san": opp_reply,
-                "moving_piece_type": moving_piece,
-                "target_square": target_sq,
-            }
-        return "why_user_exchange_losing_no_reply", {
-            "moving_piece_type": moving_piece,
-            "target_square": target_sq,
-        }
-    undef = f.get("pieces_now_undefended") or []
-    hanging = [p for p in undef if p.get("now_attacked") and p.get("is_now_hanging")]
-    if hanging:
-        worst = max(hanging, key=lambda p: p.get("piece_value_cp", 0) or 0)
-        sq = worst.get("square", "")
-        if sq:
-            return "why_user_hanging", {
-                "piece_type": worst.get("piece_type", "piece"),
-                "square": sq,
-            }
-    cap_piece = f.get("opp_reply_captures_piece_type")
-    if opp_reply and cap_piece:
-        return "why_user_capture", {
-            "opp_reply_san": opp_reply,
-            "captured_piece_type": cap_piece,
-        }
-    if opp_reply and (opp_reply.endswith("+") or opp_reply.endswith("#")):
-        return "why_user_check", {"opp_reply_san": opp_reply}
-    if opp_reply:
-        return "why_user_reply", {"opp_reply_san": opp_reply}
-    return None, None
-
-
-def _r12_compose_why_opp(f):
-    """Pick a why-clause variant key + facts dict for an OPP blunder."""
-    user_best = f.get("user_best_reply_san") or f.get("best_move_after_opp_blunder_san")
-    if user_best:
-        cap_pt = f.get("user_best_reply_captures_piece_type")
-        if cap_pt:
-            return "why_opp_punish_capture", {
-                "user_best_reply_san": user_best,
-                "captured_piece_type": cap_pt,
-            }
-        if user_best.endswith("+") or user_best.endswith("#"):
-            return "why_opp_punish_check", {"user_best_reply_san": user_best}
-        return "why_opp_punish_default", {"user_best_reply_san": user_best}
-
-    pieces_undef = f.get("opp_pieces_now_undefended") or f.get("pieces_now_undefended_by_opp") or []
-    hanging = [p for p in pieces_undef if p.get("now_attacked") and p.get("is_now_hanging")]
-    if hanging:
-        worst = max(hanging, key=lambda p: p.get("piece_value_cp", 0) or 0)
-        sq = worst.get("square", "")
-        if sq:
-            return "why_opp_hanging", {
-                "piece_type": worst.get("piece_type", "piece"),
-                "square": sq,
-            }
-
-    if f.get("opp_played_landed_unsafe") and (f.get("target_square") or ""):
-        return "why_opp_unsafe", {
-            "moving_piece_type": f.get("moving_piece_type") or "piece",
-            "target_square": f.get("target_square") or "",
-        }
-
-    return None, None
-
-
-def _severity_tier(cp: int) -> str:
-    """Map cp_loss to a severity_phrases key in R12_blunder.json."""
-    if cp >= 400:
-        return "blunder"
-    if cp >= 250:
-        return "serious"
-    return "mistake"
-
-
-def _severity_phrase_for(rule_name: str, cp: int) -> str:
-    """Look up the severity adjective phrase for the given rule + cp."""
-    from services.caption_templates import _load_all
-    cfg = _load_all().get(rule_name) or {}
-    phrases = cfg.get("severity_phrases") or {}
-    return phrases.get(_severity_tier(cp), "")
+def _r12_pick_hanging(undef_list):
+    """Pick the highest-value hanging piece from a list of undefended
+    pieces. Returns {piece_type, square} or None. Chess data extraction
+    only — no prose."""
+    hanging = [p for p in (undef_list or []) if p.get("now_attacked") and p.get("is_now_hanging")]
+    if not hanging:
+        return None
+    worst = max(hanging, key=lambda p: p.get("piece_value_cp", 0) or 0)
+    sq = worst.get("square") or ""
+    if not sq:
+        return None
+    return {"piece_type": worst.get("piece_type", "piece"), "square": sq}
 
 
 def _r12_render(f):
-    cpl = f.get("cp_loss") or 0
+    """All R12 logic — severity tier, why-clause priority, suppression,
+    variant selection — lives in R12_blunder.json. Python only extracts
+    chess data + computes booleans for the JSON predicates."""
     played = _played(f)
     best = _best(f)
-    mover_is_user = f.get("mover_is_user")
-    severity_phrase = _severity_phrase_for("R12_blunder", cpl)
+    opp_reply = f.get("opp_reply_san")
+    user_best_reply = f.get("user_best_reply_san") or f.get("best_move_after_opp_blunder_san")
 
-    if mover_is_user is False:
-        # Opp blundered — frame as user-actionable news.
-        why_key, why_facts = _r12_compose_why_opp(f)
-        # Honest silence > fluffy template. Suppress when no concrete
-        # why AND loss isn't blunder-tier. For blunder-tier opp loss
-        # (cp_loss >= 250), keep firing so the user knows opp gave up
-        # significant ground.
-        if not why_key and cpl < 250:
-            return None
-        why_clause = render_template("R12_blunder", why_key, why_facts) if why_key else None
-        if why_clause:
-            cap = render_template("R12_blunder", "opp_with_why", {
-                "played_san": played, "severity_phrase": severity_phrase, "why_clause": why_clause,
-            }) or ""
-        else:
-            cap = render_template("R12_blunder", "opp", {
-                "played_san": played, "severity_phrase": severity_phrase,
-            }) or ""
-    elif best and best != played:
-        why_key, why_facts = _r12_compose_why(f)
-        if not why_key and cpl < 250:
-            return None
-        why_clause = render_template("R12_blunder", why_key, why_facts) if why_key else None
-        if why_clause:
-            cap = render_template("R12_blunder", "user_with_best_and_why", {
-                "played_san": played, "best_move_san": best,
-                "severity_phrase": severity_phrase, "why_clause": why_clause,
-            }) or ""
-        else:
-            cap = render_template("R12_blunder", "user_with_best", {
-                "played_san": played, "best_move_san": best, "severity_phrase": severity_phrase,
-            }) or ""
-    else:
-        why_key, why_facts = _r12_compose_why(f)
-        if not why_key and cpl < 250:
-            return None
-        why_clause = render_template("R12_blunder", why_key, why_facts) if why_key else None
-        if why_clause:
-            cap = render_template("R12_blunder", "user_no_best_with_why", {
-                "played_san": played, "severity_phrase": severity_phrase, "why_clause": why_clause,
-            }) or ""
-        else:
-            cap = render_template("R12_blunder", "user_no_best", {
-                "played_san": played, "severity_phrase": severity_phrase,
-            }) or ""
+    # Chess data extraction for the why-clauses. Pick the worst hanging
+    # piece on each side (data extraction, no prose).
+    user_hanging = _r12_pick_hanging(f.get("pieces_now_undefended"))
+    opp_hanging = _r12_pick_hanging(
+        f.get("opp_pieces_now_undefended") or f.get("pieces_now_undefended_by_opp")
+    )
+
+    facts = {
+        "played_san": played,
+        "best_move_san": best,
+        "cp_loss": f.get("cp_loss") or 0,
+        "mover_is_user": f.get("mover_is_user"),
+        "best_move_san_differs": bool(best and best != played),
+
+        # User-side why-clause inputs
+        "opp_reply_san": opp_reply,
+        "opp_reply_attacks_played_piece": bool(f.get("opp_reply_attacks_played_piece")),
+        "is_exchange_losing": bool(f.get("is_exchange_losing")),
+        "target_square": f.get("target_square"),
+        "moving_piece_type": f.get("moving_piece_type") or "piece",
+        "captured_piece_type": f.get("opp_reply_captures_piece_type"),
+        "opp_reply_san_is_check": bool(opp_reply and (opp_reply.endswith("+") or opp_reply.endswith("#"))),
+        "pieces_now_undefended_present": user_hanging is not None,
+        "piece_type": (user_hanging or {}).get("piece_type") if f.get("mover_is_user") is not False else (opp_hanging or {}).get("piece_type"),
+        "square": (user_hanging or {}).get("square") if f.get("mover_is_user") is not False else (opp_hanging or {}).get("square"),
+
+        # Opp-side why-clause inputs
+        "user_best_reply_san": user_best_reply,
+        "user_best_reply_san_is_forcing": bool(
+            user_best_reply and (user_best_reply.endswith("+") or user_best_reply.endswith("#"))
+        ),
+        "opp_pieces_now_undefended_present": opp_hanging is not None,
+        "opp_played_landed_unsafe": bool(f.get("opp_played_landed_unsafe")),
+    }
+    # For opp-side why_clauses, captured_piece_type comes from a different
+    # source (the user's best reply, not opp's reply). Override when opp side.
+    if f.get("mover_is_user") is False:
+        facts["captured_piece_type"] = f.get("user_best_reply_captures_piece_type")
+
+    cap = render_rule("R12_blunder", facts)
+    if cap is None:
+        return None
     return CaptionOutput(
         caption=cap,
         highlight_squares=[f.get("target_square", "")] if f.get("target_square") else [],
@@ -647,9 +490,9 @@ def _r13_trigger(f):
 
 def _r13_render(f):
     sq = f.get("target_square", "")
-    variant = "opp" if f.get("mover_is_user") is False else "user"
-    cap = render_template("R13_opening_central_pawn", variant, {
+    cap = render_rule("R13_opening_central_pawn", {
         "played_san": _played(f),
+        "mover_is_user": f.get("mover_is_user"),
     }) or ""
     return CaptionOutput(
         cap,
@@ -670,9 +513,9 @@ def _r14_trigger(f):
 
 
 def _r14_render(f):
-    variant = "opp" if f.get("mover_is_user") is False else "user"
-    cap = render_template("R14_forced_best", variant, {
+    cap = render_rule("R14_forced_best", {
         "played_san": _played(f),
+        "mover_is_user": f.get("mover_is_user"),
     }) or ""
     return CaptionOutput(
         caption=cap,
@@ -698,7 +541,7 @@ def _r15_trigger(f):
 
 
 def _r15_render(f):
-    cap = render_template("R15_good_move", "default", {
+    cap = render_rule("R15_good_move", {
         "played_san": _played(f),
         "phase": f.get("phase") or "middlegame",
     }) or ""

@@ -5,9 +5,16 @@
     "played_san": "SAN of the move",
     "t0_piece_type": "First target piece type",
     "t0_square": "First target square",
-    "t1_piece_type": "Second target piece type (if any)",
-    "t1_square": "Second target square (if any)"
+    "t1_piece_type": "Second target piece type (null when only one target)",
+    "t1_square": "Second target square (null when only one target)",
+    "both_pawns": "true when both targets are pawns (dual-pawn attack — not a real fork)"
   },
+  "requires": ["played_san", "t0_piece_type", "t0_square"],
+  "select_variant": [
+    {"when": {"t1_piece_type": "present", "both_pawns": true}, "variant": "fork_both_pawns"},
+    {"when": {"t1_piece_type": "present"}, "variant": "fork_pieces"},
+    {"variant": "single_target"}
+  ],
   "variants": {
     "single_target": "{played_san} attacks the {t0_piece_type} on {t0_square}.",
     "fork_pieces": "{played_san} forks the {t0_piece_type} on {t0_square} and the {t1_piece_type} on {t1_square}.",

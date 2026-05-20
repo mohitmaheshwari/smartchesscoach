@@ -1,12 +1,15 @@
 {
   "rule_name": "R_PROMOTED_opening",
-  "description": "Fires on the move where the opening tree first matches (≥3 setup steps). The {opening_summary} comes from data/opening_curriculum.json — adding a new opening = adding a JSON entry there, no edits here. Overrides generic narration of the move itself ('Opponent develops the bishop to c4') with the named opening + its teaching summary.",
+  "description": "Fires on the move where the opening tree first matches (≥3 setup steps). The {opening_summary} comes from data/opening_curriculum.json. Adding a new opening = adding a JSON entry there. Overrides generic narration of the move.",
   "fact_glossary": {
     "move_san": "SAN of the move that completed the opening pattern",
-    "opening_name": "Authored opening name from data/opening_curriculum.json (e.g. 'Italian Game')",
+    "opening_name": "Authored opening name from data/opening_curriculum.json",
     "opening_summary": "Authored opening summary / golden rules from data/opening_curriculum.json"
   },
   "requires": ["move_san", "opening_name", "opening_summary"],
+  "select_variant": [
+    {"variant": "default"}
+  ],
   "variants": {
     "default": "{move_san} — {opening_name}. {opening_summary}"
   }
