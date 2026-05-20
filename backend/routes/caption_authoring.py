@@ -51,42 +51,17 @@ def set_db(database):
 from routes.auth import User
 from routes.admin import require_admin
 
-
-# ── Classifier (shared with scripts/caption_coverage_v5.py) ──────────
-
-CLASSIFIERS: List[Tuple[str, str, "re.Pattern", Optional[str]]] = [
-    ("HIGH", "missed_mate",               re.compile(r"would have led to mate in \d+ moves?", re.I),
-     "R12_blunder.json → variants.why_user_missed_mate"),
-    ("HIGH", "missed_piece",              re.compile(r"wins the (pawn|knight|bishop|rook|queen) on [a-h][1-8]", re.I),
-     "R12_blunder.json → variants.why_user_missed_piece"),
-    ("HIGH", "missed_clearance_attack",   re.compile(r"clears the line", re.I),
-     "R12_blunder.json → variants.why_user_missed_clearance_attack"),
-    ("HIGH", "missed_king_pawn_pressure", re.compile(r"keeps the pressure on [a-h][1-8]", re.I),
-     "R12_blunder.json → variants.why_user_missed_king_pawn_pressure"),
-    ("MID",  "attacks_played",            re.compile(r"has no safe square", re.I),
-     "R12_blunder.json → variants.why_user_attacks_played"),
-    ("MID",  "exchange_losing",           re.compile(r"falls\.|can't be defended", re.I),
-     "R12_blunder.json → variants.why_user_exchange_losing_*"),
-    ("MID",  "hanging",                   re.compile(r"is now undefended", re.I),
-     "R12_blunder.json → variants.why_user_hanging"),
-    ("MID",  "capture",                   re.compile(r"winning your (pawn|knight|bishop|rook|queen)", re.I),
-     "R12_blunder.json → variants.why_user_capture"),
-    ("MID",  "check",                     re.compile(r"forcing your king", re.I),
-     "R12_blunder.json → variants.why_user_check"),
-    ("LOW",  "missed_material",           re.compile(r"wins material in the resulting line", re.I),
-     "R12_blunder.json → variants.why_user_missed_material"),
-    ("LOW",  "reply",                     re.compile(r"Opponent's strongest reply:", re.I),
-     "R12_blunder.json → variants.why_user_reply"),
-]
+# Shared classifier — auto-loads every variant from data/captions/
+# JSON files. See services/caption_classifier.py for the tier mapping.
+from services.caption_classifier import classifier
 
 
-def classify(caption: str) -> Tuple[str, str, Optional[str]]:
-    if not caption:
-        return ("NONE", "empty", None)
-    for tier, key, pat, jp in CLASSIFIERS:
-        if pat.search(caption):
-            return (tier, key, jp)
-    return ("NONE", "bare_severity", "R12_blunder.json → why_clauses_user (add new variant)")
+def classify(caption: str, rule_name: str = "") -> Tuple[str, str, Optional[str]]:
+    """Adapter to the shared CaptionClassifier. Returns
+    (tier, variant_key, json_path). Pass rule_name from the move
+    record for precise file routing."""
+    result = classifier.classify(caption, rule_name=rule_name)
+    return (result["tier"], result["variant_key"], result["json_path"])
 
 
 # ── /audit endpoint ──────────────────────────────────────────────────
@@ -150,35 +125,58 @@ async def audit_endpoint(sample: int = 50, user: User = Depends(require_admin)):
         g["decryption_v5_data"] = new_v5
         g["decryption_v5_version"] = V5_COACHING_VERSION
 
-    # Classify
+    # Classify EVERY user move with a caption (no cp_loss filter —
+    # full coverage across all caption surfaces, not just blunders).
     by_tier = Counter()
+    by_file: Dict[str, Dict[str, Any]] = {}
     by_template: Dict[Tuple[str, str], Dict[str, Any]] = {}
-    positions: List[Dict[str, Any]] = []
     total = 0
+    silent = 0  # moves with no caption at all (R_FALLBACK)
 
     for game in games:
         gid = game["game_id"]
         for m in game.get("decryption_v5_data") or []:
             if not m.get("is_user_move"):
                 continue
-            cpl = m.get("cp_loss") or 0
-            if cpl < 100:
+            cap = m.get("caption") or ""
+            if not cap:
+                silent += 1
                 continue
             total += 1
-            cap = m.get("caption") or ""
-            tier, key, jp = classify(cap)
+            tier, key, jp = classify(cap, rule_name=m.get("rule_name", ""))
             by_tier[tier] += 1
-            entry = by_template.setdefault((tier, key), {
-                "tier": tier, "key": key, "json_path": jp,
-                "count": 0, "sample_positions": [],
+
+            # Derive file name from json_path if present
+            file_name = None
+            if jp:
+                file_name = jp.split(" ")[0]
+
+            file_key = file_name or "(no JSON file — bare severity)"
+            file_entry = by_file.setdefault(file_key, {
+                "file": file_key,
+                "count": 0,
+                "tier_counts": {"HIGH": 0, "MID": 0, "LOW": 0, "NONE": 0},
+                "variants": {},
             })
-            entry["count"] += 1
-            if tier in ("LOW", "NONE") and len(entry["sample_positions"]) < 12:
-                entry["sample_positions"].append({
+            file_entry["count"] += 1
+            file_entry["tier_counts"][tier] = file_entry["tier_counts"].get(tier, 0) + 1
+
+            variant_entry = file_entry["variants"].setdefault(key, {
+                "variant_key": key,
+                "tier": tier,
+                "json_path": jp,
+                "count": 0,
+                "sample_positions": [],
+            })
+            variant_entry["count"] += 1
+
+            # Keep samples for LOW/NONE only — that's the authoring backlog.
+            if tier in ("LOW", "NONE") and len(variant_entry["sample_positions"]) < 8:
+                variant_entry["sample_positions"].append({
                     "game_id": gid,
                     "move_number": m.get("move_number"),
                     "move_san": m.get("move_san"),
-                    "cp_loss": cpl,
+                    "cp_loss": m.get("cp_loss") or 0,
                     "fen_before": m.get("fen_before"),
                     "fen_after": m.get("fen_after"),
                     "caption": cap,
@@ -186,12 +184,39 @@ async def audit_endpoint(sample: int = 50, user: User = Depends(require_admin)):
                     "is_white": m.get("is_white"),
                 })
 
+            # Flat per-template list (legacy, kept for backward compat)
+            t_entry = by_template.setdefault((tier, key), {
+                "tier": tier, "key": key, "json_path": jp,
+                "count": 0, "sample_positions": [],
+            })
+            t_entry["count"] += 1
+            if tier in ("LOW", "NONE") and len(t_entry["sample_positions"]) < 12:
+                t_entry["sample_positions"].append({
+                    "game_id": gid,
+                    "move_number": m.get("move_number"),
+                    "move_san": m.get("move_san"),
+                    "cp_loss": m.get("cp_loss") or 0,
+                    "fen_before": m.get("fen_before"),
+                    "fen_after": m.get("fen_after"),
+                    "caption": cap,
+                    "best_move_san": m.get("best_move_san"),
+                    "is_white": m.get("is_white"),
+                })
+
+    # Convert by_file variants dict → list, sorted by count desc.
+    files_list: List[Dict[str, Any]] = []
+    for fkey, fentry in sorted(by_file.items(), key=lambda kv: -kv[1]["count"]):
+        fentry["variants"] = sorted(
+            fentry["variants"].values(), key=lambda v: -v["count"]
+        )
+        files_list.append(fentry)
     templates_list = sorted(by_template.values(), key=lambda e: -e["count"])
 
     return {
         "games_scanned": len(games),
         "v5_version": V5_COACHING_VERSION,
-        "total_blunder_moves": total,
+        "total_caption_moves": total,
+        "silent_moves": silent,
         "tier_counts": dict(by_tier),
         "tier_pct": {
             t: (100.0 * by_tier[t] / total if total else 0.0)
@@ -201,6 +226,7 @@ async def audit_endpoint(sample: int = 50, user: User = Depends(require_admin)):
         "fallback_pct": (
             100.0 * (by_tier["LOW"] + by_tier["NONE"]) / total
         ) if total else 0.0,
+        "files": files_list,
         "templates": templates_list,
     }
 

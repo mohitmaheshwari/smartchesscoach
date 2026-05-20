@@ -41,11 +41,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import os
-import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
 # Make `services.*` importable when this script runs from /app/backend/scripts
@@ -53,54 +51,18 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-
-# ── Caption classification ──────────────────────────────────────────
-
-# Order matters: HIGH templates checked before MID before LOW.
-# Each entry: (tier, classifier_key, regex, json_path) where json_path
-# tells the author which JSON file + variant key to edit when this
-# caption fires. None = no specific variant matched (R12 fired
-# without any why-clause, or the rule itself is the gap).
-CLASSIFIERS: List[Tuple[str, str, re.Pattern, Optional[str]]] = [
-    ("HIGH", "missed_mate",              re.compile(r"would have led to mate in \d+ moves?", re.I),         "R12_blunder.json → variants.why_user_missed_mate"),
-    ("HIGH", "missed_piece",             re.compile(r"wins the (pawn|knight|bishop|rook|queen) on [a-h][1-8]", re.I), "R12_blunder.json → variants.why_user_missed_piece"),
-    ("HIGH", "missed_clearance_attack",  re.compile(r"clears the line", re.I),                                "R12_blunder.json → variants.why_user_missed_clearance_attack"),
-    ("HIGH", "missed_king_pawn_pressure", re.compile(r"keeps the pressure on [a-h][1-8]", re.I),               "R12_blunder.json → variants.why_user_missed_king_pawn_pressure"),
-
-    ("MID",  "attacks_played",           re.compile(r"has no safe square", re.I),                             "R12_blunder.json → variants.why_user_attacks_played"),
-    ("MID",  "exchange_losing",          re.compile(r"falls\.|can't be defended", re.I),                       "R12_blunder.json → variants.why_user_exchange_losing_*"),
-    ("MID",  "hanging",                  re.compile(r"is now undefended", re.I),                              "R12_blunder.json → variants.why_user_hanging"),
-    ("MID",  "capture",                  re.compile(r"winning your (pawn|knight|bishop|rook|queen)", re.I),    "R12_blunder.json → variants.why_user_capture"),
-    ("MID",  "check",                    re.compile(r"forcing your king", re.I),                              "R12_blunder.json → variants.why_user_check"),
-
-    ("LOW",  "missed_material",          re.compile(r"wins material in the resulting line", re.I),            "R12_blunder.json → variants.why_user_missed_material"),
-    ("LOW",  "reply",                    re.compile(r"Opponent's strongest reply:", re.I),                    "R12_blunder.json → variants.why_user_reply"),
-]
-
-SEVERITY_TAIL_RE = re.compile(
-    r"\.\s*([A-Z][a-zA-Z0-9+\-#=]+ was better\.?)?\s*$"
-)
+# Shared classifier — auto-loads every variant from data/captions/.
+# See services/caption_classifier.py for the regex+tier map.
+from services.caption_classifier import classifier as _classifier
 
 
-def classify_caption(caption: str) -> Tuple[str, str, Optional[str]]:
-    """Return (tier, template_key, json_path) for the given caption.
-
-    Tier ∈ {HIGH, MID, LOW, NONE}. NONE = either no why-clause appended
-    (just severity + best_move), or the caption is empty.
-    json_path = the JSON file + variant key to edit when this template
-    fires. None when no variant matched (the gap is the rule's
-    select_variant / why_clauses_user list, not any specific text).
-    """
-    if not caption:
-        return ("NONE", "empty", None)
-    for tier, key, pat, jp in CLASSIFIERS:
-        if pat.search(caption):
-            return (tier, key, jp)
-    # No why-clause matched — the rule fired but every why-predicate
-    # failed. The gap is in the why_clauses_user list itself (we need
-    # new detector inputs / new why-variants), not in any specific
-    # template text.
-    return ("NONE", "bare_severity", "R12_blunder.json → why_clauses_user list (add a new variant here)")
+def classify_caption(caption: str, rule_name: str = "") -> Tuple[str, str, Optional[str]]:
+    """Return (tier, variant_key, json_path) for a caption. Uses
+    rule_name (when provided) to route to the correct JSON file
+    before matching variants — eliminates identical-structure
+    template clashes."""
+    r = _classifier.classify(caption, rule_name=rule_name)
+    return (r["tier"], r["variant_key"], r["json_path"])
 
 
 # ── Audit ────────────────────────────────────────────────────────────
@@ -181,14 +143,17 @@ async def audit(sample_size: int, user_filter: Optional[str], force_regen: bool)
             print(f"Regen complete. All {len(games)} games at v{V5_COACHING_VERSION}.")
             print()
 
-    # Walk user blunder moves
+    # Walk EVERY user move with a caption — full-coverage audit
+    # across all 20 caption JSON files, not just blunders.
     by_tier = Counter()
+    by_file_tier: Dict[str, Counter] = {}  # per-file tier breakdown
     by_template = Counter()
     json_path_for_template: Dict[Tuple[str, str], Optional[str]] = {}
     version_dist = Counter()
     low_examples: List[Dict[str, Any]] = []
     none_examples: List[Dict[str, Any]] = []
     total_moves = 0
+    silent_moves = 0
 
     for game in games:
         gid = game["game_id"]
@@ -196,21 +161,23 @@ async def audit(sample_size: int, user_filter: Optional[str], force_regen: bool)
         for m in game.get("decryption_v5_data") or []:
             if not m.get("is_user_move"):
                 continue
-            cpl = m.get("cp_loss") or 0
-            if cpl < 100:
-                continue  # below R12 threshold
-            total_moves += 1
             cap = m.get("caption") or ""
-            tier, key, jp = classify_caption(cap)
+            if not cap:
+                silent_moves += 1
+                continue
+            total_moves += 1
+            tier, key, jp = classify_caption(cap, rule_name=m.get("rule_name", ""))
             by_tier[tier] += 1
             by_template[(tier, key)] += 1
             json_path_for_template[(tier, key)] = jp
+            file_name = jp.split(" ")[0] if jp else "(unclassified)"
+            by_file_tier.setdefault(file_name, Counter())[tier] += 1
 
             sample = {
                 "game_id": gid[:8],
                 "move_number": m.get("move_number"),
                 "move_san": m.get("move_san"),
-                "cp_loss": cpl,
+                "cp_loss": m.get("cp_loss") or 0,
                 "fen_before": m.get("fen_before"),
                 "caption": cap,
                 "rule_name": m.get("rule_name"),
@@ -223,7 +190,8 @@ async def audit(sample_size: int, user_filter: Optional[str], force_regen: bool)
     # ── Print report ────────────────────────────────────────────────
     print(f"Games scanned: {len(games)}")
     print(f"V5 version distribution: {dict(version_dist)}")
-    print(f"User blunder moves (cp_loss >= 100): {total_moves}")
+    print(f"User moves with captions: {total_moves}")
+    print(f"User moves silent (no caption): {silent_moves}")
     print()
 
     if not total_moves:
@@ -242,6 +210,20 @@ async def audit(sample_size: int, user_filter: Optional[str], force_regen: bool)
     high_pct = 100.0 * by_tier["HIGH"] / total_moves
     print(f"Specific-content rate (HIGH): {high_pct:.1f}%")
     print(f"Fallback rate (LOW + NONE):   {100.0 * (by_tier['LOW'] + by_tier['NONE']) / total_moves:.1f}%")
+    print()
+
+    # Per-file breakdown
+    print("=" * 60)
+    print("PER-FILE COVERAGE (each JSON file in backend/data/captions/)")
+    print("=" * 60)
+    for file_name in sorted(by_file_tier.keys(), key=lambda f: -sum(by_file_tier[f].values())):
+        counts = by_file_tier[file_name]
+        total = sum(counts.values())
+        tier_str = " ".join(
+            f"{t}={counts.get(t, 0)}"
+            for t in ("HIGH", "MID", "LOW", "NONE")
+        )
+        print(f"  {file_name:40} {total:4d}  ({tier_str})")
     print()
 
     print("=" * 60)
