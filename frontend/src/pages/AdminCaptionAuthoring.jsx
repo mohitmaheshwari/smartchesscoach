@@ -339,12 +339,16 @@ const parseJsonPath = (path) => {
 };
 
 const EditModal = ({ target, onClose, onCommitted }) => {
+  // ALL hooks declared up-front — React requires identical hook order
+  // on every render, so we can't put any useState after a conditional
+  // return.
   const [parsed] = useState(() => parseJsonPath(target.json_path));
   const [current, setCurrent] = useState("");
   const [draft, setDraft] = useState("");
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [submitMsg, setSubmitMsg] = useState(null);
 
   // Load current template text from the JSON file (via a fake preview
   // that returns the raw template). We don't have a "get variant"
@@ -391,8 +395,6 @@ const EditModal = ({ target, onClose, onCommitted }) => {
       setBusy(false);
     }
   };
-
-  const [submitMsg, setSubmitMsg] = useState(null);
 
   const runSubmit = async () => {
     setBusy(true);
