@@ -75,10 +75,6 @@ def _load_all() -> Dict[str, Dict[str, Any]]:
     for fname in sorted(os.listdir(CAPTIONS_DIR)):
         if not fname.endswith(".json"):
             continue
-        # Non-rule files (e.g. promotion_ladder.json) have their own
-        # loaders elsewhere and don't expose a rule_name. Skip cleanly.
-        if fname == "promotion_ladder.json":
-            continue
         path = os.path.join(CAPTIONS_DIR, fname)
         try:
             with open(path, "r", encoding="utf-8") as fp:
@@ -86,9 +82,11 @@ def _load_all() -> Dict[str, Dict[str, Any]]:
         except Exception as exc:
             logger.warning(f"[caption_templates] failed to load {fname}: {exc}")
             continue
+        # Absence of rule_name = "this file isn't a rule" (e.g. an
+        # index / dispatch file like promotion_ladder.json). Skip
+        # without complaining; its own loader handles it.
         rule_name = data.get("rule_name")
         if not rule_name:
-            logger.warning(f"[caption_templates] {fname} missing rule_name")
             continue
         out[rule_name] = data
     _CAPTION_TEMPLATES = out
