@@ -971,16 +971,34 @@ async def get_coach_play_move_feedback(
         raise HTTPException(status_code=500, detail="Database not initialized")
     
     from services.realtime_coaching_feedback import get_last_move_feedback
-    
+    from services.pwc_caption_bridge import caption_for_pwc_move
+
     # Verify session belongs to user
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
         raise HTTPException(status_code=404, detail="Session not found")
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
-    
+
     feedback = await get_last_move_feedback(db, session_id, user.user_id)
-    
+
+    # Route the visible coaching message through the same V5 caption
+    # pipeline Lab review uses (Mohit 2026-05-20). Same JSON content
+    # backs both surfaces — adding a new opening/trap/principle in
+    # backend/data/captions/ updates Lab AND PWC simultaneously.
+    # Falls back to the legacy realtime_coaching_feedback message when
+    # V5 returns no caption for this move (silence is honest).
+    if feedback:
+        try:
+            v5_caption = await caption_for_pwc_move(db, session_id)
+            if v5_caption:
+                feedback["coaching_message"] = v5_caption
+        except Exception as _bridge_exc:
+            logger.info(
+                f"[pwc_caption_bridge] failed for {session_id}: {_bridge_exc}; "
+                "falling back to legacy coaching_message"
+            )
+
     return {"feedback": feedback}
 
 
