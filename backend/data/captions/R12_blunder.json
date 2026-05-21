@@ -36,6 +36,8 @@
     "curriculum_deviation_clause": "Hand-authored wrong_feedback from opening_curriculum.json — the tree's teaching for the deviation the user just played. Set by V5 service when get_opening_guidance reports is_in_book=True with expected_move ≠ played_san. Priority above generic blocked_pawn / board_state detectors but below concrete-about-played-move clauses (hanging, capture, check, exchange_losing) so a tactical 1-move blunder still wins over book-theory teaching.",
     "curriculum_expected_move": "The book-theory move the tree expected the user to play (set alongside curriculum_deviation_clause).",
     "curriculum_opening_name": "The matched opening's position_name from the curriculum.",
+    "user_is_winning": "true when user_eval_after >= +200cp from user POV. Triggers user_winning_position variant for cp_loss < 250 with no why_clause — reframes 'X is a mistake' as 'X is fine, you're still winning' (per Mohit 2026-05-21: when up by a queen, no positional move should be labeled 'a mistake' — it's misleading coaching).",
+    "user_is_losing": "true when user_eval_after <= -200cp. Triggers user_losing_position — reframes as context ('you were already losing') instead of blame.",
     "blocked_pawn_file": "File letter ('a'..'h') of a user pawn whose advance was blocked by the played piece move. Set by principle_blocked_pawn detector when the engine's best move was a pawn move to square X and the user played a non-pawn piece to X. Fires the why_user_blocks_own_pawn variant — names the opening principle the user just violated (don't block your own central pawn support).",
     "blocked_pawn_square": "The target square (e.g. 'c3') the user's pawn would have moved to.",
     "blocked_pawn_would_support": "The first central-pawn square (e.g. 'd4') the user's pawn would have supported diagonally. Only set when the pawn would have supported a real central pawn — gives the why-clause its specific teaching value.",
@@ -101,11 +103,13 @@
   ],
   "suppression": [
     {"when": {"mover_is_user": false, "why_clause": "absent", "cp_loss": {"lt": 250}}},
-    {"when": {"mover_is_user": true, "why_clause": "absent", "cp_loss": {"lt": 250}}}
+    {"when": {"mover_is_user": true, "why_clause": "absent", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"lt": 250}}}
   ],
   "select_variant": [
     {"when": {"mover_is_user": false, "why_clause": "present"}, "variant": "opp_with_why"},
     {"when": {"mover_is_user": false}, "variant": "opp"},
+    {"when": {"mover_is_user": true, "user_is_winning": true, "why_clause": "absent", "best_move_san_differs": true, "cp_loss": {"lt": 250}}, "variant": "user_winning_position"},
+    {"when": {"mover_is_user": true, "user_is_losing": true, "why_clause": "absent", "best_move_san_differs": true, "cp_loss": {"lt": 250}}, "variant": "user_losing_position"},
     {"when": {"best_move_san_differs": true, "why_clause": "present"}, "variant": "user_with_best_and_why"},
     {"when": {"best_move_san_differs": true}, "variant": "user_with_best"},
     {"when": {"why_clause": "present"}, "variant": "user_no_best_with_why"},
@@ -114,6 +118,8 @@
   "variants": {
     "user_with_best": "{played_san} {severity_phrase}. {best_move_san} was better.",
     "user_with_best_and_why": "{played_san} {severity_phrase}. {best_move_san} was better. {why_clause}",
+    "user_winning_position": "{played_san} is fine — you're still winning. {best_move_san} would have kept the pressure on.",
+    "user_losing_position": "{played_san} doesn't change much — you were already losing. {best_move_san} would have made the loss slower.",
     "user_no_best": "{played_san} {severity_phrase}.",
     "user_no_best_with_why": "{played_san} {severity_phrase}. {why_clause}",
     "opp": "Opponent's {played_san} {severity_phrase}.",

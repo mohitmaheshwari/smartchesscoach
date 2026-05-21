@@ -95,6 +95,19 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         ("R_PROMOTED_basic_mistake.json", "with_blocked_pawn_supports"),
         ("R_PROMOTED_basic_mistake.json", "with_curriculum_deviation"),
     }
+
+    # MID pair-overrides — position-eval reframings are contextually
+    # accurate but not "specific tactical/strategic content." Mid-tier
+    # gives them the right place: more valuable than bare engine-speak
+    # (LOW), less than a named tactic / curriculum teaching (HIGH).
+    mid_pairs = {
+        ("R_PROMOTED_basic_mistake.json", "with_winning_position"),
+        ("R_PROMOTED_basic_mistake.json", "with_losing_position"),
+        ("R12_blunder.json", "user_winning_position"),
+        ("R12_blunder.json", "user_losing_position"),
+    }
+    if (file_name, variant_key) in mid_pairs:
+        return "MID"
     if (file_name, variant_key) in high_pairs:
         return "HIGH"
 

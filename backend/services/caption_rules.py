@@ -500,6 +500,15 @@ def _r12_render(f):
         "curriculum_expected_move": f.get("curriculum_expected_move"),
         "curriculum_opening_name": f.get("curriculum_opening_name"),
 
+        # Position-eval flags (Mohit 2026-05-21) — reframe low-cp_loss
+        # "is a mistake" captions into encouragement (winning) or
+        # context (losing). When user is decisively winning or losing,
+        # framing a 30-150cp positional preference as "a mistake" is
+        # bad coaching. Already computed by caption_facts; just
+        # propagated here so R12 / basic_mistake variants can pick.
+        "user_is_winning": f.get("user_is_winning"),
+        "user_is_losing": f.get("user_is_losing"),
+
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,
         "opp_reply_attacks_played_piece": bool(f.get("opp_reply_attacks_played_piece")),
