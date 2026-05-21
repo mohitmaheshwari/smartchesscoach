@@ -55,14 +55,14 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
       - Generic fallbacks (wins material in resulting line, Opponent's
         strongest reply, basic_mistake severity-only) → LOW
     """
-    # HIGH — explicit named tactics (R12 why-clauses surface deep
-    # teaching content like mate, missed piece win, clearance attack,
-    # king-pawn-pressure).
+    # HIGH — explicit named tactics + strategic-decline framing.
     high_keys = {
         "why_user_missed_mate",
         "why_user_missed_piece",
         "why_user_missed_clearance_attack",
         "why_user_missed_king_pawn_pressure",
+        "why_user_position_already_losing",
+        "why_user_position_already_losing_since_known",
     }
     if variant_key in high_keys:
         return "HIGH"

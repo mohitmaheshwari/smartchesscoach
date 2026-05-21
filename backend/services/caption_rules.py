@@ -470,6 +470,13 @@ def _r12_render(f):
         "missed_clearance_attack_square": f.get("missed_clearance_attack_square"),
         "missed_clearance_attacker_piece": f.get("missed_clearance_attacker_piece"),
 
+        # Eval-trajectory facts (Mohit 2026-05-21) — engine-derived
+        # leverage. When the eval has been losing for 3+ user moves
+        # before this one, frame the move as damage control, not the
+        # source of the loss.
+        "position_was_already_losing": f.get("position_was_already_losing"),
+        "losing_since_move": f.get("losing_since_move"),
+
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,
         "opp_reply_attacks_played_piece": bool(f.get("opp_reply_attacks_played_piece")),
