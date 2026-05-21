@@ -146,18 +146,27 @@ def detect_missed_tactic(
 
     # Threshold guard for piece_capture: the engine's stored eval must
     # actually support a piece-up advantage from the user's POV. For a
-    # white user, eval_before_cp >= +500 means white has minor-piece-up
-    # territory; for black, eval_before_cp <= -500. Without this guard
+    # white user, eval_before_cp >= +400 means white has minor-piece-up
+    # territory; for black, eval_before_cp <= -400. Without this guard
     # the detector over-claims when the PV contains a capture whose
     # recapture lives past the PV horizon (engine knows about it via
     # eval; the PV doesn't show it).
+    #
+    # Threshold lowered 500 → 400 (Mohit 2026-05-21) so that real
+    # sacrifice tactics — where the user gives up a minor piece to
+    # win a queen, netting +4cp on the board but +400-450cp by engine
+    # eval — still credit as piece_capture instead of degrading to
+    # the engine-speak "material" fallback. Found via Bb5+ on
+    # rnbqkb1r/pp3ppp/1n1p4/4p3/2B5/5N2/PPP2PPP/RNBQR1K1: Nxe5 dxe5
+    # Bxf7+ Kxf7 Qxd8 wins the queen but engine eval is only +431cp
+    # because of the bishop+knight investment.
     user_color_white = (user_color or "").lower() == "white"
     user_eval_at_best = None
     if eval_before_cp is not None:
         user_eval_at_best = eval_before_cp if user_color_white else -eval_before_cp
 
     if user_piece_captures and net_user_gain >= 3:
-        if user_eval_at_best is None or user_eval_at_best >= 500:
+        if user_eval_at_best is None or user_eval_at_best >= 400:
             best_capture = max(user_piece_captures, key=lambda c: c["piece_value"])
             return {
                 "kind": "piece_capture",

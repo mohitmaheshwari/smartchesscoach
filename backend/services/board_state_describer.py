@@ -160,12 +160,13 @@ def _metric_isolated_attacker(
 def _metric_worst_placed_piece(
     board: chess.Board, user_color: chess.Color, move_number: int
 ) -> Optional[BoardStateFact]:
-    """User's minor/major piece with ≤2 legal moves (cramped). Skipped
-    pre-move 8 to avoid noise during natural opening development."""
+    """User's minor/major piece with ≤2 legal moves (cramped). Only
+    counts pieces that have been DEVELOPED — a rook stuck on a1
+    behind its a-pawn is normal opening play, not a teaching moment.
+    Also skipped before move 8 to avoid early-opening noise."""
     if move_number < 8:
         return None
-    # Save and restore turn to count *user's* legal moves regardless
-    # of whose turn it currently is.
+    home = _home_squares(user_color)
     saved_turn = board.turn
     board.turn = user_color
     worst_sq = None
@@ -174,6 +175,11 @@ def _metric_worst_placed_piece(
     try:
         for piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
             for sq in board.pieces(piece_type, user_color):
+                # Skip pieces still on their starting square — they
+                # haven't been moved, so being cramped is structural,
+                # not a coaching insight.
+                if sq in home.get(piece_type, set()):
+                    continue
                 count = sum(1 for _ in board.legal_moves if _.from_square == sq)
                 if worst_count is None or count < worst_count:
                     worst_count = count
