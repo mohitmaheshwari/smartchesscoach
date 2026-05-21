@@ -115,6 +115,23 @@ def _extract_winning_losing_claim(caption: str) -> Optional[Dict[str, str]]:
     return None
 
 
+def _extract_board_state_claim(caption: str) -> Optional[Dict[str, str]]:
+    """Parse board_state claims (bs_isolated_attacker, bs_queen_alone_active)."""
+    m = re.search(
+        r"Your (queen|knight|bishop|rook) on ([a-h][1-8]) is alone in opponent territory with no defender",
+        caption,
+    )
+    if m:
+        return {"type": "isolated_attacker", "piece": m.group(1), "square": m.group(2)}
+    m = re.search(
+        r"Your queen on ([a-h][1-8]) is the only piece doing anything",
+        caption,
+    )
+    if m:
+        return {"type": "queen_alone_active", "square": m.group(1)}
+    return None
+
+
 # ────────────────────────────────────────────────────────────────────
 # Verifiers — mechanically check each claim
 # ────────────────────────────────────────────────────────────────────
@@ -232,6 +249,59 @@ def verify_winning_losing(
         return f"caption says 'still winning' but user eval_after={user_eval_after}cp (< +200)"
     if claim["frame"] == "losing" and user_eval_after > -200:
         return f"caption says 'already losing' but user eval_after={user_eval_after}cp (> -200)"
+    return None
+
+
+def verify_board_state(
+    fen_before: str,
+    played_san: str,
+    claim: Dict[str, str],
+    user_color: str,
+) -> Optional[str]:
+    """Verify board_state claims against the position AFTER the played
+    move. The describer reads the post-move board, so verifying
+    against fen_after_played."""
+    try:
+        board = chess.Board(fen_before)
+        board.push_san(played_san)
+    except Exception:
+        return "fen_before / played_san unparseable"
+    user_color_chess = chess.WHITE if (user_color or "white").lower() == "white" else chess.BLACK
+    opp_color = not user_color_chess
+
+    if claim["type"] == "isolated_attacker":
+        piece_type = _PIECE_NAME_TO_TYPE.get(claim["piece"])
+        target_sq = chess.parse_square(claim["square"])
+        p = board.piece_at(target_sq)
+        if not p or p.piece_type != piece_type or p.color != user_color_chess:
+            return f"no user {claim['piece']} on {claim['square']} after move"
+        # Verify in opp territory
+        rank = chess.square_rank(target_sq)
+        opp_ranks = range(4, 8) if user_color_chess == chess.WHITE else range(0, 4)
+        if rank not in opp_ranks:
+            return f"{claim['square']} not in opponent territory for {user_color} user"
+        # Verify undefended (no own attacker, opp attacks it)
+        own_attackers = board.attackers(user_color_chess, target_sq)
+        opp_attackers = board.attackers(opp_color, target_sq)
+        if own_attackers:
+            return f"{claim['piece']} on {claim['square']} IS defended (own attackers)"
+        if not opp_attackers:
+            return f"{claim['piece']} on {claim['square']} not actually attacked (opp doesn't attack it)"
+        return None
+
+    if claim["type"] == "queen_alone_active":
+        target_sq = chess.parse_square(claim["square"])
+        p = board.piece_at(target_sq)
+        if not p or p.piece_type != chess.QUEEN or p.color != user_color_chess:
+            return f"no user queen on {claim['square']} after move"
+        # All other minor/major pieces should be in own ranks
+        own_ranks = range(0, 4) if user_color_chess == chess.WHITE else range(4, 8)
+        for ptype in (chess.KNIGHT, chess.BISHOP, chess.ROOK):
+            for sq in board.pieces(ptype, user_color_chess):
+                if chess.square_rank(sq) not in own_ranks:
+                    return f"another active user piece exists on {chess.square_name(sq)} — queen isn't alone"
+        return None
+
     return None
 
 
@@ -409,6 +479,21 @@ async def verify(sample_size: int, out_path: str) -> Dict[str, Any]:
                         **sample_record,
                         "verifier": "severity",
                         "claim": sev,
+                        "reason": reason,
+                    })
+
+            # 7. board_state claim
+            bs = _extract_board_state_claim(caption)
+            if bs:
+                reason = verify_board_state(
+                    fen_before, played_san, bs, user_color,
+                )
+                if reason:
+                    counters["board_state_fail"] += 1
+                    suspects.append({
+                        **sample_record,
+                        "verifier": "board_state",
+                        "claim": bs,
                         "reason": reason,
                     })
 
