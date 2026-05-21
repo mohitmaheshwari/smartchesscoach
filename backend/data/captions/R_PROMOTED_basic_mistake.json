@@ -1,12 +1,15 @@
 {
   "rule_name": "R_PROMOTED_basic_mistake",
-  "description": "Last-resort fallback for a real user mistake (cp_loss >= 50) with a clear better_move but NO shape / NO principle / NO firing R-rule. Severity tier respects [[cp-loss-is-not-material]] — never translate cp_loss to 'X pawns lost'. When the V5 board_state_describer composed a board_state_clause (Mohit 2026-05-21), prefer the with_board_state variant so the caption is coach-voice geometry instead of bare engine-speak ('X was better').",
+  "description": "Last-resort fallback for a real user mistake (cp_loss >= 50) with a clear better_move but NO shape / NO principle / NO firing R-rule. Severity tier respects [[cp-loss-is-not-material]] — never translate cp_loss to 'X pawns lost'. Asymmetric threshold (Mohit 2026-05-21): the bare engine-speak default variant requires cp_loss >= 100, but detector-driven variants (with_blocked_pawn / with_board_state) fire at the lower promotion threshold (50). Rationale: a 50-100cp 'mistake' is a positional preference — calling Bb3 'a mistake' when Bd3 is 14cp better is overharsh and engine-speak. Only label cp_loss 50-100 as a mistake when we have real teaching (detector-driven why-clause). Below 100cp with no detector → silent (the 'silence beats engine-speak' principle).",
   "fact_glossary": {
     "move_san": "SAN of the played mistake",
     "best_move": "Engine's preferred move",
     "severity_phrase": "Authored phrase picked from severity_phrases via severity_tiers",
     "cp_loss": "Centipawn loss of the move",
-    "board_state_clause": "Pre-rendered string from board_state_describer (1-3 facts joined). When present, basic_mistake renders the with_board_state variant so the user gets concrete board geometry instead of just 'X was better.'"
+    "blocked_pawn_file": "File letter of a user pawn whose advance was blocked by the played piece move. Set by principle_blocked_pawn detector — names an opening principle violation.",
+    "blocked_pawn_square": "Target square the blocked pawn would have advanced to.",
+    "blocked_pawn_would_support": "Central pawn square the blocked pawn would have supported diagonally. When set, the with_blocked_pawn_supports variant teaches the specific structural reason; otherwise with_blocked_pawn names the principle generically.",
+    "board_state_clause": "Pre-rendered string from board_state_describer (1-3 facts joined). Lower priority than blocked_pawn — when both fire, prefer the named principle."
   },
   "severity_tiers": [
     {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
@@ -20,11 +23,17 @@
   },
   "requires": ["move_san", "best_move", "severity_phrase"],
   "select_variant": [
+    {"when": {"blocked_pawn_would_support": "present"}, "variant": "with_blocked_pawn_supports"},
+    {"when": {"blocked_pawn_file": "present"}, "variant": "with_blocked_pawn"},
     {"when": {"board_state_clause": "present"}, "variant": "with_board_state"},
-    {"variant": "default"}
+    {"when": {"cp_loss": {"gte": 100}}, "variant": "default"},
+    {"variant": "silent_positional_preference"}
   ],
   "variants": {
     "default": "{move_san} {severity_phrase}. {best_move} was better.",
-    "with_board_state": "{move_san} {severity_phrase}. {best_move} was better. {board_state_clause}"
+    "silent_positional_preference": "",
+    "with_board_state": "{move_san} {severity_phrase}. {best_move} was better. {board_state_clause}",
+    "with_blocked_pawn_supports": "{move_san} {severity_phrase} — it blocks your {blocked_pawn_file}-pawn. {best_move} would have supported your {blocked_pawn_would_support} pawn.",
+    "with_blocked_pawn": "{move_san} {severity_phrase} — it blocks your {blocked_pawn_file}-pawn from advancing to {blocked_pawn_square}. {best_move} was better."
   }
 }

@@ -1311,5 +1311,100 @@
       "Knight outposts on d5 or e4 are killer.",
       "Queenside majority converts to a passed pawn."
     ]
+  },
+  "modern_defense": {
+    "name": "Modern Defense (Classical Setup)",
+    "color": "white",
+    "summary": "How to handle Black's Modern Defense (1...g6). Take the center with e4 + d4, develop Bc4 + Nf3 + O-O, push e5 to claim space, then ALWAYS support d4 with c3 — never Nbc3, which blocks the supporting pawn.",
+    "difficulty": "intermediate",
+    "setup_order": [
+      "e4",
+      "d4",
+      "Bc4",
+      "Nf3",
+      "O-O",
+      "e5",
+      "c3"
+    ],
+    "golden_rules": [
+      "After d4 + e5, support the center with c3 — not Nbc3.",
+      "Nbc3 blocks the c-pawn permanently. The c-pawn needs c3 to support d4.",
+      "Develop Bc4 + Nf3 + O-O before pushing e5.",
+      "Black's Nc6 puts pressure on d4 — c3 is the structural answer.",
+      "After c3, plan Nbd2 + Bd3 / Bb3 + Re1 to complete development."
+    ],
+    "traps": [],
+    "tree": {
+      "e4": {
+        "idea": "Take the center first.",
+        "hint": "Best central pawn move?",
+        "right_feedback": "Good — e4 grabs the center against the Modern.",
+        "responses": {
+          "g6": {
+            "name": "Modern Defense",
+            "idea_opponent": "Black fianchettos, will pressure your center from the flank.",
+            "next": "d4",
+            "hint": "Claim more space with the queen's pawn?",
+            "right_feedback": "Right — d4 gives you the big center.",
+            "responses": {
+              "Bg7": {
+                "name": "Fianchetto",
+                "idea_opponent": "Bishop aims at your d4-e5 chain.",
+                "next": "Bc4",
+                "hint": "Italian-style bishop — aim at f7.",
+                "right_feedback": "Bc4 — bishop on the long diagonal toward f7.",
+                "responses": {
+                  "e6": {
+                    "name": "Hybrid Setup with ...e6",
+                    "idea_opponent": "Black solidifies the dark squares around the fianchetto.",
+                    "next": "Nf3",
+                    "hint": "Develop the knight, defend d4 indirectly.",
+                    "right_feedback": "Nf3 — protects d4 from any future ...e5 / ...c5 break.",
+                    "responses": {
+                      "Nc6": {
+                        "name": "Knight attacks d4",
+                        "idea_opponent": "Black's knight presses on your d4 pawn.",
+                        "next": "O-O",
+                        "hint": "Get the king safe before pushing forward.",
+                        "right_feedback": "Castle first — safety before space-grabbing.",
+                        "responses": {
+                          "Ne7": {
+                            "name": "Knight reroute",
+                            "idea_opponent": "Black readies ...d5 or ...f5 break.",
+                            "next": "e5",
+                            "hint": "Claim the e5 square — clamp the center.",
+                            "right_feedback": "e5 — big center, Black's knight on e7 is now passive.",
+                            "responses": {
+                              "a6": {
+                                "name": "Queenside prep",
+                                "idea_opponent": "Black prepares ...b5 to harass your Bc4.",
+                                "next": "c3",
+                                "hint": "In the Modern Defense, Black's knight on c6 attacks your d4. How do you defend d4 without blocking your own pawn?",
+                                "right_feedback": "In the Modern Defense, c3 supports your d4 pawn — keeps the big center solid. Your b1-knight can come to d2 next.",
+                                "wrong_feedback": "In the Modern Defense, the idea is: c3 (the pawn) supports your d4 + e5 center. Nc3 blocks the c-pawn for good — now d4 has no pawn behind it. Black plays ...d6 then ...dxe5 and your big center falls apart.",
+                                "responses": {}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "middlegame_plans": [
+      "After c3 + Nbd2, expand with Bd3 (or Bb3) + Re1 + h3 + a4 — patient development.",
+      "Watch for Black's ...d6 / ...d5 break — meet ...d5 with exd6 e.p. when available.",
+      "Trade Black's fianchetto bishop if you can win a tempo doing it."
+    ],
+    "endgame_tips": [
+      "Your d4-e5 chain becomes a queenside majority in pawn endings — push the queenside.",
+      "Black's dark-square bishop is the key piece; trade it for any meaningful concession."
+    ]
   }
 }

@@ -484,6 +484,15 @@ def _r12_render(f):
         # nothing more specific did.
         "board_state_clause": f.get("board_state_clause"),
 
+        # Blocked-own-pawn principle (Mohit 2026-05-21) — named
+        # opening teaching for moves where user played a non-pawn
+        # piece to a square the engine's best (a pawn) wanted to
+        # occupy. Common in d4+e5 structures where Nc3 blocks the
+        # c-pawn's central support.
+        "blocked_pawn_file": f.get("blocked_pawn_file"),
+        "blocked_pawn_square": f.get("blocked_pawn_square"),
+        "blocked_pawn_would_support": f.get("blocked_pawn_would_support"),
+
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,
         "opp_reply_attacks_played_piece": bool(f.get("opp_reply_attacks_played_piece")),
