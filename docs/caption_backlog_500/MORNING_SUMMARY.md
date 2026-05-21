@@ -125,6 +125,23 @@ This IS the floor — eliminating them entirely would mean either silence (capti
 
 ---
 
+## v55 partial validation (40/100 games regenerated at the time of writing)
+
+Verifier on 50 v55 games: **0 suspects** — the v55 pipeline is also mechanically clean.
+
+Caption-phrase distribution on 50 v55 games (1524 user moves):
+- 831 other (R-rules: develop, threat, capture, check, central pawn, etc.)
+- 206 "is a mistake" (R12 mistake tier)
+- 41 "is a major blunder"
+- 37 "is a serious mistake"
+- 3 "you were already losing"
+- 1 "you're still winning"
+- 0 curriculum_deviation
+
+**v55 visible effect:** the "still winning" reframing rate dropped from v53's ~0.34% → v55's ~0.07% (5x lower), and "already losing" dropped from 0.24% → 0.20%. That's the v55 fix taking effect — moves that CREATED the win/loss no longer get the "you were already winning/losing" softening; they correctly get the harsher "is a mistake" framing they deserve.
+
+No regression — verifier 0 suspects holds, total caption volume similar.
+
 ## Audit log
 
 - **17:00 (approx)** Mohit goes to sleep, "go go go". I start.
