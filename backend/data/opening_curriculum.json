@@ -1397,11 +1397,30 @@
         }
       }
     },
-    "middlegame_plans": [
-      "After c3 + Nbd2, expand with Bd3 (or Bb3) + Re1 + h3 + a4 — patient development.",
-      "Watch for Black's ...d6 / ...d5 break — meet ...d5 with exd6 e.p. when available.",
-      "Trade Black's fianchetto bishop if you can win a tempo doing it."
-    ],
+    "middlegame_plans": {
+      "when_equal": {
+        "plan": "After c3 + Nbd2, expand with Bd3 (or Bb3) + Re1 + h3 + a4 — patient development.",
+        "ideas": [
+          "Push e5-e6 only when prepared.",
+          "Trade Black's fianchetto bishop if you can win a tempo doing it.",
+          "Watch for Black's ...d6 / ...d5 break — meet ...d5 with exd6 e.p. when available."
+        ]
+      },
+      "when_ahead": {
+        "plan": "Open the center decisively with d5 or e6. Black's king is still in the centre.",
+        "ideas": [
+          "Trade queens only if the resulting endgame is winning.",
+          "Push the kingside pawns to open lines toward the black king."
+        ]
+      },
+      "when_behind": {
+        "plan": "Keep the position closed. Black's fianchetto is the strong piece — neutralize it.",
+        "ideas": [
+          "Trade off Black's active pieces.",
+          "Avoid pawn breaks until you've consolidated."
+        ]
+      }
+    },
     "endgame_tips": [
       "Your d4-e5 chain becomes a queenside majority in pawn endings — push the queenside.",
       "Black's dark-square bishop is the key piece; trade it for any meaningful concession."

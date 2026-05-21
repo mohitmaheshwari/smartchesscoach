@@ -66,6 +66,7 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         "why_user_missed_king_pawn_pressure",
         "why_user_position_already_losing",
         "why_user_position_already_losing_since_known",
+        "why_user_curriculum_deviation",
         "why_user_blocks_pawn_supports",
         "why_user_blocks_pawn",
         "why_user_board_state",
@@ -92,6 +93,7 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         ("R_PROMOTED_basic_mistake.json", "with_board_state"),
         ("R_PROMOTED_basic_mistake.json", "with_blocked_pawn"),
         ("R_PROMOTED_basic_mistake.json", "with_blocked_pawn_supports"),
+        ("R_PROMOTED_basic_mistake.json", "with_curriculum_deviation"),
     }
     if (file_name, variant_key) in high_pairs:
         return "HIGH"

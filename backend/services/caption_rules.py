@@ -493,6 +493,13 @@ def _r12_render(f):
         "blocked_pawn_square": f.get("blocked_pawn_square"),
         "blocked_pawn_would_support": f.get("blocked_pawn_would_support"),
 
+        # Curriculum deviation (Mohit 2026-05-21) — user deviated
+        # from a curated opening tree's expected move. The clause
+        # is the tree node's hand-authored wrong_feedback.
+        "curriculum_deviation_clause": f.get("curriculum_deviation_clause"),
+        "curriculum_expected_move": f.get("curriculum_expected_move"),
+        "curriculum_opening_name": f.get("curriculum_opening_name"),
+
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,
         "opp_reply_attacks_played_piece": bool(f.get("opp_reply_attacks_played_piece")),
