@@ -1588,60 +1588,51 @@ def detect_clearance_for_attack(board: chess.Board) -> List[Dict]:
 
             attacks_before = set(board_before.attacks(slider_sq))
             attacks_now = set(board.attacks(slider_sq))
-            newly_reachable = attacks_now - attacks_before
-            if not newly_reachable:
+            newly_attacked = attacks_now - attacks_before
+            if not newly_attacked:
                 continue
 
-            for cleared_sq in newly_reachable:
-                # Only consider clearance squares within reach of king
-                cdist = max(
-                    abs(chess.square_file(cleared_sq) - them_king_file),
-                    abs(chess.square_rank(cleared_sq) - them_king_rank),
+            # Mohit-flagged hallucination (2026-05-21): the previous
+            # logic also iterated "newly reachable" squares and
+            # SIMULATED moving the slider there, checking attacks
+            # from the simulated square. That implies a TWO-move
+            # plan ("if the slider moved to X, it would attack Y"),
+            # while the caption template ("your {piece} comes
+            # through to attack {sq}") implies a ONE-move clearance
+            # with the slider directly attacking the target through
+            # the opened line. The verifier (10/50 fails) confirmed
+            # the framing was a hallucination. Fix: require the
+            # slider to DIRECTLY attack a king-zone square after the
+            # clearance, without further movement.
+            kz_threats = newly_attacked & king_zone
+            if not kz_threats:
+                continue
+
+            for kz_sq in kz_threats:
+                own_attackers = list(board.attackers(us, kz_sq))
+                other_attackers = [a for a in own_attackers if a != slider_sq]
+                if not other_attackers:
+                    continue
+                piece_type_name = {
+                    chess.QUEEN: "queen",
+                    chess.ROOK: "rook",
+                    chess.BISHOP: "bishop",
+                }.get(sliding_piece_type, "piece")
+                ev = _ev(
+                    "clearance_for_attack",
+                    mover=slider_sq,
+                    targets=[kz_sq],
+                    executing_move=None,
+                    evidence=(
+                        f"clearance opened line for {piece_type_name} on "
+                        f"{chess.square_name(slider_sq)}; directly attacks "
+                        f"{chess.square_name(kz_sq)} (king zone), supported by "
+                        f"{len(other_attackers)} other own attacker(s)"
+                    ),
                 )
-                if cdist > 3:
-                    continue
-
-                # Simulate slider at cleared_sq, check what it attacks.
-                # Use board (current state), move the slider, compute
-                # attacks. Don't actually mutate the real board.
-                temp = board.copy()
-                slider_piece = temp.remove_piece_at(slider_sq)
-                if slider_piece is None:
-                    continue
-                temp.set_piece_at(cleared_sq, slider_piece)
-                attacks_from_cleared = set(temp.attacks(cleared_sq))
-                kz_threats = attacks_from_cleared & king_zone
-                if not kz_threats:
-                    continue
-
-                # Coordination check on actual board (slider hasn't
-                # moved yet — we only simulated).
-                for kz_sq in kz_threats:
-                    own_attackers = list(board.attackers(us, kz_sq))
-                    other_attackers = [a for a in own_attackers if a != slider_sq]
-                    if not other_attackers:
-                        continue
-                    piece_type_name = {
-                        chess.QUEEN: "queen",
-                        chess.ROOK: "rook",
-                        chess.BISHOP: "bishop",
-                    }.get(sliding_piece_type, "piece")
-                    ev = _ev(
-                        "clearance_for_attack",
-                        mover=slider_sq,
-                        targets=[kz_sq],
-                        executing_move=None,
-                        evidence=(
-                            f"clearance opened line for {piece_type_name} on "
-                            f"{chess.square_name(slider_sq)}; from "
-                            f"{chess.square_name(cleared_sq)} it would attack "
-                            f"{chess.square_name(kz_sq)} (king zone), supported by "
-                            f"{len(other_attackers)} other own attacker(s)"
-                        ),
-                    )
-                    ev["clearer_piece_type"] = piece_type_name
-                    out.append(ev)
-                    break  # one evidence per slider/cleared_sq
+                ev["clearer_piece_type"] = piece_type_name
+                out.append(ev)
+                break  # one evidence per slider
 
     return out
 
