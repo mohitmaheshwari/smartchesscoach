@@ -477,6 +477,13 @@ def _r12_render(f):
         "position_was_already_losing": f.get("position_was_already_losing"),
         "losing_since_move": f.get("losing_since_move"),
 
+        # Board-state clause (Mohit 2026-05-21) — universal
+        # coach-voice fallback. Pre-rendered string composed by
+        # board_state_describer.py + V5 service from up to 3
+        # bs_* template renderings. Fires as why-clause when
+        # nothing more specific did.
+        "board_state_clause": f.get("board_state_clause"),
+
         # User-side why-clause inputs
         "opp_reply_san": opp_reply,
         "opp_reply_attacks_played_piece": bool(f.get("opp_reply_attacks_played_piece")),

@@ -55,7 +55,10 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
       - Generic fallbacks (wins material in resulting line, Opponent's
         strongest reply, basic_mistake severity-only) → LOW
     """
-    # HIGH — explicit named tactics + strategic-decline framing.
+    # HIGH — explicit named tactics + strategic-decline framing +
+    # board-state coach-voice (Mohit 2026-05-21: board-state describer
+    # produces coordinated multi-fact teachings; each bs_* template is
+    # a verifiable geometric observation in user-facing language).
     high_keys = {
         "why_user_missed_mate",
         "why_user_missed_piece",
@@ -63,8 +66,30 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         "why_user_missed_king_pawn_pressure",
         "why_user_position_already_losing",
         "why_user_position_already_losing_since_known",
+        "why_user_board_state",
+        "bs_isolated_attacker",
+        "bs_worst_placed_piece",
+        "bs_development_gap",
+        "bs_pieces_on_back_rank",
+        "bs_king_shield_broken",
+        "bs_king_attackers",
+        "bs_central_control_gap",
+        "bs_open_file_owned_by_opp",
+        "bs_queen_alone_active",
+        "bs_connected_rooks_only_opp",
+        "bs_passive_pieces_count",
     }
     if variant_key in high_keys:
+        return "HIGH"
+
+    # HIGH pair-overrides — when a file's variant key marks a
+    # board-state path, classify HIGH even if the file's default
+    # entries are LOW (R_PROMOTED_basic_mistake.json default stays
+    # LOW; with_board_state becomes HIGH).
+    high_pairs = {
+        ("R_PROMOTED_basic_mistake.json", "with_board_state"),
+    }
+    if (file_name, variant_key) in high_pairs:
         return "HIGH"
 
     # HIGH files — every variant is a named teaching surface
@@ -216,19 +241,34 @@ class CaptionClassifier:
                 # Why-clause variants in R12 are sub-sentences appended
                 # to a main variant — they don't appear as standalone
                 # captions, so we look for them as substrings, not as
-                # full caption matches.
-                is_substring = variant_key.startswith("why_")
+                # full caption matches. bs_* variants are individual
+                # sentences joined inside the board_state_clause — also
+                # substring-matched so each carries its own tier.
+                is_substring = (
+                    variant_key.startswith("why_")
+                    or variant_key.startswith("bs_")
+                )
                 regex = _template_to_regex(template)
                 if regex is None:
                     continue
                 # For substring matching, also build a non-anchored regex.
+                # Skip templates that are pure single-placeholder
+                # passthrough (e.g. why_user_board_state = "{x}") — those
+                # match every non-empty string and would swallow
+                # every caption.
                 sub_regex = None
                 if is_substring:
                     sub_pat = regex.pattern[1:-1]  # strip ^ $
-                    try:
-                        sub_regex = re.compile(sub_pat, re.IGNORECASE | re.DOTALL)
-                    except re.error:
+                    # Skip pure-placeholder passthrough templates like
+                    # "{x}" → regex `.+?` — those match every string
+                    # and would swallow every caption.
+                    if sub_pat in (".+?", ".+", "(.+?)", "(.+)"):
                         sub_regex = None
+                    else:
+                        try:
+                            sub_regex = re.compile(sub_pat, re.IGNORECASE | re.DOTALL)
+                        except re.error:
+                            sub_regex = None
                 entry = {
                     "file": fname,
                     "variant_key": variant_key,

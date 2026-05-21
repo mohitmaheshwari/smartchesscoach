@@ -1,6 +1,6 @@
 {
   "description": "Cross-rule numeric thresholds + global limits. Authors (Mohit + Parth) tune detection sensitivity here without touching Python. Each constant has a single authoritative value — backend/services/caption_config.py reads from this file at import time.",
-  "max_caption_words": 25,
+  "max_caption_words": 45,
   "thresholds": {
     "min_threat_see_cp": 200,
     "min_aligned_rear_value_cp": 500,
