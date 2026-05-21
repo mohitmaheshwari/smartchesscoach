@@ -4950,14 +4950,34 @@ def extract_facts(
         pass
 
     # ── Game-state flags (purely from eval — no chess judgment) ────────
-    # "user_is_winning" is from the PERSPECTIVE OF THE SIDE WHO JUST MOVED.
-    # eval_after_cp is from white's POV per standard engine convention,
-    # so we flip for black.
+    # "user_is_winning" / "user_is_losing" are PERSISTENT-STATE flags:
+    # they describe whether the user was decisively ahead/behind BEFORE
+    # the played move AND remains so AFTER (Mohit overnight 2026-05-21
+    # backlog: m20_Qe6_losing flagged that 'you were already losing'
+    # framing was inaccurate when the PLAYED MOVE was what made the
+    # position losing). Use BOTH eval_before and eval_after — only frame
+    # as winning/losing when the user was already in that state.
+    # eval_*_cp are from white's POV; flip for black.
+    user_eval_before = eval_before_cp
     user_eval_after = eval_after_cp
-    if user_eval_after is not None and own_color == chess.BLACK:
-        user_eval_after = -user_eval_after
-    user_is_winning = (user_eval_after is not None) and (user_eval_after >= EVAL_WINNING_THRESHOLD_CP)
-    user_is_losing = (user_eval_after is not None) and (user_eval_after <= EVAL_LOSING_THRESHOLD_CP)
+    if own_color == chess.BLACK:
+        if user_eval_before is not None:
+            user_eval_before = -user_eval_before
+        if user_eval_after is not None:
+            user_eval_after = -user_eval_after
+
+    user_is_winning = (
+        user_eval_before is not None
+        and user_eval_after is not None
+        and user_eval_before >= EVAL_WINNING_THRESHOLD_CP
+        and user_eval_after >= EVAL_WINNING_THRESHOLD_CP
+    )
+    user_is_losing = (
+        user_eval_before is not None
+        and user_eval_after is not None
+        and user_eval_before <= EVAL_LOSING_THRESHOLD_CP
+        and user_eval_after <= EVAL_LOSING_THRESHOLD_CP
+    )
 
     # ── Move-history facts ─────────────────────────────────────────────
     move_index = len(move_history_san)  # 0-based ply index of the played move
