@@ -206,7 +206,9 @@ export default function InteractiveMoment({ fen, userColor, moveNumber, candidat
           {chosenIdx === null ? (
             <>
               <p className="text-[13px] text-muted-foreground mb-4">
-                Three options. Pick one.
+                {candidates.length === 3
+                  ? "Three options. Pick one."
+                  : `${candidates.length} options — multiple may be correct. Pick one.`}
               </p>
               <div className="space-y-2">
                 {candidates.map((c, i) => (

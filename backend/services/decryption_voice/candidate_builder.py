@@ -1,10 +1,16 @@
 """
-Candidate builder — produces 3 move options for the post-game
+Candidate builder — produces move options for the post-game
 "What would you play here?" interaction:
 
   1. User's actual move — wrong. Continuation from the real game.
   2. Engine's best move — correct. Continuation from V5's pv_after_best.
-  3. Distractor — wrong. Another legal move of the same piece type.
+  3. Equally-good alternatives — also correct. Discovered via
+     Stockfish multi-PV; any move within EQUIV_THRESHOLD_CP of best
+     is presented as another valid answer. (Mohit 2026-05-21: many
+     positions have multiple solutions; showing only one teaches
+     the wrong lesson that chess has unique answers.)
+  4. Distractor — wrong. A plausible third option, included only
+     when there's a SINGLE clear best (no equally-good alternatives).
 
 Each candidate carries a short caption that's shown AFTER the player
 clicks and watches the line animate.
@@ -13,11 +19,20 @@ clicks and watches the line animate.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+import os
+from typing import Dict, List, Optional, Tuple
 
 import chess
+import chess.engine
 
 logger = logging.getLogger(__name__)
+
+# Multi-PV configuration.
+_STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
+_MULTIPV_DEPTH = 14   # depth tradeoff: 14 is fast enough at runtime,
+                      # deep enough to identify true "equally good" moves.
+_MULTIPV_N = 5        # max alternatives to consider.
+EQUIV_THRESHOLD_CP = 30  # within this cp of best = "equally good"
 
 
 def _safe_san(board: chess.Board, move: chess.Move) -> Optional[str]:
@@ -153,6 +168,93 @@ def _outcome_caption_for_user_move(v5_user_record: Dict, severity: str) -> str:
     return "The position got worse after this."
 
 
+def _find_equivalent_alternatives(
+    fen_before: str,
+    best_uci: str,
+    user_uci: str,
+    user_color: Optional[str],
+) -> List[Tuple[str, str, List[str]]]:
+    """Find moves within EQUIV_THRESHOLD_CP of best via multi-PV analysis.
+
+    Excludes the user's actual move (which is presumably the "wrong"
+    one we want to contrast against) and the best move itself (which
+    is already in the candidate list separately).
+
+    Returns list of (uci, san, line_san) tuples, ordered by eval
+    descending. Empty list if multipv can't run, no alternatives
+    qualify, or all alternatives equal the user's move / best.
+    """
+    if not os.path.isfile(_STOCKFISH_PATH):
+        return []
+    try:
+        board = chess.Board(fen_before)
+    except Exception:
+        return []
+
+    is_user_white = (user_color or "white").lower() == "white"
+    try:
+        with chess.engine.SimpleEngine.popen_uci(_STOCKFISH_PATH) as engine:
+            infos = engine.analyse(
+                board,
+                chess.engine.Limit(depth=_MULTIPV_DEPTH),
+                multipv=_MULTIPV_N,
+            )
+    except Exception as exc:
+        logger.warning(f"[candidate_builder] multipv analyse failed: {exc}")
+        return []
+
+    if not infos:
+        return []
+
+    # First entry is the best move per multi-PV convention.
+    def _user_pov_cp(info: Dict) -> Optional[int]:
+        score = info.get("score")
+        if score is None:
+            return None
+        try:
+            return score.white().score(mate_score=10000) * (1 if is_user_white else -1)
+        except Exception:
+            return None
+
+    best_cp = _user_pov_cp(infos[0])
+    if best_cp is None:
+        return []
+
+    alternatives: List[Tuple[str, str, List[str]]] = []
+    for info in infos:
+        pv = info.get("pv") or []
+        if not pv:
+            continue
+        first_move = pv[0]
+        first_uci = first_move.uci()
+        if first_uci == best_uci or first_uci == user_uci:
+            continue
+        cp = _user_pov_cp(info)
+        if cp is None:
+            continue
+        if cp + EQUIV_THRESHOLD_CP < best_cp:
+            continue  # too much worse than best — not "equally good"
+
+        # Build SAN line from the PV.
+        try:
+            tmp_board = chess.Board(fen_before)
+            sans: List[str] = []
+            for mv in pv[:3]:
+                san = _safe_san(tmp_board, mv)
+                if not san:
+                    break
+                sans.append(san)
+                tmp_board.push(mv)
+            if not sans:
+                continue
+        except Exception:
+            continue
+
+        alternatives.append((first_uci, sans[0], sans))
+
+    return alternatives
+
+
 def build_candidates(
     *,
     fen_before: str,
@@ -236,8 +338,18 @@ def build_candidates(
         or "This is the move. It holds the position."
     )
 
-    # 3. DISTRACTOR — wrong, plausible
-    distractor = _pick_distractor(fen_before, [move_uci, best_uci])
+    # 3. EQUALLY-GOOD ALTERNATIVES (Mohit 2026-05-21) — surfaced via
+    # multi-PV when the engine sees multiple moves within
+    # EQUIV_THRESHOLD_CP of best. The whole point of teaching: chess
+    # often has multiple correct answers; the puzzle should reflect
+    # that. When alternatives exist, the distractor is dropped — we
+    # have real "right" choices to fill the slots.
+    alternatives = _find_equivalent_alternatives(
+        fen_before=fen_before,
+        best_uci=best_uci,
+        user_uci=move_uci,
+        user_color=user_color,
+    )
 
     candidates = [
         {
@@ -254,12 +366,25 @@ def build_candidates(
         },
     ]
 
-    if distractor:
+    for _alt_uci, _alt_san, _alt_line in alternatives[:3]:  # cap at 3
         candidates.append({
-            "san": distractor["san"],
-            "line": [distractor["san"]],
-            "caption": "Doesn't address the threat. The pressure stays.",
-            "isCorrect": False,
+            "san": _alt_san,
+            "line": _alt_line,
+            "caption": "Also good — keeps the same advantage.",
+            "isCorrect": True,
         })
+
+    # Only add a distractor when there are NO equally-good
+    # alternatives. With multiple correct answers there's already
+    # enough material for the puzzle without inventing a wrong move.
+    if not alternatives:
+        distractor = _pick_distractor(fen_before, [move_uci, best_uci])
+        if distractor:
+            candidates.append({
+                "san": distractor["san"],
+                "line": [distractor["san"]],
+                "caption": "Doesn't address the threat. The pressure stays.",
+                "isCorrect": False,
+            })
 
     return candidates
