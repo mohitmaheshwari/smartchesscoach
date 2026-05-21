@@ -91,6 +91,30 @@ def _extract_clearance_claim(caption: str) -> Optional[Dict[str, str]]:
     return {"move": m.group(1), "piece": m.group(2), "square": m.group(3)}
 
 
+def _extract_severity_claim(caption: str) -> Optional[Dict[str, str]]:
+    """Match the severity phrase: 'is a mistake' / 'is a serious mistake'
+    / 'is a major blunder'. Returns the tier word for cross-check
+    against cp_loss."""
+    for phrase, tier in (
+        ("is a major blunder", "blunder"),
+        ("is a serious mistake", "serious"),
+        ("is a mistake", "mistake"),
+    ):
+        if phrase in caption:
+            return {"tier": tier}
+    return None
+
+
+def _extract_winning_losing_claim(caption: str) -> Optional[Dict[str, str]]:
+    """Position-eval reframings — verify the eval actually supports
+    the framing."""
+    if "you're still winning" in caption or "is fine — you're still winning" in caption:
+        return {"frame": "winning"}
+    if "you were already losing" in caption:
+        return {"frame": "losing"}
+    return None
+
+
 # ────────────────────────────────────────────────────────────────────
 # Verifiers — mechanically check each claim
 # ────────────────────────────────────────────────────────────────────
@@ -173,6 +197,41 @@ def verify_opp_reply(
     first_pv = pv_after_played[0] if pv_after_played else None
     if first_pv != claim["reply"]:
         return f"caption names {claim['reply']!r}; pv_after_played[0]={first_pv!r}"
+    return None
+
+
+def verify_severity(
+    cp_loss: Optional[int],
+    claim: Dict[str, str],
+) -> Optional[str]:
+    """Verify severity word matches cp_loss tier."""
+    if cp_loss is None:
+        return None
+    tier = claim["tier"]
+    if tier == "blunder" and cp_loss < 400:
+        return f"severity 'major blunder' but cp_loss={cp_loss} (< 400)"
+    if tier == "serious" and (cp_loss < 250 or cp_loss >= 400):
+        return f"severity 'serious mistake' but cp_loss={cp_loss} (expect 250..400)"
+    if tier == "mistake" and (cp_loss < 50 or cp_loss >= 250):
+        return f"severity 'mistake' but cp_loss={cp_loss} (expect 50..250)"
+    return None
+
+
+def verify_winning_losing(
+    eval_before_cp: Optional[int],
+    eval_after_played_cp: Optional[int],
+    claim: Dict[str, str],
+    user_color: str,
+) -> Optional[str]:
+    """Verify position-eval framing matches actual eval (from user POV)."""
+    if eval_after_played_cp is None:
+        return None
+    is_user_white = (user_color or "white").lower() == "white"
+    user_eval_after = eval_after_played_cp if is_user_white else -eval_after_played_cp
+    if claim["frame"] == "winning" and user_eval_after < 200:
+        return f"caption says 'still winning' but user eval_after={user_eval_after}cp (< +200)"
+    if claim["frame"] == "losing" and user_eval_after > -200:
+        return f"caption says 'already losing' but user eval_after={user_eval_after}cp (> -200)"
     return None
 
 
@@ -337,6 +396,43 @@ async def verify(sample_size: int, out_path: str) -> Dict[str, Any]:
                         **sample_record,
                         "verifier": "clearance",
                         "claim": cc,
+                        "reason": reason,
+                    })
+
+            # 5. severity vs cp_loss
+            sev = _extract_severity_claim(caption)
+            if sev:
+                reason = verify_severity(m.get("cp_loss"), sev)
+                if reason:
+                    counters["severity_fail"] += 1
+                    suspects.append({
+                        **sample_record,
+                        "verifier": "severity",
+                        "claim": sev,
+                        "reason": reason,
+                    })
+
+            # 6. winning/losing framing vs eval
+            wl = _extract_winning_losing_claim(caption)
+            if wl:
+                # Compute eval_after_played from move_evals
+                eval_after_played_cp = None
+                for ev in move_evals:
+                    if (ev.get("move_number") == move_number
+                            and ev.get("move") == played_san):
+                        ea = ev.get("eval_after")
+                        if isinstance(ea, (int, float)):
+                            eval_after_played_cp = int(round(ea * 100)) if abs(ea) < 100 else int(round(ea))
+                        break
+                reason = verify_winning_losing(
+                    eval_before_cp, eval_after_played_cp, wl, user_color,
+                )
+                if reason:
+                    counters["frame_fail"] += 1
+                    suspects.append({
+                        **sample_record,
+                        "verifier": "winning_losing_frame",
+                        "claim": wl,
                         "reason": reason,
                     })
 
