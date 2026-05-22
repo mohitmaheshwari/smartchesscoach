@@ -65,16 +65,28 @@ const AdminCaptionAuthoring = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sample, setSample] = useState(50);
+  // Which tiers to retain board-level sample positions for.
+  // Default LOW+NONE = the authoring backlog. Toggle HIGH/MID on to
+  // also browse passing-tier captions for pedagogical-quality review.
+  const [sampleTiers, setSampleTiers] = useState({
+    HIGH: false, MID: false, LOW: true, NONE: true,
+  });
   const [editingTarget, setEditingTarget] = useState(null);
   // editingTarget = { position, template (the current variant string),
   //                   file, variant_key }
 
-  const fetchAudit = async (sampleSize = 50) => {
+  const fetchAudit = async (sampleSize = 50, tiers = sampleTiers) => {
     setLoading(true);
     setError(null);
     try {
+      const tierList = Object.entries(tiers)
+        .filter(([, on]) => on)
+        .map(([t]) => t)
+        .join(",");
+      const params = new URLSearchParams({ sample: String(sampleSize) });
+      if (tierList) params.set("sample_tiers", tierList);
       const res = await fetch(
-        `${API}/admin/captions/audit?sample=${sampleSize}`,
+        `${API}/admin/captions/audit?${params.toString()}`,
         { credentials: "include" },
       );
       if (!res.ok) {
@@ -134,17 +146,41 @@ const AdminCaptionAuthoring = ({ user }) => {
               {auditData?.games_scanned} games
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <label className="text-xs text-zinc-400">Sample:</label>
             <input
               type="number"
               min={10}
-              max={200}
+              max={500}
               value={sample}
               onChange={(e) => setSample(Number(e.target.value) || 50)}
               className="w-20 px-2 py-1 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 text-sm"
             />
-            <Button onClick={() => fetchAudit(sample)} variant="outline" size="sm">
+            <div className="flex items-center gap-1 ml-2">
+              <span className="text-xs text-zinc-400 mr-1">Browse:</span>
+              {["HIGH", "MID", "LOW", "NONE"].map((t) => (
+                <label
+                  key={t}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer border ${
+                    sampleTiers[t]
+                      ? `${TIER_COLOURS[t]} text-white border-transparent`
+                      : "bg-zinc-800 text-zinc-400 border-zinc-700"
+                  }`}
+                  title={`Retain sample positions for ${t}-tier captions in the response`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={sampleTiers[t]}
+                    onChange={(e) =>
+                      setSampleTiers((prev) => ({ ...prev, [t]: e.target.checked }))
+                    }
+                    className="hidden"
+                  />
+                  {t}
+                </label>
+              ))}
+            </div>
+            <Button onClick={() => fetchAudit(sample, sampleTiers)} variant="outline" size="sm">
               <RefreshCw className="w-4 h-4 mr-1" />
               Re-audit
             </Button>
@@ -278,9 +314,10 @@ const TemplateCard = ({ tpl, total, onEdit }) => {
         <div className="border-t border-zinc-800 p-4 space-y-4 bg-zinc-950/30">
           {(tpl.sample_positions || []).length === 0 ? (
             <p className="text-xs text-zinc-500">
-              No sample positions captured for this template (only LOW/NONE
-              tiers retain examples — HIGH/MID firings are counted but not
-              sampled).
+              No sample positions captured for this template. Enable the
+              <span className={`mx-1 px-1 rounded text-white text-[10px] ${TIER_COLOURS[tpl.tier]}`}>{tpl.tier}</span>
+              toggle in the header and re-audit to retain example positions
+              for this tier.
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

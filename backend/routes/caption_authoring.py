@@ -67,11 +67,27 @@ def classify(caption: str, rule_name: str = "") -> Tuple[str, str, Optional[str]
 # ── /audit endpoint ──────────────────────────────────────────────────
 
 @router.get("/admin/captions/audit")
-async def audit_endpoint(sample: int = 50, user: User = Depends(require_admin)):
+async def audit_endpoint(
+    sample: int = 50,
+    sample_tiers: str = "LOW,NONE",
+    samples_per_variant: int = 8,
+    user: User = Depends(require_admin),
+):
     """Audit a sample of analyzed games. Force-regens any below current
-    V5 version so the data measures shipped code."""
+    V5 version so the data measures shipped code.
+
+    sample_tiers: comma-separated list of tiers to retain board-level
+    sample positions for (default LOW,NONE — the authoring backlog).
+    Pass "HIGH,MID,LOW,NONE" to retain samples for every tier when
+    pedagogical-review of higher tiers is needed.
+    samples_per_variant: how many positions to keep per template variant.
+    """
     if db is None:
         raise HTTPException(500, "Database not initialized")
+
+    sample_tier_set = {
+        t.strip().upper() for t in (sample_tiers or "").split(",") if t.strip()
+    }
 
     from services.game_decryption_v5_service import (
         generate_game_decryption_v5, V5_COACHING_VERSION,
@@ -170,8 +186,10 @@ async def audit_endpoint(sample: int = 50, user: User = Depends(require_admin)):
             })
             variant_entry["count"] += 1
 
-            # Keep samples for LOW/NONE only — that's the authoring backlog.
-            if tier in ("LOW", "NONE") and len(variant_entry["sample_positions"]) < 8:
+            # Retain board-level samples for tiers the caller asked for.
+            # Default keeps LOW/NONE (authoring backlog). Pass
+            # sample_tiers=HIGH,MID,LOW,NONE for full pedagogical review.
+            if tier in sample_tier_set and len(variant_entry["sample_positions"]) < samples_per_variant:
                 variant_entry["sample_positions"].append({
                     "game_id": gid,
                     "move_number": m.get("move_number"),
@@ -190,7 +208,8 @@ async def audit_endpoint(sample: int = 50, user: User = Depends(require_admin)):
                 "count": 0, "sample_positions": [],
             })
             t_entry["count"] += 1
-            if tier in ("LOW", "NONE") and len(t_entry["sample_positions"]) < 12:
+            # Same tier filter for the legacy flat list.
+            if tier in sample_tier_set and len(t_entry["sample_positions"]) < max(samples_per_variant, 12):
                 t_entry["sample_positions"].append({
                     "game_id": gid,
                     "move_number": m.get("move_number"),
@@ -228,6 +247,7 @@ async def audit_endpoint(sample: int = 50, user: User = Depends(require_admin)):
         ) if total else 0.0,
         "files": files_list,
         "templates": templates_list,
+        "sample_tiers": sorted(sample_tier_set),
     }
 
 
