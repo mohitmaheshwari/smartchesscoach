@@ -1775,6 +1775,107 @@ def detect_clearance_then_check(board: chess.Board) -> List[Dict]:
     return out
 
 
+def simulate_attack_with_tempo(
+    pre_fen: str,
+    best_move_san: str,
+    pv_after_best: List[str],
+) -> List[Dict]:
+    """Detect the attack-with-tempo pattern from Mohit's review session
+    (approvals #1 Qe2/d4 and #2 e4/Nh4):
+
+      Engine's best move attacks an opponent NON-KING piece, and the
+      opponent's first PV response is moving THAT SAME piece away —
+      the engine's classic "tempo gain" pattern.
+
+    Distinct from `detect_clearance_for_attack` (line opening) and
+    `detect_clearance_then_check` (slider-to-check follow-up). This
+    one is the simpler tactical motif: best_move directly attacks a
+    piece that has to retreat, and the engine's PV[2] (white's next
+    move after the retreat) is the resource being set up.
+
+    Returns evidence with extra fields:
+      - attacked_piece_type:   "queen" | "rook" | "bishop" | "knight" | "pawn"
+      - attacked_square:       square name where the attacked piece sat (e.g. "c5")
+      - follow_up_san:         engine's next move after the opponent's forced
+                               retreat (PV[2] in pv_after_best), often a capture
+
+    Excludes:
+      - Checks on the king (opponent's response is forced king move; that's a
+        different pedagogical pattern — Mohit's #5 queen-fork case).
+      - pv_after_best with fewer than 2 plies (no opponent response to read).
+      - Cases where opponent's PV[1] doesn't move the attacked piece (engine
+        prefers a counter rather than retreat → tempo claim would be misleading).
+    """
+    if not pv_after_best or len(pv_after_best) < 2:
+        return []
+    try:
+        board = chess.Board(pre_fen)
+        bm = board.parse_san(best_move_san)
+        board.push(bm)
+    except Exception:
+        return []
+
+    # The mover (now opp-to-move side) is the side that just played best_move.
+    us = not board.turn
+
+    # If the move was a check, this isn't attack-with-tempo — it's a check
+    # pattern (see queen-fork-family). Skip.
+    if board.is_check():
+        return []
+
+    bm_dest = bm.to_square
+    attacks = set(board.attacks(bm_dest))
+    if not attacks:
+        return []
+
+    # Try to parse opponent's PV[1] reply.
+    try:
+        opp_reply = board.parse_san(pv_after_best[1])
+    except Exception:
+        return []
+
+    # The "with tempo" signal: opponent's reply moves a piece FROM a square
+    # that the best-move's piece attacks.
+    if opp_reply.from_square not in attacks:
+        return []
+    attacked_piece = board.piece_at(opp_reply.from_square)
+    if attacked_piece is None or attacked_piece.color == us:
+        return []
+    if attacked_piece.piece_type == chess.KING:
+        return []  # checks are a different pattern
+
+    # Compute the engine's NEXT move (PV[2]) — the follow-up resource.
+    # Push opponent's reply, then parse PV[2] for the follow-up SAN.
+    follow_up_san: Optional[str] = None
+    if len(pv_after_best) >= 3:
+        try:
+            board.push(opp_reply)
+            follow_mv = board.parse_san(pv_after_best[2])
+            follow_up_san = board.san(follow_mv)
+        except Exception:
+            follow_up_san = None
+
+    piece_type_name = chess.piece_name(attacked_piece.piece_type)
+
+    ev = _ev(
+        "attack_with_tempo",
+        mover=bm_dest,
+        targets=[opp_reply.from_square],
+        executing_move=None,
+        evidence=(
+            f"{best_move_san} attacks the {piece_type_name} on "
+            f"{chess.square_name(opp_reply.from_square)}; engine PV "
+            f"has opponent retreating with {pv_after_best[1]}"
+            + (f", follow-up {follow_up_san}" if follow_up_san else "")
+        ),
+    )
+    ev["attacked_piece_type"] = piece_type_name
+    ev["attacked_square"] = chess.square_name(opp_reply.from_square)
+    if follow_up_san:
+        ev["follow_up_san"] = follow_up_san
+    return [ev]
+
+
 def simulate_clearance_then_check(
     pre_fen: str,
     move_san: str,
