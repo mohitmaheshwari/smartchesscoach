@@ -1658,6 +1658,142 @@ def simulate_clearance_for_attack(
     return detect_clearance_for_attack(board)
 
 
+def detect_clearance_then_check(board: chess.Board) -> List[Dict]:
+    """Two-move Légal's-Mate / Fried-Liver family detection.
+
+    Fires when the just-played move opens a line, and the slider on
+    the cleared ray CAN MOVE to a newly-reachable square FROM WHICH
+    IT DIRECTLY CHECKS the opponent's king. The caption template for
+    this evidence type is explicit about the 2-move plan ("Nxg5
+    opens the diagonal — your queen has Qh5+ next") so it does not
+    re-introduce the v53-fixed 1-move-clearance hallucination.
+
+    Distinct from `detect_clearance_for_attack` (the 1-move variant
+    where the slider DIRECTLY attacks a king-zone square after the
+    clearance). This detector covers the sacrifice-then-check family
+    that v53 deliberately stopped catching — the cost of which was a
+    real regression on the Légal's-Mate-family corpus.
+
+    Returns evidence with extra fields:
+      - clearer_piece_type:        "queen" | "rook" | "bishop"
+      - slider_destination_square: square name (e.g. "h5")
+      - follow_up_san:             SAN of the slider's hypothetical
+                                   next move ("Qh5+")
+      - king_square:               opponent king's square name
+    """
+    try:
+        board_before = board.copy()
+        board_before.pop()
+    except (IndexError, AssertionError):
+        return []
+
+    us = not board.turn
+    them = board.turn
+    them_king_sq = board.king(them)
+    if them_king_sq is None:
+        return []
+
+    out: List[Dict] = []
+
+    for sliding_piece_type in (chess.QUEEN, chess.ROOK, chess.BISHOP):
+        for slider_sq in board.pieces(sliding_piece_type, us):
+            before_piece = board_before.piece_at(slider_sq)
+            if (before_piece is None
+                    or before_piece.piece_type != sliding_piece_type
+                    or before_piece.color != us):
+                continue  # slider moved, or wasn't there before
+
+            attacks_before = set(board_before.attacks(slider_sq))
+            attacks_now = set(board.attacks(slider_sq))
+            newly_reachable = attacks_now - attacks_before
+            if not newly_reachable:
+                continue
+
+            for cleared_sq in newly_reachable:
+                # Skip if own piece occupies the destination — can't move there
+                occupant = board.piece_at(cleared_sq)
+                if occupant is not None and occupant.color == us:
+                    continue
+
+                # Simulate moving the slider to cleared_sq. The slider
+                # hasn't moved yet on the real board; this is a "what
+                # if the slider's NEXT move is to cleared_sq?" probe.
+                temp = board.copy()
+                slider_piece = temp.remove_piece_at(slider_sq)
+                if slider_piece is None:
+                    continue
+                temp.set_piece_at(cleared_sq, slider_piece)
+                # python-chess's board.attacks already accounts for
+                # blockers along rays — if king_sq is in the set, the
+                # slider literally checks the king from cleared_sq.
+                if them_king_sq not in temp.attacks(cleared_sq):
+                    continue
+
+                # Build SAN for the follow-up move. The real board has
+                # `them` to move; we want SAN as if `us` were moving.
+                # Push a null move to flip the turn, then ask board.san().
+                # Null move requires not-in-check; if board is in check,
+                # we skip (extremely unusual at this junction).
+                if board.is_check():
+                    continue
+                temp_for_san = board.copy()
+                try:
+                    temp_for_san.push(chess.Move.null())
+                except Exception:
+                    continue
+                # Need a Move object. Promotion irrelevant for slider.
+                slider_move = chess.Move(slider_sq, cleared_sq)
+                if slider_move not in temp_for_san.legal_moves:
+                    continue  # not legally playable next move
+                follow_up_san = temp_for_san.san(slider_move)
+
+                piece_type_name = {
+                    chess.QUEEN: "queen",
+                    chess.ROOK:  "rook",
+                    chess.BISHOP: "bishop",
+                }.get(sliding_piece_type, "piece")
+
+                ev = _ev(
+                    "clearance_then_check",
+                    mover=slider_sq,
+                    targets=[them_king_sq],
+                    executing_move=None,
+                    evidence=(
+                        f"clearance opened line for {piece_type_name} on "
+                        f"{chess.square_name(slider_sq)}; can play "
+                        f"{follow_up_san} (to {chess.square_name(cleared_sq)}) "
+                        f"giving check to king on {chess.square_name(them_king_sq)}"
+                    ),
+                )
+                ev["clearer_piece_type"] = piece_type_name
+                ev["slider_destination_square"] = chess.square_name(cleared_sq)
+                ev["follow_up_san"] = follow_up_san
+                ev["king_square"] = chess.square_name(them_king_sq)
+                out.append(ev)
+                break  # one evidence per slider (best destination, not all)
+
+    return out
+
+
+def simulate_clearance_then_check(
+    pre_fen: str,
+    move_san: str,
+) -> List[Dict]:
+    """Apply `move_san` to `pre_fen` and run detect_clearance_then_check.
+
+    Used by R12_blunder rendering when the engine's best move is a
+    clearance sacrifice that sets up a queen/rook/bishop check on
+    the next move (Légal's-Mate-family).
+    """
+    try:
+        board = chess.Board(pre_fen)
+        move = board.parse_san(move_san)
+        board.push(move)
+    except Exception:
+        return []
+    return detect_clearance_then_check(board)
+
+
 # ────────────────────────────────────────────────────────────────────
 # Dispatcher + verifier
 # ────────────────────────────────────────────────────────────────────
@@ -1689,6 +1825,7 @@ _DETECTORS = {
     "pawn_hole_fianchetto":   detect_pawn_hole_fianchetto,
     "king_pawn_lifted":       detect_king_pawn_lifted,
     "clearance_for_attack":   detect_clearance_for_attack,
+    "clearance_then_check":   detect_clearance_then_check,
 }
 
 
