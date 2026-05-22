@@ -70,7 +70,7 @@ def classify(caption: str, rule_name: str = "") -> Tuple[str, str, Optional[str]
 async def audit_endpoint(
     sample: int = 50,
     sample_tiers: str = "LOW,NONE",
-    samples_per_variant: int = 8,
+    samples_per_variant: int = 50,
     force_regen: bool = False,
     user: User = Depends(require_admin),
 ):
