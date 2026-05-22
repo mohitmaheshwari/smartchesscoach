@@ -323,10 +323,18 @@ const CoverageBars = ({ auditData }) => {
 // Match a sample position against the user's search term. Case-insensitive
 // substring match across game_id, move_san, best_move_san, fen_before piece
 // placement (first FEN field), and caption text. Empty search matches all.
+//
+// If the search term looks like a FEN (contains `/`), we normalize by keeping
+// only the piece-placement field (before the first space) so users can paste
+// a full FEN like `r1bqkbnr/... w KQkq - 0 8` and still match.
 const positionMatchesSearch = (position, term) => {
   if (!term) return true;
-  const needle = term.trim().toLowerCase();
+  let needle = term.trim().toLowerCase();
   if (!needle) return true;
+  if (needle.includes("/")) {
+    // Looks like a FEN — keep only piece placement (first space-separated field).
+    needle = needle.split(/\s+/)[0];
+  }
   const fenPlacement = (position.fen_before || "").split(" ")[0].toLowerCase();
   const haystack = [
     position.game_id || "",
