@@ -1775,6 +1775,255 @@ def detect_clearance_then_check(board: chess.Board) -> List[Dict]:
     return out
 
 
+def simulate_endgame_loose_pawn_grab(
+    pre_fen: str,
+    best_move_san: str,
+) -> List[Dict]:
+    """Detect the endgame-active-piece-grabs-loose-pawn pattern from
+    Mohit's approvals #13 (Kxh3 grabs h3), #15 (Rf3 attacks h3), and
+    the duplicate row #031 (same h3 grab one move later).
+
+    Fires when:
+      - Position is endgame (few non-pawn pieces — both sides combined)
+      - Engine's best move is by a non-pawn piece (king, rook, bishop,
+        knight, queen)
+      - Either:
+        (a) The best move IS the capture of an undefended opp pawn
+            (direct_capture sub-case — Kxh3 in #13)
+        (b) The best move puts the piece on a square attacking an
+            undefended opp pawn (attack sub-case — Rf3 → next Rxh3 in #15)
+
+    Pawn "undefended" = zero opp pieces defending the square.
+
+    Returns evidence with:
+      - sub_kind:           "direct_capture" or "attack"
+      - moving_piece_type:  lowercase ("king", "rook", "bishop", "knight", "queen")
+      - pawn_square:        target pawn's square (e.g. "h3")
+    """
+    try:
+        board = chess.Board(pre_fen)
+    except Exception:
+        return []
+
+    # Endgame heuristic: total non-pawn piece count (both sides, incl. kings)
+    # at most 12. Middlegame starts at 14 (full kit: 2K + 2Q + 4R + 4B + 4N).
+    # After one queen trade we're at 12 — already late-middlegame / endgame
+    # transition; the active-king/rook teaching applies there. Originally
+    # set to 8 (too strict — Mohit's #13 has 10 pieces, didn't fire).
+    non_pawn_count = sum(
+        1 for sq in chess.SQUARES
+        if board.piece_at(sq) is not None and board.piece_at(sq).piece_type != chess.PAWN
+    )
+    if non_pawn_count > 12:
+        return []
+
+    try:
+        bm = board.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    moving_piece = board.piece_at(bm.from_square)
+    if moving_piece is None or moving_piece.piece_type == chess.PAWN:
+        return []
+    moving_piece_name = chess.piece_name(moving_piece.piece_type)
+
+    # Case (a): best move directly captures an undefended pawn
+    captured_before = board.piece_at(bm.to_square)
+    if (captured_before is not None
+            and captured_before.color != moving_piece.color
+            and captured_before.piece_type == chess.PAWN):
+        defenders = board.attackers(captured_before.color, bm.to_square)
+        # Filter own-pieces defending (true defenders) — the captured pawn's
+        # color is the opp's color; defenders are opp pieces. If only piece
+        # defending is the opp's king and our moving piece can attack the
+        # square safely, the king can't recapture without our piece being
+        # taken — but for a king move (Kxh3) into a king-defended square
+        # the king can't recapture itself. Keep simple: undefended = zero
+        # opp pieces attack the square.
+        if not defenders:
+            ev = _ev(
+                "endgame_loose_pawn_grab",
+                mover=bm.to_square,
+                targets=[bm.to_square],
+                executing_move=None,
+                evidence=(
+                    f"{moving_piece_name} on {chess.square_name(bm.from_square)} "
+                    f"captures undefended pawn on {chess.square_name(bm.to_square)}"
+                ),
+            )
+            ev["sub_kind"] = "direct_capture"
+            ev["moving_piece_type"] = moving_piece_name
+            ev["pawn_square"] = chess.square_name(bm.to_square)
+            return [ev]
+
+    # Case (b): apply the move, then check whether the moved piece
+    # attacks an undefended opp pawn.
+    try:
+        board.push(bm)
+    except Exception:
+        return []
+    us = not board.turn  # the side that just moved
+    them = board.turn
+
+    attacks = board.attacks(bm.to_square)
+    for sq in attacks:
+        piece = board.piece_at(sq)
+        if piece is None or piece.color == us or piece.piece_type != chess.PAWN:
+            continue
+        defenders = board.attackers(them, sq)
+        if defenders:
+            continue
+        # Found undefended opp pawn attacked by our just-moved piece
+        ev = _ev(
+            "endgame_loose_pawn_grab",
+            mover=bm.to_square,
+            targets=[sq],
+            executing_move=None,
+            evidence=(
+                f"{moving_piece_name} on {chess.square_name(bm.to_square)} "
+                f"attacks undefended pawn on {chess.square_name(sq)}"
+            ),
+        )
+        ev["sub_kind"] = "attack"
+        ev["moving_piece_type"] = moving_piece_name
+        ev["pawn_square"] = chess.square_name(sq)
+        return [ev]
+
+    return []
+
+
+def simulate_queen_fork_with_check(
+    pre_fen: str,
+    best_move_san: str,
+) -> List[Dict]:
+    """Detect the queen-fork-with-check pattern from Mohit's approved
+    captions #5 (Qd2 → Qb3+ forks king + b7), #16 (Be7 → Qh4+ forks
+    king + g4), #19 (Rd7 → Qxb4+ captures with check). The engine's
+    best move is a queen move that gives check AND simultaneously
+    wins material — either via the capture itself (capture-with-check)
+    or by attacking another undefended piece beyond the king (fork).
+
+    Two sub-cases:
+      (a) Capture-with-check: the queen captures a piece AND delivers
+          check on the same move. Material gain is the captured piece.
+      (b) Queen fork: the queen moves to a square from which it gives
+          check AND attacks another opp piece that's undefended.
+
+    Returns evidence with extra fields:
+      - sub_kind:        "capture_with_check" or "fork"
+      - secondary_piece: lowercase piece name of the captured/forked target
+      - secondary_square: square of the secondary target
+      - king_square:     opp king's square (the check target)
+      - capture_move:    bool — was the best move itself a capture
+    """
+    try:
+        board = chess.Board(pre_fen)
+        bm = board.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    # Was the best move itself a capture? (before push, check destination
+    # for an opp piece — opp's color is the OPPOSITE of side-to-move).
+    captured_piece = board.piece_at(bm.to_square)
+    move_was_capture = (
+        captured_piece is not None and captured_piece.color != board.turn
+    )
+    captured_piece_type = captured_piece.piece_type if move_was_capture else None
+    captured_square_name = chess.square_name(bm.to_square)
+
+    # Apply the best move
+    try:
+        board.push(bm)
+    except Exception:
+        return []
+
+    # The mover is the side that just played (opposite of board.turn now)
+    us = not board.turn
+    them = board.turn
+
+    # Must give check
+    if not board.is_check():
+        return []
+
+    # The just-moved piece must be a queen for this detector
+    moved_piece = board.piece_at(bm.to_square)
+    if moved_piece is None or moved_piece.piece_type != chess.QUEEN:
+        return []
+
+    them_king = board.king(them)
+    if them_king is None:
+        return []
+
+    # Sub-case (a): capture-with-check
+    if move_was_capture and captured_piece_type is not None:
+        piece_name = chess.piece_name(captured_piece_type)
+        ev = _ev(
+            "queen_fork_with_check",
+            mover=bm.to_square,
+            targets=[them_king],
+            executing_move=None,
+            evidence=(
+                f"queen captures {piece_name} on {captured_square_name} "
+                f"with check to king on {chess.square_name(them_king)}"
+            ),
+        )
+        ev["sub_kind"] = "capture_with_check"
+        ev["secondary_piece"] = piece_name
+        ev["secondary_square"] = captured_square_name
+        ev["king_square"] = chess.square_name(them_king)
+        ev["capture_move"] = True
+        return [ev]
+
+    # Sub-case (b): queen fork — queen attacks another undefended opp piece
+    queen_attacks = set(board.attacks(bm.to_square))
+    fork_candidates: List[Tuple[int, int]] = []  # (square, piece_value)
+    for sq in queen_attacks:
+        if sq == them_king:
+            continue
+        piece = board.piece_at(sq)
+        if piece is None or piece.color == us:
+            continue
+        # Undefended check: ignore the king-only defender (kings defending
+        # near-king squares are weak — under check the king can't recapture).
+        defenders = board.attackers(them, sq)
+        non_king_defenders = [d for d in defenders if d != them_king]
+        if non_king_defenders:
+            continue  # has a non-king defender, queen can't safely grab
+        # Piece-value lookup
+        piece_value = {
+            chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+            chess.ROOK: 5, chess.QUEEN: 9,
+        }.get(piece.piece_type, 0)
+        fork_candidates.append((sq, piece_value))
+
+    if not fork_candidates:
+        return []
+
+    # Pick the highest-value forked piece
+    fork_candidates.sort(key=lambda t: -t[1])
+    fork_sq, _ = fork_candidates[0]
+    fork_piece = board.piece_at(fork_sq)
+    fork_piece_name = chess.piece_name(fork_piece.piece_type) if fork_piece else "piece"
+
+    ev = _ev(
+        "queen_fork_with_check",
+        mover=bm.to_square,
+        targets=[them_king, fork_sq],
+        executing_move=None,
+        evidence=(
+            f"queen on {chess.square_name(bm.to_square)} forks king on "
+            f"{chess.square_name(them_king)} and {fork_piece_name} on "
+            f"{chess.square_name(fork_sq)} (undefended)"
+        ),
+    )
+    ev["sub_kind"] = "fork"
+    ev["secondary_piece"] = fork_piece_name
+    ev["secondary_square"] = chess.square_name(fork_sq)
+    ev["king_square"] = chess.square_name(them_king)
+    ev["capture_move"] = False
+    return [ev]
+
+
 def simulate_attack_with_tempo(
     pre_fen: str,
     best_move_san: str,

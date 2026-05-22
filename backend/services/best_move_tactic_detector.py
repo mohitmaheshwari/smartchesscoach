@@ -160,13 +160,25 @@ def detect_missed_tactic(
     # rnbqkb1r/pp3ppp/1n1p4/4p3/2B5/5N2/PPP2PPP/RNBQR1K1: Nxe5 dxe5
     # Bxf7+ Kxf7 Qxd8 wins the queen but engine eval is only +431cp
     # because of the bishop+knight investment.
+    #
+    # Threshold lowered again 400 → 250 (Mohit 2026-05-22). The 400cp
+    # threshold was still rejecting clean piece-win captions when the
+    # engine's eval was held back by black's compensation (e.g. open
+    # files, active piece). Examples from pending_review:
+    #   - row #003 (Bxa6): eval +379 — rejected at 400
+    #   - row #009 (Nxe5): eval +295 — rejected at 400
+    #   - row #014 (Nxe5): eval +57 — rejected at 400 (but PV win is real)
+    #   - row #025 (Nxe5): eval +140 — rejected at 400
+    # In all these cases the PV shows a real piece/pawn win; the lower
+    # threshold catches them. 250cp = engine sees ~ +2.5 pawn advantage
+    # which is enough to back the claim without over-reaching.
     user_color_white = (user_color or "").lower() == "white"
     user_eval_at_best = None
     if eval_before_cp is not None:
         user_eval_at_best = eval_before_cp if user_color_white else -eval_before_cp
 
     if user_piece_captures and net_user_gain >= 3:
-        if user_eval_at_best is None or user_eval_at_best >= 400:
+        if user_eval_at_best is None or user_eval_at_best >= 250:
             best_capture = max(user_piece_captures, key=lambda c: c["piece_value"])
             return {
                 "kind": "piece_capture",
