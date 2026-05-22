@@ -447,7 +447,22 @@ def _r12_render(f):
         except Exception:  # pragma: no cover — defensive
             pass
 
-    facts = {
+    # v68 (2026-05-22): start from the full caption_facts dict and
+    # add R12-computed extras on top. Previously this was an EXPLICIT
+    # subset which made every new detector require a parallel edit
+    # here to pass facts through to R12_blunder.json. The detector
+    # work from v56-v66 (clearance_then_check, queen_fork,
+    # attack_with_tempo, endgame_loose_pawn, un_developing,
+    # defensive_pawn, knight_outpost, stop_opp_pawn, active_defense,
+    # same_piece_better_square, discovered_vacating_check,
+    # knight_on_rim, pawn_kicks_piece, why_clause_em_dash) ALL fired
+    # but their facts were being dropped at R12 render time. Caught
+    # by Mohit 2026-05-22 on game fc97ee1d m7 Bb5 — clearance_then_check
+    # detector fired with follow_up_san=Qh5+ but the R12 caption fell
+    # through to engine-speak why_user_missed_material because the
+    # facts dict R12 built did not include the new keys.
+    facts = dict(f)
+    facts.update({
         "played_san": played,
         "best_move_san": best,
         "cp_loss": f.get("cp_loss") or 0,
@@ -528,7 +543,7 @@ def _r12_render(f):
         ),
         "opp_pieces_now_undefended_present": opp_hanging is not None,
         "opp_played_landed_unsafe": bool(f.get("opp_played_landed_unsafe")),
-    }
+    })
     # For opp-side why_clauses, captured_piece_type comes from a different
     # source (the user's best reply, not opp's reply). Override when opp side.
     if f.get("mover_is_user") is False:
