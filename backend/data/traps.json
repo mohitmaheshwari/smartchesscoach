@@ -2035,5 +2035,117 @@
       "result_type": "wins_material",
       "difficulty": "intermediate"
     }
+  ],
+  "owens-defense": [
+    {
+      "name": "Owen's Defense Greek-Gift Trap",
+      "description": "When Black plays 3...f5?? in Owen's, White punishes with the Greek-gift sacrifice: queen check on h5 forces a king-hunt ending in mate.",
+      "setup_moves": [
+        "e4",
+        "b6",
+        "d4",
+        "Bb7",
+        "Bd3",
+        "f5"
+      ],
+      "trap_line": [
+        {
+          "move": "exf5",
+          "explanation": "White takes the pawn — the long diagonal is now open."
+        },
+        {
+          "move": "Bxg2",
+          "explanation": "Black grabs the g2 pawn, ignoring the threat on the kingside."
+        },
+        {
+          "move": "Qh5+",
+          "explanation": "Check! The queen swings to h5, attacking the weakened light squares."
+        },
+        {
+          "move": "g6",
+          "explanation": "Forced — Black must block the check."
+        },
+        {
+          "move": "fxg6",
+          "explanation": "The f5 pawn captures, opening lines to Black's king."
+        },
+        {
+          "move": "Nf6",
+          "explanation": "Black develops with tempo on the queen, but mate is already coming."
+        },
+        {
+          "move": "gxh7+",
+          "explanation": "Pawn takes h7 with check — Black's king is fully exposed."
+        },
+        {
+          "move": "Nxh5",
+          "explanation": "Forced — Black takes the queen, but..."
+        },
+        {
+          "move": "Bg6#",
+          "explanation": "Checkmate! The bishop on g6 supports the h7 pawn — Black has no escape."
+        }
+      ],
+      "success_message": "The Greek-gift in Owen's Defense! After 3...f5??, White's queen sacrifice on g6 ends the game in mate.",
+      "result_type": "checkmate",
+      "difficulty": "intermediate"
+    }
+  ],
+  "englund-gambit": [
+    {
+      "name": "Englund Gambit Mate Trap",
+      "description": "Black's famous trap in the Englund Gambit: after 3...Qe7, if White plays the natural 4.Bf4??, Black wins material or delivers mate with the Qb4+ / Qxb2 / Bb4 pin combination.",
+      "trap_color": "black",
+      "setup_moves": [
+        "d4",
+        "e5",
+        "dxe5",
+        "Nc6",
+        "Nf3",
+        "Qe7",
+        "Bf4"
+      ],
+      "trap_line": [
+        {
+          "move": "Qb4+",
+          "explanation": "Double attack — check on the king AND attacking the b2 pawn."
+        },
+        {
+          "move": "Bd2",
+          "explanation": "White blocks the check."
+        },
+        {
+          "move": "Qxb2",
+          "explanation": "Black grabs b2, threatening the bishop on d2 AND the rook on a1."
+        },
+        {
+          "move": "Bc3",
+          "explanation": "White tries to trap Black's queen on a1."
+        },
+        {
+          "move": "Bb4",
+          "explanation": "Pin! The bishop pins the c3-bishop to White's queen."
+        },
+        {
+          "move": "Qd2",
+          "explanation": "Forced — White must defend the bishop."
+        },
+        {
+          "move": "Bxc3",
+          "explanation": "Black wins the bishop with the pin."
+        },
+        {
+          "move": "Qxc3",
+          "explanation": "White recaptures, but the queen is exposed."
+        },
+        {
+          "move": "Qc1#",
+          "explanation": "Checkmate! The queen sweeps to c1 — White's king has no escape."
+        }
+      ],
+      "success_message": "The Englund Gambit Mate Trap! After 4.Bf4??, Black's Qb4+ combination wins material or delivers mate.",
+      "result_type": "checkmate",
+      "difficulty": "intermediate"
+    }
   ]
 }
