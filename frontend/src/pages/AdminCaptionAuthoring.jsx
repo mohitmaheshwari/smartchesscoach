@@ -17,7 +17,7 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
-import { Loader2, X, RefreshCw } from "lucide-react";
+import { Loader2, X, RefreshCw, Search } from "lucide-react";
 
 
 // Resolve a SAN move on a FEN to a [from, to, color] arrow tuple.
@@ -71,6 +71,7 @@ const AdminCaptionAuthoring = ({ user }) => {
   const [sampleTiers, setSampleTiers] = useState({
     HIGH: false, MID: false, LOW: true, NONE: true,
   });
+  const [searchTerm, setSearchTerm] = useState("");
   const [editingTarget, setEditingTarget] = useState(null);
   // editingTarget = { position, template (the current variant string),
   //                   file, variant_key }
@@ -190,6 +191,25 @@ const AdminCaptionAuthoring = ({ user }) => {
         {/* Tier bars */}
         <CoverageBars auditData={auditData} />
 
+        {/* Search — filters per-template sample positions by game_id /
+            move SAN / FEN piece placement / caption text. When non-empty,
+            templates with zero matching positions are auto-collapsed below. */}
+        <div className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-zinc-500" />
+          <input
+            type="text"
+            placeholder="Search game_id, move SAN, FEN, or caption…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 px-3 py-2 rounded bg-zinc-800 text-zinc-100 border border-zinc-700 text-sm placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+          />
+          {searchTerm && (
+            <Button onClick={() => setSearchTerm("")} variant="ghost" size="sm">
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+
         {/* Per-template list */}
         <section className="space-y-6">
           <h2 className="text-lg font-medium text-zinc-200">
@@ -201,6 +221,7 @@ const AdminCaptionAuthoring = ({ user }) => {
               tpl={tpl}
               total={auditData.total_blunder_moves}
               onEdit={setEditingTarget}
+              searchTerm={searchTerm}
             />
           ))}
         </section>
@@ -276,8 +297,40 @@ const CoverageBars = ({ auditData }) => {
 
 // ── Per-template card ───────────────────────────────────────────────
 
-const TemplateCard = ({ tpl, total, onEdit }) => {
-  const [expanded, setExpanded] = useState(false);
+// Match a sample position against the user's search term. Case-insensitive
+// substring match across game_id, move_san, best_move_san, fen_before piece
+// placement (first FEN field), and caption text. Empty search matches all.
+const positionMatchesSearch = (position, term) => {
+  if (!term) return true;
+  const needle = term.trim().toLowerCase();
+  if (!needle) return true;
+  const fenPlacement = (position.fen_before || "").split(" ")[0].toLowerCase();
+  const haystack = [
+    position.game_id || "",
+    position.move_san || "",
+    position.best_move_san || "",
+    fenPlacement,
+    position.caption || "",
+  ].join(" ").toLowerCase();
+  return haystack.includes(needle);
+};
+
+const TemplateCard = ({ tpl, total, onEdit, searchTerm }) => {
+  // When the user has a search term, the matching positions are the only
+  // ones that count. We auto-expand a template if it has matches, and we
+  // auto-hide templates with zero matches.
+  const matchingPositions = (tpl.sample_positions || []).filter((p) =>
+    positionMatchesSearch(p, searchTerm),
+  );
+  const hasSearch = Boolean((searchTerm || "").trim());
+  const [manuallyExpanded, setManuallyExpanded] = useState(false);
+  const expanded = hasSearch ? matchingPositions.length > 0 : manuallyExpanded;
+
+  // Hide whole template card when there's a search and no matches in its
+  // sample positions. (Templates without samples for the current tier are
+  // also hidden when searching — they can't possibly match.)
+  if (hasSearch && matchingPositions.length === 0) return null;
+
   const pct = ((tpl.count / total) * 100).toFixed(1);
   const tierBadge = (
     <span
@@ -289,7 +342,7 @@ const TemplateCard = ({ tpl, total, onEdit }) => {
   return (
     <div className="border border-zinc-800 rounded-lg overflow-hidden">
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => { if (!hasSearch) setManuallyExpanded(!manuallyExpanded); }}
         className="w-full flex items-center justify-between p-4 hover:bg-zinc-900/50 transition-colors text-left"
       >
         <div className="flex items-center gap-3">
@@ -304,6 +357,11 @@ const TemplateCard = ({ tpl, total, onEdit }) => {
         <div className="text-right">
           <span className="text-sm text-zinc-300">
             {tpl.count} ({pct}%)
+            {hasSearch && matchingPositions.length > 0 && (
+              <span className="ml-2 text-emerald-300 text-xs">
+                · {matchingPositions.length} match
+              </span>
+            )}
           </span>
           <span className="ml-3 text-zinc-500 text-xs">
             {expanded ? "▾" : "▸"}
@@ -321,7 +379,7 @@ const TemplateCard = ({ tpl, total, onEdit }) => {
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {tpl.sample_positions.map((p, i) => (
+              {(hasSearch ? matchingPositions : tpl.sample_positions).map((p, i) => (
                 <PositionCard
                   key={i}
                   position={p}
