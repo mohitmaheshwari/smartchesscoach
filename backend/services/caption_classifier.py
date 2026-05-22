@@ -60,6 +60,7 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
     # produces coordinated multi-fact teachings; each bs_* template is
     # a verifiable geometric observation in user-facing language).
     high_keys = {
+        "why_user_missed_trap_punishment",
         "why_user_missed_mate",
         "why_user_missed_piece",
         "why_user_missed_clearance_attack",

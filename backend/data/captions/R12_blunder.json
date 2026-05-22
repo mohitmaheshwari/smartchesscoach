@@ -58,7 +58,12 @@
     "knight_on_rim_square": "v65 — Mohit approval #9 (Na6/e5). Square (a-file or h-file) the user moved their knight to in the opening.",
     "pawn_kicks_piece_type": "v65 — Mohit approval #10 (Qd7/c4 — c4 kicks Bb3). Lowercase piece-name being kicked by engine's pawn push.",
     "pawn_kicks_piece_square": "Square of the piece being kicked.",
-    "why_clause_em_dash": "v66 — Mohit 2026-05-22 voice match. Set true by V5 service when one of the new best-move-focused detectors fires (queen_fork, attack_with_tempo, clearance_then_check, endgame_loose_pawn, active_defense, same_piece_better_square, discovered_vacating_check, knight_outpost, stop_opp_pawn, pawn_kicks_piece, missed_clearance_attack, missed_piece, missed_material, knight_on_rim, un_developing, defensive_pawn_push). When true, R12_blunder uses the em-dash parent variant ('Y was better — reason') matching Mohit's approved voice, instead of the default 'Y was better. Reason.' two-sentence form.",
+    "why_clause_em_dash": "v66 — Mohit 2026-05-22 voice match. Set true by V5 service when one of the new best-move-focused detectors fires (queen_fork, attack_with_tempo, clearance_then_check, endgame_loose_pawn, active_defense, same_piece_better_square, discovered_vacating_check, knight_outpost, stop_opp_pawn, pawn_kicks_piece, missed_clearance_attack, missed_piece, missed_material, knight_on_rim, un_developing, defensive_pawn_push, trap_context_name). When true, R12_blunder uses the em-dash parent variant ('Y was better — reason') matching Mohit's approved voice, instead of the default 'Y was better. Reason.' two-sentence form.",
+    "trap_context_name": "v69 — Mohit 2026-05-22 ('trap and openings ship next whatever applies'). Display name of a known opening trap whose setup was reached but whose punishment (trap_line[0]) the user MISSED — i.e. the user is the trap's setter/punisher in scanner terminology, and the engine's best_move equals trap_line[0]. Set by V5 service from services.trap_scanner output, with the trailing ' Punishment' / ' Trap' suffix stripped so it flows in the caption template ('Damiano Defense Punishment' → 'Damiano Defense'). Highest-priority why-clause — when set, fires why_user_missed_trap_punishment which names the trap as the textbook refutation.",
+    "trap_context_full_name": "v69 — original trap name before suffix-stripping (e.g. 'Damiano Defense Punishment'). Kept for downstream consumers that want the canonical library name.",
+    "trap_context_first_punishment_san": "v69 — trap_line[0], the engine-recommended punishment move that matches best_move_san when trap_context_name is set. Available to other variants that may want to name the move explicitly.",
+    "trap_context_description": "v69 — hand-authored description from data/traps.json (e.g. 'Black plays 2...f6 (the Damiano), inviting a knight sacrifice...'). Not currently used by the default template (descriptions vary in flow and aren't designed to drop cleanly into caption prose), but available for future variants or LLM polish.",
+    "opening_name": "v69 — Mohit 2026-05-22 + [[opening-name-only-at-critical-lessons]]. Detected opening from detect_opening_from_pgn (e.g. 'Italian Game', 'Damiano Defense'). Set ONLY when a trap also fires — naming the opening at every move would be noise per the memory rule. Reserved for genuinely critical lesson moments.",
     "position_was_already_losing": "true when the user's eval has been losing (<= -150cp from user POV) for the last 3+ user moves before this one. Tells the caption to frame the move as 'damage control' rather than 'source of the loss' — the real problem is earlier in the game.",
     "losing_since_move": "Earliest move number in the contiguous losing run. Used by the with-known variant to point the user back at where the position started going wrong.",
     "piece_type": "Piece-type generic placeholder used by hanging-piece why-clauses",
@@ -115,6 +120,7 @@
     "mistake": "is a mistake"
   },
   "why_clauses_user": [
+    {"when": {"trap_context_name": "present"}, "variant": "why_user_missed_trap_punishment"},
     {"when": {"missed_tactic_kind": "mate"}, "variant": "why_user_missed_mate"},
     {"when": {"missed_tactic_kind": "piece_capture"}, "variant": "why_user_missed_piece"},
     {"when": {"missed_clearance_then_check_follow_up_san": "present"}, "variant": "why_user_missed_clearance_then_check"},
@@ -183,6 +189,7 @@
     "opp": "Opponent's {played_san} {severity_phrase}.",
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
 
+    "why_user_missed_trap_punishment": "it's the textbook refutation in the {trap_context_name}.",
     "why_user_missed_mate": "it would have led to mate in {missed_tactic_ply} moves.",
     "why_user_missed_piece": "it wins the {missed_tactic_target_piece} on {missed_tactic_target_square}.",
     "why_user_missed_clearance_attack": "it clears the line for your {missed_clearance_attacker_piece} to attack {missed_clearance_attack_square}.",

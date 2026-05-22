@@ -62,6 +62,127 @@ or template rewrite covering the family.
 
 ---
 
+## #15 — endgame: grab undefended pawn with active piece (row #030, same family as #013)
+
+**FEN:** `8/2p3pk/1b1pp2p/4p3/1PP1P3/7P/3KNr2/1R6 b - - 0 27`
+
+**Engine eval:** Rf3 = +414cp for black (huge).
+
+**Shipped v55 (LOW):**
+> c5 is a serious mistake. Rf3 was better. Rf3 wins material in the resulting line.
+
+**Approved rewrite:**
+> c5 is a serious mistake — White's h3 pawn is undefended and your rook can swing over to grab it. Rf3 was better, attacking h3. In the endgame, look for undefended pawns and pick them up with your active pieces.
+
+**Why this works:** Same three-beat structure as #013 (active king). Concrete (h3 undefended) → better move (Rf3 attacks it) → universal principle (hunt undefended pawns with active pieces). Same family, different piece.
+
+**Pattern family (L extended): endgame — grab loose pawn with active piece.** #013 used the king; this one uses the rook. Now N=2 for the family — **buildable detector**:
+- Phase = endgame (few pieces left)
+- Engine's best move attacks an undefended opponent pawn
+- The attacking piece is the player's most-active piece (king or rook in endgame)
+- Caption names the loose pawn + the piece + the principle
+
+---
+
+## #14 — stop opponent's pawn advance (row #012)
+
+**FEN:** `r1bqk2r/pppp1ppp/2n2n2/2b1p3/P1B1P3/2PP4/1P3PPP/RNBQK1NR b KQkq - 0 5`
+
+**Engine eval:** a5 = +8cp (basically equal), d6 (played) ≈ +280cp (~3 pawns worse).
+
+**Shipped v55 (LOW):**
+> d6 is a serious mistake. a5 was better. Opponent's strongest reply: b4.
+
+**Approved rewrite:**
+> d6 is a serious mistake — White played a4 preparing a5 to attack your bishop and gain queenside space. a5 was better, stopping the push. When your opponent threatens a pawn advance, blocking it is often more important than developing.
+
+**Why this works:** Three beats — concrete (a4-a5 plan + targets), better move + reason, universal principle. The principle ("when your opponent threatens a pawn advance, blocking it is often more important than developing") transfers to many positions: Maroczy bind, Spanish a4-a5, Catalan c4-c5, etc.
+
+**Pattern family (M): stop-opponent-pawn-advance.** Distinct from defensive-pawn-push (#7 was about not wasting tempo on defense). This one is about *prophylactic blocking* — a real strategic principle. Detector spec (when N≥2):
+- Opponent's previous move was a pawn advance preparing further advance (a4→a5, c4→c5 etc.)
+- User played a non-pawn-blocking move (often developing)
+- Engine's best is the blocking-pawn move (a5 against a4, etc.)
+- cp_loss > 100 (real positional cost)
+
+N=1 for now.
+
+---
+
+## #13 — active king in the endgame (row #010)
+
+**FEN:** `r7/1b1nk3/2p1p1r1/p6p/1pNP4/P3R1Pp/1P3P1K/4R2B w - - 3 34`
+
+**Engine eval:** Kxh3 = +257cp (top of 5 candidates).
+
+**Shipped v55 (LOW):**
+> a4 is a mistake. Kxh3 was better. Opponent's strongest reply: Rf8.
+
+**Approved rewrite:**
+> a4 is a mistake — Black's h3 pawn is undefended, and your king is right next door. Kxh3 was better. In the endgame, your king becomes a fighting piece — use it to win loose pawns.
+
+**Voice note (2026-05-22):** Mohit asked "it's too long, no?" then approved the long version anyway. He prefers the explicit-principle ending ("In the endgame, your king becomes a fighting piece") over a terser one-sentence form, when the principle is teaching value. Lesson: when the caption can name a universal endgame/middlegame principle as the last sentence, keep it — the audience learns the habit, not just the move.
+
+**Why this works:** Three teaching beats:
+1. Concrete (h3 undefended, king nearby)
+2. The move (Kxh3 with reason)
+3. Universal principle (active king in endgame)
+
+For 600-1500 the principle is the *transfer-out* — once they hear it framed this way, they can apply it across every endgame.
+
+**Pattern family (L): active-king-in-endgame.** Distinct from the queen-fork, attack-with-tempo families — purely positional endgame teaching. Maps onto existing principle vocabulary in `R_PROMOTED_principle.json` (`END_KING_ACTIVE`); might already have a variant we can route to. N=1 for now.
+
+---
+
+## #12 — active defense vs passive defense (row #029)
+
+**FEN:** `r1bqk2r/p1pp1ppp/2p5/4P3/1nP5/B7/P1P2PPP/R2QKB1R b KQkq - 2 10`
+
+**Engine eval:** Qe7 = +3cp (equal), a5 = +245cp (+~2.5 pawns worse for black)
+
+**Shipped v55 (LOW, misleading):**
+> a5 is a mistake. Qe7 was better. Qe7 wins material in the resulting line.
+
+(Wrong — Qe7 doesn't *win* material, it *saves* the knight + counter-attacks.)
+
+**Approved rewrite:**
+> a5 only defends your knight passively — White plays c3 next, attacking the knight twice, and it has to retreat to a6 (the rim). Qe7 was better: it defends the knight AND attacks the undefended e5 pawn, so White must defend before attacking again.
+
+**Why this works:** Names the actual situation (knight under attack from Ba3) and contrasts passive defense (a5 — just defends, gets piled on by c3) with active defense (Qe7 — defends + counter-threatens e5). Teaches a universal middlegame principle.
+
+**Geometry:**
+- Black Nb4 attacked by white Ba3, no defenders.
+- `a5` defends via pawn diagonal a5→b4. But white plays c3 — c3 pawn ALSO attacks b4. Now 2 attackers, 1 defender. Knight retreats to a6 (the rim).
+- `Qe7` defends b4 via diagonal e7→d6→c5→b4. AND attacks the undefended e5 pawn via e-file. After Qe7, white CAN'T play c3 (would lose e5 to Qxe5+). White is forced to defend e5 first (PV: Qe7 Bb2 d5 ...).
+
+**Pattern family (K): active-defense-vs-passive-defense.** Distinct from all prior families. The lesson is: when defending a threatened piece, prefer moves that *also* create a counter-threat. Detector spec (when N≥2):
+- User's played move defends a threatened piece passively (1 defender vs 1 attacker)
+- Engine's best move defends the SAME piece AND attacks an undefended target
+- Caption names both (passive vs active framing)
+
+N=1, log for later.
+
+---
+
+## #11 — knight outpost (row #011)
+
+**FEN:** `rnb2r2/2q1npkp/p1p1p1p1/1p2N3/2pP4/2N1P1P1/PP1Q1PBP/R4RK1 w - - 2 14`
+
+**Engine PV:** `Ne4 Nd7 Nxd7 Bxd7 b3 cxb3 axb3 a5 Nc5 Bc8` (+66cp, top of 5 candidate moves)
+
+**Shipped v55 (LOW, `why_user_reply`):**
+> a3 is a mistake. Ne4 was better. Opponent's strongest reply: f6.
+
+**Approved rewrite:**
+> a3 is a mistake — Ne4 was better. e4 is an outpost: defended by your g2 bishop and safe from any enemy pawn. From there, your knight can jump to Nc5 to attack Black's pieces.
+
+**Why this works:** Names the positional concept (**outpost**) and defines it inline by example ("defended by your g2 bishop and safe from any enemy pawn"). Even players who haven't encountered "outpost" before learn it through context. Then names the follow-up (Nc5 attacking).
+
+**Geometry:** Nc3 → Ne4. e4 is defended by Bg2 (fianchetto). No black pawn can attack e4 (the f-pawn is on f7, the d-pawn is gone). So Ne4 is a permanent strong square. From e4, the knight can jump to Nc5, attacking black's pieces.
+
+**Pattern family (J): knight outpost — positional principle.** Maps onto the existing strategic concept teaching. N=1 for the specific combination of "missed knight outpost vs passive pawn move." Voice rule: use **"outpost"** word per memory_caption_voice_avoid_chess_jargon (outpost is on the OK-list because curriculum teaches it).
+
+---
+
 ## #10 — pawn break to undermine defender (row #032)
 
 **FEN:** `r2q1rk1/pb2npbp/1n1pp1p1/2p5/4PP2/1BN1BN1P/PPP3P1/1R1Q1RK1 b - - 5 13`
