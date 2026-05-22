@@ -44,6 +44,50 @@ or template rewrite covering the family.
 
 ---
 
+## #9 — knight on the rim + central pawn break (row #035)
+
+**FEN:** `rnbqkbnr/ppp1pppp/8/2Pp4/8/8/PP1PPPPP/RNBQKBNR b KQkq - 0 2`
+
+**Engine PV:** `e5 d4 exd4 e3 Bxc5 exd4` (eval -184cp = +184cp for black)
+
+**Shipped v55 (LOW):**
+> Na6 is a mistake. e5 was better. e5 wins material in the resulting line.
+
+**Approved rewrite:**
+> Na6 is a mistake — knights on the rim are weak. e5 was better, claiming central space. In the opening, knights belong on c6 or f6 — never the edge.
+
+**Why this works:** Three opening principles in three sentences — (1) knights on the rim are weak (concrete: a6/h6 are bad squares), (2) e5 fights for central space, (3) general rule for where knights belong (c6/f6). Teaches a 600-1500 player a habit they can apply across all openings, not just this position.
+
+**Pattern family overlap.** Maps onto existing `OP_KNIGHT_ON_RIM` principle in `R_PROMOTED_principle.json` — could likely repurpose the existing variant. Plus a "missed central pawn break in the opening" principle. N=1 for the specific combination.
+
+---
+
+## #10 — pawn break to undermine defender (row #032)
+
+**FEN:** `r2q1rk1/pb2npbp/1n1pp1p1/2p5/4PP2/1BN1BN1P/PPP3P1/1R1Q1RK1 b - - 5 13`
+
+**Engine eval:** -259cp (+259cp for black) after `c4`. Stored best=`c4`. PV (stored) starts with `Bxc3 bxc3 c4 Ba4 Bxe4 Bb5` — note PV disagrees with stored best; the stored best is the right one here (verified by Mohit + reasoning).
+
+**Shipped v55 (LOW):**
+> Qd7 is a mistake. c4 was better. c4 wins material in the resulting line.
+
+**Approved rewrite:**
+> Qd7 is a mistake. c4 was better — it kicks White's bishop off b3, leaving e4 undefended for your Bb7 to grab.
+
+**Why this works:** Names the mechanism (`c4` kicks Bb3) AND the consequence (e4 becomes undefended, Bb7 grabs it). Teaches a tactical idea: *undermine the defender* — a piece is defended only because of another piece's position; kick that other piece and the target falls.
+
+**Geometry:** Black Bb7 is on the a8-h1 diagonal, aimed at the e4 pawn. Currently e4 is defended by Nc3 (knight covers e4). The c-pawn push to c4 attacks Bb3 (white can't recapture because Nb6 defends c4). Bb3 retreats to Ba4 — and now black plays Bxe4. Even though Nc3 still defends e4, the *Nxe4 recapture costs white a knight for bishop + pawn* — net +1 pawn for black plus a useful advanced c-pawn.
+
+**Pattern family (I): undermine-the-defender pawn break.** Distinct from:
+- attack_with_tempo (best move directly attacks a piece that retreats)
+- queen-fork (best move attacks two targets at once)
+
+Here the best move attacks ONE piece (the bishop) but the *consequence* is that ANOTHER target (e4 pawn) becomes capturable. Indirect attack. N=1, log for later.
+
+**Important: v58 reconciliation note.** The stored PV starts with `Bxc3` but the stored best is `c4`. v58 reconciles by preferring PV[0] — which would WRONGLY swap c4 → Bxc3 here. This case shows v58 is unsafe: sometimes stored best is correct and PV is stale, sometimes vice versa. Need to revisit the v58 approach. See message thread 2026-05-22.
+
+---
+
 ## #8 — same-piece-better-square positional choice (new pattern family)
 
 **FEN:** `rb1q1rk1/1b1p1pp1/p5np/np1PP3/2p5/P1NQ1N2/1PB2PPP/R1B1R1K1 w - - 0 16`
