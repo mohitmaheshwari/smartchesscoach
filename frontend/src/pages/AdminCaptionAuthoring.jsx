@@ -72,11 +72,17 @@ const AdminCaptionAuthoring = ({ user }) => {
     HIGH: false, MID: false, LOW: true, NONE: true,
   });
   const [searchTerm, setSearchTerm] = useState("");
+  // Opt into force-regen of stale games on re-audit. Default off so the
+  // page loads instantly even right after a V5_COACHING_VERSION bump
+  // (regenerating 50+ games would blow past the host nginx 60s timeout
+  // and return 504). When you want freshest captions, toggle this on
+  // and accept the wait (or run scripts/caption_coverage_v5.py offline).
+  const [forceRegen, setForceRegen] = useState(false);
   const [editingTarget, setEditingTarget] = useState(null);
   // editingTarget = { position, template (the current variant string),
   //                   file, variant_key }
 
-  const fetchAudit = async (sampleSize = 50, tiers = sampleTiers) => {
+  const fetchAudit = async (sampleSize = 50, tiers = sampleTiers, regen = forceRegen) => {
     setLoading(true);
     setError(null);
     try {
@@ -86,6 +92,7 @@ const AdminCaptionAuthoring = ({ user }) => {
         .join(",");
       const params = new URLSearchParams({ sample: String(sampleSize) });
       if (tierList) params.set("sample_tiers", tierList);
+      if (regen) params.set("force_regen", "true");
       const res = await fetch(
         `${API}/admin/captions/audit?${params.toString()}`,
         { credentials: "include" },
@@ -181,7 +188,23 @@ const AdminCaptionAuthoring = ({ user }) => {
                 </label>
               ))}
             </div>
-            <Button onClick={() => fetchAudit(sample, sampleTiers)} variant="outline" size="sm">
+            <label
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer border ${
+                forceRegen
+                  ? "bg-amber-500 text-white border-transparent"
+                  : "bg-zinc-800 text-zinc-400 border-zinc-700"
+              }`}
+              title="Force-regen any game whose stored v5 version is stale. Slow after a code bump (seconds per game) — only enable when you want freshest captions."
+            >
+              <input
+                type="checkbox"
+                checked={forceRegen}
+                onChange={(e) => setForceRegen(e.target.checked)}
+                className="hidden"
+              />
+              Force regen
+            </label>
+            <Button onClick={() => fetchAudit(sample, sampleTiers, forceRegen)} variant="outline" size="sm">
               <RefreshCw className="w-4 h-4 mr-1" />
               Re-audit
             </Button>

@@ -71,16 +71,23 @@ async def audit_endpoint(
     sample: int = 50,
     sample_tiers: str = "LOW,NONE",
     samples_per_variant: int = 8,
+    force_regen: bool = False,
     user: User = Depends(require_admin),
 ):
-    """Audit a sample of analyzed games. Force-regens any below current
-    V5 version so the data measures shipped code.
+    """Audit a sample of analyzed games.
 
     sample_tiers: comma-separated list of tiers to retain board-level
     sample positions for (default LOW,NONE — the authoring backlog).
     Pass "HIGH,MID,LOW,NONE" to retain samples for every tier when
     pedagogical-review of higher tiers is needed.
     samples_per_variant: how many positions to keep per template variant.
+    force_regen: when true, force-regen any game whose stored V5 version
+    is below the current V5_COACHING_VERSION before classifying. Slow
+    after a version bump (every game is stale → seconds per game). When
+    false (default), classify whatever's stored — fast page load but
+    captions may reflect an older v5 version (shown in the page header
+    as `v{auditData.v5_version}`). Use the toggle in the UI to opt into
+    regen when you want freshest captions.
     """
     if db is None:
         raise HTTPException(500, "Database not initialized")
@@ -102,44 +109,51 @@ async def audit_endpoint(
     ).sort("created_at", -1).limit(sample)
     games = await cursor.to_list(length=sample)
 
-    # Force-regen stale games
-    for g in games:
-        if (g.get("decryption_v5_version") or 0) >= V5_COACHING_VERSION:
-            continue
-        gid = g["game_id"]
-        full_game = await db.games.find_one(
-            {"game_id": gid},
-            {"_id": 0, "pgn": 1, "user_color": 1, "user_id": 1},
-        )
-        full_analysis = await db.game_analyses.find_one(
-            {"game_id": gid}, {"_id": 0, "stockfish_analysis": 1},
-        )
-        if not full_game or not full_analysis:
-            continue
-        sa = full_analysis.get("stockfish_analysis") or {}
-        move_evals = sa.get("move_evaluations") or sa.get("moves") or []
-        if not full_game.get("pgn") or not move_evals:
-            continue
-        try:
-            new_v5 = await generate_game_decryption_v5(
-                full_game["pgn"], full_game.get("user_color", "white"),
-                move_evals, full_game.get("user_id") or "", db,
+    # Force-regen stale games (opt-in via ?force_regen=true). Skipped by
+    # default — after a V5_COACHING_VERSION bump, regenerating 50+ games
+    # each blows past the host nginx 60s timeout and gives the user an
+    # HTTP 504. Without regen we classify whatever's stored, which is
+    # fast and lets the page load instantly; the page header shows the
+    # version of the stored captions so the user knows what they're
+    # looking at.
+    if force_regen:
+        for g in games:
+            if (g.get("decryption_v5_version") or 0) >= V5_COACHING_VERSION:
+                continue
+            gid = g["game_id"]
+            full_game = await db.games.find_one(
+                {"game_id": gid},
+                {"_id": 0, "pgn": 1, "user_color": 1, "user_id": 1},
             )
-        except Exception as exc:
-            logger.warning(f"[audit] regen failed for {gid}: {exc}")
-            continue
-        if not new_v5:
-            continue
-        await db.game_analyses.update_one(
-            {"game_id": gid},
-            {"$set": {
-                "decryption_v5_data": new_v5,
-                "decryption_v5_version": V5_COACHING_VERSION,
-                "decryption_v5_generated_at": datetime.now(timezone.utc).isoformat(),
-            }},
-        )
-        g["decryption_v5_data"] = new_v5
-        g["decryption_v5_version"] = V5_COACHING_VERSION
+            full_analysis = await db.game_analyses.find_one(
+                {"game_id": gid}, {"_id": 0, "stockfish_analysis": 1},
+            )
+            if not full_game or not full_analysis:
+                continue
+            sa = full_analysis.get("stockfish_analysis") or {}
+            move_evals = sa.get("move_evaluations") or sa.get("moves") or []
+            if not full_game.get("pgn") or not move_evals:
+                continue
+            try:
+                new_v5 = await generate_game_decryption_v5(
+                    full_game["pgn"], full_game.get("user_color", "white"),
+                    move_evals, full_game.get("user_id") or "", db,
+                )
+            except Exception as exc:
+                logger.warning(f"[audit] regen failed for {gid}: {exc}")
+                continue
+            if not new_v5:
+                continue
+            await db.game_analyses.update_one(
+                {"game_id": gid},
+                {"$set": {
+                    "decryption_v5_data": new_v5,
+                    "decryption_v5_version": V5_COACHING_VERSION,
+                    "decryption_v5_generated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+            g["decryption_v5_data"] = new_v5
+            g["decryption_v5_version"] = V5_COACHING_VERSION
 
     # Classify EVERY user move with a caption (no cp_loss filter —
     # full coverage across all caption surfaces, not just blunders).
