@@ -1775,6 +1775,322 @@ def detect_clearance_then_check(board: chess.Board) -> List[Dict]:
     return out
 
 
+def simulate_active_defense(
+    pre_fen: str,
+    best_move_san: str,
+) -> List[Dict]:
+    """Detect Mohit's approval #12 (a5/Qe7 active defense). Engine's
+    best move accomplishes TWO things from one square:
+      (1) Defends an own piece that was under attack (insufficient
+          defenders before, sufficient after the move).
+      (2) Attacks an undefended opp piece on a different square.
+
+    Distinct from passive defense (e.g. moving a pawn to defend) where
+    no counter-attack is created.
+
+    Returns evidence:
+      - defended_piece:   own piece being saved
+      - defended_square:  its square
+      - attacked_piece:   opp piece now under attack
+      - attacked_square:  its square
+    """
+    try:
+        board_before = chess.Board(pre_fen)
+        best_mv = board_before.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    us = board_before.turn
+    them = not us
+
+    # Find own pieces currently under threat: attackers > defenders.
+    threatened: List[int] = []
+    for sq in chess.SQUARES:
+        p = board_before.piece_at(sq)
+        if p is None or p.color != us:
+            continue
+        if p.piece_type == chess.KING:
+            continue  # king-in-check is a different framework
+        attackers = list(board_before.attackers(them, sq))
+        defenders = list(board_before.attackers(us, sq))
+        if attackers and len(attackers) > len(defenders):
+            threatened.append(sq)
+    if not threatened:
+        return []
+
+    # Apply best move
+    board = board_before.copy()
+    try:
+        board.push(best_mv)
+    except Exception:
+        return []
+
+    # For each previously-threatened piece, is it now better-defended?
+    saved: Optional[Tuple[int, int]] = None  # (defended_square, piece_type)
+    for sq in threatened:
+        post_attackers = list(board.attackers(them, sq))
+        post_defenders = list(board.attackers(us, sq))
+        if post_defenders and len(post_defenders) >= len(post_attackers):
+            piece = board.piece_at(sq)
+            if piece is not None and piece.color == us:
+                saved = (sq, piece.piece_type)
+                break
+    if saved is None:
+        return []
+
+    # Does the moved piece (on best_mv.to_square) ALSO attack an undefended
+    # opp piece?
+    attacks_from_dest = board.attacks(best_mv.to_square)
+    counter_target: Optional[Tuple[int, int]] = None  # (square, piece_type)
+    for sq in attacks_from_dest:
+        if sq == saved[0]:
+            continue
+        p = board.piece_at(sq)
+        if p is None or p.color == us:
+            continue
+        if p.piece_type == chess.KING:
+            continue
+        defenders = [d for d in board.attackers(them, sq) if d != sq]
+        if defenders:
+            continue
+        counter_target = (sq, p.piece_type)
+        break
+    if counter_target is None:
+        return []
+
+    saved_sq, saved_pt = saved
+    target_sq, target_pt = counter_target
+
+    ev = _ev(
+        "active_defense",
+        mover=best_mv.to_square,
+        targets=[saved_sq, target_sq],
+        executing_move=None,
+        evidence=(
+            f"defends own {chess.piece_name(saved_pt)} on "
+            f"{chess.square_name(saved_sq)} AND attacks undefended opp "
+            f"{chess.piece_name(target_pt)} on {chess.square_name(target_sq)}"
+        ),
+    )
+    ev["defended_piece"] = chess.piece_name(saved_pt)
+    ev["defended_square"] = chess.square_name(saved_sq)
+    ev["attacked_piece"] = chess.piece_name(target_pt)
+    ev["attacked_square"] = chess.square_name(target_sq)
+    return [ev]
+
+
+def simulate_same_piece_better_square(
+    pre_fen: str,
+    user_move_san: str,
+    best_move_san: str,
+) -> List[Dict]:
+    """Detect Mohit's approval #8 (Qe4/Qf5). User and engine both move
+    the same piece type to different squares; engine's destination
+    attacks STRICTLY MORE undefended opp pieces than user's destination.
+
+    Returns evidence:
+      - extra_targets: list of (piece, square) the engine's square
+                       attacks but user's doesn't (undefended)
+    """
+    try:
+        board = chess.Board(pre_fen)
+        user_mv = board.parse_san(user_move_san)
+        best_mv = board.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    user_piece = board.piece_at(user_mv.from_square)
+    best_piece = board.piece_at(best_mv.from_square)
+    if user_piece is None or best_piece is None:
+        return []
+    # Must be same piece type and same color (same piece moving)
+    if user_piece.piece_type != best_piece.piece_type:
+        return []
+    if user_mv.from_square != best_mv.from_square:
+        return []  # different pieces of same type — out of scope
+
+    us = user_piece.color
+    them = not us
+
+    # Targets attacked from each destination (any opp non-king pieces).
+    # Mohit's framing on approval #8 was "more targets" — not specifically
+    # "more undefended targets" — so we count any opp piece attacked.
+    def attacks_from(board_state: chess.Board, from_sq: int) -> set:
+        out = set()
+        for sq in board_state.attacks(from_sq):
+            p = board_state.piece_at(sq)
+            if p is None or p.color == us:
+                continue
+            if p.piece_type == chess.KING:
+                continue
+            out.add(sq)
+        return out
+
+    # Simulate engine's destination
+    bd_engine = board.copy()
+    bd_engine.push(best_mv)
+    engine_targets = attacks_from(bd_engine, best_mv.to_square)
+
+    # Simulate user's destination
+    bd_user = board.copy()
+    bd_user.push(user_mv)
+    user_targets = attacks_from(bd_user, user_mv.to_square)
+
+    extra = engine_targets - user_targets
+    if not extra:
+        return []
+
+    # Build a friendly list of the extras
+    extra_list: List[Tuple[str, str]] = []
+    for sq in extra:
+        p = bd_engine.piece_at(sq)
+        if p is None:
+            continue
+        extra_list.append((chess.piece_name(p.piece_type), chess.square_name(sq)))
+    if not extra_list:
+        return []
+
+    # Pick the first extra target for the caption (could be multiple, but
+    # one is enough for the lesson)
+    extra_piece, extra_sq = extra_list[0]
+
+    # Also identify a shared target (one that BOTH squares attack)
+    shared = engine_targets & user_targets
+    shared_piece_name: Optional[str] = None
+    shared_sq_name: Optional[str] = None
+    if shared:
+        sample_sq = next(iter(shared))
+        p = bd_engine.piece_at(sample_sq)
+        if p is not None:
+            shared_piece_name = chess.piece_name(p.piece_type)
+            shared_sq_name = chess.square_name(sample_sq)
+
+    ev = _ev(
+        "same_piece_better_square",
+        mover=best_mv.to_square,
+        targets=[s for s in extra],
+        executing_move=None,
+        evidence=(
+            f"engine's destination {chess.square_name(best_mv.to_square)} "
+            f"attacks {len(extra)} extra undefended target(s) beyond user's "
+            f"destination {chess.square_name(user_mv.to_square)}"
+        ),
+    )
+    piece_name = chess.piece_name(user_piece.piece_type)
+    ev["piece_name"] = piece_name
+    ev["engine_destination"] = chess.square_name(best_mv.to_square)
+    ev["user_destination"] = chess.square_name(user_mv.to_square)
+    ev["extra_piece"] = extra_piece
+    ev["extra_square"] = extra_sq
+    ev["shared_piece"] = shared_piece_name
+    ev["shared_square"] = shared_sq_name
+    return [ev]
+
+
+def simulate_discovered_attack_vacating_check(
+    pre_fen: str,
+    best_move_san: str,
+) -> List[Dict]:
+    """Detect Mohit's approval #6 (Qa5/Nxd3+ — knight gives check
+    AND vacates b4, opening own f8-bishop's diagonal to undefended Ba3).
+
+    Two-pronged effect from one move:
+      (1) The moved piece gives check on its destination, OR
+          the move is a capture-with-check.
+      (2) The from-square was BLOCKING an own slider's line to an
+          UNDEFENDED opp piece. After vacating, the slider attacks
+          that piece.
+
+    Returns evidence:
+      - moved_piece:        the piece that gave check
+      - check_square:       moved piece's destination
+      - slider_piece:       the own slider whose line opened
+      - slider_square:      slider's square
+      - exposed_piece:      opp piece now exposed to slider
+      - exposed_square:     that piece's square
+    """
+    try:
+        board_before = chess.Board(pre_fen)
+        best_mv = board_before.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    us = board_before.turn
+    them = not us
+
+    # Find own sliders (Q/R/B) that had limited attack range due to
+    # the moved piece's from-square sitting on their attack ray.
+    moved_piece = board_before.piece_at(best_mv.from_square)
+    if moved_piece is None:
+        return []
+    moving_piece_name = chess.piece_name(moved_piece.piece_type)
+
+    # Pre-move slider attack sets
+    pre_attacks_by_sq = {}
+    for sliding_type in (chess.QUEEN, chess.ROOK, chess.BISHOP):
+        for slider_sq in board_before.pieces(sliding_type, us):
+            if slider_sq == best_mv.from_square:
+                continue  # the moving piece itself isn't relevant
+            pre_attacks_by_sq[slider_sq] = set(board_before.attacks(slider_sq))
+
+    # Push best move
+    board = board_before.copy()
+    try:
+        board.push(best_mv)
+    except Exception:
+        return []
+
+    # Must give check
+    if not board.is_check():
+        return []
+
+    # Check each own slider: did its attack range expand to include an
+    # opp piece that's undefended?
+    for slider_sq, pre_attacks in pre_attacks_by_sq.items():
+        # Slider must still be on its square (didn't get captured/moved)
+        slider_piece = board.piece_at(slider_sq)
+        if slider_piece is None or slider_piece.color != us:
+            continue
+        post_attacks = set(board.attacks(slider_sq))
+        newly_attacked = post_attacks - pre_attacks
+        if not newly_attacked:
+            continue
+        # Find any newly-attacked opp piece that's undefended
+        for sq in newly_attacked:
+            p = board.piece_at(sq)
+            if p is None or p.color == us:
+                continue
+            if p.piece_type == chess.KING:
+                continue
+            defenders = [d for d in board.attackers(them, sq) if d != sq]
+            if defenders:
+                continue
+            # Found! The vacating-check pattern fires.
+            slider_type_name = chess.piece_name(slider_piece.piece_type)
+            ev = _ev(
+                "discovered_attack_vacating_check",
+                mover=best_mv.to_square,
+                targets=[sq],
+                executing_move=None,
+                evidence=(
+                    f"{moving_piece_name} on {chess.square_name(best_mv.from_square)} "
+                    f"→ {chess.square_name(best_mv.to_square)} gives check AND "
+                    f"vacates the diagonal/rank/file for own {slider_type_name} on "
+                    f"{chess.square_name(slider_sq)} to attack undefended opp "
+                    f"{chess.piece_name(p.piece_type)} on {chess.square_name(sq)}"
+                ),
+            )
+            ev["moved_piece"] = moving_piece_name
+            ev["check_square"] = chess.square_name(best_mv.to_square)
+            ev["slider_piece"] = slider_type_name
+            ev["slider_square"] = chess.square_name(slider_sq)
+            ev["exposed_piece"] = chess.piece_name(p.piece_type)
+            ev["exposed_square"] = chess.square_name(sq)
+            return [ev]
+
+    return []
+
+
 def simulate_un_developing(
     pre_fen: str,
     user_move_san: str,
