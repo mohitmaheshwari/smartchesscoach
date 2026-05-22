@@ -199,6 +199,18 @@ const GameAnalysis = ({ user }) => {
   const [decryptionData, setDecryptionData] = useState(null);
   const [decryptionLoading, setDecryptionLoading] = useState(false);
   const [decryptionStatus, setDecryptionStatus] = useState(null);
+  // Toggle: when ON show LLM-polished caption (caption_llm) if available;
+  // when OFF show the deterministic template (caption). Persisted in
+  // localStorage so it syncs with /admin/captions toggle.
+  const [useLlmCaption, setUseLlmCaption] = useState(() => {
+    try {
+      const v = localStorage.getItem("useLlmCaption");
+      return v === null ? true : v === "true";
+    } catch (e) { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("useLlmCaption", String(useLlmCaption)); } catch (e) {}
+  }, [useLlmCaption]);
   
   // Coach Review (fundamentals, phases, opening, behaviors)
   const [coachReview, setCoachReview] = useState(null);
@@ -521,14 +533,31 @@ const GameAnalysis = ({ user }) => {
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-zinc-500 capitalize">
-                          {currentMoveData.phase}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setUseLlmCaption(v => !v)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                              useLlmCaption
+                                ? "bg-sky-500 text-white border-transparent"
+                                : "bg-zinc-800 text-zinc-400 border-zinc-700"
+                            }`}
+                            title="Toggle between LLM-polished caption and deterministic template"
+                          >
+                            {useLlmCaption ? "LLM" : "Template"}
+                          </button>
+                          <span className="text-xs text-zinc-500 capitalize">
+                            {currentMoveData.phase}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Main Narrative */}
+                      {/* Main Caption: prefer caption_llm when toggle ON
+                          and value non-empty; else fall back to caption;
+                          else narrative (legacy). */}
                       <p className="text-sm text-zinc-300 leading-relaxed">
-                        {currentMoveData.narrative}
+                        {(useLlmCaption && currentMoveData.caption_llm)
+                          || currentMoveData.caption
+                          || currentMoveData.narrative}
                       </p>
 
                       {/* Pattern Spotted — visual shape detector layer.
