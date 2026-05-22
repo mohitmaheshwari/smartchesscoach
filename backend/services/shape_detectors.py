@@ -1775,6 +1775,328 @@ def detect_clearance_then_check(board: chess.Board) -> List[Dict]:
     return out
 
 
+def simulate_un_developing(
+    pre_fen: str,
+    user_move_san: str,
+    best_move_san: str,
+    move_number: Optional[int] = None,
+) -> List[Dict]:
+    """Detect the un-developing pattern from Mohit's approval #4 (Bf1
+    retreated from e2). User played a piece move that returns a non-pawn
+    piece to its starting home square AND there was no concrete reason
+    (no threat against it, engine prefers a different move).
+
+    Fires when:
+      - User's played move was a non-pawn, non-king piece move
+      - The destination square is the piece's starting home for that
+        color (e.g. white bishop to f1, c1; white knight to b1, g1)
+      - The from-square is NOT the home square (i.e. piece was developed
+        and now retreats)
+      - We're still in the opening (move number ≤ 18) — outside opening,
+        retreats are often legitimate
+      - Engine's best move is a non-retreat (not a home-square move)
+
+    Returns evidence with:
+      - moving_piece_type:  lowercase
+      - from_square:        where the piece was
+      - home_square:        the square it's going back to
+    """
+    HOME_WHITE = {chess.BISHOP: {chess.C1, chess.F1},
+                  chess.KNIGHT: {chess.B1, chess.G1},
+                  chess.ROOK:   {chess.A1, chess.H1},
+                  chess.QUEEN:  {chess.D1}}
+    HOME_BLACK = {chess.BISHOP: {chess.C8, chess.F8},
+                  chess.KNIGHT: {chess.B8, chess.G8},
+                  chess.ROOK:   {chess.A8, chess.H8},
+                  chess.QUEEN:  {chess.D8}}
+
+    if move_number is not None and move_number > 18:
+        return []
+
+    try:
+        board = chess.Board(pre_fen)
+        user_mv = board.parse_san(user_move_san)
+    except Exception:
+        return []
+
+    moved_piece = board.piece_at(user_mv.from_square)
+    if moved_piece is None:
+        return []
+    if moved_piece.piece_type in (chess.PAWN, chess.KING):
+        return []
+
+    homes = HOME_WHITE if moved_piece.color == chess.WHITE else HOME_BLACK
+    piece_homes = homes.get(moved_piece.piece_type, set())
+    if user_mv.to_square not in piece_homes:
+        return []  # not going home
+    if user_mv.from_square in piece_homes:
+        return []  # was already on a home square (just moving home-to-home, weird)
+
+    # Engine's best move should NOT be a home-square move (otherwise
+    # un-developing is forced/correct)
+    try:
+        best_mv = board.parse_san(best_move_san)
+        if best_mv.to_square in piece_homes:
+            return []
+    except Exception:
+        pass
+
+    moving_piece_name = chess.piece_name(moved_piece.piece_type)
+    ev = _ev(
+        "un_developing",
+        mover=user_mv.from_square,
+        targets=[user_mv.to_square],
+        executing_move=None,
+        evidence=(
+            f"{moving_piece_name} on {chess.square_name(user_mv.from_square)} "
+            f"retreats to home square {chess.square_name(user_mv.to_square)} "
+            f"in opening (move {move_number})"
+        ),
+    )
+    ev["moving_piece_type"] = moving_piece_name
+    ev["from_square"] = chess.square_name(user_mv.from_square)
+    ev["home_square"] = chess.square_name(user_mv.to_square)
+    return [ev]
+
+
+def simulate_defensive_pawn_push(
+    pre_fen: str,
+    user_move_san: str,
+    best_move_san: str,
+    move_number: Optional[int] = None,
+) -> List[Dict]:
+    """Detect Mohit's family F: user played a passive pawn move in the
+    opening when engine wanted a piece-developing move (or castling).
+    From approval #7 (b3 instead of Bd3).
+
+    Fires when:
+      - User's played move was a pawn push (not a capture)
+      - Engine's best move was a non-pawn piece move OR castling
+      - We're in the opening (move ≤ 15)
+      - User's pawn move was a wing pawn or short defensive push
+        (advanced one square, not a center pawn push)
+
+    Returns evidence:
+      - user_pawn_san:  the pawn move played
+      - best_dev_san:   the piece/castle move engine wanted
+    """
+    if move_number is not None and move_number > 15:
+        return []
+    try:
+        board = chess.Board(pre_fen)
+        user_mv = board.parse_san(user_move_san)
+        best_mv = board.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    user_piece = board.piece_at(user_mv.from_square)
+    if user_piece is None or user_piece.piece_type != chess.PAWN:
+        return []
+    # Pawn must be a non-capture (no diagonal capture)
+    if board.piece_at(user_mv.to_square) is not None:
+        return []  # captured something — not a passive push
+
+    # Exclude center-pawn pushes (d/e file pawn pushes are usually OK)
+    user_file = chess.square_file(user_mv.from_square)
+    if user_file in (3, 4):  # d-file, e-file
+        return []
+
+    # Engine's best must be a non-pawn move (development) or castling
+    best_piece = board.piece_at(best_mv.from_square)
+    if best_piece is None:
+        return []
+    is_castle = best_move_san in ("O-O", "O-O-O")
+    is_piece_move = best_piece.piece_type not in (chess.PAWN,)
+    if not (is_castle or is_piece_move):
+        return []
+
+    ev = _ev(
+        "defensive_pawn_push",
+        mover=user_mv.from_square,
+        targets=[best_mv.to_square],
+        executing_move=None,
+        evidence=(
+            f"passive pawn push {user_move_san} in opening when engine "
+            f"wanted developing move {best_move_san}"
+        ),
+    )
+    ev["user_pawn_san"] = user_move_san
+    ev["best_dev_san"] = best_move_san
+    return [ev]
+
+
+def simulate_knight_outpost(
+    pre_fen: str,
+    best_move_san: str,
+) -> List[Dict]:
+    """Detect Mohit's approval #11 (Ne4 outpost). Engine's best move
+    is a knight move to a central square that is:
+      - Defended by an own piece (so the knight is supported)
+      - Not attackable by any enemy pawn (true outpost)
+      - In central-ish territory (files c-f, ranks 4-5 for white;
+        ranks 4-5 for black too — central rank from attacking side)
+
+    Returns evidence:
+      - knight_destination: square
+      - defender_piece:     name of the piece defending the outpost
+    """
+    CENTRAL_SQUARES = {
+        chess.C4, chess.D4, chess.E4, chess.F4,
+        chess.C5, chess.D5, chess.E5, chess.F5,
+        chess.C6, chess.D6, chess.E6, chess.F6,
+        chess.C3, chess.D3, chess.E3, chess.F3,
+    }
+
+    try:
+        board = chess.Board(pre_fen)
+        best_mv = board.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    moved_piece = board.piece_at(best_mv.from_square)
+    if moved_piece is None or moved_piece.piece_type != chess.KNIGHT:
+        return []
+
+    if best_mv.to_square not in CENTRAL_SQUARES:
+        return []
+
+    us = moved_piece.color
+    them = not us
+
+    # Apply the move
+    try:
+        board.push(best_mv)
+    except Exception:
+        return []
+
+    # Must be defended by own piece (other than the knight itself)
+    own_defenders = [d for d in board.attackers(us, best_mv.to_square) if d != best_mv.to_square]
+    if not own_defenders:
+        return []
+
+    # Must NOT be CURRENTLY attacked by any enemy pawn. (Originally I
+    # required "no enemy pawn can EVER attack" — too strict, since any
+    # un-moved pawn could theoretically advance to challenge. The
+    # practical lesson is "the knight is safe NOW from pawn attacks";
+    # if the opponent has to spend tempo pushing a pawn to challenge,
+    # the outpost is meaningful.)
+    knight_file = chess.square_file(best_mv.to_square)
+    knight_rank = chess.square_rank(best_mv.to_square)
+    # For a white knight on rank K, a black pawn on rank K+1 (adjacent
+    # file) would attack the knight. For black knight: white pawn on
+    # rank K-1.
+    pawn_attacker_rank = knight_rank + (1 if them == chess.BLACK else -1)
+    if 0 <= pawn_attacker_rank <= 7:
+        for df in (-1, 1):
+            af = knight_file + df
+            if not (0 <= af <= 7):
+                continue
+            sq = chess.square(af, pawn_attacker_rank)
+            piece = board.piece_at(sq)
+            if piece is not None and piece.color == them and piece.piece_type == chess.PAWN:
+                return []  # enemy pawn currently attacks the outpost
+
+    # It's a true outpost
+    defender_sq = own_defenders[0]
+    defender_piece = board.piece_at(defender_sq)
+    defender_name = chess.piece_name(defender_piece.piece_type) if defender_piece else "piece"
+
+    ev = _ev(
+        "knight_outpost",
+        mover=best_mv.to_square,
+        targets=[best_mv.to_square],
+        executing_move=None,
+        evidence=(
+            f"knight to {chess.square_name(best_mv.to_square)} (central, defended by "
+            f"own {defender_name} on {chess.square_name(defender_sq)}, no enemy "
+            f"pawn can attack)"
+        ),
+    )
+    ev["knight_destination"] = chess.square_name(best_mv.to_square)
+    ev["defender_piece"] = defender_name
+    ev["defender_square"] = chess.square_name(defender_sq)
+    return [ev]
+
+
+def simulate_stop_opponent_pawn_advance(
+    pre_fen: str,
+    user_move_san: str,
+    best_move_san: str,
+    opp_last_move_san: Optional[str] = None,
+) -> List[Dict]:
+    """Detect Mohit's approval #14 (d6 instead of a5). Opponent's
+    previous move was a single-step pawn advance preparing further
+    advance; engine's best move is to block with our pawn (matching
+    color, one square forward of where the opponent's pawn would
+    advance to next).
+
+    Heuristic without opp_last_move_san:
+      - Engine's best is a pawn push to a square that would block
+        an enemy pawn's next advance
+      - Specifically: best_move is a pawn move to rank N, and there's
+        an enemy pawn on rank N-1 (for white) or N+1 (for black) on
+        an adjacent file that could push.
+
+    Cleaner spec — for now, just detect:
+      - User's played move is NOT a pawn block of an enemy pawn
+      - Engine's best move IS a pawn block — that is, our pawn moves
+        to a square adjacent to an enemy pawn that we'd block from
+        advancing further.
+
+    Returns evidence:
+      - blocking_pawn_san:  our blocking pawn move
+      - opp_pawn_square:    the opp pawn being blocked
+    """
+    try:
+        board = chess.Board(pre_fen)
+        best_mv = board.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    best_piece = board.piece_at(best_mv.from_square)
+    if best_piece is None or best_piece.piece_type != chess.PAWN:
+        return []
+    if board.piece_at(best_mv.to_square) is not None:
+        return []  # capture, not a quiet block
+
+    us = best_piece.color
+    them = not us
+    best_file = chess.square_file(best_mv.to_square)
+    best_rank = chess.square_rank(best_mv.to_square)
+
+    # Look for an enemy pawn on the SAME file as our blocking pawn, one
+    # rank "ahead" of our destination from the enemy's POV. For white
+    # blocking pawn on rank R, enemy pawn would be on rank R+1; for
+    # black on rank R, enemy pawn on rank R-1.
+    if us == chess.WHITE:
+        enemy_pawn_rank = best_rank + 1
+    else:
+        enemy_pawn_rank = best_rank - 1
+    if not (0 <= enemy_pawn_rank <= 7):
+        return []
+    enemy_pawn_sq = chess.square(best_file, enemy_pawn_rank)
+    enemy_piece = board.piece_at(enemy_pawn_sq)
+    if (enemy_piece is None
+            or enemy_piece.color != them
+            or enemy_piece.piece_type != chess.PAWN):
+        return []
+
+    # Confirmed: best move is a pawn block of an enemy pawn
+    ev = _ev(
+        "stop_opponent_pawn_advance",
+        mover=best_mv.to_square,
+        targets=[enemy_pawn_sq],
+        executing_move=None,
+        evidence=(
+            f"blocking pawn push to {chess.square_name(best_mv.to_square)} "
+            f"stops opp pawn on {chess.square_name(enemy_pawn_sq)} from advancing"
+        ),
+    )
+    ev["blocking_pawn_san"] = best_move_san
+    ev["opp_pawn_square"] = chess.square_name(enemy_pawn_sq)
+    return [ev]
+
+
 def simulate_endgame_loose_pawn_grab(
     pre_fen: str,
     best_move_san: str,
