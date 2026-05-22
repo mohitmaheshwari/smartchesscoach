@@ -102,7 +102,7 @@ async def main_async(out_path: str):
                     "best_san": m.get("best_move_san", ""),
                     "cp_loss": m.get("cp_loss"),
                     "move_number": m.get("move_number"),
-                    "game_id": gid[:12],
+                    "game_id": gid,
                     "user_color": user_color,
                     "opening": opening,
                     "concept_id": m.get("concept_id"),
@@ -164,16 +164,28 @@ async def main_async(out_path: str):
             ex = examples_sorted[0]
             total_selected += 1
 
+            gid = ex["game_id"]
+            mn = ex["move_number"]
+            fen_url = ex["fen"].replace(" ", "_")
+            # Lichess analysis viewer with the exact FEN (board side derives
+            # from FEN). Works without auth.
+            lichess_url = f"https://lichess.org/analysis/standard/{fen_url}"
+            # Local app deep link — GameAnalysis.jsx supports ?move=N.
+            # Mohit can swap the host prefix when reading.
+            app_url = f"/game/{gid}?move={mn}"
+
             lines.append(f"### #{total_selected} — `{rule_name}` cluster ({count} games hit this prefix)\n")
-            lines.append(f"**Game:** `{ex['game_id']}` move {ex['move_number']} "
+            lines.append(f"**Game:** `{gid[:12]}` move {mn} "
                          f"({ex['user_color']} in {ex['opening'] or '?'})  ")
             lines.append(f"**Played:** `{ex['move_san']}` (cp_loss `{ex['cp_loss']}`)  ")
             lines.append(f"**Engine best:** `{ex['best_san']}`  ")
-            lines.append(f"**FEN:** `{ex['fen']}`")
+            lines.append(f"")
+            lines.append(f"**🔍 View board:** [Open in app]({app_url}) · [Open on lichess]({lichess_url})")
             if ex.get("shape_pattern_name"):
                 lines.append(f"**Shape pattern:** `{ex['shape_pattern_name']}`")
             if ex.get("concept_id"):
                 lines.append(f"**Concept:** `{ex['concept_id']}`")
+            lines.append(f"<details><summary>FEN</summary>\n\n`{ex['fen']}`\n\n</details>")
             lines.append("")
             lines.append("**Caption as shipped:**\n")
             lines.append(f"> {ex['caption']}\n")

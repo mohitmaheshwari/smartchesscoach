@@ -9,6 +9,10 @@ Scanned 500 v55 games. Captions sampled stratified by rule file + caption-prefix
 
 Use the GitHub task-list checkbox or just edit-in your verdict.
 
+**Each entry has two board-view links:**
+- **Open in app** — opens the position in your ChessGuru review page (`/game/{id}?move={n}`). Prefix the link with your frontend host (e.g. `http://localhost:3000`).
+- **Open on lichess** — opens the FEN in lichess's free analysis board. Fastest path if you just want to see the position; no auth, no setup.
+
 ---
 
 ## R12_blunder.json — Mistake/blunder captions (largest surface)
@@ -20,7 +24,13 @@ Total HIGH captions in 500-game corpus: **2260** across **2215** distinct prefix
 **Game:** `c0612500-d01` move 4 (white in Scotch Game 3...exd4)  
 **Played:** `Ng5` (cp_loss `192`)  
 **Engine best:** `Nxd4`  
-**FEN:** `r1bqkbnr/pppp1ppp/2n5/8/3pP3/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 4`
+
+**🔍 View board:** [Open in app](/game/c0612500-d017-4892-8b6c-e20aac564a08?move=4) · [Open on lichess](https://lichess.org/analysis/standard/r1bqkbnr/pppp1ppp/2n5/8/3pP3/5N2/PPP2PPP/RNBQKB1R_w_KQkq_-_0_4)
+<details><summary>FEN</summary>
+
+`r1bqkbnr/pppp1ppp/2n5/8/3pP3/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 4`
+
+</details>
 
 **Caption as shipped:**
 
@@ -36,7 +46,13 @@ Total HIGH captions in 500-game corpus: **2260** across **2215** distinct prefix
 **Game:** `42ff626a-e58` move 5 (white in Scotch Game 3...exd4)  
 **Played:** `Nxf7` (cp_loss `181`)  
 **Engine best:** `Nf3`  
-**FEN:** `r1bqkbnr/pppp1pp1/2n4p/6N1/3pP3/8/PPP2PPP/RNBQKB1R w KQkq - 0 5`
+
+**🔍 View board:** [Open in app](/game/42ff626a-e58b-4d25-b06e-6e57056ee124?move=5) · [Open on lichess](https://lichess.org/analysis/standard/r1bqkbnr/pppp1pp1/2n4p/6N1/3pP3/8/PPP2PPP/RNBQKB1R_w_KQkq_-_0_5)
+<details><summary>FEN</summary>
+
+`r1bqkbnr/pppp1pp1/2n4p/6N1/3pP3/8/PPP2PPP/RNBQKB1R w KQkq - 0 5`
+
+</details>
 
 **Caption as shipped:**
 
@@ -52,7 +68,13 @@ Total HIGH captions in 500-game corpus: **2260** across **2215** distinct prefix
 **Game:** `28a83ae6-9f5` move 1 (black in Englund Gambit 2.dxe5)  
 **Played:** `e5` (cp_loss `101`)  
 **Engine best:** `d5`  
-**FEN:** `rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1`
+
+**🔍 View board:** [Open in app](/game/28a83ae6-9f52-4679-8c00-b1098c301a13?move=1) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR_b_KQkq_-_0_1)
+<details><summary>FEN</summary>
+
+`rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1`
+
+</details>
 
 **Caption as shipped:**
 
@@ -68,7 +90,13 @@ Total HIGH captions in 500-game corpus: **2260** across **2215** distinct prefix
 **Game:** `b02199fd-3cd` move 2 (white in French Defense Knight Variation 2...d5)  
 **Played:** `Nf3` (cp_loss `157`)  
 **Engine best:** `exd5`  
-**FEN:** `rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2`
+
+**🔍 View board:** [Open in app](/game/b02199fd-3cd6-40e5-9350-a9a66c708104?move=2) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR_w_KQkq_-_0_2)
+<details><summary>FEN</summary>
+
+`rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2`
+
+</details>
 
 **Caption as shipped:**
 
@@ -84,7 +112,13 @@ Total HIGH captions in 500-game corpus: **2260** across **2215** distinct prefix
 **Game:** `bf5bfa29-649` move 2 (white in Englund Gambit)  
 **Played:** `c4` (cp_loss `142`)  
 **Engine best:** `dxe5`  
-**FEN:** `rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2`
+
+**🔍 View board:** [Open in app](/game/bf5bfa29-6491-4b00-8bf2-b5687b9d0da6?move=2) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR_w_KQkq_-_0_2)
+<details><summary>FEN</summary>
+
+`rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2`
+
+</details>
 
 **Caption as shipped:**
 
@@ -100,7 +134,13 @@ Total HIGH captions in 500-game corpus: **2260** across **2215** distinct prefix
 **Game:** `34b40ae7-cc5` move 2 (white in Scandinavian Defense Closed 2...dxe4 3.Nxe4 Bf5)  
 **Played:** `Nc3` (cp_loss `100`)  
 **Engine best:** `exd5`  
-**FEN:** `rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2`
+
+**🔍 View board:** [Open in app](/game/34b40ae7-cc58-47f2-b5a2-dbc6e08d278c?move=2) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR_w_KQkq_-_0_2)
+<details><summary>FEN</summary>
+
+`rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2`
+
+</details>
 
 **Caption as shipped:**
 
@@ -116,7 +156,13 @@ Total HIGH captions in 500-game corpus: **2260** across **2215** distinct prefix
 **Game:** `52c5f93f-3e1` move 4 (black in Italian Game Traxler Knight Sacrifice Line 5...Bxf2 6.Kf1 Qe7 7.Nxh8)  
 **Played:** `Bc5` (cp_loss `101`)  
 **Engine best:** `d5`  
-**FEN:** `r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4`
+
+**🔍 View board:** [Open in app](/game/52c5f93f-3e11-4748-b5cb-4f1a59bcb39f?move=4) · [Open on lichess](https://lichess.org/analysis/standard/r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R_b_KQkq_-_5_4)
+<details><summary>FEN</summary>
+
+`r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4`
+
+</details>
 
 **Caption as shipped:**
 
@@ -132,7 +178,13 @@ Total HIGH captions in 500-game corpus: **2260** across **2215** distinct prefix
 **Game:** `2bdf179c-78b` move 12 (white in Kings Gambit Accepted Fischer Defense 4.d4)  
 **Played:** `e5` (cp_loss `199`)  
 **Engine best:** `h3`  
-**FEN:** `rn3rk1/1p3pbp/1qppbnp1/p5B1/3PP3/2NB1N2/PPPQ2PP/3R1RK1 w - - 4 12`
+
+**🔍 View board:** [Open in app](/game/2bdf179c-78b8-4370-97f8-fd750b33163a?move=12) · [Open on lichess](https://lichess.org/analysis/standard/rn3rk1/1p3pbp/1qppbnp1/p5B1/3PP3/2NB1N2/PPPQ2PP/3R1RK1_w_-_-_4_12)
+<details><summary>FEN</summary>
+
+`rn3rk1/1p3pbp/1qppbnp1/p5B1/3PP3/2NB1N2/PPPQ2PP/3R1RK1 w - - 4 12`
+
+</details>
 
 **Caption as shipped:**
 
@@ -153,7 +205,13 @@ Total HIGH captions in 500-game corpus: **1128** across **725** distinct prefix 
 **Game:** `110e9e2b-c88` move 34 (white in Scandinavian Defense Mieses Kotrc Variation 3.Nc3 Qd8 4.Nf3)  
 **Played:** `f4` (cp_loss `88`)  
 **Engine best:** `Kd5`  
-**FEN:** `8/2p4p/2P2pp1/4p3/p1P1K3/1kP2P2/5P1P/8 w - - 0 34`
+
+**🔍 View board:** [Open in app](/game/110e9e2b-c88c-437f-baf9-0e95567b8fff?move=34) · [Open on lichess](https://lichess.org/analysis/standard/8/2p4p/2P2pp1/4p3/p1P1K3/1kP2P2/5P1P/8_w_-_-_0_34)
+<details><summary>FEN</summary>
+
+`8/2p4p/2P2pp1/4p3/p1P1K3/1kP2P2/5P1P/8 w - - 0 34`
+
+</details>
 
 **Caption as shipped:**
 
@@ -169,7 +227,13 @@ Total HIGH captions in 500-game corpus: **1128** across **725** distinct prefix 
 **Game:** `4f5738da-250` move 8 (white in Old Benoni Defense)  
 **Played:** `Nc3` (cp_loss `64`)  
 **Engine best:** `Qb3`  
-**FEN:** `rnb1k2r/pp2ppbp/3p1np1/2q5/2P5/5NP1/PP1BPPBP/RN1QK2R w KQkq - 0 8`
+
+**🔍 View board:** [Open in app](/game/4f5738da-2508-45bc-a2ce-62938232994a?move=8) · [Open on lichess](https://lichess.org/analysis/standard/rnb1k2r/pp2ppbp/3p1np1/2q5/2P5/5NP1/PP1BPPBP/RN1QK2R_w_KQkq_-_0_8)
+<details><summary>FEN</summary>
+
+`rnb1k2r/pp2ppbp/3p1np1/2q5/2P5/5NP1/PP1BPPBP/RN1QK2R w KQkq - 0 8`
+
+</details>
 
 **Caption as shipped:**
 
@@ -185,7 +249,13 @@ Total HIGH captions in 500-game corpus: **1128** across **725** distinct prefix 
 **Game:** `b20fb683-eed` move 2 (white in Kings Pawn Opening Kings Knight Gunderam Defense 3.Bc4)  
 **Played:** `Bc4` (cp_loss `32`)  
 **Engine best:** `Nf3`  
-**FEN:** `rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2`
+
+**🔍 View board:** [Open in app](/game/b20fb683-eedc-48e5-b165-063d1df5973b?move=2) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR_w_KQkq_-_0_2)
+<details><summary>FEN</summary>
+
+`rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2`
+
+</details>
 
 **Caption as shipped:**
 
@@ -201,7 +271,13 @@ Total HIGH captions in 500-game corpus: **1128** across **725** distinct prefix 
 **Game:** `4bd67fe3-ad6` move 7 (black in Sicilian Defense 2.Nf3 d6 3.d4)  
 **Played:** `Bxf3` (cp_loss `17`)  
 **Engine best:** `Bxf3`  
-**FEN:** `r2qkb1r/p2npppp/1p1p1n2/2pP4/2B1P1b1/2N2N1P/PPP2PP1/R1BQK2R b KQkq - 0 7`
+
+**🔍 View board:** [Open in app](/game/4bd67fe3-ad6f-4fe4-814e-f28f512dffce?move=7) · [Open on lichess](https://lichess.org/analysis/standard/r2qkb1r/p2npppp/1p1p1n2/2pP4/2B1P1b1/2N2N1P/PPP2PP1/R1BQK2R_b_KQkq_-_0_7)
+<details><summary>FEN</summary>
+
+`r2qkb1r/p2npppp/1p1p1n2/2pP4/2B1P1b1/2N2N1P/PPP2PP1/R1BQK2R b KQkq - 0 7`
+
+</details>
 
 **Caption as shipped:**
 
@@ -217,7 +293,13 @@ Total HIGH captions in 500-game corpus: **1128** across **725** distinct prefix 
 **Game:** `4d1b0469-543` move 2 (white in Reti Opening Queenside Fianchetto Variation 2.e4 Bb7 3.Nc3)  
 **Played:** `Nf3` (cp_loss `34`)  
 **Engine best:** `d4`  
-**FEN:** `rnbqkbnr/p1pppppp/1p6/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2`
+
+**🔍 View board:** [Open in app](/game/4d1b0469-543a-42f6-b27e-888f931e4503?move=2) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkbnr/p1pppppp/1p6/8/4P3/8/PPPP1PPP/RNBQKBNR_w_KQkq_-_0_2)
+<details><summary>FEN</summary>
+
+`rnbqkbnr/p1pppppp/1p6/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2`
+
+</details>
 
 **Caption as shipped:**
 
@@ -238,8 +320,14 @@ Total HIGH captions in 500-game corpus: **638** across **522** distinct prefix c
 **Game:** `3d7bcb0c-f19` move 4 (white in Sicilian Defense Nyezhmetdinov Rossolimo Attack 3...Nd4)  
 **Played:** `Ba4` (cp_loss `90`)  
 **Engine best:** `Nxd4`  
-**FEN:** `r1bqkbnr/pp1ppppp/8/1Bp5/3nP3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4`
+
+**🔍 View board:** [Open in app](/game/3d7bcb0c-f19f-4067-993d-d9e9e409beac?move=4) · [Open on lichess](https://lichess.org/analysis/standard/r1bqkbnr/pp1ppppp/8/1Bp5/3nP3/5N2/PPPP1PPP/RNBQK2R_w_KQkq_-_4_4)
 **Shape pattern:** `Pin`
+<details><summary>FEN</summary>
+
+`r1bqkbnr/pp1ppppp/8/1Bp5/3nP3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4`
+
+</details>
 
 **Caption as shipped:**
 
@@ -255,8 +343,14 @@ Total HIGH captions in 500-game corpus: **638** across **522** distinct prefix c
 **Game:** `aa703d49-79f` move 9 (white in Englund Gambit)  
 **Played:** `Qd2` (cp_loss `53`)  
 **Engine best:** `Qd3`  
-**FEN:** `r1bq1rk1/ppp1bppp/2n2n2/8/2Pp4/4QNP1/PP2PPBP/RNB2RK1 w - - 0 9`
+
+**🔍 View board:** [Open in app](/game/aa703d49-79fb-4449-93f6-a983f4b06e27?move=9) · [Open on lichess](https://lichess.org/analysis/standard/r1bq1rk1/ppp1bppp/2n2n2/8/2Pp4/4QNP1/PP2PPBP/RNB2RK1_w_-_-_0_9)
 **Shape pattern:** `Double Attack Line`
+<details><summary>FEN</summary>
+
+`r1bq1rk1/ppp1bppp/2n2n2/8/2Pp4/4QNP1/PP2PPBP/RNB2RK1 w - - 0 9`
+
+</details>
 
 **Caption as shipped:**
 
@@ -272,8 +366,14 @@ Total HIGH captions in 500-game corpus: **638** across **522** distinct prefix c
 **Game:** `7cfc7ec1-65c` move 18 (white in French Defense Knight Variation)  
 **Played:** `d5` (cp_loss `86`)  
 **Engine best:** `Bb5`  
-**FEN:** `rn2k3/pbpp4/1p2ppq1/5p2/3P4/2PB1N1r/P1P1QPP1/R3R1K1 w q - 2 18`
+
+**🔍 View board:** [Open in app](/game/7cfc7ec1-65c5-47b7-92d2-9616c8e47228?move=18) · [Open on lichess](https://lichess.org/analysis/standard/rn2k3/pbpp4/1p2ppq1/5p2/3P4/2PB1N1r/P1P1QPP1/R3R1K1_w_q_-_2_18)
 **Shape pattern:** `Open Long Line`
+<details><summary>FEN</summary>
+
+`rn2k3/pbpp4/1p2ppq1/5p2/3P4/2PB1N1r/P1P1QPP1/R3R1K1 w q - 2 18`
+
+</details>
 
 **Caption as shipped:**
 
@@ -289,8 +389,14 @@ Total HIGH captions in 500-game corpus: **638** across **522** distinct prefix c
 **Game:** `28e82bad-54f` move 26 (white in French Defense Knight Variation)  
 **Played:** `a4` (cp_loss `99`)  
 **Engine best:** `Bf3`  
-**FEN:** `3r4/4qpk1/3ppn1p/Q1p3p1/2P1n3/P6P/2P1BPP1/R3R1K1 w - - 0 26`
+
+**🔍 View board:** [Open in app](/game/28e82bad-54f5-4771-85f5-3b913768afe9?move=26) · [Open on lichess](https://lichess.org/analysis/standard/3r4/4qpk1/3ppn1p/Q1p3p1/2P1n3/P6P/2P1BPP1/R3R1K1_w_-_-_0_26)
 **Shape pattern:** `Free Pawn`
+<details><summary>FEN</summary>
+
+`3r4/4qpk1/3ppn1p/Q1p3p1/2P1n3/P6P/2P1BPP1/R3R1K1 w - - 0 26`
+
+</details>
 
 **Caption as shipped:**
 
@@ -306,8 +412,14 @@ Total HIGH captions in 500-game corpus: **638** across **522** distinct prefix c
 **Game:** `160fa9eb-700` move 17 (white in Scandinavian Defense Mieses Kotrc Main Line 4.Nf3)  
 **Played:** `Qb3` (cp_loss `75`)  
 **Engine best:** `d4`  
-**FEN:** `r1b2rk1/ppp3pp/5p2/b2q4/8/3P1N2/P4PPP/2RQ1RK1 w - - 2 17`
+
+**🔍 View board:** [Open in app](/game/160fa9eb-700d-43ae-a3af-ca9e04b3cdaf?move=17) · [Open on lichess](https://lichess.org/analysis/standard/r1b2rk1/ppp3pp/5p2/b2q4/8/3P1N2/P4PPP/2RQ1RK1_w_-_-_2_17)
 **Shape pattern:** `Double Attack Line`
+<details><summary>FEN</summary>
+
+`r1b2rk1/ppp3pp/5p2/b2q4/8/3P1N2/P4PPP/2RQ1RK1 w - - 2 17`
+
+</details>
 
 **Caption as shipped:**
 
@@ -328,7 +440,13 @@ Total HIGH captions in 500-game corpus: **1199** across **858** distinct prefix 
 **Game:** `0ce4cd51-6cf` move 32 (black in Caro Kann Defense Advance Botvinnik Carls Defense)  
 **Played:** `Kh8` (cp_loss `0`)  
 **Engine best:** `Kh8`  
-**FEN:** `2r3k1/5Q2/2p1p2p/3pN3/p7/7P/5PPK/8 b - - 0 32`
+
+**🔍 View board:** [Open in app](/game/0ce4cd51-6cfa-46f1-8617-c0bcb4684fdc?move=32) · [Open on lichess](https://lichess.org/analysis/standard/2r3k1/5Q2/2p1p2p/3pN3/p7/7P/5PPK/8_b_-_-_0_32)
+<details><summary>FEN</summary>
+
+`2r3k1/5Q2/2p1p2p/3pN3/p7/7P/5PPK/8 b - - 0 32`
+
+</details>
 
 **Caption as shipped:**
 
@@ -344,7 +462,13 @@ Total HIGH captions in 500-game corpus: **1199** across **858** distinct prefix 
 **Game:** `fe6283cd-344` move 28 (white in Kings Indian Attack...3.Bg2 e5 4.d3 Ngf6 5.O O)  
 **Played:** `Kh2` (cp_loss `30`)  
 **Engine best:** `Kh1`  
-**FEN:** `r3k1r1/1p3p2/4q2p/p3b3/P2QpN2/1P2n3/1B3PK1/R4R2 w q - 0 28`
+
+**🔍 View board:** [Open in app](/game/fe6283cd-344c-43a2-8ef4-cd2196da5ffc?move=28) · [Open on lichess](https://lichess.org/analysis/standard/r3k1r1/1p3p2/4q2p/p3b3/P2QpN2/1P2n3/1B3PK1/R4R2_w_q_-_0_28)
+<details><summary>FEN</summary>
+
+`r3k1r1/1p3p2/4q2p/p3b3/P2QpN2/1P2n3/1B3PK1/R4R2 w q - 0 28`
+
+</details>
 
 **Caption as shipped:**
 
@@ -360,7 +484,13 @@ Total HIGH captions in 500-game corpus: **1199** across **858** distinct prefix 
 **Game:** `9ab7951d-cd3` move 38 (black in Modern Defense with 1 e4 2.d4 Bg7 3.Be3)  
 **Played:** `Ke7` (cp_loss `0`)  
 **Engine best:** `Ke7`  
-**FEN:** `5R2/p4kB1/4Nbp1/1P1Bp2p/4P3/6PK/P6P/3r4 b - - 11 38`
+
+**🔍 View board:** [Open in app](/game/9ab7951d-cd3a-49a9-b21b-009c644c6cc9?move=38) · [Open on lichess](https://lichess.org/analysis/standard/5R2/p4kB1/4Nbp1/1P1Bp2p/4P3/6PK/P6P/3r4_b_-_-_11_38)
+<details><summary>FEN</summary>
+
+`5R2/p4kB1/4Nbp1/1P1Bp2p/4P3/6PK/P6P/3r4 b - - 11 38`
+
+</details>
 
 **Caption as shipped:**
 
@@ -376,7 +506,13 @@ Total HIGH captions in 500-game corpus: **1199** across **858** distinct prefix 
 **Game:** `2ba41740-3a5` move 67 (white in Reti Opening Sicilian Invitation...3.Bg2 e5 4.d3 d5 5.O O)  
 **Played:** `Kb1` (cp_loss `60`)  
 **Engine best:** `h6`  
-**FEN:** `5b2/8/5k2/3Pp1pP/3p2P1/ppp5/8/2K5 w - - 0 67`
+
+**🔍 View board:** [Open in app](/game/2ba41740-3a58-4982-8e24-c241f47d234b?move=67) · [Open on lichess](https://lichess.org/analysis/standard/5b2/8/5k2/3Pp1pP/3p2P1/ppp5/8/2K5_w_-_-_0_67)
+<details><summary>FEN</summary>
+
+`5b2/8/5k2/3Pp1pP/3p2P1/ppp5/8/2K5 w - - 0 67`
+
+</details>
 
 **Caption as shipped:**
 
@@ -397,7 +533,13 @@ Total HIGH captions in 500-game corpus: **170** across **20** distinct prefix cl
 **Game:** `fc97ee1d-ba3` move 3 (white in Kings Pawn Opening Kings Knight Variation)  
 **Played:** `d4` (cp_loss `72`)  
 **Engine best:** `Nxe5`  
-**FEN:** `rnbqkbnr/pppp2pp/5p2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3`
+
+**🔍 View board:** [Open in app](/game/fc97ee1d-ba32-4118-802f-643a3497f0c9?move=3) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkbnr/pppp2pp/5p2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R_w_KQkq_-_0_3)
+<details><summary>FEN</summary>
+
+`rnbqkbnr/pppp2pp/5p2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3`
+
+</details>
 
 **Caption as shipped:**
 
@@ -413,7 +555,13 @@ Total HIGH captions in 500-game corpus: **170** across **20** distinct prefix cl
 **Game:** `e8c1454b-e6a` move 3 (white in Italian Game Knight Attack Normal Variation)  
 **Played:** `Bc4` (cp_loss `5`)  
 **Engine best:** `Bb5`  
-**FEN:** `r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3`
+
+**🔍 View board:** [Open in app](/game/e8c1454b-e6a5-49af-bb13-9d4bf4ef743d?move=3) · [Open on lichess](https://lichess.org/analysis/standard/r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R_w_KQkq_-_2_3)
+<details><summary>FEN</summary>
+
+`r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3`
+
+</details>
 
 **Caption as shipped:**
 
@@ -429,7 +577,13 @@ Total HIGH captions in 500-game corpus: **170** across **20** distinct prefix cl
 **Game:** `52c5f93f-3e1` move 3 (black in Italian Game Traxler Knight Sacrifice Line 5...Bxf2 6.Kf1 Qe7 7.Nxh8)  
 **Played:** `Nf6` (cp_loss `0`)  
 **Engine best:** `Nf6`  
-**FEN:** `r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3`
+
+**🔍 View board:** [Open in app](/game/52c5f93f-3e11-4748-b5cb-4f1a59bcb39f?move=3) · [Open on lichess](https://lichess.org/analysis/standard/r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R_b_KQkq_-_3_3)
+<details><summary>FEN</summary>
+
+`r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3`
+
+</details>
 
 **Caption as shipped:**
 
@@ -445,7 +599,13 @@ Total HIGH captions in 500-game corpus: **170** across **20** distinct prefix cl
 **Game:** `ea23a447-bbb` move 3 (black in Indian Game)  
 **Played:** `Bg7` (cp_loss `55`)  
 **Engine best:** `d5`  
-**FEN:** `rnbqkb1r/pppppp1p/5np1/8/3P4/2N4P/PPP1PPP1/R1BQKBNR b KQkq - 1 3`
+
+**🔍 View board:** [Open in app](/game/ea23a447-bbbd-462a-a17d-6ca7b1744845?move=3) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkb1r/pppppp1p/5np1/8/3P4/2N4P/PPP1PPP1/R1BQKBNR_b_KQkq_-_1_3)
+<details><summary>FEN</summary>
+
+`rnbqkb1r/pppppp1p/5np1/8/3P4/2N4P/PPP1PPP1/R1BQKBNR b KQkq - 1 3`
+
+</details>
 
 **Caption as shipped:**
 
@@ -466,7 +626,13 @@ Total HIGH captions in 500-game corpus: **7** across **2** distinct prefix clust
 **Game:** `43a81966-ccd` move 4 (black in Italian Game Knight Attack Normal Variation 5.exd5)  
 **Played:** `d5` (cp_loss `8`)  
 **Engine best:** `d5`  
-**FEN:** `r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4`
+
+**🔍 View board:** [Open in app](/game/43a81966-ccda-452b-a529-7ac78aef7e2c?move=4) · [Open on lichess](https://lichess.org/analysis/standard/r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R_b_KQkq_-_5_4)
+<details><summary>FEN</summary>
+
+`r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4`
+
+</details>
 
 **Caption as shipped:**
 
@@ -482,7 +648,13 @@ Total HIGH captions in 500-game corpus: **7** across **2** distinct prefix clust
 **Game:** `57e1493a-83f` move 4 (white in Kings Pawn Opening Kings Knight Variation)  
 **Played:** `Qh5+` (cp_loss `12`)  
 **Engine best:** `Qh5+`  
-**FEN:** `rnbqkbnr/pppp2pp/8/4p3/4P3/8/PPPP1PPP/RNBQKB1R w KQkq - 0 4`
+
+**🔍 View board:** [Open in app](/game/57e1493a-83f7-4350-8fe7-37d0788d3ed0?move=4) · [Open on lichess](https://lichess.org/analysis/standard/rnbqkbnr/pppp2pp/8/4p3/4P3/8/PPPP1PPP/RNBQKB1R_w_KQkq_-_0_4)
+<details><summary>FEN</summary>
+
+`rnbqkbnr/pppp2pp/8/4p3/4P3/8/PPPP1PPP/RNBQKB1R w KQkq - 0 4`
+
+</details>
 
 **Caption as shipped:**
 
@@ -503,7 +675,13 @@ Total HIGH captions in 500-game corpus: **809** across **802** distinct prefix c
 **Game:** `c81954db-b7d` move 4 (black in Scotch Game 3...exd4 4.Nxd4 Nxd4 5.Qxd4)  
 **Played:** `Nxd4` (cp_loss `58`)  
 **Engine best:** `Nf6`  
-**FEN:** `r1bqkbnr/pppp1ppp/2n5/8/3NP3/8/PPP2PPP/RNBQKB1R b KQkq - 0 4`
+
+**🔍 View board:** [Open in app](/game/c81954db-b7dd-41b6-bb17-68bd06b02996?move=4) · [Open on lichess](https://lichess.org/analysis/standard/r1bqkbnr/pppp1ppp/2n5/8/3NP3/8/PPP2PPP/RNBQKB1R_b_KQkq_-_0_4)
+<details><summary>FEN</summary>
+
+`r1bqkbnr/pppp1ppp/2n5/8/3NP3/8/PPP2PPP/RNBQKB1R b KQkq - 0 4`
+
+</details>
 
 **Caption as shipped:**
 
@@ -519,7 +697,13 @@ Total HIGH captions in 500-game corpus: **809** across **802** distinct prefix c
 **Game:** `84340fa8-d01` move 38 (white in Owens Defense)  
 **Played:** `Qe5+` (cp_loss `117`)  
 **Engine best:** `a4`  
-**FEN:** `8/p1q2rkp/1p4p1/2p5/3nQ3/P7/6PP/2R1R2K w - - 4 38`
+
+**🔍 View board:** [Open in app](/game/84340fa8-d01f-4f3d-bd6f-22346e759cdf?move=38) · [Open on lichess](https://lichess.org/analysis/standard/8/p1q2rkp/1p4p1/2p5/3nQ3/P7/6PP/2R1R2K_w_-_-_4_38)
+<details><summary>FEN</summary>
+
+`8/p1q2rkp/1p4p1/2p5/3nQ3/P7/6PP/2R1R2K w - - 4 38`
+
+</details>
 
 **Caption as shipped:**
 
