@@ -77,6 +77,8 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         "why_user_missed_active_defense",
         "why_user_missed_same_piece_better_square",
         "why_user_missed_discovered_vacating_check",
+        "why_user_knight_on_rim",
+        "why_user_missed_pawn_kicks_piece",
         "why_user_missed_king_pawn_pressure",
         "why_user_position_already_losing",
         "why_user_position_already_losing_since_known",

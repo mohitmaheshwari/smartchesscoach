@@ -1775,6 +1775,140 @@ def detect_clearance_then_check(board: chess.Board) -> List[Dict]:
     return out
 
 
+def simulate_knight_on_rim_in_opening(
+    pre_fen: str,
+    user_move_san: str,
+    best_move_san: str,
+    move_number: Optional[int] = None,
+) -> List[Dict]:
+    """Detect Mohit's approval #9 (Na6/e5). User played a knight move to a
+    rim square (a-file or h-file) in the opening when engine wanted a
+    different (central) move.
+
+    Rim squares in opening for development: a3, a6, h3, h6 (the squares a
+    knight can reach with one move from its starting square).
+
+    Fires when:
+      - User's played move is a knight move
+      - Destination is on a-file or h-file
+      - Move number ≤ 12 (early opening)
+      - Engine's best is NOT also a rim knight move (avoid firing when
+        rim is forced/correct)
+
+    Returns evidence:
+      - knight_square:  rim square the knight went to (e.g. 'a6')
+    """
+    if move_number is not None and move_number > 12:
+        return []
+    try:
+        board = chess.Board(pre_fen)
+        user_mv = board.parse_san(user_move_san)
+        best_mv = board.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    user_piece = board.piece_at(user_mv.from_square)
+    if user_piece is None or user_piece.piece_type != chess.KNIGHT:
+        return []
+    user_file = chess.square_file(user_mv.to_square)
+    if user_file not in (0, 7):  # a-file or h-file
+        return []
+
+    # Engine's best should NOT also be a knight-to-rim move
+    best_piece = board.piece_at(best_mv.from_square)
+    if best_piece is not None and best_piece.piece_type == chess.KNIGHT:
+        best_file = chess.square_file(best_mv.to_square)
+        if best_file in (0, 7):
+            return []  # engine also wants rim — not a "rim mistake"
+
+    ev = _ev(
+        "knight_on_rim_in_opening",
+        mover=user_mv.from_square,
+        targets=[user_mv.to_square],
+        executing_move=None,
+        evidence=(
+            f"knight to rim square {chess.square_name(user_mv.to_square)} "
+            f"in opening (move {move_number})"
+        ),
+    )
+    ev["knight_square"] = chess.square_name(user_mv.to_square)
+    return [ev]
+
+
+def simulate_pawn_kicks_piece(
+    pre_fen: str,
+    best_move_san: str,
+) -> List[Dict]:
+    """Detect Mohit's approval #10 (Qd7/c4 — c4 kicks Bb3). Engine's best
+    move is a non-capture pawn push that lands on a square attacking an
+    opp non-pawn piece, forcing that piece to move.
+
+    Simpler version of the "undermine the defender" pattern — we just
+    detect the kick itself. The richer "leaves X undefended for slider
+    to grab" framing requires harder analysis (simulating opp's best
+    retreat); deferred for now.
+
+    Returns evidence:
+      - kicked_piece_type: lowercase piece name being kicked
+      - kicked_square:     square of the kicked piece
+    """
+    try:
+        board = chess.Board(pre_fen)
+        best_mv = board.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    best_piece = board.piece_at(best_mv.from_square)
+    if best_piece is None or best_piece.piece_type != chess.PAWN:
+        return []
+    if board.piece_at(best_mv.to_square) is not None:
+        return []  # captured something — not a quiet push
+
+    us = best_piece.color
+    them = not us
+
+    # Determine which squares the pawn will attack from its destination
+    file = chess.square_file(best_mv.to_square)
+    rank = chess.square_rank(best_mv.to_square)
+    pawn_attack_rank = rank + (1 if us == chess.WHITE else -1)
+    if not (0 <= pawn_attack_rank <= 7):
+        return []
+
+    # Apply move and check attacked squares
+    board.push(best_mv)
+
+    kicked: Optional[Tuple[int, int]] = None  # (square, piece_type)
+    for df in (-1, 1):
+        af = file + df
+        if not (0 <= af <= 7):
+            continue
+        sq = chess.square(af, pawn_attack_rank)
+        p = board.piece_at(sq)
+        if p is None or p.color == us:
+            continue
+        if p.piece_type == chess.PAWN or p.piece_type == chess.KING:
+            continue  # we kick pieces (knight, bishop, rook, queen)
+        kicked = (sq, p.piece_type)
+        break
+    if kicked is None:
+        return []
+
+    sq, ptype = kicked
+    ev = _ev(
+        "pawn_kicks_piece",
+        mover=best_mv.to_square,
+        targets=[sq],
+        executing_move=None,
+        evidence=(
+            f"pawn push to {chess.square_name(best_mv.to_square)} attacks "
+            f"opp {chess.piece_name(ptype)} on {chess.square_name(sq)}"
+        ),
+    )
+    ev["kicked_piece_type"] = chess.piece_name(ptype)
+    ev["kicked_square"] = chess.square_name(sq)
+    return [ev]
+
+
 def simulate_active_defense(
     pre_fen: str,
     best_move_san: str,
