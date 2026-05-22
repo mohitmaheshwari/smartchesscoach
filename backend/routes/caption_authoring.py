@@ -212,6 +212,7 @@ async def audit_endpoint(
                     "fen_before": m.get("fen_before"),
                     "fen_after": m.get("fen_after"),
                     "caption": cap,
+                    "caption_llm": m.get("caption_llm"),
                     "best_move_san": m.get("best_move_san"),
                     "is_white": m.get("is_white"),
                 })
@@ -232,6 +233,7 @@ async def audit_endpoint(
                     "fen_before": m.get("fen_before"),
                     "fen_after": m.get("fen_after"),
                     "caption": cap,
+                    "caption_llm": m.get("caption_llm"),
                     "best_move_san": m.get("best_move_san"),
                     "is_white": m.get("is_white"),
                 })

@@ -78,6 +78,11 @@ const AdminCaptionAuthoring = ({ user }) => {
   // and return 504). When you want freshest captions, toggle this on
   // and accept the wait (or run scripts/caption_coverage_v5.py offline).
   const [forceRegen, setForceRegen] = useState(false);
+  // Show LLM-polished caption (caption_llm) when available; falls back
+  // to the deterministic caption when LLM polish wasn't generated or
+  // verifier rejected. Default ON so post-regen captions show the
+  // richer prose. Flip off to see the raw template output.
+  const [useLlmCaption, setUseLlmCaption] = useState(true);
   const [editingTarget, setEditingTarget] = useState(null);
   // editingTarget = { position, template (the current variant string),
   //                   file, variant_key }
@@ -204,6 +209,22 @@ const AdminCaptionAuthoring = ({ user }) => {
               />
               Force regen
             </label>
+            <label
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer border ${
+                useLlmCaption
+                  ? "bg-sky-500 text-white border-transparent"
+                  : "bg-zinc-800 text-zinc-400 border-zinc-700"
+              }`}
+              title="When ON, show LLM-polished caption (caption_llm) if available. When OFF, always show the deterministic template (caption)."
+            >
+              <input
+                type="checkbox"
+                checked={useLlmCaption}
+                onChange={(e) => setUseLlmCaption(e.target.checked)}
+                className="hidden"
+              />
+              Use LLM
+            </label>
             <Button onClick={() => fetchAudit(sample, sampleTiers, forceRegen)} variant="outline" size="sm">
               <RefreshCw className="w-4 h-4 mr-1" />
               Re-audit
@@ -245,6 +266,7 @@ const AdminCaptionAuthoring = ({ user }) => {
               total={auditData.total_blunder_moves}
               onEdit={setEditingTarget}
               searchTerm={searchTerm}
+              useLlmCaption={useLlmCaption}
             />
           ))}
         </section>
@@ -346,7 +368,7 @@ const positionMatchesSearch = (position, term) => {
   return haystack.includes(needle);
 };
 
-const TemplateCard = ({ tpl, total, onEdit, searchTerm }) => {
+const TemplateCard = ({ tpl, total, onEdit, searchTerm, useLlmCaption }) => {
   // When the user has a search term, the matching positions are the only
   // ones that count. We auto-expand a template if it has matches, and we
   // auto-hide templates with zero matches.
@@ -416,6 +438,7 @@ const TemplateCard = ({ tpl, total, onEdit, searchTerm }) => {
                   position={p}
                   template={tpl}
                   onEdit={onEdit}
+                  useLlmCaption={useLlmCaption}
                 />
               ))}
             </div>
@@ -429,7 +452,7 @@ const TemplateCard = ({ tpl, total, onEdit, searchTerm }) => {
 
 // ── Position card with board ────────────────────────────────────────
 
-const PositionCard = ({ position, template, onEdit }) => {
+const PositionCard = ({ position, template, onEdit, useLlmCaption }) => {
   const fen = position.fen_before;
   const orient = position.is_white ? "white" : "black";
   const arrows = useMemo(() => buildPositionArrows(position), [position]);
@@ -464,8 +487,11 @@ const PositionCard = ({ position, template, onEdit }) => {
             )}
           </div>
           <div className="text-sm text-zinc-200 leading-relaxed">
-            {position.caption || (
+            {(useLlmCaption && position.caption_llm) || position.caption || (
               <span className="italic text-zinc-500">(no caption)</span>
+            )}
+            {useLlmCaption && position.caption_llm && (
+              <span className="ml-2 text-[10px] text-sky-300 align-top">LLM</span>
             )}
           </div>
           {template.json_path && (
