@@ -150,6 +150,14 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         ("R12_blunder.json", "why_user_missed_material"),
         ("R12_blunder.json", "why_user_reply"),
         ("R_PROMOTED_basic_mistake.json", "default"),
+        # v76 (2026-05-23) — Mohit + Parth: bare opp severity (no
+        # why-clause) is LOW. "Opponent's Rg7 is a serious mistake."
+        # tells the user nothing about WHY. Parth flagged this 3
+        # times (m18 Rg7, m23 Nf7, m18 Rg7 again) — they were
+        # invisible to the LOW review pile because the variant was
+        # classified MID-by-default. Surfacing them as LOW now so
+        # they bubble up for authoring attention.
+        ("R12_blunder.json", "opp"),
     }
     if (file_name, variant_key) in low_pairs:
         return "LOW"

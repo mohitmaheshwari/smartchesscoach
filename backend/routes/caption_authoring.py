@@ -155,8 +155,14 @@ async def audit_endpoint(
             g["decryption_v5_data"] = new_v5
             g["decryption_v5_version"] = V5_COACHING_VERSION
 
-    # Classify EVERY user move with a caption (no cp_loss filter —
-    # full coverage across all caption surfaces, not just blunders).
+    # v76 (2026-05-23) — Mohit + Parth: removed the is_user_move filter.
+    # Previously this loop skipped opp moves entirely, which made opp-
+    # caption gaps invisible to anyone reviewing through /admin/captions
+    # (Parth surfaced 6 such gaps by reading the live game-review UI in
+    # sequence — our admin tool literally could not show them). Now
+    # both sides flow through with side-tagged samples so reviewers can
+    # filter or audit per-side. cp_loss filter still absent — full
+    # coverage across all caption surfaces, not just blunders.
     by_tier = Counter()
     by_file: Dict[str, Dict[str, Any]] = {}
     by_template: Dict[Tuple[str, str], Dict[str, Any]] = {}
@@ -166,8 +172,6 @@ async def audit_endpoint(
     for game in games:
         gid = game["game_id"]
         for m in game.get("decryption_v5_data") or []:
-            if not m.get("is_user_move"):
-                continue
             cap = m.get("caption") or ""
             if not cap:
                 silent += 1
@@ -215,6 +219,10 @@ async def audit_endpoint(
                     "caption_llm": m.get("caption_llm"),
                     "best_move_san": m.get("best_move_san"),
                     "is_white": m.get("is_white"),
+                    # v76: tag samples by mover side so reviewers can
+                    # filter user vs opp at a glance.
+                    "is_user_move": bool(m.get("is_user_move")),
+                    "mover_side": "user" if m.get("is_user_move") else "opp",
                 })
 
             # Flat per-template list (legacy, kept for backward compat)
@@ -236,6 +244,8 @@ async def audit_endpoint(
                     "caption_llm": m.get("caption_llm"),
                     "best_move_san": m.get("best_move_san"),
                     "is_white": m.get("is_white"),
+                    "is_user_move": bool(m.get("is_user_move")),
+                    "mover_side": "user" if m.get("is_user_move") else "opp",
                 })
 
     # Convert by_file variants dict → list, sorted by count desc.

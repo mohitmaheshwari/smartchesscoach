@@ -1535,10 +1535,18 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # Reserved for when concept facts arrive.
 
     # Priority 10: development — opening + develops minor + has next-step.
-    # Gated on cp_loss like other celebratory categories — a 200 cp
-    # mistake in the opening shouldn't be celebrated as development.
+    # v76 (2026-05-23) — Mohit + Parth: tightened cp_loss gate from
+    # <100 to <30. A developing move with cp_loss 30-99 is a small
+    # INACCURACY, not a clean development move; routing it to
+    # category="development" makes R11 (silenced) eat the move and
+    # blocks R12 from firing the now-wired opp-narration. Parth
+    # surfaced this on m4 Be6 (cp_loss=88) and m9 Be7 (cp_loss=72) —
+    # both opp inaccuracies that should fall through to "blunder"
+    # category so R12 produces "Opponent's Be6 is a mistake. You
+    # can play X to punish it."
+    _dev_ok = _move_cpl < 30
     if (
-        _tactic_ok
+        _dev_ok
         and facts.get("phase") == "opening"
         and facts.get("moving_piece_type") in ("knight", "bishop")
     ):
@@ -1565,6 +1573,11 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # position was already lost and the player chose the best damage
     # control. Calling that a "blunder" lies. Forced-best category
     # below catches it BEFORE the blunder fallback fires.
+    # v76 (2026-05-23): blunder category gate lowered 100 → 30 in
+    # concert with R12_blunder.json's trigger gate lowering. The
+    # forced_best CORNER (where the played move IS engine's #1 despite
+    # high cp_loss — damage-control) keeps its higher threshold (100)
+    # because it only makes sense when the player had no good option.
     if _move_cpl >= MAX_CP_LOSS_FOR_TACTIC_CELEBRATION:
         if facts.get("played_is_best"):
             return {
@@ -1572,6 +1585,7 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 "ref_field": "played_is_best",
                 "priority_level": 10,
             }
+    if _move_cpl >= 30:
         return {
             "category": "blunder",
             "ref_field": "cp_loss",

@@ -143,8 +143,11 @@ async def audit(sample_size: int, user_filter: Optional[str], force_regen: bool)
             print(f"Regen complete. All {len(games)} games at v{V5_COACHING_VERSION}.")
             print()
 
-    # Walk EVERY user move with a caption — full-coverage audit
-    # across all 20 caption JSON files, not just blunders.
+    # v76 (2026-05-23) — Mohit + Parth: removed is_user_move filter so
+    # opp-move captions show in the coverage audit. Same blind spot as
+    # /admin/captions: opp captions were silently excluded, masking
+    # ~6 of Parth's flagged gaps that exist on opp moves. Now full
+    # coverage across both sides; mover_side tagged on examples.
     by_tier = Counter()
     by_file_tier: Dict[str, Counter] = {}  # per-file tier breakdown
     by_template = Counter()
@@ -159,8 +162,6 @@ async def audit(sample_size: int, user_filter: Optional[str], force_regen: bool)
         gid = game["game_id"]
         version_dist[game.get("decryption_v5_version", "unknown")] += 1
         for m in game.get("decryption_v5_data") or []:
-            if not m.get("is_user_move"):
-                continue
             cap = m.get("caption") or ""
             if not cap:
                 silent_moves += 1
@@ -181,6 +182,8 @@ async def audit(sample_size: int, user_filter: Optional[str], force_regen: bool)
                 "fen_before": m.get("fen_before"),
                 "caption": cap,
                 "rule_name": m.get("rule_name"),
+                # v76: tag side so the audit reader can see opp gaps
+                "mover_side": "user" if m.get("is_user_move") else "opp",
             }
             if tier == "LOW" and len(low_examples) < 15:
                 low_examples.append(sample)

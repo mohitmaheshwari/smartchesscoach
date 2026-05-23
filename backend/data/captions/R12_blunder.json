@@ -106,9 +106,10 @@
   "requires": ["played_san"],
   "trigger": {
     "when": {
-      "cp_loss": {"gte": 100}
+      "cp_loss": {"gte": 30}
     }
   },
+  "_trigger_note": "v76 (2026-05-23): lowered cp_loss threshold 100→30 so opp INACCURACIES (cp_loss 30-99) can also fire R12 — combined with the v76 opp-narration wiring (user_best_reply_san), this surfaces 'Opponent's X is a mistake. You can play Y to punish it.' on previously-silent opp inaccuracies like Parth's m4 Be6 (cp=88) and m9 Be7 (cp=72). User-side low-cp moves stay silent via suppression (mover_is_user:true + why_clause:absent + cp_loss<250) — only opp moves with a why_clause set make it through.",
   "severity_tiers": [
     {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
     {"when": {"cp_loss": {"gte": 250}}, "tier": "serious"},
