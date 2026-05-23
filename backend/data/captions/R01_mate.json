@@ -1,10 +1,10 @@
 {
   "rule_name": "R01_mate",
-  "description": "Highest-priority rule — fires when the engine sees mate in N. Branches by who delivers mate, from whose POV, ply count, and whether mate was already on the board.",
+  "description": "Highest-priority rule — fires when mate_threat_evidence is present (engine sees mate via PV-suffix '#' OR eval-sentinel |eval|>=9000 OR board.is_checkmate after the played move). Variants branch by who delivers, from whose POV, ply count, and whether mate was already forced before this move. IMPORTANT: the *_pawns variants fire when ply_to_mate is None — i.e. engine eval indicates mate (eval-sentinel) but PV didn't reveal the exact sequence. Don't say 'mate is on the board' in those variants (Mohit 2026-05-23: that overclaims since we can't show the line) — say 'engine sees a winning continuation' instead, which is honest about the eval signal without claiming an identifiable mate.",
   "fact_glossary": {
     "played_san": "SAN of the move played",
     "ply": "Number of plies to mate (1, 2, 3, ...) or null when engine has no clean ply count",
-    "pawn_swing": "Eval swing rounded to pawns (1-9) — used as a fallback when there's no ply count",
+    "pawn_swing": "Eval swing rounded to pawns (1-9) — used by the *_pawns variants to gate on a non-zero swing. NOTE: do NOT render this as 'N pawns of advantage' (memory rule: cp_loss-is-not-material). It's a present/absent gate, not a quantity to display.",
     "delivered_on_this_move": "true when this move IS the checkmate move",
     "mover_delivers": "true when the side that just moved is the side delivering the future mate",
     "mover_is_user": "true if the user just moved",
@@ -46,14 +46,14 @@
     "opp_forces_noplycount": "{played_san}. Opp is winning by force.",
     "mate_on_for_user_p1": "{played_san}. Mate is on for you next move.",
     "mate_on_for_user_pN": "{played_san}. Mate is on for you in {ply}.",
-    "mate_on_for_user_pawns": "{played_san}. Opponent's position is lost — mate is on the board for you.",
-    "mate_on_for_user_bare": "{played_san}. Opponent's position swings against them.",
+    "mate_on_for_user_pawns": "{played_san}. Opponent's position collapses — the engine sees a winning continuation for you.",
+    "mate_on_for_user_bare": "{played_san}. Opponent's position swings decisively against them.",
     "user_misses_defense_p1": "{played_san} misses the defense against mate next move.",
     "user_misses_defense_pN": "{played_san} misses the defense against mate in {ply}.",
     "user_already_lost": "{played_san} — the position was already lost before this move.",
     "user_allows_p1": "{played_san} allows mate next move.",
     "user_allows_pN": "{played_san} allows mate in {ply}.",
-    "user_allows_pawns": "{played_san} loses the position — opponent now has a winning attack.",
+    "user_allows_pawns": "{played_san} — the position now collapses. Engine sees a winning continuation for opponent.",
     "user_allows_bare": "{played_san} — engine sees the position turning against you."
   }
 }
