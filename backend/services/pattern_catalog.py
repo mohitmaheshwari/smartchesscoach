@@ -194,6 +194,140 @@ def is_hit_eligible(pattern_id: str) -> bool:
     return pattern_id in _HIT_ELIGIBLE_PATTERN_IDS
 
 
+def detect_opp_move_punishments(
+    post_opp_fen: str,
+    user_best_reply_san: str,
+    post_opp_pv_after_best: Optional[List[str]] = None,
+    user_color: Optional[str] = None,
+    post_opp_eval_before_cp: Optional[int] = None,
+) -> Dict:
+    """v77 (2026-05-23) — Mohit + Parth: opp-mistake explanation layer.
+
+    Symmetric to the user-mistake detector path. When an opp move is
+    classified as a mistake by cp_loss, we now analyze USER's best
+    reply against the POST-OPP position to surface a concrete WHY in
+    the caption. The same shape detectors used for user mistakes apply
+    here unchanged — they take (fen, best_move) and don't care whose
+    perspective; what changes is the INTERPRETATION (the move + facts
+    describe the user's punishment, not the user's mistake).
+
+    Returns a dict of opp-prefixed fact keys (so the user-mistake path
+    can't collide with this) that R12_blunder.json's why_clauses_opp
+    section reads.
+
+    Detectors run:
+      - simulate_pawn_kicks_piece — user's reply pushes a pawn that
+        attacks an opp piece (e.g. Parth's m4 Be6 → user's d5 kicks
+        the bishop).
+      - simulate_attack_with_tempo — user's reply attacks opp piece
+        with tempo.
+      - simulate_queen_fork_with_check — user's reply queen-forks
+        king + piece.
+      - simulate_endgame_loose_pawn_grab — user's reply grabs / eyes
+        an undefended opp pawn in the endgame.
+      - simulate_clearance_for_attack / clearance_then_check —
+        user's reply opens lines for tactical follow-ups.
+      - detect_missed_tactic — user's reply leads to mate or piece-win
+        in the PV (uses post_opp_pv_after_best).
+
+    Contrastive detectors (un_developing, knight_on_rim, etc.) are
+    intentionally excluded — they're definitionally about USER moves
+    diverging from engine; they don't fit the symmetric opp path.
+    """
+    if not post_opp_fen or not user_best_reply_san:
+        return {}
+
+    facts: Dict = {}
+    pv = post_opp_pv_after_best or []
+
+    # 1. pawn_kicks_piece — user's reply is a pawn push that kicks
+    #    an opp piece (Parth's m4 Be6 → d5 kicks the bishop).
+    try:
+        from services.shape_detectors import simulate_pawn_kicks_piece
+        evs = simulate_pawn_kicks_piece(post_opp_fen, user_best_reply_san)
+        if evs:
+            facts["opp_user_reply_kicks_piece_type"] = evs[0].get("kicked_piece_type")
+            facts["opp_user_reply_kicks_piece_square"] = evs[0].get("kicked_square")
+    except Exception:
+        pass
+
+    # 2. attack_with_tempo — user's reply attacks opp non-king piece
+    #    + opp's forced retreat is in PV.
+    try:
+        from services.shape_detectors import simulate_attack_with_tempo
+        evs = simulate_attack_with_tempo(post_opp_fen, user_best_reply_san, pv)
+        if evs:
+            facts["opp_user_reply_attack_piece"] = evs[0].get("attacked_piece_type")
+            facts["opp_user_reply_attack_square"] = evs[0].get("attacked_square")
+    except Exception:
+        pass
+
+    # 3. queen_fork_with_check — user's queen forks king + piece.
+    try:
+        from services.shape_detectors import simulate_queen_fork_with_check
+        evs = simulate_queen_fork_with_check(post_opp_fen, user_best_reply_san)
+        if evs and evs[0].get("sub_kind"):
+            facts["opp_user_reply_queen_fork_sub_kind"] = evs[0].get("sub_kind")
+            facts["opp_user_reply_queen_fork_secondary_piece"] = evs[0].get("secondary_piece")
+            facts["opp_user_reply_queen_fork_secondary_square"] = evs[0].get("secondary_square")
+    except Exception:
+        pass
+
+    # 4. endgame_loose_pawn_grab — user's reply grabs/attacks undefended pawn.
+    try:
+        from services.shape_detectors import simulate_endgame_loose_pawn_grab
+        evs = simulate_endgame_loose_pawn_grab(post_opp_fen, user_best_reply_san)
+        if evs and evs[0].get("sub_kind"):
+            facts["opp_user_reply_endgame_pawn_sub_kind"] = evs[0].get("sub_kind")
+            facts["opp_user_reply_endgame_pawn_square"] = evs[0].get("pawn_square")
+    except Exception:
+        pass
+
+    # 5. clearance_then_check / clearance_for_attack — user's reply opens
+    #    a line for queen/slider to attack king or key target.
+    try:
+        from services.shape_detectors import simulate_clearance_then_check
+        evs = simulate_clearance_then_check(post_opp_fen, user_best_reply_san)
+        if evs and evs[0].get("follow_up_san"):
+            facts["opp_user_reply_clearance_follow_up_san"] = evs[0].get("follow_up_san")
+            facts["opp_user_reply_clearance_piece"] = evs[0].get("clearer_piece_type")
+    except Exception:
+        pass
+    try:
+        from services.shape_detectors import simulate_clearance_for_attack
+        evs = simulate_clearance_for_attack(post_opp_fen, user_best_reply_san)
+        if evs:
+            tgts = evs[0].get("targets") or []
+            if tgts:
+                facts["opp_user_reply_clearance_attack_square"] = tgts[0]
+                facts["opp_user_reply_clearance_attacker_piece"] = evs[0].get("clearer_piece_type")
+    except Exception:
+        pass
+
+    # 6. missed_tactic — user's reply leads to mate or wins a piece
+    #    in the PV. Highest-leverage: when user has forced mate after
+    #    opp's blunder, we should say so.
+    try:
+        from services.best_move_tactic_detector import detect_missed_tactic
+        tactic = detect_missed_tactic(
+            fen_before=post_opp_fen,
+            best_move_san=user_best_reply_san,
+            pv_after_best=pv,
+            user_color=user_color or "white",
+            eval_before_cp=post_opp_eval_before_cp,
+        )
+        if tactic:
+            facts["opp_user_reply_tactic_kind"] = tactic.get("kind")
+            facts["opp_user_reply_tactic_target_piece"] = tactic.get("piece_type")
+            facts["opp_user_reply_tactic_target_square"] = tactic.get("square")
+            if tactic.get("ply"):
+                facts["opp_user_reply_tactic_ply"] = tactic.get("ply")
+    except Exception:
+        pass
+
+    return facts
+
+
 def detect_position_patterns(
     fen_before: str,
     best_move_san: str,

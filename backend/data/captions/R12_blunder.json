@@ -158,6 +158,16 @@
     {"when": {"opp_reply_san": "present", "user_is_winning": false, "user_is_losing": false}, "variant": "why_user_reply"}
   ],
   "why_clauses_opp": [
+    {"when": {"opp_user_reply_tactic_kind": "mate"}, "variant": "why_opp_user_finds_mate"},
+    {"when": {"opp_user_reply_tactic_kind": "piece_capture"}, "variant": "why_opp_user_wins_piece"},
+    {"when": {"opp_user_reply_queen_fork_sub_kind": "capture_with_check"}, "variant": "why_opp_user_queen_capture_with_check"},
+    {"when": {"opp_user_reply_queen_fork_sub_kind": "fork"}, "variant": "why_opp_user_queen_fork"},
+    {"when": {"opp_user_reply_clearance_follow_up_san": "present"}, "variant": "why_opp_user_clearance_then_check"},
+    {"when": {"opp_user_reply_clearance_attack_square": "present"}, "variant": "why_opp_user_clearance_attack"},
+    {"when": {"opp_user_reply_attack_piece": "present"}, "variant": "why_opp_user_attack_with_tempo"},
+    {"when": {"opp_user_reply_kicks_piece_type": "present"}, "variant": "why_opp_user_kicks_piece"},
+    {"when": {"opp_user_reply_endgame_pawn_sub_kind": "direct_capture"}, "variant": "why_opp_user_endgame_pawn_grab"},
+    {"when": {"opp_user_reply_endgame_pawn_sub_kind": "attack"}, "variant": "why_opp_user_endgame_pawn_attack"},
     {"when": {"user_best_reply_san": "present", "captured_piece_type": "present"}, "variant": "why_opp_punish_capture"},
     {"when": {"user_best_reply_san_is_forcing": true}, "variant": "why_opp_punish_check"},
     {"when": {"user_best_reply_san": "present"}, "variant": "why_opp_punish_default"},
@@ -243,6 +253,17 @@
     "why_opp_punish_check": "Play {user_best_reply_san} — it forces a reply.",
     "why_opp_punish_default": "Your strongest reply is {user_best_reply_san}.",
     "why_opp_hanging": "Their {piece_type} on {square} is now undefended — take it.",
-    "why_opp_unsafe": "Their {moving_piece_type} on {target_square} can't be defended."
+    "why_opp_unsafe": "Their {moving_piece_type} on {target_square} can't be defended.",
+
+    "why_opp_user_finds_mate": "Play {user_best_reply_san} — leads to forced mate.",
+    "why_opp_user_wins_piece": "Play {user_best_reply_san} winning the {opp_user_reply_tactic_target_piece} on {opp_user_reply_tactic_target_square}.",
+    "why_opp_user_queen_capture_with_check": "Play {user_best_reply_san} — your queen captures the {opp_user_reply_queen_fork_secondary_piece} on {opp_user_reply_queen_fork_secondary_square} with check.",
+    "why_opp_user_queen_fork": "Play {user_best_reply_san} — your queen forks their king and the {opp_user_reply_queen_fork_secondary_piece} on {opp_user_reply_queen_fork_secondary_square}.",
+    "why_opp_user_clearance_then_check": "Play {user_best_reply_san} — opens the line so your {opp_user_reply_clearance_piece} can play {opp_user_reply_clearance_follow_up_san} to chase their king.",
+    "why_opp_user_clearance_attack": "Play {user_best_reply_san} — clears the line so your {opp_user_reply_clearance_attacker_piece} attacks {opp_user_reply_clearance_attack_square}.",
+    "why_opp_user_attack_with_tempo": "Play {user_best_reply_san} — hits their {opp_user_reply_attack_piece} on {opp_user_reply_attack_square} with tempo.",
+    "why_opp_user_kicks_piece": "Play {user_best_reply_san} — your pawn kicks their {opp_user_reply_kicks_piece_type} on {opp_user_reply_kicks_piece_square}.",
+    "why_opp_user_endgame_pawn_grab": "Play {user_best_reply_san} — grabs their undefended pawn on {opp_user_reply_endgame_pawn_square}.",
+    "why_opp_user_endgame_pawn_attack": "Play {user_best_reply_san} — attacks their undefended pawn on {opp_user_reply_endgame_pawn_square}."
   }
 }
