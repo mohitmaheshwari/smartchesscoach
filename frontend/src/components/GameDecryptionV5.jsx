@@ -240,6 +240,31 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             const shape_pattern_name = (cap && cap.shape_pattern_name) || "";
             const shape_pattern_desc = (cap && cap.shape_pattern_desc) || "";
             const shape_pattern_targets = (cap && cap.shape_pattern_targets) || [];
+            // v78.2 (2026-05-23) — Mohit: "captions are loaded but UI
+            // doesn't show anything." The V5 service writes the fresh
+            // caption to m.caption (with caption_llm sibling). The
+            // legacy per-move endpoint /coach/decryption/per-move/X
+            // serves a different (older) caption surface — when its
+            // text is empty (cap && !cap.text path), this branch was
+            // setting narrative="" and silently dropping the v78
+            // caption. Fix: prefer m.caption / m.caption_llm whenever
+            // they're populated, regardless of what the per-move
+            // endpoint returns. Per-move endpoint becomes the
+            // FALLBACK, not the override.
+            const fresh_caption = m.caption || "";
+            if (fresh_caption) {
+              return {
+                ...m,
+                narrative: fresh_caption,
+                _caption_source: "v5_caption_field",
+                principle_cue,
+                principle_id,
+                shape_pattern_id,
+                shape_pattern_name,
+                shape_pattern_desc,
+                shape_pattern_targets,
+              };
+            }
             if (cap && cap.text) {
               return {
                 ...m,
@@ -253,8 +278,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                 shape_pattern_targets,
               };
             }
-            // Empty caption from per-move endpoint = honest 'no comment'.
-            // Drop the V5 narrative entirely (it's been suppressed).
+            // Both V5 caption and per-move endpoint empty = honest 'no comment'.
             if (cap && !cap.text) {
               return {
                 ...m,
