@@ -1,0 +1,18 @@
+{
+  "rule_name": "R_PROMOTED_opening_intro",
+  "description": "v74 (2026-05-23) — Mohit + Parth feedback. Surfaces opening name + idea on early opening moves that R13 (central-pawn) doesn't cover — e.g. m2 d6 in Philidor, m2 Nf3 development. Falls between R13 (m1-m2 central pawns) and R_PROMOTED_opening (≥3 matched setup steps). Authored intros live in services/game_decryption_v5_service.py's get_opening_introduction map.",
+  "fact_glossary": {
+    "move_san": "SAN of the move",
+    "opening_intro_name": "Optional named opening for the move (e.g. 'Philidor-style setup')",
+    "opening_intro_idea": "One-sentence idea — the WHY behind the move in this opening"
+  },
+  "requires": ["move_san", "opening_intro_idea"],
+  "select_variant": [
+    {"when": {"opening_intro_name": "present"}, "variant": "with_name"},
+    {"variant": "idea_only"}
+  ],
+  "variants": {
+    "with_name": "{move_san} — {opening_intro_name}. {opening_intro_idea}",
+    "idea_only": "{move_san}. {opening_intro_idea}"
+  }
+}

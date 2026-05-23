@@ -1,9 +1,11 @@
 {
   "rule_name": "R13_opening_central_pawn",
-  "description": "Fires on the first central pawn pushes (e4/e5/d4/d5) in moves 1-2. Side-specific framing.",
+  "description": "Fires on the first central pawn pushes (e4/e5/d4/d5) in moves 1-2. v74 (2026-05-23): when opening_intro_name + opening_intro_idea are set by V5 (from get_opening_introduction), prefer the named-opening variants — gives '1.e4 — King's Pawn Opening. White stakes a claim in the center.' instead of generic 'Stakes a claim.'",
   "fact_glossary": {
     "played_san": "SAN of the pawn move",
-    "mover_is_user": "true if the pusher is the user"
+    "mover_is_user": "true if the pusher is the user",
+    "opening_intro_name": "Opening name from get_opening_introduction when m1/m2 central pawn move matches a named opening",
+    "opening_intro_idea": "One-sentence idea for the opening, also from get_opening_introduction"
   },
   "requires": ["played_san"],
   "trigger": {
@@ -15,10 +17,18 @@
     }
   },
   "select_variant": [
+    {"when": {"opening_intro_name": "present", "opening_intro_idea": "present", "mover_is_user": false}, "variant": "opp_with_intro"},
+    {"when": {"opening_intro_name": "present", "opening_intro_idea": "present"}, "variant": "user_with_intro"},
+    {"when": {"opening_intro_name": "present", "mover_is_user": false}, "variant": "opp_name_only"},
+    {"when": {"opening_intro_name": "present"}, "variant": "user_name_only"},
     {"when": {"mover_is_user": false}, "variant": "opp"},
     {"variant": "user"}
   ],
   "variants": {
+    "user_with_intro": "{played_san} — {opening_intro_name}. {opening_intro_idea}",
+    "opp_with_intro": "{played_san} — {opening_intro_name}. {opening_intro_idea}",
+    "user_name_only": "{played_san} — {opening_intro_name}. Stakes a claim in the center.",
+    "opp_name_only": "{played_san} — {opening_intro_name}. Opponent claims the center.",
     "user": "{played_san}. Stakes a claim in the center.",
     "opp": "{played_san}. Opponent claims the center."
   }

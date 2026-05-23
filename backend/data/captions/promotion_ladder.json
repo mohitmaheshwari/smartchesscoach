@@ -34,6 +34,11 @@
       "source_template": "R_PROMOTED_opening:{opening_name_slug}"
     },
     {
+      "rule": "R_PROMOTED_opening_intro",
+      "when": {"opening_intro_idea": "present"},
+      "source_template": "R_PROMOTED_opening_intro"
+    },
+    {
       "rule": "R_PROMOTED_shape",
       "when": {"caption_empty": true, "shape_pattern_name": "present", "shape_pattern_desc": "present"},
       "source_template": "R_PROMOTED_shape:{shape_pattern_id}"
