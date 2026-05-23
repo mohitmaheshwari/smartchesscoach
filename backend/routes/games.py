@@ -900,6 +900,59 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
     return result
 
 
+@router.get("/{game_id}/pattern-misses")
+async def get_game_pattern_misses(
+    game_id: str, user: User = Depends(get_current_user)
+):
+    """v72 (2026-05-23) — Per-game pattern-miss list for the Review UI.
+    Reads the user_pattern_events collection filtered to (user, game),
+    groups by pattern_id, and decorates each with human_name + family
+    from the catalog. UI surface: "Patterns missed in this game."
+    """
+    from services.pattern_catalog import get_pattern
+
+    # Ensure the game belongs to the requesting user (scope filter).
+    game = await db.games.find_one(
+        {"game_id": game_id, **user_scope_filter(user)}, {"_id": 0, "user_id": 1}
+    )
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    pipeline = [
+        {"$match": {"user_id": user.user_id, "game_id": game_id, "outcome": "miss"}},
+        {"$group": {
+            "_id": "$pattern_id",
+            "miss_count": {"$sum": 1},
+            "moves": {"$push": {
+                "move_number": "$move_number",
+                "move_san": "$move_san",
+                "best_move_san": "$best_move_san",
+                "cp_loss": "$cp_loss",
+            }},
+        }},
+        {"$sort": {"miss_count": -1}},
+    ]
+
+    patterns = []
+    async for row in db.user_pattern_events.aggregate(pipeline):
+        pid = row.get("_id") or ""
+        cat = get_pattern(pid) or {}
+        patterns.append({
+            "pattern_id": pid,
+            "human_name": cat.get("human_name") or pid,
+            "short_description": cat.get("short_description"),
+            "family": cat.get("family"),
+            "miss_count": int(row.get("miss_count") or 0),
+            "moves": row.get("moves") or [],
+        })
+
+    return {
+        "game_id": game_id,
+        "patterns": patterns,
+        "total_misses": sum(p["miss_count"] for p in patterns),
+    }
+
+
 @router.get("/{game_id}/board-summary")
 async def get_game_board_summary(
     game_id: str, user: User = Depends(get_current_user)

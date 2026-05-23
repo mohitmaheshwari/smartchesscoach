@@ -61,6 +61,7 @@ async def regen_one(db, game_id: str) -> dict:
             move_evals,
             full_game.get("user_id") or "",
             db,
+            game_id=game_id,
         )
     except Exception as exc:
         return {"game_id": game_id, "status": "error", "reason": str(exc)}

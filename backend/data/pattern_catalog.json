@@ -1,0 +1,141 @@
+{
+  "_doc": {
+    "purpose": "Maps detector coder-IDs to plain-English pattern names + family + description for use in user-facing memory ('you understand X', 'you missed Y again'). Authored 2026-05-23 by Claude as v1 starters per Mohit's P1; voice tuning expected once he reviews in the UI.",
+    "audience": "600-1500 rated players — no jargon (no 'fianchetto', 'prophylaxis', 'zwischenzug'). Name the square / the idea instead.",
+    "schema": {
+      "pattern_id": "Stable snake_case key. Used in user_pattern_events docs as the pattern reference. NEVER renamed once shipped — only the human_name/description/family fields are tunable.",
+      "human_name": "Short coach-voice name, 3-6 words. What you'd say to a student.",
+      "short_description": "One sentence in coach voice. WHY it matters or WHAT it does, not just what it is.",
+      "family": "Tactical/positional grouping. Used to roll up related patterns in insights ('you handle the Légal's family well — 4/5 hits').",
+      "example_fen": "Canonical example position. Optional — null means Mohit will fill from a known game later."
+    }
+  },
+  "patterns": {
+    "missed_mate": {
+      "human_name": "Forced mate",
+      "short_description": "There was a forced mating sequence — every opponent reply loses.",
+      "family": "Forcing sequences",
+      "example_fen": null
+    },
+    "missed_piece": {
+      "human_name": "Free piece win",
+      "short_description": "A clean way to win a knight, bishop, rook, or queen — the engine saw it cleanly.",
+      "family": "Material gains",
+      "example_fen": null
+    },
+    "clearance_for_attack": {
+      "human_name": "Open the line so your piece attacks",
+      "short_description": "Move a piece out of the way so another of yours has a direct shot at the king or a key square.",
+      "family": "Légal's family",
+      "example_fen": null
+    },
+    "clearance_then_check": {
+      "human_name": "Knight sacrifice for queen check",
+      "short_description": "Sacrifice a knight (or pawn) to open the line so your queen can deliver check on the next move.",
+      "family": "Légal's family",
+      "example_fen": null
+    },
+    "queen_fork_capture_with_check": {
+      "human_name": "Queen captures with check",
+      "short_description": "Queen move that grabs material and checks the king on the same turn.",
+      "family": "Forcing checks",
+      "example_fen": null
+    },
+    "queen_fork": {
+      "human_name": "Queen fork on king + piece",
+      "short_description": "Queen move that attacks the king and another loose piece at once.",
+      "family": "Forks",
+      "example_fen": null
+    },
+    "attack_with_tempo": {
+      "human_name": "Attack with tempo",
+      "short_description": "Hit an enemy piece with a move that also improves yours — opponent has to react.",
+      "family": "Tempo plays",
+      "example_fen": null
+    },
+    "endgame_loose_pawn_capture": {
+      "human_name": "Take the undefended pawn",
+      "short_description": "In the endgame, your active piece grabs an opponent pawn that has no defender.",
+      "family": "Endgame technique",
+      "example_fen": null
+    },
+    "endgame_loose_pawn_attack": {
+      "human_name": "Eye the undefended pawn",
+      "short_description": "In the endgame, move an active piece next to an opponent pawn that has no defender — you can grab it next.",
+      "family": "Endgame technique",
+      "example_fen": null
+    },
+    "un_developing": {
+      "human_name": "Don't undevelop a piece",
+      "short_description": "Moving a developed piece back to its starting square wastes a tempo — usually a better move exists.",
+      "family": "Opening principles",
+      "example_fen": null
+    },
+    "defensive_pawn_push": {
+      "human_name": "Don't push wing pawns when you should be developing",
+      "short_description": "Slow wing pawn moves (a3, h6) cost time when the position is asking for a piece to come out.",
+      "family": "Opening principles",
+      "example_fen": null
+    },
+    "knight_outpost": {
+      "human_name": "Knight to a defended central square",
+      "short_description": "Park a knight on a central square that's protected by your own pawn and can't be kicked away — a long-term home.",
+      "family": "Positional",
+      "example_fen": null
+    },
+    "stop_opp_pawn": {
+      "human_name": "Block opponent's pawn before it pushes",
+      "short_description": "Get a piece or pawn in front of opponent's pawn so they can't keep pushing it into your camp.",
+      "family": "Positional",
+      "example_fen": null
+    },
+    "active_defense": {
+      "human_name": "Defend by attacking back",
+      "short_description": "A move that protects your threatened piece AND hits something of theirs — turns defense into pressure.",
+      "family": "Defensive technique",
+      "example_fen": null
+    },
+    "same_piece_better_square": {
+      "human_name": "Same piece, better square",
+      "short_description": "Same piece type you moved, but to a square where it hits more loose targets at once.",
+      "family": "Piece improvement",
+      "example_fen": null
+    },
+    "discovered_vacating_check": {
+      "human_name": "Move gives check; vacated square opens attack",
+      "short_description": "Move a piece to check the king while the square it leaves opens a line for another of yours to hit a loose target.",
+      "family": "Discovered attacks",
+      "example_fen": null
+    },
+    "knight_on_rim": {
+      "human_name": "Avoid knight on the rim in the opening",
+      "short_description": "Knights on the a- or h-file in the opening attack very few squares — develop toward the center instead.",
+      "family": "Opening principles",
+      "example_fen": null
+    },
+    "pawn_kicks_piece": {
+      "human_name": "Pawn push that kicks an enemy piece",
+      "short_description": "Pawn move that attacks an enemy piece, forcing it to retreat — gains time.",
+      "family": "Tempo plays",
+      "example_fen": null
+    },
+    "blocked_own_pawn": {
+      "human_name": "Don't block your own pawn",
+      "short_description": "A piece move that sits where your own pawn needed to advance — usually push the pawn first.",
+      "family": "Opening principles",
+      "example_fen": null
+    },
+    "king_pawn_lifted": {
+      "human_name": "Attack the weak square in front of the king",
+      "short_description": "Opponent's f- or g-pawn moved off its starting square, leaving a weak point in front of the king — pile up there.",
+      "family": "King attacks",
+      "example_fen": null
+    },
+    "trap_punishment": {
+      "human_name": "Punish the known trap setup",
+      "short_description": "Opponent reached a setup that's part of a known trap; the engine's move is the textbook refutation.",
+      "family": "Opening traps",
+      "example_fen": null
+    }
+  }
+}

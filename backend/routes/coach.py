@@ -3984,3 +3984,17 @@ async def check_habit_challenge(
             "message": "Something went wrong. Let's try another position.",
             "correct_move": correct_move
         }
+
+
+@router.get("/pattern-progress")
+async def get_pattern_progress(user: User = Depends(get_current_user)):
+    """v72 (2026-05-23) — P2 detector memory. Returns the user's
+    per-pattern miss aggregates from the user_pattern_events
+    collection. UI consumes this to show "patterns you're working on"
+    insights. Empty patterns list when the user has no recorded
+    misses yet (new user / pre-v72 corpus).
+
+    See services/pattern_progress_aggregator.py for shape.
+    """
+    from services.pattern_progress_aggregator import get_user_pattern_progress
+    return await get_user_pattern_progress(db, user.user_id)

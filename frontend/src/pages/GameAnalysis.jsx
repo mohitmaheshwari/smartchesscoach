@@ -282,6 +282,21 @@ const GameAnalysis = ({ user }) => {
     })();
   }, [analysis, gameId]);
 
+  // v72 (2026-05-23) — P2 detector memory: per-game pattern misses.
+  // Shows which catalogued patterns (queen_fork, clearance_then_check,
+  // etc.) the user missed in THIS game, with miss-count per pattern.
+  // Corpus-wide aggregate lives at /api/coach/pattern-progress.
+  const [patternMisses, setPatternMisses] = useState(null);
+  useEffect(() => {
+    if (!analysis) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/games/${gameId}/pattern-misses`, { credentials: "include" });
+        if (res.ok) setPatternMisses(await res.json());
+      } catch (e) { console.error("Pattern misses fetch failed:", e); }
+    })();
+  }, [analysis, gameId]);
+
   // Fetch V5 decryption data
   useEffect(() => {
     if (!analysis) return;
@@ -549,6 +564,64 @@ const GameAnalysis = ({ user }) => {
 
         {/* Game Overview — Phase analysis + Opening + Behaviors */}
         {coachReview && <GameOverview review={coachReview} navigate={navigate} />}
+
+        {/* v72 — Per-game pattern misses. Surfaces ONLY when this game
+            had ≥1 catalogued pattern miss (queen_fork, clearance,
+            attack_with_tempo, etc.); otherwise silent. Click a move
+            number to jump to that position. v1 voice — Mohit will
+            tune wording. */}
+        {patternMisses?.patterns?.length > 0 && (
+          <Card className="bg-zinc-900/50 border-zinc-800 mb-4">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-rose-400" />
+                <h3 className="text-sm font-semibold text-zinc-200">
+                  Patterns you missed in this game
+                </h3>
+                <span className="text-xs text-zinc-500">
+                  ({patternMisses.total_misses} {patternMisses.total_misses === 1 ? 'miss' : 'misses'})
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {patternMisses.patterns.slice(0, 6).map((p) => (
+                  <li
+                    key={p.pattern_id}
+                    className="text-sm text-zinc-300 flex items-start gap-2"
+                  >
+                    <span className="text-rose-400 mt-0.5">×{p.miss_count}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-zinc-200">{p.human_name}</div>
+                      {p.short_description && (
+                        <div className="text-xs text-zinc-500 mt-0.5">{p.short_description}</div>
+                      )}
+                      {p.moves?.length > 0 && (
+                        <div className="text-xs text-zinc-500 mt-1 flex flex-wrap gap-x-2">
+                          <span>Missed on:</span>
+                          {p.moves.map((m, i) => {
+                            const idx = (m.move_number - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => {
+                                  boardRef.current?.goToMove?.(idx);
+                                  setCurrentMoveIndex(idx);
+                                }}
+                                className="font-mono text-rose-300 hover:text-rose-200 underline-offset-2 hover:underline"
+                                title={`Jump to move ${m.move_number}`}
+                              >
+                                m{m.move_number} {m.move_san}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {/* v71 — Board patterns across the game. Surfaces only when at
             least one trend persisted across ≥3 user moves; otherwise
