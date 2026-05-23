@@ -154,9 +154,10 @@
     {"when": {"blocked_pawn_would_support": "present"}, "variant": "why_user_blocks_pawn_supports"},
     {"when": {"blocked_pawn_file": "present"}, "variant": "why_user_blocks_pawn"},
     {"when": {"board_state_clause": "present"}, "variant": "why_user_board_state"},
-    {"when": {"missed_tactic_kind": "material", "user_is_winning": false, "user_is_losing": false}, "variant": "why_user_missed_material"},
-    {"when": {"opp_reply_san": "present", "user_is_winning": false, "user_is_losing": false}, "variant": "why_user_reply"}
+    {"when": {"missed_tactic_kind": "material", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"gte": 100}}, "variant": "why_user_missed_material"},
+    {"when": {"opp_reply_san": "present", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"gte": 100}}, "variant": "why_user_reply"}
   ],
+  "_user_engine_speak_gate_note": "v77.1 (2026-05-23): the two engine-speak fallbacks (why_user_missed_material 'it wins material in the resulting line' / why_user_reply 'Opponent's strongest reply: X') now require cp_loss >= 100. Without this gate, the v76 R12 trigger lowering (100 -> 30) made these fire on user INACCURACIES (cp_loss 30-99) that V5's severity classifier separately marks as 'good' — producing captions like 'Nf6 is a mistake. Nc6 was better. Opponent's strongest reply: O-O.' on moves V5 considered fine. Now: user inaccuracies below 100 cp_loss are either silenced (when no concrete detector fired) or surface a concrete why-clause (when one did). The opp-side why-clauses are unaffected — opp moves still get full opp-narration treatment at the 30 threshold.",
   "why_clauses_opp": [
     {"when": {"opp_user_reply_tactic_kind": "mate"}, "variant": "why_opp_user_finds_mate"},
     {"when": {"opp_user_reply_tactic_kind": "piece_capture"}, "variant": "why_opp_user_wins_piece"},
