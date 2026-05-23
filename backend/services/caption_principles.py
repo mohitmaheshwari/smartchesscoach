@@ -122,7 +122,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that develops a piece still on its starting square",
         "gate_policy": "endorsement_preferred + cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Develop your remaining pieces before attacking. The engine wants this immediately.",
+        "cue_best":   "Develop your remaining pieces before attacking. Strongest move here.",
         "cue_top_n":  "Attacks with two pieces still on their starting squares fail. Finish development first.",
         # Was "Engine likes the attack here. Most positions, develop fully
         # first — early attacks fail." — Parth fb_c64e76a26a74 2026-05-17
@@ -164,9 +164,9 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any non-queen developing move (knight or bishop)",
         "gate_policy": "endorsement_preferred + cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Develop knights and bishops first. Engine's top choice — your queen will be chased here.",
+        "cue_best":   "Develop knights and bishops first — strongest move here. Your queen will only get chased on that square.",
         "cue_top_n":  "Queens out early get chased. Develop knights and bishops, then castle, then the queen.",
-        "cue_absent": "Bringing the queen out early — engine prefers a minor piece move (knight or bishop) here. Queens often get chased and lose tempo.",
+        "cue_absent": "Bringing the queen out early — develop a minor piece (knight or bishop) first. Queens out early get chased and lose tempo.",
         "visual_signature": {
             "highlight": ["queen_square"],
             "arrows": [],
@@ -270,7 +270,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any pawn move that does NOT block an own bishop's diagonal",
         "gate_policy": "cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Don't lock your own bishop in. The engine wants a different pawn square.",
+        "cue_best":   "Don't lock your own bishop in. A different pawn square keeps the diagonal open.",
         "cue_top_n":  "This pawn move blocks your bishop's diagonal. Try a square that keeps it open.",
         "cue_absent": "This pawn move works here. Usually — look at your bishop's diagonal first.",
         "visual_signature": {
@@ -333,7 +333,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that delivers or threatens back-rank mate",
         "gate_policy": "endorsement_required",
         "suppress": "once_per_move",
-        "cue_best":   "Back-rank mate — their king has no escape squares. The engine wants this immediately.",
+        "cue_best":   "Back-rank mate — their king has no escape squares. Play this immediately.",
         "cue_top_n":  "Watch the back rank: pawns blocking + rook or queen on the file = mate.",
         "cue_absent": "Back-rank mate works when the king is blocked by its own pawns with no escape squares.",
         "visual_signature": {
@@ -402,7 +402,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that attacks two enemy pieces simultaneously",
         "gate_policy": "endorsement_required",
         "suppress": "once_per_move",
-        "cue_best":   "One piece, two targets — the fork wins material. Engine's top choice.",
+        "cue_best":   "One piece, two targets — the fork wins material. Strongest move here.",
         "cue_top_n":  "Look for forks every move. One piece attacking two — opponent saves only one.",
         "cue_absent": "Forks are a one-move pattern: one piece, two targets, opponent saves one.",
         "visual_signature": {
@@ -464,7 +464,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that opens a slider's line onto an enemy piece",
         "gate_policy": "endorsement_required",
         "suppress": "once_per_move",
-        "cue_best":   "Move the front piece — your slider behind it attacks. The engine wants this immediately.",
+        "cue_best":   "Move the front piece — your slider behind it attacks. Play this immediately.",
         "cue_top_n":  "Discovered attack: move a piece out of the line, the piece behind hits.",
         "cue_absent": "Discovered attacks open a slider's line by moving the blocker — two threats in one move.",
         "visual_signature": {
@@ -483,7 +483,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that defends or moves away the most-attacked piece",
         "gate_policy": "endorsement_required + cp_loss_strict",
         "suppress": "once_per_move",
-        "cue_best":   "Defend the most-attacked piece first. The engine wants this immediately — it's the worst threat.",
+        "cue_best":   "Defend the most-attacked piece first — it's the worst threat. Play this immediately.",
         "cue_top_n":  "Multiple pieces attacked — handle the highest-value or worst-defended one first.",
         "cue_absent": "When several pieces are under attack, defend the most-attacked one first.",
         "visual_signature": {
@@ -550,7 +550,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any trade where the captured piece was defending the target, not attacking it",
         "gate_policy": "endorsement_preferred + cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Trade the defender, not the attacker. Engine's top choice keeps your attackers alive.",
+        "cue_best":   "Trade the defender, not the attacker. Strongest move here — keeps your attackers alive.",
         "cue_top_n":  "When you're attacking, trade off their defenders. Your attackers want to stay.",
         "cue_absent": "This trade works here. Usually — when attacking, trade their defenders, not your attackers.",
         "visual_signature": {
@@ -711,7 +711,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # the king" cue is a structural reminder; once shown, the player
         # carries it through the rest of the endgame.
         "suppress": "once_per_game",
-        "cue_best":   "Activate the king. Engine's top choice — centre is where it fights.",
+        "cue_best":   "Activate the king. Strongest move here — the centre is where it fights in the endgame.",
         "cue_top_n":  "Endgames need an active king. Walk it toward the centre, one square at a time.",
         # 2026-05-17 sweep: engine-meta cue_absent rewrite.
         "cue_absent": "Other plans this move. Generally — endgames need an active king, walk it to the centre.",
@@ -787,7 +787,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # different passer or different rook destination = different
         # Tarrasch moment.
         "suppress": "once_per_state_key",
-        "cue_best":   "Rook behind the passed pawn — Tarrasch's rule. Engine's top choice.",
+        "cue_best":   "Rook behind the passed pawn — Tarrasch's rule. Strongest move here.",
         "cue_top_n":  "Tarrasch rule: the rook belongs behind the passed pawn. It supports yours, restrains theirs.",
         "cue_absent": "Rook + passed pawn? Behind is the right square — either to push it (yours) or hold it back (theirs).",
         "visual_signature": {
@@ -822,7 +822,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # State-keyed: re-arms if a DIFFERENT bishop trade doubles a
         # different file (rare — usually once per game per file).
         "suppress": "once_per_state_key",
-        "cue_best":   "Trade bishop for knight — they recapture with a pawn, doubling that file. Engine likes it here.",
+        "cue_best":   "Trade bishop for knight — they recapture with a pawn, doubling that file. Strongest move here.",
         "cue_top_n":  "Bishop takes their knight — they recapture with a pawn, doubling that file. A factor in your favour, not always decisive.",
         "cue_absent": "BxN forced a pawn recapture that doubled their pawns — depending on the position, that's a small structural concession.",
         "visual_signature": {
@@ -843,7 +843,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # State-keyed: re-arms if the strike square changes (shouldn't
         # happen — once per game), but state_key gives consistency.
         "suppress": "once_per_state_key",
-        "cue_best":   "Capture on f7 — defended only by the king. Engine's top choice.",
+        "cue_best":   "Capture on f7 — defended only by the king. Strongest move here.",
         "cue_top_n":  "f7 (or f2) is defended only by the king in the opening. Take it when you can win material.",
         "cue_absent": "f7 (and f2) is the weakest square at the start — only the king defends it. Watch for tactical strikes there.",
         "visual_signature": {

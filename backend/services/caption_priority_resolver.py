@@ -576,7 +576,7 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
         if king_move:
             return (
                 f"Castling rights are gone — walk your king to safety by hand. "
-                f"{king_move} is engine's pick."
+                f"{king_move} is the strongest move here."
             )
         return "Castling rights are gone — walk the king to safety by hand."
     if pid == "END_PASSED_PAWN":
@@ -590,14 +590,14 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
             if len(passers) == 1:
                 return (
                     f"Your pawn on {passers[0]} is passed. Push it — "
-                    f"{best} is engine's pick. Every square forces them to react."
+                    f"{best} is the strongest move. Every square forces them to react."
                 )
             return (
                 f"You have passed pawns on {' and '.join(passers[:2])}. "
-                f"Push — engine's pick: {best}."
+                f"Push — strongest move is {best}."
             )
         if best:
-            return f"Push the passed pawn — {best} is engine's pick."
+            return f"Push the passed pawn — {best} is the strongest move."
         return "Passed pawns must be pushed — every square forces opponent to react."
     if pid == "END_KING_ACTIVE":
         # Phase 5 — 2026-05-18. Was falling through to "king is a
