@@ -918,19 +918,24 @@ async def get_game_pattern_misses(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
+    # v73 (2026-05-23): also breaks out hits via outcome=="hit". Per-
+    # game view shows both so the user sees "you hit the queen-fork
+    # pattern on m12 but missed it on m18" instead of only misses.
     pipeline = [
-        {"$match": {"user_id": user.user_id, "game_id": game_id, "outcome": "miss"}},
+        {"$match": {"user_id": user.user_id, "game_id": game_id}},
         {"$group": {
             "_id": "$pattern_id",
-            "miss_count": {"$sum": 1},
+            "hit_count":  {"$sum": {"$cond": [{"$eq": ["$outcome", "hit"]},  1, 0]}},
+            "miss_count": {"$sum": {"$cond": [{"$eq": ["$outcome", "miss"]}, 1, 0]}},
             "moves": {"$push": {
-                "move_number": "$move_number",
-                "move_san": "$move_san",
+                "move_number":   "$move_number",
+                "move_san":      "$move_san",
                 "best_move_san": "$best_move_san",
-                "cp_loss": "$cp_loss",
+                "cp_loss":       "$cp_loss",
+                "outcome":       "$outcome",
             }},
         }},
-        {"$sort": {"miss_count": -1}},
+        {"$sort": {"miss_count": -1, "hit_count": -1}},
     ]
 
     patterns = []
@@ -942,6 +947,7 @@ async def get_game_pattern_misses(
             "human_name": cat.get("human_name") or pid,
             "short_description": cat.get("short_description"),
             "family": cat.get("family"),
+            "hit_count":  int(row.get("hit_count") or 0),
             "miss_count": int(row.get("miss_count") or 0),
             "moves": row.get("moves") or [],
         })
@@ -949,6 +955,7 @@ async def get_game_pattern_misses(
     return {
         "game_id": game_id,
         "patterns": patterns,
+        "total_hits":   sum(p["hit_count"]  for p in patterns),
         "total_misses": sum(p["miss_count"] for p in patterns),
     }
 

@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -144,3 +144,185 @@ def resolve_pattern_ids(caption_facts: Dict) -> List[str]:
         ids.append("trap_punishment")
 
     return ids
+
+
+# v73 (2026-05-23) — Pattern IDs eligible for HIT detection.
+#
+# Two categories of detectors live in the codebase:
+#   - POSITION-BASED — pattern presence depends ONLY on (fen, best_move).
+#     If the engine's best move triggers the pattern at this position,
+#     the user "hit" it by playing best_move. Listed below.
+#   - CONTRASTIVE — pattern is defined as user move ≠ engine's best in a
+#     specific way (e.g. "user retreated a piece"). Inherently a miss
+#     concept; we never log a hit for them. Excluded.
+#
+# Mohit 2026-05-23 — P2 phase 2: enables "you played the pattern move"
+# tracking on user GOOD moves so insights can say "you understand X" /
+# "you've got this 3 games in a row" instead of only miss counts.
+_HIT_ELIGIBLE_PATTERN_IDS = {
+    "missed_mate",                       # forced mate in PV
+    "missed_piece",                      # clean piece win in PV
+    "clearance_for_attack",
+    "clearance_then_check",
+    "queen_fork_capture_with_check",
+    "queen_fork",
+    "attack_with_tempo",
+    "endgame_loose_pawn_capture",
+    "endgame_loose_pawn_attack",
+    "knight_outpost",
+    "active_defense",
+    "discovered_vacating_check",
+    "pawn_kicks_piece",
+    "king_pawn_lifted",
+    "trap_punishment",
+}
+
+# Patterns intentionally excluded from hit detection (contrastive).
+_HIT_INELIGIBLE_PATTERN_IDS = {
+    "un_developing",
+    "defensive_pawn_push",
+    "same_piece_better_square",
+    "stop_opp_pawn",
+    "knight_on_rim",
+    "blocked_own_pawn",
+}
+
+
+def is_hit_eligible(pattern_id: str) -> bool:
+    """True iff this pattern can be 'hit' by playing the engine's best
+    move (vs. only being a 'miss' when the user diverges)."""
+    return pattern_id in _HIT_ELIGIBLE_PATTERN_IDS
+
+
+def detect_position_patterns(
+    fen_before: str,
+    best_move_san: str,
+    pv_after_best: Optional[List[str]] = None,
+    user_color: Optional[str] = None,
+    eval_before_cp: Optional[int] = None,
+    shape_pattern_id: Optional[str] = None,
+    trap_context_name: Optional[str] = None,
+) -> List[str]:
+    """Pattern presence at a position — independent of what the user
+    actually played. Used by P2 phase 2 hit detection: when the user
+    plays best_move, this returns the patterns they 'hit' by playing it.
+
+    Only runs POSITION-BASED detectors (see _HIT_ELIGIBLE_PATTERN_IDS).
+    Contrastive detectors (un_developing, knight_on_rim, etc.) are
+    inherently miss concepts and excluded.
+
+    Imports detectors lazily so a missing optional service doesn't
+    break the caller; each detector is wrapped in a try/except so one
+    bad detector doesn't kill the rest.
+    """
+    if not fen_before or not best_move_san:
+        return []
+
+    synthetic_facts: Dict = {}
+
+    # missed_tactic: mate / piece_capture
+    try:
+        from services.best_move_tactic_detector import detect_missed_tactic
+        tactic = detect_missed_tactic(
+            fen_before=fen_before,
+            best_move_san=best_move_san,
+            pv_after_best=pv_after_best or [],
+            user_color=user_color or "white",
+            eval_before_cp=eval_before_cp,
+        )
+        if tactic:
+            synthetic_facts["missed_tactic_kind"] = tactic.get("kind")
+    except Exception:
+        pass
+
+    # clearance_for_attack
+    try:
+        from services.shape_detectors import simulate_clearance_for_attack
+        evs = simulate_clearance_for_attack(fen_before, best_move_san)
+        if evs:
+            targets = evs[0].get("targets") or []
+            if targets:
+                synthetic_facts["missed_clearance_attack_square"] = targets[0]
+    except Exception:
+        pass
+
+    # clearance_then_check
+    try:
+        from services.shape_detectors import simulate_clearance_then_check
+        evs = simulate_clearance_then_check(fen_before, best_move_san)
+        if evs and evs[0].get("follow_up_san"):
+            synthetic_facts["missed_clearance_then_check_follow_up_san"] = evs[0].get("follow_up_san")
+    except Exception:
+        pass
+
+    # attack_with_tempo
+    try:
+        from services.shape_detectors import simulate_attack_with_tempo
+        evs = simulate_attack_with_tempo(fen_before, best_move_san, pv_after_best or [])
+        if evs and evs[0].get("attacked_piece_type"):
+            synthetic_facts["attack_with_tempo_piece"] = evs[0].get("attacked_piece_type")
+    except Exception:
+        pass
+
+    # queen_fork_with_check
+    try:
+        from services.shape_detectors import simulate_queen_fork_with_check
+        evs = simulate_queen_fork_with_check(fen_before, best_move_san)
+        if evs and evs[0].get("sub_kind"):
+            synthetic_facts["queen_fork_sub_kind"] = evs[0].get("sub_kind")
+    except Exception:
+        pass
+
+    # endgame_loose_pawn_grab
+    try:
+        from services.shape_detectors import simulate_endgame_loose_pawn_grab
+        evs = simulate_endgame_loose_pawn_grab(fen_before, best_move_san)
+        if evs and evs[0].get("sub_kind"):
+            synthetic_facts["endgame_loose_pawn_sub_kind"] = evs[0].get("sub_kind")
+    except Exception:
+        pass
+
+    # knight_outpost
+    try:
+        from services.shape_detectors import simulate_knight_outpost
+        evs = simulate_knight_outpost(fen_before, best_move_san)
+        if evs and evs[0].get("knight_destination"):
+            synthetic_facts["knight_outpost_destination"] = evs[0].get("knight_destination")
+    except Exception:
+        pass
+
+    # active_defense
+    try:
+        from services.shape_detectors import simulate_active_defense
+        evs = simulate_active_defense(fen_before, best_move_san)
+        if evs and evs[0].get("defended_square"):
+            synthetic_facts["active_defense_defended_square"] = evs[0].get("defended_square")
+    except Exception:
+        pass
+
+    # discovered_attack_vacating_check
+    try:
+        from services.shape_detectors import simulate_discovered_attack_vacating_check
+        evs = simulate_discovered_attack_vacating_check(fen_before, best_move_san)
+        if evs and evs[0].get("exposed_square"):
+            synthetic_facts["discovered_vac_exposed_square"] = evs[0].get("exposed_square")
+    except Exception:
+        pass
+
+    # pawn_kicks_piece
+    try:
+        from services.shape_detectors import simulate_pawn_kicks_piece
+        evs = simulate_pawn_kicks_piece(fen_before, best_move_san)
+        if evs and evs[0].get("kicked_square"):
+            synthetic_facts["pawn_kicks_piece_square"] = evs[0].get("kicked_square")
+    except Exception:
+        pass
+
+    # Shape patterns + trap_context: caller passes these in (they're
+    # computed elsewhere in V5 generation, no point re-running here).
+    if shape_pattern_id:
+        synthetic_facts["shape_pattern_id"] = shape_pattern_id
+    if trap_context_name:
+        synthetic_facts["trap_context_name"] = trap_context_name
+
+    return [p for p in resolve_pattern_ids(synthetic_facts) if is_hit_eligible(p)]

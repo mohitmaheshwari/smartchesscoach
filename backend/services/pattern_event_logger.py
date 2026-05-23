@@ -80,7 +80,7 @@ async def _ensure_indexes(db) -> None:
         logger.warning(f"[pattern_events] index ensure failed: {e}")
 
 
-def build_miss_event(
+def build_event(
     *,
     user_id: str,
     game_id: str,
@@ -88,12 +88,17 @@ def build_miss_event(
     move_san: str,
     best_move_san: str,
     pattern_id: str,
+    outcome: str,
     cp_loss: int,
     fen_before: str,
     detector_versions: Optional[Dict] = None,
 ) -> Dict:
     """Pure: build an event doc. No DB writes here so callers can batch
-    cheaply during V5 generation, then flush once at the end."""
+    cheaply during V5 generation, then flush once at the end.
+
+    outcome: "miss" (user diverged from pattern move on a mistake) or
+             "hit"  (user played the pattern move — v73, P2 phase 2).
+    """
     return {
         "user_id": user_id,
         "game_id": game_id,
@@ -101,7 +106,7 @@ def build_miss_event(
         "move_san": move_san,
         "best_move_san": best_move_san,
         "pattern_id": pattern_id,
-        "outcome": "miss",
+        "outcome": outcome,
         "cp_loss": int(cp_loss or 0),
         "fen_before": fen_before,
         "catalog_version": CATALOG_VERSION,
@@ -110,12 +115,21 @@ def build_miss_event(
     }
 
 
+# Backwards-compat shim — keeps the existing miss-only callsite working
+# without a rename pass. New callers use build_event() directly.
+def build_miss_event(**kwargs) -> Dict:
+    return build_event(outcome="miss", **kwargs)
+
+
 async def replace_events_for_game(
     db,
     user_id: str,
     game_id: str,
     events: List[Dict],
 ) -> int:
+    # v73 (2026-05-23): events list now contains both miss and hit
+    # outcomes; the delete-then-insert pattern stays correct because
+    # we wipe ALL events for (user, game) before re-inserting.
     """Idempotent write: delete existing events for this (user, game),
     then bulk-insert the new ones. Returns the number of events
     inserted. Safe to call with an empty list (deletes only).
