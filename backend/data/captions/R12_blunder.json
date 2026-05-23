@@ -228,11 +228,11 @@
 
     "bs_isolated_attacker": "Your {bs_piece} on {bs_square} is alone in opponent territory with no defender.",
     "bs_worst_placed_piece": "Your {bs_piece} on {bs_square} has only {bs_legal_count} legal {bs_legal_word}.",
-    "bs_development_gap": "Opponent has developed {bs_opp_developed} pieces; you've developed {bs_user_developed}.",
+    "bs_development_gap": "Opponent has developed {bs_opp_developed} pieces; you've developed {bs_user_developed} {bs_user_developed_word}.",
     "bs_pieces_on_back_rank": "You still have {bs_back_rank_count} minor pieces on the back rank.",
     "bs_king_shield_broken": "Your king on {bs_king_square} has lost {bs_missing_shield} of its pawn shelter.",
     "bs_king_attackers": "{bs_attacker_count} opponent pieces are aimed at your king on {bs_king_square}.",
-    "bs_central_control_gap": "Opponent attacks the center {bs_opp_central} times; you attack it {bs_user_central}.",
+    "bs_central_control_gap": "Opponent attacks the center {bs_opp_central} {bs_opp_central_word}; you attack it {bs_user_central} {bs_user_central_word}.",
     "bs_open_file_owned_by_opp": "The {bs_file_letter}-file is open and opponent's {bs_opp_major_piece} controls it.",
     "bs_queen_alone_active": "Your queen on {bs_queen_square} is the only piece doing anything.",
     "bs_connected_rooks_only_opp": "Opponent's rooks are connected; yours aren't yet.",

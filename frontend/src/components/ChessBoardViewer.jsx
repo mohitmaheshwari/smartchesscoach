@@ -55,6 +55,18 @@ const ChessBoardViewer = forwardRef(({
   const [lastMoveSquares, setLastMoveSquares] = useState({});
   const [allFens, setAllFens] = useState([START_FEN]);
 
+  // v70 (2026-05-23): track in-flight "Play this line" timeouts so
+  // navigation (Next/Prev/click on move list) can cancel them. Without
+  // this, a 2s setTimeout chain keeps firing after the user moves on,
+  // which fights with their navigation.
+  const variationTimerRef = useRef(null);
+  const cancelVariationPlayback = useCallback(() => {
+    if (variationTimerRef.current) {
+      clearTimeout(variationTimerRef.current);
+      variationTimerRef.current = null;
+    }
+  }, []);
+
   // Parse PGN and pre-calculate all positions
   useEffect(() => {
     if (!pgn) {
@@ -116,6 +128,11 @@ const ChessBoardViewer = forwardRef(({
 
   // Navigate to move
   const goToMove = useCallback((targetIndex) => {
+    // v70 (2026-05-23): if a "Play this line" variation is mid-flight,
+    // cancel its pending step before snapping back to the real game
+    // position. Per Mohit 2026-05-23: pressing Next after playback
+    // should reset to the actual game state, not keep animating.
+    cancelVariationPlayback();
     const clampedIndex = Math.max(-1, Math.min(targetIndex, moves.length - 1));
     const posIndex = clampedIndex + 1;
     const fen = allFens[posIndex] || START_FEN;
@@ -176,15 +193,22 @@ const ChessBoardViewer = forwardRef(({
       return allFens[currentMoveIndex] || START_FEN;
     },
     // Play a variation from a specific FEN position
-    playVariation: (fen, movesArray, color = 'white') => {
+    // v70 (2026-05-23): step delay bumped 800ms → 2000ms per Mohit
+    // ("2-second delay"). Optional onStep callback fires per ply so
+    // the caller can highlight the current step in a side panel (e.g.
+    // the trap_line explanation list). All timers go through
+    // variationTimerRef so navigation can cancel mid-playback.
+    playVariation: (fen, movesArray, color = 'white', options = {}) => {
       if (!fen || !movesArray || movesArray.length === 0) return;
-      
-      // Create a temporary game from the FEN
+      const { onStep, stepDelayMs = 2000 } = options;
+
+      cancelVariationPlayback();
+
       try {
         const tempChess = new Chess(fen);
         const positions = [fenToPositionObject(fen)];
         const variationMoves = [];
-        
+
         for (const moveStr of movesArray) {
           const move = tempChess.move(moveStr);
           if (move) {
@@ -192,31 +216,34 @@ const ChessBoardViewer = forwardRef(({
             variationMoves.push({ from: move.from, to: move.to, san: move.san });
           }
         }
-        
-        // Animate through the variation
+
         setPositionObject(positions[0]);
         setLastMoveSquares({});
         setBoardOrientation(color);
-        
+        if (typeof onStep === "function") onStep(-1, null);
+
         let idx = 0;
         const playNext = () => {
+          variationTimerRef.current = null;
           if (idx >= variationMoves.length) return;
           setPositionObject(positions[idx + 1]);
           setLastMoveSquares({
             [variationMoves[idx].from]: { backgroundColor: "rgba(255, 200, 100, 0.5)" },
             [variationMoves[idx].to]: { backgroundColor: "rgba(255, 200, 100, 0.7)" }
           });
+          if (typeof onStep === "function") onStep(idx, variationMoves[idx]);
           idx++;
           if (idx < variationMoves.length) {
-            setTimeout(playNext, 800);
+            variationTimerRef.current = setTimeout(playNext, stepDelayMs);
           }
         };
-        
-        setTimeout(playNext, 300);
+
+        variationTimerRef.current = setTimeout(playNext, 400);
       } catch (e) {
         console.error("Failed to play variation:", e);
       }
     },
+    cancelVariation: cancelVariationPlayback,
     // Set board to a specific FEN
     setPosition: (fen) => {
       if (fen) {
@@ -224,7 +251,7 @@ const ChessBoardViewer = forwardRef(({
         setLastMoveSquares({});
       }
     }
-  }), [goToMove, goToMoveNumber, moves.length, currentMoveIndex, allFens]);
+  }), [goToMove, goToMoveNumber, moves.length, currentMoveIndex, allFens, cancelVariationPlayback]);
 
   // Auto-play
   useEffect(() => {

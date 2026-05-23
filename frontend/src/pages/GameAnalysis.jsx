@@ -20,9 +20,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import Layout from "@/components/Layout";
 import ChessBoardViewer from "@/components/ChessBoardViewer";
 import { toast } from "sonner";
-import { 
-  ArrowLeft, 
-  Loader2, 
+import {
+  ArrowLeft,
+  Loader2,
   Brain,
   AlertTriangle,
   AlertCircle,
@@ -33,7 +33,8 @@ import {
   X,
   Zap,
   Target,
-  Lightbulb
+  Lightbulb,
+  PlayCircle
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -220,7 +221,14 @@ const GameAnalysis = ({ user }) => {
   const [askLoading, setAskLoading] = useState(false);
   const [showAsk, setShowAsk] = useState(false);
   const [conversationHistory, setConversationHistory] = useState([]);
-  
+
+  // v70 (2026-05-23) — "Play this line" state. coachLineActive marks
+  // that we're showing a variation (the side panel renders); the step
+  // index drives which step's explanation is highlighted as the board
+  // animates. Resets to inactive when user changes move via navigation.
+  const [coachLineActive, setCoachLineActive] = useState(false);
+  const [coachLineStepIndex, setCoachLineStepIndex] = useState(-1);
+
   const boardRef = useRef(null);
 
   // Fetch game and analysis
@@ -310,6 +318,12 @@ const GameAnalysis = ({ user }) => {
   useEffect(() => {
     setConversationHistory([]);
     setShowAsk(false);
+    // v70: any in-flight "Play this line" playback is cancelled by
+    // the board itself on goToMove; we also reset our side-panel
+    // state so the explanations don't keep showing for the prior
+    // move's variation.
+    setCoachLineActive(false);
+    setCoachLineStepIndex(-1);
   }, [currentMoveIndex]);
 
   // Derived data
@@ -328,6 +342,49 @@ const GameAnalysis = ({ user }) => {
 
   // Get all moves for the move list
   const moves = decryptionData || [];
+
+  // v70 (2026-05-23) — derived "Play this line" payload for the
+  // current move. Trap-line takes precedence (richer per-step
+  // explanations from data/traps.json); otherwise we slice pv_after_best
+  // to the backend's coach_line_length_hint (defaults to 3 plies for
+  // user mistakes). Returns null when there's nothing meaningful to
+  // play, so the button is conditionally rendered.
+  const coachLine = (() => {
+    if (!currentMoveData || !currentMoveData.is_user_move) return null;
+    const trap = currentMoveData.trap_line_full;
+    if (Array.isArray(trap) && trap.length > 0) {
+      return {
+        kind: "trap",
+        moves: trap.map((s) => s.move).filter(Boolean),
+        steps: trap,  // [{move, explanation}, ...]
+      };
+    }
+    const pv = currentMoveData.pv_after_best || [];
+    const hint = currentMoveData.coach_line_length_hint;
+    if (!pv.length || !hint || hint < 1) return null;
+    const sliced = pv.slice(0, hint);
+    if (!sliced.length) return null;
+    return {
+      kind: "pv",
+      moves: sliced,
+      steps: sliced.map((m) => ({ move: m, explanation: null })),
+    };
+  })();
+
+  const handlePlayCoachLine = useCallback(() => {
+    if (!coachLine || !currentMoveData?.fen_before || !boardRef.current) return;
+    setCoachLineActive(true);
+    setCoachLineStepIndex(-1);
+    boardRef.current.playVariation(
+      currentMoveData.fen_before,
+      coachLine.moves,
+      userColor,
+      {
+        stepDelayMs: 2000,
+        onStep: (idx) => setCoachLineStepIndex(idx),
+      }
+    );
+  }, [coachLine, currentMoveData, userColor]);
 
   // Handle analyze
   const handleAnalyze = async () => {
@@ -590,13 +647,74 @@ const GameAnalysis = ({ user }) => {
                       )}
 
                       {/* Best Move (if user made a mistake) */}
-                      {currentMoveData.is_user_move && 
-                       currentMoveData.best_move_san && 
-                       currentMoveData.severity !== "good" && 
+                      {currentMoveData.is_user_move &&
+                       currentMoveData.best_move_san &&
+                       currentMoveData.severity !== "good" &&
                        currentMoveData.severity !== "best" && (
-                        <div className="flex items-center gap-2 text-sm">
+                        <div className="flex items-center gap-2 text-sm flex-wrap">
                           <span className="text-zinc-500">Best was:</span>
                           <span className="font-mono text-emerald-400">{currentMoveData.best_move_san}</span>
+                          {coachLine && !coachLineActive && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="ml-1 h-7 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                              onClick={handlePlayCoachLine}
+                              title="Watch this line play out on the board"
+                            >
+                              <PlayCircle className="w-3.5 h-3.5 mr-1" />
+                              Play this line
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* v70 — "Play this line" step list. Renders only
+                          while playback is active OR when there's a
+                          trap line (so the user can scan the curated
+                          per-step text). For PV lines without authored
+                          explanations, only the moves list is shown. */}
+                      {coachLine && coachLineActive && (
+                        <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs uppercase tracking-wide text-amber-400 font-medium">
+                              {coachLine.kind === "trap" ? "Trap line" : "Engine line"}
+                            </span>
+                            <button
+                              onClick={() => {
+                                boardRef.current?.cancelVariation?.();
+                                boardRef.current?.goToMove?.(currentMoveIndex);
+                                setCoachLineActive(false);
+                                setCoachLineStepIndex(-1);
+                              }}
+                              className="text-xs text-zinc-500 hover:text-zinc-300"
+                            >
+                              Back to game
+                            </button>
+                          </div>
+                          <ol className="space-y-1">
+                            {coachLine.steps.map((s, i) => {
+                              const isCurrent = i === coachLineStepIndex;
+                              const isPlayed = i <= coachLineStepIndex;
+                              return (
+                                <li
+                                  key={`${i}-${s.move}`}
+                                  className={`text-xs leading-relaxed ${
+                                    isCurrent
+                                      ? "text-amber-200"
+                                      : isPlayed
+                                      ? "text-zinc-300"
+                                      : "text-zinc-500"
+                                  }`}
+                                >
+                                  <span className="font-mono mr-2">{i + 1}. {s.move}</span>
+                                  {s.explanation && (
+                                    <span>{s.explanation}</span>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ol>
                         </div>
                       )}
 

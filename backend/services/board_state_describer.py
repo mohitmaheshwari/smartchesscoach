@@ -221,6 +221,7 @@ def _metric_development_gap(
         placeholders={
             "bs_user_developed": user_dev,
             "bs_opp_developed": opp_dev,
+            "bs_user_developed_word": "piece" if user_dev == 1 else "pieces",
         },
     )
 
@@ -340,6 +341,8 @@ def _metric_central_control_gap(
         placeholders={
             "bs_user_central": user_attacks,
             "bs_opp_central": opp_attacks,
+            "bs_user_central_word": "time" if user_attacks == 1 else "times",
+            "bs_opp_central_word": "time" if opp_attacks == 1 else "times",
         },
     )
 
