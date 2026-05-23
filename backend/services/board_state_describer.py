@@ -197,6 +197,7 @@ def _metric_worst_placed_piece(
             "bs_piece": _PIECE_NAME[worst_piece],
             "bs_square": chess.square_name(worst_sq),
             "bs_legal_count": worst_count,
+            "bs_legal_word": "move" if worst_count == 1 else "moves",
         },
     )
 

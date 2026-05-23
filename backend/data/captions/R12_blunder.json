@@ -227,7 +227,7 @@
     "why_user_reply": "Opponent's strongest reply: {opp_reply_san}.",
 
     "bs_isolated_attacker": "Your {bs_piece} on {bs_square} is alone in opponent territory with no defender.",
-    "bs_worst_placed_piece": "Your {bs_piece} on {bs_square} has only {bs_legal_count} legal moves.",
+    "bs_worst_placed_piece": "Your {bs_piece} on {bs_square} has only {bs_legal_count} legal {bs_legal_word}.",
     "bs_development_gap": "Opponent has developed {bs_opp_developed} pieces; you've developed {bs_user_developed}.",
     "bs_pieces_on_back_rank": "You still have {bs_back_rank_count} minor pieces on the back rank.",
     "bs_king_shield_broken": "Your king on {bs_king_square} has lost {bs_missing_shield} of its pawn shelter.",
