@@ -586,18 +586,24 @@ def _principle_detail_text(pid: str, evidence: Dict[str, Any]) -> str:
         # Now: name the passer and the engine pick.
         passers = evidence.get("passed_pawn_squares") or []
         best = evidence.get("engine_chose_push") or evidence.get("best_san") or ""
+        # v75.1 (2026-05-23) — Mohit voice review. Old wording assumed
+        # `best` was always a pawn push of the passer; when it wasn't
+        # (a piece move / setup move), "Push it — Nf3 is the strongest
+        # move" contradicted itself. Now we phrase neutrally: name the
+        # passer, name the priority move, drop the literal "Push it"
+        # framing that the move may not honour.
         if passers and best:
             if len(passers) == 1:
                 return (
-                    f"Your pawn on {passers[0]} is passed. Push it — "
-                    f"{best} is the strongest move. Every square forces them to react."
+                    f"Your pawn on {passers[0]} is passed — a long-term winning factor. "
+                    f"{best} is the priority right now."
                 )
             return (
                 f"You have passed pawns on {' and '.join(passers[:2])}. "
-                f"Push — strongest move is {best}."
+                f"{best} is the priority right now."
             )
         if best:
-            return f"Push the passed pawn — {best} is the strongest move."
+            return f"Push the passed pawn — {best} keeps the pressure on."
         return "Passed pawns must be pushed — every square forces opponent to react."
     if pid == "END_KING_ACTIVE":
         # Phase 5 — 2026-05-18. Was falling through to "king is a
