@@ -898,3 +898,40 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
         logger.warning(f"Session data failed: {e}")
 
     return result
+
+
+@router.get("/{game_id}/board-summary")
+async def get_game_board_summary(
+    game_id: str, user: User = Depends(get_current_user)
+):
+    """Game-wide board-state trends for the Review section (P5 — Mohit
+    2026-05-23). Runs the per-move board_state_describer across every
+    user position in decryption_v5_data and surfaces patterns that
+    persisted across multiple moves ("opponent had pieces aimed at
+    your king across 8 moves") — insights the user cannot get from
+    any single-position caption.
+
+    Returns: {user_move_count, trends: [{fact_id, label, ...}]}.
+    """
+    game = await db.games.find_one(
+        {"game_id": game_id, **user_scope_filter(user)}, {"_id": 0, "user_color": 1}
+    )
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id}, {"_id": 0, "decryption_v5_data": 1}
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game not analyzed yet")
+
+    decryption_data = analysis.get("decryption_v5_data") or []
+    if not decryption_data:
+        return {"user_move_count": 0, "trends": []}
+
+    from services.board_state_game_summary import compute_game_summary
+
+    return compute_game_summary(
+        decryption_v5_data=decryption_data,
+        user_color=game.get("user_color") or "white",
+    )

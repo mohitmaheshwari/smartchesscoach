@@ -474,6 +474,21 @@ def _r12_render(f):
         "missed_tactic_target_piece": missed_tactic_target_piece,
         "missed_tactic_target_square": missed_tactic_target_square,
         "missed_tactic_ply": missed_tactic_ply,
+        # v71 (2026-05-23): Mohit caught that the old template
+        # "mate in {missed_tactic_ply} moves." rendered "mate in 3
+        # moves" when chess natural-language said mate-in-2 (3 plies =
+        # white1 + black1 + white2#). Plus grammar: "mate in 1 moves".
+        # Compute moves_to_mate = ceil(ply / 2), pluralize separately.
+        "missed_tactic_moves_to_mate": (
+            (missed_tactic_ply + 1) // 2
+            if isinstance(missed_tactic_ply, int) and missed_tactic_ply > 0
+            else None
+        ),
+        "missed_tactic_mate_word": (
+            "move"
+            if isinstance(missed_tactic_ply, int) and ((missed_tactic_ply + 1) // 2) == 1
+            else "moves"
+        ),
 
         # Shape-pattern from pre-move board (e.g. king_pawn_lifted on f7)
         "shape_pattern_id": f.get("shape_pattern_id"),

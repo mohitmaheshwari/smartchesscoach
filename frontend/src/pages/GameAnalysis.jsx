@@ -267,6 +267,21 @@ const GameAnalysis = ({ user }) => {
     })();
   }, [analysis, gameId]);
 
+  // v71 (2026-05-23) — game-wide board-state trends (P5). Surfaces
+  // patterns that persisted across multiple user moves (e.g. "your
+  // pieces stayed on your side for 12 moves") — insight no
+  // single-position caption can give.
+  const [boardSummary, setBoardSummary] = useState(null);
+  useEffect(() => {
+    if (!analysis) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/games/${gameId}/board-summary`, { credentials: "include" });
+        if (res.ok) setBoardSummary(await res.json());
+      } catch (e) { console.error("Board summary fetch failed:", e); }
+    })();
+  }, [analysis, gameId]);
+
   // Fetch V5 decryption data
   useEffect(() => {
     if (!analysis) return;
@@ -534,6 +549,44 @@ const GameAnalysis = ({ user }) => {
 
         {/* Game Overview — Phase analysis + Opening + Behaviors */}
         {coachReview && <GameOverview review={coachReview} navigate={navigate} />}
+
+        {/* v71 — Board patterns across the game. Surfaces only when at
+            least one trend persisted across ≥3 user moves; otherwise
+            silent. Geometry-level game flow that no per-move caption
+            can show. */}
+        {boardSummary?.trends?.length > 0 && (
+          <Card className="bg-zinc-900/50 border-zinc-800 mb-4">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-sky-400" />
+                <h3 className="text-sm font-semibold text-zinc-200">
+                  Board patterns across the game
+                </h3>
+                <span className="text-xs text-zinc-500">
+                  ({boardSummary.user_move_count} user moves)
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {boardSummary.trends.slice(0, 4).map((t) => (
+                  <li
+                    key={t.fact_id}
+                    className="text-sm text-zinc-300 flex items-start gap-2"
+                  >
+                    <span className="text-sky-400 mt-0.5">•</span>
+                    <div className="flex-1 min-w-0">
+                      <span>{t.label}</span>
+                      {Array.isArray(t.move_numbers) && t.move_numbers.length > 0 && (
+                        <span className="ml-2 text-xs text-zinc-500">
+                          (m{t.move_numbers[0]}{t.move_numbers.length > 1 ? `–m${t.move_numbers[t.move_numbers.length - 1]}` : ''})
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Content - Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

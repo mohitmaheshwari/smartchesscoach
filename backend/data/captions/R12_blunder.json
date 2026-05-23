@@ -190,7 +190,7 @@
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
 
     "why_user_missed_trap_punishment": "it's the textbook refutation in the {trap_context_name}.",
-    "why_user_missed_mate": "it would have led to mate in {missed_tactic_ply} moves.",
+    "why_user_missed_mate": "it would have led to mate in {missed_tactic_moves_to_mate} {missed_tactic_mate_word}.",
     "why_user_missed_piece": "it wins the {missed_tactic_target_piece} on {missed_tactic_target_square}.",
     "why_user_missed_clearance_attack": "it clears the line for your {missed_clearance_attacker_piece} to attack {missed_clearance_attack_square}.",
     "why_user_missed_clearance_then_check": "it opens the line, and your {missed_clearance_then_check_piece} can then play {missed_clearance_then_check_follow_up_san} to chase the king on {missed_clearance_then_check_king_square}.",
