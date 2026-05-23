@@ -239,10 +239,10 @@
     "bs_connected_rooks_only_opp": "Opponent's rooks are connected; yours aren't yet.",
     "bs_passive_pieces_count": "{bs_passive_count} of your pieces are still on your side of the board.",
 
-    "why_opp_punish_capture": "You can play {user_best_reply_san} winning the {captured_piece_type}.",
-    "why_opp_punish_check": "You can play {user_best_reply_san} with a forcing reply.",
-    "why_opp_punish_default": "You can play {user_best_reply_san} to punish it.",
+    "why_opp_punish_capture": "Play {user_best_reply_san} winning the {captured_piece_type}.",
+    "why_opp_punish_check": "Play {user_best_reply_san} — it forces a reply.",
+    "why_opp_punish_default": "Your strongest reply is {user_best_reply_san}.",
     "why_opp_hanging": "Their {piece_type} on {square} is now undefended — take it.",
-    "why_opp_unsafe": "Their {moving_piece_type} on {target_square} has no escape."
+    "why_opp_unsafe": "Their {moving_piece_type} on {target_square} can't be defended."
   }
 }

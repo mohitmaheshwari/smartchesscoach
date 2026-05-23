@@ -3322,19 +3322,37 @@ async def generate_game_decryption_v5(
                             _post_opp_board.push(move)
                             _post_opp_fen_key = " ".join(_post_opp_board.fen().split()[:4])
                             _next_eval = eval_lookup.get(_post_opp_fen_key, {})
-                            # v76.1: Stockfish sometimes leaves pv_after_best
-                            # empty when cp_loss==0 (the played move IS best
-                            # — no alternative PV stored). Fall back to
-                            # pv_after_played[0], which IS user's actual
-                            # next move (which == engine's best in that
-                            # case). Or to best_move if stored.
-                            _next_pv_best = _next_eval.get("pv_after_best") or []
-                            _user_reply = _next_pv_best[0] if _next_pv_best else None
+                            # v76.2 (2026-05-23) — Mohit caught: I had
+                            # the PV convention wrong in v76. pv_after_best
+                            # is the line AFTER engine's best move is
+                            # played — so pv_after_best[0] is OPPONENT's
+                            # reply, NOT engine's best move. The actual
+                            # engine pick is in the `best_move` field.
+                            # This caused us to render illegal moves
+                            # (Bd7/Nd7/Nfxe5 — black moves rendered as
+                            # white "punishment" lines). Fix: read
+                            # best_move FIRST; PV fields are fallbacks
+                            # only if best_move is missing.
+                            _user_reply = _next_eval.get("best_move") or None
+                            if not _user_reply:
+                                _next_pv_best = _next_eval.get("pv_after_best") or []
+                                # NOTE: in this fallback, pv[0] might
+                                # still be opp-reply; but absent best_move
+                                # this is the only thing we have. Validity
+                                # check below catches illegal SAN.
+                                _user_reply = _next_pv_best[0] if _next_pv_best else None
                             if not _user_reply:
                                 _next_pv_played = _next_eval.get("pv_after_played") or []
                                 _user_reply = _next_pv_played[0] if _next_pv_played else None
-                            if not _user_reply:
-                                _user_reply = _next_eval.get("best_move") or None
+                            # v76.2 — validate the SAN is legal in the
+                            # post-opp position before we render it.
+                            # If illegal, drop the reply rather than
+                            # ship a hallucinated "punishment" move.
+                            if _user_reply:
+                                try:
+                                    _post_opp_board.parse_san(_user_reply)
+                                except Exception:
+                                    _user_reply = None
                             if _user_reply:
                                 caption_facts["user_best_reply_san"] = _user_reply
                                 if _user_reply.endswith("+") or _user_reply.endswith("#"):
