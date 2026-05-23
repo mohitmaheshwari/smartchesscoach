@@ -41,7 +41,12 @@ set -euo pipefail
 #
 # Trailing "pawns?" anchors the misframing — we only block when the
 # unit is "pawns" (not "centipawns", which is the honest engine term).
-FORBIDDEN_REGEX='(drops|loses|costs) about ([0-9]+(\.[0-9]+)?|\{[^}]+\}|%[sdif]) (pawn|pawns)\b'
+# v75 (2026-05-23): added "gives up" / "swings by" verbs after Parth
+# review surfaced "Opponent gives up about 9 pawns of advantage." in
+# R01_mate.json that the old regex missed. Also broadened to scan
+# .json caption files (templates), not only .py — the offending
+# phrases now mostly live in data/captions/*.json.
+FORBIDDEN_REGEX='(drops|loses|costs|gives up|swings( the position)? by) about ([0-9]+(\.[0-9]+)?|\{[^}]+\}|%[sdif]) (pawn|pawns)\b'
 
 # Only check staged .py files (the surfaces that compose user-facing
 # captions). Excludes:
@@ -69,10 +74,12 @@ build_exclude() {
 }
 EXCLUDE_PATTERN="$(build_exclude)"
 
-# Collect staged Python files, filtering out the allowlist.
+# Collect staged Python AND JSON-caption files, filtering allowlist.
+# v75 (2026-05-23): added .json scope after the "gives up about N
+# pawns" phrase was found in backend/data/captions/R01_mate.json.
 mapfile -t STAGED < <(
     git diff --cached --name-only --diff-filter=ACMR \
-        | grep -E '\.py$' \
+        | grep -E '(\.py|backend/data/captions/.*\.json)$' \
         | grep -Ev "$EXCLUDE_PATTERN" \
         || true
 )

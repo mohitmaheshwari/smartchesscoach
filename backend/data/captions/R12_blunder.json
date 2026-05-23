@@ -217,7 +217,7 @@
     "why_user_blocks_pawn": "{played_san} blocks your {blocked_pawn_file}-pawn from advancing to {blocked_pawn_square}.",
     "why_user_missed_material": "it wins material in the resulting line.",
 
-    "why_user_attacks_played": "After {opp_reply_san}, your {moving_piece_type} on {target_square} has no safe square.",
+    "why_user_attacks_played": "After {opp_reply_san}, your {moving_piece_type} on {target_square} is under attack.",
     "why_user_exchange_losing_with_reply": "After {opp_reply_san}, your {moving_piece_type} on {target_square} falls.",
     "why_user_exchange_losing_no_reply": "Your {moving_piece_type} on {target_square} can't be defended.",
     "why_user_hanging": "Your {piece_type} on {square} is now undefended.",

@@ -145,9 +145,9 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that does NOT push h-pawn, g-pawn, or f-pawn before castling",
         "gate_policy": "cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Don't push pawns in front of your king before castling. Best move? Develop instead.",
+        "cue_best":   "Pushing pawns near your king before castling opens lines toward it. Develop and castle first.",
         "cue_top_n":  "Pawn moves near your unsafe king create weak squares. Castle first, push later.",
-        "cue_absent": "Pawn moves near the king work sometimes. Usually — secure the king first.",
+        "cue_absent": "Pushing pawns near your king before castling weakens the squares around it. Castle, then think about pawn breaks.",
         "visual_signature": {
             "highlight": ["king_square", "weakened_pawn_square"],
             "arrows": [],
@@ -166,7 +166,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "suppress": "once_per_game",
         "cue_best":   "Develop knights and bishops first. Engine's top choice — your queen will be chased here.",
         "cue_top_n":  "Queens out early get chased. Develop knights and bishops, then castle, then the queen.",
-        "cue_absent": "Queen's fine here. But that's rare — most openings, develop minors first.",
+        "cue_absent": "Bringing the queen out early — engine prefers a minor piece move (knight or bishop) here. Queens often get chased and lose tempo.",
         "visual_signature": {
             "highlight": ["queen_square"],
             "arrows": [],
@@ -363,9 +363,9 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # cue itself can't name the move (no evidence binding at this
         # layer). Rewritten 2026-05-19 to be observational + actionable
         # without overpromising the missing concrete recommendation.
-        "cue_best":   "A piece on the board has no defender. Always count attackers vs defenders before each move.",
-        "cue_top_n":  "Loose piece with no defender — yours or theirs. Scan every move.",
-        "cue_absent": "Scan for pieces with no defender — yours and theirs — before every move.",
+        "cue_best":   "Watch the loose piece — yours or theirs. Count attackers and defenders before deciding.",
+        "cue_top_n":  "Loose piece in the position — confirm it's defended before you commit elsewhere.",
+        "cue_absent": "Loose piece in the position — yours or theirs. Address it before launching plans.",
         "visual_signature": {
             "highlight": ["hanging_piece_square"],
             "arrows": [("attacker_square", "hanging_piece_square", "red")],
@@ -822,9 +822,9 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # State-keyed: re-arms if a DIFFERENT bishop trade doubles a
         # different file (rare — usually once per game per file).
         "suppress": "once_per_state_key",
-        "cue_best":   "Trade bishop for knight — they must recapture with a pawn, doubling their pawns. Engine's top choice.",
-        "cue_top_n":  "Bishop takes their knight — the pawn recapture doubles their pawn file. Long-term target.",
-        "cue_absent": "When BxN forces a pawn recapture that doubles their pawns, you've created a long-term weakness.",
+        "cue_best":   "Trade bishop for knight — they recapture with a pawn, doubling that file. Engine likes it here.",
+        "cue_top_n":  "Bishop takes their knight — they recapture with a pawn, doubling that file. A factor in your favour, not always decisive.",
+        "cue_absent": "BxN forced a pawn recapture that doubled their pawns — depending on the position, that's a small structural concession.",
         "visual_signature": {
             "highlight": ["capture_square", "doubled_pawn_file_squares"],
             "arrows": [("bishop_from_square", "capture_square", "green")],

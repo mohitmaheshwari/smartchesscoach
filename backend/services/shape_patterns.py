@@ -134,8 +134,8 @@ SHAPE_PATTERNS = [
     },
     {
         "id": "double_attack_line",
-        "name": "Double Attack Line",
-        "description": "Two of your pieces on the same line, one behind the other. Double power.",
+        "name": "Aligned Pieces",
+        "description": "Two of your pieces on the same line — coordinate them for shared pressure on an open file or diagonal.",
         "phase_in_scope": "middlegame",
         "priority": 70,
         "geometry_hint": "two own sliders of compatible movement (R+R, R+Q, B+B, B+Q) stacked on same file/rank/diagonal aimed at enemy territory",
@@ -181,7 +181,7 @@ SHAPE_PATTERNS = [
     {
         "id": "weak_squares",
         "name": "Weak Squares",
-        "description": "Their bishop is the wrong colour to defend the squares around their king.",
+        "description": "Squares near their king that no enemy pawn can defend — your pieces can land there safely.",
         "phase_in_scope": "middlegame",
         "priority": 55,
         "geometry_hint": "enemy king zone (3x3 around king) — >=3 squares are one colour and enemy has no bishop of that colour; own pieces can access those squares",
@@ -189,8 +189,8 @@ SHAPE_PATTERNS = [
     },
     {
         "id": "free_pawn",
-        "name": "Free Pawn",
-        "description": "A pawn with no enemy pawn in front or on the side. Push it to promote.",
+        "name": "Passed Pawn",
+        "description": "A pawn with no enemy pawn in front or on adjacent files. Push it toward promotion.",
         "phase_in_scope": "endgame",
         "priority": 80,
         "geometry_hint": "own pawn; no enemy pawn on same file or adjacent files between this pawn and promotion rank",
