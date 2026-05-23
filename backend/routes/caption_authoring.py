@@ -72,6 +72,7 @@ async def audit_endpoint(
     sample_tiers: str = "LOW,NONE",
     samples_per_variant: int = 50,
     force_regen: bool = False,
+    game_ids: str = "",
     user: User = Depends(require_admin),
 ):
     """Audit a sample of analyzed games.
@@ -102,12 +103,28 @@ async def audit_endpoint(
     from datetime import datetime, timezone
     from collections import Counter
 
-    cursor = db.game_analyses.find(
-        {"decryption_v5_data": {"$exists": True, "$ne": None}},
-        {"_id": 0, "game_id": 1, "user_id": 1, "decryption_v5_data": 1,
-         "decryption_v5_version": 1},
-    ).sort("created_at", -1).limit(sample)
-    games = await cursor.to_list(length=sample)
+    # v78.1 (2026-05-23) — Mohit: "can you add those 10 games in
+    # authoring UI?" When game_ids is set, filter to exactly those
+    # games (skip the default recent-N sample). Use case: pin a
+    # specific set of games for review across sessions.
+    pinned_ids = [g.strip() for g in (game_ids or "").split(",") if g.strip()]
+    if pinned_ids:
+        cursor = db.game_analyses.find(
+            {
+                "decryption_v5_data": {"$exists": True, "$ne": None},
+                "game_id": {"$in": pinned_ids},
+            },
+            {"_id": 0, "game_id": 1, "user_id": 1, "decryption_v5_data": 1,
+             "decryption_v5_version": 1},
+        )
+        games = await cursor.to_list(length=len(pinned_ids))
+    else:
+        cursor = db.game_analyses.find(
+            {"decryption_v5_data": {"$exists": True, "$ne": None}},
+            {"_id": 0, "game_id": 1, "user_id": 1, "decryption_v5_data": 1,
+             "decryption_v5_version": 1},
+        ).sort("created_at", -1).limit(sample)
+        games = await cursor.to_list(length=sample)
 
     # Force-regen stale games (opt-in via ?force_regen=true). Skipped by
     # default — after a V5_COACHING_VERSION bump, regenerating 50+ games

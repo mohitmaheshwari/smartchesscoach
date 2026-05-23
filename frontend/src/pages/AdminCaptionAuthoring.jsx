@@ -87,7 +87,19 @@ const AdminCaptionAuthoring = ({ user }) => {
   // editingTarget = { position, template (the current variant string),
   //                   file, variant_key }
 
-  const fetchAudit = async (sampleSize = 50, tiers = sampleTiers, regen = forceRegen) => {
+  // v78.1 (2026-05-23) — Mohit: pin specific game_ids for review.
+  // When set, audit narrows to ONLY these games (skips the default
+  // recent-N sampling). Persisted in localStorage so refresh keeps
+  // the pinned set across sessions.
+  const [pinnedGameIds, setPinnedGameIds] = useState(() => {
+    try { return localStorage.getItem("auditPinnedGameIds") || ""; }
+    catch (e) { return ""; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("auditPinnedGameIds", pinnedGameIds); } catch (e) {}
+  }, [pinnedGameIds]);
+
+  const fetchAudit = async (sampleSize = 50, tiers = sampleTiers, regen = forceRegen, pinned = pinnedGameIds) => {
     setLoading(true);
     setError(null);
     try {
@@ -98,6 +110,13 @@ const AdminCaptionAuthoring = ({ user }) => {
       const params = new URLSearchParams({ sample: String(sampleSize) });
       if (tierList) params.set("sample_tiers", tierList);
       if (regen) params.set("force_regen", "true");
+      // v78.1 — pinned game IDs override the default recent-N sample
+      const pinnedClean = (pinned || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(",");
+      if (pinnedClean) params.set("game_ids", pinnedClean);
       const res = await fetch(
         `${API}/admin/captions/audit?${params.toString()}`,
         { credentials: "include" },
@@ -225,11 +244,35 @@ const AdminCaptionAuthoring = ({ user }) => {
               />
               Use LLM
             </label>
-            <Button onClick={() => fetchAudit(sample, sampleTiers, forceRegen)} variant="outline" size="sm">
+            <Button onClick={() => fetchAudit(sample, sampleTiers, forceRegen, pinnedGameIds)} variant="outline" size="sm">
               <RefreshCw className="w-4 h-4 mr-1" />
               Re-audit
             </Button>
           </div>
+        </div>
+
+        {/* v78.1 — Pinned game IDs filter. When set, audit narrows to
+            only these games (overrides the default recent-N sample).
+            Persisted in localStorage. */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-zinc-500 whitespace-nowrap">Pinned games:</span>
+          <input
+            type="text"
+            placeholder="Optional — comma-separated game_ids to pin (overrides sample size). e.g. game_85bd0169aa4f,game_b5d23694a803"
+            value={pinnedGameIds}
+            onChange={(e) => setPinnedGameIds(e.target.value)}
+            className="flex-1 px-3 py-2 rounded bg-zinc-800 text-zinc-100 border border-zinc-700 text-xs font-mono placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+          />
+          {pinnedGameIds && (
+            <Button onClick={() => setPinnedGameIds("")} variant="ghost" size="sm" title="Clear pinned games">
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+          {pinnedGameIds && (
+            <span className="text-xs text-amber-400 whitespace-nowrap">
+              {pinnedGameIds.split(",").filter((s) => s.trim()).length} pinned
+            </span>
+          )}
         </div>
 
         {/* Tier bars */}
