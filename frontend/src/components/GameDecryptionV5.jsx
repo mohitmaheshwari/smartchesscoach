@@ -1369,8 +1369,11 @@ const MoveCoachingCardV5 = ({
             board with 2-second pacing. Mirrors the GameAnalysis-side
             implementation but uses LichessBoard's new playVariation. */}
         {(() => {
-          // Build coachLine in-line so we don't pollute the outer scope
-          if (!isUser) return null;
+          // Build coachLine in-line so we don't pollute the outer scope.
+          // v78.4 — fires on both user mistakes AND opp mistakes. For
+          // opp moves the backend ships an explicit coach_line_moves
+          // list ([opp_played, user_reply, opp_followup, user_cont]).
+          // For user moves, falls back to pv_after_best sliced by hint.
           const trap = move.trap_line_full;
           let lineMoves = null;
           let lineSteps = null;
@@ -1379,6 +1382,11 @@ const MoveCoachingCardV5 = ({
             lineMoves = trap.map((s) => s.move).filter(Boolean);
             lineSteps = trap;
             lineKind = "trap";
+          } else if (Array.isArray(move.coach_line_moves) && move.coach_line_moves.length > 0) {
+            // v78.4: explicit coach line (used by opp mistakes)
+            lineMoves = move.coach_line_moves;
+            lineSteps = lineMoves.map((m) => ({ move: m, explanation: null }));
+            lineKind = isUser ? "pv" : "punishment";
           } else if ((move.pv_after_best || []).length > 0 && (move.coach_line_length_hint || 0) >= 1) {
             const sliced = (move.pv_after_best || []).slice(0, move.coach_line_length_hint);
             lineMoves = sliced;
@@ -1411,7 +1419,9 @@ const MoveCoachingCardV5 = ({
                 <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wide text-amber-500 font-medium">
-                      {lineKind === "trap" ? "Trap line" : "Engine line"}
+                      {lineKind === "trap" ? "Trap line"
+                        : lineKind === "punishment" ? "Punishment line"
+                        : "Engine line"}
                     </span>
                     <button
                       onClick={() => {
