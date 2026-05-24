@@ -380,15 +380,29 @@ const GameAnalysis = ({ user }) => {
   // user mistakes). Returns null when there's nothing meaningful to
   // play, so the button is conditionally rendered.
   const coachLine = (() => {
-    if (!currentMoveData || !currentMoveData.is_user_move) return null;
+    // v79.1 (2026-05-24) — Mohit: button should fire on BOTH user AND
+    // opp mistakes. For opp moves the backend ships an explicit
+    // coach_line_moves list ([opp_played, user_reply, opp_followup,
+    // user_continuation]). For user moves we keep falling back to
+    // pv_after_best sliced by hint.
+    if (!currentMoveData) return null;
     const trap = currentMoveData.trap_line_full;
     if (Array.isArray(trap) && trap.length > 0) {
       return {
         kind: "trap",
         moves: trap.map((s) => s.move).filter(Boolean),
-        steps: trap,  // [{move, explanation}, ...]
+        steps: trap,
       };
     }
+    if (Array.isArray(currentMoveData.coach_line_moves) && currentMoveData.coach_line_moves.length > 0) {
+      const moves = currentMoveData.coach_line_moves;
+      return {
+        kind: currentMoveData.is_user_move ? "pv" : "punishment",
+        moves,
+        steps: moves.map((m) => ({ move: m, explanation: null })),
+      };
+    }
+    if (!currentMoveData.is_user_move) return null;
     const pv = currentMoveData.pv_after_best || [];
     const hint = currentMoveData.coach_line_length_hint;
     if (!pv.length || !hint || hint < 1) return null;
@@ -794,18 +808,25 @@ const GameAnalysis = ({ user }) => {
                         <div className="flex items-center gap-2 text-sm flex-wrap">
                           <span className="text-zinc-500">Best was:</span>
                           <span className="font-mono text-emerald-400">{currentMoveData.best_move_san}</span>
-                          {coachLine && !coachLineActive && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="ml-1 h-7 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                              onClick={handlePlayCoachLine}
-                              title="Watch this line play out on the board"
-                            >
-                              <PlayCircle className="w-3.5 h-3.5 mr-1" />
-                              Play this line
-                            </Button>
-                          )}
+                        </div>
+                      )}
+
+                      {/* v79.1 — Play this line button. Renders for
+                          ANY move with a coach line available (user
+                          mistake OR opp mistake). Separate from the
+                          "Best was:" block so opp moves get it too. */}
+                      {coachLine && !coachLineActive && (
+                        <div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                            onClick={handlePlayCoachLine}
+                            title="Watch this line play out on the board"
+                          >
+                            <PlayCircle className="w-3.5 h-3.5 mr-1" />
+                            Play this line
+                          </Button>
                         </div>
                       )}
 
@@ -818,7 +839,9 @@ const GameAnalysis = ({ user }) => {
                         <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs uppercase tracking-wide text-amber-400 font-medium">
-                              {coachLine.kind === "trap" ? "Trap line" : "Engine line"}
+                              {coachLine.kind === "trap" ? "Trap line"
+                                : coachLine.kind === "punishment" ? "Punishment line"
+                                : "Engine line"}
                             </span>
                             <button
                               onClick={() => {

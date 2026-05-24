@@ -3379,10 +3379,17 @@ async def generate_game_decryption_v5(
                             # same playVariation animation as user
                             # moves; the difference is just the starting
                             # position + which side moves first.
-                            # Gate threshold tracks R12's gate (>=100
-                            # for blunders/mistakes; lower thresholds
-                            # produce noisy lines for inaccuracies).
-                            if _user_reply and (opp_cp_loss or 0) >= 100:
+                            # v79.1 (2026-05-24) — Mohit: button missing
+                            # on cp_loss=32 opp move that captions as
+                            # "is a mistake." Gate was at >=100 (blunder
+                            # tier) but R12 trigger is >=30. Unified at
+                            # >=30 so every captioned opp mistake also
+                            # gets a playable line. Net: small-cp opp
+                            # moves get a 2-move animation (opp_played
+                            # → user_quiet_reply) — short but honest;
+                            # user can see "they played X, I should
+                            # have played Y."
+                            if _user_reply and (opp_cp_loss or 0) >= 30:
                                 _next_pv_for_line = _next_eval.get("pv_after_best") or []
                                 # pv_after_best from the post-opp eval
                                 # is [opp_followup, user_continuation,
