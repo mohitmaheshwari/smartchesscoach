@@ -993,6 +993,31 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               setFeedbackRuleName(ruleName || null);
               setFeedbackOpen(true);
             }}
+            // v78.3 / v79.1 — "Play this line" wiring. Sub-component
+            // is a separate functional component so it can't read the
+            // parent's state directly. Pass: a boolean for whether
+            // THIS move's playback is active + the current step + a
+            // function to start playback + a function to cancel.
+            isCoachLinePlaying={coachLinePlaybackIdx === currentMoveIndex}
+            coachLineStepIndex={coachLineStepIndex}
+            onPlayCoachLine={(lineMoves, startFen) => {
+              if (!boardRef.current?.playVariation) return;
+              setCoachLinePlaybackIdx(currentMoveIndex);
+              setCoachLineStepIndex(-1);
+              boardRef.current.playVariation(
+                startFen,
+                lineMoves,
+                { stepDelayMs: 2000, onStep: (idx) => setCoachLineStepIndex(idx) },
+              );
+            }}
+            onCancelCoachLine={(restoreFen) => {
+              boardRef.current?.cancelVariation?.();
+              if (restoreFen && boardRef.current?.setPosition) {
+                boardRef.current.setPosition(restoreFen);
+              }
+              setCoachLinePlaybackIdx(-1);
+              setCoachLineStepIndex(-1);
+            }}
             // Caption move click: draw arrow on the main board for any
             // SAN clicked in the narrative or principle_cue. Arrow
             // colour amber so it visually differs from green (last move).
@@ -1264,6 +1289,12 @@ const MoveCoachingCardV5 = ({
   // Caption move-click: parent draws an arrow on the main board when
   // any chess move SAN in narrative or principle_cue is clicked.
   onCaptionMoveClick,
+  // v78.3 / v79.1 — "Play this line" props (parent owns the state +
+  // board ref).
+  isCoachLinePlaying,
+  coachLineStepIndex,
+  onPlayCoachLine,
+  onCancelCoachLine,
 }) => {
   const [expanded, setExpanded] = useState(false);
   if (!move) return null;
@@ -1394,28 +1425,18 @@ const MoveCoachingCardV5 = ({
             lineKind = "pv";
           }
           if (!lineMoves || !lineMoves.length) return null;
-          const isPlaying = coachLinePlaybackIdx === currentMoveIndex;
           return (
             <div className="mt-2">
-              {!isPlaying && (
+              {!isCoachLinePlaying && (
                 <button
-                  onClick={() => {
-                    if (!boardRef.current?.playVariation) return;
-                    setCoachLinePlaybackIdx(currentMoveIndex);
-                    setCoachLineStepIndex(-1);
-                    boardRef.current.playVariation(
-                      move.fen_before,
-                      lineMoves,
-                      { stepDelayMs: 2000, onStep: (idx) => setCoachLineStepIndex(idx) },
-                    );
-                  }}
+                  onClick={() => onPlayCoachLine && onPlayCoachLine(lineMoves, move.fen_before)}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/30"
                   data-testid="play-this-line-btn"
                 >
                   ▶ Play this line
                 </button>
               )}
-              {isPlaying && (
+              {isCoachLinePlaying && (
                 <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wide text-amber-500 font-medium">
@@ -1424,15 +1445,7 @@ const MoveCoachingCardV5 = ({
                         : "Engine line"}
                     </span>
                     <button
-                      onClick={() => {
-                        boardRef.current?.cancelVariation?.();
-                        // Snap board back to current move's post-position
-                        if (move.fen_after && boardRef.current?.setPosition) {
-                          boardRef.current.setPosition(move.fen_after);
-                        }
-                        setCoachLinePlaybackIdx(-1);
-                        setCoachLineStepIndex(-1);
-                      }}
+                      onClick={() => onCancelCoachLine && onCancelCoachLine(move.fen_after)}
                       className="text-[10px] text-gray-500 hover:text-gray-300"
                     >
                       Back to game
@@ -1440,8 +1453,8 @@ const MoveCoachingCardV5 = ({
                   </div>
                   <ol className="space-y-0.5">
                     {lineSteps.map((s, i) => {
-                      const isCurrent = i === coachLineStepIndex;
-                      const isPlayed = i <= coachLineStepIndex;
+                      const isCurrent = i === (coachLineStepIndex ?? -1);
+                      const isPlayed = i <= (coachLineStepIndex ?? -1);
                       return (
                         <li
                           key={`${i}-${s.move}`}
