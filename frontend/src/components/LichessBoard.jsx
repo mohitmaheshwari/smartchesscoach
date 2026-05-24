@@ -48,6 +48,9 @@ const LichessBoard = forwardRef(({
   const boardRef = useRef(null);
   const groundRef = useRef(null);
   const chessRef = useRef(new Chess(fen));
+  // v78.3 — in-flight variation playback timer ref. Used by
+  // playVariation/cancelVariation in the imperative handle below.
+  const variationTimerRef = useRef(null);
 
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
@@ -89,7 +92,68 @@ const LichessBoard = forwardRef(({
       }
     },
     getGround: () => groundRef.current,
+    // v78.3 (2026-05-24) — Mohit: "Play this line" button missing on
+    // /lab page (which uses LichessBoard via GameDecryptionV5). Port
+    // the playVariation imperative method from ChessBoardViewer so
+    // GameDecryptionV5 can drive board animation through engine PV
+    // or trap_line. 2-second step delay, cancel-on-next-setPosition.
+    playVariation: (startFen, movesArray, options = {}) => {
+      if (!startFen || !movesArray || movesArray.length === 0) return;
+      const { onStep, stepDelayMs = 2000 } = options;
+      // Cancel any in-flight playback
+      if (variationTimerRef.current) {
+        clearTimeout(variationTimerRef.current);
+        variationTimerRef.current = null;
+      }
+      try {
+        const tempChess = new Chess(startFen);
+        const fens = [startFen];
+        const moves = [];
+        for (const moveStr of movesArray) {
+          const mv = tempChess.move(moveStr);
+          if (mv) {
+            fens.push(tempChess.fen());
+            moves.push({ from: mv.from, to: mv.to, san: mv.san });
+          }
+        }
+        if (!moves.length || !groundRef.current) return;
+        // Snap to the start position
+        chessRef.current = new Chess(fens[0]);
+        groundRef.current.set({
+          fen: fens[0],
+          turnColor: getTurnColor(fens[0]),
+          lastMove: undefined,
+        });
+        if (typeof onStep === "function") onStep(-1, null);
+        let idx = 0;
+        const playNext = () => {
+          variationTimerRef.current = null;
+          if (idx >= moves.length || !groundRef.current) return;
+          chessRef.current = new Chess(fens[idx + 1]);
+          groundRef.current.set({
+            fen: fens[idx + 1],
+            turnColor: getTurnColor(fens[idx + 1]),
+            lastMove: [moves[idx].from, moves[idx].to],
+          });
+          if (typeof onStep === "function") onStep(idx, moves[idx]);
+          idx++;
+          if (idx < moves.length) {
+            variationTimerRef.current = setTimeout(playNext, stepDelayMs);
+          }
+        };
+        variationTimerRef.current = setTimeout(playNext, 400);
+      } catch (e) {
+        console.error("LichessBoard.playVariation failed:", e);
+      }
+    },
+    cancelVariation: () => {
+      if (variationTimerRef.current) {
+        clearTimeout(variationTimerRef.current);
+        variationTimerRef.current = null;
+      }
+    },
   }));
+
 
   // Get turn color from FEN
   const getTurnColor = (fenStr) => {

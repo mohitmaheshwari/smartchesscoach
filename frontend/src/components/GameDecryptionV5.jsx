@@ -174,7 +174,26 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const boardRef = useRef(null);
   const containerRef = useRef(null);
 
+  // v78.3 (2026-05-24) — "Play this line" state. Mohit caught the
+  // button was missing on the Lab page. Track which move's playback
+  // is active + the current step so the step panel highlights the
+  // correct cell.
+  const [coachLinePlaybackIdx, setCoachLinePlaybackIdx] = useState(-1);
+  const [coachLineStepIndex, setCoachLineStepIndex] = useState(-1);
+
   useEffect(() => { fetchDecryptionData(); }, [gameId]);
+
+  // v78.3 — cancel in-flight playback when the user navigates moves.
+  useEffect(() => {
+    if (coachLinePlaybackIdx !== -1 && coachLinePlaybackIdx !== currentMoveIndex) {
+      if (boardRef.current?.cancelVariation) {
+        boardRef.current.cancelVariation();
+      }
+      setCoachLinePlaybackIdx(-1);
+      setCoachLineStepIndex(-1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMoveIndex]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1343,6 +1362,94 @@ const MoveCoachingCardV5 = ({
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
           </div>
         )}
+
+        {/* v78.3 — "Play this line" button. Visible on user-mistake
+            moves where V5 surfaced a coach_line_length_hint (or a
+            trap_line_full). Animates engine's PV / trap_line on the
+            board with 2-second pacing. Mirrors the GameAnalysis-side
+            implementation but uses LichessBoard's new playVariation. */}
+        {(() => {
+          // Build coachLine in-line so we don't pollute the outer scope
+          if (!isUser) return null;
+          const trap = move.trap_line_full;
+          let lineMoves = null;
+          let lineSteps = null;
+          let lineKind = null;
+          if (Array.isArray(trap) && trap.length > 0) {
+            lineMoves = trap.map((s) => s.move).filter(Boolean);
+            lineSteps = trap;
+            lineKind = "trap";
+          } else if ((move.pv_after_best || []).length > 0 && (move.coach_line_length_hint || 0) >= 1) {
+            const sliced = (move.pv_after_best || []).slice(0, move.coach_line_length_hint);
+            lineMoves = sliced;
+            lineSteps = sliced.map((m) => ({ move: m, explanation: null }));
+            lineKind = "pv";
+          }
+          if (!lineMoves || !lineMoves.length) return null;
+          const isPlaying = coachLinePlaybackIdx === currentMoveIndex;
+          return (
+            <div className="mt-2">
+              {!isPlaying && (
+                <button
+                  onClick={() => {
+                    if (!boardRef.current?.playVariation) return;
+                    setCoachLinePlaybackIdx(currentMoveIndex);
+                    setCoachLineStepIndex(-1);
+                    boardRef.current.playVariation(
+                      move.fen_before,
+                      lineMoves,
+                      { stepDelayMs: 2000, onStep: (idx) => setCoachLineStepIndex(idx) },
+                    );
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/30"
+                  data-testid="play-this-line-btn"
+                >
+                  ▶ Play this line
+                </button>
+              )}
+              {isPlaying && (
+                <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wide text-amber-500 font-medium">
+                      {lineKind === "trap" ? "Trap line" : "Engine line"}
+                    </span>
+                    <button
+                      onClick={() => {
+                        boardRef.current?.cancelVariation?.();
+                        // Snap board back to current move's post-position
+                        if (move.fen_after && boardRef.current?.setPosition) {
+                          boardRef.current.setPosition(move.fen_after);
+                        }
+                        setCoachLinePlaybackIdx(-1);
+                        setCoachLineStepIndex(-1);
+                      }}
+                      className="text-[10px] text-gray-500 hover:text-gray-300"
+                    >
+                      Back to game
+                    </button>
+                  </div>
+                  <ol className="space-y-0.5">
+                    {lineSteps.map((s, i) => {
+                      const isCurrent = i === coachLineStepIndex;
+                      const isPlayed = i <= coachLineStepIndex;
+                      return (
+                        <li
+                          key={`${i}-${s.move}`}
+                          className={`text-xs leading-relaxed ${
+                            isCurrent ? "text-amber-300" : isPlayed ? "text-gray-300" : "text-gray-500"
+                          }`}
+                        >
+                          <span className="font-mono mr-2">{i + 1}. {s.move}</span>
+                          {s.explanation && <span>{s.explanation}</span>}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Teaching cue — named-principle habit reminder. Rendered
             as a smaller italic line under the diagnosis so the
