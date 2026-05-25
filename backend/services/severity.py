@@ -46,6 +46,7 @@ delta on top to downgrade "winning → still winning" cases.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Optional
 
@@ -153,6 +154,205 @@ def classify_severity(
         user_facing_tier=user_facing,
         cp_loss=cp_loss,
         walked_into_mate=walked_into_mate,
+    )
+
+
+def win_prob_from_cp(eval_cp: int) -> float:
+    """Convert engine cp eval (mover-POV) to win-probability in [0,1].
+
+    Uses the Stockfish-style logistic: wp = 1 / (1 + exp(-cp/400)).
+    Caps inputs at ±5000 to avoid overflow on mate sentinels.
+    """
+    cp = max(min(int(eval_cp or 0), 5000), -5000)
+    try:
+        return 1.0 / (1.0 + math.exp(-cp / 400.0))
+    except OverflowError:
+        return 0.5
+
+
+# Decisiveness thresholds — cp eval boundaries that define "winning"
+# vs "balanced" vs "losing" from MOVER's POV.
+DECISIVENESS_WINNING_CP = 200
+DECISIVENESS_LOSING_CP = -200
+
+
+def _decisiveness_state(eval_cp: int) -> str:
+    """Bucket an eval into 'winning' / 'balanced' / 'losing' from mover POV."""
+    if eval_cp >= DECISIVENESS_WINNING_CP:
+        return "winning"
+    if eval_cp <= DECISIVENESS_LOSING_CP:
+        return "losing"
+    return "balanced"
+
+
+# Practical tier thresholds — based on |Δwin_prob| from mover POV.
+# Mohit 2026-05-25 examples to honour:
+#   +4.0 → +3.3  (Δwp ~ 0.045) → "good"/"inaccuracy" — soften
+#   +2.0 → +0.2  (Δwp ~ 0.219) → "mistake" — the flip out of winning
+#   +6.0 → +2.0  (Δwp ~ 0.115) → "inaccuracy" if stayed winning
+# These thresholds + the decisiveness-change overlay below should
+# match those intuitions.
+PRACTICAL_WP_THRESHOLDS = {
+    "inaccuracy": 0.05,
+    "mistake":    0.15,
+    "serious":    0.30,
+    "blunder":    0.50,
+}
+
+
+@dataclass(frozen=True)
+class PracticalSeverity:
+    """Practical severity adds win-probability context to the canonical tier.
+
+    Fields:
+      practical_tier      : tier derived from |Δwin_prob| (good /
+                            inaccuracy / mistake / serious / blunder).
+      canonical_tier      : tier from raw cp_loss (the v92 evaluator).
+      mover_winprob_before: mover-POV win-probability before the move.
+      mover_winprob_after : mover-POV win-probability after the move.
+      winprob_delta       : after - before (negative if move hurts mover).
+      state_before        : 'winning' / 'balanced' / 'losing' (mover POV).
+      state_after         : same, post-move.
+      decisiveness_changed: True when state_before != state_after AND
+                            state_before == 'winning' (the most pedagogically
+                            important transition — losing the winning edge).
+      stayed_winning      : True when both states are 'winning'. The
+                            softening signal — caption can downgrade
+                            the harshness even on mid-cp losses.
+    """
+    practical_tier: str
+    canonical_tier: str
+    mover_winprob_before: float
+    mover_winprob_after: float
+    winprob_delta: float
+    state_before: str
+    state_after: str
+    decisiveness_changed: bool
+    stayed_winning: bool
+
+
+def classify_severity_practical(
+    cp_loss: int,
+    *,
+    mover_is_user: bool,
+    mover_is_white: bool,
+    eval_before_cp: Optional[int],
+    eval_after_cp: Optional[int],
+) -> PracticalSeverity:
+    """Compute practical severity from cp_loss + eval trajectory.
+
+    Mohit 2026-05-25 Tier B Q1:
+      "don't purely threshold on cp_loss. combine: eval_before, eval_after,
+      win-prob delta, tactical-collapse presence, and 'position simplification
+      risk.' Use relative severity scaling."
+
+    This function delivers the win-prob delta + decisiveness-change axes.
+    Tactical-collapse and simplification-risk are NOT covered yet
+    (require pv inspection — future work).
+
+    The practical tier is computed from |Δwin_prob| from MOVER's POV,
+    NOT from cp_loss directly. This naturally softens "+4.0 → +3.3"
+    (small Δwp) and emphasises "+2.0 → +0.2" (large Δwp out of winning).
+
+    Args:
+      cp_loss        : mover-POV centipawn loss (always ≥0).
+      mover_is_user  : True if the user played the move.
+      mover_is_white : True if the mover is white. Used to sign-flip the
+                       engine eval (which is always white-POV in our data)
+                       into mover POV.
+      eval_before_cp : engine eval BEFORE the move, white POV.
+      eval_after_cp  : engine eval AFTER the move, white POV.
+
+    Returns a PracticalSeverity dict with both tiers + winprob trajectory.
+    """
+    canonical = classify_severity(cp_loss, mover_is_user=mover_is_user).tier
+
+    # Default neutral practical severity if evals missing.
+    if eval_before_cp is None or eval_after_cp is None:
+        return PracticalSeverity(
+            practical_tier=canonical,
+            canonical_tier=canonical,
+            mover_winprob_before=0.5,
+            mover_winprob_after=0.5,
+            winprob_delta=0.0,
+            state_before="balanced",
+            state_after="balanced",
+            decisiveness_changed=False,
+            stayed_winning=False,
+        )
+
+    # Flip evals to MOVER POV (engine evals in our data are white POV).
+    sign = 1 if mover_is_white else -1
+    mover_eval_before = sign * int(eval_before_cp)
+    mover_eval_after = sign * int(eval_after_cp)
+
+    wp_before = win_prob_from_cp(mover_eval_before)
+    wp_after = win_prob_from_cp(mover_eval_after)
+    dwp = wp_after - wp_before
+
+    state_before = _decisiveness_state(mover_eval_before)
+    state_after = _decisiveness_state(mover_eval_after)
+    # decisiveness_changed = mover's state WORSENED across the move:
+    #   winning → balanced/losing  OR  balanced → losing
+    # When this happens the move is practically more important than
+    # raw Δwp alone suggests — the mover crossed a decisiveness
+    # boundary, not just lost some win-probability. Bumps practical
+    # tier up by one level.
+    _ranks = {"winning": 2, "balanced": 1, "losing": 0}
+    decisiveness_changed = _ranks[state_after] < _ranks[state_before]
+    stayed_winning = (state_before == "winning" and state_after == "winning")
+
+    # Map |Δwp| to a practical tier.
+    abs_dwp = abs(dwp)
+    if abs_dwp >= PRACTICAL_WP_THRESHOLDS["blunder"]:
+        practical = "blunder"
+    elif abs_dwp >= PRACTICAL_WP_THRESHOLDS["serious"]:
+        practical = "serious"
+    elif abs_dwp >= PRACTICAL_WP_THRESHOLDS["mistake"]:
+        practical = "mistake"
+    elif abs_dwp >= PRACTICAL_WP_THRESHOLDS["inaccuracy"]:
+        practical = "inaccuracy"
+    else:
+        practical = "good"
+
+    # Decisiveness-change overlay (Mohit 2026-05-25 examples):
+    #   "+4.0 → +3.3 = 'misses something stronger'" (stayed winning, soft)
+    #   "+2.0 → +0.2 = serious mistake" (winning → not winning, BIG bump)
+    #   "+6 → +2 no tactic = 'lets the position become messy'" (still winning)
+    # Lost-winning is the most important transition — bump TWO levels.
+    # Other worsenings (balanced → losing) bump ONE level.
+    if decisiveness_changed:
+        bump = 2 if state_before == "winning" else 1
+        tier_idx = TIER_ORDER.index(practical)
+        practical = TIER_ORDER[min(tier_idx + bump, len(TIER_ORDER) - 1)]
+
+    # Cap practical tier at canonical (we never make a move look WORSE
+    # than its cp_loss-based classification) — EXCEPT when the move
+    # lost the winning state. In that case the move IS practically
+    # more important than its cp_loss suggests (Mohit "+2.0 -> +0.2 =
+    # serious mistake" — cp_loss=180 is canonically mistake-tier, but
+    # losing the winning edge bumps practical importance higher).
+    # Allow practical = canonical + 1 in lost-winning cases.
+    can_idx = TIER_ORDER.index(canonical)
+    prac_idx = TIER_ORDER.index(practical)
+    lost_winning = (
+        decisiveness_changed and state_before == "winning"
+    )
+    max_allowed_idx = can_idx + 1 if lost_winning else can_idx
+    max_allowed_idx = min(max_allowed_idx, len(TIER_ORDER) - 1)
+    if prac_idx > max_allowed_idx:
+        practical = TIER_ORDER[max_allowed_idx]
+
+    return PracticalSeverity(
+        practical_tier=practical,
+        canonical_tier=canonical,
+        mover_winprob_before=wp_before,
+        mover_winprob_after=wp_after,
+        winprob_delta=dwp,
+        state_before=state_before,
+        state_after=state_after,
+        decisiveness_changed=decisiveness_changed,
+        stayed_winning=stayed_winning,
     )
 
 
