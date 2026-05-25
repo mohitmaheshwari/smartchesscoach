@@ -187,6 +187,8 @@
     {"when": {"mover_is_user": true, "why_clause": "absent", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"lt": 250}}}
   ],
   "select_variant": [
+    {"when": {"mover_is_user": false, "opp_has_concrete_why": true, "why_clause": "present"}, "variant": "opp_with_why"},
+    {"when": {"mover_is_user": false, "user_best_reply_san": "present", "cp_loss": {"lt": 250}}, "variant": "opp_soft_reply"},
     {"when": {"mover_is_user": false, "why_clause": "present"}, "variant": "opp_with_why"},
     {"when": {"mover_is_user": false}, "variant": "opp"},
     {"when": {"mover_is_user": true, "user_is_winning": true, "why_clause": "absent", "best_move_san_differs": true, "cp_loss": {"lt": 250}}, "variant": "user_winning_position"},
@@ -207,6 +209,7 @@
     "user_no_best_with_why": "{played_san} {severity_phrase}. {why_clause}",
     "opp": "Opponent's {played_san} {severity_phrase}.",
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
+    "opp_soft_reply": "Opponent's {played_san} — engine has a slight preference here. Best reply: {user_best_reply_san}.",
 
     "why_user_missed_trap_punishment": "it's the textbook refutation in the {trap_context_name}.",
     "why_user_missed_mate": "it would have led to mate in {missed_tactic_moves_to_mate} {missed_tactic_mate_word}.",

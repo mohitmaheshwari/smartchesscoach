@@ -3476,6 +3476,36 @@ async def generate_game_decryption_v5(
                         except Exception:
                             pass
 
+                        # v80.2 (2026-05-25) — Mohit: "Opponent's Nc3 is
+                        # an inaccuracy. Your strongest reply is Nc6 —
+                        # it doesn't tell why? is this an opening
+                        # principle or what??" Right. When no concrete
+                        # detector fired (just a bare "strongest reply"
+                        # fallback) the "is an inaccuracy" framing
+                        # overclaims — implies we know WHY when we
+                        # don't. Set opp_has_concrete_why True ONLY
+                        # when at least one concrete fact key was
+                        # populated. R12 select_variant routes the
+                        # NOT-concrete case to a softer opp_soft_reply
+                        # variant: "Opponent's Nc3 — engine has a
+                        # slight preference here. Best reply: Nc6."
+                        _concrete_fact_keys = (
+                            "opp_user_reply_tactic_kind",
+                            "opp_user_reply_queen_fork_sub_kind",
+                            "opp_user_reply_clearance_follow_up_san",
+                            "opp_user_reply_clearance_attack_square",
+                            "opp_user_reply_attack_piece",
+                            "opp_user_reply_kicks_piece_type",
+                            "opp_user_reply_endgame_pawn_sub_kind",
+                            "captured_piece_type",
+                            "opp_played_wing_pawn_san",
+                            "opp_played_knight_on_rim_san",
+                            "opp_played_queen_early_san",
+                            "opp_played_un_developed_san",
+                        )
+                        if any(caption_facts.get(_k) for _k in _concrete_fact_keys):
+                            caption_facts["opp_has_concrete_why"] = True
+
                     # v74 (2026-05-23) — Mohit + Parth: opening
                     # context on early moves. Surface the move's
                     # opening name + idea even when match_opening_for_mover
