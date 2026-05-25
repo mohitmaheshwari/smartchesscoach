@@ -94,6 +94,11 @@ def _load_traps() -> List[Dict[str, Any]]:
                 "trap_line_steps": line_steps,
                 "success_message": (trap.get("success_message") or "").strip(),
                 "result_type": trap.get("result_type"),
+                # v89: SETTER's color ('white' or 'black') — the side
+                # that punishes / wins material / mates. Backfilled
+                # across all 43 traps in 2026-05-25. Consumed by V5
+                # to compute user_is_victim for the trap-warning caption.
+                "trap_color": trap.get("trap_color"),
             })
     _TRAPS_CACHE = flat
     logger.info(f"[trap] loaded {len(flat)} traps from {TRAPS_PATH.name}")
@@ -127,6 +132,8 @@ def detect_trap_setup(played_moves_san: List[str]) -> Optional[Dict[str, Any]]:
                 "trap_line": list(trap["trap_line"]),
                 "trap_line_steps": list(trap["trap_line_steps"]),
                 "result_type": trap.get("result_type"),
+                "trap_color": trap.get("trap_color"),
+                "success_message": trap.get("success_message"),
             }
     return None
 

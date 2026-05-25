@@ -1,14 +1,20 @@
 {
   "rule_name": "R_PROMOTED_trap_setup",
-  "description": "Fires on the move that completes a named trap's setup (step_label='setup_completed'). The {trap_description} comes from data/traps.json — adding a new trap = adding a JSON entry there, no edits here.",
+  "description": "Fires on the move that completes a named trap's setup (step_label='setup_completed'). v89 (2026-05-25) — Mohit: warn the user when they're the VICTIM of a known trap. trap_color was backfilled across all 43 traps in data/traps.json. V5 now stamps trap_record.user_is_victim based on user_color vs trap_color. New warning variants fire when user_is_victim=true; the existing 'you set up' / 'opp setup' variants still cover the other cases. {trap_description} comes from data/traps.json — adding a new trap = adding a JSON entry there, no edits here.",
   "fact_glossary": {
     "move_san": "SAN of the setup-completing move",
     "trap_name": "Authored trap name from data/traps.json (e.g. 'Fried Liver Attack')",
     "trap_description": "Authored trap description from data/traps.json",
-    "this_move_by_user": "true when the user is the one setting up the trap (rare — usually opp does)"
+    "this_move_by_user": "true when the user is the one who just played the setup-completing move",
+    "trap_record.user_is_victim": "v89 — true when user_color is the OPPOSITE of trap_color (i.e. user is the side that gets punished). Independent of who played the setup move.",
+    "trap_record.next_expected_move": "v89 — first move of trap_line, surfaced as the punisher's incoming threat."
   },
   "requires": ["move_san", "trap_name"],
   "select_variant": [
+    {"when": {"trap_user_is_victim": true, "trap_next_expected_move": "present", "trap_description": "present"}, "variant": "victim_warning_with_desc"},
+    {"when": {"trap_user_is_victim": true, "trap_next_expected_move": "present"}, "variant": "victim_warning"},
+    {"when": {"trap_user_is_victim": true, "trap_description": "present"}, "variant": "victim_warning_no_punish_with_desc"},
+    {"when": {"trap_user_is_victim": true}, "variant": "victim_warning_no_punish"},
     {"when": {"this_move_by_user": false, "trap_description": "present"}, "variant": "by_opp_with_desc"},
     {"when": {"this_move_by_user": false}, "variant": "by_opp"},
     {"when": {"trap_description": "present"}, "variant": "by_user_with_desc"},
@@ -18,6 +24,10 @@
     "by_opp": "{move_san} — {trap_name} setup.",
     "by_opp_with_desc": "{move_san} — {trap_name} setup. {trap_description}",
     "by_user": "{move_san} — you set up the {trap_name}.",
-    "by_user_with_desc": "{move_san} — you set up the {trap_name}. {trap_description}"
+    "by_user_with_desc": "{move_san} — you set up the {trap_name}. {trap_description}",
+    "victim_warning": "{move_san} — watch out, you've walked into {trap_name} territory. The punisher will play {trap_next_expected_move} next.",
+    "victim_warning_with_desc": "{move_san} — watch out, you've walked into {trap_name} territory. {trap_description} The punisher will play {trap_next_expected_move} next.",
+    "victim_warning_no_punish": "{move_san} — watch out, you've walked into {trap_name} territory.",
+    "victim_warning_no_punish_with_desc": "{move_san} — watch out, you've walked into {trap_name} territory. {trap_description}"
   }
 }
