@@ -117,6 +117,7 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         # in one caption, matching Mohit's 1200-voice ask.
         ("R12_blunder.json", "user_with_best_em_dash_with_lead"),
         ("R12_blunder.json", "user_with_best_and_why_with_lead"),
+        ("R12_blunder.json", "user_with_best_with_lead_only"),
     }
 
     # MID pair-overrides — position-eval reframings are contextually
