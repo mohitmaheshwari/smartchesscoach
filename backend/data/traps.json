@@ -600,6 +600,60 @@
       "result_type": "wins_material",
       "difficulty": "intermediate",
       "trap_color": "black"
+    },
+    {
+      "name": "Marshall Trap",
+      "description": "White takes the d5 pawn and thinks they win the queen with Bxd8. But Bb4+ is an in-between check that forces Qd2, and Bxd2+ wins White's queen. Do NOT play Nxd5. The pawn is not free. Play e3 or Nf3.",
+      "setup_moves": [
+        "d4",
+        "d5",
+        "c4",
+        "e6",
+        "Nc3",
+        "Nf6",
+        "Bg5",
+        "Nbd7",
+        "cxd5",
+        "exd5"
+      ],
+      "trap_line": [
+        {
+          "move": "Nxd5",
+          "explanation": ""
+        },
+        {
+          "move": "Nxd5",
+          "explanation": ""
+        },
+        {
+          "move": "Bxd8",
+          "explanation": ""
+        },
+        {
+          "move": "Bb4+",
+          "explanation": ""
+        },
+        {
+          "move": "Qd2",
+          "explanation": ""
+        },
+        {
+          "move": "Bxd2+",
+          "explanation": ""
+        },
+        {
+          "move": "Kxd2",
+          "explanation": ""
+        },
+        {
+          "move": "Kxd8",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Marshall Trap — the punishment lands. White takes the d5 pawn and thinks they win the queen with Bxd8. But Bb4+ is an ...",
+      "result_type": "wins_material",
+      "difficulty": "beginner",
+      "trap_color": "black"
     }
   ],
   "london-system": [
@@ -642,6 +696,48 @@
       "result_type": "wins_queen",
       "difficulty": "beginner",
       "trap_color": "white"
+    },
+    {
+      "name": "London Move Order",
+      "description": "Playing e3 before Bf4 traps the dark-squared bishop behind the pawn chain forever. This is the #1 London System mistake. ALWAYS play Bf4 before e3. The bishop must get out first.",
+      "setup_moves": [
+        "d4",
+        "d5"
+      ],
+      "trap_line": [
+        {
+          "move": "e3",
+          "explanation": ""
+        },
+        {
+          "move": "Nf6",
+          "explanation": ""
+        },
+        {
+          "move": "Bd3",
+          "explanation": ""
+        },
+        {
+          "move": "c5",
+          "explanation": ""
+        },
+        {
+          "move": "c3",
+          "explanation": ""
+        },
+        {
+          "move": "Nc6",
+          "explanation": ""
+        },
+        {
+          "move": "Nd2",
+          "explanation": ""
+        }
+      ],
+      "success_message": "London Move Order — the punishment lands. Playing e3 before Bf4 traps the dark-squared bishop behind the pawn chain foreve...",
+      "result_type": "mate",
+      "difficulty": "beginner",
+      "trap_color": "white"
     }
   ],
   "caro-kann": [
@@ -668,6 +764,52 @@
       ],
       "success_message": "Smothered Mate! Black's pieces block all escape squares.",
       "result_type": "checkmate",
+      "difficulty": "intermediate",
+      "trap_color": "white"
+    },
+    {
+      "name": "Caro-Kann Classical Pin",
+      "description": "White chases Black's bishop to h7 with h5, then trades it off with Bd3. Black loses the bishop pair and White gets a strong position. Black should consider Bg4 instead of Bg6 to avoid the h4-h5 chase.",
+      "setup_moves": [
+        "e4",
+        "c6",
+        "d4",
+        "d5",
+        "Nc3",
+        "dxe4",
+        "Nxe4",
+        "Bf5",
+        "Ng3",
+        "Bg6",
+        "h4",
+        "h6",
+        "Nf3",
+        "Nd7"
+      ],
+      "trap_line": [
+        {
+          "move": "h5",
+          "explanation": ""
+        },
+        {
+          "move": "Bh7",
+          "explanation": ""
+        },
+        {
+          "move": "Bd3",
+          "explanation": ""
+        },
+        {
+          "move": "Bxd3",
+          "explanation": ""
+        },
+        {
+          "move": "Qxd3",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Caro-Kann Classical Pin — the punishment lands. White chases Black's bishop to h7 with h5, then trades it off with Bd3. Black lo...",
+      "result_type": "wins_material",
       "difficulty": "intermediate",
       "trap_color": "white"
     }
@@ -806,6 +948,40 @@
       "result_type": "equal_with_activity",
       "difficulty": "intermediate",
       "trap_color": "black"
+    },
+    {
+      "name": "Scandinavian Queen Danger",
+      "description": "Nd5 attacks the queen and threatens Nxf6+ discovering an attack. Black's queen is overworked and must give up material. Black should castle quickly and not leave the queen exposed on a5 for too long.",
+      "setup_moves": [
+        "e4",
+        "d5",
+        "exd5",
+        "Qxd5",
+        "Nc3",
+        "Qa5",
+        "d4",
+        "Nf6",
+        "Nf3",
+        "Bf5"
+      ],
+      "trap_line": [
+        {
+          "move": "Bd2",
+          "explanation": ""
+        },
+        {
+          "move": "c6",
+          "explanation": ""
+        },
+        {
+          "move": "Nd5",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Scandinavian Queen Danger — the punishment lands. Nd5 attacks the queen and threatens Nxf6+ discovering an attack. Black's queen i...",
+      "result_type": "mate",
+      "difficulty": "intermediate",
+      "trap_color": "white"
     }
   ],
   "ruy-lopez": [
@@ -956,6 +1132,39 @@
       "result_type": "wins_material",
       "difficulty": "advanced",
       "trap_color": "white"
+    },
+    {
+      "name": "Fishing Pole Trap",
+      "description": "The h-pawn sacrifice rips open the h-file. After hxg4 hxg4+, the king is exposed and mate threats follow on the h-file. After Ng4, do NOT play h3. Play d4 instead.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Bb5",
+        "Nf6",
+        "O-O",
+        "Ng4",
+        "h3"
+      ],
+      "trap_line": [
+        {
+          "move": "h5",
+          "explanation": ""
+        },
+        {
+          "move": "hxg4",
+          "explanation": ""
+        },
+        {
+          "move": "hxg4",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Fishing Pole Trap — the punishment lands. The h-pawn sacrifice rips open the h-file. After hxg4 hxg4+, the king is exposed...",
+      "result_type": "mate",
+      "difficulty": "intermediate",
+      "trap_color": "black"
     }
   ],
   "philidor-defense": [
@@ -1040,6 +1249,46 @@
       ],
       "success_message": "Damiano Defense Punishment — White recovers material and Black's king is stranded.",
       "result_type": "wins_material",
+      "difficulty": "beginner",
+      "trap_color": "white"
+    },
+    {
+      "name": "Philidor Legal's Mate",
+      "description": "Same pattern as Legal's Mate. White sacrifices the queen, then Bxf7+ Ke7 Nd5# is checkmate. Works when Black's bishop takes the queen greedily. Black should NOT take the queen. Play dxe5 to stay safe.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "d6",
+        "Bc4",
+        "Bg4",
+        "Nc3",
+        "h6"
+      ],
+      "trap_line": [
+        {
+          "move": "Nxe5",
+          "explanation": ""
+        },
+        {
+          "move": "Bxd1",
+          "explanation": ""
+        },
+        {
+          "move": "Bxf7+",
+          "explanation": ""
+        },
+        {
+          "move": "Ke7",
+          "explanation": ""
+        },
+        {
+          "move": "Nd5#",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Philidor Legal's Mate — the punishment lands. Same pattern as Legal's Mate. White sacrifices the queen, then Bxf7+ Ke7 Nd5# is...",
+      "result_type": "mate",
       "difficulty": "beginner",
       "trap_color": "white"
     }
@@ -1175,6 +1424,86 @@
       "result_type": "wins_material",
       "difficulty": "advanced",
       "trap_color": "white"
+    },
+    {
+      "name": "Petrov Fork Trap",
+      "description": "White pins Black's knight with Qe2. After the knight retreats, Nc6+ forks king and queen. White wins Black's queen for a knight. Black MUST play d6 first (not Nxe4). This is the #1 rule in the Petrov Defense.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nf6",
+        "Nxe5",
+        "Nxe4"
+      ],
+      "trap_line": [
+        {
+          "move": "Qe2",
+          "explanation": ""
+        },
+        {
+          "move": "Nf6",
+          "explanation": ""
+        },
+        {
+          "move": "Nc6+",
+          "explanation": ""
+        },
+        {
+          "move": "Be7",
+          "explanation": ""
+        },
+        {
+          "move": "Nxd8",
+          "explanation": ""
+        },
+        {
+          "move": "Kxd8",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Petrov Fork Trap — the punishment lands. White pins Black's knight with Qe2. After the knight retreats, Nc6+ forks king a...",
+      "result_type": "wins_material",
+      "difficulty": "beginner",
+      "trap_color": "white"
+    },
+    {
+      "name": "Stafford Gambit",
+      "description": "After Ng4, if Bxg4 then Qh4 threatens Qxf2# and Bxg4. If O-O instead, Qxf2 is checkmate. After Nc6, retreat the knight with Nf3 or play d3 followed by d4.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nf6",
+        "Nxe5",
+        "Nc6",
+        "Nxc6",
+        "dxc6",
+        "d3",
+        "Bc5"
+      ],
+      "trap_line": [
+        {
+          "move": "Be2",
+          "explanation": ""
+        },
+        {
+          "move": "Ng4",
+          "explanation": ""
+        },
+        {
+          "move": "Bxg4",
+          "explanation": ""
+        },
+        {
+          "move": "Qh4",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Stafford Gambit — the punishment lands. After Ng4, if Bxg4 then Qh4 threatens Qxf2# and Bxg4. If O-O instead, Qxf2 is ch...",
+      "result_type": "mate",
+      "difficulty": "intermediate",
+      "trap_color": "black"
     }
   ],
   "budapest-gambit": [
@@ -1210,6 +1539,51 @@
       "success_message": "The Kieninger Trap! A beautiful smothered mate.",
       "result_type": "checkmate",
       "difficulty": "advanced",
+      "trap_color": "black"
+    },
+    {
+      "name": "Budapest Smothered Mate",
+      "description": "Smothered checkmate! White thinks axb4 wins a bishop but Nd3# is mate. The king is trapped by its own pieces. Play e3 or Nf3 on move 4, not Bf4. Do not allow the Bb4+ Qe7 sequence.",
+      "setup_moves": [
+        "d4",
+        "Nf6",
+        "c4",
+        "e5",
+        "dxe5",
+        "Ng4",
+        "Bf4",
+        "Nc6",
+        "Nf3",
+        "Bb4+",
+        "Nbd2",
+        "Qe7",
+        "a3"
+      ],
+      "trap_line": [
+        {
+          "move": "Ngxe5",
+          "explanation": ""
+        },
+        {
+          "move": "Nxe5",
+          "explanation": ""
+        },
+        {
+          "move": "Nxe5",
+          "explanation": ""
+        },
+        {
+          "move": "axb4",
+          "explanation": ""
+        },
+        {
+          "move": "Nd3#",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Budapest Smothered Mate — the punishment lands. Smothered checkmate! White thinks axb4 wins a bishop but Nd3# is mate. The king ...",
+      "result_type": "mate",
+      "difficulty": "intermediate",
       "trap_color": "black"
     }
   ],
@@ -1462,6 +1836,32 @@
         }
       ],
       "success_message": "The Milner-Barry Gambit leads to a strong attack!",
+      "result_type": "wins_material",
+      "difficulty": "intermediate",
+      "trap_color": "white"
+    },
+    {
+      "name": "Milner-Barry Gambit",
+      "description": "White gambits the b2 pawn. If Black takes Qxb2, White gets rapid development and a dangerous attack while Black's queen is stranded. Black should NOT take b2. Develop with cxd4 instead.",
+      "setup_moves": [
+        "e4",
+        "e6",
+        "d4",
+        "d5",
+        "e5",
+        "c5",
+        "c3",
+        "Nc6",
+        "Nf3",
+        "Qb6"
+      ],
+      "trap_line": [
+        {
+          "move": "Bd3",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Milner-Barry Gambit — the punishment lands. White gambits the b2 pawn. If Black takes Qxb2, White gets rapid development and...",
       "result_type": "wins_material",
       "difficulty": "intermediate",
       "trap_color": "white"
@@ -2183,6 +2583,70 @@
       "success_message": "The Englund Gambit Mate Trap! After 4.Bf4??, Black's Qb4+ combination wins material or delivers mate.",
       "result_type": "checkmate",
       "difficulty": "intermediate"
+    }
+  ],
+  "four-knights": [
+    {
+      "name": "Halloween Gambit",
+      "description": "White gives up a knight for one pawn but gets a huge pawn center with d4-d5-e5. Black's pieces get pushed all the way back to the starting squares. After Nxe5, play Nc6 then Bb4 to pin the knight. Black keeps the extra piece.",
+      "setup_moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Nc3",
+        "Nf6"
+      ],
+      "trap_line": [
+        {
+          "move": "Nxe5",
+          "explanation": ""
+        },
+        {
+          "move": "Nxe5",
+          "explanation": ""
+        },
+        {
+          "move": "d4",
+          "explanation": ""
+        },
+        {
+          "move": "Nc6",
+          "explanation": ""
+        },
+        {
+          "move": "d5",
+          "explanation": ""
+        },
+        {
+          "move": "Ne5",
+          "explanation": ""
+        },
+        {
+          "move": "f4",
+          "explanation": ""
+        },
+        {
+          "move": "Ng6",
+          "explanation": ""
+        },
+        {
+          "move": "e5",
+          "explanation": ""
+        },
+        {
+          "move": "Ng8",
+          "explanation": ""
+        },
+        {
+          "move": "d6",
+          "explanation": ""
+        }
+      ],
+      "success_message": "Halloween Gambit — the punishment lands. White gives up a knight for one pawn but gets a huge pawn center with d4-d5-e5. ...",
+      "result_type": "wins_material",
+      "difficulty": "intermediate",
+      "trap_color": "white"
     }
   ]
 }
