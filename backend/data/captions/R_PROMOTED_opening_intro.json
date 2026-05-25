@@ -1,18 +1,39 @@
 {
   "rule_name": "R_PROMOTED_opening_intro",
-  "description": "v74 (2026-05-23) — Mohit + Parth feedback. Surfaces opening name + idea on early opening moves that R13 (central-pawn) doesn't cover — e.g. m2 d6 in Philidor, m2 Nf3 development. Falls between R13 (m1-m2 central pawns) and R_PROMOTED_opening (≥3 matched setup steps). Authored intros live in services/game_decryption_v5_service.py's get_opening_introduction map.",
+  "description": "v74 (2026-05-23) — Mohit + Parth feedback. Surfaces opening name + idea on early opening moves that R13 (central-pawn) doesn't cover — e.g. m2 d6 in Philidor, m2 Nf3 development. Falls between R13 (m1-m2 central pawns) and R_PROMOTED_opening (≥3 matched setup steps). Authored intros live in services/game_decryption_v5_service.py's get_opening_introduction map.\n\nv88 (2026-05-25) — Mohit on m3 Nc3 in Scandinavian: \"this is one of the most played moves at the top level, that gives them teaching about theory and things to remember.\" New variants consume opening_theory_* facts populated by services/opening_theory_lookup.py when the post-move FEN matches a critical position in data/coaching/opening_theory_tree.json. The lookup applies a pre-commit filter (move1_/move2_/move3_ transposition hints excluded). Three match qualities: 'best' (played move is catalogued main line — praise + idea + why_good), 'mistake' (played move is catalogued mistake — why_bad + consequence + learning), 'critical_only' (position is named but played move not catalogued — show key_decision + top canonical move).",
   "fact_glossary": {
     "move_san": "SAN of the move",
-    "opening_intro_name": "Optional named opening for the move (e.g. 'Philidor-style setup')",
-    "opening_intro_idea": "One-sentence idea — the WHY behind the move in this opening"
+    "opening_intro_name": "Optional named opening for the move (e.g. 'Philidor-style setup'). v74 source.",
+    "opening_intro_idea": "One-sentence idea — the WHY behind the move in this opening. v74 source.",
+    "opening_theory_name": "v88 — opening name from theory_tree match (e.g. 'Scandinavian Defense'). Always present when any opening_theory_* fact is present.",
+    "opening_theory_variation": "v88 — variation name from theory_tree (e.g. 'Main Line (Qxd5)'). May be None for top-level positions.",
+    "opening_theory_key_decision": "v88 — the question the position is asking ('The queen must move - where?').",
+    "opening_theory_match_quality": "v88 — 'best' / 'mistake' / 'critical_only'.",
+    "opening_theory_played_idea": "v88 — when match_quality='best', the idea of the played move from best_moves.",
+    "opening_theory_played_why_good": "v88 — why this best move is good.",
+    "opening_theory_played_why_bad": "v88 — when match_quality='mistake', why the played move is bad.",
+    "opening_theory_played_consequence": "v88 — concrete consequence the player should expect.",
+    "opening_theory_played_learning": "v88 — the takeaway lesson from this mistake.",
+    "opening_theory_top_move_san": "v88 — canonical top move from best_moves (used when match_quality='critical_only').",
+    "opening_theory_top_move_idea": "v88 — idea of the top canonical move."
   },
-  "requires": ["move_san", "opening_intro_idea"],
+  "requires": ["move_san"],
   "select_variant": [
-    {"when": {"opening_intro_name": "present"}, "variant": "with_name"},
-    {"variant": "idea_only"}
+    {"when": {"opening_theory_name": "present", "opening_theory_match_quality": "best", "opening_theory_played_why_good": "present"}, "variant": "theory_played_best"},
+    {"when": {"opening_theory_name": "present", "opening_theory_match_quality": "mistake", "opening_theory_played_learning": "present"}, "variant": "theory_played_mistake"},
+    {"when": {"opening_theory_name": "present", "opening_theory_variation": "present", "opening_theory_top_move_san": "present"}, "variant": "theory_critical_variation"},
+    {"when": {"opening_theory_name": "present", "opening_theory_top_move_san": "present"}, "variant": "theory_critical"},
+    {"when": {"opening_theory_name": "present", "opening_theory_key_decision": "present"}, "variant": "theory_key_decision"},
+    {"when": {"opening_intro_name": "present", "opening_intro_idea": "present"}, "variant": "with_name"},
+    {"when": {"opening_intro_idea": "present"}, "variant": "idea_only"}
   ],
   "variants": {
     "with_name": "{move_san} — {opening_intro_name}. {opening_intro_idea}",
-    "idea_only": "{move_san}. {opening_intro_idea}"
+    "idea_only": "{move_san}. {opening_intro_idea}",
+    "theory_played_best": "{move_san} — {opening_theory_name}. {opening_theory_played_why_good}",
+    "theory_played_mistake": "{move_san} — {opening_theory_name}. {opening_theory_played_why_bad} {opening_theory_played_learning}",
+    "theory_critical_variation": "{move_san} — {opening_theory_name}, {opening_theory_variation}. {opening_theory_key_decision} — {opening_theory_top_move_san} is the main line: {opening_theory_top_move_idea}.",
+    "theory_critical": "{move_san} — {opening_theory_name}. {opening_theory_key_decision} — {opening_theory_top_move_san} is the main line: {opening_theory_top_move_idea}.",
+    "theory_key_decision": "{move_san} — {opening_theory_name}. {opening_theory_key_decision}"
   }
 }

@@ -441,6 +441,7 @@ def _file_from_rule_name(rule_name: str) -> Optional[str]:
         promo_prefix = promo.split(":", 1)[0].strip()
         promo_map = {
             "R_PROMOTED_opening":        "R_PROMOTED_opening.json",
+            "R_PROMOTED_opening_intro":  "R_PROMOTED_opening_intro.json",
             "R_PROMOTED_trap":           "R_PROMOTED_trap_setup.json",
             "R_PROMOTED_trap_defense":   "R_PROMOTED_trap_defense.json",
             "R_PROMOTED_shape":          "R_PROMOTED_shape.json",
