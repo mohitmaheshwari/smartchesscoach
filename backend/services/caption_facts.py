@@ -1986,7 +1986,19 @@ def _p_tac_discovered_pattern(
     endorsement = "best" if (played and best and played == best) else "absent"
     if endorsement == "absent":
         return None
-    ev0 = evs[0]
+    # 2026-05-25: require the discovered target to be a non-pawn piece
+    # (≥knight). Mohit caught m7 e5 (central pawn push, cp_loss=10) firing
+    # this principle because the e7→e5 push uncovered the f8 bishop's
+    # f8-a3 diagonal onto a3 (a white pawn). Geometrically a "discovered
+    # attack," tactically meaningless — it's just a classical opening
+    # pawn push, and the cue ("Play this immediately") talks like a
+    # tactic was found. Mirrors the TAC_FORK_PATTERN gate that already
+    # excludes pawn-only forks (target value_cp ≥ 300). For discovered
+    # attacks the relevant target is a real piece the slider can win.
+    evs_nonpawn = [e for e in evs if (e.get("target_piece_type") or "") != "pawn"]
+    if not evs_nonpawn:
+        return None
+    ev0 = evs_nonpawn[0]
     return {
         "principle_id": "TAC_DISCOVERED_PATTERN",
         "evidence": {
