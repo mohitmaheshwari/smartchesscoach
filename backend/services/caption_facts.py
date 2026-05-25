@@ -2735,6 +2735,19 @@ def _p_op_finish_development(
         return None
     own_color_str = facts.get("moving_piece_color")
     own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    # The queen_sortie trigger is meant to catch FORWARD aggression
+    # (Qh5/Qf3-style attempts that aim at f7/f2). A queen retreating or
+    # making a second move after already leaving home is the OPPOSITE —
+    # there's no "premature attack" to teach against. Without this guard
+    # FD fires on Qd5→Qd8 retreats with the off-topic cue "this position
+    # rewards attacking, but most positions don't" on what's actually a
+    # tempo loss / same-piece-twice case. Require the queen to be LEAVING
+    # her starting square for queen_sortie to count as the attack signal.
+    if has_queen_sortie and not has_threat_attack:
+        sortie = facts.get("queen_sortie_evidence") or {}
+        home_square = "d1" if own_color == chess.WHITE else "d8"
+        if sortie.get("from_square") != home_square:
+            return None
     if own_color == chess.WHITE:
         starting_n = {chess.B1, chess.G1}
         starting_b = {chess.C1, chess.F1}
