@@ -4864,9 +4864,33 @@ def extract_facts(
         (s["attacker_square"], s["front_piece_square"], s["rear_piece_square"])
         for s in _aligned_before
     }
+    # Also dedup by the target pair (front, rear): a slider that slides
+    # along its existing pin line (e.g. Bc5→Bb6 keeps pinning f2 against
+    # the king on g1) gets a NEW attacker_square in the after-position
+    # but isn't a new tactical pin. Mohit 2026-05-25 on m8 Bb6 — caption
+    # claimed "pin or skewer the front one with a slider" on what was
+    # just a bishop retreat along an already-active diagonal.
+    _before_target_pairs = {
+        (s["front_piece_square"], s["rear_piece_square"])
+        for s in _aligned_before
+    }
+    # And: if the played piece's FROM-square was already on the same ray
+    # through (attacker, rear), the pin was geometrically pre-existing
+    # even if there was no front piece between then (e.g. a now-blocked
+    # version of the same line). Belt-and-braces with the target-pair check.
+    def _from_on_same_ray(s: Dict[str, Any]) -> bool:
+        try:
+            atk = chess.parse_square(s["attacker_square"])
+            rear = chess.parse_square(s["rear_piece_square"])
+            return played_move.from_square in chess.SquareSet(chess.ray(atk, rear))
+        except Exception:
+            return False
+
     aligned_pieces_evidence = [
         s for s in _aligned_after
         if (s["attacker_square"], s["front_piece_square"], s["rear_piece_square"]) not in _before_keys
+        and (s["front_piece_square"], s["rear_piece_square"]) not in _before_target_pairs
+        and not _from_on_same_ray(s)
     ]
     discovered_attack_evidence = _discovered_attack_evidence(
         board_before, board_after, played_move
