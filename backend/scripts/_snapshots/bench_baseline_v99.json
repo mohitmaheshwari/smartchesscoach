@@ -1,0 +1,122 @@
+[
+  {
+    "block": "extract_facts",
+    "n": 587,
+    "mean": 0.87,
+    "p50": 0.8,
+    "p95": 1.5,
+    "p99": 1.91
+  },
+  {
+    "block": "opp_positional_mistake",
+    "n": 587,
+    "mean": 0.05,
+    "p50": 0.02,
+    "p95": 0.14,
+    "p99": 0.17
+  },
+  {
+    "block": "simulate_pawn_kicks_piece",
+    "n": 587,
+    "mean": 0.04,
+    "p50": 0.02,
+    "p95": 0.12,
+    "p99": 0.16
+  },
+  {
+    "block": "simulate_attack_with_tempo",
+    "n": 587,
+    "mean": 0.0,
+    "p50": 0.0,
+    "p95": 0.01,
+    "p99": 0.02
+  },
+  {
+    "block": "simulate_clearance_for_attack",
+    "n": 587,
+    "mean": 0.07,
+    "p50": 0.0,
+    "p95": 0.2,
+    "p99": 0.24
+  },
+  {
+    "block": "simulate_clearance_then_check",
+    "n": 587,
+    "mean": 0.07,
+    "p50": 0.0,
+    "p95": 0.22,
+    "p99": 0.28
+  },
+  {
+    "block": "simulate_endgame_loose_pawn_grab",
+    "n": 587,
+    "mean": 0.06,
+    "p50": 0.0,
+    "p95": 0.17,
+    "p99": 0.2
+  },
+  {
+    "block": "detect_all_shapes",
+    "n": 587,
+    "mean": 2.02,
+    "p50": 1.96,
+    "p95": 3.37,
+    "p99": 4.0
+  },
+  {
+    "block": "detect_trap_setup",
+    "n": 587,
+    "mean": 0.0,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.0
+  },
+  {
+    "block": "board_state_describer",
+    "n": 587,
+    "mean": 0.1,
+    "p50": 0.1,
+    "p95": 0.17,
+    "p99": 0.2
+  },
+  {
+    "block": "opening_theory_lookup",
+    "n": 587,
+    "mean": 0.14,
+    "p50": 0.13,
+    "p95": 0.22,
+    "p99": 0.25
+  },
+  {
+    "block": "severity_canonical",
+    "n": 587,
+    "mean": 0.01,
+    "p50": 0.01,
+    "p95": 0.01,
+    "p99": 0.02
+  },
+  {
+    "block": "severity_practical",
+    "n": 587,
+    "mean": 0.02,
+    "p50": 0.01,
+    "p95": 0.03,
+    "p99": 0.04
+  },
+  {
+    "block": "resolve_priority",
+    "n": 587,
+    "mean": 0.03,
+    "p50": 0.02,
+    "p95": 0.07,
+    "p99": 0.11
+  },
+  {
+    "block": "TOTAL_PER_MOVE",
+    "n": 587,
+    "mean": 3.48,
+    "p50": 3.38,
+    "p95": 5.48,
+    "p99": 6.41
+  }
+]
