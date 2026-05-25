@@ -111,6 +111,12 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         ("R_PROMOTED_basic_mistake.json", "with_blocked_pawn"),
         ("R_PROMOTED_basic_mistake.json", "with_blocked_pawn_supports"),
         ("R_PROMOTED_basic_mistake.json", "with_curriculum_deviation"),
+        # v83 (2026-05-25): lost-defender lead paired with better-move
+        # why_clause. Tells WHY the played move was wrong (you removed
+        # the defender) AND why the better move was better — both halves
+        # in one caption, matching Mohit's 1200-voice ask.
+        ("R12_blunder.json", "user_with_best_em_dash_with_lead"),
+        ("R12_blunder.json", "user_with_best_and_why_with_lead"),
     }
 
     # MID pair-overrides — position-eval reframings are contextually

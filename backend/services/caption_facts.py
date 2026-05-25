@@ -2087,6 +2087,15 @@ def _p_tac_hanging_piece(
             "piece_color": worst.get("piece_color"),
             "mover_is_user": mover_is_user,
             "trigger": "lost_defender",
+            # The piece (and from-square) the played move took away from
+            # defending. Surfaced so R12_blunder can compose the
+            # "you moved your {piece} away from defending {square}" lead
+            # clause that pairs with the better-move why_clause. Mohit
+            # 2026-05-25: a 1200's mistake-of-the-move IS the act of
+            # removing the defender — caption must say WHY the move was
+            # wrong, not just what was better.
+            "lost_defender_piece": worst.get("lost_defender_piece"),
+            "lost_defender_square": worst.get("lost_defender_square"),
         },
         "engine_endorsement": "best",
         "aligned_moves_offered": [best],
@@ -5153,6 +5162,30 @@ def extract_facts(
 
     # Run principle detectors. Pure functions of (facts, board_before).
     facts["principles_violated"] = _principles_violated(facts, board_before)
+
+    # Lost-defender lead clause (Mohit 2026-05-25). When TAC_HANGING_PIECE
+    # fires with trigger=lost_defender on a user move and the piece left
+    # hanging is the user's own, R12_blunder can compose a "you moved your
+    # {piece} away from defending {square}" lead that pairs with the
+    # better-move why_clause. For a 1200 the act of removing the
+    # defender IS the teachable mistake; the caption must say WHY the
+    # move was wrong, not just what was better.
+    facts["lost_defender_lead_clause"] = ""
+    for ev in facts["principles_violated"]:
+        if ev.get("principle_id") != "TAC_HANGING_PIECE":
+            continue
+        e = ev.get("evidence") or {}
+        if e.get("trigger") != "lost_defender":
+            continue
+        if not e.get("mover_is_user"):
+            continue
+        moved_piece = e.get("lost_defender_piece")
+        hanging_sq = e.get("hanging_piece_square")
+        if moved_piece and hanging_sq:
+            facts["lost_defender_lead_clause"] = (
+                f"you moved your {moved_piece} away from defending {hanging_sq}"
+            )
+        break
 
     return facts
 
