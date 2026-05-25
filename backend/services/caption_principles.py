@@ -122,7 +122,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that develops a piece still on its starting square",
         "gate_policy": "endorsement_preferred + cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Develop your remaining pieces before attacking. Strongest move here.",
+        "cue_best":   "Develop your remaining pieces before attacking.",
         "cue_top_n":  "Attacks with two pieces still on their starting squares fail. Finish development first.",
         # Was "Engine likes the attack here. Most positions, develop fully
         # first — early attacks fail." — Parth fb_c64e76a26a74 2026-05-17
@@ -231,7 +231,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "e4, e5, d4, d5 (whichever is legal and uncontested)",
         "gate_policy": "endorsement_preferred",
         "suppress": "once_per_game",
-        "cue_best":   "Take the centre with a pawn. Strongest move here.",
+        "cue_best":   "Take the centre with a pawn — central pawns open lines for every piece.",
         "cue_top_n":  "e4 and d4 open lines for your pieces immediately.",
         # Was "Engine sees a tactic this move..." — engine-meta language
         # banned per [[teaching-not-reading]]. 2026-05-17 sweep alongside
@@ -321,7 +321,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any check, capture, or threat-creating move when engine's #1 is forcing",
         "gate_policy": "endorsement_required + cp_loss_strict",
         "suppress": "once_per_move",
-        "cue_best":   "Forcing move available — check, capture, or threat. Strongest move here.",
+        "cue_best":   "Forcing move available — check, capture, or threat.",
         "cue_top_n":  "Scan checks, captures, threats every move. A forcing move is faster than a quiet one.",
         "cue_absent": "Scan forcing moves first: checks, captures, threats — yours and theirs.",
         "visual_signature": {
@@ -409,7 +409,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that attacks two enemy pieces simultaneously",
         "gate_policy": "endorsement_required",
         "suppress": "once_per_move",
-        "cue_best":   "One piece, two targets — the fork wins material. Strongest move here.",
+        "cue_best":   "One piece, two targets — the fork wins material.",
         "cue_top_n":  "Look for forks every move. One piece attacking two — opponent saves only one.",
         "cue_absent": "Forks are a one-move pattern: one piece, two targets, opponent saves one.",
         "visual_signature": {
@@ -433,7 +433,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # detector fires on both pin (front non-king) AND skewer (front
         # is the king under check) — Parth fb_05356cf43f98: "Not pin.
         # King cannot be pinned. Skewer is the correct term."
-        "cue_best":   "Two enemy pieces on a line — pin or skewer the front one with a slider. Strongest move here.",
+        "cue_best":   "Two enemy pieces on a line — pin or skewer the front one with a slider.",
         "cue_top_n":  "Two enemy pieces on a line — pin or skewer the front one with a slider.",
         "cue_absent": "When two enemy pieces sit on a line, a bishop / rook / queen can pin or skewer them.",
         "visual_signature": {
@@ -452,7 +452,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that gives check with a valuable piece behind the king on the same line",
         "gate_policy": "endorsement_required",
         "suppress": "once_per_move",
-        "cue_best":   "Check the king — the piece behind it falls when the king moves. Strongest move here.",
+        "cue_best":   "Check the king — the piece behind it falls when the king moves.",
         "cue_top_n":  "Look for skewers: check with a slider, valuable piece directly behind the king.",
         "cue_absent": "A skewer wins material: check the king, and the piece behind it on the same line is undefended.",
         "visual_signature": {
@@ -557,7 +557,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any trade where the captured piece was defending the target, not attacking it",
         "gate_policy": "endorsement_preferred + cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "Trade the defender, not the attacker. Strongest move here — keeps your attackers alive.",
+        "cue_best":   "Trade the defender, not the attacker — keeps your attackers alive.",
         "cue_top_n":  "When you're attacking, trade off their defenders. Your attackers want to stay.",
         "cue_absent": "This trade works here. Usually — when attacking, trade their defenders, not your attackers.",
         "visual_signature": {
@@ -637,7 +637,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any pawn break that opens a line toward the enemy king",
         "gate_policy": "endorsement_preferred",
         "suppress": "once_per_game",
-        "cue_best":   "The pawn break opens the line. Strongest move here.",
+        "cue_best":   "The pawn break opens the line — closed positions need this.",
         "cue_top_n":  "Closed lines stop your attack. The pawn break opens them.",
         "cue_absent": "No break needed this move. When attacks stall, look for the pawn push that opens a line.",
         "visual_signature": {
@@ -718,7 +718,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # the king" cue is a structural reminder; once shown, the player
         # carries it through the rest of the endgame.
         "suppress": "once_per_game",
-        "cue_best":   "Activate the king. Strongest move here — the centre is where it fights in the endgame.",
+        "cue_best":   "Activate the king — the centre is where it fights in the endgame.",
         "cue_top_n":  "Endgames need an active king. Walk it toward the centre, one square at a time.",
         # 2026-05-17 sweep: engine-meta cue_absent rewrite.
         "cue_absent": "Other plans this move. Generally — endgames need an active king, walk it to the centre.",
@@ -794,7 +794,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # different passer or different rook destination = different
         # Tarrasch moment.
         "suppress": "once_per_state_key",
-        "cue_best":   "Rook behind the passed pawn — Tarrasch's rule. Strongest move here.",
+        "cue_best":   "Rook behind the passed pawn — Tarrasch's rule.",
         "cue_top_n":  "Tarrasch rule: the rook belongs behind the passed pawn. It supports yours, restrains theirs.",
         "cue_absent": "Rook + passed pawn? Behind is the right square — either to push it (yours) or hold it back (theirs).",
         "visual_signature": {
@@ -829,7 +829,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # State-keyed: re-arms if a DIFFERENT bishop trade doubles a
         # different file (rare — usually once per game per file).
         "suppress": "once_per_state_key",
-        "cue_best":   "Trade bishop for knight — they recapture with a pawn, doubling that file. Strongest move here.",
+        "cue_best":   "Trade bishop for knight — they recapture with a pawn, doubling that file.",
         "cue_top_n":  "Bishop takes their knight — they recapture with a pawn, doubling that file. A factor in your favour, not always decisive.",
         "cue_absent": "BxN forced a pawn recapture that doubled their pawns — depending on the position, that's a small structural concession.",
         "visual_signature": {
@@ -850,7 +850,7 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # State-keyed: re-arms if the strike square changes (shouldn't
         # happen — once per game), but state_key gives consistency.
         "suppress": "once_per_state_key",
-        "cue_best":   "Capture on f7 — defended only by the king. Strongest move here.",
+        "cue_best":   "Capture on f7 — defended only by the king.",
         "cue_top_n":  "f7 (or f2) is defended only by the king in the opening. Take it when you can win material.",
         "cue_absent": "f7 (and f2) is the weakest square at the start — only the king defends it. Watch for tactical strikes there.",
         "visual_signature": {
