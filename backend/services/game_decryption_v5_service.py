@@ -4278,6 +4278,35 @@ async def generate_game_decryption_v5(
                     logger.info(f"[shape_v3] detect failed on move {full_move_number}: {_shape_exc}")
                     shape_pattern_record = None
 
+                # v80.3 (2026-05-25) — Mohit caught: pre-move pin
+                # detection found Bc5 pinning f2/g1 in m9 Be7's
+                # fen_before. The played move (Be7) moves the Bc5
+                # bishop AWAY — the pin is broken, not created/
+                # maintained. But the caption pipeline attached the
+                # pattern to Be7 anyway: "Be7 — Pin. Their piece cannot
+                # move." Misleading: the played move BREAKS the pattern.
+                #
+                # Fix: when the played move's FROM square equals the
+                # pattern's mover anchor (and TO != mover), the played
+                # move is removing the pattern's key piece. Suppress
+                # the pattern — don't attribute it to a move that
+                # destroys it.
+                if shape_pattern_record:
+                    _mover_sq = shape_pattern_record.get("mover")
+                    if _mover_sq:
+                        try:
+                            _from_name = chess.square_name(move.from_square)
+                            _to_name = chess.square_name(move.to_square)
+                            if _from_name == _mover_sq and _to_name != _mover_sq:
+                                logger.info(
+                                    f"[shape_v3] suppressing {shape_pattern_record.get('pattern_id')} "
+                                    f"on m{full_move_number} {move_san} — move breaks the pattern "
+                                    f"(mover {_mover_sq} departs)"
+                                )
+                                shape_pattern_record = None
+                        except Exception:
+                            pass
+
             # ── Post-move shape detection (Mohit fb_eb1d11ba227f) ──
             # Patterns in shape_patterns.py flagged `detect_phase=post_move`
             # describe "you walked into this" geometry — the vulnerability
