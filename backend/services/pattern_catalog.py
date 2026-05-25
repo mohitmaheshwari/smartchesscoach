@@ -328,6 +328,55 @@ def detect_opp_move_punishments(
     return facts
 
 
+def _is_prophylactic_wing_pawn(board, mv, opp_color) -> bool:
+    """True when a wing-pawn push (a/h file) by opp controls a square
+    reachable by the USER's same-colour bishop from its home square —
+    i.e., the push preempts a future Bg5/Bb5/Bg4/Bb4 development.
+
+    Geometry:
+      - h6 (black) controls g5, which is on the c1-h6 diagonal of
+        white's dark-squared bishop. If white's c1 bishop is home, h6
+        is preempting Bg5.
+      - a6 (black) controls b5, on the f1-a6 diagonal of white's light
+        bishop. If white's f1 bishop is home, a6 is preempting Bb5
+        (Ruy Lopez territory).
+      - h3 (white) mirrors against black's c8 bishop / Bg4.
+      - a3 (white) mirrors against black's f8 bishop / Bb4
+        (Nimzo-Indian territory).
+
+    Args:
+      board     : chess.Board BEFORE opp's wing-pawn move was played.
+      mv        : the opp's chess.Move for the wing-pawn push.
+      opp_color : opp's chess.Color (the side that just played).
+    """
+    import chess as _ch
+    user_color = not opp_color
+    to_file = _ch.square_file(mv.to_square)
+    to_rank = _ch.square_rank(mv.to_square)
+    if to_file not in (0, 7):
+        return False
+    # The pawn's forward-diagonal attack square (one rank ahead toward
+    # enemy, on the inside file).
+    forward = -1 if opp_color == _ch.BLACK else 1
+    inside_file = to_file - 1 if to_file == 7 else to_file + 1
+    attack_rank = to_rank + forward
+    if not (0 <= attack_rank <= 7):
+        return False
+    attacked_sq = _ch.square(inside_file, attack_rank)
+    user_bishop_homes = (
+        {_ch.C1, _ch.F1} if user_color == _ch.WHITE else {_ch.C8, _ch.F8}
+    )
+    for sq in board.pieces(_ch.BISHOP, user_color):
+        if sq not in user_bishop_homes:
+            continue
+        sq_file = _ch.square_file(sq)
+        sq_rank = _ch.square_rank(sq)
+        # Bishop diagonal: |file_diff| == |rank_diff|
+        if abs(sq_file - inside_file) == abs(sq_rank - attack_rank):
+            return True
+    return False
+
+
 def detect_opp_positional_mistake(
     pre_fen: str,
     opp_played_san: str,
@@ -399,9 +448,19 @@ def detect_opp_positional_mistake(
         # (game_85bd0169 m7 a3 case: Nc3+Nf3+Be2 out, Bc1 home, white
         # plays a3). With <4 any undeveloped minor triggers — captures
         # the "still incomplete development" voice a coach would use.
+        # v97 (2026-05-25) — Tier B Q5: intent-aware prophylactic
+        # detection. Mohit 2026-05-25: "the real issue is your detector
+        # lacks intent understanding. h6 in Italian is not merely 'wing
+        # pawn + no development' — it's preventing Bg5, reducing pin
+        # ideas, asking bishop intention." When the wing-pawn push
+        # controls a square reachable by opp's user-color bishop from
+        # the bishop's home square (h6 vs c1-bishop's g5; a6 vs f1-
+        # bishop's b5), the push is preempting a future pin or attack
+        # — that's prophylaxis, not lazy development. Skip flagging.
         if is_wing_pawn and developed < 4:
-            facts["opp_played_wing_pawn_san"] = opp_played_san
-            facts["opp_played_wing_pawn_file"] = "abcdefgh"[to_file]
+            if not _is_prophylactic_wing_pawn(board, mv, opp_color):
+                facts["opp_played_wing_pawn_san"] = opp_played_san
+                facts["opp_played_wing_pawn_file"] = "abcdefgh"[to_file]
 
     # ── Heuristic 2: knight to the rim (a-file/h-file) in opening ──
     if piece.piece_type == _chess.KNIGHT and to_file in (0, 7):
