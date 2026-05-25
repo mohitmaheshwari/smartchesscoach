@@ -1325,6 +1325,12 @@ def detect_open_long_line(board: chess.Board) -> List[Dict]:
       - White-side fianchetto: b2/g2 pawn moved + dark-square / light-square bishop gone.
       - Mirror for Black.
       - 'Clear enough' = at least 4 squares on the long diagonal toward king side are empty.
+      - v91 (2026-05-25, Parth fb_55e490a74436): require the enemy king to
+        actually be on or adjacent to the diagonal. Previously fired on
+        positions where the king sat far from the diagonal (e.g. g8 vs
+        a8-h1 diagonal which doesn't touch g8); the "long line to their
+        king" framing was misleading. King-proximity check: Chebyshev
+        distance from king to nearest diagonal square ≤ 1.
     """
     us = _own_color(board)
     them = not us
@@ -1344,6 +1350,8 @@ def detect_open_long_line(board: chess.Board) -> List[Dict]:
     has_our_b_par0 = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 0 for s in our_bishops)
     has_our_b_par1 = any((chess.square_file(s) + chess.square_rank(s)) % 2 == 1 for s in our_bishops)
     have_queen = bool(board.pieces(chess.QUEEN, us))
+    them_king_file = chess.square_file(them_king_sq)
+    them_king_rank = chess.square_rank(them_king_sq)
     # a1-h8 (parity 0): enemy must lack parity-0 bishop; we need parity-0 bishop or queen.
     # a8-h1 (parity 1): enemy must lack parity-1 bishop; we need parity-1 bishop or queen.
     for diag, their_has, our_has_b, label in (
@@ -1355,10 +1363,21 @@ def detect_open_long_line(board: chess.Board) -> List[Dict]:
         if not (our_has_b or have_queen):
             continue
         empty_count = sum(1 for s in diag if not board.piece_at(s))
-        if empty_count >= 4:
-            out.append(_ev("open_long_line", mover=None, targets=diag,
-                           executing_move=None,
-                           evidence=f"long diagonal {label} open; enemy bishop of that colour absent"))
+        if empty_count < 4:
+            continue
+        # King must actually be on or adjacent to the diagonal — otherwise
+        # the "long line to their king" framing is misleading. Chebyshev
+        # distance from king to nearest diagonal square ≤ 1.
+        min_dist = min(
+            max(abs(chess.square_file(s) - them_king_file),
+                abs(chess.square_rank(s) - them_king_rank))
+            for s in diag
+        )
+        if min_dist > 1:
+            continue
+        out.append(_ev("open_long_line", mover=None, targets=diag,
+                       executing_move=None,
+                       evidence=f"long diagonal {label} open; enemy bishop of that colour absent"))
     return out
 
 

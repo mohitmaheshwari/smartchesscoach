@@ -188,7 +188,14 @@ PRINCIPLES: List[Dict[str, Any]] = [
         # Was "Engine sees something tactical. Even so..." — Parth
         # fb_0f57acc84791 2026-05-17 flagged as unclear. Rewriting per
         # [[teaching-not-reading]].
-        "cue_absent": "This move solves a specific threat. As a default: a fresh piece each turn keeps the opening flowing.",
+        # v91 (2026-05-25): Parth fb_441026e27b10 — "The 'specific
+        # threat' part is not correct. are two principle merged here?"
+        # The previous "This move solves a specific threat" was an
+        # UNVERIFIED claim — the detector knows the user re-moved a
+        # piece, not that the re-move solved a threat. Rewriting to
+        # describe what actually happened (a re-move costs tempo)
+        # without inventing a chess-reason the detector can't see.
+        "cue_absent": "Re-moving the same piece costs tempo. As a default: a fresh piece each turn keeps the opening flowing.",
         "visual_signature": {
             "highlight": ["piece_first_move_square", "this_move_to_square"],
             "arrows": [("piece_first_move_square", "this_move_to_square", "amber")],

@@ -199,7 +199,17 @@ SHAPE_PATTERNS = [
     {
         "id": "open_long_line",
         "name": "Open Long Line",
-        "description": "Their corner bishop is gone. The long line to their king is wide open.",
+        # v91 (2026-05-25): Parth fb_55e490a74436 — "wrong narrative. not
+        # relevant to this position." The previous description overclaimed:
+        # said "their corner bishop is gone" (implying a fianchetto setup
+        # that may never have existed) and "the long line to their king is
+        # wide open" (implying direct king attack when the king may just be
+        # adjacent to the diagonal, not on it, with defenders blocking the
+        # line). Reworded honestly: the detector knows the enemy lacks a
+        # same-colour bishop AND ≥4 squares on the long diagonal are empty
+        # — but not that the king is in the line of fire or that the enemy
+        # ever fianchettoed. State just what's true.
+        "description": "Enemy has no bishop of this colour. The long diagonal has open squares for your queen or bishop to use.",
         "phase_in_scope": "middlegame",
         "priority": 65,
         "geometry_hint": "enemy fianchetto pawn moved (g6/g3/b6/b3) AND enemy bishop of that colour no longer on board OR not on the long diagonal; own piece can access the diagonal",

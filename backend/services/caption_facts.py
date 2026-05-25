@@ -1839,6 +1839,20 @@ def _p_op_queen_out_early(
 
     own_color_str = facts.get("moving_piece_color")
     own_color = chess.WHITE if own_color_str == "white" else chess.BLACK
+    # v91 (2026-05-25): mirror the v81 OP_FINISH_DEVELOPMENT fix.
+    # Parth flagged Qd8 m5 (queen RETREAT from d5 back to d8 after
+    # being chased) firing this principle with the cue "Bringing the
+    # queen out early — develop a minor piece first. Queens out early
+    # get chased and lose tempo." That's exactly backwards on a
+    # retreat — the queen is going BACK to home, not coming out.
+    # Per [[fix-framing-not-detection]], silence the principle for
+    # retreats rather than rewriting the cue (the cue is correct for
+    # genuine sorties). queen_sortie_evidence is computed for ANY
+    # queen move in the opening; gate the principle on the queen
+    # actually LEAVING her home square.
+    home_square = "d1" if own_color == chess.WHITE else "d8"
+    if sortie.get("from_square") != home_square:
+        return None
     aligned = _developing_minor_moves(board_before, own_color)
     endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
 
@@ -2199,25 +2213,48 @@ def _p_op_same_piece_twice(
     }.get(moving_piece_type)
     if moved_piece_chess_type is None:
         return None
-    # Track the destination of the most-recent same-type move.
-    prior_same_type_to: Optional[int] = None
-    # Replay history to know what piece-type was moved each time.
+    # Track every destination square that an own piece of this type
+    # has reached. The principle fires only when the played move's
+    # from_square is one of those destinations — meaning we're moving
+    # an already-moved piece again (the SAME piece, even after
+    # transposition). Walking the full move stack handles cases like
+    # "knight moved a3 to c2 to d4" where the most-recent destination
+    # changes; we want the union of all known destinations for this
+    # piece type.
+    prior_destinations: set = set()
     replay = chess.Board()
     for orig_idx, m in enumerate(board_before.move_stack):
         piece_at_from = replay.piece_at(m.from_square)
         piece_type_moved = piece_at_from.piece_type if piece_at_from else None
         replay.push(m)
-        # Only track own moves of this same piece type.
         move_color = chess.WHITE if (orig_idx % 2 == 0) else chess.BLACK
         own_match = move_color == (chess.WHITE if own_is_white else chess.BLACK)
         if own_match and piece_type_moved == moved_piece_chess_type:
-            prior_same_type_to = m.to_square
-    if prior_same_type_to is None:
+            # Remove the source from tracking — that square is no longer
+            # this piece's location. Add the destination.
+            prior_destinations.discard(m.from_square)
+            prior_destinations.add(m.to_square)
+    # v91 (2026-05-25) — Parth fb_441026e27b10. Previously this detector
+    # fired on "any same-type-twice case" (the v1 comment), which caught
+    # Bd7 (c8-bishop's FIRST move) as the second-bishop move while the
+    # c5-bishop had already moved. Result: principle fired with the cue
+    # "This move solves a specific threat. As a default..." on a clean
+    # first-bishop-move. Tighten: require played_move's from_square to
+    # be one of the prior destinations — i.e., we're moving an
+    # already-moved piece, not a fresh same-type piece.
+    played_from_san = facts.get("from_square")
+    if played_from_san:
+        try:
+            played_from_sq = chess.parse_square(played_from_san)
+        except Exception:
+            played_from_sq = None
+    else:
+        played_from_sq = None
+    if played_from_sq is None or played_from_sq not in prior_destinations:
         return None
-    # The current move's from_square should be where the piece IS now
-    # (i.e., the prior move's to_square OR a different piece of same
-    # type). If they differ, we have a SECOND piece of same type moving
-    # (e.g., two knights). For v1 fire on any same-type-twice case.
+    # Track for evidence (most-recent destination = where this piece
+    # was about to be re-moved from).
+    prior_same_type_to: Optional[int] = played_from_sq
     own_color = chess.WHITE if own_is_white else chess.BLACK
     aligned = _developing_minor_moves(board_before, own_color)
     # Filter: aligned moves should be of OTHER piece types (not the
@@ -4570,6 +4607,24 @@ def _p_mid_bad_bishop(
         # have been traded (every side starts with 4 on each colour).
         # 5+ catches the genuinely-locked-in cases.
         if same_color_pawns >= 5:
+            # v91 (2026-05-25) — Parth fb_164108af2618. Previously this
+            # detector fired on "5+ same-color pawns" alone, which
+            # misfired on positions where the bishop is ALREADY active
+            # outside the pawn chain (e.g. white Bishop on e5 in Parth's
+            # case: 5 dark-square pawns total, but e5 is in the centre
+            # with ~7 attack squares). A genuinely "bad" bishop is
+            # locked BEHIND its own pawns — meaning its mobility is
+            # restricted. Mobility check: count squares the bishop can
+            # actually reach (including captures). Active bishops with
+            # ≥4 legal squares are NOT bad — their teaching surface
+            # would mislead a 1200 ("the bishop on e5 needs to reroute"
+            # when it's already well-placed).
+            bishop_attacks = board_before.attacks(bsq)
+            # Subtract squares occupied by OWN pieces (can't move there)
+            own_pieces_bb = board_before.occupied_co[own_color]
+            mobility = chess.popcount(int(bishop_attacks) & ~int(own_pieces_bb))
+            if mobility >= 4:
+                continue
             bad_bishop_sq = bsq
             pawn_count = same_color_pawns
             break
