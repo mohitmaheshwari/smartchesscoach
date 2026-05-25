@@ -393,8 +393,13 @@ def detect_opp_positional_mistake(
         for sq in board.pieces(_chess.BISHOP, opp_color):
             if _chess.square_rank(sq) != home_rank:
                 developed += 1
-        # Wing pawn move when fewer than 3 minors developed = slow.
-        if is_wing_pawn and developed < 3:
+        # v80.1 — gate loosened from `< 3` to `< 4`. With <3 the detector
+        # only fired when 2+ minors were still home, missing positions
+        # where 3 minors are out + 1 still home + opp pushes wing pawn
+        # (game_85bd0169 m7 a3 case: Nc3+Nf3+Be2 out, Bc1 home, white
+        # plays a3). With <4 any undeveloped minor triggers — captures
+        # the "still incomplete development" voice a coach would use.
+        if is_wing_pawn and developed < 4:
             facts["opp_played_wing_pawn_san"] = opp_played_san
             facts["opp_played_wing_pawn_file"] = "abcdefgh"[to_file]
 
