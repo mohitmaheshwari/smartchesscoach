@@ -17,6 +17,11 @@
     "board_state_clause": "Pre-rendered string from board_state_describer (1-3 facts joined)."
   },
   "severity_tiers": [
+    {"when": {"severity_practical": "blunder"}, "tier": "blunder"},
+    {"when": {"severity_practical": "serious"}, "tier": "serious"},
+    {"when": {"severity_practical": "mistake"}, "tier": "mistake"},
+    {"when": {"severity_practical": "inaccuracy"}, "tier": "mistake"},
+    {"when": {"severity_practical": "good"}, "tier": "mistake"},
     {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
     {"when": {"cp_loss": {"gte": 250}}, "tier": "serious"},
     {"tier": "mistake"}
