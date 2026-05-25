@@ -163,9 +163,12 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
 
     # LOW — known generic fallbacks (engine-speak / no specific
     # content surfaced even though a rule fired).
+    # v94 (2026-05-25) — Tier B Q2: why_user_missed_material and
+    # why_user_reply variants REMOVED from R12_blunder.json entirely.
+    # The bare R12 "user_with_best" fallback ("X is a mistake. Y was
+    # better.") with no why-clause now classifies as LOW so authoring
+    # attention can prioritise grounded why-clauses over silence.
     low_pairs = {
-        ("R12_blunder.json", "why_user_missed_material"),
-        ("R12_blunder.json", "why_user_reply"),
         ("R_PROMOTED_basic_mistake.json", "default"),
         # v76 (2026-05-23) — Mohit + Parth: bare opp severity (no
         # why-clause) is LOW. "Opponent's Rg7 is a serious mistake."
@@ -175,6 +178,12 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         # classified MID-by-default. Surfacing them as LOW now so
         # they bubble up for authoring attention.
         ("R12_blunder.json", "opp"),
+        # v94 — user_with_best (no why_clause) was firing as MID-by-
+        # default; promoting to LOW so the audit can find the moves
+        # that lost their why-clause when v94 dropped the engine-speak
+        # fallbacks. These are the moves we COULD add concrete
+        # detectors for.
+        ("R12_blunder.json", "user_with_best"),
     }
     if (file_name, variant_key) in low_pairs:
         return "LOW"

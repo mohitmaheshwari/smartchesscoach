@@ -156,10 +156,9 @@
     {"when": {"curriculum_deviation_clause": "present"}, "variant": "why_user_curriculum_deviation"},
     {"when": {"blocked_pawn_would_support": "present"}, "variant": "why_user_blocks_pawn_supports"},
     {"when": {"blocked_pawn_file": "present"}, "variant": "why_user_blocks_pawn"},
-    {"when": {"board_state_clause": "present"}, "variant": "why_user_board_state"},
-    {"when": {"missed_tactic_kind": "material", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"gte": 100}}, "variant": "why_user_missed_material"},
-    {"when": {"opp_reply_san": "present", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"gte": 100}}, "variant": "why_user_reply"}
+    {"when": {"board_state_clause": "present"}, "variant": "why_user_board_state"}
   ],
+  "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",
   "_user_engine_speak_gate_note": "v77.1 (2026-05-23): the two engine-speak fallbacks (why_user_missed_material 'it wins material in the resulting line' / why_user_reply 'Opponent's strongest reply: X') now require cp_loss >= 100. Without this gate, the v76 R12 trigger lowering (100 -> 30) made these fire on user INACCURACIES (cp_loss 30-99) that V5's severity classifier separately marks as 'good' — producing captions like 'Nf6 is a mistake. Nc6 was better. Opponent's strongest reply: O-O.' on moves V5 considered fine. Now: user inaccuracies below 100 cp_loss are either silenced (when no concrete detector fired) or surface a concrete why-clause (when one did). The opp-side why-clauses are unaffected — opp moves still get full opp-narration treatment at the 30 threshold.",
   "why_clauses_opp": [
     {"when": {"opp_user_reply_tactic_kind": "mate"}, "variant": "why_opp_user_finds_mate"},
@@ -188,7 +187,6 @@
   ],
   "select_variant": [
     {"when": {"mover_is_user": false, "opp_has_concrete_why": true, "why_clause": "present"}, "variant": "opp_with_why"},
-    {"when": {"mover_is_user": false, "user_best_reply_san": "present", "cp_loss": {"lt": 250}}, "variant": "opp_soft_reply"},
     {"when": {"mover_is_user": false, "why_clause": "present"}, "variant": "opp_with_why"},
     {"when": {"mover_is_user": false}, "variant": "opp"},
     {"when": {"mover_is_user": true, "user_is_winning": true, "why_clause": "absent", "best_move_san_differs": true, "cp_loss": {"lt": 250}}, "variant": "user_winning_position"},
@@ -215,7 +213,6 @@
     "user_no_best_with_why": "{played_san} {severity_phrase}. {why_clause}",
     "opp": "Opponent's {played_san} {severity_phrase}.",
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
-    "opp_soft_reply": "Opponent's {played_san} — engine has a slight preference here. Best reply: {user_best_reply_san}.",
 
     "why_user_missed_trap_punishment": "it's the textbook refutation in the {trap_context_name}.",
     "why_user_missed_mate": "it would have led to mate in {missed_tactic_moves_to_mate} {missed_tactic_mate_word}.",
@@ -243,7 +240,6 @@
     "why_user_curriculum_deviation": "{curriculum_deviation_clause}",
     "why_user_blocks_pawn_supports": "{played_san} blocks your {blocked_pawn_file}-pawn — {best_move_san} would have supported your {blocked_pawn_would_support} pawn.",
     "why_user_blocks_pawn": "{played_san} blocks your {blocked_pawn_file}-pawn from advancing to {blocked_pawn_square}.",
-    "why_user_missed_material": "it wins material in the resulting line.",
 
     "why_user_attacks_played": "After {opp_reply_san}, your {moving_piece_type} on {target_square} is under attack.",
     "why_user_exchange_losing_with_reply": "After {opp_reply_san}, your {moving_piece_type} on {target_square} falls.",
@@ -252,7 +248,6 @@
     "why_user_capture": "Opponent plays {opp_reply_san} winning your {captured_piece_type}.",
     "why_user_check": "Opponent has {opp_reply_san} forcing your king.",
     "why_user_board_state": "{board_state_clause}",
-    "why_user_reply": "Opponent's strongest reply: {opp_reply_san}.",
 
     "bs_isolated_attacker": "Your {bs_piece} on {bs_square} is alone in opponent territory with no defender.",
     "bs_worst_placed_piece": "Your {bs_piece} on {bs_square} has only {bs_legal_count} legal {bs_legal_word}.",
@@ -268,7 +263,7 @@
 
     "why_opp_punish_capture": "Play {user_best_reply_san} winning the {captured_piece_type}.",
     "why_opp_punish_check": "Play {user_best_reply_san} — it forces a reply.",
-    "why_opp_punish_default": "Your strongest reply is {user_best_reply_san}.",
+    "why_opp_punish_default": "Play {user_best_reply_san}.",
     "why_opp_hanging": "Their {piece_type} on {square} is now undefended — take it.",
     "why_opp_unsafe": "Their {moving_piece_type} on {target_square} can't be defended.",
 
