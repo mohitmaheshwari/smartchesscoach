@@ -172,6 +172,10 @@
     {"when": {"opp_user_reply_kicks_piece_type": "present"}, "variant": "why_opp_user_kicks_piece"},
     {"when": {"opp_user_reply_endgame_pawn_sub_kind": "direct_capture"}, "variant": "why_opp_user_endgame_pawn_grab"},
     {"when": {"opp_user_reply_endgame_pawn_sub_kind": "attack"}, "variant": "why_opp_user_endgame_pawn_attack"},
+    {"when": {"opp_played_wing_pawn_san": "present"}, "variant": "why_opp_wing_pawn_push"},
+    {"when": {"opp_played_knight_on_rim_san": "present"}, "variant": "why_opp_knight_on_rim"},
+    {"when": {"opp_played_queen_early_san": "present"}, "variant": "why_opp_queen_early"},
+    {"when": {"opp_played_un_developed_san": "present"}, "variant": "why_opp_un_developed"},
     {"when": {"user_best_reply_san": "present", "captured_piece_type": "present"}, "variant": "why_opp_punish_capture"},
     {"when": {"user_best_reply_san_is_forcing": true}, "variant": "why_opp_punish_check"},
     {"when": {"user_best_reply_san": "present"}, "variant": "why_opp_punish_default"},
@@ -268,6 +272,11 @@
     "why_opp_user_attack_with_tempo": "Play {user_best_reply_san} — hits their {opp_user_reply_attack_piece} on {opp_user_reply_attack_square} with tempo.",
     "why_opp_user_kicks_piece": "Play {user_best_reply_san} — your pawn kicks their {opp_user_reply_kicks_piece_type} on {opp_user_reply_kicks_piece_square}.",
     "why_opp_user_endgame_pawn_grab": "Play {user_best_reply_san} — grabs their undefended pawn on {opp_user_reply_endgame_pawn_square}.",
-    "why_opp_user_endgame_pawn_attack": "Play {user_best_reply_san} — attacks their undefended pawn on {opp_user_reply_endgame_pawn_square}."
+    "why_opp_user_endgame_pawn_attack": "Play {user_best_reply_san} — attacks their undefended pawn on {opp_user_reply_endgame_pawn_square}.",
+
+    "why_opp_wing_pawn_push": "{opp_played_wing_pawn_san} is a wing-pawn push in the opening — doesn't develop a piece or fight for the center. Play {user_best_reply_san}.",
+    "why_opp_knight_on_rim": "{opp_played_knight_on_rim_san} parks the knight on the rim ({opp_played_knight_on_rim_square}) — knights attack fewer squares from the edge. Play {user_best_reply_san}.",
+    "why_opp_queen_early": "{opp_played_queen_early_san} brings the queen out before their minor pieces — you can chase it and gain tempo. Play {user_best_reply_san}.",
+    "why_opp_un_developed": "{opp_played_un_developed_san} retreats the {opp_played_un_developed_piece} back home — wastes a tempo, undoes their earlier development. Play {user_best_reply_san}."
   }
 }

@@ -328,6 +328,111 @@ def detect_opp_move_punishments(
     return facts
 
 
+def detect_opp_positional_mistake(
+    pre_fen: str,
+    opp_played_san: str,
+    move_number: Optional[int] = None,
+) -> Dict:
+    """v80 (2026-05-25) — Mohit: "Opponent's a3 is a mistake. Your
+    strongest reply is e5. where is the teaching here?? until you tell,
+    why it's a mistake."
+
+    Right. v77's opp punishment detectors describe what USER's reply
+    does, not what OPP did wrong. For positional opp mistakes (wing
+    pawn pushes in the opening, knights to the rim, queen out early)
+    we need a SEPARATE detector class that names what's wrong with
+    opp's MOVE — independent of any tactical punishment.
+
+    Self-contained heuristics: takes (pre_fen, opp_played_san) and
+    fires for known-suboptimal opening patterns. Doesn't need engine's
+    preferred opp move (which isn't readily available for opp moves —
+    move_evaluations only stores user-side entries).
+
+    Returns a dict of fact keys (opp_played_*) that R12_blunder.json's
+    why_clauses_opp section reads. Empty dict when no heuristic fires.
+    """
+    if not pre_fen or not opp_played_san:
+        return {}
+    if move_number is not None and move_number > 15:
+        # Opening-phase heuristics only. After m15 the patterns are
+        # context-dependent and a flat heuristic produces noise.
+        return {}
+
+    facts: Dict = {}
+    try:
+        import chess as _chess
+        board = _chess.Board(pre_fen)
+        mv = board.parse_san(opp_played_san)
+    except Exception:
+        return {}
+
+    piece = board.piece_at(mv.from_square)
+    if piece is None:
+        return {}
+
+    from_sq = mv.from_square
+    to_sq = mv.to_square
+    to_file = _chess.square_file(to_sq)  # 0=a … 7=h
+    to_rank = _chess.square_rank(to_sq)
+    from_rank = _chess.square_rank(from_sq)
+    is_capture = board.piece_at(to_sq) is not None
+
+    # ── Heuristic 1: wing pawn push in opening ──────────────────────
+    # Opp played an a/h-file pawn (or a 1-square b/g push) when minors
+    # weren't fully developed. Slow — doesn't develop, doesn't fight
+    # for the center. Mohit's m7 a3 case.
+    if piece.piece_type == _chess.PAWN and not is_capture:
+        is_wing_pawn = to_file in (0, 7)  # a-file or h-file
+        # Count opp's developed minor pieces (knights+bishops off home)
+        opp_color = piece.color
+        home_rank = 0 if opp_color == _chess.WHITE else 7
+        developed = 0
+        for sq in board.pieces(_chess.KNIGHT, opp_color):
+            if _chess.square_rank(sq) != home_rank:
+                developed += 1
+        for sq in board.pieces(_chess.BISHOP, opp_color):
+            if _chess.square_rank(sq) != home_rank:
+                developed += 1
+        # Wing pawn move when fewer than 3 minors developed = slow.
+        if is_wing_pawn and developed < 3:
+            facts["opp_played_wing_pawn_san"] = opp_played_san
+            facts["opp_played_wing_pawn_file"] = "abcdefgh"[to_file]
+
+    # ── Heuristic 2: knight to the rim (a-file/h-file) in opening ──
+    if piece.piece_type == _chess.KNIGHT and to_file in (0, 7):
+        facts["opp_played_knight_on_rim_san"] = opp_played_san
+        facts["opp_played_knight_on_rim_square"] = _chess.square_name(to_sq)
+
+    # ── Heuristic 3: queen out before minors developed ─────────────
+    # Opp moved the queen off its home rank when fewer than 2 minors
+    # are developed. The classic "queen comes out, gets chased" pattern.
+    if piece.piece_type == _chess.QUEEN:
+        opp_color = piece.color
+        queen_home_rank = 0 if opp_color == _chess.WHITE else 7
+        if from_rank == queen_home_rank and to_rank != queen_home_rank:
+            # Count developed minors
+            home_rank = 0 if opp_color == _chess.WHITE else 7
+            developed = 0
+            for sq in board.pieces(_chess.KNIGHT, opp_color):
+                if _chess.square_rank(sq) != home_rank:
+                    developed += 1
+            for sq in board.pieces(_chess.BISHOP, opp_color):
+                if _chess.square_rank(sq) != home_rank:
+                    developed += 1
+            if developed < 2:
+                facts["opp_played_queen_early_san"] = opp_played_san
+
+    # ── Heuristic 4: un-developing — piece returns to home square ──
+    if piece.piece_type in (_chess.KNIGHT, _chess.BISHOP):
+        opp_color = piece.color
+        home_rank = 0 if opp_color == _chess.WHITE else 7
+        if from_rank != home_rank and to_rank == home_rank:
+            facts["opp_played_un_developed_piece"] = _chess.piece_name(piece.piece_type)
+            facts["opp_played_un_developed_san"] = opp_played_san
+
+    return facts
+
+
 def detect_position_patterns(
     fen_before: str,
     best_move_san: str,
