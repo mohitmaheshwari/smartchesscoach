@@ -113,13 +113,16 @@
   "severity_tiers": [
     {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
     {"when": {"cp_loss": {"gte": 250}}, "tier": "serious"},
-    {"tier": "mistake"}
+    {"when": {"cp_loss": {"gte": 100}}, "tier": "mistake"},
+    {"tier": "inaccuracy"}
   ],
   "severity_phrases": {
     "blunder": "is a major blunder",
     "serious": "is a serious mistake",
-    "mistake": "is a mistake"
+    "mistake": "is a mistake",
+    "inaccuracy": "is an inaccuracy"
   },
+  "_severity_tiers_note": "v79.3 (2026-05-25): Mohit caught cp_loss=76 opp move with severity='opp_inaccuracy' being rendered as 'is a mistake.' Old severity_tiers only had three steps and dumped everything below 250 into the 'mistake' bucket — including small inaccuracies (30-99) that V5's severity classifier separately marks as 'opp_inaccuracy' / 'inaccuracy'. Added a fourth tier so the caption phrase tracks V5's severity classification: blunder (>=400) / serious mistake (>=250) / mistake (>=100) / inaccuracy (30-99).",
   "why_clauses_user": [
     {"when": {"trap_context_name": "present"}, "variant": "why_user_missed_trap_punishment"},
     {"when": {"missed_tactic_kind": "mate"}, "variant": "why_user_missed_mate"},
