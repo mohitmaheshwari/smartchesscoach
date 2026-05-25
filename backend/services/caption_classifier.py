@@ -143,6 +143,16 @@ def _classify_tier(variant_key: str, file_name: str) -> str:
         "R04_discovered_attack.json",      # discovered
         "R05_check_extra.json",            # check + tactic
         "R_PROMOTED_opening.json",         # named opening teaching
+        "R_PROMOTED_opening_intro.json",   # opening idea / main-line theory.
+                                           # v87 (2026-05-25): Mohit on m3 Nc3
+                                           # in Scandinavian — "this is one of
+                                           # the most played moves at the top
+                                           # level, that gives them teaching
+                                           # about theory and things to
+                                           # remember." Opening curriculum
+                                           # knowledge IS teaching for a 1200,
+                                           # not narration. Promoted from
+                                           # MID-by-default.
         "R_PROMOTED_trap_setup.json",      # named trap
         "R_PROMOTED_trap_defense.json",
         "R_PROMOTED_shape.json",           # named shape pattern
