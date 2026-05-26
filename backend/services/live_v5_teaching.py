@@ -366,319 +366,63 @@ def v5_teaching_decision_for_live_move(
     if not fen_before:
         return None
 
-    # Run the V5 detection pipeline. Pure-Python, fast.
+    # v100 FINAL — Mohit "completely called through a central layer"
+    # 2026-05-26: PWC now calls build_move_teaching_decision() ONCE,
+    # replacing the 9 individual A-helper calls + extract_facts that
+    # used to live here. Any future enrichment added to caption_pipeline
+    # AND called from build_move_teaching_decision automatically reaches
+    # PWC live coaching with ZERO changes to this file.
+    #
+    # Behaviour preservation: PWC continues to use resolve_priority +
+    # _draft_from_decision for its anchor + deterministic_draft. The
+    # central layer's internal render_caption_dict + promotion_ladder
+    # output is computed but unused — PWC's tone stays exactly as
+    # before. The PWC snapshot corpus (snapshot_pwc.py) verifies this.
+    #
+    # State threading: PWC currently passes None for game_trap_fires /
+    # eval_lookup / move_evaluations (PWC doesn't track these per-
+    # session yet). When future plumbing adds them to coach_sessions,
+    # the helpers downstream of those data sources will fire on PWC.
     try:
-        facts = extract_facts(
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+        _user_color_norm = (user_doc.get("color_played") or "white").lower()
+        _user_is_white = _user_color_norm == "white"
+        # mover_is_white = user_is_white iff mover IS the user.
+        _mover_is_white = _user_is_white == bool(mover_is_user)
+        _inputs = MoveInputs(
             fen_before=fen_before,
             played_san=played_san,
+            mover_is_user=bool(mover_is_user),
+            mover_is_white=_mover_is_white,
+            user_color=_user_color_norm,
+            full_move_number=int(full_move_number or 1),
+            move_history_san=list(move_history_san or []),
+            prev_move_san=(move_history_san[-1] if move_history_san else None),
             best_move_san=best_move_san,
             eval_before_cp=eval_before_cp,
             eval_after_cp=eval_after_cp,
-            cp_loss=cp_loss,
-            pv_after_played=pv_after_played or [],
-            pv_after_best=pv_after_best or [],
-            move_history_san=move_history_san or [],
-            full_move_number=full_move_number,
-            mover_is_user=mover_is_user,
+            cp_loss=int(cp_loss or 0),
+            pv_after_played=list(pv_after_played or []),
+            pv_after_best=list(pv_after_best or []),
         )
+        _state = CrossMoveState(
+            fired_principles=set(session_fired_principles or set()),
+            fired_state_keys=set(session_fired_state_keys or set()),
+        )
+        _decision = build_move_teaching_decision(_inputs, _state)
+        if _decision.should_skip:
+            return None
+        facts = _decision.debug_facts
     except (chess.InvalidMoveError, ValueError) as e:
-        logger.info(f"[live_v5_teaching] extract_facts failed for {played_san}: {e}")
+        logger.info(f"[live_v5_teaching] central pipeline failed for {played_san}: {e}")
         return None
     except Exception:
-        logger.exception(f"[live_v5_teaching] extract_facts crashed for {played_san}")
+        logger.exception(f"[live_v5_teaching] central pipeline crashed for {played_san}")
         return None
-
-    # v100 A1 (Mohit signoff 2026-05-26 — auto-propagation): run the
-    # user-blunder detector suite that V5 review uses, so PWC users
-    # get the same v53-v65 detector evidence in captions ("Play d5
-    # kicking their bishop on e6") instead of generic teaching.
-    # Internal gate (is_user AND best_move differs AND cp_loss >= 100)
-    # is preserved inside the helper — for non-qualifying moves this
-    # is a near-no-op.
-    try:
-        from services.caption_pipeline import inject_user_blunder_detector_facts
-        inject_user_blunder_detector_facts(
-            facts,
-            fen_before=fen_before,
-            move_san=played_san,
-            best_move=best_move_san,
-            pv_after_best=pv_after_best or [],
-            move_number=full_move_number,
-            is_user=bool(mover_is_user),
-            cp_loss=int(cp_loss or 0),
-        )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] blunder detector inject crashed for {played_san}"
-        )
-
-    # v100 A2 (auto-propagation): em-dash voice-match + trap-context
-    # wiring. PWC doesn't currently scan the live session's move
-    # history for traps (game_trap_fires=None) — the trap-context
-    # branch silently skips, but the em-dash voice still fires
-    # whenever an A1-suite detector populated caption_facts. PWC
-    # users on a blunder now get the em-dash parent variant
-    # ("Y was better — reason") instead of the two-sentence form,
-    # matching V5 review output.
-    try:
-        from services.caption_pipeline import inject_em_dash_and_trap_context_facts
-        inject_em_dash_and_trap_context_facts(
-            facts,
-            game_trap_fires=None,
-            best_move=best_move_san,
-            move_san=played_san,
-            is_user=bool(mover_is_user),
-            cp_loss=int(cp_loss or 0),
-            opening_name=None,
-        )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] em-dash inject crashed for {played_san}"
-        )
-
-    # v100 A10 (auto-propagation): eval-trajectory.
-    # PWC doesn't pass move_evaluations today — helper no-ops cleanly.
-    # When session-state plumbing adds per-session eval history,
-    # this call point will surface position_was_already_losing facts.
-    try:
-        from services.caption_pipeline import inject_eval_trajectory_facts
-        inject_eval_trajectory_facts(
-            facts,
-            move_evaluations=None,
-            current_move_number=full_move_number,
-            user_color=(user_doc.get("color_played") or "white"),
-            is_user=bool(mover_is_user),
-            cp_loss=int(cp_loss or 0),
-        )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] eval-trajectory inject crashed for {played_san}"
-        )
-
-    # v100 A11 (auto-propagation): curriculum-deviation. Walks
-    # opening_curriculum_engine trees that match user's color. Works
-    # today on PWC: move_history_san is already passed in.
-    try:
-        from services.caption_pipeline import inject_curriculum_deviation_facts
-        inject_curriculum_deviation_facts(
-            facts,
-            move_history_san_excl_current=list(move_history_san or []),
-            move_san=played_san,
-            user_color=(user_doc.get("color_played") or "white"),
-            is_user=bool(mover_is_user),
-            cp_loss=int(cp_loss or 0),
-            full_move_number=full_move_number,
-        )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] curriculum-deviation inject crashed for {played_san}"
-        )
-
-    # v100 A12 (auto-propagation): blocked-own-pawn principle.
-    # Pure function — works on PWC today.
-    try:
-        from services.caption_pipeline import inject_blocked_pawn_facts
-        inject_blocked_pawn_facts(
-            facts,
-            fen_before=fen_before,
-            played_san=played_san,
-            best_move=best_move_san,
-            full_move_number=full_move_number,
-            is_user=bool(mover_is_user),
-            cp_loss=int(cp_loss or 0),
-        )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] blocked-pawn inject crashed for {played_san}"
-        )
-
-    # v100 A4 (auto-propagation): opening intro (v74) + opening
-    # theory lookup (v88). Gate is move_index<6 AND phase=="opening".
-    # PWC doesn't track ply-index or phase explicitly — derive:
-    #   move_index = (full_move_number-1)*2 + (mover_is_white ? 0 : 1)
-    #   phase = "opening" when move_index < 12 (rough heuristic)
-    # eco_code / opening_name are not in PWC session state today
-    # — pass None and the helper still surfaces opening_theory_*
-    # facts via the FEN-keyed lookup. Future PWC enhancement could
-    # detect the opening from the move sequence.
-    try:
-        from services.caption_pipeline import inject_opening_context_facts
-        _move_idx = max(0, (full_move_number or 1) - 1) * 2
-        # If we don't know mover side, idx defaults to even (white).
-        _is_white = bool(user_doc.get("color_played") == "white") == bool(mover_is_user)
-        if not _is_white:
-            _move_idx += 1
-        _phase = "opening" if _move_idx < 12 else "middlegame"
-        _open_board = chess.Board(fen_before) if fen_before else None
-        _open_move = None
-        if _open_board is not None:
-            try:
-                _open_move = _open_board.parse_san(played_san)
-            except Exception:
-                _open_move = None
-        if _open_board is not None and _open_move is not None:
-            _prev_san = move_history_san[-1] if move_history_san else None
-            inject_opening_context_facts(
-                facts,
-                board=_open_board,
-                move=_open_move,
-                move_san=played_san,
-                move_index=_move_idx,
-                phase=_phase,
-                eco_code=None,
-                opening_name=None,
-                user_color=(user_doc.get("color_played") or "white"),
-                prev_move_san=_prev_san,
-            )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] opening context inject crashed for {played_san}"
-        )
-
-    # v100 A6 (auto-propagation): shape pattern selection.
-    # PWC doesn't persist shapes_fired_this_game on coach_sessions
-    # (the V5 service uses it for once-per-game anti-repeat). Passing
-    # an empty set each call disables anti-repeat — same shape can
-    # fire on consecutive PWC moves until session state is added.
-    # That's degraded behaviour, not broken.
-    try:
-        from services.caption_pipeline import select_shape_pattern_record
-        _shape_board = chess.Board(fen_before) if fen_before else None
-        _shape_move = None
-        if _shape_board is not None:
-            try:
-                _shape_move = _shape_board.parse_san(played_san)
-            except Exception:
-                _shape_move = None
-        if _shape_board is not None and _shape_move is not None:
-            # Severity for the post-move shape gate. Use practical_tier
-            # if available; degrade to canonical cp_loss-based check.
-            from services.severity import classify_severity_practical
-            _practical_for_shape = classify_severity_practical(
-                int(cp_loss or 0),
-                mover_is_user=bool(mover_is_user),
-                mover_is_white=bool(user_doc.get("color_played") == "white") == bool(mover_is_user),
-                eval_before_cp=eval_before_cp,
-                eval_after_cp=eval_after_cp,
-            )
-            _severity_str = _practical_for_shape.practical_tier
-            # Map canonical tier into the user-facing vocabulary V5
-            # service uses ("mistake" / "blunder" / "opp_mistake" /
-            # "opp_blunder") for the post-move gate.
-            if not mover_is_user:
-                if _severity_str in ("mistake", "serious", "blunder"):
-                    _severity_str = f"opp_{_severity_str}" if _severity_str != "serious" else "opp_blunder"
-            _shape_after_board = _shape_board.copy()
-            _shape_after_board.push(_shape_move)
-            _shape_record = select_shape_pattern_record(
-                fen_before=fen_before,
-                board=_shape_after_board,
-                move=_shape_move,
-                move_san=played_san,
-                prev_move=None,  # PWC doesn't track prev_move yet
-                eval_data={},
-                pv_after_played=pv_after_played or [],
-                severity=_severity_str,
-                full_move_number=full_move_number,
-                shapes_fired_this_game=set(),
-            )
-            if _shape_record:
-                facts["shape_pattern_id"] = _shape_record.get("pattern_id")
-                facts["shape_pattern_name"] = _shape_record.get("pattern_name")
-                facts["shape_pattern_desc"] = _shape_record.get("pattern_desc")
-                _sp_targets = _shape_record.get("targets") or []
-                if _sp_targets:
-                    facts["shape_pattern_target_square"] = _sp_targets[0]
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] shape pattern selection crashed for {played_san}"
-        )
-
-    # v100 A7 (auto-propagation): board_state_describer fallback.
-    # bs_recent_window is game-wide in V5; PWC passes [] each call
-    # (no anti-repeat across moves until session state added).
-    try:
-        from services.caption_pipeline import inject_board_state_describer_clause
-        inject_board_state_describer_clause(
-            facts,
-            fen_before=fen_before,
-            move_san=played_san,
-            user_color=(user_doc.get("color_played") or "white"),
-            full_move_number=full_move_number,
-            bs_recent_window=[],
-            bs_window_size=1,
-        )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] board state describer crashed for {played_san}"
-        )
-
-    # v100 A5 (auto-propagation): trap recognition state machine.
-    # PWC doesn't persist trap-tracking state on coach_sessions yet
-    # (active_trap, setup_completed, step_cursor would need to live
-    # there). For now we call with state=None each time — meaning
-    # ONLY a fresh trap setup that completes ENTIRELY in the move
-    # history we pass will fire. Continuation steps won't track
-    # across moves until state persistence is added. The trap_record
-    # return value is currently dropped (V5 service uses it for
-    # content promotion; PWC would need wiring through to
-    # caption_facts.trap_context_* via A2's helper).
-    try:
-        from services.caption_pipeline import update_trap_recognition_state
-        _trap_played_so_far = list(move_history_san or []) + [played_san]
-        update_trap_recognition_state(
-            played_san_so_far=_trap_played_so_far,
-            move_san=played_san,
-            is_user=bool(mover_is_user),
-            user_color=(user_doc.get("color_played") or "white"),
-            full_move_number=full_move_number,
-            active_trap=None,
-            active_trap_setup_completed_by_user=False,
-            active_trap_step_cursor=0,
-        )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] trap recognition crashed for {played_san}"
-        )
-
-    # v100 A3 (auto-propagation): opp-side narration block. PWC
-    # currently gates only USER moves (mover_is_user=True), so the
-    # function's `not is_user` gate is closed by definition here —
-    # the call is a no-op today. When PWC adds opp-move teaching
-    # AND a per-session eval_lookup (engine evaluations of upcoming
-    # positions), passing the real lookup will surface v76/v77/v80
-    # facts in opp-blunder captions. Kept here so the call point
-    # is established and ready for that capability.
-    try:
-        from services.caption_pipeline import inject_opp_side_narration_facts
-        # Synthesise the chess.Board + chess.Move pair the helper needs.
-        # The function gate (`not is_user`) closes immediately for the
-        # typical PWC user-move call, so this is cheap. We still
-        # construct the inputs so the call point is valid.
-        _opp_board = chess.Board(fen_before) if fen_before else None
-        _opp_move = None
-        if _opp_board is not None:
-            try:
-                _opp_move = _opp_board.parse_san(played_san)
-            except Exception:
-                _opp_move = None
-        if _opp_board is not None and _opp_move is not None:
-            inject_opp_side_narration_facts(
-                facts,
-                fen_before=fen_before,
-                board=_opp_board,
-                move=_opp_move,
-                move_san=played_san,
-                full_move_number=full_move_number,
-                is_user=bool(mover_is_user),
-                opp_cp_loss=int(cp_loss or 0),
-                eval_lookup={},  # PWC has no per-game eval lookup yet
-                user_color=(user_doc.get("color_played") or "white"),
-            )
-    except Exception:
-        logger.exception(
-            f"[live_v5_teaching] opp-side inject crashed for {played_san}"
-        )
 
     # Apply session-level suppression BEFORE the resolver picks an anchor.
     # The resolver's own pickprioritizes principles; we need to filter

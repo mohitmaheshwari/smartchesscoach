@@ -59,15 +59,15 @@
     {
       "scenario_id": "07_endgame_critical_mistake",
       "v5_block_present": true,
-      "anchor_name": "Passed Pawn",
-      "principle_id": null,
-      "shape_pattern_id": "free_pawn",
+      "anchor_name": "What changed after the move",
+      "principle_id": "TAC_CHANGED_AFTER_MOVE",
+      "shape_pattern_id": null,
       "polish_status": "draft",
       "state_key": null,
-      "principle_suppress_policy": null,
+      "principle_suppress_policy": "once_per_move",
       "is_coach_move_teaching": false,
-      "deterministic_draft_hash": "6ac75cef830c",
-      "anchor_detail_hash": "3f038e6934bf"
+      "deterministic_draft_hash": "a3bfd5d050c0",
+      "anchor_detail_hash": "69106f1126b2"
     }
   ]
 }
