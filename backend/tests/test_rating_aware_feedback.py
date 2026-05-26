@@ -113,7 +113,11 @@ class TestGenerateCoachingMessage:
     """Test rating-aware coaching message generation"""
     
     def test_800_player_inaccuracy_simplified(self):
-        """800-rated player with inaccuracy gets simplified message (no correction shown)"""
+        """800-rated player with inaccuracy gets simplified or silent message
+        (no correction shown). Updated 2026-05-26 to match d16db215 voice
+        alignment: sub-1200 inaccuracies with no contrast available are
+        suppressed entirely (coaching_message="") and quality is downgraded
+        to "good" so the frontend doesn't show an inaccuracy label."""
         result = _generate_coaching_message(
             user_move="Nf3",
             quality="inaccuracy",
@@ -124,11 +128,14 @@ class TestGenerateCoachingMessage:
             user_name="",
             user_rating=800
         )
-        
-        # Beginners should get "fine for now" message, not detailed correction
-        assert "fine for now" in result["coaching_message"].lower(), \
-            f"Expected 'fine for now' for 800 player inaccuracy, got: {result['coaching_message']}"
-        # Should NOT mention the best move for beginners
+
+        # Beginners with no contrastive explanation get suppressed message.
+        assert result["coaching_message"] == "", \
+            f"Expected empty message for 800 player inaccuracy without contrast, got: {result['coaching_message']!r}"
+        # And the quality should be downgraded so frontend hides the label.
+        assert result.get("user_move_quality") == "good", \
+            f"Expected user_move_quality='good' (downgraded) for 800 inaccuracy, got: {result.get('user_move_quality')!r}"
+        # Should NOT mention the best move for beginners (still holds even when contrast fires).
         assert "Nd5" not in result["coaching_message"], \
             f"Should not show best move to beginner for inaccuracy: {result['coaching_message']}"
     
@@ -150,7 +157,10 @@ class TestGenerateCoachingMessage:
             f"Expected best move 'Nd5' in message for 1600 player, got: {result['coaching_message']}"
     
     def test_800_player_blunder_direct_message(self):
-        """800-rated player with blunder gets direct message (not Socratic)"""
+        """800-rated player with blunder gets direct message (not Socratic).
+        Updated 2026-05-26 to match d16db215 voice alignment: 'drops material'
+        replaced earlier 'oops/loses' wording. Material-mention is still the
+        teaching anchor; this test verifies the direct (non-Socratic) format."""
         result = _generate_coaching_message(
             user_move="Qh4",
             quality="blunder",
@@ -161,15 +171,19 @@ class TestGenerateCoachingMessage:
             user_name="",
             user_rating=800
         )
-        
-        # Beginners should get direct "Oops" style message
-        assert "oops" in result["coaching_message"].lower() or "loses" in result["coaching_message"].lower(), \
-            f"Expected direct message for 800 player blunder, got: {result['coaching_message']}"
-        
-        # Should have a simple question about hanging pieces, not Socratic questioning
+
+        # Beginners get a DIRECT material-mention message (canonical voice
+        # uses "drops material" or contrastive explanation, both name the
+        # damage plainly without Socratic questioning).
+        msg = result["coaching_message"].lower()
+        assert "drops" in msg or "loses" in msg or "won" in msg, \
+            f"Expected direct material-mention for 800 player blunder, got: {result['coaching_message']}"
+
+        # Beginners get the simple "check every piece" question, NOT a
+        # Socratic "what was your thinking" question.
         if result.get("socratic_question"):
-            assert "hanging" in result["socratic_question"].lower() or "take" in result["socratic_question"].lower(), \
-                f"Expected simple hanging piece question for beginner, got: {result['socratic_question']}"
+            assert "check" in result["socratic_question"].lower() or "hanging" in result["socratic_question"].lower() or "alone" in result["socratic_question"].lower(), \
+                f"Expected simple piece-safety question for beginner, got: {result['socratic_question']}"
     
     def test_1600_player_blunder_socratic_question(self):
         """1600-rated player with blunder gets Socratic question"""
@@ -196,7 +210,11 @@ class TestGenerateCoachingMessage:
             f"Expected Socratic question to ask about reasoning, got: {result['socratic_question']}"
     
     def test_800_player_mistake_direct_not_socratic(self):
-        """800-rated player with mistake gets direct explanation, not Socratic"""
+        """800-rated player with mistake gets direct explanation, not Socratic.
+        Updated 2026-05-26 to match d16db215 voice alignment: beginner-mistake
+        path now explicitly omits the filler encouragement field
+        ("No filler encouragement — the message stands on its own"). The
+        rating-aware behaviour under test is the Socratic gate only."""
         result = _generate_coaching_message(
             user_move="Bc4",
             quality="mistake",
@@ -207,14 +225,15 @@ class TestGenerateCoachingMessage:
             user_name="",
             user_rating=800
         )
-        
-        # Beginners should NOT get Socratic questioning for mistakes
+
+        # Beginners should NOT get Socratic questioning for mistakes.
         assert result.get("expects_response") != True, \
             f"Beginner should not get expects_response=True for mistake"
-        
-        # Should have encouragement
-        assert result.get("encouragement") is not None, \
-            f"Expected encouragement for beginner mistake"
+
+        # Should produce a coaching_message (the message itself is the praise/
+        # critique; filler 'encouragement' was removed in d16db215).
+        assert result["coaching_message"], \
+            f"Expected non-empty coaching_message for beginner mistake, got: {result['coaching_message']!r}"
     
     def test_1600_player_mistake_socratic(self):
         """1600-rated player with mistake gets Socratic questioning"""
@@ -236,7 +255,12 @@ class TestGenerateCoachingMessage:
             f"Expected expects_response=True for 1600 player mistake"
     
     def test_excellent_move_encouragement(self):
-        """Excellent moves should get encouragement regardless of rating"""
+        """Excellent moves should produce a praise-style coaching_message
+        regardless of rating. Updated 2026-05-26 to match d16db215 voice
+        alignment: excellent moves get the praise IN the message itself
+        ('exactly right', 'is the move', 'Best move here') — no separate
+        'encouragement' filler field ('No blanket encouragement — the
+        message itself is the praise')."""
         for rating in [800, 1200, 1600, 1900]:
             result = _generate_coaching_message(
                 user_move="Nf3",
@@ -248,9 +272,12 @@ class TestGenerateCoachingMessage:
                 user_name="",
                 user_rating=rating
             )
-            
-            assert result.get("encouragement") is not None, \
-                f"Expected encouragement for excellent move at rating {rating}"
+
+            msg = result["coaching_message"].lower()
+            assert any(
+                phrase in msg
+                for phrase in ("exactly right", "is the move", "best move")
+            ), f"Expected praise-style message for excellent move at rating {rating}, got: {result['coaching_message']!r}"
     
     def test_good_move_no_socratic(self):
         """Good moves should not trigger Socratic questioning"""
