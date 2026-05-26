@@ -1486,6 +1486,176 @@ def apply_promotion_ladder_dispatch(
         )
 
 
+def inject_eval_trajectory_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    move_evaluations: Optional[List[Dict[str, Any]]],
+    current_move_number: Optional[int],
+    user_color: str,
+    is_user: bool,
+    cp_loss: int,
+) -> None:
+    """A10: eval-trajectory detection.
+
+    Mohit "until the final goal" 2026-05-26. Extracted verbatim from
+    game_decryption_v5_service.py lines 3461-3478.
+
+    When the user was already losing BEFORE this move, set
+    position_was_already_losing + losing_since_move so R12 caption
+    can say "you were already in trouble" instead of attributing the
+    loss to this move.
+
+    Gate (V5 inline): is_user AND cp_loss >= 100.
+
+    Needs the game's full move_evaluations list. For PWC the list is
+    typically not available on a per-session basis — pass None /
+    empty and the helper silently no-ops (the inner detector returns
+    empty when move_evaluations is empty).
+
+    MUTATES caption_facts in place.
+    """
+    if not (is_user and (cp_loss or 0) >= 100):
+        return
+    if not move_evaluations:
+        return
+    try:
+        from services.eval_trajectory import detect_trajectory
+        _user_is_white = (user_color or "").lower() == "white"
+        _traj = detect_trajectory(
+            move_evaluations=move_evaluations,
+            current_move_number=current_move_number,
+            user_is_white=_user_is_white,
+        )
+        if _traj.get("position_was_already_losing"):
+            caption_facts["position_was_already_losing"] = True
+            lsm = _traj.get("losing_since_move")
+            if lsm is not None:
+                caption_facts["losing_since_move"] = lsm
+    except Exception:
+        pass
+
+
+def inject_curriculum_deviation_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    move_history_san_excl_current: List[str],
+    move_san: str,
+    user_color: str,
+    is_user: bool,
+    cp_loss: int,
+    full_move_number: Optional[int],
+) -> None:
+    """A11: curriculum-deviation detection.
+
+    Mohit "until the final goal" 2026-05-26. Extracted verbatim from
+    game_decryption_v5_service.py lines 3494-3547.
+
+    Walks the opening_curriculum_engine trees that match the user's
+    color. When the user is IN a curated opening (history walked the
+    main line / variation) and deviates from the expected next move,
+    surface the tree's hand-authored wrong_feedback +
+    curriculum_expected_move + curriculum_opening_name.
+
+    Gate (V5 inline): is_user AND cp_loss >= 30 AND full_move_number <= 20.
+
+    Inputs:
+      move_history_san_excl_current — move history BEFORE this move
+        (caller computes cap_history[:-1] in V5; PWC sends its
+        move_history_san directly).
+      move_san — the move played (compared against expected_move).
+
+    MUTATES caption_facts in place.
+    """
+    if not (is_user and (cp_loss or 0) >= 30):
+        return
+    if not full_move_number or full_move_number > 20:
+        return
+    try:
+        from services.opening_curriculum_engine import (
+            get_opening_guidance,
+            _load_curriculum as _load_curr,
+        )
+        _user_color_norm = (user_color or "white").lower()
+        _best_dev = None
+        _curr_data = _load_curr()
+        _candidate_openings = [
+            _ok for _ok, _ent in _curr_data.items()
+            if (_ent.get("color") or "").lower() == _user_color_norm
+        ]
+        for _ok in _candidate_openings:
+            try:
+                _g = get_opening_guidance(
+                    _ok, list(move_history_san_excl_current), _user_color_norm,
+                )
+            except Exception:
+                continue
+            if not _g or not _g.get("is_in_book"):
+                continue
+            _exp = _g.get("expected_move")
+            if not _exp:
+                continue
+            if _exp != move_san:
+                _wrong = _g.get("wrong_feedback")
+                if _wrong:
+                    _best_dev = {
+                        "expected": _exp,
+                        "wrong": _wrong,
+                        "opening": _g.get("position_name") or _ok,
+                    }
+                    break
+        if _best_dev:
+            caption_facts["curriculum_deviation_clause"] = _best_dev["wrong"]
+            caption_facts["curriculum_expected_move"] = _best_dev["expected"]
+            caption_facts["curriculum_opening_name"] = _best_dev["opening"]
+    except Exception:
+        pass
+
+
+def inject_blocked_pawn_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    fen_before: str,
+    played_san: str,
+    best_move: Optional[str],
+    full_move_number: Optional[int],
+    is_user: bool,
+    cp_loss: int,
+) -> None:
+    """A12: blocked-own-pawn principle detector.
+
+    Mohit "until the final goal" 2026-05-26. Extracted verbatim from
+    game_decryption_v5_service.py lines 3557-3579.
+
+    When engine's best move was a pawn push to square X but user
+    played a non-pawn piece move to that same X, the user blocked
+    their own pawn's advance — surface as a named principle violation.
+
+    Gate (V5 inline): is_user AND best_move AND best_move != move_san
+                      AND cp_loss >= 30.
+
+    MUTATES caption_facts in place.
+    """
+    if not (is_user and best_move and best_move != played_san and (cp_loss or 0) >= 30):
+        return
+    try:
+        from services.principle_blocked_pawn import detect_blocked_pawn
+        _bp = detect_blocked_pawn(
+            fen_before=fen_before,
+            played_san=played_san,
+            best_move_san=best_move,
+            move_number=full_move_number or 0,
+            cp_loss=cp_loss or 0,
+        )
+        if _bp:
+            caption_facts["blocked_pawn_file"] = _bp.get("pawn_file")
+            caption_facts["blocked_pawn_square"] = _bp.get("blocked_square")
+            _ws = _bp.get("would_support") or []
+            if _ws:
+                caption_facts["blocked_pawn_would_support"] = _ws[0]
+    except Exception:
+        pass
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,
@@ -1526,6 +1696,7 @@ def build_move_teaching_decision(
     bs_recent_window: Optional[List[Set[str]]] = None,
     game_trap_fires: Optional[List[Dict[str, Any]]] = None,
     eval_lookup: Optional[Dict[str, Dict[str, Any]]] = None,
+    move_evaluations: Optional[List[Dict[str, Any]]] = None,
 ) -> MoveTeachingDecision:
     """B-phase: orchestrate the A1-A9 helpers into a single entry point.
 
@@ -1625,6 +1796,38 @@ def build_move_teaching_decision(
             caption_facts = {}
 
     inject_practical_severity_facts(caption_facts, practical)
+
+    # ─── 3a. A10 eval-trajectory (gates on user + cp_loss>=100) ──
+    inject_eval_trajectory_facts(
+        caption_facts,
+        move_evaluations=move_evaluations,
+        current_move_number=inputs.full_move_number,
+        user_color=inputs.user_color,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
+    )
+
+    # ─── 3b. A11 curriculum-deviation (gates on user + cp_loss>=30 + fmn<=20) ──
+    inject_curriculum_deviation_facts(
+        caption_facts,
+        move_history_san_excl_current=list(inputs.move_history_san),
+        move_san=inputs.played_san,
+        user_color=inputs.user_color,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
+        full_move_number=inputs.full_move_number,
+    )
+
+    # ─── 3c. A12 blocked-own-pawn (gates on user blunder + best!=played) ──
+    inject_blocked_pawn_facts(
+        caption_facts,
+        fen_before=inputs.fen_before,
+        played_san=inputs.played_san,
+        best_move=inputs.best_move_san,
+        full_move_number=inputs.full_move_number,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
+    )
 
     # ─── 3. A3 opp-side narration (gates internally on !is_user + opp_cp>=30) ──
     inject_opp_side_narration_facts(

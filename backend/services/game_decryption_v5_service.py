@@ -81,6 +81,9 @@ try:
         inject_board_state_describer_clause as _inject_board_state_describer_clause,
         classify_caption_tier as _classify_caption_tier,
         apply_promotion_ladder_dispatch as _apply_promotion_ladder_dispatch,
+        inject_eval_trajectory_facts as _inject_eval_trajectory_facts,
+        inject_curriculum_deviation_facts as _inject_curriculum_deviation_facts,
+        inject_blocked_pawn_facts as _inject_blocked_pawn_facts,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3450,133 +3453,35 @@ async def generate_game_decryption_v5(
                         if _coach_line_length_hint_for_iter is None and pv_after_best:
                             _coach_line_length_hint_for_iter = min(3, len(pv_after_best))
 
-                    # Eval-trajectory fact (Mohit 2026-05-21). Looks
-                    # at the last N user evaluations to decide if the
-                    # user was already losing BEFORE this move. When
-                    # true, the R12 caption gets to say "you were
-                    # already in trouble" instead of treating the
-                    # move as the source of the loss. Engine-derived
-                    # leverage — one detector covers many positions
-                    # where a 1200 needs strategic framing.
-                    if is_user and (cp_loss or 0) >= 100:
-                        try:
-                            from services.eval_trajectory import detect_trajectory
-                            _user_is_white = (
-                                (user_color or "").lower() == "white"
-                            )
-                            _traj = detect_trajectory(
-                                move_evaluations=move_evaluations,
-                                current_move_number=full_move_number,
-                                user_is_white=_user_is_white,
-                            )
-                            if _traj.get("position_was_already_losing"):
-                                caption_facts["position_was_already_losing"] = True
-                                lsm = _traj.get("losing_since_move")
-                                if lsm is not None:
-                                    caption_facts["losing_since_move"] = lsm
-                        except Exception:
-                            pass
-
-                    # Curriculum-deviation detector (Mohit 2026-05-21).
-                    # When the user is IN a curated opening (their
-                    # moves walked the curriculum tree's main line or
-                    # a known variation) and deviates from the tree's
-                    # expected next move, surface the tree's hand-
-                    # authored wrong_feedback as the primary teaching.
-                    # Reuses the existing opening_curriculum_engine
-                    # walker (built for Play with Coach) — we feed it
-                    # the move history BEFORE this move, ask what the
-                    # user *should* play, compare to what was played.
-                    # Priority above generic blocked-pawn / board-state
-                    # detectors but below concrete tactical clauses
-                    # (per Mohit: "tactical blunders should not lose
-                    # priority — user might have hung a piece").
-                    if is_user and (cp_loss or 0) >= 30 and full_move_number and full_move_number <= 20:
-                        try:
-                            from services.opening_curriculum_engine import (
-                                get_opening_guidance,
-                                _load_curriculum as _load_curr,
-                            )
-                            _history_before = list(cap_history[:-1]) if cap_history else []
-                            _user_color_norm = (user_color or "white").lower()
-                            _best_dev = None
-                            # Filter openings by color FIRST (Mohit
-                            # overnight 2026-05-21): an opening's
-                            # tree is authored from a specific color's
-                            # perspective. Walking a white-curric tree
-                            # with user_color=black corrupts the
-                            # responses-vs-next mapping in the walker.
-                            # Only consider openings whose authored
-                            # color matches the user's color.
-                            _curr_data = _load_curr()
-                            _candidate_openings = [
-                                _ok for _ok, _ent in _curr_data.items()
-                                if (_ent.get("color") or "").lower() == _user_color_norm
-                            ]
-                            for _ok in _candidate_openings:
-                                try:
-                                    _g = get_opening_guidance(
-                                        _ok, _history_before, _user_color_norm
-                                    )
-                                except Exception:
-                                    continue
-                                if not _g or not _g.get("is_in_book"):
-                                    continue
-                                _exp = _g.get("expected_move")
-                                if not _exp:
-                                    continue
-                                # If this opening's tree expects a
-                                # move ≠ what user played, candidate.
-                                # Pick the first one we find — if
-                                # multiple openings match the history,
-                                # they'll generally agree on the move.
-                                if _exp != move_san:
-                                    _wrong = _g.get("wrong_feedback")
-                                    if _wrong:
-                                        _best_dev = {
-                                            "expected": _exp,
-                                            "wrong": _wrong,
-                                            "opening": _g.get("position_name") or _ok,
-                                        }
-                                        break
-                            if _best_dev:
-                                caption_facts["curriculum_deviation_clause"] = _best_dev["wrong"]
-                                caption_facts["curriculum_expected_move"] = _best_dev["expected"]
-                                caption_facts["curriculum_opening_name"] = _best_dev["opening"]
-                        except Exception:
-                            pass
-
-                    # Blocked-own-pawn principle (Mohit 2026-05-21).
-                    # In the opening, when the engine's best move was a
-                    # pawn move to square X but the user played a
-                    # non-pawn piece to that same X, the user blocked
-                    # their own pawn's advance — often disabling
-                    # central support (the classic Nc3-blocking-c-pawn
-                    # error in d4+e5 structures). Names the principle
-                    # so the caption teaches instead of just verdicts.
-                    if (
-                        is_user
-                        and best_move
-                        and best_move != move_san
-                        and (cp_loss or 0) >= 30
-                    ):
-                        try:
-                            from services.principle_blocked_pawn import detect_blocked_pawn
-                            _bp = detect_blocked_pawn(
-                                fen_before=fen_before,
-                                played_san=move_san,
-                                best_move_san=best_move,
-                                move_number=full_move_number or 0,
-                                cp_loss=cp_loss or 0,
-                            )
-                            if _bp:
-                                caption_facts["blocked_pawn_file"] = _bp.get("pawn_file")
-                                caption_facts["blocked_pawn_square"] = _bp.get("blocked_square")
-                                _ws = _bp.get("would_support") or []
-                                if _ws:
-                                    caption_facts["blocked_pawn_would_support"] = _ws[0]
-                        except Exception:
-                            pass
+                    # v100 A10/A11/A12 (auto-propagation): eval-trajectory
+                    # + curriculum-deviation + blocked-own-pawn extracted
+                    # to caption_pipeline. Same gates, same fact keys.
+                    _inject_eval_trajectory_facts(
+                        caption_facts,
+                        move_evaluations=move_evaluations,
+                        current_move_number=full_move_number,
+                        user_color=user_color or "",
+                        is_user=bool(is_user),
+                        cp_loss=int(cp_loss or 0),
+                    )
+                    _inject_curriculum_deviation_facts(
+                        caption_facts,
+                        move_history_san_excl_current=list(cap_history[:-1]) if cap_history else [],
+                        move_san=move_san,
+                        user_color=user_color or "white",
+                        is_user=bool(is_user),
+                        cp_loss=int(cp_loss or 0),
+                        full_move_number=full_move_number,
+                    )
+                    _inject_blocked_pawn_facts(
+                        caption_facts,
+                        fen_before=fen_before,
+                        played_san=move_san,
+                        best_move=best_move,
+                        full_move_number=full_move_number,
+                        is_user=bool(is_user),
+                        cp_loss=int(cp_loss or 0),
+                    )
 
                     # Board-state describer (Mohit 2026-05-21).
                     # Universal coach-voice fallback. When no specific
