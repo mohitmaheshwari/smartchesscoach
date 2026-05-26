@@ -50,7 +50,10 @@ from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, "/app/backend")
 
-from services.live_v5_teaching import v5_teaching_decision_for_live_move
+from services.live_v5_teaching import (
+    v5_teaching_decision_for_live_move,
+    coach_move_narration_for_live_move,
+)
 
 
 # ─── Corpus ─────────────────────────────────────────────────────────
@@ -147,6 +150,115 @@ PWC_CORPUS: List[Dict[str, Any]] = [
 ]
 
 
+# ─── Coach-move narration corpus (PR-3, 2026-05-26) ────────────────
+# Scenarios that exercise the always-on coach-narration entry point
+# (coach_move_narration_for_live_move). Each entry is a position +
+# v2_context that PWC's route would pass when the engine plays.
+# Per Mohit "the coach move should also come from the central layer".
+PWC_COACH_CORPUS: List[Dict[str, Any]] = [
+    {
+        "scenario_id": "C01_capture_free_piece",
+        "comment": "Coach captures an undefended pawn — should fire coach_capture_free.",
+        "fen_before": "rnbqkbnr/ppp1pppp/8/3p4/8/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1",
+        "played_san": "Nxd5",
+        "user_color": "black",
+        "move_history_san": [],
+        "full_move_number": 2,
+        "v2_context": {
+            "v2": True,
+            "teaching_goal": "hanging_piece_punishment",
+            "why_instructive": "captures undefended pawn",
+            "v2_breakdown": {"sub_scores": {"capture_punishment": 1}},
+            "v2_label": "Free piece",
+        },
+    },
+    {
+        "scenario_id": "C02_castles_kingside",
+        "comment": "Coach castles kingside — should fire coach_castles_kingside variant.",
+        "fen_before": "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPBPPP/RNBQK2R w KQkq - 0 1",
+        "played_san": "O-O",
+        "user_color": "black",
+        "move_history_san": [],
+        "full_move_number": 4,
+        "v2_context": {
+            "v2": True,
+            "teaching_goal": "opening_guidance",
+            "why_instructive": "king safety",
+            "v2_breakdown": {"sub_scores": {}},
+            "v2_label": "Castle",
+        },
+    },
+    {
+        "scenario_id": "C03_opening_develop_knight",
+        "comment": "Coach develops a knight in opening — coach_opening_develop_knight.",
+        "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "played_san": "Nf3",
+        "user_color": "black",
+        "move_history_san": [],
+        "full_move_number": 1,
+        "v2_context": {
+            "v2": True,
+            "teaching_goal": "opening_guidance",
+            "why_instructive": "develop knight to natural square",
+            "v2_breakdown": {"sub_scores": {}},
+            "v2_label": "Develop",
+        },
+    },
+    {
+        "scenario_id": "C04_check_attack",
+        "comment": "Coach plays a check — coach_gives_check variant.",
+        "fen_before": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B5/3P4/PPP2PPP/RNBQK1NR w KQkq - 0 1",
+        "played_san": "Bxf7+",
+        "user_color": "black",
+        "move_history_san": [],
+        "full_move_number": 4,
+        "v2_context": {
+            "v2": True,
+            "teaching_goal": "threat_awareness",
+            "why_instructive": "forcing check",
+            "v2_breakdown": {"sub_scores": {"checks": 1}},
+            "v2_label": "Attack",
+        },
+    },
+    {
+        "scenario_id": "C05_no_v2_context_returns_none",
+        "comment": "No v2_context → coach_narration returns None. Anchors the gate behaviour.",
+        "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "played_san": "e4",
+        "user_color": "black",
+        "move_history_san": [],
+        "full_move_number": 1,
+        "v2_context": None,
+    },
+    {
+        "scenario_id": "C06_v2_flag_false_returns_none",
+        "comment": "v2 flag falsy in context → coach_narration returns None.",
+        "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "played_san": "e4",
+        "user_color": "black",
+        "move_history_san": [],
+        "full_move_number": 1,
+        "v2_context": {"v2": False, "teaching_goal": "opening_guidance"},
+    },
+    {
+        "scenario_id": "C07_quiet_repositioning_fallback",
+        "comment": "Generic quiet move with no v2 sub-score signal — coach_quiet_repositioning terminal variant.",
+        "fen_before": "r1bqkb1r/ppp2ppp/2np1n2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1",
+        "played_san": "h3",
+        "user_color": "black",
+        "move_history_san": [],
+        "full_move_number": 5,
+        "v2_context": {
+            "v2": True,
+            "teaching_goal": "threat_awareness",
+            "why_instructive": "prevents Bg4 pin",
+            "v2_breakdown": {"sub_scores": {}},
+            "v2_label": "Prophylaxis",
+        },
+    },
+]
+
+
 def _hash_text(text: Optional[str]) -> str:
     """Stable 8-char hex hash of caption text. None → 'none'."""
     if not text:
@@ -226,6 +338,48 @@ def _snapshot_scenario(entry: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _snapshot_coach_scenario(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Run one PWC_COACH_CORPUS entry through coach_move_narration_for_
+    live_move and capture the regression-relevant fields. Different
+    contract from _snapshot_scenario (different entry point, different
+    output shape)."""
+    try:
+        result = coach_move_narration_for_live_move(
+            fen_before=entry["fen_before"],
+            played_san=entry["played_san"],
+            user_color=entry.get("user_color", "white"),
+            move_history_san=entry.get("move_history_san") or [],
+            full_move_number=entry.get("full_move_number"),
+            v2_context=entry.get("v2_context"),
+        )
+    except Exception as e:
+        return {
+            "scenario_id": entry["scenario_id"],
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+    if result is None:
+        return {
+            "scenario_id": entry["scenario_id"],
+            "produced": False,
+        }
+
+    return {
+        "scenario_id": entry["scenario_id"],
+        "produced": True,
+        "v2_intent": result.get("v2_intent"),
+        "v2_label": result.get("v2_label"),
+        # Hash narrative strings — diff-resilient to cosmetic edits.
+        "explanation_hash": _hash_text(result.get("explanation")),
+        "plan_hash": _hash_text(result.get("plan")),
+        "teaching_point_hash": _hash_text(result.get("teaching_point")),
+        "hint_for_user_hash": _hash_text(result.get("hint_for_user")),
+        # Threats count + presence of opponent_opportunity (shape, not text).
+        "threats_count": len(result.get("threats") or []),
+        "has_opponent_opportunity": bool(result.get("opponent_opportunity")),
+    }
+
+
 def _capture(tag: str, output_dir: Path) -> int:
     rows = [_snapshot_scenario(e) for e in PWC_CORPUS]
     rows.sort(key=lambda r: r.get("scenario_id", ""))
@@ -234,6 +388,16 @@ def _capture(tag: str, output_dir: Path) -> int:
     suppressed = sum(1 for r in rows if r.get("v5_block_present") is False)
     errors = sum(1 for r in rows if "error" in r)
 
+    # PR-3 (2026-05-26): coach-move narration corpus — runs alongside
+    # the existing user-side corpus. Different entry point, different
+    # output shape, but persisted in the same snapshot file for one-
+    # shot diffing. Per [[one-source-of-truth-for-coaching]].
+    coach_rows = [_snapshot_coach_scenario(e) for e in PWC_COACH_CORPUS]
+    coach_rows.sort(key=lambda r: r.get("scenario_id", ""))
+    coach_produced = sum(1 for r in coach_rows if r.get("produced"))
+    coach_skipped = sum(1 for r in coach_rows if r.get("produced") is False)
+    coach_errors = sum(1 for r in coach_rows if "error" in r)
+
     payload = {
         "tag": tag,
         "n_scenarios": len(PWC_CORPUS),
@@ -241,14 +405,21 @@ def _capture(tag: str, output_dir: Path) -> int:
         "suppressed": suppressed,
         "errors": errors,
         "rows": rows,
+        "n_coach_scenarios": len(PWC_COACH_CORPUS),
+        "coach_produced": coach_produced,
+        "coach_skipped": coach_skipped,
+        "coach_errors": coach_errors,
+        "coach_rows": coach_rows,
     }
     out_path = output_dir / f"pwc_{tag}.json"
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False, sort_keys=False)
         f.write("\n")
     print(f"Wrote {out_path}")
-    print(f"  scenarios: {len(PWC_CORPUS)}  surfaced: {surfaced}  "
+    print(f"  user scenarios: {len(PWC_CORPUS)}  surfaced: {surfaced}  "
           f"suppressed: {suppressed}  errors: {errors}")
+    print(f"  coach scenarios: {len(PWC_COACH_CORPUS)}  produced: {coach_produced}  "
+          f"skipped: {coach_skipped}  errors: {coach_errors}")
     return 0
 
 
@@ -267,32 +438,47 @@ def _diff(tag_a: str, tag_b: str, output_dir: Path) -> int:
         b = json.load(f)
 
     print(f"=== aggregate ===")
-    print(f"  surfaced:   A={a.get('surfaced')}  B={b.get('surfaced')}")
-    print(f"  suppressed: A={a.get('suppressed')}  B={b.get('suppressed')}")
-    print(f"  errors:     A={a.get('errors')}  B={b.get('errors')}")
+    print(f"  user surfaced:   A={a.get('surfaced')}  B={b.get('surfaced')}")
+    print(f"  user suppressed: A={a.get('suppressed')}  B={b.get('suppressed')}")
+    print(f"  user errors:     A={a.get('errors')}  B={b.get('errors')}")
+    # PR-3: coach corpus aggregates surface alongside.
+    print(f"  coach produced:  A={a.get('coach_produced', '-')}  B={b.get('coach_produced', '-')}")
+    print(f"  coach skipped:   A={a.get('coach_skipped', '-')}  B={b.get('coach_skipped', '-')}")
+    print(f"  coach errors:    A={a.get('coach_errors', '-')}  B={b.get('coach_errors', '-')}")
 
     map_a = {r["scenario_id"]: r for r in a.get("rows", [])}
     map_b = {r["scenario_id"]: r for r in b.get("rows", [])}
+    coach_map_a = {r["scenario_id"]: r for r in a.get("coach_rows", [])}
+    coach_map_b = {r["scenario_id"]: r for r in b.get("coach_rows", [])}
 
     n_diff = 0
-    samples = []
-    for sid in sorted(set(map_a) | set(map_b)):
-        ra = map_a.get(sid, {})
-        rb = map_b.get(sid, {})
-        if ra == rb:
-            continue
-        n_diff += 1
-        if len(samples) < 20:
-            per_field = []
-            for k in set(ra) | set(rb):
-                va, vb = ra.get(k), rb.get(k)
-                if va != vb:
-                    per_field.append(f"      {k}: {va!r} -> {vb!r}")
-            samples.append(f"  DIFF {sid}:\n" + "\n".join(per_field))
+    samples: List[str] = []
+
+    def _walk(map_a_local, map_b_local, label):
+        nonlocal n_diff, samples
+        local_n = 0
+        for sid in sorted(set(map_a_local) | set(map_b_local)):
+            ra = map_a_local.get(sid, {})
+            rb = map_b_local.get(sid, {})
+            if ra == rb:
+                continue
+            n_diff += 1
+            local_n += 1
+            if len(samples) < 20:
+                per_field = []
+                for k in set(ra) | set(rb):
+                    va, vb = ra.get(k), rb.get(k)
+                    if va != vb:
+                        per_field.append(f"      {k}: {va!r} -> {vb!r}")
+                samples.append(f"  DIFF [{label}] {sid}:\n" + "\n".join(per_field))
+        return local_n
+
+    user_diffs = _walk(map_a, map_b, "user")
+    coach_diffs = _walk(coach_map_a, coach_map_b, "coach")
 
     print(f"=== per-scenario ===")
-    print(f"  total scenarios: {len(set(map_a) | set(map_b))}")
-    print(f"  with diffs:      {n_diff}")
+    print(f"  user scenarios:  {len(set(map_a) | set(map_b))}  with diffs: {user_diffs}")
+    print(f"  coach scenarios: {len(set(coach_map_a) | set(coach_map_b))}  with diffs: {coach_diffs}")
 
     if n_diff == 0:
         print("CLEAN — no PWC regressions detected.")

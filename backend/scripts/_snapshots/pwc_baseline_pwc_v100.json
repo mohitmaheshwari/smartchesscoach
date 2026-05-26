@@ -1,5 +1,5 @@
 {
-  "tag": "baseline_pwc_v100",
+  "tag": "pr3_check",
   "n_scenarios": 7,
   "surfaced": 4,
   "suppressed": 3,
@@ -68,6 +68,80 @@
       "is_coach_move_teaching": false,
       "deterministic_draft_hash": "a3bfd5d050c0",
       "anchor_detail_hash": "69106f1126b2"
+    }
+  ],
+  "n_coach_scenarios": 7,
+  "coach_produced": 5,
+  "coach_skipped": 2,
+  "coach_errors": 0,
+  "coach_rows": [
+    {
+      "scenario_id": "C01_capture_free_piece",
+      "produced": true,
+      "v2_intent": "hanging_piece_punishment",
+      "v2_label": "Free piece",
+      "explanation_hash": "90967de3d0f3",
+      "plan_hash": "bb21e3b2d689",
+      "teaching_point_hash": "20bb326f8847",
+      "hint_for_user_hash": "d570a8f2eb86",
+      "threats_count": 2,
+      "has_opponent_opportunity": true
+    },
+    {
+      "scenario_id": "C02_castles_kingside",
+      "produced": true,
+      "v2_intent": "opening_guidance",
+      "v2_label": "Castle",
+      "explanation_hash": "82ac67e69641",
+      "plan_hash": "85c93fa7e10b",
+      "teaching_point_hash": "621c654dddf8",
+      "hint_for_user_hash": "5152e1186e57",
+      "threats_count": 0,
+      "has_opponent_opportunity": false
+    },
+    {
+      "scenario_id": "C03_opening_develop_knight",
+      "produced": true,
+      "v2_intent": "opening_guidance",
+      "v2_label": "Develop",
+      "explanation_hash": "b8d1fee34b18",
+      "plan_hash": "48922dd2013f",
+      "teaching_point_hash": "a216358f3c43",
+      "hint_for_user_hash": "77cd4206d47b",
+      "threats_count": 0,
+      "has_opponent_opportunity": false
+    },
+    {
+      "scenario_id": "C04_check_attack",
+      "produced": true,
+      "v2_intent": "threat_awareness",
+      "v2_label": "Attack",
+      "explanation_hash": "1ffea9367375",
+      "plan_hash": "482e2df26a9f",
+      "teaching_point_hash": "71cddd877df5",
+      "hint_for_user_hash": "70fbfd6093a7",
+      "threats_count": 0,
+      "has_opponent_opportunity": true
+    },
+    {
+      "scenario_id": "C05_no_v2_context_returns_none",
+      "produced": false
+    },
+    {
+      "scenario_id": "C06_v2_flag_false_returns_none",
+      "produced": false
+    },
+    {
+      "scenario_id": "C07_quiet_repositioning_fallback",
+      "produced": true,
+      "v2_intent": "threat_awareness",
+      "v2_label": "Prophylaxis",
+      "explanation_hash": "e3b513f7130f",
+      "plan_hash": "3f90a689876e",
+      "teaching_point_hash": "37f5f81ae6c2",
+      "hint_for_user_hash": "338f6d12b8cf",
+      "threats_count": 0,
+      "has_opponent_opportunity": false
     }
   ]
 }

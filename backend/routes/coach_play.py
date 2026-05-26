@@ -3046,6 +3046,49 @@ async def get_interactive_coaching(
                 }
 
             coach_explanation = None
+
+            # ─── Central-layer coach-narration (double-write, 2026-05-26) ───
+            # Per Mohit: "the coach move should also come from the
+            # central layer, i can't afford to have 2 sources" — see
+            # memory/feedback_one_source_of_truth. In PR-3 we compute the
+            # central-layer output in parallel with smart_coaching (for
+            # comparison logging) but smart_coaching stays primary. PR-4
+            # flips the source of truth via the pwc_coach_central_layer
+            # feature flag. PR-5 deletes smart_coaching entirely.
+            central_layer_explanation = None
+            try:
+                from services.live_v5_teaching import coach_move_narration_for_live_move
+                _mhist_san_central = [m.get("move", "") for m in move_history if m.get("move")]
+                central_layer_explanation = coach_move_narration_for_live_move(
+                    fen_before=last_coach_move["fen_before"],
+                    played_san=last_coach_move["move"],
+                    user_color=user_color,
+                    move_history_san=_mhist_san_central,
+                    full_move_number=board.fullmove_number,
+                    v2_context=v2_ctx,
+                    user_doc=user_doc if "user_doc" in dir() else None,
+                    session_doc=session_doc,
+                )
+                if central_layer_explanation:
+                    logger.info(
+                        f"[COACH-EXPLAIN-CENTRAL] Central layer produced output for "
+                        f"{last_coach_move.get('move')}: "
+                        f"explanation={central_layer_explanation.get('explanation', '')[:60]!r}, "
+                        f"intent={central_layer_explanation.get('v2_intent')!r}"
+                    )
+                else:
+                    logger.info(
+                        f"[COACH-EXPLAIN-CENTRAL] Central layer returned None for "
+                        f"{last_coach_move.get('move')} (no v2_context or filter)"
+                    )
+            except Exception as central_err:
+                logger.warning(
+                    f"[COACH-EXPLAIN-CENTRAL] Central-layer call failed (non-fatal during "
+                    f"double-write phase): {central_err}",
+                    exc_info=False,
+                )
+
+            # ─── Legacy LLM path (still primary in PR-3) ───
             try:
                 logger.info(f"[COACH-EXPLAIN] Attempting smart coaching for {last_coach_move.get('move')}")
                 from services.smart_coaching import generate_smart_coach_explanation

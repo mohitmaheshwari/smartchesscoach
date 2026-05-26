@@ -1082,3 +1082,132 @@ def update_session_suppression(
         else:
             session_fired_principles.add(pid)
     # once_per_move → no session-level state update
+
+
+# ────────────────────────────────────────────────────────────────────
+# Coach-move narration via central layer (2026-05-26 migration off
+# services/smart_coaching.py). Per [[one-source-of-truth-for-coaching]]:
+# every coaching surface, including "coach narrates its own move,"
+# routes through caption_pipeline.build_move_teaching_decision.
+#
+# Unlike v5_teaching_decision_for_live_move (gated by weight + cooldown
+# thresholds — only ~20% of moves surface a teaching anchor), this
+# entry point is ALWAYS-ON for coach moves. PWC's frontend expects a
+# coach_move_coaching payload on every engine move, so the central
+# layer must produce one every time.
+# ────────────────────────────────────────────────────────────────────
+
+
+def coach_move_narration_for_live_move(
+    *,
+    fen_before: str,
+    played_san: str,
+    user_color: str,
+    move_history_san: Optional[List[str]] = None,
+    full_move_number: Optional[int] = None,
+    v2_context: Optional[Dict[str, Any]] = None,
+    user_doc: Optional[Dict[str, Any]] = None,
+    session_doc: Optional[Dict[str, Any]] = None,
+    eval_before_cp: Optional[int] = None,
+    eval_after_cp: Optional[int] = None,
+    best_move_san: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Produce the structured coach_move_coaching payload deterministic-
+    ally via the central caption pipeline. Replacement for
+    smart_coaching.generate_smart_coach_explanation per Mohit
+    2026-05-26 ("the coach move should also come from the central
+    layer, i can't afford to have 2 sources").
+
+    Returns a dict in the shape PWC frontend (CoachPlay.jsx:1344-1462)
+    consumes today:
+        {
+            "move_san": str,
+            "explanation": str,
+            "plan": str,
+            "threats": list[str],
+            "teaching_point": str,
+            "hint_for_user": str,
+            "opponent_opportunity": Optional[dict],
+            "v2_intent": Optional[str],
+            "v2_label": Optional[str],
+        }
+
+    Returns None when:
+      - v2_context is None or its "v2" flag is falsy (no teaching
+        signal to narrate; caller should fall through to the
+        deterministic shared_coaching_v5 path during the migration)
+      - input validation fails (bad FEN / SAN)
+
+    NOT gated by the pwc_v5_teaching feature flag — this is the always-
+    on coach-narration surface, not the cooldown-gated user-side V5
+    teaching surface.
+    """
+    if not v2_context or not v2_context.get("v2"):
+        return None
+    if not played_san or not fen_before:
+        return None
+
+    try:
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+    except Exception as exc:
+        logger.warning(f"[coach_narration] caption_pipeline import failed: {exc}")
+        return None
+
+    # mover is the coach (engine), not the user. mover_is_white follows
+    # from the user_color: when user is black, coach (mover) is white.
+    user_color_norm = (user_color or "white").lower()
+    user_is_white = user_color_norm == "white"
+    mover_is_white = not user_is_white  # coach is the opposite color
+
+    try:
+        inputs = MoveInputs(
+            fen_before=fen_before,
+            played_san=played_san,
+            mover_is_user=False,
+            mover_is_white=mover_is_white,
+            user_color=user_color_norm,
+            full_move_number=int(full_move_number or 1),
+            move_history_san=list(move_history_san or []),
+            prev_move_san=(move_history_san[-1] if move_history_san else None),
+            best_move_san=best_move_san,
+            eval_before_cp=eval_before_cp,
+            eval_after_cp=eval_after_cp,
+            cp_loss=0,  # coach moves are by definition "the engine's choice"
+            pv_after_played=[],
+            pv_after_best=[],
+            coach_move_context=v2_context,
+        )
+    except Exception as exc:
+        logger.warning(f"[coach_narration] MoveInputs build failed: {exc}")
+        return None
+
+    try:
+        decision = build_move_teaching_decision(inputs, CrossMoveState())
+    except Exception as exc:
+        logger.warning(
+            f"[coach_narration] build_move_teaching_decision failed for "
+            f"{played_san!r}: {exc}"
+        )
+        return None
+
+    extras = decision.coach_extras
+    if extras is None:
+        # R17 trigger missed — shouldn't happen when v2_context is set,
+        # but defensive.
+        return None
+
+    return {
+        "move_san": extras.move_san,
+        "explanation": extras.explanation,
+        "plan": extras.plan,
+        "threats": list(extras.threats or []),
+        "teaching_point": extras.teaching_point,
+        "hint_for_user": extras.hint_for_user,
+        "opponent_opportunity": extras.opponent_opportunity,
+        "v2_intent": extras.v2_intent,
+        "v2_label": extras.v2_label,
+    }
