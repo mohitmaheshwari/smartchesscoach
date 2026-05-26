@@ -113,6 +113,14 @@ class MoveInputs:
     # these; PWC can skip) ───────────────────────────────────────
     engine_candidates: Optional[List[Dict[str, Any]]] = None
 
+    # ─── State-threading needed by select_shape_pattern_record for
+    # zero-diff parity with V5 inline. V5 calls A6 with prev_move
+    # (chess.Move) + eval_data["best_move_uci"]; the central layer
+    # uses these for context-aware shape detection + engine verifier.
+    # PWC leaves as None.
+    prev_move_uci: Optional[str] = None
+    best_move_uci: Optional[str] = None
+
 
 @dataclass
 class CrossMoveState:
@@ -1708,6 +1716,7 @@ def build_move_teaching_decision(
     eval_lookup: Optional[Dict[str, Dict[str, Any]]] = None,
     move_evaluations: Optional[List[Dict[str, Any]]] = None,
     opening_record: Optional[Dict[str, Any]] = None,
+    severity_override: Optional[str] = None,
 ) -> MoveTeachingDecision:
     """B-phase: orchestrate the A1-A9 helpers into a single entry point.
 
@@ -1843,6 +1852,28 @@ def build_move_teaching_decision(
         user_color=inputs.user_color,
         prev_move_san=inputs.prev_move_san,
     )
+
+    # ─── 4b. EARLY pre-move shape pass (V5 lines 3391-3408 of orig).
+    # Sets caption_facts["shape_pattern_id"] + ["shape_pattern_target_square"]
+    # so R12 why-clauses (and the v66 em-dash voice-match in A2) can
+    # consume them. The MAIN A6 shape detection (later, post-render)
+    # produces shape_pattern_record which is a separate output. The
+    # EARLY pass doesn't honour shapes_fired_this_game anti-repeat —
+    # it just provides facts for downstream R-rules.
+    try:
+        from services.shape_layer import select_shape_for_position as _select_shape_early
+        _pre_board_early = chess.Board(inputs.fen_before)
+        _shape_early = _select_shape_early(
+            _pre_board_early,
+            eval_data={"best_move_uci": inputs.best_move_uci or ""},
+        )
+        if _shape_early:
+            caption_facts["shape_pattern_id"] = _shape_early.get("pattern_id")
+            _sp_targets_early = _shape_early.get("targets") or []
+            if _sp_targets_early:
+                caption_facts["shape_pattern_target_square"] = _sp_targets_early[0]
+    except Exception:
+        pass
 
     # ─── 5. A1 user blunder detectors (gates on user+cp>=100) ────
     inject_user_blunder_detector_facts(
@@ -2026,15 +2057,23 @@ def build_move_teaching_decision(
         post_move_board.push(played_move)
     except Exception:
         post_move_board = board_before
+    # State-threading parity with V5 inline. V5's A6 call site has
+    # `prev_move` local that's been reassigned to `move` (current)
+    # at line 3666 BEFORE A6 fires at line 3678 — so V5's
+    # `prev_move=prev_move` is effectively `prev_move=current_move`.
+    # The shape detector's pre-move branch uses this as a context hint;
+    # passing played_move replicates V5 inline behaviour.
+    _shape_eval_data = {"best_move_uci": inputs.best_move_uci or ""}
+    _shape_gate_severity = severity_override if severity_override else canonical.user_facing_tier
     shape_pattern_record = select_shape_pattern_record(
         fen_before=inputs.fen_before,
         board=post_move_board,
         move=played_move,
         move_san=inputs.played_san,
-        prev_move=None,
-        eval_data={},
+        prev_move=played_move,
+        eval_data=_shape_eval_data,
         pv_after_played=list(inputs.pv_after_played),
-        severity=canonical.user_facing_tier,
+        severity=_shape_gate_severity,
         full_move_number=inputs.full_move_number,
         shapes_fired_this_game=_shapes,
     )
@@ -2081,9 +2120,11 @@ def build_move_teaching_decision(
         caption=caption_payload.get("caption") or "",
         rule_name=caption_payload.get("rule_name") or "R_FALLBACK",
     )
+    # V5 move_output reads from caption_payload (renderer output),
+    # NOT caption_facts. Match that source for zero-diff parity.
     visual = VisualSurface(
-        arrows=caption_facts.get("caption_arrows") or [],
-        highlight_squares=caption_facts.get("caption_highlight_squares") or [],
+        arrows=caption_payload.get("arrows") or [],
+        highlight_squares=caption_payload.get("highlight_squares") or [],
     )
     teaching_meta = TeachingMeta(
         severity=canonical.user_facing_tier,

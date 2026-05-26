@@ -84,6 +84,9 @@ try:
         inject_eval_trajectory_facts as _inject_eval_trajectory_facts,
         inject_curriculum_deviation_facts as _inject_curriculum_deviation_facts,
         inject_blocked_pawn_facts as _inject_blocked_pawn_facts,
+        build_move_teaching_decision as _build_move_teaching_decision,
+        MoveInputs as _CaptionMoveInputs,
+        CrossMoveState as _CaptionCrossMoveState,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3305,17 +3308,42 @@ async def generate_game_decryption_v5(
             # below can read caption_facts safely even when the V5
             # pipeline branch didn't run (flag off, or extractor crash).
             caption_facts: Dict[str, Any] = {}
-            if CAPTION_V5_PIPELINE_ENABLED and _extract_caption_facts and _render_caption_dict:
+            # v100 FINAL — Mohit "completely called through a central
+            # layer" 2026-05-26. V5 service per-move caption work now
+            # flows through build_move_teaching_decision(). The 12
+            # A-helpers + render + suppression + cue-pick + v78 fallback
+            # + promotion ladder + tier classification all run inside
+            # the central layer in the canonical order. Future caption-
+            # pipeline changes propagate automatically.
+            shape_pattern_record: Optional[Dict[str, Any]] = None
+            trap_record: Optional[Dict[str, Any]] = None
+            opening_record: Optional[Dict[str, Any]] = None
+            _caption_tier = "NONE"
+            if CAPTION_V5_PIPELINE_ENABLED and _build_move_teaching_decision is not None:
                 try:
-                    # Rebuild SAN history from board.move_stack so the
-                    # extractor sees the same line we just replayed.
+                    # SAN history (excluding current — central layer
+                    # appends current internally for trap-recognition).
                     cap_history: List[str] = []
                     _replay = chess.Board()
                     for _past in board.move_stack:
                         cap_history.append(_replay.san(_past))
                         _replay.push(_past)
-                    # Eval inputs are stored from white's POV regardless of
-                    # who moved; extractor flips per-side internally.
+
+                    # opening_record (V5-only) — compute BEFORE central
+                    # call since A9 promotion ladder reads it.
+                    if match_opening_for_mover is not None:
+                        try:
+                            mover_color = "white" if is_white else "black"
+                            opening_record = match_opening_for_mover(
+                                played_san_so_far + [move_san], mover_color,
+                            )
+                        except Exception as _open_exc:
+                            logger.info(
+                                f"[opening] detect failed on move {full_move_number}: {_open_exc}"
+                            )
+                            opening_record = None
+
+                    # Eval inputs (white-POV; helpers sign-flip internally).
                     if is_user:
                         _eb = eval_data.get("eval_before")
                         _ea = eval_data.get("eval_after")
@@ -3324,326 +3352,73 @@ async def generate_game_decryption_v5(
                         _eb = opp_eval_before
                         _ea = opp_eval_after
                         _cpl = max(0, opp_cp_loss)
-                    caption_facts = _extract_caption_facts(
+
+                    _inputs = _CaptionMoveInputs(
                         fen_before=fen_before,
                         played_san=move_san,
+                        mover_is_user=bool(is_user),
+                        mover_is_white=bool(is_white),
+                        user_color=user_color,
+                        full_move_number=full_move_number,
+                        move_history_san=cap_history,
+                        prev_move_san=(cap_history[-1] if cap_history else None),
                         best_move_san=best_move,
                         eval_before_cp=_eb,
                         eval_after_cp=_ea,
-                        cp_loss=_cpl,
-                        pv_after_played=pv_after_played,
-                        pv_after_best=pv_after_best,
-                        move_history_san=cap_history,
-                        full_move_number=full_move_number,
-                        mover_is_user=is_user,
-                    )
-
-                    # v99 (2026-05-25): inject the v96/v98 practical-
-                    # severity fields into caption_facts so JSON predicate
-                    # engines (R12_blunder.json severity_tiers, future
-                    # select_variant rules) can read them. Without this,
-                    # severity_practical is stored on the move record but
-                    # NEVER consulted by the caption renderer — the
-                    # "softening" is dead code from the caption layer's
-                    # perspective.
-                    _inject_practical_severity_facts(caption_facts, _practical)
-
-                    # v100 A3 (auto-propagation): opp-side narration
-                    # block extracted to caption_pipeline. Same gate
-                    # (not is_user AND opp_cp_loss >= 30), same
-                    # caption_facts mutations. Returns coach_line
-                    # tuple when v78.4 built one; else None.
-                    _opp_line_result = _inject_opp_side_narration_facts(
-                        caption_facts,
-                        fen_before=fen_before,
-                        board=board,
-                        move=move,
-                        move_san=move_san,
-                        full_move_number=full_move_number,
-                        is_user=bool(is_user),
+                        cp_loss=int(_cpl or 0),
+                        pv_after_played=pv_after_played or [],
+                        pv_after_best=pv_after_best or [],
+                        opp_eval_before=opp_eval_before,
+                        opp_eval_after=opp_eval_after,
                         opp_cp_loss=int(opp_cp_loss or 0),
-                        eval_lookup=eval_lookup,
-                        user_color=user_color,
-                    )
-                    if _opp_line_result is not None:
-                        _coach_line_moves_for_iter, _coach_line_length_hint_for_iter = _opp_line_result
-
-                    # v100 A4 (auto-propagation): opening intro (v74) +
-                    # opening_theory_tree lookup (v88) extracted to
-                    # caption_pipeline. Same gate (idx<6 + phase=opening),
-                    # same caption_facts keys.
-                    _inject_opening_context_facts(
-                        caption_facts,
-                        board=board,
-                        move=move,
-                        move_san=move_san,
-                        move_index=idx,
-                        phase=phase,
                         eco_code=eco_code,
                         opening_name=opening_name,
-                        user_color=user_color,
-                        prev_move_san=(cap_history[-1] if cap_history else None),
+                        prev_move_uci=(prev_move.uci() if prev_move else None),
+                        best_move_uci=(eval_data.get("best_move_uci") or None),
                     )
-
-                    # Inject shape-pattern info for R12 why-clauses
-                    # (e.g. king_pawn_lifted teaching). The full shape
-                    # detection runs again below for the promotion
-                    # ladder; this early pass only feeds R-rule predicates.
-                    if _select_shape_for_position is not None:
-                        try:
-                            _pre_board = chess.Board(fen_before)
-                            _shape_early = _select_shape_for_position(
-                                _pre_board,
-                                eval_data={"best_move_uci": eval_data.get("best_move_uci", "")},
-                            )
-                            if _shape_early:
-                                caption_facts["shape_pattern_id"] = _shape_early.get("pattern_id")
-                                _sp_targets = _shape_early.get("targets") or []
-                                if _sp_targets:
-                                    caption_facts["shape_pattern_target_square"] = _sp_targets[0]
-                        except Exception:
-                            pass
-
-                    # v100 step A1 (Mohit signoff 2026-05-26 — auto-
-                    # propagation to PWC): the 14-detector blunder suite
-                    # for user moves is now extracted into
-                    # caption_pipeline.inject_user_blunder_detector_facts
-                    # so live_v5_teaching can call the same code path.
-                    # Gate (is_user AND best_move differs AND cp_loss
-                    # >= 100) is preserved inside the helper.
-                    _inject_user_blunder_detector_facts(
-                        caption_facts,
-                        fen_before=fen_before,
-                        move_san=move_san,
-                        best_move=best_move,
-                        pv_after_best=pv_after_best,
-                        move_number=full_move_number,
-                        is_user=bool(is_user),
-                        cp_loss=int(cp_loss or 0),
+                    _state = _CaptionCrossMoveState(
+                        fired_principles=set(principles_fired_this_game),
+                        fired_state_keys=set(state_keys_fired_this_game),
+                        active_trap=active_trap,
+                        active_trap_setup_completed_by_user=active_trap_setup_completed_by_user,
+                        active_trap_step_cursor=active_trap_step_cursor,
+                        prev_user_eval_after=prev_user_eval_after,
                     )
-
-                    # v100 A2 (auto-propagation): em-dash voice-match +
-                    # trap-context wiring extracted to caption_pipeline.
-                    # Returns (trap_steps, length_hint) when a trap-
-                    # context fire matched; else None. Same gate as
-                    # the inline block (is_user + cp_loss>=100).
-                    _trap_ctx_result = _inject_em_dash_and_trap_context_facts(
-                        caption_facts,
-                        game_trap_fires=game_trap_fires,
-                        best_move=best_move,
-                        move_san=move_san,
-                        is_user=bool(is_user),
-                        cp_loss=int(cp_loss or 0),
-                        opening_name=opening_name,
-                    )
-                    if _trap_ctx_result is not None:
-                        _trap_steps_for_iter, _coach_line_length_hint_for_iter = _trap_ctx_result
-
-                    if (
-                        is_user
-                        and best_move
-                        and best_move != move_san
-                        and (cp_loss or 0) >= 100
-                    ):
-                        # v70 default: when no trap fired but the move
-                        # is a user mistake with a known better move,
-                        # default the playback length to 3 plies of
-                        # pv_after_best so the UI has something
-                        # reasonable to animate.
-                        if _coach_line_length_hint_for_iter is None and pv_after_best:
-                            _coach_line_length_hint_for_iter = min(3, len(pv_after_best))
-
-                    # v100 A10/A11/A12 (auto-propagation): eval-trajectory
-                    # + curriculum-deviation + blocked-own-pawn extracted
-                    # to caption_pipeline. Same gates, same fact keys.
-                    _inject_eval_trajectory_facts(
-                        caption_facts,
-                        move_evaluations=move_evaluations,
-                        current_move_number=full_move_number,
-                        user_color=user_color or "",
-                        is_user=bool(is_user),
-                        cp_loss=int(cp_loss or 0),
-                    )
-                    _inject_curriculum_deviation_facts(
-                        caption_facts,
-                        move_history_san_excl_current=list(cap_history[:-1]) if cap_history else [],
-                        move_san=move_san,
-                        user_color=user_color or "white",
-                        is_user=bool(is_user),
-                        cp_loss=int(cp_loss or 0),
-                        full_move_number=full_move_number,
-                    )
-                    _inject_blocked_pawn_facts(
-                        caption_facts,
-                        fen_before=fen_before,
-                        played_san=move_san,
-                        best_move=best_move,
-                        full_move_number=full_move_number,
-                        is_user=bool(is_user),
-                        cp_loss=int(cp_loss or 0),
-                    )
-
-                    # Board-state describer (Mohit 2026-05-21).
-                    # Universal coach-voice fallback. When no specific
-                    # why-clause fires (mate, piece win, clearance,
-                    # king pressure, trajectory, hanging, exchange,
-                    # capture, check), the played move still landed on
-                    # SOME board — describe that board from user POV
-                    # in 1-3 geometry facts. Never engine-speak.
-                    # Composed in Python so multiple bs_* templates
-                    # can be joined into one why_clause string.
-                    # cp_loss gate set to 50 (matches basic_mistake's
-                    # promotion threshold) — describer is self-gating
-                    # via each metric's own thresholds, so cleaner
-                    # positions won't accumulate noise.
-                    # v78 (2026-05-23) — Mohit: "why we didn't fire the
-                    # chess descripter caption on those 30% when it was
-                    # silent?" Right. The describer was gated to user
-                    # moves + cp_loss>=50, so for the 30% silent moves
-                    # (low-cp or opp moves) it never ran. Now it runs
-                    # UNCONDITIONALLY — each bs_* metric self-gates
-                    # via its own threshold so clean positions return
-                    # 0 facts naturally (no noise added). When the rest
-                    # of the rendering produces no caption, the
-                    # describer output becomes the fallback caption
-                    # below.
-                    # v100 A7 (auto-propagation): board_state_describer
-                    # extracted to caption_pipeline. Same self-gating
-                    # per-metric thresholds, same v78 anti-repeat window
-                    # (default size = _BS_WINDOW_SIZE = 1 = suppress
-                    # only immediately-consecutive repeats).
-                    _inject_board_state_describer_clause(
-                        caption_facts,
-                        fen_before=fen_before,
-                        move_san=move_san,
-                        user_color=user_color or "",
-                        full_move_number=full_move_number,
+                    _decision = _build_move_teaching_decision(
+                        _inputs, _state,
+                        shapes_fired_this_game=shapes_fired_this_game,
                         bs_recent_window=_bs_recent_window,
-                        bs_window_size=_BS_WINDOW_SIZE,
+                        game_trap_fires=game_trap_fires,
+                        eval_lookup=eval_lookup,
+                        move_evaluations=move_evaluations,
+                        opening_record=opening_record,
+                        severity_override=severity,
                     )
 
-                    caption_payload = _render_caption_dict(caption_facts)
-
-                    # v78 — universal describer fallback. If everything
-                    # above left the caption empty AND we have a
-                    # board_state_clause from the describer pass above,
-                    # use it as the primary caption. This converts ~30%
-                    # silent moves into honest geometric narration the
-                    # user can verify by looking at the board. Per Mohit
-                    # 2026-05-23 — silence is bad UX when we have a
-                    # truthful observation to share.
-                    #
-                    # v91 (2026-05-25) — Parth fb_cb7f872a0781,
-                    # fb_6fc2d6be0d6e, fb_a720c6dc633d: the board
-                    # describer fires on CLEAN moves (cp_loss<30) as
-                    # the only surface, producing useless narration like
-                    # "h4. Opponent attacks the centre 5x; you 3x." or
-                    # "Qd8. Your rook on f8 has only 1 legal move." —
-                    # algorithmically true but pedagogically empty.
-                    # Gate: only fire the describer fallback when the
-                    # move is actually being CRITIQUED (cp_loss>=30).
-                    # On clean moves we'd rather stay silent than narrate
-                    # board state with no teaching point.
-                    _bs_cp_loss = (cp_loss if is_user else opp_cp_loss) or 0
-                    if (
-                        caption_payload
-                        and not (caption_payload.get("caption") or "").strip()
-                        and (caption_facts.get("board_state_clause") or "").strip()
-                        and _bs_cp_loss >= 30
-                    ):
-                        _bs_text = caption_facts["board_state_clause"].strip()
-                        caption_payload["caption"] = f"{move_san}. {_bs_text}"
-                        caption_payload["rule_name"] = "R16_board_state_fallback"
+                    # Unpack into V5 locals (move_output / P2 / polish read these).
+                    caption_facts = _decision.debug_facts
+                    caption_payload = {
+                        "caption": _decision.text.caption,
+                        "rule_name": _decision.text.rule_name,
+                        "highlight_squares": _decision.visual.highlight_squares,
+                        "arrows": _decision.visual.arrows,
+                    }
                     caption_primary_reason = caption_facts.get("primary_reason")
-                    # Surface what was captured (pawn / knight / bishop / rook /
-                    # queen / None) for downstream caption generation. Parth
-                    # flagged exd6 captioned "won a pawn" when actually the
-                    # captured piece was a knight (won the exchange overall).
-                    # caption_facts already extracts this — V5 just propagates.
                     caption_captured_piece = caption_facts.get("captured_piece_type")
-                    # Teaching layer — apply per-principle suppression
-                    # against the running game-state. Detectors are
-                    # pure; this layer dedupes per the catalog's
-                    # suppress semantics.
-                    # Reset per-move principle-cue outputs before the
-                    # filter loop fills them.
-                    principle_cue = ""
-                    principle_id_used = None
-                    raw_principles = caption_facts.get("principles_violated") or []
-                    caption_principles_violated = []
-                    _this_move_fired = set()
-                    for _ev in raw_principles:
-                        _pid = _ev.get("principle_id")
-                        if not _pid:
-                            continue
-                        _entry = _CAPTION_PRINCIPLES_BY_ID.get(_pid, {}) if _CAPTION_PRINCIPLES_BY_ID else {}
-                        _suppress = _entry.get("suppress", "once_per_move")
-                        # Phase 0.5 suppression overhaul (2026-05-18):
-                        # three policies replace the previous two.
-                        #   once_per_move        — no game-state filter (default)
-                        #   once_per_state_key   — fires while detector's state_key changes
-                        #                          (re-arms when focal squares / piece /
-                        #                          best-move family / phase change)
-                        #   once_per_game        — fires exactly once across the game
-                        #   once_per_state_entry — DEPRECATED; treated as once_per_game
-                        #                          for backward compat
-                        if _suppress == "once_per_game" or _suppress == "once_per_state_entry":
-                            if _pid in principles_fired_this_game:
-                                continue
-                        elif _suppress == "once_per_state_key":
-                            _sk = _ev.get("state_key")
-                            if _sk is None:
-                                # Detector didn't emit state_key — degrade
-                                # gracefully to once_per_game semantics.
-                                if _pid in principles_fired_this_game:
-                                    continue
-                            else:
-                                if _sk in state_keys_fired_this_game:
-                                    continue
-                                state_keys_fired_this_game.add(_sk)
-                        # once_per_move (default) → no further filter
-                        caption_principles_violated.append(_ev)
-                        _this_move_fired.add(_pid)
-                        principles_fired_this_game.add(_pid)
-                    principles_fired_last_move = _this_move_fired
+                    caption_principles_violated = caption_facts.get("principles_violated") or []
+                    principle_cue = caption_facts.get("principle_cue") or ""
+                    principle_id_used = caption_facts.get("principle_id_used")
+                    shape_pattern_record = _decision.shape_pattern_record
+                    trap_record = _decision.trap_record
+                    _caption_tier = _decision.teaching_meta.caption_tier
+                    principles_fired_last_move = set(_decision.state_mutations.fired_principles_added)
 
-                    # ── Pick the cue for this move ────────────────────
-                    # Highest-priority surviving principle (lowest
-                    # priority number wins) contributes the cue.
-                    # Endorsement tier picks the variant: best /
-                    # top_n / absent → maps to cue_best / cue_top_n /
-                    # cue_absent in the catalog entry. top_n is
-                    # reserved for future multi-PV; v1 returns
-                    # best or absent.
-                    if caption_principles_violated and _CAPTION_PRINCIPLES_BY_ID:
-                        sorted_pv = sorted(
-                            caption_principles_violated,
-                            key=lambda ev: _CAPTION_PRINCIPLES_BY_ID.get(
-                                ev.get("principle_id") or "", {}
-                            ).get("priority", 99),
-                        )
-                        _top = sorted_pv[0]
-                        _top_pid = _top.get("principle_id")
-                        _entry = _CAPTION_PRINCIPLES_BY_ID.get(_top_pid, {}) if _top_pid else {}
-                        _endorsement = _top.get("engine_endorsement", "absent")
-                        _cue_key = {
-                            "best": "cue_best",
-                            "top_n": "cue_top_n",
-                            "absent": "cue_absent",
-                        }.get(_endorsement, "cue_absent")
-                        # Gate cue_absent on engine-approved moves.
-                        # Parth flagged Re1+ (cp_loss=-55, BEST move) and Rxd6
-                        # (cp_loss=0, best move) where principle fired with
-                        # absent endorsement, producing "Engine has another
-                        # plan" cues on moves the engine actually liked. The
-                        # principle simply didn't apply — its cue_absent
-                        # text reads as critique. Skip surfacing in that case.
-                        _played_cp_loss = (cp_loss if is_user else opp_cp_loss) or 0
-                        if _endorsement == "absent" and _played_cp_loss < 30:
-                            pass  # principle didn't apply; engine endorsed the move
-                        else:
-                            principle_cue = _entry.get(_cue_key) or _entry.get("cue_absent") or ""
-                            principle_id_used = _top_pid
+                    # Apply state mutations to V5 game-state vars.
+                    principles_fired_this_game.update(_decision.state_mutations.fired_principles_added)
+                    state_keys_fired_this_game.update(_decision.state_mutations.fired_state_keys_added)
+                    active_trap = _decision.state_mutations.active_trap_after
+                    active_trap_setup_completed_by_user = _decision.state_mutations.active_trap_setup_completed_by_user_after
+                    active_trap_step_cursor = _decision.state_mutations.active_trap_step_cursor_after
                 except Exception as _caption_exc:
                     # Downgraded warning → info after audit noise: these
                     # fire predictably on PGN ↔ eval-data drift games
@@ -3670,110 +3445,9 @@ async def generate_game_decryption_v5(
             if is_user:
                 prev_user_eval_after = eval_data.get("eval_after")
 
-            # v100 A6 (auto-propagation): pre-move + post-move shape
-            # pattern selection extracted to caption_pipeline. Includes
-            # v80.3 mover-departs suppression and the post-move fallback
-            # gated on severity/pv_after_played. `shapes_fired_this_game`
-            # is mutated when post-move fires.
-            shape_pattern_record = _select_shape_pattern_record(
-                fen_before=fen_before,
-                board=board,
-                move=move,
-                move_san=move_san,
-                prev_move=prev_move,
-                eval_data=eval_data,
-                pv_after_played=pv_after_played,
-                severity=severity,
-                full_move_number=full_move_number,
-                shapes_fired_this_game=shapes_fired_this_game,
-            )
-
-            # ── Trap + opening recognition ─────────────────────────
-            # Pure-Python detectors. Append the played SAN before running
-            # so the matchers see the full prefix INCLUDING this move.
+            # v100 FINAL: append played SAN to game-wide history for
+            # opening / trap matchers on subsequent moves.
             played_san_so_far.append(move_san)
-
-            # v100 A5 (auto-propagation): trap recognition state machine
-            # extracted to caption_pipeline. Same v69/v89 logic, returns
-            # 4-tuple: (trap_record, new_active_trap, new_setup_completed,
-            # new_step_cursor). Caller updates the three state vars from
-            # the returns so the NEXT move sees the updated tracking.
-            (
-                trap_record,
-                active_trap,
-                active_trap_setup_completed_by_user,
-                active_trap_step_cursor,
-            ) = _update_trap_recognition_state(
-                played_san_so_far=played_san_so_far,
-                move_san=move_san,
-                is_user=bool(is_user),
-                user_color=user_color,
-                full_move_number=full_move_number,
-                active_trap=active_trap,
-                active_trap_setup_completed_by_user=active_trap_setup_completed_by_user,
-                active_trap_step_cursor=active_trap_step_cursor,
-            )
-
-            opening_record: Optional[Dict[str, Any]] = None
-            if match_opening_for_mover is not None:
-                try:
-                    mover_color = "white" if is_white else "black"
-                    opening_record = match_opening_for_mover(played_san_so_far, mover_color)
-                except Exception as _open_exc:
-                    logger.info(f"[opening] detect failed on move {full_move_number}: {_open_exc}")
-                    opening_record = None
-
-            # ── CONTENT PROMOTION (Mohit 2026-05-20) ───────────────
-            # When the detection layers found teachable content
-            # (opening / trap / shape / principle), surface it as the
-            # main caption. Detection layer alive, renderer was silent
-            # or generic ("Develops the bishop to c4" on an Italian
-            # Game move).
-            #
-            # Two classes of promotion:
-            #
-            # 1. OVERRIDE (replaces any caption — even non-empty
-            #    R11_development "Develops the X" output):
-            #       a. trap_record (setup_completed step) — must-know
-            #          tactical warning (e.g. Fried Liver setup).
-            #       b. opening_record — names the line + teaches the
-            #          idea (e.g. "Italian Game. Bishop aims at f7.").
-            #    Generic narration of a known opening move is useless
-            #    coaching when we have the opening identified.
-            #
-            # 2. FILL (only when caption is empty):
-            #       c. shape pattern (geometric, sub-1500 anchors).
-            #       d. principle cue (named-principle habit reminder).
-            #       e. basic mistake fallback (cpl >= 50, has best_move).
-            #
-            # Voice: prefix with the move SAN. NOT a fallback template
-            # — concrete content the detectors produced for THIS move.
-            # ── CONTENT PROMOTION ────────────────────────────────────
-            # ALL logic (priority order, when-conditions, variant selection,
-            # severity thresholds, source labels) lives in JSON files under
-            # backend/data/captions/:
-            #   - promotion_ladder.json (priority + when + source_template)
-            #   - R_PROMOTED_*.json (per-rule variants, severity tiers,
-            #     select_variant)
-            # Python only builds the facts dict; dispatch_promotion does
-            # everything else. See README.md in that directory.
-            # v100 A9 (auto-propagation): promotion ladder dispatch
-            # extracted to caption_pipeline. Same JSON-driven priority
-            # ladder, same per-rule variants, same severity tiers.
-            _apply_promotion_ladder_dispatch(
-                caption_payload=caption_payload,
-                caption_facts=caption_facts,
-                trap_record=trap_record,
-                opening_record=opening_record,
-                shape_pattern_record=shape_pattern_record,
-                move_san=move_san,
-                is_user=bool(is_user),
-                cp_loss=int(cp_loss or 0),
-                best_move=best_move,
-                principle_cue=principle_cue or "",
-                principle_id_used=principle_id_used,
-                full_move_number=full_move_number,
-            )
 
             # v72 (2026-05-23) — P2 detector memory: collect pattern-
             # miss events. Captures user mistakes where a known catalog
@@ -3871,20 +3545,8 @@ async def generate_game_decryption_v5(
                         f"failed: {_polish_exc}"
                     )
 
-            # Classify the rendered caption ONCE per move so consumers
-            # can tell teaching (HIGH) from board narration (MID) or
-            # generic fallback (LOW). Mohit 2026-05-25 ask on m3 Nc3
-            # "Develops naturally, prepares e4" — the caption was fine
-            # but not teaching; he wanted a property that flags whether
-            # there's a real lesson here. The classifier is the right
-            # source — it already labels every rule variant.
-            # v100 A8 (auto-propagation): caption tier classification
-            # extracted to caption_pipeline (HIGH/MID/LOW/NONE).
-            _caption_tier = _classify_caption_tier(
-                caption_text=caption_payload.get("caption") or "",
-                rule_name=caption_payload.get("rule_name") or "",
-            )
-
+            # v100 FINAL: _caption_tier set inside central call above
+            # from _decision.teaching_meta.caption_tier.
             move_output = {
                 "move_number": full_move_number,
                 "move_san": move_san,
