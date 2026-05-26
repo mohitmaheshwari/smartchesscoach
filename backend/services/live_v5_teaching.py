@@ -412,6 +412,30 @@ def v5_teaching_decision_for_live_move(
             f"[live_v5_teaching] blunder detector inject crashed for {played_san}"
         )
 
+    # v100 A2 (auto-propagation): em-dash voice-match + trap-context
+    # wiring. PWC doesn't currently scan the live session's move
+    # history for traps (game_trap_fires=None) — the trap-context
+    # branch silently skips, but the em-dash voice still fires
+    # whenever an A1-suite detector populated caption_facts. PWC
+    # users on a blunder now get the em-dash parent variant
+    # ("Y was better — reason") instead of the two-sentence form,
+    # matching V5 review output.
+    try:
+        from services.caption_pipeline import inject_em_dash_and_trap_context_facts
+        inject_em_dash_and_trap_context_facts(
+            facts,
+            game_trap_fires=None,
+            best_move=best_move_san,
+            move_san=played_san,
+            is_user=bool(mover_is_user),
+            cp_loss=int(cp_loss or 0),
+            opening_name=None,
+        )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] em-dash inject crashed for {played_san}"
+        )
+
     # Apply session-level suppression BEFORE the resolver picks an anchor.
     # The resolver's own pickprioritizes principles; we need to filter
     # the suppressed ones out of facts["principles_violated"] first.
