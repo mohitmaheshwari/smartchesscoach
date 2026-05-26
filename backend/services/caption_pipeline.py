@@ -1797,39 +1797,11 @@ def build_move_teaching_decision(
 
     inject_practical_severity_facts(caption_facts, practical)
 
-    # ─── 3a. A10 eval-trajectory (gates on user + cp_loss>=100) ──
-    inject_eval_trajectory_facts(
-        caption_facts,
-        move_evaluations=move_evaluations,
-        current_move_number=inputs.full_move_number,
-        user_color=inputs.user_color,
-        is_user=bool(inputs.mover_is_user),
-        cp_loss=int(inputs.cp_loss or 0),
-    )
+    # ─── Order mirrors V5 service per-move loop exactly (verified
+    # against game_decryption_v5_service.py callsites — zero-diff
+    # depends on this ordering when V5 adopts the central entry).
 
-    # ─── 3b. A11 curriculum-deviation (gates on user + cp_loss>=30 + fmn<=20) ──
-    inject_curriculum_deviation_facts(
-        caption_facts,
-        move_history_san_excl_current=list(inputs.move_history_san),
-        move_san=inputs.played_san,
-        user_color=inputs.user_color,
-        is_user=bool(inputs.mover_is_user),
-        cp_loss=int(inputs.cp_loss or 0),
-        full_move_number=inputs.full_move_number,
-    )
-
-    # ─── 3c. A12 blocked-own-pawn (gates on user blunder + best!=played) ──
-    inject_blocked_pawn_facts(
-        caption_facts,
-        fen_before=inputs.fen_before,
-        played_san=inputs.played_san,
-        best_move=inputs.best_move_san,
-        full_move_number=inputs.full_move_number,
-        is_user=bool(inputs.mover_is_user),
-        cp_loss=int(inputs.cp_loss or 0),
-    )
-
-    # ─── 3. A3 opp-side narration (gates internally on !is_user + opp_cp>=30) ──
+    # ─── 3. A3 opp-side narration (gates on !is_user + opp_cp>=30) ──
     inject_opp_side_narration_facts(
         caption_facts,
         fen_before=inputs.fen_before,
@@ -1844,7 +1816,6 @@ def build_move_teaching_decision(
     )
 
     # ─── 4. A4 opening context (gates on idx<6 + opening phase) ──
-    # ply_index = (move_number-1)*2 + (0 if white-to-move else 1)
     _ply_idx = max(0, (inputs.full_move_number or 1) - 1) * 2
     if not inputs.mover_is_white:
         _ply_idx += 1
@@ -1885,24 +1856,36 @@ def build_move_teaching_decision(
         opening_name=inputs.opening_name,
     )
 
-    # ─── 7. A6 shape pattern selection ───────────────────────────
-    # Post-move board for the post-move shape detection branch.
-    try:
-        post_move_board = board_before.copy()
-        post_move_board.push(played_move)
-    except Exception:
-        post_move_board = board_before
-    shape_pattern_record = select_shape_pattern_record(
-        fen_before=inputs.fen_before,
-        board=post_move_board,
-        move=played_move,
+    # ─── 7a. A10 eval-trajectory (gates on user + cp_loss>=100) ──
+    inject_eval_trajectory_facts(
+        caption_facts,
+        move_evaluations=move_evaluations,
+        current_move_number=inputs.full_move_number,
+        user_color=inputs.user_color,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
+    )
+
+    # ─── 7b. A11 curriculum-deviation (gates on user + cp_loss>=30 + fmn<=20) ──
+    inject_curriculum_deviation_facts(
+        caption_facts,
+        move_history_san_excl_current=list(inputs.move_history_san),
         move_san=inputs.played_san,
-        prev_move=None,  # caller can extend this if it tracks prev_move
-        eval_data={},
-        pv_after_played=list(inputs.pv_after_played),
-        severity=canonical.user_facing_tier,
+        user_color=inputs.user_color,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
         full_move_number=inputs.full_move_number,
-        shapes_fired_this_game=_shapes,
+    )
+
+    # ─── 7c. A12 blocked-own-pawn (gates on user blunder + best!=played) ──
+    inject_blocked_pawn_facts(
+        caption_facts,
+        fen_before=inputs.fen_before,
+        played_san=inputs.played_san,
+        best_move=inputs.best_move_san,
+        full_move_number=inputs.full_move_number,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
     )
 
     # ─── 8. A7 board state describer ─────────────────────────────
@@ -1916,23 +1899,47 @@ def build_move_teaching_decision(
         bs_window_size=1,
     )
 
-    # ─── 8b. Principle suppression + cue-pick ────────────────────
+    # ─── 9. Render caption (caption_renderer) ────────────────────
+    caption_payload: Dict[str, Any] = {"caption": "", "rule_name": "R_FALLBACK"}
+    if render_caption_dict is not None:
+        try:
+            rendered = render_caption_dict(caption_facts)
+            if isinstance(rendered, dict):
+                caption_payload = rendered
+        except Exception:
+            logger.exception("[caption_pipeline] render_caption_dict failed; using fallback")
+
+    # ─── 9b. v78 universal describer fallback ────────────────────
+    # When rendered caption is empty AND board_state_clause was set
+    # by A7 AND the move is being CRITIQUED (cp_loss >= 30), use
+    # the describer output as the caption. v91 gate prevents the
+    # describer from firing on clean moves as the only surface.
+    _bs_cp_loss = int(
+        inputs.cp_loss if inputs.mover_is_user else (inputs.opp_cp_loss or 0)
+    ) or 0
+    if (
+        caption_payload
+        and not (caption_payload.get("caption") or "").strip()
+        and (caption_facts.get("board_state_clause") or "").strip()
+        and _bs_cp_loss >= 30
+    ):
+        _bs_text = caption_facts["board_state_clause"].strip()
+        caption_payload["caption"] = f"{inputs.played_san}. {_bs_text}"
+        caption_payload["rule_name"] = "R16_board_state_fallback"
+
+    # ─── 9c. Principle suppression + cue-pick ────────────────────
     # Mohit "central layer" 2026-05-26: moved from V5 service inline
-    # block (lines 3570-3646 of game_decryption_v5_service.py) so both
-    # callers go through the same suppression/cue-pick logic.
+    # block (game_decryption_v5_service.py per-move loop, post-render).
+    # Both callers go through identical suppression/cue-pick logic.
     #
     # Policies (catalog.suppress):
     #   once_per_move       — no game-state filter (default)
-    #   once_per_state_key  — fires while detector's state_key changes
-    #                         (re-arms on different focal squares/piece)
+    #   once_per_state_key  — re-arms when state_key changes
     #   once_per_game       — fires exactly once across the game
     #   once_per_state_entry — DEPRECATED; treated as once_per_game
     #
-    # Cue-pick picks the highest-priority surviving principle (lowest
-    # priority number wins). cue_key based on engine_endorsement:
-    #   best   -> cue_best     top_n -> cue_top_n     absent -> cue_absent
-    # cue_absent is GATED on the played move being a critique
-    # (played cp_loss >= 30) — otherwise the principle didn't apply.
+    # cue_absent is GATED on cp_loss >= 30 (otherwise principle
+    # didn't apply — engine endorsed the move).
     principle_cue = ""
     principle_id_used: Optional[str] = None
     _fired_principles_added: Set[str] = set()
@@ -1967,15 +1974,10 @@ def build_move_teaching_decision(
                     if _sk in state.fired_state_keys:
                         continue
                     _fired_state_keys_added.add(_sk)
-            # once_per_move (default) → no further filter
             caption_principles_violated.append(_ev)
             _fired_principles_added.add(_pid)
-
-        # Re-filter the facts dict so downstream consumers see the
-        # suppression-applied list.
         caption_facts["principles_violated"] = caption_principles_violated
 
-        # Cue-pick: highest-priority surviving principle wins.
         if caption_principles_violated:
             sorted_pv = sorted(
                 caption_principles_violated,
@@ -1992,54 +1994,39 @@ def build_move_teaching_decision(
                 "top_n": "cue_top_n",
                 "absent": "cue_absent",
             }.get(_endorsement, "cue_absent")
-            # cue_absent gated on cp_loss >= 30 (otherwise principle
-            # didn't apply — engine endorsed the move).
-            _played_cp_loss = int(
+            _played_cp_loss_cue = int(
                 inputs.cp_loss if inputs.mover_is_user else (inputs.opp_cp_loss or 0)
             ) or 0
-            if _endorsement == "absent" and _played_cp_loss < 30:
+            if _endorsement == "absent" and _played_cp_loss_cue < 30:
                 pass
             else:
                 principle_cue = _entry.get(_cue_key) or _entry.get("cue_absent") or ""
                 principle_id_used = _top_pid
-    # Stamp the picks onto caption_facts so the renderer + promotion
-    # ladder can read them.
     if principle_cue:
         caption_facts["principle_cue"] = principle_cue
     if principle_id_used:
         caption_facts["principle_id_used"] = principle_id_used
 
-    # ─── 9. Render caption (caption_renderer) ────────────────────
-    caption_payload: Dict[str, Any] = {"caption": "", "rule_name": "R_FALLBACK"}
-    if render_caption_dict is not None:
-        try:
-            rendered = render_caption_dict(caption_facts)
-            if isinstance(rendered, dict):
-                caption_payload = rendered
-        except Exception:
-            logger.exception("[caption_pipeline] render_caption_dict failed; using fallback")
-
-    # ─── 9b. v78 universal describer fallback ────────────────────
-    # Mohit "central layer" 2026-05-26: moved from V5 service inline
-    # (lines 3622-3651 of game_decryption_v5_service.py). When the
-    # rendered caption is empty AND a board_state_clause was set by
-    # the describer pass (A7) AND the move is being CRITIQUED
-    # (cp_loss >= 30), use the describer output as the caption.
-    # The v91 gate (cp_loss >= 30) prevents the describer from
-    # firing on clean moves as the only surface (Parth flagged
-    # "h4. Opponent attacks the centre 5x; you 3x." style noise).
-    _bs_cp_loss = int(
-        inputs.cp_loss if inputs.mover_is_user else (inputs.opp_cp_loss or 0)
-    ) or 0
-    if (
-        caption_payload
-        and not (caption_payload.get("caption") or "").strip()
-        and (caption_facts.get("board_state_clause") or "").strip()
-        and _bs_cp_loss >= 30
-    ):
-        _bs_text = caption_facts["board_state_clause"].strip()
-        caption_payload["caption"] = f"{inputs.played_san}. {_bs_text}"
-        caption_payload["rule_name"] = "R16_board_state_fallback"
+    # ─── 9d. A6 shape pattern selection (post-push board) ────────
+    # V5 service runs this AFTER board.push(move). We construct
+    # post_move_board here from board_before + played_move.
+    try:
+        post_move_board = board_before.copy()
+        post_move_board.push(played_move)
+    except Exception:
+        post_move_board = board_before
+    shape_pattern_record = select_shape_pattern_record(
+        fen_before=inputs.fen_before,
+        board=post_move_board,
+        move=played_move,
+        move_san=inputs.played_san,
+        prev_move=None,
+        eval_data={},
+        pv_after_played=list(inputs.pv_after_played),
+        severity=canonical.user_facing_tier,
+        full_move_number=inputs.full_move_number,
+        shapes_fired_this_game=_shapes,
+    )
 
     # ─── 10. A5 trap recognition state machine ───────────────────
     _played_so_far = list(inputs.move_history_san) + [inputs.played_san]
