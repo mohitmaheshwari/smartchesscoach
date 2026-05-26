@@ -188,6 +188,7 @@
   ],
   "suppression": [
     {"when": {"mover_is_user": false, "why_clause": "absent", "cp_loss": {"lt": 250}}},
+    {"when": {"mover_is_user": false, "opp_has_concrete_why": "absent", "cp_loss": {"lt": 100}}},
     {"when": {"mover_is_user": true, "why_clause": "absent", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"lt": 250}}}
   ],
   "select_variant": [

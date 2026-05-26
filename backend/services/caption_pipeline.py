@@ -902,7 +902,6 @@ def inject_opp_side_narration_facts(
     # has a slight preference here. Best reply: Nc6.") instead of
     # the overclaiming "Opponent's Nc3 is an inaccuracy" framing.
     _concrete_fact_keys = (
-        "opp_user_reply_tactic_kind",
         "opp_user_reply_queen_fork_sub_kind",
         "opp_user_reply_clearance_follow_up_san",
         "opp_user_reply_clearance_attack_square",
@@ -915,7 +914,16 @@ def inject_opp_side_narration_facts(
         "opp_played_queen_early_san",
         "opp_played_un_developed_san",
     )
-    if any(caption_facts.get(_k) for _k in _concrete_fact_keys):
+    has_concrete = any(caption_facts.get(_k) for _k in _concrete_fact_keys)
+    # Pattern #2 (Mohit 2026-05-26 game_692ab776c5b1 m5 c5): tactic_kind
+    # is concrete only when R12 has a template variant for the kind —
+    # "mate" → why_opp_user_finds_mate, "piece_capture" → why_opp_user_wins_piece.
+    # "material" has no template (it's a dead flag from detect_missed_tactic's
+    # "honest material gain" fallback) and was previously promoting thin opp
+    # inaccuracies past the cp<100 suppression gate.
+    if caption_facts.get("opp_user_reply_tactic_kind") in ("mate", "piece_capture"):
+        has_concrete = True
+    if has_concrete:
         caption_facts["opp_has_concrete_why"] = True
 
     return coach_line_result
