@@ -1247,12 +1247,20 @@ def select_shape_pattern_record(
                     pass
 
     # ── Post-move shape detection (fallback) ────────────────────
+    # Fires when player walked into a tactical geometry: gate is
+    # cp_loss-tier (severity ∈ {mistake, serious, blunder, opp_*}).
+    # "serious" (250-399cp) was missing from the gate until 2026-05-26
+    # — added as part of the v100 central-layer convergence after
+    # surfacing during V5 refactor verification.
     if (
         shape_pattern_record is None
         and _detect_all_shapes is not None
         and _SHAPE_PATTERNS_BY_ID is not None
         and _verify_shapes_with_engine is not None
-        and severity in ("mistake", "blunder", "opp_mistake", "opp_blunder")
+        and severity in (
+            "mistake", "serious", "blunder",
+            "opp_mistake", "opp_serious", "opp_blunder",
+        )
         and pv_after_played
     ):
         try:
