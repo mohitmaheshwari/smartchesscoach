@@ -121,6 +121,25 @@ class MoveInputs:
     prev_move_uci: Optional[str] = None
     best_move_uci: Optional[str] = None
 
+    # ─── PWC coach-move narration context (2026-05-26 migration off
+    # smart_coaching.py per [[one-source-of-truth-for-coaching]]).
+    # Set ONLY by routes/coach_play.py when the engine plays a move
+    # and we want the central layer to produce the structured PWC
+    # `coach_move_coaching` payload. None for V5 review and for PWC
+    # user-side moves — those don't need coach-narration semantics.
+    #
+    # Expected shape (mirrors what shared_coaching_v5.generate_coach_
+    # move_explanation reads today):
+    #   {
+    #     "v2": True,                            # gate flag
+    #     "teaching_goal": "hanging_piece_punishment" | "fork_opportunity"
+    #                    | "threat_awareness" | "opening_guidance",
+    #     "why_instructive": str,                # short reason string
+    #     "v2_breakdown": {"sub_scores": {...}}, # detailed v2 metric
+    #     "v2_label": str,                       # short label for UI
+    #   }
+    coach_move_context: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class CrossMoveState:
@@ -208,6 +227,46 @@ class TeachingMeta:
 
 
 @dataclass
+class CoachExtras:
+    """Structured multi-field payload the PWC `coach_move_coaching`
+    surface consumes. Frontend `CoachPlay.jsx:1344-1462` reads these.
+
+    Populated ONLY when MoveInputs.coach_move_context is set (i.e., this
+    move is the engine's move in a PWC live session and the caller asked
+    for coach-narration). For all other contexts (V5 review, PWC user
+    side) this stays None on the MoveTeachingDecision and the caller
+    ignores it.
+
+    Architectural note (2026-05-26): this dataclass exists so the
+    central layer can produce the same rich shape that smart_coaching.py
+    produces today, WITHOUT the LLM hallucination risk. Per
+    [[one-source-of-truth-for-coaching]] the goal is to delete
+    smart_coaching.py entirely once this path is wired and verified.
+
+    Field semantics mirror smart_coaching.py / shared_coaching_v5.
+    generate_coach_move_explanation return shape:
+      - explanation: primary caption ("Nxe5 captures the undefended pawn.")
+      - plan: what the user should think about next ("Always check ...")
+      - threats: specific concrete threats the move creates
+      - teaching_point: universal principle reinforcement
+      - hint_for_user: actionable Socratic question for the user
+      - opponent_opportunity: when the coach's move left something the
+        student can exploit, describe it; else None.
+      - v2_intent / v2_label: pass-through from coach_move_context for
+        the UI badge.
+    """
+    move_san: str = ""
+    explanation: str = ""
+    plan: str = ""
+    threats: List[str] = field(default_factory=list)
+    teaching_point: str = ""
+    hint_for_user: str = ""
+    opponent_opportunity: Optional[Dict[str, Any]] = None
+    v2_intent: Optional[str] = None
+    v2_label: Optional[str] = None
+
+
+@dataclass
 class MoveTeachingDecision:
     """The complete teaching product for one move.
 
@@ -217,6 +276,8 @@ class MoveTeachingDecision:
       - Use `teaching_meta` for downstream consumers (UI, audit, classifier)
       - Pass `debug_facts` to admin UI / authoring tools (do NOT use for
         rendering — it's the post-extract facts dict for inspection only)
+      - When `coach_extras` is populated, persist it as the PWC
+        `coach_move_coaching` payload (frontend `CoachPlay.jsx`).
     """
     text: TextSurface = field(default_factory=TextSurface)
     visual: VisualSurface = field(default_factory=VisualSurface)
@@ -242,6 +303,10 @@ class MoveTeachingDecision:
     # gates). Caller decides what to do — usually skip writing to UI.
     should_skip: bool = False
     skip_reason: str = ""
+    # PWC coach-move narration payload (2026-05-26 migration). Populated
+    # ONLY when MoveInputs.coach_move_context is set; None otherwise.
+    # See CoachExtras docstring for field semantics.
+    coach_extras: Optional[CoachExtras] = None
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -927,6 +992,150 @@ def inject_opp_side_narration_facts(
         caption_facts["opp_has_concrete_why"] = True
 
     return coach_line_result
+
+
+def inject_coach_move_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    board_before: chess.Board,
+    move: chess.Move,
+    user_color: str,
+    coach_move_context: Optional[Dict[str, Any]],
+) -> None:
+    """Stamp the deterministic facts the central layer needs to produce
+    PWC `coach_move_coaching` payload — the structured shape that
+    `smart_coaching.generate_smart_coach_explanation` produces today via
+    an LLM call (and hallucinates on, per fb_bb79d2445dc1).
+
+    Mohit 2026-05-26: "the coach move should also come from the central
+    layer, i can't afford to have 2 sources." See
+    [[one-source-of-truth-for-coaching]].
+
+    No-op when coach_move_context is None. Otherwise stamps:
+      - coach_move_is_active: True (gate flag for downstream)
+      - coach_intent: v2 teaching_goal label
+      - coach_v2_label: pass-through UI badge
+      - coach_v2_why: short reason string from v2 selector
+      - coach_v2_sub_scores: dict of v2 sub-metrics (capture_punishment,
+        undefended, attacks_undefended, etc.)
+      - coach_attack_targets: list of {piece, square, defender_count}
+        for opp pieces the moved piece now attacks
+      - coach_target_was_undefended: True iff the move was a capture and
+        the captured square had no defenders BEFORE the move (free piece)
+      - coach_was_castling: True iff the move was castling
+      - coach_castling_side: "kingside" / "queenside" / None
+      - student_can_exploit: dict of post-move opportunities for student
+        (hanging coach pieces, available forks). Empty dict when nothing.
+
+    Pure function. Mutates caption_facts in place. No side effects.
+    """
+    if not coach_move_context:
+        return
+    if not coach_move_context.get("v2"):
+        # v2 flag is the gate; without it the rest is meaningless.
+        return
+
+    caption_facts["coach_move_is_active"] = True
+    caption_facts["coach_intent"] = coach_move_context.get("teaching_goal") or None
+    caption_facts["coach_v2_label"] = coach_move_context.get("v2_label") or None
+    caption_facts["coach_v2_why"] = coach_move_context.get("why_instructive") or ""
+    breakdown = coach_move_context.get("v2_breakdown") or {}
+    sub = breakdown.get("sub_scores") if isinstance(breakdown, dict) else None
+    caption_facts["coach_v2_sub_scores"] = sub if isinstance(sub, dict) else {}
+
+    coach_color = board_before.piece_at(move.from_square)
+    coach_color = coach_color.color if coach_color else None
+    student_color = chess.WHITE if user_color == "white" else chess.BLACK
+
+    # Castling — record side for template selection.
+    is_castling = board_before.is_castling(move)
+    caption_facts["coach_was_castling"] = is_castling
+    if is_castling:
+        side = "kingside" if chess.square_file(move.to_square) > 4 else "queenside"
+        caption_facts["coach_castling_side"] = side
+    else:
+        caption_facts["coach_castling_side"] = None
+
+    # Was the captured square undefended BEFORE the move? Free piece
+    # vs trade is a core teaching distinction smart_coaching surfaces
+    # via SEE; we expose it as a boolean for template predicates.
+    target_was_undefended = False
+    if board_before.is_capture(move) and not board_before.is_en_passant(move):
+        defenders = board_before.attackers(
+            not coach_color, move.to_square
+        ) if coach_color is not None else chess.SquareSet()
+        # Filter out the captured piece itself (its own square defends
+        # nothing relevant for this question).
+        defenders.discard(move.to_square)
+        target_was_undefended = len(defenders) == 0
+    caption_facts["coach_target_was_undefended"] = target_was_undefended
+
+    # What does the moved piece NOW attack? Compute post-move attack set
+    # against opp (student) non-king pieces, with defender counts so the
+    # template can distinguish "free attack" from "pressure on defended".
+    board_after = board_before.copy()
+    try:
+        board_after.push(move)
+    except Exception:
+        # Shouldn't happen — move was already validated by extract_facts.
+        # Defensive: stamp empties and bail.
+        caption_facts["coach_attack_targets"] = []
+        caption_facts["student_can_exploit"] = {}
+        return
+
+    coach_attack_targets: List[Dict[str, Any]] = []
+    if coach_color is not None:
+        moved_attacks = board_after.attacks(move.to_square)
+        for target_sq in moved_attacks:
+            target_piece = board_after.piece_at(target_sq)
+            if (target_piece is None
+                    or target_piece.color == coach_color
+                    or target_piece.piece_type == chess.KING):
+                continue
+            defenders = board_after.attackers(student_color, target_sq)
+            attackers = board_after.attackers(coach_color, target_sq)
+            coach_attack_targets.append({
+                "piece": chess.piece_name(target_piece.piece_type),
+                "square": chess.square_name(target_sq),
+                "defender_count": len(defenders),
+                "attacker_count": len(attackers),
+            })
+    caption_facts["coach_attack_targets"] = coach_attack_targets
+
+    # What can the STUDENT exploit? Hanging coach pieces, fork chances.
+    # Reuses the existing pattern_detectors module — same primitives
+    # smart_coaching._scan_opportunities calls today (lines 1129-1149).
+    student_opportunities: Dict[str, Any] = {}
+    try:
+        from coach_play.teaching.pattern_detectors import (
+            find_hanging_pieces, find_fork_opportunities,
+        )
+        if coach_color is not None:
+            hanging, underdefended = find_hanging_pieces(
+                board_after, victim_color=coach_color
+            )
+            if hanging:
+                student_opportunities["coach_hanging_pieces"] = [
+                    {"piece": chess.piece_name(h.piece_type),
+                     "square": chess.square_name(h.square)}
+                    for h in hanging
+                ]
+            if underdefended:
+                student_opportunities["coach_underdefended_pieces"] = [
+                    {"piece": chess.piece_name(h.piece_type),
+                     "square": chess.square_name(h.square)}
+                    for h in underdefended
+                ]
+            forks = find_fork_opportunities(
+                board_after, forker_color=student_color
+            )
+            if forks:
+                student_opportunities["student_fork_chance_count"] = len(forks)
+    except Exception:
+        # pattern_detectors is best-effort; if it crashes we just don't
+        # populate student_can_exploit. Template falls back gracefully.
+        pass
+    caption_facts["student_can_exploit"] = student_opportunities
 
 
 def inject_opening_context_facts(
@@ -1849,6 +2058,19 @@ def build_move_teaching_decision(
         opp_cp_loss=int(inputs.opp_cp_loss or 0),
         eval_lookup=_eval_lookup,
         user_color=inputs.user_color,
+    )
+
+    # ─── 3b. PWC coach-move narration facts (2026-05-26 migration off
+    # smart_coaching.py per [[one-source-of-truth-for-coaching]]).
+    # No-op when coach_move_context is None (V5 review, PWC user-side).
+    # Stamps coach_intent / coach_attack_targets / student_can_exploit
+    # for the R17_coach_move templates and the CoachExtras populator.
+    inject_coach_move_facts(
+        caption_facts,
+        board_before=board_before,
+        move=played_move,
+        user_color=inputs.user_color,
+        coach_move_context=inputs.coach_move_context,
     )
 
     # ─── 4. A4 opening context (gates on idx<6 + opening phase) ──
