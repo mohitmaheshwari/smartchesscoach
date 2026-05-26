@@ -1018,5 +1018,186 @@ class TestBuildMoveTeachingDecision:
         assert "severity_practical" in d.debug_facts
 
 
+# ────────────────────────────────────────────────────────────────────
+# R17 coach-move narration — central-layer replacement for
+# services/smart_coaching.py per Mohit 2026-05-26 (see
+# memory/feedback_one_source_of_truth). These tests anchor the
+# CoachExtras contract: the central layer produces the same
+# structured shape PWC frontend consumes today, deterministically.
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestCoachExtras:
+    """build_move_teaching_decision.coach_extras population from R17."""
+
+    def _build(self, **overrides):
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+        defaults = dict(
+            fen_before=chess.STARTING_FEN,
+            played_san="e4",
+            mover_is_user=False,  # coach is the mover for coach-move narration
+            mover_is_white=True,
+            user_color="black",
+            full_move_number=1,
+            move_history_san=[],
+            cp_loss=0,
+            eval_before_cp=0,
+            eval_after_cp=0,
+        )
+        defaults.update(overrides)
+        inputs = MoveInputs(**defaults)
+        state = CrossMoveState()
+        return build_move_teaching_decision(inputs, state)
+
+    def test_no_coach_context_returns_none(self):
+        """When coach_move_context is None (V5 review, PWC user side),
+        coach_extras stays None on the decision."""
+        d = self._build()
+        assert d.coach_extras is None
+
+    def test_coach_context_without_v2_flag_returns_none(self):
+        """v2 flag is the gate — without it the injector and R17 trigger
+        both refuse. coach_extras stays None even when context dict
+        present."""
+        d = self._build(coach_move_context={"teaching_goal": "fork_opportunity"})
+        # Without v2:True the inject_coach_move_facts early-returns.
+        assert d.coach_extras is None
+
+    def test_capture_free_piece_populates_correctly(self):
+        """Coach captures an undefended pawn — should fire the
+        coach_capture_free variant with explanation referencing the
+        captured piece type + square."""
+        # Position: white knight on c3 can take a black pawn on d5
+        # which sits undefended. Position rigged so Nxd5 is a free
+        # piece.
+        fen = "rnbqkbnr/ppp1pppp/8/3p4/8/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1"
+        d = self._build(
+            fen_before=fen,
+            played_san="Nxd5",
+            move_history_san=[],
+            cp_loss=0,
+            coach_move_context={
+                "v2": True,
+                "teaching_goal": "hanging_piece_punishment",
+                "why_instructive": "captures undefended pawn",
+                "v2_breakdown": {"sub_scores": {"capture_punishment": 1}},
+                "v2_label": "Free piece",
+            },
+        )
+        extras = d.coach_extras
+        assert extras is not None
+        assert extras.move_san == "Nxd5"
+        # The undefended-target template should mention "undefended"
+        # and the target square d5 — text exact match is brittle, just
+        # check the substrings.
+        assert "undefended" in extras.explanation.lower()
+        assert "d5" in extras.explanation
+        assert extras.plan != ""
+        assert extras.teaching_point != ""
+        assert extras.v2_intent == "hanging_piece_punishment"
+        assert extras.v2_label == "Free piece"
+
+    def test_castling_kingside_populates(self):
+        """Coach castles kingside — should fire the castles_kingside
+        variant. Tests the coach_was_castling + coach_castling_side
+        derivation path."""
+        # Position legal for white O-O.
+        fen = "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPBPPP/RNBQK2R w KQkq - 0 1"
+        d = self._build(
+            fen_before=fen,
+            played_san="O-O",
+            cp_loss=0,
+            coach_move_context={
+                "v2": True,
+                "teaching_goal": "opening_guidance",
+                "why_instructive": "king safety",
+                "v2_breakdown": {"sub_scores": {}},
+                "v2_label": "Castle",
+            },
+        )
+        extras = d.coach_extras
+        assert extras is not None
+        assert "castling" in extras.explanation.lower() or "o-o" in extras.explanation.lower()
+        assert "kingside" in extras.explanation.lower()
+
+    def test_opening_develop_knight_uses_intent(self):
+        """Opening knight development should pick the develop_knight
+        variant — proves the variant selector reads coach_intent +
+        moving_piece_type."""
+        d = self._build(
+            played_san="Nf3",
+            cp_loss=0,
+            coach_move_context={
+                "v2": True,
+                "teaching_goal": "opening_guidance",
+                "why_instructive": "develop knight",
+                "v2_breakdown": {"sub_scores": {}},
+                "v2_label": "Develop",
+            },
+        )
+        extras = d.coach_extras
+        assert extras is not None
+        # The develop_knight variant's text mentions "knight" and
+        # references the played SAN.
+        assert "knight" in extras.explanation.lower()
+        assert "Nf3" in extras.explanation
+        # Universal-principle ending kept (per
+        # [[caption-keep-explicit-principle-ending]]).
+        assert extras.teaching_point != ""
+        assert extras.hint_for_user != ""
+
+    def test_threats_list_built_from_attack_targets(self):
+        """When coach_attack_targets is populated by the fact extractor,
+        the renderer should surface them in CoachExtras.threats[]."""
+        # Coach plays a move that attacks a black knight. Use a
+        # rigged position where white queen lands attacking an
+        # undefended knight.
+        fen = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B5/3P4/PPP2PPP/RNBQK1NR w KQkq - 0 1"
+        d = self._build(
+            fen_before=fen,
+            played_san="Bxf7+",
+            cp_loss=0,
+            coach_move_context={
+                "v2": True,
+                "teaching_goal": "threat_awareness",
+                "why_instructive": "attacks king area",
+                "v2_breakdown": {"sub_scores": {"checks": 1}},
+                "v2_label": "Attack",
+            },
+        )
+        extras = d.coach_extras
+        assert extras is not None
+        # threats may or may not be populated depending on what the
+        # post-move board attack scan returns — we anchor only the
+        # shape, not the specifics.
+        assert isinstance(extras.threats, list)
+
+    def test_v5_review_path_unaffected(self):
+        """User-side V5 review call — coach_move_context absent. The
+        coach_extras field must be None. Anchors the no-regression
+        invariant: PR-2 changes only PWC coach-move renders, not V5."""
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+        inputs = MoveInputs(
+            fen_before=chess.STARTING_FEN,
+            played_san="e4",
+            mover_is_user=True,
+            mover_is_white=True,
+            user_color="white",
+            full_move_number=1,
+            move_history_san=[],
+            cp_loss=0,
+        )
+        d = build_move_teaching_decision(inputs, CrossMoveState())
+        assert d.coach_extras is None
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

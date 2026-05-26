@@ -1,0 +1,139 @@
+{
+  "rule_name": "R17_coach_move",
+  "description": "PWC coach-narrates-own-move surface (2026-05-26). Fires when the central layer is called with coach_move_context set (caption_pipeline.inject_coach_move_facts stamps coach_move_is_active=True). Produces the multi-field CoachExtras shape that smart_coaching.generate_smart_coach_explanation produces today via an LLM call — but deterministically, from caption_facts. See memory/feedback_one_source_of_truth.\n\nUnlike R01-R15 (single-caption rules), R17 variants are OBJECTS with explanation / plan / teaching_point / hint_for_user fields. Rendered by populate_coach_extras_from_r17 in caption_pipeline.py — NOT through the generic render_rule path. Variant selection still uses select_variant predicates against caption_facts.",
+  "fact_glossary": {
+    "played_san": "SAN of the coach's move",
+    "captured_piece_type": "When move was a capture: piece-type taken (e.g. 'pawn', 'knight')",
+    "target_square": "Move's destination square",
+    "moving_piece_type": "Piece-type the coach moved (e.g. 'bishop')",
+    "coach_move_is_active": "Gate flag — true when coach_move_context was supplied to build_move_teaching_decision",
+    "coach_intent": "v2 teaching_goal label from coach_move_context: 'hanging_piece_punishment' | 'fork_opportunity' | 'threat_awareness' | 'opening_guidance'",
+    "coach_target_was_undefended": "True iff move was a capture AND captured square had no defenders BEFORE the move (free piece)",
+    "coach_was_castling": "True iff move is castling",
+    "coach_castling_side": "'kingside' | 'queenside' when castling",
+    "coach_attack_targets": "List of {piece, square, defender_count, attacker_count} for opp non-king pieces the moved piece now attacks",
+    "coach_attack_first_target_piece": "Computed by renderer: piece-name of the first entry in coach_attack_targets when any (e.g. 'knight')",
+    "coach_attack_first_target_square": "Computed by renderer: square of the first attack target (e.g. 'c6')",
+    "coach_attack_first_target_undefended": "Computed by renderer: true iff first attack target has defender_count==0",
+    "coach_v2_sub_attacks_undefended": "v2 sub_scores.attacks_undefended pass-through (>0 means coach now threatens undefended)",
+    "coach_v2_sub_capture_punishment": "v2 sub_scores.capture_punishment pass-through (>0 means coach captured undefended)",
+    "coach_v2_sub_checks": "v2 sub_scores.checks pass-through (>0 means coach has check available)",
+    "is_check": "Coach's move gave check",
+    "is_capture": "Coach's move was a capture",
+    "phase": "opening / middlegame / endgame"
+  },
+  "requires": ["played_san"],
+  "trigger": {
+    "when": {"coach_move_is_active": true}
+  },
+  "select_variant": [
+    {"when": {"is_capture": true, "coach_target_was_undefended": true}, "variant": "coach_capture_free"},
+    {"when": {"coach_was_castling": true, "coach_castling_side": "kingside"}, "variant": "coach_castles_kingside"},
+    {"when": {"coach_was_castling": true, "coach_castling_side": "queenside"}, "variant": "coach_castles_queenside"},
+    {"when": {"coach_intent": "fork_opportunity"}, "variant": "coach_creates_fork"},
+    {"when": {"is_check": true}, "variant": "coach_gives_check"},
+    {"when": {"coach_intent": "hanging_piece_punishment", "is_capture": true}, "variant": "coach_capture_free"},
+    {"when": {"coach_intent": "hanging_piece_punishment"}, "variant": "coach_threatens_hanging"},
+    {"when": {"coach_attack_first_target_undefended": true}, "variant": "coach_threat_undefended"},
+    {"when": {"coach_attack_first_target_piece": "present"}, "variant": "coach_threat_specific"},
+    {"when": {"coach_intent": "threat_awareness"}, "variant": "coach_threat_general"},
+    {"when": {"is_capture": true}, "variant": "coach_capture_trade"},
+    {"when": {"coach_intent": "opening_guidance", "moving_piece_type": "knight"}, "variant": "coach_opening_develop_knight"},
+    {"when": {"coach_intent": "opening_guidance", "moving_piece_type": "bishop"}, "variant": "coach_opening_develop_bishop"},
+    {"when": {"coach_intent": "opening_guidance", "moving_piece_type": "pawn"}, "variant": "coach_opening_central_pawn"},
+    {"when": {"coach_intent": "opening_guidance"}, "variant": "coach_opening_generic"},
+    {"variant": "coach_quiet_repositioning"}
+  ],
+  "variants": {
+    "coach_capture_free": {
+      "explanation": "{played_san} — your {captured_piece_type} on {target_square} was undefended.",
+      "plan": "Before every move, check: is anything I own undefended?",
+      "teaching_point": "Count attackers vs defenders on every piece before you move.",
+      "hint_for_user": "Scan the board: which of your pieces has no defender right now?"
+    },
+    "coach_capture_trade": {
+      "explanation": "{played_san} — trading the {moving_piece_type} for your {captured_piece_type}.",
+      "plan": "When trading, ask: does this exchange help my position or hurt it?",
+      "teaching_point": "Don't trade for the sake of trading — trade when it improves your structure or activity.",
+      "hint_for_user": "Was this trade good for me or for the coach? Count the squares each side now controls."
+    },
+    "coach_creates_fork": {
+      "explanation": "{played_san} — this piece is now attacking two of your pieces at once.",
+      "plan": "You can only save one. Pick the more valuable target — accept losing the other or find a counter-threat.",
+      "teaching_point": "Double attacks (forks) win material because the opponent can't save everything in one move.",
+      "hint_for_user": "Count what this piece is attacking. Which target is more valuable, and can you find a tempo move that saves both?"
+    },
+    "coach_gives_check": {
+      "explanation": "{played_san}+ — check.",
+      "plan": "Forced moves first: address the check before considering anything else.",
+      "teaching_point": "Checks are the most forcing move in chess. Always answer a check before your own plans.",
+      "hint_for_user": "What are your three ways out of check: block, capture the checker, or move the king?"
+    },
+    "coach_threatens_hanging": {
+      "explanation": "{played_san} — one of your pieces is now undefended. Can you find which one?",
+      "plan": "After every opponent move, ask: did anything change? Is something now attacked or undefended?",
+      "teaching_point": "The single biggest habit improving players develop: pause after each opponent move and re-scan the board.",
+      "hint_for_user": "Look at every piece you own — is there one with attackers but no defenders?"
+    },
+    "coach_threat_undefended": {
+      "explanation": "{played_san} — attacks your {coach_attack_first_target_piece} on {coach_attack_first_target_square}, and it has no defender.",
+      "plan": "Before you play, ask: what is my opponent threatening?",
+      "teaching_point": "The #1 habit of improving players: check what changed after the opponent's move.",
+      "hint_for_user": "Your {coach_attack_first_target_piece} on {coach_attack_first_target_square} is attacked and undefended — can you defend it, move it, or counter-attack?"
+    },
+    "coach_threat_specific": {
+      "explanation": "{played_san} — attacks your {coach_attack_first_target_piece} on {coach_attack_first_target_square}.",
+      "plan": "When a piece is attacked, the three responses are: defend, move, or counter-threat.",
+      "teaching_point": "Always identify what each opponent move attacks before choosing your reply.",
+      "hint_for_user": "How will you handle the threat on {coach_attack_first_target_square}?"
+    },
+    "coach_threat_general": {
+      "explanation": "{played_san} — what changed on the board for you?",
+      "plan": "Always ask: what does my opponent's move do? Attacks, threats, or just positioning?",
+      "teaching_point": "Most blunders happen because a player didn't notice what the opponent's last move actually did.",
+      "hint_for_user": "Re-scan: is anything new attacked, defended, or pinned after my move?"
+    },
+    "coach_castles_kingside": {
+      "explanation": "O-O — castling kingside to get my king safe.",
+      "plan": "Castle early too — a safe king lets you play more aggressively in the middlegame.",
+      "teaching_point": "Castling does two things at once: it tucks your king behind pawns AND activates your rook.",
+      "hint_for_user": "Have you castled yet? If not, plan it within the next few moves."
+    },
+    "coach_castles_queenside": {
+      "explanation": "O-O-O — castling queenside.",
+      "plan": "Queenside castles trade a faster king-shelter for an immediately active rook on the d-file.",
+      "teaching_point": "Queenside castling is sharper — the king is slightly more exposed but the rook hits the center faster.",
+      "hint_for_user": "Where's your king safer this game — kingside or queenside?"
+    },
+    "coach_opening_develop_knight": {
+      "explanation": "{played_san} — developing the knight toward the center.",
+      "plan": "Knights belong on c3/f3/c6/f6 in most openings. They control more squares from there than from the edge.",
+      "teaching_point": "Develop knights before bishops — knights need more moves to reach active squares.",
+      "hint_for_user": "Are your knights developed yet, or still on the back rank?"
+    },
+    "coach_opening_develop_bishop": {
+      "explanation": "{played_san} — developing the bishop to an active diagonal.",
+      "plan": "Bishops need open diagonals. Place them where they see the whole board, not blocked by their own pawns.",
+      "teaching_point": "Develop pieces toward the center, then castle, then connect rooks.",
+      "hint_for_user": "Do your bishops have open diagonals, or are they stuck behind their own pawns?"
+    },
+    "coach_opening_central_pawn": {
+      "explanation": "{played_san} — controlling the center with a pawn.",
+      "plan": "Central pawns claim space and open lines for your pieces to develop into.",
+      "teaching_point": "Control the center first, then develop pieces around your pawn structure.",
+      "hint_for_user": "Are you contesting the center, or letting the coach control it?"
+    },
+    "coach_opening_generic": {
+      "explanation": "{played_san} — following opening principles.",
+      "plan": "Develop pieces, control the center, castle early — in that order.",
+      "teaching_point": "The opening is about getting pieces active and the king safe, not about creating threats.",
+      "hint_for_user": "What's your slowest piece right now? Develop it next."
+    },
+    "coach_quiet_repositioning": {
+      "explanation": "{played_san} — improving the piece's position.",
+      "plan": "Strong players make small improvements between bigger plans — every move should make some piece better.",
+      "teaching_point": "Not every move needs to be a tactical strike — quiet positioning compounds into a winning position.",
+      "hint_for_user": "Look at your worst piece. What's the best square it could reach in two moves?"
+    }
+  }
+}

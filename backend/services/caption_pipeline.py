@@ -1138,6 +1138,193 @@ def inject_coach_move_facts(
     caption_facts["student_can_exploit"] = student_opportunities
 
 
+_R17_TEMPLATE: Optional[Dict[str, Any]] = None
+
+
+def _load_r17_template() -> Dict[str, Any]:
+    """Lazy-load R17_coach_move.json, cached process-wide. Returns the
+    parsed dict, or empty {} when file missing / invalid (defensive)."""
+    global _R17_TEMPLATE
+    if _R17_TEMPLATE is not None:
+        return _R17_TEMPLATE
+    import json
+    import os
+    # caption_templates.py uses /app/backend/data/captions in container
+    # and resolves the path via CAPTIONS_DIR; reuse that path semantics.
+    _path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "captions", "R17_coach_move.json",
+    )
+    try:
+        with open(_path, encoding="utf-8") as f:
+            _R17_TEMPLATE = json.load(f)
+    except Exception as exc:
+        logger.warning(f"[caption_pipeline] R17 load failed: {exc}; coach-narration disabled")
+        _R17_TEMPLATE = {}
+    return _R17_TEMPLATE
+
+
+def _compute_r17_derived_facts(caption_facts: Dict[str, Any]) -> None:
+    """R17 select_variant predicates read a few computed fields that
+    aren't in the base facts dict — derive them in-place so the
+    predicate matcher sees them. Pure helper, mutates caption_facts."""
+    # coach_attack_first_target_* — peel the first entry off the
+    # coach_attack_targets list (set by inject_coach_move_facts).
+    targets = caption_facts.get("coach_attack_targets") or []
+    if targets and isinstance(targets, list) and isinstance(targets[0], dict):
+        first = targets[0]
+        caption_facts["coach_attack_first_target_piece"] = first.get("piece")
+        caption_facts["coach_attack_first_target_square"] = first.get("square")
+        caption_facts["coach_attack_first_target_undefended"] = (
+            (first.get("defender_count") or 0) == 0
+        )
+    # coach_v2_sub_* — flatten select keys from the v2 sub_scores dict
+    # so the predicate matcher (which expects flat keys) can read them.
+    sub = caption_facts.get("coach_v2_sub_scores") or {}
+    if isinstance(sub, dict):
+        caption_facts["coach_v2_sub_attacks_undefended"] = sub.get("attacks_undefended", 0) or 0
+        caption_facts["coach_v2_sub_capture_punishment"] = sub.get("capture_punishment", 0) or 0
+        caption_facts["coach_v2_sub_checks"] = sub.get("checks", 0) or 0
+        caption_facts["coach_v2_sub_undefended"] = sub.get("undefended", 0) or 0
+
+
+def _format_r17_field(template_str: str, facts: Dict[str, Any]) -> str:
+    """Format an R17 template string with caption_facts. Tolerates
+    missing keys — returns the unformatted string rather than raising
+    KeyError so a partial fact dict doesn't crash the whole render.
+    Mirrors the leniency of caption_templates.render_template."""
+    if not template_str:
+        return ""
+    try:
+        # Build a defaulted lookup so missing keys render as empty.
+        class _SafeDict(dict):
+            def __missing__(self, key):
+                return ""
+        return template_str.format_map(_SafeDict(facts))
+    except Exception:
+        return template_str
+
+
+def populate_coach_extras(caption_facts: Dict[str, Any]) -> Optional["CoachExtras"]:
+    """Render the R17_coach_move template into a CoachExtras instance.
+
+    Gate: returns None when coach_move_is_active is not True (i.e., the
+    caller did not pass coach_move_context to build_move_teaching_
+    decision). Also returns None when the R17 file failed to load.
+
+    Variant selection uses the same evaluate_when predicate the rest
+    of the JSON-driven rule engine uses (caption_templates.py).
+    Builds threats[] from coach_attack_targets, opponent_opportunity
+    from student_can_exploit. v2_intent / v2_label come straight from
+    coach_move_context via the facts dict.
+    """
+    if not caption_facts.get("coach_move_is_active"):
+        return None
+
+    cfg = _load_r17_template()
+    if not cfg:
+        return None
+
+    # Mutate caption_facts in place with derived predicate inputs. Safe
+    # because caption_facts is already a working copy from build_move_
+    # teaching_decision (V5 service builds a fresh dict per move).
+    _compute_r17_derived_facts(caption_facts)
+
+    # Variant selection — reuse the JSON predicate engine.
+    try:
+        from services.caption_templates import select_first_match
+    except Exception:
+        logger.exception("[caption_pipeline] caption_templates import failed; R17 disabled")
+        return None
+
+    rules = cfg.get("select_variant") or []
+    match = select_first_match(rules, caption_facts)
+    variant_name = (match or {}).get("variant") if match else None
+    if not variant_name:
+        # Fallback ordering: explicit terminal {"variant": "coach_quiet_repositioning"}
+        # in select_variant should always catch, but guard defensively.
+        variant_name = "coach_quiet_repositioning"
+
+    variant_body = (cfg.get("variants") or {}).get(variant_name) or {}
+    if not isinstance(variant_body, dict):
+        # Schema violation — log and bail.
+        logger.warning(
+            f"[caption_pipeline] R17 variant {variant_name!r} is not a dict; "
+            f"check R17_coach_move.json schema"
+        )
+        return None
+
+    # Render the four narrative fields.
+    explanation = _format_r17_field(variant_body.get("explanation", ""), caption_facts)
+    plan = _format_r17_field(variant_body.get("plan", ""), caption_facts)
+    teaching_point = _format_r17_field(variant_body.get("teaching_point", ""), caption_facts)
+    hint_for_user = _format_r17_field(variant_body.get("hint_for_user", ""), caption_facts)
+
+    # Build threats[] from coach_attack_targets — concrete, grounded
+    # claims about what the coach now attacks. Skip targets with zero
+    # attacker_count (shouldn't happen but defensive).
+    threats: List[str] = []
+    for target in caption_facts.get("coach_attack_targets") or []:
+        if not isinstance(target, dict):
+            continue
+        piece = target.get("piece")
+        square = target.get("square")
+        if not piece or not square:
+            continue
+        if (target.get("defender_count") or 0) == 0:
+            threats.append(f"Attacks your {piece} on {square} (undefended)")
+        else:
+            threats.append(f"Attacks your {piece} on {square}")
+
+    # opponent_opportunity — surface what the student can exploit.
+    # Mirrors smart_coaching's structure so the frontend's existing
+    # rendering of `opponent_opportunity` continues to work after the
+    # source-of-truth flip in PR-4.
+    opportunity_facts = caption_facts.get("student_can_exploit") or {}
+    opponent_opportunity: Optional[Dict[str, Any]] = None
+    if isinstance(opportunity_facts, dict) and opportunity_facts:
+        # Compose a one-line message for the UI; keep the raw structured
+        # data alongside so future renderers can use richer formatting.
+        parts: List[str] = []
+        hanging = opportunity_facts.get("coach_hanging_pieces") or []
+        underdef = opportunity_facts.get("coach_underdefended_pieces") or []
+        forks = opportunity_facts.get("student_fork_chance_count") or 0
+        if hanging:
+            names = ", ".join(
+                f"{h['piece']} on {h['square']}" for h in hanging
+                if isinstance(h, dict) and h.get("piece") and h.get("square")
+            )
+            if names:
+                parts.append(f"Coach has undefended: {names}")
+        if underdef:
+            names = ", ".join(
+                f"{h['piece']} on {h['square']}" for h in underdef
+                if isinstance(h, dict) and h.get("piece") and h.get("square")
+            )
+            if names:
+                parts.append(f"Under pressure: {names}")
+        if forks:
+            parts.append(f"You may have a fork available ({forks} chance{'s' if forks != 1 else ''})")
+        if parts:
+            opponent_opportunity = {
+                "type": "smart",
+                "message": "; ".join(parts),
+                "details": opportunity_facts,
+            }
+
+    return CoachExtras(
+        move_san=caption_facts.get("played_san") or "",
+        explanation=explanation,
+        plan=plan,
+        threats=threats,
+        teaching_point=teaching_point,
+        hint_for_user=hint_for_user,
+        opponent_opportunity=opponent_opportunity,
+        v2_intent=caption_facts.get("coach_intent"),
+        v2_label=caption_facts.get("coach_v2_label"),
+    )
+
+
 def inject_opening_context_facts(
     caption_facts: Dict[str, Any],
     *,
@@ -2396,6 +2583,13 @@ def build_move_teaching_decision(
         prev_user_eval_after=(inputs.eval_after_cp if inputs.mover_is_user else state.prev_user_eval_after),
     )
 
+    # ─── 13. R17 coach-move narration (PWC only — populated when
+    # coach_move_context was passed; returns None otherwise so the
+    # MoveTeachingDecision.coach_extras field stays None for V5 review
+    # and PWC user-side moves). Per [[one-source-of-truth-for-coaching]]
+    # this is the central-layer replacement for smart_coaching.py.
+    coach_extras = populate_coach_extras(caption_facts)
+
     return MoveTeachingDecision(
         text=text,
         visual=visual,
@@ -2406,4 +2600,5 @@ def build_move_teaching_decision(
         shape_pattern_record=shape_pattern_record,
         should_skip=False,
         skip_reason="",
+        coach_extras=coach_extras,
     )
