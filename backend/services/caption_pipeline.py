@@ -219,6 +219,16 @@ class MoveTeachingDecision:
     # fields above. (Per reviewer's "no downstream renderer consumes
     # cosmetic shifts" rule.)
     debug_facts: Dict[str, Any] = field(default_factory=dict)
+    # Trap record from A5's update_trap_recognition_state. None when
+    # no setup completed and no continuation step matched. Caller
+    # writes this to move record for downstream consumers (R_PROMOTED_
+    # trap_setup, frontend "Play this line" UI).
+    trap_record: Optional[Dict[str, Any]] = None
+    # Shape pattern record from A6's select_shape_pattern_record.
+    # None when neither pre-move nor post-move shape detection fired.
+    # Caller writes pattern_id / pattern_name / pattern_desc / mover /
+    # targets / executing_move to move record.
+    shape_pattern_record: Optional[Dict[str, Any]] = None
     # Whether the caller should suppress the entire teaching surface
     # (e.g. forced recapture, book move, suppressed by session-level
     # gates). Caller decides what to do — usually skip writing to UI.
@@ -1697,6 +1707,7 @@ def build_move_teaching_decision(
     game_trap_fires: Optional[List[Dict[str, Any]]] = None,
     eval_lookup: Optional[Dict[str, Dict[str, Any]]] = None,
     move_evaluations: Optional[List[Dict[str, Any]]] = None,
+    opening_record: Optional[Dict[str, Any]] = None,
 ) -> MoveTeachingDecision:
     """B-phase: orchestrate the A1-A9 helpers into a single entry point.
 
@@ -2048,7 +2059,7 @@ def build_move_teaching_decision(
         caption_payload=caption_payload,
         caption_facts=caption_facts,
         trap_record=trap_record,
-        opening_record=None,  # V5 service has opening_record; PWC doesn't yet
+        opening_record=opening_record,  # V5 passes via kwarg; PWC passes None
         shape_pattern_record=shape_pattern_record,
         move_san=inputs.played_san,
         is_user=bool(inputs.mover_is_user),
@@ -2097,6 +2108,8 @@ def build_move_teaching_decision(
         decisiveness_changed=practical.decisiveness_changed,
     )
     state_mutations = StateMutations(
+        fired_principles_added=_fired_principles_added,
+        fired_state_keys_added=_fired_state_keys_added,
         active_trap_after=new_active_trap,
         active_trap_cleared=(state.active_trap is not None and new_active_trap is None),
         active_trap_step_cursor_after=new_step_cursor,
@@ -2110,6 +2123,8 @@ def build_move_teaching_decision(
         teaching_meta=teaching_meta,
         state_mutations=state_mutations,
         debug_facts=caption_facts,
+        trap_record=trap_record,
+        shape_pattern_record=shape_pattern_record,
         should_skip=False,
         skip_reason="",
     )
