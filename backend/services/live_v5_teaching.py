@@ -479,6 +479,84 @@ def v5_teaching_decision_for_live_move(
             f"[live_v5_teaching] opening context inject crashed for {played_san}"
         )
 
+    # v100 A6 (auto-propagation): shape pattern selection.
+    # PWC doesn't persist shapes_fired_this_game on coach_sessions
+    # (the V5 service uses it for once-per-game anti-repeat). Passing
+    # an empty set each call disables anti-repeat — same shape can
+    # fire on consecutive PWC moves until session state is added.
+    # That's degraded behaviour, not broken.
+    try:
+        from services.caption_pipeline import select_shape_pattern_record
+        _shape_board = chess.Board(fen_before) if fen_before else None
+        _shape_move = None
+        if _shape_board is not None:
+            try:
+                _shape_move = _shape_board.parse_san(played_san)
+            except Exception:
+                _shape_move = None
+        if _shape_board is not None and _shape_move is not None:
+            # Severity for the post-move shape gate. Use practical_tier
+            # if available; degrade to canonical cp_loss-based check.
+            from services.severity import classify_severity_practical
+            _practical_for_shape = classify_severity_practical(
+                int(cp_loss or 0),
+                mover_is_user=bool(mover_is_user),
+                mover_is_white=bool(user_doc.get("color_played") == "white") == bool(mover_is_user),
+                eval_before_cp=eval_before_cp,
+                eval_after_cp=eval_after_cp,
+            )
+            _severity_str = _practical_for_shape.practical_tier
+            # Map canonical tier into the user-facing vocabulary V5
+            # service uses ("mistake" / "blunder" / "opp_mistake" /
+            # "opp_blunder") for the post-move gate.
+            if not mover_is_user:
+                if _severity_str in ("mistake", "serious", "blunder"):
+                    _severity_str = f"opp_{_severity_str}" if _severity_str != "serious" else "opp_blunder"
+            _shape_after_board = _shape_board.copy()
+            _shape_after_board.push(_shape_move)
+            _shape_record = select_shape_pattern_record(
+                fen_before=fen_before,
+                board=_shape_after_board,
+                move=_shape_move,
+                move_san=played_san,
+                prev_move=None,  # PWC doesn't track prev_move yet
+                eval_data={},
+                pv_after_played=pv_after_played or [],
+                severity=_severity_str,
+                full_move_number=full_move_number,
+                shapes_fired_this_game=set(),
+            )
+            if _shape_record:
+                facts["shape_pattern_id"] = _shape_record.get("pattern_id")
+                facts["shape_pattern_name"] = _shape_record.get("pattern_name")
+                facts["shape_pattern_desc"] = _shape_record.get("pattern_desc")
+                _sp_targets = _shape_record.get("targets") or []
+                if _sp_targets:
+                    facts["shape_pattern_target_square"] = _sp_targets[0]
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] shape pattern selection crashed for {played_san}"
+        )
+
+    # v100 A7 (auto-propagation): board_state_describer fallback.
+    # bs_recent_window is game-wide in V5; PWC passes [] each call
+    # (no anti-repeat across moves until session state added).
+    try:
+        from services.caption_pipeline import inject_board_state_describer_clause
+        inject_board_state_describer_clause(
+            facts,
+            fen_before=fen_before,
+            move_san=played_san,
+            user_color=(user_doc.get("color_played") or "white"),
+            full_move_number=full_move_number,
+            bs_recent_window=[],
+            bs_window_size=1,
+        )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] board state describer crashed for {played_san}"
+        )
+
     # v100 A5 (auto-propagation): trap recognition state machine.
     # PWC doesn't persist trap-tracking state on coach_sessions yet
     # (active_trap, setup_completed, step_cursor would need to live
