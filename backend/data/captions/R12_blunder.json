@@ -152,7 +152,7 @@
     {"when": {"shape_pattern_id": "king_pawn_lifted", "shape_pattern_target_square": "present"}, "variant": "why_user_missed_king_pawn_pressure"},
     {"when": {"position_was_already_losing": true, "losing_since_move": "present", "lost_defender_lead_clause": "absent"}, "variant": "why_user_position_already_losing_since_known"},
     {"when": {"position_was_already_losing": true, "lost_defender_lead_clause": "absent"}, "variant": "why_user_position_already_losing"},
-    {"when": {"opp_reply_san": "present", "opp_reply_attacks_played_piece": true, "target_square": "present"}, "variant": "why_user_attacks_played"},
+    {"when": {"opp_reply_san": "present", "opp_reply_attacks_played_piece": true, "target_square": "present", "cp_loss": {"gte": 50}}, "variant": "why_user_attacks_played"},
     {"when": {"is_exchange_losing": true, "target_square": "present", "opp_reply_san": "present"}, "variant": "why_user_exchange_losing_with_reply"},
     {"when": {"is_exchange_losing": true, "target_square": "present"}, "variant": "why_user_exchange_losing_no_reply"},
     {"when": {"pieces_now_undefended_present": true, "lost_defender_lead_clause": "absent"}, "variant": "why_user_hanging"},

@@ -2,7 +2,7 @@
   "tag": "baseline_v99",
   "n_games": 10,
   "n_moves": 587,
-  "silent_count": 192,
+  "silent_count": 193,
   "versions": [
     99,
     99,
@@ -4160,12 +4160,10 @@
       "is_user_move": true,
       "is_white": false,
       "cp_loss": 38,
-      "caption": "Nc6 is an inaccuracy. b6 was better. After Bb5, your knight on c6 is under attack.",
-      "rule_name": "R12_blunder",
+      "caption": "",
+      "rule_name": "R_FALLBACK_no_trigger_fired",
       "caption_arrows": [],
-      "caption_highlight_squares": [
-        "c6"
-      ],
+      "caption_highlight_squares": [],
       "highlight_squares": [],
       "shape_pattern_targets": [],
       "shape_pattern_mover": null,
@@ -4173,7 +4171,7 @@
       "severity": "good",
       "severity_practical": "good",
       "severity_canonical": "inaccuracy",
-      "caption_tier": "MID",
+      "caption_tier": "NONE",
       "has_teaching_content": false,
       "principle_id_used": null,
       "principle_cue": "",
@@ -11919,7 +11917,7 @@
       "is_user_move": true,
       "is_white": false,
       "cp_loss": 49,
-      "caption": "d6 is an inaccuracy. Bxe3 was better. After Bxc5, your pawn on d6 is under attack.",
+      "caption": "d6 is an inaccuracy. Bxe3 was better. Opponent plays Bxc5 winning your bishop.",
       "rule_name": "R12_blunder",
       "caption_arrows": [],
       "caption_highlight_squares": [
