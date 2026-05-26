@@ -1,5 +1,5 @@
 {
-  "tag": "pr3_check",
+  "tag": "pr5_check",
   "n_scenarios": 7,
   "surfaced": 4,
   "suppressed": 3,
@@ -71,8 +71,8 @@
     }
   ],
   "n_coach_scenarios": 7,
-  "coach_produced": 5,
-  "coach_skipped": 2,
+  "coach_produced": 7,
+  "coach_skipped": 0,
   "coach_errors": 0,
   "coach_rows": [
     {
@@ -124,12 +124,28 @@
       "has_opponent_opportunity": true
     },
     {
-      "scenario_id": "C05_no_v2_context_returns_none",
-      "produced": false
+      "scenario_id": "C05_no_v2_context_still_narrates",
+      "produced": true,
+      "v2_intent": null,
+      "v2_label": null,
+      "explanation_hash": "34a065cf67c5",
+      "plan_hash": "7cacf2a2e20e",
+      "teaching_point_hash": "1540d2e057ad",
+      "hint_for_user_hash": "5900042a3fa7",
+      "threats_count": 0,
+      "has_opponent_opportunity": false
     },
     {
-      "scenario_id": "C06_v2_flag_false_returns_none",
-      "produced": false
+      "scenario_id": "C06_v2_flag_false_still_narrates",
+      "produced": true,
+      "v2_intent": "opening_guidance",
+      "v2_label": null,
+      "explanation_hash": "b9b7e1b1d71e",
+      "plan_hash": "ccbd6208adc1",
+      "teaching_point_hash": "10a892c77072",
+      "hint_for_user_hash": "07f37812ad83",
+      "threats_count": 0,
+      "has_opponent_opportunity": false
     },
     {
       "scenario_id": "C07_quiet_repositioning_fallback",

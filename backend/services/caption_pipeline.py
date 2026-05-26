@@ -1013,7 +1013,7 @@ def inject_coach_move_facts(
 
     No-op when coach_move_context is None. Otherwise stamps:
       - coach_move_is_active: True (gate flag for downstream)
-      - coach_intent: v2 teaching_goal label
+      - coach_intent: v2 teaching_goal label (may be None when no v2)
       - coach_v2_label: pass-through UI badge
       - coach_v2_why: short reason string from v2 selector
       - coach_v2_sub_scores: dict of v2 sub-metrics (capture_punishment,
@@ -1027,12 +1027,21 @@ def inject_coach_move_facts(
       - student_can_exploit: dict of post-move opportunities for student
         (hanging coach pieces, available forks). Empty dict when nothing.
 
+    Gate semantics (post-PR-5 2026-05-26):
+      - coach_move_context is None  -> no-op (V5 review path).
+      - coach_move_context is dict  -> R17 fires. When the dict has
+        v2:True, the intent variants apply. When v2 is missing/False
+        the deterministic facts still flow through and R17 picks the
+        terminal coach_quiet_repositioning variant.
+
+    Per [[one-source-of-truth-for-coaching]]: every PWC engine move
+    must produce narration deterministically, even without a v2
+    teaching signal. The terminal R17 variant + the board-state-aware
+    fact stamping below ensures coverage.
+
     Pure function. Mutates caption_facts in place. No side effects.
     """
-    if not coach_move_context:
-        return
-    if not coach_move_context.get("v2"):
-        # v2 flag is the gate; without it the rest is meaningless.
+    if coach_move_context is None:
         return
 
     caption_facts["coach_move_is_active"] = True

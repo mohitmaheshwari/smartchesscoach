@@ -268,34 +268,9 @@ def _is_user_flag_enabled(user_doc: Dict[str, Any], session_doc: Dict[str, Any])
     return bool(flag.get("enabled"))
 
 
-def is_pwc_coach_central_layer_enabled(
-    user_doc: Optional[Dict[str, Any]],
-    session_doc: Optional[Dict[str, Any]],
-) -> bool:
-    """PR-4 (2026-05-26): authoritative-source flag for PWC coach-move
-    narration. When True, routes/coach_play.py uses the central-layer
-    coach_move_narration_for_live_move output as the response payload
-    instead of smart_coaching.generate_smart_coach_explanation. Smart_
-    coaching becomes the safety fallback only.
-
-    Per [[one-source-of-truth-for-coaching]] — eventually the flag is
-    flipped on globally, smart_coaching is deleted (PR-5), and this
-    helper goes away.
-
-    Priority (mirrors _is_user_flag_enabled):
-      1. session feature_overrides.pwc_coach_central_layer (if set, wins)
-      2. user feature_flags.pwc_coach_central_layer.enabled
-      3. default: False (smart_coaching primary during rollout)
-    """
-    if not session_doc:
-        session_doc = {}
-    if not user_doc:
-        user_doc = {}
-    override = (session_doc.get("feature_overrides") or {}).get("pwc_coach_central_layer")
-    if override is not None:
-        return bool(override)
-    flag = (user_doc.get("feature_flags") or {}).get("pwc_coach_central_layer") or {}
-    return bool(flag.get("enabled"))
+# is_pwc_coach_central_layer_enabled REMOVED 2026-05-26 (PR-5). The
+# central layer is now the only PWC coach-narration path — no flag,
+# no fallback, no toggle. Per [[one-source-of-truth-for-coaching]].
 
 
 def _passes_suppression(
@@ -1162,20 +1137,25 @@ def coach_move_narration_for_live_move(
             "v2_label": Optional[str],
         }
 
-    Returns None when:
-      - v2_context is None or its "v2" flag is falsy (no teaching
-        signal to narrate; caller should fall through to the
-        deterministic shared_coaching_v5 path during the migration)
-      - input validation fails (bad FEN / SAN)
+    Returns None only when input validation fails (bad FEN / SAN).
+    PR-5 (2026-05-26): v2_context is no longer required — when caller
+    has no v2 teaching signal, the central layer still produces
+    deterministic narration via R17's terminal coach_quiet_
+    repositioning variant. Per
+    [[one-source-of-truth-for-coaching]] — every PWC coach move must
+    produce narration, no fallback path remains after smart_coaching
+    deletion.
 
     NOT gated by the pwc_v5_teaching feature flag — this is the always-
     on coach-narration surface, not the cooldown-gated user-side V5
     teaching surface.
     """
-    if not v2_context or not v2_context.get("v2"):
-        return None
     if not played_san or not fen_before:
         return None
+    # Coerce v2_context: route may pass None when last_coach_move lacks
+    # v2 metadata. R17 fires regardless; intent-specific variants apply
+    # when v2:True is set, terminal variant otherwise.
+    coach_ctx: Dict[str, Any] = dict(v2_context) if v2_context else {}
 
     try:
         from services.caption_pipeline import (
@@ -1209,7 +1189,7 @@ def coach_move_narration_for_live_move(
             cp_loss=0,  # coach moves are by definition "the engine's choice"
             pv_after_played=[],
             pv_after_best=[],
-            coach_move_context=v2_context,
+            coach_move_context=coach_ctx,
         )
     except Exception as exc:
         logger.warning(f"[coach_narration] MoveInputs build failed: {exc}")

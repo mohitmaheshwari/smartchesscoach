@@ -2518,7 +2518,7 @@ async def get_interactive_coaching(
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    from services.shared_coaching_v5 import generate_move_coaching, generate_coach_move_explanation, CoachingContext, quick_stockfish_eval
+    from services.shared_coaching_v5 import generate_move_coaching, CoachingContext, quick_stockfish_eval
     from services.player_habits_service import generate_behavioral_coaching, get_player_profile
     
     session_id = request.get("session_id")
@@ -3045,111 +3045,55 @@ async def get_interactive_coaching(
                     "v2_breakdown": last_coach_move.get("v2_breakdown", {}),
                 }
 
+            # ─── Coach-move narration via central layer (PR-5, 2026-05-26) ───
+            # Single source of truth per Mohit ("can't afford 2 sources" —
+            # memory/feedback_one_source_of_truth). build_move_teaching_
+            # decision is the only path; smart_coaching.generate_smart_coach_
+            # explanation and shared_coaching_v5.generate_coach_move_
+            # explanation have been deleted.
             coach_explanation = None
-
-            # ─── Feature flag: pwc_coach_central_layer (PR-4, 2026-05-26) ──
-            # When ON: central layer is authoritative; smart_coaching becomes
-            #          the safety fallback if central returns None.
-            # When OFF (default during rollout): smart_coaching stays
-            #          primary; central layer still runs in parallel for
-            #          comparison logging (PR-3 double-write semantics).
-            # Per Mohit: "the coach move should also come from the central
-            # layer, i can't afford to have 2 sources" —
-            # memory/feedback_one_source_of_truth.
-            try:
-                from services.live_v5_teaching import is_pwc_coach_central_layer_enabled
-                _coach_user_doc = await db.users.find_one(
-                    {"user_id": session_doc.get("user_id")}
-                ) or {}
-                _central_layer_authoritative = is_pwc_coach_central_layer_enabled(
-                    _coach_user_doc, session_doc,
-                )
-            except Exception:
-                _coach_user_doc = {}
-                _central_layer_authoritative = False
-
-            # ─── Central-layer coach-narration ───
-            central_layer_explanation = None
             try:
                 from services.live_v5_teaching import coach_move_narration_for_live_move
                 _mhist_san_central = [m.get("move", "") for m in move_history if m.get("move")]
-                central_layer_explanation = coach_move_narration_for_live_move(
+                coach_explanation = coach_move_narration_for_live_move(
                     fen_before=last_coach_move["fen_before"],
                     played_san=last_coach_move["move"],
                     user_color=user_color,
                     move_history_san=_mhist_san_central,
                     full_move_number=board.fullmove_number,
                     v2_context=v2_ctx,
-                    user_doc=_coach_user_doc,
+                    user_doc=None,
                     session_doc=session_doc,
                 )
-                if central_layer_explanation:
+                if coach_explanation:
                     logger.info(
-                        f"[COACH-EXPLAIN-CENTRAL] Central layer produced output for "
+                        f"[COACH-EXPLAIN] Central layer produced output for "
                         f"{last_coach_move.get('move')}: "
-                        f"explanation={central_layer_explanation.get('explanation', '')[:60]!r}, "
-                        f"intent={central_layer_explanation.get('v2_intent')!r}, "
-                        f"authoritative={_central_layer_authoritative}"
-                    )
-                else:
-                    logger.info(
-                        f"[COACH-EXPLAIN-CENTRAL] Central layer returned None for "
-                        f"{last_coach_move.get('move')} (no v2_context or filter)"
+                        f"intent={coach_explanation.get('v2_intent')!r}, "
+                        f"variant={coach_explanation.get('explanation', '')[:60]!r}"
                     )
             except Exception as central_err:
-                logger.warning(
-                    f"[COACH-EXPLAIN-CENTRAL] Central-layer call failed (non-fatal): "
-                    f"{central_err}",
-                    exc_info=False,
+                logger.error(
+                    f"[COACH-EXPLAIN] Central-layer call failed: {central_err}",
+                    exc_info=True,
                 )
 
-            # ─── Source selection ───
-            if _central_layer_authoritative and central_layer_explanation:
-                # Flag is on AND central layer produced output: use it.
-                coach_explanation = central_layer_explanation
-                logger.info(
-                    f"[COACH-EXPLAIN] Using CENTRAL LAYER as source of truth for "
-                    f"{last_coach_move.get('move')}"
-                )
-            else:
-                # Flag off, or central layer skipped: smart_coaching primary.
-                try:
-                    logger.info(f"[COACH-EXPLAIN] Attempting smart coaching for {last_coach_move.get('move')}")
-                    from services.smart_coaching import generate_smart_coach_explanation
-                    # Get player weaknesses for context
-                    _player_weaknesses = []
-                    try:
-                        _pp = await db.player_profiles.find_one(
-                            {"user_id": user_id}, {"top_weaknesses": 1, "_id": 0})
-                        if _pp:
-                            _player_weaknesses = [w.get("subcategory", w.get("category", ""))
-                                                  for w in _pp.get("top_weaknesses", [])[:3]]
-                    except Exception:
-                        pass
-
-                    _opening = session_doc.get("detected_opening") or session_doc.get("opening_to_teach")
-
-                    coach_explanation = await generate_smart_coach_explanation(
-                        board_before=board,
-                        move=move,
-                        user_color=user_color,
-                        v2_context=v2_ctx,
-                        player_weaknesses=_player_weaknesses,
-                        user_rating=session_doc.get("user_rating", 1200),
-                        opening_name=_opening,
-                        db=db,
-                        move_history=move_history,
-                    )
-                except Exception as llm_err:
-                    logger.error(f"[COACH-EXPLAIN] Smart coaching FAILED: {llm_err}", exc_info=True)
-
-            # Fallback to template-based explanation when both sources empty.
-            # (Central layer skipped + smart_coaching failed, or flag on + central
-            # returned None.) shared_coaching_v5.generate_coach_move_explanation
-            # is the deterministic last-resort.
+            # Minimal SAN-only safety net: if the central layer crashed
+            # somehow, surface bare move SAN so the UI doesn't go blank.
+            # This is NOT a parallel teaching path — it's a one-line
+            # emergency response only. Should never fire in practice.
             if not coach_explanation:
-                coach_explanation = generate_coach_move_explanation(
-                    board, move, user_color, v2_context=v2_ctx
+                coach_explanation = {
+                    "move_san": last_coach_move.get("move", ""),
+                    "explanation": f"I play {last_coach_move.get('move', '')}.",
+                    "plan": "",
+                    "threats": [],
+                    "teaching_point": "",
+                    "hint_for_user": "",
+                }
+                logger.warning(
+                    "[COACH-EXPLAIN] Central layer returned None; using minimal "
+                    "SAN-only fallback. Investigate the pipeline."
                 )
 
             # Add intent badge data for frontend.

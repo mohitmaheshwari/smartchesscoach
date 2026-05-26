@@ -1059,13 +1059,26 @@ class TestCoachExtras:
         d = self._build()
         assert d.coach_extras is None
 
-    def test_coach_context_without_v2_flag_returns_none(self):
-        """v2 flag is the gate — without it the injector and R17 trigger
-        both refuse. coach_extras stays None even when context dict
-        present."""
+    def test_empty_coach_context_still_fires_terminal_variant(self):
+        """PR-5 (2026-05-26): once smart_coaching is deleted, every PWC
+        coach move MUST produce narration deterministically. An EMPTY
+        coach_move_context dict is still enough to fire R17 — the
+        terminal coach_quiet_repositioning variant catches it."""
+        d = self._build(coach_move_context={})
+        assert d.coach_extras is not None
+        assert d.coach_extras.explanation != ""
+        # No teaching_goal → no intent variant; terminal variant fires.
+        assert d.coach_extras.v2_intent is None
+
+    def test_coach_context_with_intent_uses_intent_variant(self):
+        """When teaching_goal is set, the matching intent variant fires
+        — even without the explicit v2:True flag (the gate moved to
+        'coach_move_context is not None' in PR-5)."""
         d = self._build(coach_move_context={"teaching_goal": "fork_opportunity"})
-        # Without v2:True the inject_coach_move_facts early-returns.
-        assert d.coach_extras is None
+        assert d.coach_extras is not None
+        assert d.coach_extras.v2_intent == "fork_opportunity"
+        # The fork variant template mentions "two ... at once".
+        assert "two" in d.coach_extras.explanation.lower()
 
     def test_capture_free_piece_populates_correctly(self):
         """Coach captures an undefended pawn — should fire the

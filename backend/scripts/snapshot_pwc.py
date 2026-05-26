@@ -221,8 +221,8 @@ PWC_COACH_CORPUS: List[Dict[str, Any]] = [
         },
     },
     {
-        "scenario_id": "C05_no_v2_context_returns_none",
-        "comment": "No v2_context → coach_narration returns None. Anchors the gate behaviour.",
+        "scenario_id": "C05_no_v2_context_still_narrates",
+        "comment": "PR-5 (2026-05-26): no v2_context still produces narration via R17 terminal variant. Every PWC coach move must speak deterministically.",
         "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         "played_san": "e4",
         "user_color": "black",
@@ -231,8 +231,8 @@ PWC_COACH_CORPUS: List[Dict[str, Any]] = [
         "v2_context": None,
     },
     {
-        "scenario_id": "C06_v2_flag_false_returns_none",
-        "comment": "v2 flag falsy in context → coach_narration returns None.",
+        "scenario_id": "C06_v2_flag_false_still_narrates",
+        "comment": "PR-5: v2:False dict still fires R17. v2_intent stays None; terminal variant carries the narration.",
         "fen_before": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         "played_san": "e4",
         "user_color": "black",

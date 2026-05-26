@@ -118,14 +118,20 @@ if os.path.exists(build_dir):
 else:
     print(f"  {F} Build directory not found")
 
-# 5. Coach move explanation — v2 or generic?
-print("\n5. Coach move explanation function")
-from services.shared_coaching_v5 import generate_coach_move_explanation
-sig = inspect.signature(generate_coach_move_explanation)
-if "v2_context" in sig.parameters:
-    print(f"  {P} Has v2_context parameter — intent-driven explanations")
-else:
-    print(f"  {F} No v2_context — generic explanations only")
+# 5. Coach move explanation — central layer
+# Updated 2026-05-26 (PR-5): generate_coach_move_explanation deleted.
+# Now: services/live_v5_teaching.coach_move_narration_for_live_move via
+# the central caption_pipeline. Per [[one-source-of-truth-for-coaching]].
+print("\n5. Coach move explanation function (central layer)")
+try:
+    from services.live_v5_teaching import coach_move_narration_for_live_move
+    sig = inspect.signature(coach_move_narration_for_live_move)
+    if "v2_context" in sig.parameters:
+        print(f"  {P} Central layer wired — v2_context-aware, R17 templates")
+    else:
+        print(f"  {F} Central layer present but missing v2_context parameter")
+except Exception as e:
+    print(f"  {F} Central layer import failed: {e}")
 
 # 6. Evaluate-pending layer thresholds
 print("\n6. Evaluate-pending coaching layers")
