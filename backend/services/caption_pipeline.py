@@ -364,6 +364,260 @@ def compute_severity_for_move(
     )
 
 
+def inject_user_blunder_detector_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    fen_before: str,
+    move_san: str,
+    best_move: Optional[str],
+    pv_after_best: Optional[List[str]],
+    move_number: Optional[int],
+    is_user: bool,
+    cp_loss: int,
+) -> None:
+    """Run the v53-v65 user-blunder detector suite and inject their
+    facts into caption_facts.
+
+    v100 step A1 (Mohit signoff 2026-05-26 — auto-propagation to PWC):
+    extracted from game_decryption_v5_service.py lines 3665-3913 so
+    both V5 review AND live_v5_teaching can call it. PWC users
+    immediately get v53-v65 detector evidence in captions when
+    live_v5_teaching is wired (follow-up commit).
+
+    Gate (same as the V5-service inline block):
+        is_user AND best_move AND best_move != move_san AND cp_loss >= 100
+
+    When the gate is closed, returns immediately without touching
+    caption_facts. When open, runs 14 detectors in registration order;
+    each in its own try/except so one detector's failure cannot block
+    others. The R12_blunder.json why_clauses_user predicates read
+    these fact keys to render concrete teaching ("Play d5 kicking
+    their bishop on e6") instead of engine-speak fallback.
+
+    Detector roster (preserved exactly from V5 service order):
+      1.  simulate_clearance_for_attack         (Légal's family)
+      2.  simulate_clearance_then_check         (Légal's-Mate, v56)
+      3.  simulate_attack_with_tempo            (v57)
+      4.  simulate_queen_fork_with_check        (v61)
+      5.  simulate_endgame_loose_pawn_grab      (v62)
+      6.  simulate_un_developing                (v63 #4)
+      7.  simulate_defensive_pawn_push          (v63 #7)
+      8.  simulate_knight_outpost               (v63 #11)
+      9.  simulate_stop_opponent_pawn_advance   (v63 #14)
+      10. simulate_active_defense               (v64 #12)
+      11. simulate_same_piece_better_square     (v64 #8)
+      12. simulate_discovered_attack_vacating_check  (v64 #6)
+      13. simulate_knight_on_rim_in_opening     (v65 #9)
+      14. simulate_pawn_kicks_piece             (v65 #10)
+
+    MUTATES caption_facts in place. No return.
+    """
+    if not (is_user and best_move and best_move != move_san and (cp_loss or 0) >= 100):
+        return
+
+    # Lazy-import shape_detectors to keep import cost out of code paths
+    # that don't fire this gate (most moves).
+    from services.shape_detectors import (
+        simulate_clearance_for_attack,
+        simulate_clearance_then_check,
+        simulate_attack_with_tempo,
+        simulate_queen_fork_with_check,
+        simulate_endgame_loose_pawn_grab,
+        simulate_un_developing,
+        simulate_defensive_pawn_push,
+        simulate_knight_outpost,
+        simulate_stop_opponent_pawn_advance,
+        simulate_active_defense,
+        simulate_same_piece_better_square,
+        simulate_discovered_attack_vacating_check,
+        simulate_knight_on_rim_in_opening,
+        simulate_pawn_kicks_piece,
+    )
+
+    # 1. Clearance-for-attack (Légal's family).
+    try:
+        _clearance_evs = simulate_clearance_for_attack(fen_before, best_move)
+        if _clearance_evs:
+            _ev0 = _clearance_evs[0]
+            _targets = _ev0.get("targets") or []
+            if _targets:
+                caption_facts["missed_clearance_attack_square"] = _targets[0]
+            _piece = _ev0.get("clearer_piece_type")
+            if _piece:
+                caption_facts["missed_clearance_attacker_piece"] = _piece
+    except Exception:
+        pass
+
+    # 2. Clearance-then-check (Légal's-Mate, v56).
+    try:
+        _ctc_evs = simulate_clearance_then_check(fen_before, best_move)
+        if _ctc_evs:
+            _e = _ctc_evs[0]
+            _piece = _e.get("clearer_piece_type")
+            _dest = _e.get("slider_destination_square")
+            _follow = _e.get("follow_up_san")
+            _king = _e.get("king_square")
+            if _piece and _dest and _follow:
+                caption_facts["missed_clearance_then_check_piece"] = _piece
+                caption_facts["missed_clearance_then_check_destination"] = _dest
+                caption_facts["missed_clearance_then_check_follow_up_san"] = _follow
+                if _king:
+                    caption_facts["missed_clearance_then_check_king_square"] = _king
+    except Exception:
+        pass
+
+    # 3. Attack-with-tempo (v57).
+    try:
+        _atw_evs = simulate_attack_with_tempo(
+            fen_before, best_move, pv_after_best or [],
+        )
+        if _atw_evs:
+            _e = _atw_evs[0]
+            _piece = _e.get("attacked_piece_type")
+            _sq = _e.get("attacked_square")
+            _follow = _e.get("follow_up_san")
+            if _piece and _sq:
+                caption_facts["attack_with_tempo_piece"] = _piece
+                caption_facts["attack_with_tempo_square"] = _sq
+                if _follow:
+                    caption_facts["attack_with_tempo_follow_up_san"] = _follow
+    except Exception:
+        pass
+
+    # 4. Queen-fork-with-check (v61).
+    try:
+        _qf_evs = simulate_queen_fork_with_check(fen_before, best_move)
+        if _qf_evs:
+            _e = _qf_evs[0]
+            caption_facts["queen_fork_sub_kind"] = _e.get("sub_kind")
+            caption_facts["queen_fork_secondary_piece"] = _e.get("secondary_piece")
+            caption_facts["queen_fork_secondary_square"] = _e.get("secondary_square")
+            caption_facts["queen_fork_king_square"] = _e.get("king_square")
+    except Exception:
+        pass
+
+    # 5. Endgame loose-pawn grab (v62).
+    try:
+        _eg_evs = simulate_endgame_loose_pawn_grab(fen_before, best_move)
+        if _eg_evs:
+            _e = _eg_evs[0]
+            caption_facts["endgame_loose_pawn_sub_kind"] = _e.get("sub_kind")
+            caption_facts["endgame_loose_pawn_moving_piece"] = _e.get("moving_piece_type")
+            caption_facts["endgame_loose_pawn_square"] = _e.get("pawn_square")
+    except Exception:
+        pass
+
+    # 6. Un-developing (v63 #4).
+    try:
+        _ud_evs = simulate_un_developing(
+            fen_before, move_san, best_move,
+            move_number=move_number,
+        )
+        if _ud_evs:
+            _e = _ud_evs[0]
+            caption_facts["un_developing_piece"] = _e.get("moving_piece_type")
+            caption_facts["un_developing_from"] = _e.get("from_square")
+            caption_facts["un_developing_home"] = _e.get("home_square")
+    except Exception:
+        pass
+
+    # 7. Defensive pawn push (v63 #7).
+    try:
+        _dp_evs = simulate_defensive_pawn_push(
+            fen_before, move_san, best_move,
+            move_number=move_number,
+        )
+        if _dp_evs:
+            _e = _dp_evs[0]
+            caption_facts["defensive_pawn_user_san"] = _e.get("user_pawn_san")
+            caption_facts["defensive_pawn_best_dev_san"] = _e.get("best_dev_san")
+    except Exception:
+        pass
+
+    # 8. Knight outpost (v63 #11).
+    try:
+        _ko_evs = simulate_knight_outpost(fen_before, best_move)
+        if _ko_evs:
+            _e = _ko_evs[0]
+            caption_facts["knight_outpost_destination"] = _e.get("knight_destination")
+            caption_facts["knight_outpost_defender_piece"] = _e.get("defender_piece")
+            caption_facts["knight_outpost_defender_square"] = _e.get("defender_square")
+    except Exception:
+        pass
+
+    # 9. Stop opp pawn advance (v63 #14).
+    try:
+        _so_evs = simulate_stop_opponent_pawn_advance(
+            fen_before, move_san, best_move,
+        )
+        if _so_evs:
+            _e = _so_evs[0]
+            caption_facts["stop_opp_pawn_blocking_san"] = _e.get("blocking_pawn_san")
+            caption_facts["stop_opp_pawn_opp_square"] = _e.get("opp_pawn_square")
+    except Exception:
+        pass
+
+    # 10. Active-defense (v64 #12).
+    try:
+        _ad_evs = simulate_active_defense(fen_before, best_move)
+        if _ad_evs:
+            _e = _ad_evs[0]
+            caption_facts["active_defense_defended_piece"] = _e.get("defended_piece")
+            caption_facts["active_defense_defended_square"] = _e.get("defended_square")
+            caption_facts["active_defense_attacked_piece"] = _e.get("attacked_piece")
+            caption_facts["active_defense_attacked_square"] = _e.get("attacked_square")
+    except Exception:
+        pass
+
+    # 11. Same-piece-better-square (v64 #8).
+    try:
+        _sb_evs = simulate_same_piece_better_square(
+            fen_before, move_san, best_move,
+        )
+        if _sb_evs:
+            _e = _sb_evs[0]
+            caption_facts["same_piece_better_extra_piece"] = _e.get("extra_piece")
+            caption_facts["same_piece_better_extra_square"] = _e.get("extra_square")
+            caption_facts["same_piece_better_shared_piece"] = _e.get("shared_piece")
+            caption_facts["same_piece_better_shared_square"] = _e.get("shared_square")
+    except Exception:
+        pass
+
+    # 12. Discovered-attack-vacating-with-check (v64 #6).
+    try:
+        _dv_evs = simulate_discovered_attack_vacating_check(fen_before, best_move)
+        if _dv_evs:
+            _e = _dv_evs[0]
+            caption_facts["discovered_vac_moved_piece"] = _e.get("moved_piece")
+            caption_facts["discovered_vac_slider_piece"] = _e.get("slider_piece")
+            caption_facts["discovered_vac_exposed_piece"] = _e.get("exposed_piece")
+            caption_facts["discovered_vac_exposed_square"] = _e.get("exposed_square")
+    except Exception:
+        pass
+
+    # 13. Knight-on-rim in opening (v65 #9).
+    try:
+        _kr_evs = simulate_knight_on_rim_in_opening(
+            fen_before, move_san, best_move,
+            move_number=move_number,
+        )
+        if _kr_evs:
+            _e = _kr_evs[0]
+            caption_facts["knight_on_rim_square"] = _e.get("knight_square")
+    except Exception:
+        pass
+
+    # 14. Pawn-kicks-piece (v65 #10).
+    try:
+        _pk_evs = simulate_pawn_kicks_piece(fen_before, best_move)
+        if _pk_evs:
+            _e = _pk_evs[0]
+            caption_facts["pawn_kicks_piece_type"] = _e.get("kicked_piece_type")
+            caption_facts["pawn_kicks_piece_square"] = _e.get("kicked_square")
+    except Exception:
+        pass
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,

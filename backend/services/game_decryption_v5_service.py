@@ -72,6 +72,7 @@ try:
     from services.caption_pipeline import (
         compute_severity_for_move as _compute_severity_for_move,
         inject_practical_severity_facts as _inject_practical_severity_facts,
+        inject_user_blunder_detector_facts as _inject_user_blunder_detector_facts,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3656,262 +3657,30 @@ async def generate_game_decryption_v5(
                         except Exception:
                             pass
 
-                    # Hypothetical-best-move clearance check (Mohit
-                    # 2026-05-20). For user blunders where the engine's
-                    # best move was a different piece move, ask: would
-                    # the engine's best move have triggered a
-                    # clearance-for-attack pattern? If yes, that's the
-                    # specific teaching (Légal's / Fried Liver family).
+                    # v100 step A1 (Mohit signoff 2026-05-26 — auto-
+                    # propagation to PWC): the 14-detector blunder suite
+                    # for user moves is now extracted into
+                    # caption_pipeline.inject_user_blunder_detector_facts
+                    # so live_v5_teaching can call the same code path.
+                    # Gate (is_user AND best_move differs AND cp_loss
+                    # >= 100) is preserved inside the helper.
+                    _inject_user_blunder_detector_facts(
+                        caption_facts,
+                        fen_before=fen_before,
+                        move_san=move_san,
+                        best_move=best_move,
+                        pv_after_best=pv_after_best,
+                        move_number=full_move_number,
+                        is_user=bool(is_user),
+                        cp_loss=int(cp_loss or 0),
+                    )
+
                     if (
                         is_user
                         and best_move
                         and best_move != move_san
                         and (cp_loss or 0) >= 100
                     ):
-                        try:
-                            from services.shape_detectors import simulate_clearance_for_attack
-                            _clearance_evs = simulate_clearance_for_attack(
-                                fen_before, best_move
-                            )
-                            if _clearance_evs:
-                                _ev0 = _clearance_evs[0]
-                                _targets = _ev0.get("targets") or []
-                                if _targets:
-                                    caption_facts["missed_clearance_attack_square"] = _targets[0]
-                                _piece = _ev0.get("clearer_piece_type")
-                                if _piece:
-                                    caption_facts["missed_clearance_attacker_piece"] = _piece
-                        except Exception:
-                            pass
-
-                        # Also probe the 2-move sacrifice-then-check
-                        # pattern (Légal's-Mate family). v53 removed
-                        # the 2-move detection to silence a 1-move
-                        # caption hallucination; restoring it as a
-                        # distinct evidence type with an honest
-                        # multi-move template (Mohit 2026-05-22).
-                        # See memory/feedback_fix_framing_not_detection.
-                        try:
-                            from services.shape_detectors import simulate_clearance_then_check
-                            _ctc_evs = simulate_clearance_then_check(
-                                fen_before, best_move
-                            )
-                            if _ctc_evs:
-                                _e = _ctc_evs[0]
-                                _piece = _e.get("clearer_piece_type")
-                                _dest = _e.get("slider_destination_square")
-                                _follow = _e.get("follow_up_san")
-                                _king = _e.get("king_square")
-                                if _piece and _dest and _follow:
-                                    caption_facts["missed_clearance_then_check_piece"] = _piece
-                                    caption_facts["missed_clearance_then_check_destination"] = _dest
-                                    caption_facts["missed_clearance_then_check_follow_up_san"] = _follow
-                                    if _king:
-                                        caption_facts["missed_clearance_then_check_king_square"] = _king
-                        except Exception:
-                            pass
-
-                        # Attack-with-tempo (v57 — Mohit 2026-05-22 approvals
-                        # #1 Qe2/d4 + #2 e4/Nh4). Engine's best move attacks
-                        # an opp non-king piece; opp's PV[1] retreats that
-                        # piece. Names the attacked piece + the follow-up
-                        # resource from PV[2]. Closes the
-                        # why_user_missed_material engine-speak fallback for
-                        # ~17 positions in the residual_low corpus that match
-                        # the attack-with-tempo categorizer.
-                        try:
-                            from services.shape_detectors import simulate_attack_with_tempo
-                            _atw_evs = simulate_attack_with_tempo(
-                                fen_before, best_move, pv_after_best or [],
-                            )
-                            if _atw_evs:
-                                _e = _atw_evs[0]
-                                _piece = _e.get("attacked_piece_type")
-                                _sq = _e.get("attacked_square")
-                                _follow = _e.get("follow_up_san")
-                                if _piece and _sq:
-                                    caption_facts["attack_with_tempo_piece"] = _piece
-                                    caption_facts["attack_with_tempo_square"] = _sq
-                                    if _follow:
-                                        caption_facts["attack_with_tempo_follow_up_san"] = _follow
-                        except Exception:
-                            pass
-
-                        # Queen-fork-with-check (v61 — Mohit 2026-05-22
-                        # approvals #5 Qd2/Qb3+, #16 Be7/Qh4+, #19 Rd7/Qxb4+).
-                        try:
-                            from services.shape_detectors import simulate_queen_fork_with_check
-                            _qf_evs = simulate_queen_fork_with_check(
-                                fen_before, best_move,
-                            )
-                            if _qf_evs:
-                                _e = _qf_evs[0]
-                                caption_facts["queen_fork_sub_kind"] = _e.get("sub_kind")
-                                caption_facts["queen_fork_secondary_piece"] = _e.get("secondary_piece")
-                                caption_facts["queen_fork_secondary_square"] = _e.get("secondary_square")
-                                caption_facts["queen_fork_king_square"] = _e.get("king_square")
-                        except Exception:
-                            pass
-
-                        # Endgame loose-pawn grab (v62 — Mohit approvals #13
-                        # Kxh3, #15 Rf3, plus repeat #031). Active piece in
-                        # endgame attacks/captures an undefended opp pawn.
-                        try:
-                            from services.shape_detectors import simulate_endgame_loose_pawn_grab
-                            _eg_evs = simulate_endgame_loose_pawn_grab(
-                                fen_before, best_move,
-                            )
-                            if _eg_evs:
-                                _e = _eg_evs[0]
-                                caption_facts["endgame_loose_pawn_sub_kind"] = _e.get("sub_kind")
-                                caption_facts["endgame_loose_pawn_moving_piece"] = _e.get("moving_piece_type")
-                                caption_facts["endgame_loose_pawn_square"] = _e.get("pawn_square")
-                        except Exception:
-                            pass
-
-                        # v63 detectors (Mohit 2026-05-22 — built per memory
-                        # rule feedback_build_detectors_on_first_approval).
-
-                        # #4 un-developing: piece returns to starting home
-                        # square in the opening.
-                        try:
-                            from services.shape_detectors import simulate_un_developing
-                            _ud_evs = simulate_un_developing(
-                                fen_before, move_san, best_move,
-                                move_number=full_move_number,
-                            )
-                            if _ud_evs:
-                                _e = _ud_evs[0]
-                                caption_facts["un_developing_piece"] = _e.get("moving_piece_type")
-                                caption_facts["un_developing_from"] = _e.get("from_square")
-                                caption_facts["un_developing_home"] = _e.get("home_square")
-                        except Exception:
-                            pass
-
-                        # #7 defensive pawn push: passive wing-pawn move in
-                        # opening when engine wanted a developing piece move.
-                        try:
-                            from services.shape_detectors import simulate_defensive_pawn_push
-                            _dp_evs = simulate_defensive_pawn_push(
-                                fen_before, move_san, best_move,
-                                move_number=full_move_number,
-                            )
-                            if _dp_evs:
-                                _e = _dp_evs[0]
-                                caption_facts["defensive_pawn_user_san"] = _e.get("user_pawn_san")
-                                caption_facts["defensive_pawn_best_dev_san"] = _e.get("best_dev_san")
-                        except Exception:
-                            pass
-
-                        # #11 knight outpost: engine's best is a knight move
-                        # to a defended central square not attackable by
-                        # enemy pawns.
-                        try:
-                            from services.shape_detectors import simulate_knight_outpost
-                            _ko_evs = simulate_knight_outpost(
-                                fen_before, best_move,
-                            )
-                            if _ko_evs:
-                                _e = _ko_evs[0]
-                                caption_facts["knight_outpost_destination"] = _e.get("knight_destination")
-                                caption_facts["knight_outpost_defender_piece"] = _e.get("defender_piece")
-                                caption_facts["knight_outpost_defender_square"] = _e.get("defender_square")
-                        except Exception:
-                            pass
-
-                        # #14 stop opponent's pawn advance: engine wants our
-                        # pawn to block an enemy pawn's further push.
-                        try:
-                            from services.shape_detectors import simulate_stop_opponent_pawn_advance
-                            _so_evs = simulate_stop_opponent_pawn_advance(
-                                fen_before, move_san, best_move,
-                            )
-                            if _so_evs:
-                                _e = _so_evs[0]
-                                caption_facts["stop_opp_pawn_blocking_san"] = _e.get("blocking_pawn_san")
-                                caption_facts["stop_opp_pawn_opp_square"] = _e.get("opp_pawn_square")
-                        except Exception:
-                            pass
-
-                        # v64 detectors (Mohit 2026-05-22 — second batch).
-
-                        # #12 active-defense: engine's best defends a
-                        # threatened own piece AND counter-attacks an
-                        # undefended opp piece.
-                        try:
-                            from services.shape_detectors import simulate_active_defense
-                            _ad_evs = simulate_active_defense(fen_before, best_move)
-                            if _ad_evs:
-                                _e = _ad_evs[0]
-                                caption_facts["active_defense_defended_piece"] = _e.get("defended_piece")
-                                caption_facts["active_defense_defended_square"] = _e.get("defended_square")
-                                caption_facts["active_defense_attacked_piece"] = _e.get("attacked_piece")
-                                caption_facts["active_defense_attacked_square"] = _e.get("attacked_square")
-                        except Exception:
-                            pass
-
-                        # #8 same-piece-better-square: user and engine move
-                        # the same piece type; engine's destination attacks
-                        # strictly more undefended targets.
-                        try:
-                            from services.shape_detectors import simulate_same_piece_better_square
-                            _sb_evs = simulate_same_piece_better_square(
-                                fen_before, move_san, best_move,
-                            )
-                            if _sb_evs:
-                                _e = _sb_evs[0]
-                                caption_facts["same_piece_better_extra_piece"] = _e.get("extra_piece")
-                                caption_facts["same_piece_better_extra_square"] = _e.get("extra_square")
-                                caption_facts["same_piece_better_shared_piece"] = _e.get("shared_piece")
-                                caption_facts["same_piece_better_shared_square"] = _e.get("shared_square")
-                        except Exception:
-                            pass
-
-                        # #6 discovered-attack-vacating-with-check: moved
-                        # piece gives check AND vacates a square that opens
-                        # own slider's line to undefended opp piece.
-                        try:
-                            from services.shape_detectors import simulate_discovered_attack_vacating_check
-                            _dv_evs = simulate_discovered_attack_vacating_check(fen_before, best_move)
-                            if _dv_evs:
-                                _e = _dv_evs[0]
-                                caption_facts["discovered_vac_moved_piece"] = _e.get("moved_piece")
-                                caption_facts["discovered_vac_slider_piece"] = _e.get("slider_piece")
-                                caption_facts["discovered_vac_exposed_piece"] = _e.get("exposed_piece")
-                                caption_facts["discovered_vac_exposed_square"] = _e.get("exposed_square")
-                        except Exception:
-                            pass
-
-                        # v65 detectors (Mohit 2026-05-22 — finish the
-                        # remaining approvals).
-
-                        # #9 knight-on-rim in opening: user played a knight
-                        # move to a-file or h-file in early opening when
-                        # engine wanted something else.
-                        try:
-                            from services.shape_detectors import simulate_knight_on_rim_in_opening
-                            _kr_evs = simulate_knight_on_rim_in_opening(
-                                fen_before, move_san, best_move,
-                                move_number=full_move_number,
-                            )
-                            if _kr_evs:
-                                _e = _kr_evs[0]
-                                caption_facts["knight_on_rim_square"] = _e.get("knight_square")
-                        except Exception:
-                            pass
-
-                        # #10 pawn kicks piece: engine's best is a pawn
-                        # push that attacks an opp non-pawn piece.
-                        try:
-                            from services.shape_detectors import simulate_pawn_kicks_piece
-                            _pk_evs = simulate_pawn_kicks_piece(fen_before, best_move)
-                            if _pk_evs:
-                                _e = _pk_evs[0]
-                                caption_facts["pawn_kicks_piece_type"] = _e.get("kicked_piece_type")
-                                caption_facts["pawn_kicks_piece_square"] = _e.get("kicked_square")
-                        except Exception:
-                            pass
-
                         # v66 voice match (Mohit 2026-05-22). When any
                         # best-move-focused detector fired above, set
                         # why_clause_em_dash so R12_blunder uses the
