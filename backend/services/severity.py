@@ -326,6 +326,20 @@ def classify_severity_practical(
         tier_idx = TIER_ORDER.index(practical)
         practical = TIER_ORDER[min(tier_idx + bump, len(TIER_ORDER) - 1)]
 
+    # Stayed-losing override (Mohit feedback fb_f1025f698252, 2026-05-26):
+    # practical-severity softening was designed for stayed-winning /
+    # balanced cases (small Δwp shouldn't read 'mistake' when you're
+    # still winning by +3). Applied to stayed-losing it under-reports —
+    # a player who's already losing -4 and drops another 218cp ends up
+    # with a tiny Δwp (their win-prob was near zero anyway), so the
+    # logic softens 'mistake' to 'inaccuracy'. But the player DID make
+    # a real mistake and should hear it. Fall back to canonical when
+    # state stayed losing AND no decisiveness change (the decisiveness
+    # bump path, e.g. balanced→losing, stays in effect via the bump
+    # block above).
+    if state_after == "losing" and not decisiveness_changed:
+        practical = canonical
+
     # Cap practical tier at canonical (we never make a move look WORSE
     # than its cp_loss-based classification) — EXCEPT when the move
     # lost the winning state. In that case the move IS practically

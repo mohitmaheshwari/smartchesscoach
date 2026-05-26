@@ -247,6 +247,64 @@ class TestClassifySeverityPractical:
         # canonical "inaccuracy"; practical must be ≤ inaccuracy.
         assert TIER_ORDER.index(result.practical_tier) <= TIER_ORDER.index("inaccuracy")
 
+    def test_stayed_losing_falls_back_to_canonical(self):
+        """Mohit fb_f1025f698252 (m30 Rfc8): player losing -592→-810
+        (both losing for black), cp_loss=218. Pre-fix: practical
+        softened to 'inaccuracy' because Δwp ≈ 0.069. Post-fix:
+        practical = canonical = 'mistake' (player should hear that
+        a real mistake happened, not have it softened by win-prob math
+        when they're already losing)."""
+        result = classify_severity_practical(
+            cp_loss=218,
+            mover_is_user=True,
+            mover_is_white=False,  # black mover
+            eval_before_cp=592,   # white POV; black sees -592 (losing)
+            eval_after_cp=810,    # white POV; black sees -810 (losing)
+        )
+        # State both losing, no decisiveness change.
+        assert result.state_before == "losing"
+        assert result.state_after == "losing"
+        assert result.decisiveness_changed is False
+        # canonical computes from cp_loss → 218 ∈ [100, 250) → mistake.
+        assert result.canonical_tier == "mistake"
+        # Stayed-losing override forces practical = canonical.
+        assert result.practical_tier == "mistake"
+
+    def test_stayed_losing_with_small_cp_loss_stays_good(self):
+        """Edge: stayed-losing + cp_loss=20 → canonical='good',
+        practical should also be 'good' (no over-application of
+        the override — small cp losses stay good)."""
+        result = classify_severity_practical(
+            cp_loss=20,
+            mover_is_user=True,
+            mover_is_white=True,
+            eval_before_cp=-300,
+            eval_after_cp=-320,
+        )
+        assert result.state_before == "losing"
+        assert result.state_after == "losing"
+        assert result.canonical_tier == "good"
+        assert result.practical_tier == "good"
+
+    def test_lost_winning_still_bumps_after_stayed_losing_fix(self):
+        """Regression check: the +2.0 → +0.2 lost-winning case
+        (Mohit's locked example) must still bump practical UP
+        even after the stayed-losing fix lands. decisiveness_changed
+        bypasses the override."""
+        result = classify_severity_practical(
+            cp_loss=180,
+            mover_is_user=True,
+            mover_is_white=True,
+            eval_before_cp=200,
+            eval_after_cp=20,
+        )
+        # winning → balanced; decisiveness_changed=True, lost_winning=True
+        assert result.state_before == "winning"
+        assert result.state_after == "balanced"
+        assert result.decisiveness_changed is True
+        # Practical bumps to 'serious' (canonical mistake + lost_winning).
+        assert result.practical_tier == "serious"
+
     def test_practical_thresholds_dict_locked(self):
         assert PRACTICAL_WP_THRESHOLDS == {
             "inaccuracy": 0.05,
