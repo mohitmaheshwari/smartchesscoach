@@ -764,5 +764,90 @@ class TestLiveV5TeachingGate:
         )
 
 
+# ────────────────────────────────────────────────────────────────────
+# build_move_teaching_decision — v100 B-phase entry point
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestBuildMoveTeachingDecision:
+    """B-phase entry point composes A1-A9 into one call.
+
+    Auto-propagation contract: any future enrichment block added to
+    caption_pipeline.py and called from build_move_teaching_decision
+    automatically reaches any caller (PWC, V5 review) with zero
+    additional wiring.
+    """
+
+    def _build(self, **overrides):
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+        defaults = dict(
+            fen_before=chess.STARTING_FEN,
+            played_san="e4",
+            mover_is_user=True,
+            mover_is_white=True,
+            user_color="white",
+            full_move_number=1,
+            move_history_san=[],
+            best_move_san="e4",
+            cp_loss=0,
+            eval_before_cp=0,
+            eval_after_cp=0,
+        )
+        defaults.update(overrides)
+        inputs = MoveInputs(**defaults)
+        return build_move_teaching_decision(inputs, CrossMoveState())
+
+    def test_returns_decision_on_clean_move(self):
+        d = self._build()
+        # Clean opening move — should not be flagged for skipping.
+        assert d.should_skip is False
+        # Practical + canonical severity both reflect cp_loss=0.
+        assert d.teaching_meta.severity_canonical == "good"
+        assert d.teaching_meta.severity_practical == "good"
+
+    def test_invalid_san_returns_skip(self):
+        """Bad SAN must produce a should_skip decision, not crash."""
+        d = self._build(played_san="???")
+        assert d.should_skip is True
+        assert "invalid" in d.skip_reason.lower() or "san" in d.skip_reason.lower()
+
+    def test_decision_carries_practical_severity_fields(self):
+        """The +2.0 → +0.2 lost-winning example should propagate
+        practical_tier=serious through teaching_meta."""
+        d = self._build(
+            played_san="Nf3",
+            best_move_san="e4",
+            cp_loss=180,
+            eval_before_cp=200,
+            eval_after_cp=20,
+        )
+        assert d.teaching_meta.severity_practical == "serious"
+        assert d.teaching_meta.decisiveness_changed is True
+        assert d.teaching_meta.mover_state_before == "winning"
+        assert d.teaching_meta.mover_state_after == "balanced"
+
+    def test_state_mutations_returned(self):
+        """state_mutations dataclass returned (even if empty for a
+        starting move). Caller uses it to update CrossMoveState
+        atomically."""
+        d = self._build()
+        # No active trap on a starting position — both before and
+        # after should be None.
+        assert d.state_mutations.active_trap_after is None
+        assert d.state_mutations.active_trap_cleared is False
+
+    def test_debug_facts_returned_for_authoring_ui(self):
+        """debug_facts captures the post-extract caption_facts dict for
+        admin/captions inspection. Renderers should NOT use it."""
+        d = self._build()
+        assert isinstance(d.debug_facts, dict)
+        # The injection helpers added severity_practical to caption_facts.
+        assert "severity_practical" in d.debug_facts
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

@@ -1521,24 +1521,290 @@ def inject_practical_severity_facts(
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
+    *,
+    shapes_fired_this_game: Optional[Set[str]] = None,
+    bs_recent_window: Optional[List[Set[str]]] = None,
+    game_trap_fires: Optional[List[Dict[str, Any]]] = None,
+    eval_lookup: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> MoveTeachingDecision:
-    """Compute the full teaching decision for ONE move.
+    """B-phase: orchestrate the A1-A9 helpers into a single entry point.
 
-    Returns a fresh MoveTeachingDecision. Callers apply state_mutations
-    to their CrossMoveState (atomically for PWC).
+    Mohit "go for phase B" 2026-05-26. PWC calls this instead of the
+    six individual helpers it has today. V5 service keeps its
+    per-block call points for now (it has additional inline logic
+    interleaved with the A-helpers — curriculum detection, blocked-
+    own-pawn, eval trajectory — that isn't part of the A-set).
 
-    EXTRACTION STATUS (2026-05-26):
-      The body is currently EMPTY — this is the dataclass-contract step.
-      Subsequent commits will move logic from game_decryption_v5_service
-      per-move loop into this function, ONE block at a time, verifying
-      zero-diff with scripts/snapshot_captions.py after each.
+    Auto-propagation contract: any future enrichment block added to
+    caption_pipeline.py and called from this function automatically
+    reaches PWC with zero changes to live_v5_teaching.
 
-      Until the migration is complete, V5 service per-move loop still
-      contains the brain. live_v5_teaching still uses its subset. PWC
-      gains nothing from this module YET.
+    Calling order mirrors V5 service per-move loop:
+      1. extract_facts (base caption_facts dict)
+      2. inject_practical_severity_facts (v99 R12 softening source)
+      3. inject_opp_side_narration_facts (A3, opp moves only)
+      4. inject_opening_context_facts (A4, idx<6 + opening phase)
+      5. inject_user_blunder_detector_facts (A1, user blunders only)
+      6. inject_em_dash_and_trap_context_facts (A2, user blunders only)
+      7. select_shape_pattern_record (A6)
+      8. inject_board_state_describer_clause (A7)
+      9. render caption (caption_renderer.render_caption_dict)
+      10. update_trap_recognition_state (A5, across-move state)
+      11. apply_promotion_ladder_dispatch (A9, may overwrite caption)
+      12. classify_caption_tier (A8)
+
+    Optional state args are passed by reference so the helpers can
+    mutate them in place (shapes_fired_this_game.add(), etc.). When
+    None, fresh empty containers are used for THIS call only —
+    degrades anti-repeat / once-per-game behaviour. Callers that need
+    those semantics (V5 service per-game tracking; PWC per-session
+    when wired) supply persistent containers from their own state.
+
+    Returns a MoveTeachingDecision capturing text + visual +
+    teaching_meta + state_mutations + debug_facts. Caller decides
+    what to persist.
     """
-    raise NotImplementedError(
-        "build_move_teaching_decision is the v100 extraction target. "
-        "Migration in progress per services/caption_pipeline.py docstring. "
-        "Today's V5 brain still lives in game_decryption_v5_service.py."
+    # Lazy imports to dodge circular dependency on V5 service.
+    try:
+        from services.caption_facts import extract_facts
+    except Exception:
+        extract_facts = None  # type: ignore
+    try:
+        from services.caption_renderer import render_caption_dict
+    except Exception:
+        render_caption_dict = None  # type: ignore
+
+    # ─── State containers (caller-provided OR fresh per-call) ───
+    _shapes = shapes_fired_this_game if shapes_fired_this_game is not None else set()
+    _bs_window = bs_recent_window if bs_recent_window is not None else []
+    _game_trap_fires = game_trap_fires if game_trap_fires is not None else []
+    _eval_lookup = eval_lookup if eval_lookup is not None else {}
+
+    # ─── Build chess.Board + chess.Move for the helpers that need them
+    try:
+        board_before = chess.Board(inputs.fen_before)
+        played_move = board_before.parse_san(inputs.played_san)
+    except Exception:
+        # Bad SAN / FEN — return a no-op decision.
+        return MoveTeachingDecision(
+            should_skip=True,
+            skip_reason=f"invalid SAN or FEN: {inputs.played_san!r}",
+        )
+
+    # ─── 1-2. Base caption_facts + practical severity ─────────────
+    practical = classify_severity_practical(
+        int(inputs.cp_loss or 0),
+        mover_is_user=bool(inputs.mover_is_user),
+        mover_is_white=bool(inputs.mover_is_white),
+        eval_before_cp=inputs.eval_before_cp,
+        eval_after_cp=inputs.eval_after_cp,
+    )
+    canonical = classify_severity(
+        int(inputs.cp_loss or 0) if inputs.mover_is_user else int(inputs.opp_cp_loss or 0),
+        mover_is_user=bool(inputs.mover_is_user),
+    )
+
+    caption_facts: Dict[str, Any] = {}
+    if extract_facts is not None:
+        try:
+            caption_facts = extract_facts(
+                fen_before=inputs.fen_before,
+                played_san=inputs.played_san,
+                best_move_san=inputs.best_move_san,
+                eval_before_cp=inputs.eval_before_cp,
+                eval_after_cp=inputs.eval_after_cp,
+                cp_loss=int(inputs.cp_loss or 0),
+                pv_after_played=list(inputs.pv_after_played),
+                pv_after_best=list(inputs.pv_after_best),
+                move_history_san=list(inputs.move_history_san),
+                full_move_number=int(inputs.full_move_number or 0),
+                mover_is_user=bool(inputs.mover_is_user),
+            )
+        except Exception:
+            logger.exception("[caption_pipeline] extract_facts failed; using empty dict")
+            caption_facts = {}
+
+    inject_practical_severity_facts(caption_facts, practical)
+
+    # ─── 3. A3 opp-side narration (gates internally on !is_user + opp_cp>=30) ──
+    inject_opp_side_narration_facts(
+        caption_facts,
+        fen_before=inputs.fen_before,
+        board=board_before,
+        move=played_move,
+        move_san=inputs.played_san,
+        full_move_number=inputs.full_move_number,
+        is_user=bool(inputs.mover_is_user),
+        opp_cp_loss=int(inputs.opp_cp_loss or 0),
+        eval_lookup=_eval_lookup,
+        user_color=inputs.user_color,
+    )
+
+    # ─── 4. A4 opening context (gates on idx<6 + opening phase) ──
+    # ply_index = (move_number-1)*2 + (0 if white-to-move else 1)
+    _ply_idx = max(0, (inputs.full_move_number or 1) - 1) * 2
+    if not inputs.mover_is_white:
+        _ply_idx += 1
+    _phase = "opening" if _ply_idx < 12 else "middlegame"
+    inject_opening_context_facts(
+        caption_facts,
+        board=board_before,
+        move=played_move,
+        move_san=inputs.played_san,
+        move_index=_ply_idx,
+        phase=_phase,
+        eco_code=inputs.eco_code,
+        opening_name=inputs.opening_name,
+        user_color=inputs.user_color,
+        prev_move_san=inputs.prev_move_san,
+    )
+
+    # ─── 5. A1 user blunder detectors (gates on user+cp>=100) ────
+    inject_user_blunder_detector_facts(
+        caption_facts,
+        fen_before=inputs.fen_before,
+        move_san=inputs.played_san,
+        best_move=inputs.best_move_san,
+        pv_after_best=list(inputs.pv_after_best),
+        move_number=inputs.full_move_number,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
+    )
+
+    # ─── 6. A2 em-dash + trap-context (gates on user+cp>=100) ────
+    inject_em_dash_and_trap_context_facts(
+        caption_facts,
+        game_trap_fires=_game_trap_fires,
+        best_move=inputs.best_move_san,
+        move_san=inputs.played_san,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
+        opening_name=inputs.opening_name,
+    )
+
+    # ─── 7. A6 shape pattern selection ───────────────────────────
+    # Post-move board for the post-move shape detection branch.
+    try:
+        post_move_board = board_before.copy()
+        post_move_board.push(played_move)
+    except Exception:
+        post_move_board = board_before
+    shape_pattern_record = select_shape_pattern_record(
+        fen_before=inputs.fen_before,
+        board=post_move_board,
+        move=played_move,
+        move_san=inputs.played_san,
+        prev_move=None,  # caller can extend this if it tracks prev_move
+        eval_data={},
+        pv_after_played=list(inputs.pv_after_played),
+        severity=canonical.user_facing_tier,
+        full_move_number=inputs.full_move_number,
+        shapes_fired_this_game=_shapes,
+    )
+
+    # ─── 8. A7 board state describer ─────────────────────────────
+    inject_board_state_describer_clause(
+        caption_facts,
+        fen_before=inputs.fen_before,
+        move_san=inputs.played_san,
+        user_color=inputs.user_color,
+        full_move_number=inputs.full_move_number,
+        bs_recent_window=_bs_window,
+        bs_window_size=1,
+    )
+
+    # ─── 9. Render caption (caption_renderer) ────────────────────
+    caption_payload: Dict[str, Any] = {"caption": "", "rule_name": "R_FALLBACK"}
+    if render_caption_dict is not None:
+        try:
+            rendered = render_caption_dict(caption_facts)
+            if isinstance(rendered, dict):
+                caption_payload = rendered
+        except Exception:
+            logger.exception("[caption_pipeline] render_caption_dict failed; using fallback")
+
+    # ─── 10. A5 trap recognition state machine ───────────────────
+    _played_so_far = list(inputs.move_history_san) + [inputs.played_san]
+    trap_record, new_active_trap, new_setup_completed, new_step_cursor = (
+        update_trap_recognition_state(
+            played_san_so_far=_played_so_far,
+            move_san=inputs.played_san,
+            is_user=bool(inputs.mover_is_user),
+            user_color=inputs.user_color,
+            full_move_number=inputs.full_move_number,
+            active_trap=state.active_trap,
+            active_trap_setup_completed_by_user=state.active_trap_setup_completed_by_user,
+            active_trap_step_cursor=state.active_trap_step_cursor,
+        )
+    )
+
+    # ─── 11. A9 promotion ladder dispatch ────────────────────────
+    apply_promotion_ladder_dispatch(
+        caption_payload=caption_payload,
+        caption_facts=caption_facts,
+        trap_record=trap_record,
+        opening_record=None,  # V5 service has opening_record; PWC doesn't yet
+        shape_pattern_record=shape_pattern_record,
+        move_san=inputs.played_san,
+        is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
+        best_move=inputs.best_move_san,
+        principle_cue=caption_facts.get("principle_cue") or "",
+        principle_id_used=caption_facts.get("principle_id_used"),
+        full_move_number=inputs.full_move_number,
+    )
+
+    # ─── 12. A8 caption tier classification ──────────────────────
+    tier = classify_caption_tier(
+        caption_text=caption_payload.get("caption") or "",
+        rule_name=caption_payload.get("rule_name") or "",
+    )
+
+    # ─── Build the decision ──────────────────────────────────────
+    text = TextSurface(
+        caption=caption_payload.get("caption") or "",
+        rule_name=caption_payload.get("rule_name") or "R_FALLBACK",
+    )
+    visual = VisualSurface(
+        arrows=caption_facts.get("caption_arrows") or [],
+        highlight_squares=caption_facts.get("caption_highlight_squares") or [],
+    )
+    teaching_meta = TeachingMeta(
+        severity=canonical.user_facing_tier,
+        severity_canonical=practical.canonical_tier,
+        severity_practical=practical.practical_tier,
+        caption_tier=tier,
+        has_teaching_content=(tier == "HIGH"),
+        principle_id_used=caption_facts.get("principle_id_used"),
+        principle_cue=caption_facts.get("principle_cue") or "",
+        shape_pattern_id=(shape_pattern_record or {}).get("pattern_id"),
+        shape_pattern_name=(shape_pattern_record or {}).get("pattern_name"),
+        shape_pattern_desc=(shape_pattern_record or {}).get("pattern_desc"),
+        shape_pattern_targets=(shape_pattern_record or {}).get("targets") or [],
+        shape_pattern_mover=(shape_pattern_record or {}).get("mover"),
+        shape_pattern_executing_move=(shape_pattern_record or {}).get("executing_move"),
+        mover_winprob_before=practical.mover_winprob_before,
+        mover_winprob_after=practical.mover_winprob_after,
+        mover_winprob_delta=practical.winprob_delta,
+        mover_state_before=practical.state_before,
+        mover_state_after=practical.state_after,
+        stayed_winning=practical.stayed_winning,
+        decisiveness_changed=practical.decisiveness_changed,
+    )
+    state_mutations = StateMutations(
+        active_trap_after=new_active_trap,
+        active_trap_cleared=(state.active_trap is not None and new_active_trap is None),
+        active_trap_step_cursor_after=new_step_cursor,
+        active_trap_setup_completed_by_user_after=new_setup_completed,
+        prev_user_eval_after=(inputs.eval_after_cp if inputs.mover_is_user else state.prev_user_eval_after),
+    )
+
+    return MoveTeachingDecision(
+        text=text,
+        visual=visual,
+        teaching_meta=teaching_meta,
+        state_mutations=state_mutations,
+        debug_facts=caption_facts,
+        should_skip=False,
+        skip_reason="",
     )
