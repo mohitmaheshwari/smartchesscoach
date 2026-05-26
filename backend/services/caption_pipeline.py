@@ -994,6 +994,144 @@ def inject_opening_context_facts(
         pass
 
 
+def update_trap_recognition_state(
+    *,
+    played_san_so_far: List[str],
+    move_san: str,
+    is_user: bool,
+    user_color: str,
+    full_move_number: Optional[int],
+    active_trap: Optional[Dict[str, Any]],
+    active_trap_setup_completed_by_user: bool,
+    active_trap_step_cursor: int,
+) -> Tuple[
+    Optional[Dict[str, Any]],  # trap_record (for content promotion)
+    Optional[Dict[str, Any]],  # new active_trap
+    bool,                       # new active_trap_setup_completed_by_user
+    int,                        # new active_trap_step_cursor
+]:
+    """A5: trap recognition state machine (v69/v89 trap-line tracking).
+
+    Mohit "go for all" 2026-05-26 (auto-propagation arc). Extracted
+    verbatim from game_decryption_v5_service.py lines 3909-3989.
+
+    State machine across game moves:
+      - If active_trap is None: call detect_trap_setup() on the full
+        played_san history. If a setup completes, set active_trap to
+        the matched trap, return trap_record with step_label='setup_completed'.
+      - If active_trap is set: call match_trap_line_step() with the
+        current step_cursor. If the played move matches, advance the
+        cursor and return trap_record with step_label='victim_falls'
+        (even step) or 'trap_player_punishes' (odd step). When the
+        cursor reaches end-of-line, clear active_trap. If the move
+        deviates, clear active_trap.
+
+    v89 plumbing: trap_record includes trap_color + user_is_victim
+    derived from user_color vs trap.trap_color (opposite = victim).
+    Used by R_PROMOTED_trap_setup variants to flip the warning
+    framing ("watch out — Damiano Punishment territory; white plays
+    Nxe5 next") when the user is on the victim side.
+
+    Returns a 4-tuple:
+      (trap_record, active_trap_after, active_trap_setup_completed_by_user_after,
+       active_trap_step_cursor_after)
+
+    The caller must update the same three state variables from the
+    return values for the NEXT move to see the updated state. PWC
+    callers will persist them on coach_sessions.
+
+    The caller is responsible for appending move_san to
+    played_san_so_far BEFORE calling — this matches V5 service's
+    ordering and lets the detector see the full prefix including
+    this move.
+    """
+    # Lazy import to avoid hot import on every call when no traps are
+    # configured.
+    try:
+        from services.trap_recognition import detect_trap_setup, match_trap_line_step
+    except Exception:
+        return (None, active_trap, active_trap_setup_completed_by_user, active_trap_step_cursor)
+
+    if detect_trap_setup is None or match_trap_line_step is None:
+        return (None, active_trap, active_trap_setup_completed_by_user, active_trap_step_cursor)
+
+    trap_record: Optional[Dict[str, Any]] = None
+    try:
+        if active_trap is None:
+            hit = detect_trap_setup(played_san_so_far)
+            if hit:
+                active_trap = hit
+                active_trap_setup_completed_by_user = bool(is_user)
+                active_trap_step_cursor = 0
+                # v89: user_is_victim derivation.
+                _hit_trap_color = (hit.get("trap_color") or "").lower()
+                _user_is_victim = bool(
+                    _hit_trap_color
+                    and (user_color or "").lower() != _hit_trap_color
+                )
+                trap_record = {
+                    "name": hit["name"],
+                    "family": hit["family"],
+                    "description": hit["description"],
+                    "step": 0,
+                    "step_label": "setup_completed",
+                    "completed_by_user": active_trap_setup_completed_by_user,
+                    "this_move_by_user": bool(is_user),
+                    "next_expected_move": hit["trap_line"][0] if hit["trap_line"] else None,
+                    "trap_color": hit.get("trap_color"),
+                    "user_is_victim": _user_is_victim,
+                    "success_message": hit.get("success_message"),
+                }
+        else:
+            step_index = active_trap_step_cursor
+            if match_trap_line_step(active_trap, move_san, step_index):
+                step_label = "victim_falls" if step_index % 2 == 0 else "trap_player_punishes"
+                step_expl = ""
+                steps = active_trap.get("trap_line_steps") or []
+                if step_index < len(steps):
+                    step_expl = steps[step_index].get("explanation", "")
+                next_mv = None
+                if step_index + 1 < len(active_trap["trap_line"]):
+                    next_mv = active_trap["trap_line"][step_index + 1]
+                _step_trap_color = (active_trap.get("trap_color") or "").lower()
+                _step_user_is_victim = bool(
+                    _step_trap_color
+                    and (user_color or "").lower() != _step_trap_color
+                )
+                trap_record = {
+                    "name": active_trap["name"],
+                    "family": active_trap["family"],
+                    "description": active_trap["description"],
+                    "step": step_index + 1,
+                    "step_label": step_label,
+                    "step_explanation": step_expl,
+                    "completed_by_user": active_trap_setup_completed_by_user,
+                    "this_move_by_user": bool(is_user),
+                    "next_expected_move": next_mv,
+                    "trap_color": active_trap.get("trap_color"),
+                    "user_is_victim": _step_user_is_victim,
+                    "success_message": active_trap.get("success_message"),
+                }
+                active_trap_step_cursor = step_index + 1
+                if active_trap_step_cursor >= len(active_trap["trap_line"]):
+                    active_trap = None
+                    active_trap_step_cursor = 0
+            else:
+                # Player deviated from trap_line — drop tracking.
+                active_trap = None
+                active_trap_step_cursor = 0
+    except Exception as _trap_exc:
+        logger.info(f"[trap] detect failed on move {full_move_number}: {_trap_exc}")
+        trap_record = None
+
+    return (
+        trap_record,
+        active_trap,
+        active_trap_setup_completed_by_user,
+        active_trap_step_cursor,
+    )
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,
