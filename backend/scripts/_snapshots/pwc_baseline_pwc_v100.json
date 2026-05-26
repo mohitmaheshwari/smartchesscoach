@@ -1,0 +1,73 @@
+{
+  "tag": "baseline_pwc_v100",
+  "n_scenarios": 7,
+  "surfaced": 4,
+  "suppressed": 3,
+  "errors": 0,
+  "rows": [
+    {
+      "scenario_id": "01_starting_e4_clean",
+      "v5_block_present": false
+    },
+    {
+      "scenario_id": "02_clean_developing_nc3",
+      "v5_block_present": false
+    },
+    {
+      "scenario_id": "03_mistake_nf3_when_nxe5_wins_material",
+      "v5_block_present": true,
+      "anchor_name": "Checks, captures, threats first",
+      "principle_id": "TAC_CHECKS_CAPTURES_THREATS",
+      "shape_pattern_id": null,
+      "polish_status": "draft",
+      "state_key": null,
+      "principle_suppress_policy": "once_per_move",
+      "is_coach_move_teaching": false,
+      "deterministic_draft_hash": "911c6d4c1d02",
+      "anchor_detail_hash": "e9e813d0a8dc"
+    },
+    {
+      "scenario_id": "04_blunder_lost_winning",
+      "v5_block_present": true,
+      "anchor_name": "Loose piece on the board",
+      "principle_id": "TAC_HANGING_PIECE",
+      "shape_pattern_id": null,
+      "polish_status": "draft",
+      "state_key": null,
+      "principle_suppress_policy": "once_per_move",
+      "is_coach_move_teaching": false,
+      "deterministic_draft_hash": "6b728e8f1368",
+      "anchor_detail_hash": "25f0074b526e"
+    },
+    {
+      "scenario_id": "05_black_mover_inaccuracy",
+      "v5_block_present": true,
+      "anchor_name": "What changed after the move",
+      "principle_id": "TAC_CHANGED_AFTER_MOVE",
+      "shape_pattern_id": null,
+      "polish_status": "draft",
+      "state_key": null,
+      "principle_suppress_policy": "once_per_move",
+      "is_coach_move_teaching": false,
+      "deterministic_draft_hash": "a3bfd5d050c0",
+      "anchor_detail_hash": "69106f1126b2"
+    },
+    {
+      "scenario_id": "06_low_rating_filtering",
+      "v5_block_present": false
+    },
+    {
+      "scenario_id": "07_endgame_critical_mistake",
+      "v5_block_present": true,
+      "anchor_name": "Passed Pawn",
+      "principle_id": null,
+      "shape_pattern_id": "free_pawn",
+      "polish_status": "draft",
+      "state_key": null,
+      "principle_suppress_policy": null,
+      "is_coach_move_teaching": false,
+      "deterministic_draft_hash": "6ac75cef830c",
+      "anchor_detail_hash": "3f038e6934bf"
+    }
+  ]
+}
