@@ -436,6 +436,62 @@ def v5_teaching_decision_for_live_move(
             f"[live_v5_teaching] em-dash inject crashed for {played_san}"
         )
 
+    # v100 A10 (auto-propagation): eval-trajectory.
+    # PWC doesn't pass move_evaluations today — helper no-ops cleanly.
+    # When session-state plumbing adds per-session eval history,
+    # this call point will surface position_was_already_losing facts.
+    try:
+        from services.caption_pipeline import inject_eval_trajectory_facts
+        inject_eval_trajectory_facts(
+            facts,
+            move_evaluations=None,
+            current_move_number=full_move_number,
+            user_color=(user_doc.get("color_played") or "white"),
+            is_user=bool(mover_is_user),
+            cp_loss=int(cp_loss or 0),
+        )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] eval-trajectory inject crashed for {played_san}"
+        )
+
+    # v100 A11 (auto-propagation): curriculum-deviation. Walks
+    # opening_curriculum_engine trees that match user's color. Works
+    # today on PWC: move_history_san is already passed in.
+    try:
+        from services.caption_pipeline import inject_curriculum_deviation_facts
+        inject_curriculum_deviation_facts(
+            facts,
+            move_history_san_excl_current=list(move_history_san or []),
+            move_san=played_san,
+            user_color=(user_doc.get("color_played") or "white"),
+            is_user=bool(mover_is_user),
+            cp_loss=int(cp_loss or 0),
+            full_move_number=full_move_number,
+        )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] curriculum-deviation inject crashed for {played_san}"
+        )
+
+    # v100 A12 (auto-propagation): blocked-own-pawn principle.
+    # Pure function — works on PWC today.
+    try:
+        from services.caption_pipeline import inject_blocked_pawn_facts
+        inject_blocked_pawn_facts(
+            facts,
+            fen_before=fen_before,
+            played_san=played_san,
+            best_move=best_move_san,
+            full_move_number=full_move_number,
+            is_user=bool(mover_is_user),
+            cp_loss=int(cp_loss or 0),
+        )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] blocked-pawn inject crashed for {played_san}"
+        )
+
     # v100 A4 (auto-propagation): opening intro (v74) + opening
     # theory lookup (v88). Gate is move_index<6 AND phase=="opening".
     # PWC doesn't track ply-index or phase explicitly — derive:
