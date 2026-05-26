@@ -6936,11 +6936,22 @@ async def _process_move_and_respond(
                         build_move_feedback_tag,
                         should_suppress_v5_for_tag,
                     )
+                    # v100 step 9 — pass eval data so the V5 gate uses
+                    # canonical practical_tier (stayed-winning silences
+                    # V5 even when cp_loss is mid-tier). mover_is_white
+                    # derives from the session's user_color.
+                    _mover_is_white = (
+                        (session_doc.get("user_color") or "white") == "white"
+                    )
                     _rt_tag = build_move_feedback_tag(
                         played_san=user_move,
                         best_move_san=analysis.get("best_move"),
                         cp_loss=int(analysis.get("cp_loss", 0) or 0),
                         user_rating=user_rating,
+                        eval_before_cp=_eval_before_cp,
+                        eval_after_cp=_eval_after_cp,
+                        mover_is_user=True,
+                        mover_is_white=_mover_is_white,
                     )
                     _suppress, _reason = should_suppress_v5_for_tag(_rt_tag, _v5_block)
                     if _suppress:

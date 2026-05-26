@@ -37,6 +37,7 @@ from services.caption_facts import extract_facts
 from services.caption_principles import PRINCIPLES as CAPTION_PRINCIPLES
 from services.caption_priority_resolver import resolve_priority
 from services.coaching_encounter_weights import passes_necessity_gate
+from services.severity import classify_severity_practical
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -104,7 +105,7 @@ class MoveFeedbackTag:
     V5 surfacing gate to decide whether V5 adds a new abstraction or
     is duplicating what realtime already said.
     """
-    severity: str  # excellent / good / inaccuracy / mistake / blunder
+    severity: str  # good / inaccuracy / mistake / serious / blunder (canonical practical_tier; v100 step 9)
     principle_id: Optional[str] = None      # filled by future refactor
     pattern_id: Optional[str] = None        # filled by future refactor
     tactic_type: Optional[str] = None       # filled by future refactor
@@ -128,58 +129,56 @@ def _target_square_from_san(san: Optional[str]) -> Optional[str]:
     return m.group(1) if m else None
 
 
-def _classify_rating_band(user_rating: Optional[int]) -> str:
-    """Same banding as deterministic_coach_service.RATING_BANDS."""
-    if user_rating is None:
-        return "beginner_high"
-    if user_rating < 1000:
-        return "beginner_low"
-    if user_rating < 1400:
-        return "beginner_high"
-    if user_rating < 1800:
-        return "intermediate"
-    return "advanced"
-
-
-# Rating-aware classification thresholds — mirrors
-# realtime_coaching_feedback._classify_move_quality so the V5 gate
-# uses the same severity vocabulary the realtime path uses.
-_SEVERITY_THRESHOLDS_CP = {
-    "beginner_low":  {"inaccuracy": 150, "mistake": 300, "blunder": 300},
-    "beginner_high": {"inaccuracy": 75,  "mistake": 200, "blunder": 200},
-    "intermediate":  {"inaccuracy": 50,  "mistake": 150, "blunder": 150},
-    "advanced":      {"inaccuracy": 30,  "mistake": 100, "blunder": 100},
-}
-
-
-def _severity_from_cp_loss(cp_loss: int, user_rating: Optional[int]) -> str:
-    band = _classify_rating_band(user_rating)
-    t = _SEVERITY_THRESHOLDS_CP.get(band, _SEVERITY_THRESHOLDS_CP["beginner_high"])
-    if cp_loss >= t["blunder"]:
-        return "blunder"
-    if cp_loss >= t["mistake"]:
-        return "mistake"
-    if cp_loss >= t["inaccuracy"]:
-        return "inaccuracy"
-    if cp_loss <= 5:
-        return "excellent"
-    return "good"
-
-
 def build_move_feedback_tag(
     *,
     played_san: str,
     best_move_san: Optional[str],
     cp_loss: int,
-    user_rating: Optional[int],
+    user_rating: Optional[int] = None,
+    eval_before_cp: Optional[int] = None,
+    eval_after_cp: Optional[int] = None,
+    mover_is_user: bool = True,
+    mover_is_white: bool = True,
 ) -> MoveFeedbackTag:
     """Build the structured tag from the data realtime already has.
+
+    v100 step 9 (Mohit signoff 2026-05-26, option c — V5-gate scope only):
+    severity classification is now delegated to the canonical
+    `classify_severity_practical` (services/severity.py). The V5
+    suppression gate (`should_suppress_v5_for_tag`) uses the practical
+    tier — so "stayed winning + small Δwin_prob" silences V5 the same
+    way the old beginner_high band's `inaccuracy=75cp` threshold used to.
+
+    The previous rating-band classifier here had two problems the
+    practical tier fixes:
+      - It ignored position context (cp_loss=120 in a winning position
+        means much less than cp_loss=120 in a balanced position).
+      - It diverged from the canonical thresholds used by review.
+
+    user_rating is retained for future use but is no longer consulted
+    here. The realtime tone classifier
+    (`realtime_coaching_feedback._classify_move_quality`) still uses
+    rating-bands — that's the documented ★ KEY DIFFERENTIATOR and
+    out-of-scope for this step.
+
+    When eval data is missing (eval_before_cp / eval_after_cp = None),
+    `classify_severity_practical` falls back to neutral (state=balanced,
+    stayed_winning=False) and the practical tier equals the canonical
+    cp_loss-based tier — same suppression behaviour as the old path on
+    obvious goods (cp_loss<30) and on hard mistakes (cp_loss≥100).
 
     Phase 1.2 MVP: severity + parsed squares. Optional fields
     (principle_id, pattern_id, tactic_type) stay None until the
     realtime path is refactored to compute them.
     """
-    severity = _severity_from_cp_loss(int(cp_loss or 0), user_rating)
+    practical = classify_severity_practical(
+        int(cp_loss or 0),
+        mover_is_user=bool(mover_is_user),
+        mover_is_white=bool(mover_is_white),
+        eval_before_cp=eval_before_cp,
+        eval_after_cp=eval_after_cp,
+    )
+    severity = practical.practical_tier
     target_sq = _target_square_from_san(played_san)
     best_target_sq = _target_square_from_san(best_move_san)
     # best_move_family: rough heuristic from the best move's piece

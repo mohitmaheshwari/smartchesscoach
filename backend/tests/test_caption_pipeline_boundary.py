@@ -512,5 +512,166 @@ class TestSeverityJsonAudit:
         assert "999" in mismatches[0][1]
 
 
+# ────────────────────────────────────────────────────────────────────
+# live_v5_teaching V5-gate — v100 step 9 consolidation (Mohit "c" signoff)
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestLiveV5TeachingGate:
+    """v100 step 9 — PWC V5-gate now uses canonical practical_tier
+    instead of rating-band classifier. Mohit option (c) signoff
+    2026-05-26: gate-scope only; realtime_coaching_feedback's tone
+    classifier (★ KEY DIFFERENTIATOR) stays untouched.
+
+    Behaviour contract:
+      - Stayed-winning + small Δwp → severity 'good' → V5 silenced
+        (replaces old beginner_high cp_loss<75 = 'good' suppression).
+      - Lost-winning + mid cp_loss → severity bumped (practical >
+        canonical) → V5 surfaces. New capability: catches real mistakes
+        the old rating-band threshold missed (e.g. 1200 player
+        cp_loss=120 in a winning position used to be 'inaccuracy';
+        the position-aware practical tier still keeps it suppressed
+        if stayed_winning, but surfaces if winning was lost).
+      - Eval missing → falls back to canonical cp_loss tier. cp_loss=20
+        is still 'good' → still suppressed. cp_loss=120 is canonically
+        'mistake' → V5 surfaces (this IS a behaviour change for sub-1400
+        players who would have gotten 'inaccuracy' from the old beginner
+        bands — accepted per option-c signoff).
+      - user_rating param is preserved on the signature for future use
+        but no longer drives severity classification.
+    """
+
+    def _build_tag(self, **overrides):
+        """Helper — wraps build_move_feedback_tag with sane defaults."""
+        from services.live_v5_teaching import build_move_feedback_tag
+        defaults = dict(
+            played_san="Nf3",
+            best_move_san="e4",
+            cp_loss=0,
+            user_rating=1200,
+            eval_before_cp=0,
+            eval_after_cp=0,
+            mover_is_user=True,
+            mover_is_white=True,
+        )
+        defaults.update(overrides)
+        return build_move_feedback_tag(**defaults)
+
+    def test_clean_move_returns_good(self):
+        """cp_loss < 30 + neutral eval → canonical good → V5 suppressed."""
+        tag = self._build_tag(cp_loss=20, eval_before_cp=0, eval_after_cp=-20)
+        assert tag.severity == "good"
+
+    def test_stayed_winning_with_small_drift_returns_good(self):
+        """+4.0 → +3.3 for a 1200 player: small Δwp + stayed winning
+        → practical 'good' → V5 silenced. Replaces the old
+        beginner_high cp_loss<75 threshold with position-aware
+        softening that's MORE accurate (this works for ALL ratings
+        without rating-band tuning)."""
+        tag = self._build_tag(
+            cp_loss=70,
+            user_rating=1200,
+            eval_before_cp=400,
+            eval_after_cp=330,
+        )
+        assert tag.severity == "good"
+
+    def test_lost_winning_bumps_practical_to_serious(self):
+        """+2.0 → +0.2 lost the winning edge. canonical mistake
+        (cp_loss=180) bumps to practical 'serious' → V5 surfaces
+        regardless of user_rating."""
+        tag_low_rating = self._build_tag(
+            cp_loss=180,
+            user_rating=800,
+            eval_before_cp=200,
+            eval_after_cp=20,
+        )
+        tag_high_rating = self._build_tag(
+            cp_loss=180,
+            user_rating=1900,
+            eval_before_cp=200,
+            eval_after_cp=20,
+        )
+        # Both ratings see the same severity now — practical_tier
+        # ignores rating, position context drives the call.
+        assert tag_low_rating.severity == "serious"
+        assert tag_high_rating.severity == "serious"
+
+    def test_eval_missing_falls_back_to_canonical(self):
+        """When eval data isn't available (None, None) the practical
+        tier degrades to the canonical cp_loss tier. cp_loss=120 →
+        canonical 'mistake' → V5 surfaces. This IS a shift from
+        pre-step-9 behaviour for sub-1400 players who would have
+        gotten 'inaccuracy' from the old rating-band path."""
+        tag = self._build_tag(
+            cp_loss=120,
+            user_rating=1100,
+            eval_before_cp=None,
+            eval_after_cp=None,
+        )
+        assert tag.severity == "mistake"
+
+    def test_black_mover_sign_flip_via_tag_builder(self):
+        """End-to-end: black mover with white-POV eval inputs flips
+        correctly inside the tag builder. -300cp → -50cp (white POV)
+        = +300 → +50 (black mover POV) = winning → balanced.
+        canonical=serious; |Δwp|≈0.148 = inaccuracy, lost-winning
+        bumps +2 → serious. Verifies sign-flip via state transition."""
+        tag = self._build_tag(
+            played_san="Nxe4",
+            cp_loss=250,
+            user_rating=1500,
+            eval_before_cp=-300,
+            eval_after_cp=-50,
+            mover_is_white=False,
+        )
+        # Severity surfaces at 'serious' tier — clean signal V5 surfaces.
+        # The key behaviour under test is the sign-flip: white-POV
+        # negative evals get treated as a winning position for the
+        # black mover, so this is a lost-winning, not a stayed-losing.
+        assert tag.severity == "serious"
+
+    def test_suppression_gate_silences_good_severity(self):
+        """The downstream suppression rule must still fire for the
+        canonical 'good' tier. (Rule 1 of should_suppress_v5_for_tag.)"""
+        from services.live_v5_teaching import should_suppress_v5_for_tag
+        tag = self._build_tag(cp_loss=20, eval_before_cp=0, eval_after_cp=-20)
+        assert tag.severity == "good"
+        suppress, reason = should_suppress_v5_for_tag(tag, v5_block={})
+        assert suppress is True
+        assert "good" in reason
+
+    def test_suppression_gate_surfaces_mistake_severity(self):
+        """Mid-tier severity (mistake) without other duplication
+        signals → don't suppress, V5 surfaces."""
+        from services.live_v5_teaching import should_suppress_v5_for_tag
+        tag = self._build_tag(
+            cp_loss=180,
+            eval_before_cp=200,
+            eval_after_cp=20,  # lost winning → practical 'serious'
+        )
+        assert tag.severity == "serious"
+        suppress, reason = should_suppress_v5_for_tag(tag, v5_block={})
+        assert suppress is False
+
+    def test_user_rating_no_longer_drives_severity(self):
+        """Same cp_loss + same eval trajectory across the full rating
+        range must yield the same severity. The old rating-band path
+        gave four different answers; the consolidated canonical path
+        gives one."""
+        params = dict(
+            cp_loss=120,
+            eval_before_cp=200,
+            eval_after_cp=80,  # winning → balanced
+        )
+        severities = {
+            r: self._build_tag(user_rating=r, **params).severity
+            for r in (800, 1100, 1500, 1900)
+        }
+        assert len(set(severities.values())) == 1, (
+            f"severity must be identical across ratings now; got {severities}"
+        )
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
