@@ -1916,6 +1916,99 @@ def build_move_teaching_decision(
         bs_window_size=1,
     )
 
+    # ─── 8b. Principle suppression + cue-pick ────────────────────
+    # Mohit "central layer" 2026-05-26: moved from V5 service inline
+    # block (lines 3570-3646 of game_decryption_v5_service.py) so both
+    # callers go through the same suppression/cue-pick logic.
+    #
+    # Policies (catalog.suppress):
+    #   once_per_move       — no game-state filter (default)
+    #   once_per_state_key  — fires while detector's state_key changes
+    #                         (re-arms on different focal squares/piece)
+    #   once_per_game       — fires exactly once across the game
+    #   once_per_state_entry — DEPRECATED; treated as once_per_game
+    #
+    # Cue-pick picks the highest-priority surviving principle (lowest
+    # priority number wins). cue_key based on engine_endorsement:
+    #   best   -> cue_best     top_n -> cue_top_n     absent -> cue_absent
+    # cue_absent is GATED on the played move being a critique
+    # (played cp_loss >= 30) — otherwise the principle didn't apply.
+    principle_cue = ""
+    principle_id_used: Optional[str] = None
+    _fired_principles_added: Set[str] = set()
+    _fired_state_keys_added: Set[Tuple] = set()
+    try:
+        from services.caption_principles import PRINCIPLES as _CAPTION_PRINCIPLES
+        _PRINCIPLES_BY_ID = {
+            p["id"]: p for p in _CAPTION_PRINCIPLES
+            if isinstance(p, dict) and p.get("id")
+        }
+    except Exception:
+        _PRINCIPLES_BY_ID = {}
+
+    if _PRINCIPLES_BY_ID:
+        raw_principles = caption_facts.get("principles_violated") or []
+        caption_principles_violated: List[Dict[str, Any]] = []
+        for _ev in raw_principles:
+            _pid = _ev.get("principle_id")
+            if not _pid:
+                continue
+            _entry = _PRINCIPLES_BY_ID.get(_pid, {})
+            _suppress = _entry.get("suppress", "once_per_move")
+            if _suppress == "once_per_game" or _suppress == "once_per_state_entry":
+                if _pid in state.fired_principles:
+                    continue
+            elif _suppress == "once_per_state_key":
+                _sk = _ev.get("state_key")
+                if _sk is None:
+                    if _pid in state.fired_principles:
+                        continue
+                else:
+                    if _sk in state.fired_state_keys:
+                        continue
+                    _fired_state_keys_added.add(_sk)
+            # once_per_move (default) → no further filter
+            caption_principles_violated.append(_ev)
+            _fired_principles_added.add(_pid)
+
+        # Re-filter the facts dict so downstream consumers see the
+        # suppression-applied list.
+        caption_facts["principles_violated"] = caption_principles_violated
+
+        # Cue-pick: highest-priority surviving principle wins.
+        if caption_principles_violated:
+            sorted_pv = sorted(
+                caption_principles_violated,
+                key=lambda ev: _PRINCIPLES_BY_ID.get(
+                    ev.get("principle_id") or "", {}
+                ).get("priority", 99),
+            )
+            _top = sorted_pv[0]
+            _top_pid = _top.get("principle_id")
+            _entry = _PRINCIPLES_BY_ID.get(_top_pid, {}) if _top_pid else {}
+            _endorsement = _top.get("engine_endorsement", "absent")
+            _cue_key = {
+                "best": "cue_best",
+                "top_n": "cue_top_n",
+                "absent": "cue_absent",
+            }.get(_endorsement, "cue_absent")
+            # cue_absent gated on cp_loss >= 30 (otherwise principle
+            # didn't apply — engine endorsed the move).
+            _played_cp_loss = int(
+                inputs.cp_loss if inputs.mover_is_user else (inputs.opp_cp_loss or 0)
+            ) or 0
+            if _endorsement == "absent" and _played_cp_loss < 30:
+                pass
+            else:
+                principle_cue = _entry.get(_cue_key) or _entry.get("cue_absent") or ""
+                principle_id_used = _top_pid
+    # Stamp the picks onto caption_facts so the renderer + promotion
+    # ladder can read them.
+    if principle_cue:
+        caption_facts["principle_cue"] = principle_cue
+    if principle_id_used:
+        caption_facts["principle_id_used"] = principle_id_used
+
     # ─── 9. Render caption (caption_renderer) ────────────────────
     caption_payload: Dict[str, Any] = {"caption": "", "rule_name": "R_FALLBACK"}
     if render_caption_dict is not None:
@@ -1925,6 +2018,28 @@ def build_move_teaching_decision(
                 caption_payload = rendered
         except Exception:
             logger.exception("[caption_pipeline] render_caption_dict failed; using fallback")
+
+    # ─── 9b. v78 universal describer fallback ────────────────────
+    # Mohit "central layer" 2026-05-26: moved from V5 service inline
+    # (lines 3622-3651 of game_decryption_v5_service.py). When the
+    # rendered caption is empty AND a board_state_clause was set by
+    # the describer pass (A7) AND the move is being CRITIQUED
+    # (cp_loss >= 30), use the describer output as the caption.
+    # The v91 gate (cp_loss >= 30) prevents the describer from
+    # firing on clean moves as the only surface (Parth flagged
+    # "h4. Opponent attacks the centre 5x; you 3x." style noise).
+    _bs_cp_loss = int(
+        inputs.cp_loss if inputs.mover_is_user else (inputs.opp_cp_loss or 0)
+    ) or 0
+    if (
+        caption_payload
+        and not (caption_payload.get("caption") or "").strip()
+        and (caption_facts.get("board_state_clause") or "").strip()
+        and _bs_cp_loss >= 30
+    ):
+        _bs_text = caption_facts["board_state_clause"].strip()
+        caption_payload["caption"] = f"{inputs.played_san}. {_bs_text}"
+        caption_payload["rule_name"] = "R16_board_state_fallback"
 
     # ─── 10. A5 trap recognition state machine ───────────────────
     _played_so_far = list(inputs.move_history_san) + [inputs.played_san]
