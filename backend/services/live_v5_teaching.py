@@ -388,6 +388,30 @@ def v5_teaching_decision_for_live_move(
         logger.exception(f"[live_v5_teaching] extract_facts crashed for {played_san}")
         return None
 
+    # v100 A1 (Mohit signoff 2026-05-26 — auto-propagation): run the
+    # user-blunder detector suite that V5 review uses, so PWC users
+    # get the same v53-v65 detector evidence in captions ("Play d5
+    # kicking their bishop on e6") instead of generic teaching.
+    # Internal gate (is_user AND best_move differs AND cp_loss >= 100)
+    # is preserved inside the helper — for non-qualifying moves this
+    # is a near-no-op.
+    try:
+        from services.caption_pipeline import inject_user_blunder_detector_facts
+        inject_user_blunder_detector_facts(
+            facts,
+            fen_before=fen_before,
+            move_san=played_san,
+            best_move=best_move_san,
+            pv_after_best=pv_after_best or [],
+            move_number=full_move_number,
+            is_user=bool(mover_is_user),
+            cp_loss=int(cp_loss or 0),
+        )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] blunder detector inject crashed for {played_san}"
+        )
+
     # Apply session-level suppression BEFORE the resolver picks an anchor.
     # The resolver's own pickprioritizes principles; we need to filter
     # the suppressed ones out of facts["principles_violated"] first.
