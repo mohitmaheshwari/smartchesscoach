@@ -219,8 +219,9 @@ def _diff(tag_a: str, tag_b: str, output_dir: Path) -> int:
         if per_field:
             n_diff += 1
             if len(sample_diffs) < 30:
-                gid, mvn = k
-                sample_diffs.append(f"  DIFF {gid} m{mvn} {ra.get('move_san')}:\n" + "\n".join(per_field))
+                gid, mvn, is_white = k
+                colour = "white" if is_white else "black"
+                sample_diffs.append(f"  DIFF {gid} m{mvn} {colour} {ra.get('move_san')}:\n" + "\n".join(per_field))
 
     print(f"=== per-move ===")
     print(f"  shared keys: {len(both)}  only_in_A: {len(only_a)}  only_in_B: {len(only_b)}")

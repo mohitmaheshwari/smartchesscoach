@@ -54,6 +54,14 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import chess
+
+from services.severity import (
+    classify_severity,
+    classify_severity_practical,
+    PracticalSeverity,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -216,6 +224,144 @@ class MoveTeachingDecision:
     # gates). Caller decides what to do — usually skip writing to UI.
     should_skip: bool = False
     skip_reason: str = ""
+
+
+# ────────────────────────────────────────────────────────────────────
+# EXTRACTED PIPELINE HELPERS
+# ────────────────────────────────────────────────────────────────────
+#
+# Each helper is a self-contained extraction of a block that used to
+# live inline in game_decryption_v5_service.py per-move loop. V5
+# service calls them as it migrates; PWC's live_v5_teaching will call
+# them too once the migration completes.
+#
+# CONTRACT: each helper MUST be a pure function (same inputs → same
+# outputs, no globals, no side effects). The snapshot diff against
+# baseline_v99.json proves zero behavioural drift on extraction.
+
+
+@dataclass(frozen=True)
+class SeverityComputation:
+    """Output of compute_severity_for_move(). Bundles canonical +
+    practical classification + forced-recapture detection so V5
+    service / PWC can consume them with one call instead of the
+    ~80 lines of inline orchestration that used to live in V5 service.
+
+    NOTE: book-move downgrade and best-equals-played sanity downgrade
+    are NOT yet inside this helper — V5 service still applies them
+    inline. They'll move in a follow-up extraction once we're confident
+    they're safe to share with PWC (PWC currently has no notion of
+    book moves; folding it in is an additive capability gain there).
+    """
+    severity_user_facing: str        # "good" / "inaccuracy" / "opp_mistake" / ...
+    severity_canonical: str          # raw cp_loss-based tier
+    practical: PracticalSeverity
+    is_forced_recapture: bool
+
+
+def compute_severity_for_move(
+    *,
+    cp_loss: int,
+    opp_cp_loss: int,
+    is_user: bool,
+    is_white: bool,
+    user_color: str,
+    # For canonical mate-sentinel escape hatch (always user POV, signed)
+    mate_sentinel_eval_cp: Optional[int],
+    # For practical severity. classify_severity_practical sign-flips
+    # internally based on mover_is_white, so these MUST be white-POV
+    # (the raw eval_data values). For user moves V5 service reads
+    # eval_data["eval_before"] / ["eval_after"] (white POV); for opp
+    # moves V5 tracks them separately as opp_eval_before/after.
+    user_eval_before_white_pov: Optional[int],
+    user_eval_after_white_pov: Optional[int],
+    opp_eval_before: Optional[int],
+    opp_eval_after: Optional[int],
+    board_before: chess.Board,
+    played_move: Optional[chess.Move],
+    prev_move: Optional[chess.Move],
+) -> SeverityComputation:
+    """Replicates game_decryption_v5_service.py lines 2988-3082 (severity
+    classification + practical-severity + forced-recapture detection),
+    EXCLUDING the book-move and best-equals-played sanity downgrades
+    which stay in V5 service for this extraction.
+
+    Args (all explicit — no implicit caller state):
+      cp_loss / opp_cp_loss        : centipawn loss for user / opp move
+      is_user                      : True if user played this move
+      is_white                     : True if the mover is white
+      user_color                   : "white" / "black" — the user's colour
+      mate_sentinel_eval_cp        : engine eval AFTER move, USER POV
+                                     (signed). Used only for canonical
+                                     classifier's mate-walked-into
+                                     escape hatch.
+      user_eval_before_white_pov   : white-POV engine eval BEFORE this
+                                     move (used for practical-severity
+                                     when is_user=True).
+      user_eval_after_white_pov    : white-POV engine eval AFTER this
+                                     move (used for practical-severity
+                                     when is_user=True).
+      opp_eval_before/after        : engine eval before/after from WHITE
+                                     POV (for practical severity on opp
+                                     moves — V5 service tracks separately).
+      board_before                 : the python-chess Board before move
+      played_move                  : chess.Move object of this move
+      prev_move                    : chess.Move object of previous move
+                                     (for forced-recapture detection)
+
+    Returns SeverityComputation. Caller still applies book-move /
+    best-equals-played downgrades and updates the move record.
+    """
+    # ─── Canonical severity (v92 — single source) ──────────────────
+    _sev_classification = classify_severity(
+        cp_loss if is_user else opp_cp_loss,
+        mover_is_user=bool(is_user),
+        user_post_eval_cp=mate_sentinel_eval_cp,
+    )
+    severity = _sev_classification.user_facing_tier
+    severity_canonical = _sev_classification.tier
+
+    # ─── Practical severity (v96/v98) ──────────────────────────────
+    # classify_severity_practical does its own sign-flip based on
+    # mover_is_white — so the evals we pass MUST be white-POV.
+    if is_user:
+        practical_eval_before = user_eval_before_white_pov
+        practical_eval_after = user_eval_after_white_pov
+    else:
+        practical_eval_before = opp_eval_before
+        practical_eval_after = opp_eval_after
+    practical = classify_severity_practical(
+        cp_loss if is_user else opp_cp_loss,
+        mover_is_user=bool(is_user),
+        mover_is_white=bool(is_white),
+        eval_before_cp=practical_eval_before,
+        eval_after_cp=practical_eval_after,
+    )
+
+    # ─── Forced recapture (V5 service lines 3076-3082) ─────────────
+    # When user recaptures on a square where opp just captured AND
+    # only one legal capture exists, the move was forced — caption
+    # surfaces as R07_forced_recapture; severity is downgraded to
+    # "good" so we don't tag it as a mistake.
+    is_forced_recapture = False
+    if is_user and played_move is not None and prev_move is not None:
+        if (board_before.is_capture(played_move)
+                and played_move.to_square == prev_move.to_square):
+            captures_on_sq = [
+                m for m in board_before.legal_moves
+                if m.to_square == played_move.to_square
+                and board_before.is_capture(m)
+            ]
+            if len(captures_on_sq) <= 1:
+                is_forced_recapture = True
+                severity = "good"
+
+    return SeverityComputation(
+        severity_user_facing=severity,
+        severity_canonical=severity_canonical,
+        practical=practical,
+        is_forced_recapture=is_forced_recapture,
+    )
 
 
 # ────────────────────────────────────────────────────────────────────

@@ -69,6 +69,9 @@ try:
         classify_severity as _classify_severity,
         classify_severity_practical as _classify_severity_practical,
     )
+    from services.caption_pipeline import (
+        compute_severity_for_move as _compute_severity_for_move,
+    )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
     _render_caption_dict = None
@@ -2985,65 +2988,43 @@ async def generate_game_decryption_v5(
             
             phase = detect_phase(board, full_move_number)
             
-            # v92 (2026-05-25): single canonical severity evaluator.
-            # All move-severity decisions route through services.severity
-            # so V5 service, R12_blunder.json, R_PROMOTED_basic_mistake.json,
-            # and the classifier all see the same thresholds. Mohit
-            # 2026-05-25: "this should be unified centrally — one canonical
-            # severity evaluator, imported everywhere, never duplicated."
-            # Previously: V5 used (30/100/250) for user with no "serious"
-            # tier and (50/100/250) for opp — different from R12's 4-tier
-            # (100/250/400) and R_PROMOTED's 3-tier. Drift caused
-            # "why was this called inaccurate yesterday but silent today?"
-            # bugs that Parth subconsciously felt.
+            # v100 step 2/12 (2026-05-26): severity classification +
+            # practical-severity + forced-recapture extracted to
+            # services/caption_pipeline.compute_severity_for_move. Same
+            # logic — V5 service is now thin caller. PWC will use the
+            # same helper once live_v5_teaching is wired (step 9).
+            # Book-move and best-equals-played sanity downgrades stay
+            # INLINE below for this extraction (they're not yet safe to
+            # auto-apply in PWC where book-move detection has different
+            # implications). They'll fold into the helper in a future
+            # commit once PWC consumes the pipeline end-to-end.
             _user_post_eval_for_severity = None
             _ea = eval_data.get("eval_after")
             if _ea is not None:
                 _user_post_eval_for_severity = (
                     _ea if user_color == "white" else -_ea
                 )
-            _sev_classification = _classify_severity(
-                cp_loss if is_user else opp_cp_loss,
-                mover_is_user=bool(is_user),
-                user_post_eval_cp=_user_post_eval_for_severity,
+            _sev = _compute_severity_for_move(
+                cp_loss=cp_loss,
+                opp_cp_loss=opp_cp_loss,
+                is_user=bool(is_user),
+                is_white=bool(is_white),
+                user_color=user_color,
+                mate_sentinel_eval_cp=_user_post_eval_for_severity,
+                # White-POV evals for practical-severity (the function
+                # does its own sign-flip based on mover_is_white).
+                user_eval_before_white_pov=eval_data.get("eval_before"),
+                user_eval_after_white_pov=eval_data.get("eval_after"),
+                opp_eval_before=opp_eval_before,
+                opp_eval_after=opp_eval_after,
+                board_before=board,
+                played_move=move,
+                prev_move=prev_move,
             )
-            severity = _sev_classification.user_facing_tier
+            severity = _sev.severity_user_facing
+            _practical = _sev.practical
+            is_forced_recapture = _sev.is_forced_recapture
 
-            # v96 (2026-05-25): Tier B Q1 — practical severity from
-            # win-probability delta. Mohit 2026-05-25: "absolute cp loss
-            # exaggerates human importance. +4.0 -> +3.3 is practically
-            # irrelevant unless tactical-collapse / counterplay /
-            # repeated trend. don't purely threshold on cp_loss. combine:
-            # eval_before, eval_after, win-prob delta, decisiveness
-            # change." classify_severity_practical maps |Δwin_prob| +
-            # decisiveness-change overlay to a softer tier in winning-
-            # stays-winning cases AND emphasises winning→not-winning
-            # transitions. Both fields surface on the move record so
-            # caption rendering can use the practical tier for tone
-            # while keeping the canonical tier for hard data audits.
-            #
-            # v97.1 (2026-05-25): for OPP moves, eval_data is keyed on
-            # the USER's prior FEN — its eval_before/eval_after track
-            # the user's prior move, NOT opp's pre/post eval. The V5
-            # service tracks opp evals separately in opp_eval_before /
-            # opp_eval_after (lines ~2965-2973). Use those for opp
-            # moves so the practical severity reflects opp's actual
-            # eval trajectory.
-            _mover_is_white = bool(is_white)
-            if is_user:
-                _practical_eval_before = eval_data.get("eval_before")
-                _practical_eval_after = eval_data.get("eval_after")
-            else:
-                _practical_eval_before = opp_eval_before
-                _practical_eval_after = opp_eval_after
-            _practical = _classify_severity_practical(
-                cp_loss if is_user else opp_cp_loss,
-                mover_is_user=bool(is_user),
-                mover_is_white=_mover_is_white,
-                eval_before_cp=_practical_eval_before,
-                eval_after_cp=_practical_eval_after,
-            )
-            
             # Override: known opening book moves should never be flagged as inaccuracies
             if is_user and severity in ("inaccuracy", "mistake") and phase == "opening":
                 if is_book_opening_move(board, move_san, idx, opening_name, cp_loss):
@@ -3071,15 +3052,6 @@ async def generate_game_decryption_v5(
                         f"R14_forced_best (\"only move\")."
                     )
                     severity = "good"
-            
-            # Check for forced recapture
-            is_forced_recapture = False
-            if is_user and board.is_capture(move) and prev_move:
-                if move.to_square == prev_move.to_square:
-                    captures_on_sq = [m for m in board.legal_moves if m.to_square == move.to_square and board.is_capture(m)]
-                    if len(captures_on_sq) <= 1:
-                        is_forced_recapture = True
-                        severity = "good"
             
             fen_before = board.fen()
             
