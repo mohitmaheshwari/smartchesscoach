@@ -75,6 +75,7 @@ try:
         inject_user_blunder_detector_facts as _inject_user_blunder_detector_facts,
         inject_em_dash_and_trap_context_facts as _inject_em_dash_and_trap_context_facts,
         inject_opp_side_narration_facts as _inject_opp_side_narration_facts,
+        inject_opening_context_facts as _inject_opening_context_facts,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3359,115 +3360,22 @@ async def generate_game_decryption_v5(
                     if _opp_line_result is not None:
                         _coach_line_moves_for_iter, _coach_line_length_hint_for_iter = _opp_line_result
 
-                    # v74 (2026-05-23) — Mohit + Parth: opening
-                    # context on early moves. Surface the move's
-                    # opening name + idea even when match_opening_for_mover
-                    # hasn't matched ≥3 setup steps yet (which gates
-                    # R_PROMOTED_opening). Limits: first 6 plies +
-                    # opening phase. Read by R13 (central pawn) and
-                    # the new R_PROMOTED_opening_intro rule.
-                    if idx < 6 and phase == "opening":
-                        try:
-                            # v74: pass prev_move_san so context-aware
-                            # disambiguation can correct 1.e4 d5 →
-                            # Scandinavian (not "Closed Game"). Note:
-                            # cap_history is built BEFORE board.push(move)
-                            # so its LAST entry is the previous move, not
-                            # the current one. Don't use [-2].
-                            _prev_san = cap_history[-1] if cap_history else None
-                            _intro = get_opening_introduction(
-                                eco_code, opening_name, move_san, user_color,
-                                move_index=idx,
-                                prev_move_san=_prev_san,
-                            )
-                            if _intro:
-                                _in_name = _intro.get("name")
-                                _in_idea = _intro.get("idea")
-                                if _in_name:
-                                    caption_facts["opening_intro_name"] = _in_name
-                                if _in_idea:
-                                    caption_facts["opening_intro_idea"] = _in_idea
-                        except Exception:
-                            pass
-
-                        # v88 (2026-05-25): consult opening_theory_tree
-                        # for named-position teaching content. Mohit on
-                        # m3 Nc3 in Scandinavian — "this is one of the
-                        # most played moves at the top level, that gives
-                        # them teaching about theory." When the post-move
-                        # FEN matches a critical position in the tree,
-                        # surface the named opening + key_decision +
-                        # top idea so the caption pipeline can render
-                        # real opening theory instead of generic
-                        # "develops naturally."
-                        #
-                        # The lookup applies a pre-commit filter
-                        # (move1_/move2_/move3_ critical positions are
-                        # transposition hints, not anchors — see
-                        # services/opening_theory_lookup.py).
-                        try:
-                            from services.opening_theory_lookup import (
-                                match_position as _otl_match,
-                                classify_played_move as _otl_classify,
-                                top_best_move as _otl_top_best,
-                            )
-                            # `board.push(move)` hasn't happened yet
-                            # at this injection point (that's at the
-                            # "Build move output" section ~line 4326).
-                            # Simulate the post-move FEN on a copy.
-                            _otl_after_board = board.copy()
-                            _otl_after_board.push(move)
-                            _theory = _otl_match(_otl_after_board.fen())
-                            if _theory:
-                                caption_facts["opening_theory_name"] = (
-                                    _theory.get("opening_name")
-                                )
-                                caption_facts["opening_theory_variation"] = (
-                                    _theory.get("variation_name")
-                                )
-                                caption_facts["opening_theory_key_decision"] = (
-                                    _theory.get("key_decision")
-                                )
-                                _q = _otl_classify(_theory, move_san)
-                                caption_facts["opening_theory_match_quality"] = _q
-                                # When player chose a catalogued best/mistake
-                                # move, surface the move-specific copy.
-                                if _q == "best":
-                                    _entry = (_theory.get("best_moves") or {}).get(
-                                        move_san
-                                    ) or {}
-                                    caption_facts["opening_theory_played_idea"] = (
-                                        _entry.get("idea")
-                                    )
-                                    caption_facts["opening_theory_played_why_good"] = (
-                                        _entry.get("why_good")
-                                    )
-                                elif _q == "mistake":
-                                    _entry = (_theory.get("mistake_moves") or {}).get(
-                                        move_san
-                                    ) or {}
-                                    caption_facts["opening_theory_played_why_bad"] = (
-                                        _entry.get("why_bad")
-                                    )
-                                    caption_facts["opening_theory_played_consequence"] = (
-                                        _entry.get("consequence")
-                                    )
-                                    caption_facts["opening_theory_played_learning"] = (
-                                        _entry.get("learning")
-                                    )
-                                # Always surface the top canonical move +
-                                # its idea — for the critical_only case
-                                # where the player's move isn't catalogued
-                                # but the position is named.
-                                _top = _otl_top_best(_theory)
-                                if _top:
-                                    _top_san, _top_info = _top
-                                    caption_facts["opening_theory_top_move_san"] = _top_san
-                                    caption_facts["opening_theory_top_move_idea"] = (
-                                        _top_info.get("idea")
-                                    )
-                        except Exception:
-                            pass
+                    # v100 A4 (auto-propagation): opening intro (v74) +
+                    # opening_theory_tree lookup (v88) extracted to
+                    # caption_pipeline. Same gate (idx<6 + phase=opening),
+                    # same caption_facts keys.
+                    _inject_opening_context_facts(
+                        caption_facts,
+                        board=board,
+                        move=move,
+                        move_san=move_san,
+                        move_index=idx,
+                        phase=phase,
+                        eco_code=eco_code,
+                        opening_name=opening_name,
+                        user_color=user_color,
+                        prev_move_san=(cap_history[-1] if cap_history else None),
+                    )
 
                     # Inject shape-pattern info for R12 why-clauses
                     # (e.g. king_pawn_lifted teaching). The full shape

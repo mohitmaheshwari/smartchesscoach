@@ -903,6 +903,97 @@ def inject_opp_side_narration_facts(
     return coach_line_result
 
 
+def inject_opening_context_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    board: chess.Board,
+    move: chess.Move,
+    move_san: str,
+    move_index: int,
+    phase: str,
+    eco_code: Optional[str],
+    opening_name: Optional[str],
+    user_color: str,
+    prev_move_san: Optional[str],
+) -> None:
+    """A4: opening intro (v74) + opening theory lookup (v88).
+
+    Mohit "go for all" 2026-05-26 (auto-propagation arc). Extracted
+    verbatim from game_decryption_v5_service.py lines 3369-3470.
+
+    Gate: move_index < 6 AND phase == "opening"
+
+    What this does (when gate opens):
+      - v74 get_opening_introduction → opening_intro_name +
+        opening_intro_idea (passes prev_move_san so 1.e4 d5 →
+        Scandinavian, not "Closed Game")
+      - v88 opening_theory_lookup against the POST-move FEN:
+        if matched, sets opening_theory_name / _variation /
+        _key_decision / _match_quality + per-move teaching
+        (idea / why_good / why_bad / consequence / learning) +
+        top_move_san / top_move_idea fallback
+
+    Note: get_opening_introduction lives in
+    services/game_decryption_v5_service. Lazy-imported here to avoid
+    circular import (caption_pipeline is imported BY the V5 service).
+
+    MUTATES caption_facts in place.
+    """
+    if not (move_index < 6 and phase == "opening"):
+        return
+
+    # v74 — opening introduction.
+    try:
+        from services.game_decryption_v5_service import get_opening_introduction
+        _intro = get_opening_introduction(
+            eco_code, opening_name, move_san, user_color,
+            move_index=move_index,
+            prev_move_san=prev_move_san,
+        )
+        if _intro:
+            _in_name = _intro.get("name")
+            _in_idea = _intro.get("idea")
+            if _in_name:
+                caption_facts["opening_intro_name"] = _in_name
+            if _in_idea:
+                caption_facts["opening_intro_idea"] = _in_idea
+    except Exception:
+        pass
+
+    # v88 — opening_theory_tree lookup against post-move FEN.
+    try:
+        from services.opening_theory_lookup import (
+            match_position as _otl_match,
+            classify_played_move as _otl_classify,
+            top_best_move as _otl_top_best,
+        )
+        _otl_after_board = board.copy()
+        _otl_after_board.push(move)
+        _theory = _otl_match(_otl_after_board.fen())
+        if _theory:
+            caption_facts["opening_theory_name"] = _theory.get("opening_name")
+            caption_facts["opening_theory_variation"] = _theory.get("variation_name")
+            caption_facts["opening_theory_key_decision"] = _theory.get("key_decision")
+            _q = _otl_classify(_theory, move_san)
+            caption_facts["opening_theory_match_quality"] = _q
+            if _q == "best":
+                _entry = (_theory.get("best_moves") or {}).get(move_san) or {}
+                caption_facts["opening_theory_played_idea"] = _entry.get("idea")
+                caption_facts["opening_theory_played_why_good"] = _entry.get("why_good")
+            elif _q == "mistake":
+                _entry = (_theory.get("mistake_moves") or {}).get(move_san) or {}
+                caption_facts["opening_theory_played_why_bad"] = _entry.get("why_bad")
+                caption_facts["opening_theory_played_consequence"] = _entry.get("consequence")
+                caption_facts["opening_theory_played_learning"] = _entry.get("learning")
+            _top = _otl_top_best(_theory)
+            if _top:
+                _top_san, _top_info = _top
+                caption_facts["opening_theory_top_move_san"] = _top_san
+                caption_facts["opening_theory_top_move_idea"] = _top_info.get("idea")
+    except Exception:
+        pass
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,
