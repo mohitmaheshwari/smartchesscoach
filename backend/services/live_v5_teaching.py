@@ -410,9 +410,20 @@ def v5_teaching_decision_for_live_move(
             pv_after_played=list(pv_after_played or []),
             pv_after_best=list(pv_after_best or []),
         )
+        # v100 A5-PWC wiring: thread trap recognition state across
+        # session moves. Session_doc fields:
+        #   - v5_active_trap (Optional[dict])
+        #   - v5_active_trap_step_cursor (int)
+        #   - v5_active_trap_setup_completed_by_user (bool)
+        # These are read into CrossMoveState here; mutations land in
+        # _decision.state_mutations which we expose on the v5_block
+        # return so coach_play can persist atomically.
         _state = CrossMoveState(
             fired_principles=set(session_fired_principles or set()),
             fired_state_keys=set(session_fired_state_keys or set()),
+            active_trap=session_doc.get("v5_active_trap"),
+            active_trap_step_cursor=int(session_doc.get("v5_active_trap_step_cursor") or 0),
+            active_trap_setup_completed_by_user=bool(session_doc.get("v5_active_trap_setup_completed_by_user") or False),
         )
         _decision = build_move_teaching_decision(
             _inputs, _state,
@@ -421,6 +432,13 @@ def v5_teaching_decision_for_live_move(
         if _decision.should_skip:
             return None
         facts = _decision.debug_facts
+        # Capture state mutations for the caller to persist (only
+        # surfaced when v5_block surfaces — see PWC limitation note).
+        _trap_state_mutation = {
+            "v5_active_trap": _decision.state_mutations.active_trap_after,
+            "v5_active_trap_step_cursor": _decision.state_mutations.active_trap_step_cursor_after,
+            "v5_active_trap_setup_completed_by_user": _decision.state_mutations.active_trap_setup_completed_by_user_after,
+        }
     except (chess.InvalidMoveError, ValueError) as e:
         logger.info(f"[live_v5_teaching] central pipeline failed for {played_san}: {e}")
         return None
@@ -562,6 +580,10 @@ def v5_teaching_decision_for_live_move(
             _CAPTION_PRINCIPLES_BY_ID.get(anchored_principle_id or "", {}).get("suppress")
             if anchored_principle_id else None
         ),
+        # v100 A5-PWC: trap-state mutation for the caller to persist
+        # atomically on coach_sessions. Three nullable fields the
+        # caller folds into the same $set update used for fired_pids.
+        "trap_state_mutation": _trap_state_mutation,
     }
     return v5_block
 

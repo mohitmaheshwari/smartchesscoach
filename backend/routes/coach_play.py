@@ -6991,12 +6991,23 @@ async def _process_move_and_respond(
 
             if _v5_block is not None:
                 update_session_suppression(_fired_pids, _fired_sks, _v5_block)
+                # v100 A5-PWC: persist trap-recognition state atomically
+                # alongside fired_pids / fired_sks. Trap-state fields are
+                # nullable so a session without a matched trap stays clean.
+                _trap_mut = _v5_block.get("trap_state_mutation") or {}
+                _set_update = {
+                    "v5_fired_principles": list(_fired_pids),
+                    "v5_fired_state_keys": [repr(sk) for sk in _fired_sks],
+                }
+                if "v5_active_trap" in _trap_mut:
+                    _set_update["v5_active_trap"] = _trap_mut["v5_active_trap"]
+                    _set_update["v5_active_trap_step_cursor"] = _trap_mut.get("v5_active_trap_step_cursor") or 0
+                    _set_update["v5_active_trap_setup_completed_by_user"] = bool(
+                        _trap_mut.get("v5_active_trap_setup_completed_by_user")
+                    )
                 await db.coach_sessions.update_one(
                     {"session_id": session_id},
-                    {"$set": {
-                        "v5_fired_principles": list(_fired_pids),
-                        "v5_fired_state_keys": [repr(sk) for sk in _fired_sks],
-                    }},
+                    {"$set": _set_update},
                 )
                 # Phase 1.6 — record the fire in the cross-session
                 # encounter-weights collection. Best-effort, non-fatal.
