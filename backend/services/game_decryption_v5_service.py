@@ -79,6 +79,7 @@ try:
         update_trap_recognition_state as _update_trap_recognition_state,
         select_shape_pattern_record as _select_shape_pattern_record,
         inject_board_state_describer_clause as _inject_board_state_describer_clause,
+        classify_caption_tier as _classify_caption_tier,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -4064,15 +4065,12 @@ async def generate_game_decryption_v5(
             # but not teaching; he wanted a property that flags whether
             # there's a real lesson here. The classifier is the right
             # source — it already labels every rule variant.
-            _caption_tier = "NONE"
-            if _caption_classifier:
-                try:
-                    _caption_tier = _caption_classifier.classify(
-                        caption_payload.get("caption") or "",
-                        caption_payload.get("rule_name") or "",
-                    ).get("tier") or "NONE"
-                except Exception:
-                    _caption_tier = "NONE"
+            # v100 A8 (auto-propagation): caption tier classification
+            # extracted to caption_pipeline (HIGH/MID/LOW/NONE).
+            _caption_tier = _classify_caption_tier(
+                caption_text=caption_payload.get("caption") or "",
+                rule_name=caption_payload.get("rule_name") or "",
+            )
 
             move_output = {
                 "move_number": full_move_number,

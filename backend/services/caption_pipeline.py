@@ -1343,6 +1343,34 @@ def inject_board_state_describer_clause(
         pass
 
 
+def classify_caption_tier(
+    *,
+    caption_text: str,
+    rule_name: str,
+) -> str:
+    """A8: caption_classifier tier classification.
+
+    Mohit "go for all" 2026-05-26 (auto-propagation arc). Extracted
+    verbatim from game_decryption_v5_service.py lines 4067-4075.
+
+    Returns "HIGH" / "MID" / "LOW" / "NONE". HIGH means the caption
+    has real teaching content; the move record sets
+    has_teaching_content=True only when tier=="HIGH".
+
+    Lazy-imports caption_classifier so consumers without it
+    (or PWC live calls where the classifier hasn't loaded yet)
+    degrade to "NONE" cleanly.
+    """
+    try:
+        from services.caption_classifier import classifier as _caption_classifier
+        return _caption_classifier.classify(
+            caption_text or "",
+            rule_name or "",
+        ).get("tier") or "NONE"
+    except Exception:
+        return "NONE"
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,
