@@ -436,6 +436,49 @@ def v5_teaching_decision_for_live_move(
             f"[live_v5_teaching] em-dash inject crashed for {played_san}"
         )
 
+    # v100 A4 (auto-propagation): opening intro (v74) + opening
+    # theory lookup (v88). Gate is move_index<6 AND phase=="opening".
+    # PWC doesn't track ply-index or phase explicitly — derive:
+    #   move_index = (full_move_number-1)*2 + (mover_is_white ? 0 : 1)
+    #   phase = "opening" when move_index < 12 (rough heuristic)
+    # eco_code / opening_name are not in PWC session state today
+    # — pass None and the helper still surfaces opening_theory_*
+    # facts via the FEN-keyed lookup. Future PWC enhancement could
+    # detect the opening from the move sequence.
+    try:
+        from services.caption_pipeline import inject_opening_context_facts
+        _move_idx = max(0, (full_move_number or 1) - 1) * 2
+        # If we don't know mover side, idx defaults to even (white).
+        _is_white = bool(user_doc.get("color_played") == "white") == bool(mover_is_user)
+        if not _is_white:
+            _move_idx += 1
+        _phase = "opening" if _move_idx < 12 else "middlegame"
+        _open_board = chess.Board(fen_before) if fen_before else None
+        _open_move = None
+        if _open_board is not None:
+            try:
+                _open_move = _open_board.parse_san(played_san)
+            except Exception:
+                _open_move = None
+        if _open_board is not None and _open_move is not None:
+            _prev_san = move_history_san[-1] if move_history_san else None
+            inject_opening_context_facts(
+                facts,
+                board=_open_board,
+                move=_open_move,
+                move_san=played_san,
+                move_index=_move_idx,
+                phase=_phase,
+                eco_code=None,
+                opening_name=None,
+                user_color=(user_doc.get("color_played") or "white"),
+                prev_move_san=_prev_san,
+            )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] opening context inject crashed for {played_san}"
+        )
+
     # v100 A3 (auto-propagation): opp-side narration block. PWC
     # currently gates only USER moves (mover_is_user=True), so the
     # function's `not is_user` gate is closed by definition here —
