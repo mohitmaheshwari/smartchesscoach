@@ -618,6 +618,135 @@ def inject_user_blunder_detector_facts(
         pass
 
 
+def inject_em_dash_and_trap_context_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    game_trap_fires: Optional[List[Dict[str, Any]]],
+    best_move: Optional[str],
+    move_san: str,
+    is_user: bool,
+    cp_loss: int,
+    opening_name: Optional[str],
+) -> Optional[Tuple[List[Dict[str, Any]], int]]:
+    """A2: extract v66 em-dash voice-match + v69 trap-context wiring.
+
+    Mohit signoff 2026-05-26 (auto-propagation arc). Extracted from
+    game_decryption_v5_service.py lines 3684-3787 verbatim. Two
+    responsibilities bundled because they share the same gate. Order
+    of operations preserved EXACTLY:
+
+      v66 em-dash (FIRST): when any of the 17 detector-evidence keys
+      are present in caption_facts, set why_clause_em_dash=True so
+      R12_blunder uses the em-dash parent variant ("Y was better
+      — reason") instead of the two-sentence default.
+
+      v69 trap-context (SECOND): when game_trap_fires contains a
+      setter-role fire whose trap_line[0] equals best_move (and
+      isn't sprung yet), stamp trap_context_name / _full_name /
+      _first_punishment_san / _description + opening_name on
+      caption_facts. Returns (trap_line_steps,
+      coach_line_length_hint) from data/traps.json for the caller
+      to populate the move record's coach_line UI fields.
+
+    Note on the trap_context_name em-dash key: in V5's original
+    inline ordering, trap-context runs AFTER em-dash, so a
+    trap-only fire (no other detector keys) does NOT trigger
+    em-dash voice on the same move. That ordering is preserved
+    here — reversing would silently flip user-facing output.
+
+    Gate (identical to V5-service inline block):
+        is_user AND best_move AND best_move != move_san AND cp_loss >= 100
+
+    Returns:
+      - Tuple of (trap_line_steps, length_hint) when a trap-context
+        fire matched and was stamped onto caption_facts. Caller uses
+        these to populate the per-move coach_line UI fields.
+      - None when the gate was closed OR no trap-context fire matched.
+        Caller leaves coach_line fields at their existing values.
+
+    MUTATES caption_facts in place.
+    """
+    if not (is_user and best_move and best_move != move_san and (cp_loss or 0) >= 100):
+        return None
+
+    # ORDER PRESERVATION: original V5 runs em-dash FIRST, then trap-
+    # context. trap_context_name appears in the em-dash key list as
+    # defensive future-proofing — but in the original code it's NOT
+    # set by THIS function call when em-dash is evaluated (trap block
+    # hasn't run yet). Reversing the order would silently flip
+    # em-dash on trap-only fires. Keep the original order verbatim.
+
+    # v66 em-dash voice-match (line 3684 of V5 service).
+    _em_dash_facts = [
+        "missed_tactic_kind",
+        "missed_clearance_attack_square",
+        "missed_clearance_then_check_follow_up_san",
+        "attack_with_tempo_piece",
+        "queen_fork_sub_kind",
+        "endgame_loose_pawn_sub_kind",
+        "discovered_vac_exposed_square",
+        "active_defense_defended_square",
+        "same_piece_better_extra_square",
+        "un_developing_piece",
+        "defensive_pawn_user_san",
+        "knight_outpost_destination",
+        "stop_opp_pawn_blocking_san",
+        "knight_on_rim_square",
+        "pawn_kicks_piece_square",
+        "shape_pattern_id",
+        "trap_context_name",
+    ]
+    if any(caption_facts.get(_k) for _k in _em_dash_facts):
+        caption_facts["why_clause_em_dash"] = True
+
+    # v69 trap-context wiring (line 3713 of V5 service).
+    trap_result: Optional[Tuple[List[Dict[str, Any]], int]] = None
+    if game_trap_fires:
+        for _tf in game_trap_fires:
+            if _tf.get("role") != "setter":
+                continue
+            _tl = _tf.get("trap_line") or []
+            if not _tl:
+                continue
+            if _tf.get("sprung_moves", 0) >= len(_tl):
+                continue
+            if best_move != _tl[0]:
+                continue
+            _raw_name = (_tf.get("trap_name") or "").strip()
+            # Strip trailing " Punishment" / " Trap" suffixes — they
+            # collide with the verb "punishes" in caption templates.
+            _display_name = _raw_name
+            for _suf in (" Punishment", " Trap"):
+                if _display_name.endswith(_suf):
+                    _display_name = _display_name[: -len(_suf)].rstrip()
+                    break
+            caption_facts["trap_context_name"] = _display_name or _raw_name
+            caption_facts["trap_context_full_name"] = _raw_name
+            caption_facts["trap_context_first_punishment_san"] = _tl[0]
+            _desc = (_tf.get("description") or "").strip()
+            if _desc:
+                caption_facts["trap_context_description"] = _desc
+            # When a trap fires, the opening name IS the critical
+            # lesson context — per the project memory rule.
+            if opening_name:
+                caption_facts["opening_name"] = opening_name
+            # v70: look up the trap's rich step records (move +
+            # explanation per ply) from data/traps.json for the
+            # "Play this line" UI animation.
+            try:
+                from services.trap_library import get_trap_by_name
+                _trap_full = get_trap_by_name(_raw_name)
+                if _trap_full and _trap_full.get("trap_line"):
+                    _trap_steps = _trap_full["trap_line"]
+                    trap_result = (_trap_steps, len(_trap_steps))
+            except Exception:
+                pass
+            # First match wins.
+            break
+
+    return trap_result
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,

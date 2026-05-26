@@ -73,6 +73,7 @@ try:
         compute_severity_for_move as _compute_severity_for_move,
         inject_practical_severity_facts as _inject_practical_severity_facts,
         inject_user_blunder_detector_facts as _inject_user_blunder_detector_facts,
+        inject_em_dash_and_trap_context_facts as _inject_em_dash_and_trap_context_facts,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3675,117 +3676,29 @@ async def generate_game_decryption_v5(
                         cp_loss=int(cp_loss or 0),
                     )
 
+                    # v100 A2 (auto-propagation): em-dash voice-match +
+                    # trap-context wiring extracted to caption_pipeline.
+                    # Returns (trap_steps, length_hint) when a trap-
+                    # context fire matched; else None. Same gate as
+                    # the inline block (is_user + cp_loss>=100).
+                    _trap_ctx_result = _inject_em_dash_and_trap_context_facts(
+                        caption_facts,
+                        game_trap_fires=game_trap_fires,
+                        best_move=best_move,
+                        move_san=move_san,
+                        is_user=bool(is_user),
+                        cp_loss=int(cp_loss or 0),
+                        opening_name=opening_name,
+                    )
+                    if _trap_ctx_result is not None:
+                        _trap_steps_for_iter, _coach_line_length_hint_for_iter = _trap_ctx_result
+
                     if (
                         is_user
                         and best_move
                         and best_move != move_san
                         and (cp_loss or 0) >= 100
                     ):
-                        # v66 voice match (Mohit 2026-05-22). When any
-                        # best-move-focused detector fired above, set
-                        # why_clause_em_dash so R12_blunder uses the
-                        # em-dash parent variant ("Y was better — reason")
-                        # instead of the default "Y was better. Reason."
-                        # two-sentence form. Closes the voice gap between
-                        # Mohit's approved captions and the rendered output.
-                        _em_dash_facts = [
-                            "missed_tactic_kind",  # mate / piece_capture / material
-                            "missed_clearance_attack_square",
-                            "missed_clearance_then_check_follow_up_san",
-                            "attack_with_tempo_piece",
-                            "queen_fork_sub_kind",
-                            "endgame_loose_pawn_sub_kind",
-                            "discovered_vac_exposed_square",
-                            "active_defense_defended_square",
-                            "same_piece_better_extra_square",
-                            "un_developing_piece",
-                            "defensive_pawn_user_san",
-                            "knight_outpost_destination",
-                            "stop_opp_pawn_blocking_san",
-                            "knight_on_rim_square",
-                            "pawn_kicks_piece_square",
-                            "shape_pattern_id",  # king_pawn_lifted
-                            "trap_context_name",  # v69 — named trap context
-                        ]
-                        if any(caption_facts.get(_k) for _k in _em_dash_facts):
-                            caption_facts["why_clause_em_dash"] = True
-
-                        # v69 (2026-05-22): trap-context wiring. When
-                        # the user is the trap's SETTER (i.e. the
-                        # punisher who should have landed trap_line)
-                        # and the engine's best_move equals the
-                        # trap's first punishment move AND the trap
-                        # is not yet sprung, surface the trap NAME +
-                        # the opening name in caption_facts. This is
-                        # what lets the caption say "this is the
-                        # Damiano Defense — Nxe5 refutes f6". Mohit
-                        # 2026-05-22: "trap and openings ship next
-                        # whatever applies". The check `best_move ==
-                        # trap.trap_line[0]` keeps this from over-
-                        # firing on later moves where the engine is
-                        # no longer recommending the trap punishment.
-                        # v70 (2026-05-23): collect the FULL trap-line
-                        # step records (with per-move `explanation` fields
-                        # from data/traps.json) for the "Play this line"
-                        # UI. trap_scanner only returns SAN strings; we
-                        # look up the canonical trap by name to recover
-                        # the rich explanations. Used by GameAnalysis to
-                        # animate the trap_line with text alongside each
-                        # step.
-                        if game_trap_fires:
-                            for _tf in game_trap_fires:
-                                if _tf.get("role") != "setter":
-                                    continue
-                                _tl = _tf.get("trap_line") or []
-                                if not _tl:
-                                    continue
-                                if _tf.get("sprung_moves", 0) >= len(_tl):
-                                    continue
-                                if best_move != _tl[0]:
-                                    continue
-                                _raw_name = (_tf.get("trap_name") or "").strip()
-                                # Strip trailing " Punishment" / " Trap"
-                                # suffixes — they collide with the
-                                # verb "punishes" in the caption
-                                # template (e.g. "punishes the Damiano
-                                # Defense Punishment setup" reads
-                                # weird). Underlying data keeps the
-                                # full names; only the display string
-                                # is cleaned.
-                                _display_name = _raw_name
-                                for _suf in (" Punishment", " Trap"):
-                                    if _display_name.endswith(_suf):
-                                        _display_name = _display_name[: -len(_suf)].rstrip()
-                                        break
-                                caption_facts["trap_context_name"] = _display_name or _raw_name
-                                caption_facts["trap_context_full_name"] = _raw_name
-                                caption_facts["trap_context_first_punishment_san"] = _tl[0]
-                                _desc = (_tf.get("description") or "").strip()
-                                if _desc:
-                                    caption_facts["trap_context_description"] = _desc
-                                # When a trap fires, the opening name
-                                # IS the critical lesson context — per
-                                # [[opening-name-only-at-critical-lessons]]
-                                # this is one of the moments where
-                                # naming the opening reinforces the
-                                # teaching.
-                                if opening_name:
-                                    caption_facts["opening_name"] = opening_name
-                                # v70: look up the trap's rich step
-                                # records (move + explanation per ply)
-                                # from the library so the UI can show
-                                # them alongside the board animation.
-                                try:
-                                    from services.trap_library import get_trap_by_name
-                                    _trap_full = get_trap_by_name(_raw_name)
-                                    if _trap_full and _trap_full.get("trap_line"):
-                                        _trap_steps_for_iter = _trap_full["trap_line"]
-                                        _coach_line_length_hint_for_iter = len(_trap_steps_for_iter)
-                                except Exception:
-                                    pass
-                                # First match wins; stop scanning.
-                                break
-
                         # v70 default: when no trap fired but the move
                         # is a user mistake with a known better move,
                         # default the playback length to 3 plies of
