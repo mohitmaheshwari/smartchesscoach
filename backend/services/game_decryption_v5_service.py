@@ -59,57 +59,27 @@ STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
 # Per docs/caption_pipeline_design.md.
 CAPTION_V5_PIPELINE_ENABLED = os.environ.get("CAPTION_V5_PIPELINE_ENABLED", "1") not in ("0", "false", "False", "")
 
+# v100 FINAL: V5 service now calls build_move_teaching_decision() —
+# all 12 A-helpers + render + suppression + cue-pick + v78 fallback
+# + promotion ladder + tier classification run inside the central
+# layer. Only compute_severity_for_move stays imported separately
+# because V5 applies its own book-move / best-equals / rating-band
+# downgrades to `severity` BEFORE the central call (which then
+# accepts the downgraded value via severity_override).
 try:
-    from services.caption_facts import extract_facts as _extract_caption_facts
-    from services.caption_renderer import render_caption_dict as _render_caption_dict
-    from services.caption_principles import PRINCIPLES_BY_ID as _CAPTION_PRINCIPLES_BY_ID
-    from services.caption_templates import dispatch_promotion as _dispatch_promotion
-    from services.caption_classifier import classifier as _caption_classifier
-    from services.severity import (
-        classify_severity as _classify_severity,
-        classify_severity_practical as _classify_severity_practical,
-    )
     from services.caption_pipeline import (
         compute_severity_for_move as _compute_severity_for_move,
-        inject_practical_severity_facts as _inject_practical_severity_facts,
-        inject_user_blunder_detector_facts as _inject_user_blunder_detector_facts,
-        inject_em_dash_and_trap_context_facts as _inject_em_dash_and_trap_context_facts,
-        inject_opp_side_narration_facts as _inject_opp_side_narration_facts,
-        inject_opening_context_facts as _inject_opening_context_facts,
-        update_trap_recognition_state as _update_trap_recognition_state,
-        select_shape_pattern_record as _select_shape_pattern_record,
-        inject_board_state_describer_clause as _inject_board_state_describer_clause,
-        classify_caption_tier as _classify_caption_tier,
-        apply_promotion_ladder_dispatch as _apply_promotion_ladder_dispatch,
-        inject_eval_trajectory_facts as _inject_eval_trajectory_facts,
-        inject_curriculum_deviation_facts as _inject_curriculum_deviation_facts,
-        inject_blocked_pawn_facts as _inject_blocked_pawn_facts,
         build_move_teaching_decision as _build_move_teaching_decision,
         MoveInputs as _CaptionMoveInputs,
         CrossMoveState as _CaptionCrossMoveState,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
-    _extract_caption_facts = None
-    _render_caption_dict = None
-    _dispatch_promotion = None
-    _caption_classifier = None
+    _compute_severity_for_move = None
+    _build_move_teaching_decision = None
+    _CaptionMoveInputs = None
+    _CaptionCrossMoveState = None
     logger.warning(f"[caption_v5] import failed; pipeline disabled: {_caption_import_exc}")
     CAPTION_V5_PIPELINE_ENABLED = False
-
-# TIER 3 shape-pattern selector. Pure-function detector + engine verifier
-# wrapper. Lives behind a try/except so a detector import failure can't
-# wedge the V5 pipeline.
-try:
-    from services.shape_layer import select_shape_for_position as _select_shape_for_position
-    from services.shape_detectors import detect_all_shapes as _detect_all_shapes
-    from services.shape_detectors import verify_with_engine_data as _verify_shapes_with_engine
-    from services.shape_patterns import PATTERNS_BY_ID as _SHAPE_PATTERNS_BY_ID
-except Exception as _shape_import_exc:  # pragma: no cover — defensive
-    _select_shape_for_position = None
-    _detect_all_shapes = None
-    _verify_shapes_with_engine = None
-    _SHAPE_PATTERNS_BY_ID = {}
-    logger.warning(f"[shape_v3] import failed; shape layer disabled: {_shape_import_exc}")
 
 # Trap recognition (named opening traps from data/traps.json). Stateful:
 # fires on setup-completing move and again on each move that follows the
@@ -2904,12 +2874,12 @@ async def generate_game_decryption_v5(
         # v78 (2026-05-23) — board_state_describer suppression. Same
         # bs_* fact firing on consecutive moves is spammy ("rook on f8
         # has only 1 legal move" on m11, m12, m17, m18 in a row).
-        # Window=1: only suppress immediately-consecutive repeats —
-        # window=3 was too aggressive (silence climbed back to 23%).
-        # Window=1 lets the describer surface the same fact again
-        # after a 1-move gap if it's still the most-severe observation.
+        # Window=1 (default in central layer's
+        # inject_board_state_describer_clause) suppresses immediately-
+        # consecutive repeats. The list is owned by V5 (per-game) and
+        # passed to the central call each move; the helper appends new
+        # fact_ids and trims to bs_window_size.
         _bs_recent_window: List[set] = []
-        _BS_WINDOW_SIZE = 1
 
         # Trap + opening recognition state (walked statefully across the game).
         # `played_san_so_far` accumulates SAN of every move played; trap and
