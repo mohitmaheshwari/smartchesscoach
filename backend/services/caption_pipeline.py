@@ -747,6 +747,162 @@ def inject_em_dash_and_trap_context_facts(
     return trap_result
 
 
+def inject_opp_side_narration_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    fen_before: str,
+    board: chess.Board,
+    move: chess.Move,
+    move_san: str,
+    full_move_number: Optional[int],
+    is_user: bool,
+    opp_cp_loss: int,
+    eval_lookup: Dict[str, Dict[str, Any]],
+    user_color: str,
+) -> Optional[Tuple[List[str], int]]:
+    """A3: extract opp-move narration block (v76/v77/v78.4/v80/v80.2).
+
+    Mohit "go for all" 2026-05-26 (auto-propagation arc). Extracted
+    verbatim from game_decryption_v5_service.py lines 3341-3530.
+
+    Gate (identical to inline block):
+        not is_user AND opp_cp_loss >= 30
+
+    What this does (when the gate opens):
+      - v76.2 derive user_best_reply_san from next-position eval:
+        best_move first, then pv_after_best[0], then pv_after_played[0],
+        validated as legal SAN in the post-opp position.
+      - v78.4 build coach_line_moves = [opp_played, user_reply,
+        opp_followup, user_continuation] when reply found AND
+        opp_cp_loss >= 30. Returns the line for the caller.
+      - v77 call detect_opp_move_punishments → opp_user_reply_* facts.
+      - v80 call detect_opp_positional_mistake → opp_played_* facts.
+      - Stamp user_best_reply_san + _is_forcing + captured_piece_type
+        + target_square on caption_facts.
+      - v80.2 opp_has_concrete_why = True iff at least one concrete
+        fact key got populated (gates softer opp_soft_reply variant
+        in R12 select_variant).
+
+    Returns (coach_line_moves, length_hint) when the v78.4 line was
+    built; else None. Caller uses to populate per-move coach_line UI.
+
+    eval_lookup is the V5-service per-game dict keyed on FEN-prefix
+    (first 4 fields of FEN). PWC currently doesn't have one — pass
+    {} and the function returns None silently (no enrichment).
+
+    MUTATES caption_facts in place.
+    """
+    if not ((not is_user) and (opp_cp_loss or 0) >= 30):
+        return None
+
+    coach_line_result: Optional[Tuple[List[str], int]] = None
+    try:
+        _post_opp_board = board.copy()
+        _post_opp_board.push(move)
+        _post_opp_fen_key = " ".join(_post_opp_board.fen().split()[:4])
+        _next_eval = eval_lookup.get(_post_opp_fen_key, {})
+        # v76.2 — user_best_reply derivation. best_move first, then
+        # pv_after_best[0], then pv_after_played[0]. Validate legal
+        # SAN to avoid hallucinated punishment lines.
+        _user_reply = _next_eval.get("best_move") or None
+        if not _user_reply:
+            _next_pv_best = _next_eval.get("pv_after_best") or []
+            _user_reply = _next_pv_best[0] if _next_pv_best else None
+        if not _user_reply:
+            _next_pv_played = _next_eval.get("pv_after_played") or []
+            _user_reply = _next_pv_played[0] if _next_pv_played else None
+        if _user_reply:
+            try:
+                _post_opp_board.parse_san(_user_reply)
+            except Exception:
+                _user_reply = None
+
+        # v78.4 / v79.1 — coach_line for opp mistakes (cp_loss >= 30).
+        if _user_reply and (opp_cp_loss or 0) >= 30:
+            _next_pv_for_line = _next_eval.get("pv_after_best") or []
+            _coach_line_moves = [move_san, _user_reply] + list(_next_pv_for_line[:2])
+            coach_line_result = (_coach_line_moves, len(_coach_line_moves))
+
+        # v77 — opp move punishment detectors.
+        if _user_reply:
+            try:
+                from services.pattern_catalog import detect_opp_move_punishments
+                _next_pv_best_for_punish = _next_eval.get("pv_after_best") or []
+                _punish_facts = detect_opp_move_punishments(
+                    post_opp_fen=_post_opp_board.fen(),
+                    user_best_reply_san=_user_reply,
+                    post_opp_pv_after_best=_next_pv_best_for_punish,
+                    user_color=user_color,
+                    post_opp_eval_before_cp=_next_eval.get("eval_before"),
+                )
+                if _punish_facts:
+                    caption_facts.update(_punish_facts)
+            except Exception as _punish_exc:
+                logger.info(
+                    f"[opp_punish] detect failed m{full_move_number} "
+                    f"{move_san}: {_punish_exc}"
+                )
+
+        # v80 — opp positional mistake.
+        try:
+            from services.pattern_catalog import detect_opp_positional_mistake
+            _opp_pos_facts = detect_opp_positional_mistake(
+                pre_fen=fen_before,
+                opp_played_san=move_san,
+                move_number=full_move_number,
+            )
+            if _opp_pos_facts:
+                caption_facts.update(_opp_pos_facts)
+        except Exception as _opp_pos_exc:
+            logger.info(
+                f"[opp_positional] detect failed m{full_move_number} "
+                f"{move_san}: {_opp_pos_exc}"
+            )
+
+        # Stamp user_best_reply + is_forcing + capture facts.
+        if _user_reply:
+            caption_facts["user_best_reply_san"] = _user_reply
+            if _user_reply.endswith("+") or _user_reply.endswith("#"):
+                caption_facts["user_best_reply_san_is_forcing"] = True
+            if "x" in _user_reply:
+                try:
+                    _ur_move = _post_opp_board.parse_san(_user_reply)
+                    _captured = _post_opp_board.piece_at(_ur_move.to_square)
+                    if _captured:
+                        _piece_name = chess.piece_name(_captured.piece_type)
+                        caption_facts["user_best_reply_captures_piece_type"] = _piece_name
+                        caption_facts["captured_piece_type"] = _piece_name
+                        caption_facts["target_square"] = chess.square_name(_ur_move.to_square)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # v80.2 — opp_has_concrete_why. Set ONLY when a concrete detector
+    # fact got populated. R12 select_variant uses this to route the
+    # NOT-concrete case to opp_soft_reply ("Opponent's Nc3 — engine
+    # has a slight preference here. Best reply: Nc6.") instead of
+    # the overclaiming "Opponent's Nc3 is an inaccuracy" framing.
+    _concrete_fact_keys = (
+        "opp_user_reply_tactic_kind",
+        "opp_user_reply_queen_fork_sub_kind",
+        "opp_user_reply_clearance_follow_up_san",
+        "opp_user_reply_clearance_attack_square",
+        "opp_user_reply_attack_piece",
+        "opp_user_reply_kicks_piece_type",
+        "opp_user_reply_endgame_pawn_sub_kind",
+        "captured_piece_type",
+        "opp_played_wing_pawn_san",
+        "opp_played_knight_on_rim_san",
+        "opp_played_queen_early_san",
+        "opp_played_un_developed_san",
+    )
+    if any(caption_facts.get(_k) for _k in _concrete_fact_keys):
+        caption_facts["opp_has_concrete_why"] = True
+
+    return coach_line_result
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,

@@ -74,6 +74,7 @@ try:
         inject_practical_severity_facts as _inject_practical_severity_facts,
         inject_user_blunder_detector_facts as _inject_user_blunder_detector_facts,
         inject_em_dash_and_trap_context_facts as _inject_em_dash_and_trap_context_facts,
+        inject_opp_side_narration_facts as _inject_opp_side_narration_facts,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3338,196 +3339,25 @@ async def generate_game_decryption_v5(
                     # perspective.
                     _inject_practical_severity_facts(caption_facts, _practical)
 
-                    # v76 (2026-05-23) — Mohit + Parth: opp-move
-                    # narration. The R12_blunder.json why_clauses_opp
-                    # predicates require user_best_reply_san +
-                    # captured_piece_type + user_best_reply_san_is_forcing
-                    # to fire, but no upstream code populated them — so
-                    # the why-clauses were dead and every opp blunder
-                    # rendered the bare "Opponent's X is a serious
-                    # mistake." (Parth flagged 3 such positions: m18
-                    # Rg7, m16 Nf7, m4 Be6.)
-                    #
-                    # KEY NUANCE: eval_lookup only contains entries for
-                    # USER move positions (the analysis was generated
-                    # from user POV). For an opp move, pv_after_played
-                    # IS empty. To get user's best REPLY, we look at
-                    # the NEXT iteration's eval data — keyed on the
-                    # FEN AFTER opp pushed — whose pv_after_best[0] is
-                    # the engine's recommended user move from that
-                    # position, i.e. user's best reply.
-                    if (not is_user) and (opp_cp_loss or 0) >= 30:
-                        try:
-                            _post_opp_board = board.copy()
-                            _post_opp_board.push(move)
-                            _post_opp_fen_key = " ".join(_post_opp_board.fen().split()[:4])
-                            _next_eval = eval_lookup.get(_post_opp_fen_key, {})
-                            # v76.2 (2026-05-23) — Mohit caught: I had
-                            # the PV convention wrong in v76. pv_after_best
-                            # is the line AFTER engine's best move is
-                            # played — so pv_after_best[0] is OPPONENT's
-                            # reply, NOT engine's best move. The actual
-                            # engine pick is in the `best_move` field.
-                            # This caused us to render illegal moves
-                            # (Bd7/Nd7/Nfxe5 — black moves rendered as
-                            # white "punishment" lines). Fix: read
-                            # best_move FIRST; PV fields are fallbacks
-                            # only if best_move is missing.
-                            _user_reply = _next_eval.get("best_move") or None
-                            if not _user_reply:
-                                _next_pv_best = _next_eval.get("pv_after_best") or []
-                                # NOTE: in this fallback, pv[0] might
-                                # still be opp-reply; but absent best_move
-                                # this is the only thing we have. Validity
-                                # check below catches illegal SAN.
-                                _user_reply = _next_pv_best[0] if _next_pv_best else None
-                            if not _user_reply:
-                                _next_pv_played = _next_eval.get("pv_after_played") or []
-                                _user_reply = _next_pv_played[0] if _next_pv_played else None
-                            # v76.2 — validate the SAN is legal in the
-                            # post-opp position before we render it.
-                            # If illegal, drop the reply rather than
-                            # ship a hallucinated "punishment" move.
-                            if _user_reply:
-                                try:
-                                    _post_opp_board.parse_san(_user_reply)
-                                except Exception:
-                                    _user_reply = None
-
-                            # v78.4 — build the coach_line for opp
-                            # mistakes/blunders. Starts from fen_before
-                            # (pre-opp-move), animates: opp's played
-                            # move → user's best reply → opp's followup
-                            # → user's continuation. Frontend uses the
-                            # same playVariation animation as user
-                            # moves; the difference is just the starting
-                            # position + which side moves first.
-                            # v79.1 (2026-05-24) — Mohit: button missing
-                            # on cp_loss=32 opp move that captions as
-                            # "is a mistake." Gate was at >=100 (blunder
-                            # tier) but R12 trigger is >=30. Unified at
-                            # >=30 so every captioned opp mistake also
-                            # gets a playable line. Net: small-cp opp
-                            # moves get a 2-move animation (opp_played
-                            # → user_quiet_reply) — short but honest;
-                            # user can see "they played X, I should
-                            # have played Y."
-                            if _user_reply and (opp_cp_loss or 0) >= 30:
-                                _next_pv_for_line = _next_eval.get("pv_after_best") or []
-                                # pv_after_best from the post-opp eval
-                                # is [opp_followup, user_continuation,
-                                # opp_next, ...]. Take 2 for a 4-step
-                                # total line (opp_played + user_reply
-                                # + opp_followup + user_continuation).
-                                _coach_line_moves_for_iter = [
-                                    move_san, _user_reply
-                                ] + list(_next_pv_for_line[:2])
-                                _coach_line_length_hint_for_iter = len(_coach_line_moves_for_iter)
-
-                            # v77 (2026-05-23) — Mohit: "you laready have
-                            # built detectors for user mistakes, so we can
-                            # build detectors for opponent mistakes." Run
-                            # the SAME shape detectors against (post-opp
-                            # position, user_best_reply) — symmetric to
-                            # the user-mistake path. The detectors don't
-                            # care whose perspective; the resulting facts
-                            # describe USER'S punishment of OPP's move.
-                            # Fires opp_user_reply_* fact keys; R12
-                            # why_clauses_opp section reads them and
-                            # routes to concrete why-clauses ("Play d5
-                            # kicking their bishop on e6.") instead of
-                            # the bare "Your strongest reply is X."
-                            if _user_reply:
-                                try:
-                                    from services.pattern_catalog import detect_opp_move_punishments
-                                    _next_pv_best_for_punish = _next_eval.get("pv_after_best") or []
-                                    _punish_facts = detect_opp_move_punishments(
-                                        post_opp_fen=_post_opp_board.fen(),
-                                        user_best_reply_san=_user_reply,
-                                        post_opp_pv_after_best=_next_pv_best_for_punish,
-                                        user_color=user_color,
-                                        post_opp_eval_before_cp=_next_eval.get("eval_before"),
-                                    )
-                                    if _punish_facts:
-                                        caption_facts.update(_punish_facts)
-                                except Exception as _punish_exc:
-                                    logger.info(
-                                        f"[opp_punish] detect failed m{full_move_number} "
-                                        f"{move_san}: {_punish_exc}"
-                                    )
-
-                            # v80 (2026-05-25) — Mohit: caption needs to
-                            # tell WHY opp move was a mistake, not just
-                            # "your strongest reply is X." Run positional
-                            # heuristics on the opp move itself (wing
-                            # pawn push in opening, knight to rim, queen
-                            # out early, piece retreated home). Self-
-                            # contained — doesn't need engine's preferred
-                            # opp move (which we don't have).
-                            try:
-                                from services.pattern_catalog import detect_opp_positional_mistake
-                                _opp_pos_facts = detect_opp_positional_mistake(
-                                    pre_fen=fen_before,
-                                    opp_played_san=move_san,
-                                    move_number=full_move_number,
-                                )
-                                if _opp_pos_facts:
-                                    caption_facts.update(_opp_pos_facts)
-                            except Exception as _opp_pos_exc:
-                                logger.info(
-                                    f"[opp_positional] detect failed m{full_move_number} "
-                                    f"{move_san}: {_opp_pos_exc}"
-                                )
-                            if _user_reply:
-                                caption_facts["user_best_reply_san"] = _user_reply
-                                if _user_reply.endswith("+") or _user_reply.endswith("#"):
-                                    caption_facts["user_best_reply_san_is_forcing"] = True
-                                # If the reply is a capture, name what
-                                # it captures using the post-opp board.
-                                if "x" in _user_reply:
-                                    try:
-                                        _ur_move = _post_opp_board.parse_san(_user_reply)
-                                        _captured = _post_opp_board.piece_at(_ur_move.to_square)
-                                        if _captured:
-                                            _piece_name = chess.piece_name(_captured.piece_type)
-                                            # R12 reads this name for opp moves
-                                            caption_facts["user_best_reply_captures_piece_type"] = _piece_name
-                                            caption_facts["captured_piece_type"] = _piece_name
-                                            caption_facts["target_square"] = chess.square_name(_ur_move.to_square)
-                                    except Exception:
-                                        pass
-                        except Exception:
-                            pass
-
-                        # v80.2 (2026-05-25) — Mohit: "Opponent's Nc3 is
-                        # an inaccuracy. Your strongest reply is Nc6 —
-                        # it doesn't tell why? is this an opening
-                        # principle or what??" Right. When no concrete
-                        # detector fired (just a bare "strongest reply"
-                        # fallback) the "is an inaccuracy" framing
-                        # overclaims — implies we know WHY when we
-                        # don't. Set opp_has_concrete_why True ONLY
-                        # when at least one concrete fact key was
-                        # populated. R12 select_variant routes the
-                        # NOT-concrete case to a softer opp_soft_reply
-                        # variant: "Opponent's Nc3 — engine has a
-                        # slight preference here. Best reply: Nc6."
-                        _concrete_fact_keys = (
-                            "opp_user_reply_tactic_kind",
-                            "opp_user_reply_queen_fork_sub_kind",
-                            "opp_user_reply_clearance_follow_up_san",
-                            "opp_user_reply_clearance_attack_square",
-                            "opp_user_reply_attack_piece",
-                            "opp_user_reply_kicks_piece_type",
-                            "opp_user_reply_endgame_pawn_sub_kind",
-                            "captured_piece_type",
-                            "opp_played_wing_pawn_san",
-                            "opp_played_knight_on_rim_san",
-                            "opp_played_queen_early_san",
-                            "opp_played_un_developed_san",
-                        )
-                        if any(caption_facts.get(_k) for _k in _concrete_fact_keys):
-                            caption_facts["opp_has_concrete_why"] = True
+                    # v100 A3 (auto-propagation): opp-side narration
+                    # block extracted to caption_pipeline. Same gate
+                    # (not is_user AND opp_cp_loss >= 30), same
+                    # caption_facts mutations. Returns coach_line
+                    # tuple when v78.4 built one; else None.
+                    _opp_line_result = _inject_opp_side_narration_facts(
+                        caption_facts,
+                        fen_before=fen_before,
+                        board=board,
+                        move=move,
+                        move_san=move_san,
+                        full_move_number=full_move_number,
+                        is_user=bool(is_user),
+                        opp_cp_loss=int(opp_cp_loss or 0),
+                        eval_lookup=eval_lookup,
+                        user_color=user_color,
+                    )
+                    if _opp_line_result is not None:
+                        _coach_line_moves_for_iter, _coach_line_length_hint_for_iter = _opp_line_result
 
                     # v74 (2026-05-23) — Mohit + Parth: opening
                     # context on early moves. Surface the move's
