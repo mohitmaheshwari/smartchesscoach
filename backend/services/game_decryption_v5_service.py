@@ -77,6 +77,7 @@ try:
         inject_opp_side_narration_facts as _inject_opp_side_narration_facts,
         inject_opening_context_facts as _inject_opening_context_facts,
         update_trap_recognition_state as _update_trap_recognition_state,
+        select_shape_pattern_record as _select_shape_pattern_record,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3789,118 +3790,23 @@ async def generate_game_decryption_v5(
             if is_user:
                 prev_user_eval_after = eval_data.get("eval_after")
 
-            # ── TIER 3 shape-pattern detection ─────────────────────
-            # Runs on the POST-move board (the player sees the result
-            # of the move in review). Engine verifier matches against
-            # the engine's best move FOR THE PRE-MOVE position so the
-            # "executed/missed pattern" semantics line up with the
-            # move that was just played.
-            shape_pattern_record: Optional[Dict[str, Any]] = None
-            if _select_shape_for_position is not None:
-                try:
-                    # Detect on the pre-move board: the side-to-move at
-                    # fen_before is the side whose pattern we're naming.
-                    pre_move_board = chess.Board(fen_before)
-                    shape_pattern_record = _select_shape_for_position(
-                        pre_move_board,
-                        eval_data={
-                            "best_move_uci": eval_data.get("best_move_uci", ""),
-                        },
-                        shapes_fired_this_game=shapes_fired_this_game,
-                        prev_move=prev_move,
-                    )
-                except Exception as _shape_exc:
-                    logger.info(f"[shape_v3] detect failed on move {full_move_number}: {_shape_exc}")
-                    shape_pattern_record = None
-
-                # v80.3 (2026-05-25) — Mohit caught: pre-move pin
-                # detection found Bc5 pinning f2/g1 in m9 Be7's
-                # fen_before. The played move (Be7) moves the Bc5
-                # bishop AWAY — the pin is broken, not created/
-                # maintained. But the caption pipeline attached the
-                # pattern to Be7 anyway: "Be7 — Pin. Their piece cannot
-                # move." Misleading: the played move BREAKS the pattern.
-                #
-                # Fix: when the played move's FROM square equals the
-                # pattern's mover anchor (and TO != mover), the played
-                # move is removing the pattern's key piece. Suppress
-                # the pattern — don't attribute it to a move that
-                # destroys it.
-                if shape_pattern_record:
-                    _mover_sq = shape_pattern_record.get("mover")
-                    if _mover_sq:
-                        try:
-                            _from_name = chess.square_name(move.from_square)
-                            _to_name = chess.square_name(move.to_square)
-                            if _from_name == _mover_sq and _to_name != _mover_sq:
-                                logger.info(
-                                    f"[shape_v3] suppressing {shape_pattern_record.get('pattern_id')} "
-                                    f"on m{full_move_number} {move_san} — move breaks the pattern "
-                                    f"(mover {_mover_sq} departs)"
-                                )
-                                shape_pattern_record = None
-                        except Exception:
-                            pass
-
-            # ── Post-move shape detection (Mohit fb_eb1d11ba227f) ──
-            # Patterns in shape_patterns.py flagged `detect_phase=post_move`
-            # describe "you walked into this" geometry — the vulnerability
-            # was CREATED by the just-played move, the opposing side can
-            # now execute it. These must be detected on the POST-move
-            # board so the pattern is attached to the move that created
-            # the geometry (e.g., black's Qd6 walks into white's e5 pawn
-            # fork). Engine confirmation uses pv_after_played[0] — the
-            # opponent's best response IS the executing move.
-            if (
-                shape_pattern_record is None
-                and _detect_all_shapes is not None
-                and severity in ("mistake", "blunder", "opp_mistake", "opp_blunder")
-                and pv_after_played
-            ):
-                try:
-                    # `board` is the post-move state (board.push(move) at line ~3277).
-                    post_move_board = board.copy()
-                    opp_best_uci = ""
-                    try:
-                        opp_best_uci = post_move_board.parse_san(pv_after_played[0]).uci()
-                    except Exception:
-                        opp_best_uci = ""
-                    post_phase_ids = {
-                        pid for pid, p in _SHAPE_PATTERNS_BY_ID.items()
-                        if p.get("detect_phase") == "post_move"
-                    }
-                    if post_phase_ids:
-                        all_post = _detect_all_shapes(post_move_board, prev_move=move)
-                        post_candidates = [c for c in all_post if c["pattern_id"] in post_phase_ids]
-                        post_candidates = _verify_shapes_with_engine(
-                            post_candidates, {"best_move_uci": opp_best_uci}
-                        )
-                        if post_candidates:
-                            post_candidates.sort(
-                                key=lambda c: -_SHAPE_PATTERNS_BY_ID[c["pattern_id"]].get("priority", 0)
-                            )
-                            ev = post_candidates[0]
-                            spec = _SHAPE_PATTERNS_BY_ID[ev["pattern_id"]]
-                            # Key names must match select_shape_for_position's
-                            # return contract (shape_layer.py:310-318) — V5
-                            # move_output reads pattern_id / pattern_name /
-                            # pattern_desc / mover / targets / executing_move
-                            # at lines 3547-3552.
-                            shape_pattern_record = {
-                                "pattern_id":     ev["pattern_id"],
-                                "pattern_name":   spec.get("name", ""),
-                                "pattern_desc":   spec.get("description", ""),
-                                "mover":          ev.get("mover"),
-                                "targets":        ev.get("targets", []),
-                                "executing_move": ev.get("executing_move"),
-                                "evidence":       ev.get("evidence", ""),
-                            }
-                            shapes_fired_this_game.add(ev["pattern_id"])
-                except Exception as _post_shape_exc:
-                    logger.info(
-                        f"[shape_post_move] detect failed on move {full_move_number}: "
-                        f"{_post_shape_exc}"
-                    )
+            # v100 A6 (auto-propagation): pre-move + post-move shape
+            # pattern selection extracted to caption_pipeline. Includes
+            # v80.3 mover-departs suppression and the post-move fallback
+            # gated on severity/pv_after_played. `shapes_fired_this_game`
+            # is mutated when post-move fires.
+            shape_pattern_record = _select_shape_pattern_record(
+                fen_before=fen_before,
+                board=board,
+                move=move,
+                move_san=move_san,
+                prev_move=prev_move,
+                eval_data=eval_data,
+                pv_after_played=pv_after_played,
+                severity=severity,
+                full_move_number=full_move_number,
+                shapes_fired_this_game=shapes_fired_this_game,
+            )
 
             # ── Trap + opening recognition ─────────────────────────
             # Pure-Python detectors. Append the played SAN before running

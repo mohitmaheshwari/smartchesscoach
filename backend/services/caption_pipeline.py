@@ -1132,6 +1132,153 @@ def update_trap_recognition_state(
     )
 
 
+def select_shape_pattern_record(
+    *,
+    fen_before: str,
+    board: chess.Board,
+    move: chess.Move,
+    move_san: str,
+    prev_move: Optional[chess.Move],
+    eval_data: Dict[str, Any],
+    pv_after_played: Optional[List[str]],
+    severity: str,
+    full_move_number: Optional[int],
+    shapes_fired_this_game: Set[str],
+) -> Optional[Dict[str, Any]]:
+    """A6: shape pattern selection (pre-move detect + post-move detect).
+
+    Mohit "go for all" 2026-05-26 (auto-propagation arc). Extracted
+    verbatim from game_decryption_v5_service.py lines 3798-3903.
+
+    Two passes:
+      1. PRE-MOVE: select_shape_for_position on chess.Board(fen_before).
+         If matched, runs v80.3 mover-departs suppression — when the
+         played move's FROM square equals the pattern's mover anchor
+         (and TO != mover), the move BREAKS the pattern, so suppress
+         the attribution rather than caption "Be7 — Pin" on a move
+         that ACTUALLY MOVES the pinning bishop away.
+
+      2. POST-MOVE (fallback): if pre-move returned None AND severity
+         in {mistake, blunder, opp_mistake, opp_blunder} AND
+         pv_after_played present, run detect_all_shapes on the
+         post-move board (the one passed as `board`), filter to
+         patterns with detect_phase=post_move, verify against engine
+         (opp's pv_after_played[0] is the executing move), pick the
+         highest-priority candidate.
+
+    `shapes_fired_this_game` is mutated when post-move shape fires
+    (the set tracks once-per-game so we don't repeat the same
+    "you walked into this" geometry).
+
+    Returns the shape_pattern_record dict (with pattern_id,
+    pattern_name, pattern_desc, mover, targets, executing_move,
+    evidence) or None.
+
+    Imports are lazy (services.shape_layer / services.shape_patterns)
+    so we don't pay cost on every move when no shape fires.
+    """
+    # Lazy import to mirror V5 service's optional-import pattern.
+    try:
+        from services.shape_layer import select_shape_for_position as _select_shape_for_position
+    except Exception:
+        _select_shape_for_position = None
+    try:
+        from services.shape_detectors import detect_all_shapes as _detect_all_shapes
+    except Exception:
+        _detect_all_shapes = None
+    try:
+        from services.shape_patterns import PATTERNS_BY_ID as _SHAPE_PATTERNS_BY_ID
+    except Exception:
+        _SHAPE_PATTERNS_BY_ID = None
+    try:
+        from services.shape_detectors import verify_with_engine_data as _verify_shapes_with_engine
+    except Exception:
+        _verify_shapes_with_engine = None
+
+    shape_pattern_record: Optional[Dict[str, Any]] = None
+
+    # ── Pre-move shape detection ────────────────────────────────
+    if _select_shape_for_position is not None:
+        try:
+            pre_move_board = chess.Board(fen_before)
+            shape_pattern_record = _select_shape_for_position(
+                pre_move_board,
+                eval_data={"best_move_uci": eval_data.get("best_move_uci", "")},
+                shapes_fired_this_game=shapes_fired_this_game,
+                prev_move=prev_move,
+            )
+        except Exception as _shape_exc:
+            logger.info(f"[shape_v3] detect failed on move {full_move_number}: {_shape_exc}")
+            shape_pattern_record = None
+
+        # v80.3 mover-departs suppression.
+        if shape_pattern_record:
+            _mover_sq = shape_pattern_record.get("mover")
+            if _mover_sq:
+                try:
+                    _from_name = chess.square_name(move.from_square)
+                    _to_name = chess.square_name(move.to_square)
+                    if _from_name == _mover_sq and _to_name != _mover_sq:
+                        logger.info(
+                            f"[shape_v3] suppressing {shape_pattern_record.get('pattern_id')} "
+                            f"on m{full_move_number} {move_san} — move breaks the pattern "
+                            f"(mover {_mover_sq} departs)"
+                        )
+                        shape_pattern_record = None
+                except Exception:
+                    pass
+
+    # ── Post-move shape detection (fallback) ────────────────────
+    if (
+        shape_pattern_record is None
+        and _detect_all_shapes is not None
+        and _SHAPE_PATTERNS_BY_ID is not None
+        and _verify_shapes_with_engine is not None
+        and severity in ("mistake", "blunder", "opp_mistake", "opp_blunder")
+        and pv_after_played
+    ):
+        try:
+            post_move_board = board.copy()
+            opp_best_uci = ""
+            try:
+                opp_best_uci = post_move_board.parse_san(pv_after_played[0]).uci()
+            except Exception:
+                opp_best_uci = ""
+            post_phase_ids = {
+                pid for pid, p in _SHAPE_PATTERNS_BY_ID.items()
+                if p.get("detect_phase") == "post_move"
+            }
+            if post_phase_ids:
+                all_post = _detect_all_shapes(post_move_board, prev_move=move)
+                post_candidates = [c for c in all_post if c["pattern_id"] in post_phase_ids]
+                post_candidates = _verify_shapes_with_engine(
+                    post_candidates, {"best_move_uci": opp_best_uci}
+                )
+                if post_candidates:
+                    post_candidates.sort(
+                        key=lambda c: -_SHAPE_PATTERNS_BY_ID[c["pattern_id"]].get("priority", 0)
+                    )
+                    ev = post_candidates[0]
+                    spec = _SHAPE_PATTERNS_BY_ID[ev["pattern_id"]]
+                    shape_pattern_record = {
+                        "pattern_id":     ev["pattern_id"],
+                        "pattern_name":   spec.get("name", ""),
+                        "pattern_desc":   spec.get("description", ""),
+                        "mover":          ev.get("mover"),
+                        "targets":        ev.get("targets", []),
+                        "executing_move": ev.get("executing_move"),
+                        "evidence":       ev.get("evidence", ""),
+                    }
+                    shapes_fired_this_game.add(ev["pattern_id"])
+        except Exception as _post_shape_exc:
+            logger.info(
+                f"[shape_post_move] detect failed on move {full_move_number}: "
+                f"{_post_shape_exc}"
+            )
+
+    return shape_pattern_record
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,
