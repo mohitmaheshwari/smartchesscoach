@@ -436,6 +436,45 @@ def v5_teaching_decision_for_live_move(
             f"[live_v5_teaching] em-dash inject crashed for {played_san}"
         )
 
+    # v100 A3 (auto-propagation): opp-side narration block. PWC
+    # currently gates only USER moves (mover_is_user=True), so the
+    # function's `not is_user` gate is closed by definition here —
+    # the call is a no-op today. When PWC adds opp-move teaching
+    # AND a per-session eval_lookup (engine evaluations of upcoming
+    # positions), passing the real lookup will surface v76/v77/v80
+    # facts in opp-blunder captions. Kept here so the call point
+    # is established and ready for that capability.
+    try:
+        from services.caption_pipeline import inject_opp_side_narration_facts
+        # Synthesise the chess.Board + chess.Move pair the helper needs.
+        # The function gate (`not is_user`) closes immediately for the
+        # typical PWC user-move call, so this is cheap. We still
+        # construct the inputs so the call point is valid.
+        _opp_board = chess.Board(fen_before) if fen_before else None
+        _opp_move = None
+        if _opp_board is not None:
+            try:
+                _opp_move = _opp_board.parse_san(played_san)
+            except Exception:
+                _opp_move = None
+        if _opp_board is not None and _opp_move is not None:
+            inject_opp_side_narration_facts(
+                facts,
+                fen_before=fen_before,
+                board=_opp_board,
+                move=_opp_move,
+                move_san=played_san,
+                full_move_number=full_move_number,
+                is_user=bool(mover_is_user),
+                opp_cp_loss=int(cp_loss or 0),
+                eval_lookup={},  # PWC has no per-game eval lookup yet
+                user_color=(user_doc.get("color_played") or "white"),
+            )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] opp-side inject crashed for {played_san}"
+        )
+
     # Apply session-level suppression BEFORE the resolver picks an anchor.
     # The resolver's own pickprioritizes principles; we need to filter
     # the suppressed ones out of facts["principles_violated"] first.
