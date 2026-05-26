@@ -1279,6 +1279,70 @@ def select_shape_pattern_record(
     return shape_pattern_record
 
 
+def inject_board_state_describer_clause(
+    caption_facts: Dict[str, Any],
+    *,
+    fen_before: str,
+    move_san: str,
+    user_color: str,
+    full_move_number: Optional[int],
+    bs_recent_window: List[Set[str]],
+    bs_window_size: int = 1,
+) -> None:
+    """A7: board_state_describer pass with v78 anti-repeat window.
+
+    Mohit "go for all" 2026-05-26 (auto-propagation arc). Extracted
+    verbatim from game_decryption_v5_service.py lines 3602-3643.
+    Default bs_window_size=1 mirrors _BS_WINDOW_SIZE in V5 service
+    (suppress only immediately-consecutive repeats).
+
+    Runs UNCONDITIONALLY — each bs_* metric self-gates via its own
+    threshold so clean positions return 0 facts naturally. Selects
+    top 3 facts (max 2 per category), filters out fact_ids that
+    fired in the last `bs_window_size` moves to avoid same-observation
+    spam across consecutive moves, renders R12_blunder templates,
+    joins into caption_facts["board_state_clause"].
+
+    bs_recent_window is a list-of-sets the caller maintains across
+    moves. This function appends a new set of fact_ids to it and
+    trims to bs_window_size.
+
+    MUTATES caption_facts AND bs_recent_window in place.
+    """
+    try:
+        from services.board_state_describer import describe_board_state, select_top_facts
+        from services.caption_templates import render_template
+        _b = chess.Board(fen_before)
+        _b.push_san(move_san)
+        _fen_after = _b.fen()
+        _bs_facts = describe_board_state(
+            fen_after=_fen_after,
+            user_color=(user_color or ""),
+            move_number=full_move_number or 0,
+        )
+        _top = select_top_facts(_bs_facts, n=3, max_per_category=2)
+        # v78 — filter out fact_ids already fired in the last N moves.
+        if _top and bs_recent_window:
+            _recent_ids: set = set()
+            for _w in bs_recent_window:
+                _recent_ids.update(_w)
+            _top = [_bf for _bf in _top if _bf.fact_id not in _recent_ids]
+        bs_recent_window.append({_bf.fact_id for _bf in _top})
+        if len(bs_recent_window) > bs_window_size:
+            bs_recent_window.pop(0)
+        if _top:
+            _rendered: list = []
+            for _bf in _top:
+                _merged = {**caption_facts, **_bf.placeholders}
+                _txt = render_template("R12_blunder", _bf.fact_id, _merged)
+                if _txt:
+                    _rendered.append(_txt)
+            if _rendered:
+                caption_facts["board_state_clause"] = " ".join(_rendered)
+    except Exception:
+        pass
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,

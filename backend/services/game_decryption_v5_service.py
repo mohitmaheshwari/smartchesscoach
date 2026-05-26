@@ -78,6 +78,7 @@ try:
         inject_opening_context_facts as _inject_opening_context_facts,
         update_trap_recognition_state as _update_trap_recognition_state,
         select_shape_pattern_record as _select_shape_pattern_record,
+        inject_board_state_describer_clause as _inject_board_state_describer_clause,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3599,48 +3600,20 @@ async def generate_game_decryption_v5(
                     # of the rendering produces no caption, the
                     # describer output becomes the fallback caption
                     # below.
-                    try:
-                        import chess as _chess_bs
-                        from services.board_state_describer import (
-                            describe_board_state,
-                            select_top_facts,
-                        )
-                        from services.caption_templates import render_template
-                        _b = _chess_bs.Board(fen_before)
-                        _b.push_san(move_san)
-                        _fen_after = _b.fen()
-                        _bs_facts = describe_board_state(
-                            fen_after=_fen_after,
-                            user_color=(user_color or ""),
-                            move_number=full_move_number or 0,
-                        )
-                        _top = select_top_facts(_bs_facts, n=3, max_per_category=2)
-                        # v78 — filter out fact_ids already fired in
-                        # the last 3 moves to avoid same-observation
-                        # spam across consecutive moves.
-                        if _top and _bs_recent_window:
-                            _recent_ids: set = set()
-                            for _w in _bs_recent_window:
-                                _recent_ids.update(_w)
-                            _top = [_bf for _bf in _top if _bf.fact_id not in _recent_ids]
-                        # Update the rolling window with the facts
-                        # we're about to render. Keep last 3 moves.
-                        _bs_recent_window.append({_bf.fact_id for _bf in _top})
-                        if len(_bs_recent_window) > _BS_WINDOW_SIZE:
-                            _bs_recent_window.pop(0)
-                        if _top:
-                            _rendered: list = []
-                            for _bf in _top:
-                                _merged = {**caption_facts, **_bf.placeholders}
-                                _txt = render_template(
-                                    "R12_blunder", _bf.fact_id, _merged
-                                )
-                                if _txt:
-                                    _rendered.append(_txt)
-                            if _rendered:
-                                caption_facts["board_state_clause"] = " ".join(_rendered)
-                    except Exception:
-                        pass
+                    # v100 A7 (auto-propagation): board_state_describer
+                    # extracted to caption_pipeline. Same self-gating
+                    # per-metric thresholds, same v78 anti-repeat window
+                    # (default size = _BS_WINDOW_SIZE = 1 = suppress
+                    # only immediately-consecutive repeats).
+                    _inject_board_state_describer_clause(
+                        caption_facts,
+                        fen_before=fen_before,
+                        move_san=move_san,
+                        user_color=user_color or "",
+                        full_move_number=full_move_number,
+                        bs_recent_window=_bs_recent_window,
+                        bs_window_size=_BS_WINDOW_SIZE,
+                    )
 
                     caption_payload = _render_caption_dict(caption_facts)
 
