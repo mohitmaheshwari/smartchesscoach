@@ -6906,6 +6906,31 @@ async def _process_move_and_respond(
             except (TypeError, ValueError):
                 pass
 
+            # v100 A10-PWC wiring: build per-user-move eval list from
+            # session move_history + current move. detect_trajectory walks
+            # back LOOKBACK_USER_MOVES from current_move_number and checks
+            # if all prior user moves' eval_before was <= -200cp.
+            # Synthesise chess full_move_number from list index:
+            # move_number = (idx // 2) + 1 (works for both colours
+            # since move_history alternates user/opp from move 1).
+            _user_evals: List[Dict[str, Any]] = []
+            for _idx, _m in enumerate(session_doc.get("move_history") or []):
+                _eb = _m.get("eval_before")
+                _ea = _m.get("eval_after")
+                if _eb is None and _ea is None:
+                    continue  # skip opp moves (PWC only evals user moves)
+                _user_evals.append({
+                    "move_number": (_idx // 2) + 1,
+                    "eval_before": _eb,
+                    "eval_after": _ea,
+                })
+            # Synthetic entry for the current move (not yet in move_history).
+            _user_evals.append({
+                "move_number": move_number,
+                "eval_before": (_eval_before_cp / 100.0) if _eval_before_cp is not None else None,
+                "eval_after": (_eval_after_cp / 100.0) if _eval_after_cp is not None else None,
+            })
+
             _v5_block = v5_teaching_decision_for_live_move(
                 fen_before=fen_before,
                 played_san=user_move,
@@ -6926,6 +6951,7 @@ async def _process_move_and_respond(
                 session_fired_principles=_fired_pids,
                 session_fired_state_keys=_fired_sks,
                 encounter_weights=_encounter_weights,
+                move_evaluations=_user_evals,
             )
             if _v5_block is not None:
                 # Phase 1.2 — structured material-value gate. Build the

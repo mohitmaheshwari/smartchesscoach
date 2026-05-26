@@ -331,6 +331,7 @@ def v5_teaching_decision_for_live_move(
     session_fired_principles: Optional[Set[str]] = None,
     session_fired_state_keys: Optional[Set[Tuple]] = None,
     encounter_weights: Optional[Dict[str, float]] = None,
+    move_evaluations: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Deterministic V5 teaching block for one live move.
 
@@ -413,7 +414,10 @@ def v5_teaching_decision_for_live_move(
             fired_principles=set(session_fired_principles or set()),
             fired_state_keys=set(session_fired_state_keys or set()),
         )
-        _decision = build_move_teaching_decision(_inputs, _state)
+        _decision = build_move_teaching_decision(
+            _inputs, _state,
+            move_evaluations=move_evaluations,
+        )
         if _decision.should_skip:
             return None
         facts = _decision.debug_facts
