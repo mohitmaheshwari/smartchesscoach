@@ -1371,6 +1371,121 @@ def classify_caption_tier(
         return "NONE"
 
 
+def apply_promotion_ladder_dispatch(
+    *,
+    caption_payload: Dict[str, Any],
+    caption_facts: Dict[str, Any],
+    trap_record: Optional[Dict[str, Any]],
+    opening_record: Optional[Dict[str, Any]],
+    shape_pattern_record: Optional[Dict[str, Any]],
+    move_san: str,
+    is_user: bool,
+    cp_loss: int,
+    best_move: Optional[str],
+    principle_cue: str,
+    principle_id_used: Optional[str],
+    full_move_number: Optional[int],
+) -> None:
+    """A9: promotion ladder dispatch — builds promotion_facts from
+    caption_facts + detector records, calls dispatch_promotion(), and
+    if a promoted variant fires, overwrites caption_payload's caption
+    + rule_name (rule_name becomes "{prev_rule}→{promoted_source}").
+
+    Mohit "go for all" 2026-05-26 (auto-propagation arc). Extracted
+    verbatim from game_decryption_v5_service.py lines 3854-3963.
+
+    The promotion ladder logic lives entirely in JSON
+    (promotion_ladder.json + R_PROMOTED_*.json). Python only builds
+    the facts dict; the dispatcher handles priority order, when-
+    conditions, variant selection, severity thresholds, source labels.
+
+    MUTATES caption_payload in place.
+    """
+    try:
+        from services.caption_templates import dispatch_promotion as _dispatch_promotion
+    except Exception:
+        return
+    if _dispatch_promotion is None:
+        return
+
+    try:
+        tn = (trap_record or {}).get("name") or ""
+        on = (opening_record or {}).get("name") or ""
+        sp_id = (shape_pattern_record or {}).get("pattern_id") or ""
+        promotion_facts = {
+            # Move-level facts
+            "move_san": move_san,
+            "is_user": is_user,
+            "cp_loss": cp_loss or 0,
+            "best_move": best_move,
+            "best_move_differs": bool(best_move and best_move != move_san),
+            "caption_empty": not bool(caption_payload.get("caption")),
+
+            # Detector records (predicates use dotted access:
+            # trap_record.step_label, opening_record.name, etc.)
+            "trap_record": trap_record or {},
+            "opening_record": opening_record or {},
+
+            # Promotion-template facts
+            "trap_name": tn,
+            "trap_description": (trap_record or {}).get("description") or "",
+            "this_move_by_user": bool((trap_record or {}).get("this_move_by_user")),
+            "trap_name_slug": tn.lower().replace(" ", "_") if tn else "",
+            "trap_user_is_victim": bool((trap_record or {}).get("user_is_victim")),
+            "trap_next_expected_move": (trap_record or {}).get("next_expected_move") or "",
+            "trap_color": (trap_record or {}).get("trap_color") or "",
+
+            "opening_name": on,
+            "opening_summary": (opening_record or {}).get("summary") or "",
+            "opening_name_slug": on.lower().replace(" ", "_") if on else "",
+
+            "opening_intro_name": caption_facts.get("opening_intro_name"),
+            "opening_intro_idea": caption_facts.get("opening_intro_idea"),
+
+            "opening_theory_name": caption_facts.get("opening_theory_name"),
+            "opening_theory_variation": caption_facts.get("opening_theory_variation"),
+            "opening_theory_key_decision": caption_facts.get("opening_theory_key_decision"),
+            "opening_theory_match_quality": caption_facts.get("opening_theory_match_quality"),
+            "opening_theory_played_idea": caption_facts.get("opening_theory_played_idea"),
+            "opening_theory_played_why_good": caption_facts.get("opening_theory_played_why_good"),
+            "opening_theory_played_why_bad": caption_facts.get("opening_theory_played_why_bad"),
+            "opening_theory_played_consequence": caption_facts.get("opening_theory_played_consequence"),
+            "opening_theory_played_learning": caption_facts.get("opening_theory_played_learning"),
+            "opening_theory_top_move_san": caption_facts.get("opening_theory_top_move_san"),
+            "opening_theory_top_move_idea": caption_facts.get("opening_theory_top_move_idea"),
+
+            "shape_pattern_name": (shape_pattern_record or {}).get("pattern_name") or "",
+            "shape_pattern_desc": (shape_pattern_record or {}).get("pattern_desc") or "",
+            "shape_pattern_id": sp_id,
+
+            "principle_cue": principle_cue or "",
+            "principle_id_used": principle_id_used or "unknown",
+
+            "board_state_clause": caption_facts.get("board_state_clause"),
+
+            "blocked_pawn_file": caption_facts.get("blocked_pawn_file"),
+            "blocked_pawn_square": caption_facts.get("blocked_pawn_square"),
+            "blocked_pawn_would_support": caption_facts.get("blocked_pawn_would_support"),
+
+            "curriculum_deviation_clause": caption_facts.get("curriculum_deviation_clause"),
+            "curriculum_expected_move": caption_facts.get("curriculum_expected_move"),
+            "curriculum_opening_name": caption_facts.get("curriculum_opening_name"),
+
+            "user_is_winning": caption_facts.get("user_is_winning"),
+            "user_is_losing": caption_facts.get("user_is_losing"),
+        }
+        promoted_text, promoted_source = _dispatch_promotion(promotion_facts)
+        if promoted_text:
+            prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
+            caption_payload["caption"] = promoted_text
+            caption_payload["rule_name"] = f"{prev_rule}→{promoted_source}"
+    except Exception as _promote_exc:
+        logger.info(
+            f"[content_promotion] move {full_move_number} "
+            f"{move_san} failed: {_promote_exc}"
+        )
+
+
 def inject_practical_severity_facts(
     caption_facts: Dict[str, Any],
     practical: PracticalSeverity,

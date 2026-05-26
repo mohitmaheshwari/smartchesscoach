@@ -80,6 +80,7 @@ try:
         select_shape_pattern_record as _select_shape_pattern_record,
         inject_board_state_describer_clause as _inject_board_state_describer_clause,
         classify_caption_tier as _classify_caption_tier,
+        apply_promotion_ladder_dispatch as _apply_promotion_ladder_dispatch,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3851,116 +3852,23 @@ async def generate_game_decryption_v5(
             #     select_variant)
             # Python only builds the facts dict; dispatch_promotion does
             # everything else. See README.md in that directory.
-            try:
-                if _dispatch_promotion is not None:
-                    tn = (trap_record or {}).get("name") or ""
-                    on = (opening_record or {}).get("name") or ""
-                    sp_id = (shape_pattern_record or {}).get("pattern_id") or ""
-                    promotion_facts = {
-                        # Move-level facts
-                        "move_san": move_san,
-                        "is_user": is_user,
-                        "cp_loss": cp_loss or 0,
-                        "best_move": best_move,
-                        "best_move_differs": bool(best_move and best_move != move_san),
-                        "caption_empty": not bool(caption_payload.get("caption")),
-
-                        # Detector records (predicates use dotted access:
-                        # trap_record.step_label, opening_record.name, etc.)
-                        "trap_record": trap_record or {},
-                        "opening_record": opening_record or {},
-
-                        # Promotion-template facts
-                        "trap_name": tn,
-                        "trap_description": (trap_record or {}).get("description") or "",
-                        "this_move_by_user": bool((trap_record or {}).get("this_move_by_user")),
-                        "trap_name_slug": tn.lower().replace(" ", "_") if tn else "",
-                        # v89 — flat fields so str.format() in
-                        # R_PROMOTED_trap_setup variants can substitute
-                        # them. The `when` predicate engine supports
-                        # dotted access (trap_record.user_is_victim);
-                        # the template render layer doesn't.
-                        "trap_user_is_victim": bool((trap_record or {}).get("user_is_victim")),
-                        "trap_next_expected_move": (trap_record or {}).get("next_expected_move") or "",
-                        "trap_color": (trap_record or {}).get("trap_color") or "",
-
-                        "opening_name": on,
-                        "opening_summary": (opening_record or {}).get("summary") or "",
-                        "opening_name_slug": on.lower().replace(" ", "_") if on else "",
-
-                        # v74 (2026-05-23) — Mohit + Parth: opening-intro
-                        # facts. Used by R13_opening_central_pawn and
-                        # the new R_PROMOTED_opening_intro rule. Populated
-                        # in V5 per-move loop from get_opening_introduction.
-                        "opening_intro_name": caption_facts.get("opening_intro_name"),
-                        "opening_intro_idea": caption_facts.get("opening_intro_idea"),
-
-                        # v88 (2026-05-25) — opening_theory_tree facts.
-                        # Populated by services/opening_theory_lookup
-                        # when the post-move FEN matches a critical
-                        # position in the tree. R_PROMOTED_opening_intro
-                        # consumes these via its theory_* variants.
-                        "opening_theory_name": caption_facts.get("opening_theory_name"),
-                        "opening_theory_variation": caption_facts.get("opening_theory_variation"),
-                        "opening_theory_key_decision": caption_facts.get("opening_theory_key_decision"),
-                        "opening_theory_match_quality": caption_facts.get("opening_theory_match_quality"),
-                        "opening_theory_played_idea": caption_facts.get("opening_theory_played_idea"),
-                        "opening_theory_played_why_good": caption_facts.get("opening_theory_played_why_good"),
-                        "opening_theory_played_why_bad": caption_facts.get("opening_theory_played_why_bad"),
-                        "opening_theory_played_consequence": caption_facts.get("opening_theory_played_consequence"),
-                        "opening_theory_played_learning": caption_facts.get("opening_theory_played_learning"),
-                        "opening_theory_top_move_san": caption_facts.get("opening_theory_top_move_san"),
-                        "opening_theory_top_move_idea": caption_facts.get("opening_theory_top_move_idea"),
-
-                        "shape_pattern_name": (shape_pattern_record or {}).get("pattern_name") or "",
-                        "shape_pattern_desc": (shape_pattern_record or {}).get("pattern_desc") or "",
-                        "shape_pattern_id": sp_id,
-
-                        "principle_cue": principle_cue or "",
-                        "principle_id_used": principle_id_used or "unknown",
-
-                        # Board-state clause (Mohit 2026-05-21) —
-                        # universal coach-voice fallback. Threaded so
-                        # R_PROMOTED_basic_mistake can pick the
-                        # board-state variant when this is present
-                        # (replaces the engine-speak "X was better."
-                        # default with a real why-clause).
-                        "board_state_clause": caption_facts.get("board_state_clause"),
-
-                        # Blocked-own-pawn principle (Mohit 2026-05-21).
-                        # Threaded so R_PROMOTED_basic_mistake can pick
-                        # the named-principle variant when the user
-                        # played a piece move to a square the engine's
-                        # best (a pawn) wanted to occupy.
-                        "blocked_pawn_file": caption_facts.get("blocked_pawn_file"),
-                        "blocked_pawn_square": caption_facts.get("blocked_pawn_square"),
-                        "blocked_pawn_would_support": caption_facts.get("blocked_pawn_would_support"),
-
-                        # Curriculum deviation (Mohit 2026-05-21). When
-                        # user is in a curated opening tree and played
-                        # a move ≠ the tree's expected next, surface
-                        # the tree's hand-authored wrong_feedback.
-                        "curriculum_deviation_clause": caption_facts.get("curriculum_deviation_clause"),
-                        "curriculum_expected_move": caption_facts.get("curriculum_expected_move"),
-                        "curriculum_opening_name": caption_facts.get("curriculum_opening_name"),
-
-                        # Position-eval flags (Mohit 2026-05-21) —
-                        # reframe low-cp_loss captions into
-                        # encouragement / context when user is
-                        # decisively winning or losing.
-                        "user_is_winning": caption_facts.get("user_is_winning"),
-                        "user_is_losing": caption_facts.get("user_is_losing"),
-                    }
-                    promoted_text, promoted_source = _dispatch_promotion(promotion_facts)
-                    if promoted_text:
-                        prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
-                        caption_payload["caption"] = promoted_text
-                        caption_payload["rule_name"] = f"{prev_rule}→{promoted_source}"
-            except Exception as _promote_exc:
-                logger.info(
-                    f"[content_promotion] move {full_move_number} "
-                    f"{move_san} failed: {_promote_exc}"
-                )
+            # v100 A9 (auto-propagation): promotion ladder dispatch
+            # extracted to caption_pipeline. Same JSON-driven priority
+            # ladder, same per-rule variants, same severity tiers.
+            _apply_promotion_ladder_dispatch(
+                caption_payload=caption_payload,
+                caption_facts=caption_facts,
+                trap_record=trap_record,
+                opening_record=opening_record,
+                shape_pattern_record=shape_pattern_record,
+                move_san=move_san,
+                is_user=bool(is_user),
+                cp_loss=int(cp_loss or 0),
+                best_move=best_move,
+                principle_cue=principle_cue or "",
+                principle_id_used=principle_id_used,
+                full_move_number=full_move_number,
+            )
 
             # v72 (2026-05-23) — P2 detector memory: collect pattern-
             # miss events. Captures user mistakes where a known catalog
