@@ -364,6 +364,33 @@ def compute_severity_for_move(
     )
 
 
+def inject_practical_severity_facts(
+    caption_facts: Dict[str, Any],
+    practical: PracticalSeverity,
+) -> None:
+    """Stamp the six practical-severity fields into caption_facts.
+
+    Mirrors the v99 wiring (game_decryption_v5_service.py lines
+    3336-3341): the JSON predicate engine (R12_blunder.json
+    severity_tiers, select_variant rules) reads these from
+    caption_facts. Without injection the v96-v99 tone-softening is
+    dead code.
+
+    PWC currently doesn't do this injection — live_v5_teaching
+    skips the V5 wiring layer. When the pipeline is fully extracted
+    and PWC calls compute_caption_facts(), this helper guarantees
+    R12 + R_PROMOTED softening reach live coaching too.
+
+    MUTATES caption_facts in place. No return.
+    """
+    caption_facts["severity_practical"] = practical.practical_tier
+    caption_facts["severity_canonical"] = practical.canonical_tier
+    caption_facts["mover_state_before"] = practical.state_before
+    caption_facts["mover_state_after"] = practical.state_after
+    caption_facts["stayed_winning"] = practical.stayed_winning
+    caption_facts["decisiveness_changed"] = practical.decisiveness_changed
+
+
 # ────────────────────────────────────────────────────────────────────
 # PIPELINE ENTRY POINT
 # ────────────────────────────────────────────────────────────────────

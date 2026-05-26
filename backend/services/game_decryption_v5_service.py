@@ -71,6 +71,7 @@ try:
     )
     from services.caption_pipeline import (
         compute_severity_for_move as _compute_severity_for_move,
+        inject_practical_severity_facts as _inject_practical_severity_facts,
     )
 except Exception as _caption_import_exc:  # pragma: no cover — defensive
     _extract_caption_facts = None
@@ -3333,12 +3334,7 @@ async def generate_game_decryption_v5(
                     # NEVER consulted by the caption renderer — the
                     # "softening" is dead code from the caption layer's
                     # perspective.
-                    caption_facts["severity_practical"] = _practical.practical_tier
-                    caption_facts["severity_canonical"] = _practical.canonical_tier
-                    caption_facts["mover_state_before"] = _practical.state_before
-                    caption_facts["mover_state_after"] = _practical.state_after
-                    caption_facts["stayed_winning"] = _practical.stayed_winning
-                    caption_facts["decisiveness_changed"] = _practical.decisiveness_changed
+                    _inject_practical_severity_facts(caption_facts, _practical)
 
                     # v76 (2026-05-23) — Mohit + Parth: opp-move
                     # narration. The R12_blunder.json why_clauses_opp
