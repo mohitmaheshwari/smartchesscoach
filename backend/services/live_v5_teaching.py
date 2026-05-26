@@ -479,6 +479,34 @@ def v5_teaching_decision_for_live_move(
             f"[live_v5_teaching] opening context inject crashed for {played_san}"
         )
 
+    # v100 A5 (auto-propagation): trap recognition state machine.
+    # PWC doesn't persist trap-tracking state on coach_sessions yet
+    # (active_trap, setup_completed, step_cursor would need to live
+    # there). For now we call with state=None each time — meaning
+    # ONLY a fresh trap setup that completes ENTIRELY in the move
+    # history we pass will fire. Continuation steps won't track
+    # across moves until state persistence is added. The trap_record
+    # return value is currently dropped (V5 service uses it for
+    # content promotion; PWC would need wiring through to
+    # caption_facts.trap_context_* via A2's helper).
+    try:
+        from services.caption_pipeline import update_trap_recognition_state
+        _trap_played_so_far = list(move_history_san or []) + [played_san]
+        update_trap_recognition_state(
+            played_san_so_far=_trap_played_so_far,
+            move_san=played_san,
+            is_user=bool(mover_is_user),
+            user_color=(user_doc.get("color_played") or "white"),
+            full_move_number=full_move_number,
+            active_trap=None,
+            active_trap_setup_completed_by_user=False,
+            active_trap_step_cursor=0,
+        )
+    except Exception:
+        logger.exception(
+            f"[live_v5_teaching] trap recognition crashed for {played_san}"
+        )
+
     # v100 A3 (auto-propagation): opp-side narration block. PWC
     # currently gates only USER moves (mover_is_user=True), so the
     # function's `not is_user` gate is closed by definition here —
