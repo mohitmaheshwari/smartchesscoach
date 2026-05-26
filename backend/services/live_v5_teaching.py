@@ -268,6 +268,36 @@ def _is_user_flag_enabled(user_doc: Dict[str, Any], session_doc: Dict[str, Any])
     return bool(flag.get("enabled"))
 
 
+def is_pwc_coach_central_layer_enabled(
+    user_doc: Optional[Dict[str, Any]],
+    session_doc: Optional[Dict[str, Any]],
+) -> bool:
+    """PR-4 (2026-05-26): authoritative-source flag for PWC coach-move
+    narration. When True, routes/coach_play.py uses the central-layer
+    coach_move_narration_for_live_move output as the response payload
+    instead of smart_coaching.generate_smart_coach_explanation. Smart_
+    coaching becomes the safety fallback only.
+
+    Per [[one-source-of-truth-for-coaching]] — eventually the flag is
+    flipped on globally, smart_coaching is deleted (PR-5), and this
+    helper goes away.
+
+    Priority (mirrors _is_user_flag_enabled):
+      1. session feature_overrides.pwc_coach_central_layer (if set, wins)
+      2. user feature_flags.pwc_coach_central_layer.enabled
+      3. default: False (smart_coaching primary during rollout)
+    """
+    if not session_doc:
+        session_doc = {}
+    if not user_doc:
+        user_doc = {}
+    override = (session_doc.get("feature_overrides") or {}).get("pwc_coach_central_layer")
+    if override is not None:
+        return bool(override)
+    flag = (user_doc.get("feature_flags") or {}).get("pwc_coach_central_layer") or {}
+    return bool(flag.get("enabled"))
+
+
 def _passes_suppression(
     principle_id: str,
     state_key: Optional[Tuple],

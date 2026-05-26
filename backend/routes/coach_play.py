@@ -3047,14 +3047,28 @@ async def get_interactive_coaching(
 
             coach_explanation = None
 
-            # ─── Central-layer coach-narration (double-write, 2026-05-26) ───
-            # Per Mohit: "the coach move should also come from the
-            # central layer, i can't afford to have 2 sources" — see
-            # memory/feedback_one_source_of_truth. In PR-3 we compute the
-            # central-layer output in parallel with smart_coaching (for
-            # comparison logging) but smart_coaching stays primary. PR-4
-            # flips the source of truth via the pwc_coach_central_layer
-            # feature flag. PR-5 deletes smart_coaching entirely.
+            # ─── Feature flag: pwc_coach_central_layer (PR-4, 2026-05-26) ──
+            # When ON: central layer is authoritative; smart_coaching becomes
+            #          the safety fallback if central returns None.
+            # When OFF (default during rollout): smart_coaching stays
+            #          primary; central layer still runs in parallel for
+            #          comparison logging (PR-3 double-write semantics).
+            # Per Mohit: "the coach move should also come from the central
+            # layer, i can't afford to have 2 sources" —
+            # memory/feedback_one_source_of_truth.
+            try:
+                from services.live_v5_teaching import is_pwc_coach_central_layer_enabled
+                _coach_user_doc = await db.users.find_one(
+                    {"user_id": session_doc.get("user_id")}
+                ) or {}
+                _central_layer_authoritative = is_pwc_coach_central_layer_enabled(
+                    _coach_user_doc, session_doc,
+                )
+            except Exception:
+                _coach_user_doc = {}
+                _central_layer_authoritative = False
+
+            # ─── Central-layer coach-narration ───
             central_layer_explanation = None
             try:
                 from services.live_v5_teaching import coach_move_narration_for_live_move
@@ -3066,7 +3080,7 @@ async def get_interactive_coaching(
                     move_history_san=_mhist_san_central,
                     full_move_number=board.fullmove_number,
                     v2_context=v2_ctx,
-                    user_doc=user_doc if "user_doc" in dir() else None,
+                    user_doc=_coach_user_doc,
                     session_doc=session_doc,
                 )
                 if central_layer_explanation:
@@ -3074,7 +3088,8 @@ async def get_interactive_coaching(
                         f"[COACH-EXPLAIN-CENTRAL] Central layer produced output for "
                         f"{last_coach_move.get('move')}: "
                         f"explanation={central_layer_explanation.get('explanation', '')[:60]!r}, "
-                        f"intent={central_layer_explanation.get('v2_intent')!r}"
+                        f"intent={central_layer_explanation.get('v2_intent')!r}, "
+                        f"authoritative={_central_layer_authoritative}"
                     )
                 else:
                     logger.info(
@@ -3083,43 +3098,55 @@ async def get_interactive_coaching(
                     )
             except Exception as central_err:
                 logger.warning(
-                    f"[COACH-EXPLAIN-CENTRAL] Central-layer call failed (non-fatal during "
-                    f"double-write phase): {central_err}",
+                    f"[COACH-EXPLAIN-CENTRAL] Central-layer call failed (non-fatal): "
+                    f"{central_err}",
                     exc_info=False,
                 )
 
-            # ─── Legacy LLM path (still primary in PR-3) ───
-            try:
-                logger.info(f"[COACH-EXPLAIN] Attempting smart coaching for {last_coach_move.get('move')}")
-                from services.smart_coaching import generate_smart_coach_explanation
-                # Get player weaknesses for context
-                _player_weaknesses = []
-                try:
-                    _pp = await db.player_profiles.find_one(
-                        {"user_id": user_id}, {"top_weaknesses": 1, "_id": 0})
-                    if _pp:
-                        _player_weaknesses = [w.get("subcategory", w.get("category", ""))
-                                              for w in _pp.get("top_weaknesses", [])[:3]]
-                except Exception:
-                    pass
-
-                _opening = session_doc.get("detected_opening") or session_doc.get("opening_to_teach")
-
-                coach_explanation = await generate_smart_coach_explanation(
-                    board_before=board,
-                    move=move,
-                    user_color=user_color,
-                    v2_context=v2_ctx,
-                    player_weaknesses=_player_weaknesses,
-                    user_rating=session_doc.get("user_rating", 1200),
-                    opening_name=_opening,
-                    db=db,
-                    move_history=move_history,
+            # ─── Source selection ───
+            if _central_layer_authoritative and central_layer_explanation:
+                # Flag is on AND central layer produced output: use it.
+                coach_explanation = central_layer_explanation
+                logger.info(
+                    f"[COACH-EXPLAIN] Using CENTRAL LAYER as source of truth for "
+                    f"{last_coach_move.get('move')}"
                 )
-            except Exception as llm_err:
-                logger.error(f"[COACH-EXPLAIN] Smart coaching FAILED: {llm_err}", exc_info=True)
+            else:
+                # Flag off, or central layer skipped: smart_coaching primary.
+                try:
+                    logger.info(f"[COACH-EXPLAIN] Attempting smart coaching for {last_coach_move.get('move')}")
+                    from services.smart_coaching import generate_smart_coach_explanation
+                    # Get player weaknesses for context
+                    _player_weaknesses = []
+                    try:
+                        _pp = await db.player_profiles.find_one(
+                            {"user_id": user_id}, {"top_weaknesses": 1, "_id": 0})
+                        if _pp:
+                            _player_weaknesses = [w.get("subcategory", w.get("category", ""))
+                                                  for w in _pp.get("top_weaknesses", [])[:3]]
+                    except Exception:
+                        pass
 
-            # Fallback to template-based explanation
+                    _opening = session_doc.get("detected_opening") or session_doc.get("opening_to_teach")
+
+                    coach_explanation = await generate_smart_coach_explanation(
+                        board_before=board,
+                        move=move,
+                        user_color=user_color,
+                        v2_context=v2_ctx,
+                        player_weaknesses=_player_weaknesses,
+                        user_rating=session_doc.get("user_rating", 1200),
+                        opening_name=_opening,
+                        db=db,
+                        move_history=move_history,
+                    )
+                except Exception as llm_err:
+                    logger.error(f"[COACH-EXPLAIN] Smart coaching FAILED: {llm_err}", exc_info=True)
+
+            # Fallback to template-based explanation when both sources empty.
+            # (Central layer skipped + smart_coaching failed, or flag on + central
+            # returned None.) shared_coaching_v5.generate_coach_move_explanation
+            # is the deterministic last-resort.
             if not coach_explanation:
                 coach_explanation = generate_coach_move_explanation(
                     board, move, user_color, v2_context=v2_ctx
