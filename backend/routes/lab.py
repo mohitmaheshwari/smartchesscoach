@@ -1081,66 +1081,73 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
     coaching_context = get_personalized_coaching_context(user_rating, games_played)
     player_level = PlayerLevel(coaching_context["level"])
     
-    # If we have critical moments, use LLM to generate human-readable explanations
-    if critical_moments and len(critical_moments) > 0 and call_llm:
+    # PR-8 (Mohit 2026-05-27, "all of them, in priority order"):
+    # replaced LLM call with deterministic composition per
+    # [[one-source-of-truth-for-coaching]]. The insight facts
+    # (position_type, what_best_move_achieves) are already
+    # deterministic from upstream analyzers. We just compose the
+    # one-paragraph explanation from those facts + player profile,
+    # without LLM hallucination risk.
+    if critical_moments and len(critical_moments) > 0:
         try:
-            # Use LLM with UNDERSTANDING-BASED voice, not just rating-based
             top_moment = critical_moments[0]
-            
-            # Build personalized prompt based on multi-dimensional understanding
-            understanding_summary = f"""
-PLAYER PROFILE:
-- Overall: {chess_understanding.overall_understanding}
-- Tactical Vision: {chess_understanding.tactical_vision.level.value} (score: {chess_understanding.tactical_vision.score:.0f}/100)
-- Positional Sense: {chess_understanding.positional_sense.level.value} (score: {chess_understanding.positional_sense.score:.0f}/100)
-- Consistency: {chess_understanding.consistency.level.value} (score: {chess_understanding.consistency.score:.0f}/100)
-- Primary Strength: {chess_understanding.primary_strength}
-- Primary Weakness: {chess_understanding.primary_weakness}
-- Coaching Focus: {chess_understanding.coaching_focus}
-"""
-            
-            # Get language style based on understanding
-            language_style = understanding_context.get("language", {})
-            analysis_style = understanding_context.get("analysis_style", {})
-            
-            voice_prefix = CoachVoice.get_prompt_prefix(player_level)
-            
-            prompt = f"""{voice_prefix}
+            insight = top_moment.get("insight") or {}
+            position_type = insight.get("position_type", "")
+            what_best = insight.get("what_best_move_achieves", "")
 
-{understanding_summary}
+            best_move = top_moment.get("best_move", "")
+            user_move = top_moment.get("your_move", "")
+            cp_loss = top_moment.get("cp_loss", 0)
 
-COACHING STYLE FOR THIS PLAYER:
-- Tactical advice style: {language_style.get('tactical_advice', '')}
-- Focus reminder: {language_style.get('focus_reminder', '')}
-- Use jargon: {analysis_style.get('use_jargon', True)}
-- Explain concepts: {analysis_style.get('explain_concepts', True)}
+            # Lead sentence — name the specific moves involved
+            # (no chess claim invented; both SANs come from analysis).
+            sentences = []
+            if best_move and user_move and best_move != user_move:
+                sentences.append(
+                    f"You played {user_move}; the engine's pick was {best_move}."
+                )
+            elif user_move:
+                sentences.append(f"You played {user_move}.")
 
-You are explaining a mistake to this specific student.
-Be specific about THIS position, not generic advice.
+            # Second sentence — what the best move achieves (from
+            # deterministic insight). Skip when not available.
+            if what_best:
+                sentences.append(f"{best_move or 'The engine'} {what_best.rstrip('.')}.")
 
-POSITION (FEN): {top_moment['fen']}
-THE STUDENT PLAYED: {top_moment['your_move']}
-THE BEST MOVE WAS: {top_moment['best_move']}
-CONTINUATION AFTER BEST: {' '.join(top_moment.get('pv_after_best', []))}
-EVALUATION LOSS: {top_moment['cp_loss']} centipawns
+            # Third sentence — weakness-aware hint, only when we
+            # have a primary weakness from chess_understanding.
+            primary_weakness = (
+                getattr(chess_understanding, "primary_weakness", "") or ""
+            ).strip()
+            if primary_weakness:
+                # Map weakness category to a concrete habit-prompt
+                # (deterministic table, no LLM).
+                weakness_lower = primary_weakness.lower()
+                habit_map = {
+                    "tactical": "Before each move, scan for checks, captures, and threats — for both sides.",
+                    "positional": "Look at piece activity: which side has more pieces aimed at central / important squares?",
+                    "endgame": "Activate your king and push passed pawns when the position is safe.",
+                    "calculation": "When the position has forcing moves, calculate at least two moves deep.",
+                    "consistency": "Don't relax after the position simplifies — even quiet positions need accurate moves.",
+                    "opening": "Develop minor pieces, control the centre, and castle within the first 10 moves.",
+                }
+                habit = None
+                for key, val in habit_map.items():
+                    if key in weakness_lower:
+                        habit = val
+                        break
+                if not habit:
+                    habit = (
+                        "Build the habit of pausing before every move to ask: "
+                        "what changed after the opponent moved?"
+                    )
+                sentences.append(habit)
 
-Analysis found:
-- Position type: {top_moment['insight'].get('position_type', '')}
-- What best move achieves: {top_moment['insight'].get('what_best_move_achieves', '')}
-
-Write a 2-3 sentence explanation that:
-1. Names the specific pieces and squares involved
-2. Explains what the student missed in THIS position
-3. If their {chess_understanding.primary_weakness.lower()} is weak, relate to that
-4. Adapt complexity to their understanding level
-
-Be direct and specific to THIS position.
-"""
-            llm_explanation = await call_llm(prompt)
-            if llm_explanation:
-                critical_moments[0]["coach_explanation"] = llm_explanation
+            coach_explanation = " ".join(s for s in sentences if s)
+            if coach_explanation:
+                critical_moments[0]["coach_explanation"] = coach_explanation
         except Exception as e:
-            logger.error(f"Error generating LLM explanation: {e}")
+            logger.error(f"Error composing critical-moment explanation: {e}")
     
     # Analyze opening performance for this specific game
     opening_performance = analyze_opening_performance(move_evaluations, user_color)
