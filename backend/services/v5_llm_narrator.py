@@ -141,11 +141,66 @@ async def generate_concise_narrative(
             logger.debug(f"LLM narrator output too long ({len(words)} words) — using fallback")
             return _generate_fallback_narrative(move_san, plan_data, severity)
 
+        # PR-10 (Mohit 2026-05-27): controlled-narrator verifier.
+        # Mirror v5_llm_polish._verify_no_new_chess — the narrator is
+        # ALSO an LLM-as-copywriter surface, so it must obey the same
+        # grounding constraint: every chess token (SAN move / square /
+        # piece) in the output must already appear in the input
+        # (move_san + plan_data problem/better strings). Without this,
+        # the narrator could invent a fork/pin/square that isn't real.
+        # Per [[one-source-of-truth-for-coaching]] +
+        # [[llm-as-controlled-narrator]]. Falls back to the deterministic
+        # narrative on any ungrounded chess noun.
+        if not _verify_narrative_grounded(narrative, move_san, problem, better):
+            logger.info(
+                "[narrator] reject: ungrounded chess token in LLM output — "
+                "falling back to deterministic narrative"
+            )
+            return _generate_fallback_narrative(move_san, plan_data, severity)
+
         return narrative
 
     except Exception as e:
         logger.error(f"LLM narrator error: {e}")
         return _generate_fallback_narrative(move_san, plan_data, severity)
+
+
+def _verify_narrative_grounded(
+    narrative: str, move_san: str, problem: str, better: str
+) -> bool:
+    """Reject the LLM narrative if it mentions a chess move / square /
+    piece not present in the grounded input (move_san + plan problem +
+    plan better). Returns True when safe to use.
+
+    Reuses v5_llm_polish._collect_chess_tokens so the token-extraction
+    rules stay identical across both controlled-narrator surfaces.
+    """
+    try:
+        from services.v5_llm_polish import _collect_chess_tokens
+    except Exception:
+        # If the shared extractor isn't importable, fail safe: accept
+        # only when narrative adds no obviously-new SAN/square. Without
+        # the extractor we can't verify, so be conservative and reject
+        # (caller falls back to the deterministic narrative).
+        return False
+
+    whitelist_text = " ".join([move_san or "", problem or "", better or ""])
+    allowed = _collect_chess_tokens(whitelist_text)
+    out = _collect_chess_tokens(narrative)
+
+    for san in out["san"]:
+        if san in allowed["san"]:
+            continue
+        if san.lower() in allowed["squares"]:
+            continue
+        return False
+    for sq in out["squares"]:
+        if sq not in allowed["squares"]:
+            return False
+    for piece in out["pieces"]:
+        if piece not in allowed["pieces"]:
+            return False
+    return True
 
 
 async def generate_opponent_narrative(
