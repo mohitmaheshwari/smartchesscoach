@@ -53,6 +53,7 @@ sys.path.insert(0, "/app/backend")
 from services.live_v5_teaching import (
     v5_teaching_decision_for_live_move,
     coach_move_narration_for_live_move,
+    socratic_feedback_for_live_move,
 )
 
 
@@ -259,6 +260,114 @@ PWC_COACH_CORPUS: List[Dict[str, Any]] = [
 ]
 
 
+# ─── Socratic user-mistake corpus (PR-6, 2026-05-27) ──────────────
+# Scenarios that exercise socratic_feedback_for_live_move — the
+# central-layer entry point that produces the structured
+# socratic_question / socratic_hint / narrative / focus_plan payload
+# replacing smart_coaching.generate_smart_user_feedback. Per
+# [[one-source-of-truth-for-coaching]].
+PWC_SOCRATIC_CORPUS: List[Dict[str, Any]] = [
+    {
+        "scenario_id": "S01_mistake_calculate_renders",
+        "comment": "Real mistake with calculate fundamental fires mistake_calculate variant.",
+        "fen_before": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1",
+        "played_san": "Nxe5",
+        "user_color": "white",
+        "move_history_san": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6"],
+        "severity": "mistake",
+        "fundamental_violated": "calculate",
+        "coach_intent": None,
+        "phase": "middlegame",
+        "cp_loss": 150,
+        "user_rating": 1200,
+    },
+    {
+        "scenario_id": "S02_blunder_hanging_pieces",
+        "comment": "Blunder with hanging_pieces fundamental fires blunder_hanging variant.",
+        "fen_before": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1",
+        "played_san": "Nxe5",
+        "user_color": "white",
+        "move_history_san": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6"],
+        "severity": "blunder",
+        "fundamental_violated": "hanging_pieces",
+        "coach_intent": None,
+        "phase": "middlegame",
+        "cp_loss": 400,
+        "user_rating": 1200,
+    },
+    {
+        "scenario_id": "S03_gate_a_cp_loss_under_80_suppresses",
+        "comment": "Gate A: cp_loss<80 suppresses Socratic narration — Parth bugs class.",
+        "fen_before": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1",
+        "played_san": "Nxe5",
+        "user_color": "white",
+        "move_history_san": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6"],
+        "severity": "mistake",
+        "fundamental_violated": "calculate",
+        "coach_intent": None,
+        "phase": "middlegame",
+        "cp_loss": 50,
+        "user_rating": 1200,
+    },
+    {
+        "scenario_id": "S04_severity_inaccuracy_skipped",
+        "comment": "severity='inaccuracy' is below the mistake/blunder gate — no output.",
+        "fen_before": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1",
+        "played_san": "Nxe5",
+        "user_color": "white",
+        "move_history_san": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6"],
+        "severity": "inaccuracy",
+        "fundamental_violated": None,
+        "coach_intent": None,
+        "phase": "middlegame",
+        "cp_loss": 60,
+        "user_rating": 1200,
+    },
+    {
+        "scenario_id": "S05_mistake_generic_fallback",
+        "comment": "Mistake with no fundamental fires mistake_generic terminal variant.",
+        "fen_before": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1",
+        "played_san": "Nxe5",
+        "user_color": "white",
+        "move_history_san": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6"],
+        "severity": "mistake",
+        "fundamental_violated": None,
+        "coach_intent": None,
+        "phase": "middlegame",
+        "cp_loss": 130,
+        "user_rating": 1200,
+    },
+    {
+        "scenario_id": "S06_blunder_calculate",
+        "comment": "Blunder with calculate fundamental fires blunder_calculate.",
+        "fen_before": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1",
+        "played_san": "Nxe5",
+        "user_color": "white",
+        "move_history_san": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6"],
+        "severity": "blunder",
+        "fundamental_violated": "calculate",
+        "coach_intent": None,
+        "phase": "middlegame",
+        "cp_loss": 350,
+        "user_rating": 1200,
+    },
+    {
+        "scenario_id": "S07_mistake_development",
+        "comment": "Mistake with development fundamental fires mistake_development.",
+        "fen_before": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1",
+        "played_san": "Ke2",
+        "user_color": "white",
+        "move_history_san": ["e4", "e5"],
+        "severity": "mistake",
+        "fundamental_violated": "development",
+        "coach_intent": None,
+        "phase": "opening",
+        "cp_loss": 120,
+        "user_rating": 1200,
+    },
+]
+
+
 def _hash_text(text: Optional[str]) -> str:
     """Stable 8-char hex hash of caption text. None → 'none'."""
     if not text:
@@ -338,6 +447,45 @@ def _snapshot_scenario(entry: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _snapshot_socratic_scenario(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Run one PWC_SOCRATIC_CORPUS entry through socratic_feedback_for_
+    live_move and capture the regression-relevant fields."""
+    try:
+        result = socratic_feedback_for_live_move(
+            fen_before=entry["fen_before"],
+            played_san=entry["played_san"],
+            user_color=entry.get("user_color", "white"),
+            severity=entry["severity"],
+            fundamental_violated=entry.get("fundamental_violated"),
+            coach_intent=entry.get("coach_intent"),
+            phase=entry.get("phase", "middlegame"),
+            cp_loss=entry.get("cp_loss", 0),
+            user_rating=entry.get("user_rating", 1200),
+            move_history_san=entry.get("move_history_san") or [],
+        )
+    except Exception as e:
+        return {
+            "scenario_id": entry["scenario_id"],
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+    if result is None:
+        return {
+            "scenario_id": entry["scenario_id"],
+            "produced": False,
+        }
+
+    return {
+        "scenario_id": entry["scenario_id"],
+        "produced": True,
+        # Hash narrative strings — diff-resilient to cosmetic edits.
+        "narrative_hash": _hash_text(result.get("narrative")),
+        "plan_hash": _hash_text(result.get("plan")),
+        "question_hash": _hash_text(result.get("question")),
+        "hint_hash": _hash_text(result.get("hint")),
+    }
+
+
 def _snapshot_coach_scenario(entry: Dict[str, Any]) -> Dict[str, Any]:
     """Run one PWC_COACH_CORPUS entry through coach_move_narration_for_
     live_move and capture the regression-relevant fields. Different
@@ -398,6 +546,14 @@ def _capture(tag: str, output_dir: Path) -> int:
     coach_skipped = sum(1 for r in coach_rows if r.get("produced") is False)
     coach_errors = sum(1 for r in coach_rows if "error" in r)
 
+    # PR-6 (2026-05-27): user-mistake Socratic corpus — third entry
+    # point in the snapshot file. Per [[one-source-of-truth-for-coaching]].
+    socratic_rows = [_snapshot_socratic_scenario(e) for e in PWC_SOCRATIC_CORPUS]
+    socratic_rows.sort(key=lambda r: r.get("scenario_id", ""))
+    socratic_produced = sum(1 for r in socratic_rows if r.get("produced"))
+    socratic_skipped = sum(1 for r in socratic_rows if r.get("produced") is False)
+    socratic_errors = sum(1 for r in socratic_rows if "error" in r)
+
     payload = {
         "tag": tag,
         "n_scenarios": len(PWC_CORPUS),
@@ -410,6 +566,11 @@ def _capture(tag: str, output_dir: Path) -> int:
         "coach_skipped": coach_skipped,
         "coach_errors": coach_errors,
         "coach_rows": coach_rows,
+        "n_socratic_scenarios": len(PWC_SOCRATIC_CORPUS),
+        "socratic_produced": socratic_produced,
+        "socratic_skipped": socratic_skipped,
+        "socratic_errors": socratic_errors,
+        "socratic_rows": socratic_rows,
     }
     out_path = output_dir / f"pwc_{tag}.json"
     with open(out_path, "w", encoding="utf-8") as f:
@@ -420,6 +581,8 @@ def _capture(tag: str, output_dir: Path) -> int:
           f"suppressed: {suppressed}  errors: {errors}")
     print(f"  coach scenarios: {len(PWC_COACH_CORPUS)}  produced: {coach_produced}  "
           f"skipped: {coach_skipped}  errors: {coach_errors}")
+    print(f"  socratic scenarios: {len(PWC_SOCRATIC_CORPUS)}  produced: {socratic_produced}  "
+          f"skipped: {socratic_skipped}  errors: {socratic_errors}")
     return 0
 
 
@@ -445,11 +608,17 @@ def _diff(tag_a: str, tag_b: str, output_dir: Path) -> int:
     print(f"  coach produced:  A={a.get('coach_produced', '-')}  B={b.get('coach_produced', '-')}")
     print(f"  coach skipped:   A={a.get('coach_skipped', '-')}  B={b.get('coach_skipped', '-')}")
     print(f"  coach errors:    A={a.get('coach_errors', '-')}  B={b.get('coach_errors', '-')}")
+    # PR-6: socratic corpus aggregates.
+    print(f"  socratic produced: A={a.get('socratic_produced', '-')}  B={b.get('socratic_produced', '-')}")
+    print(f"  socratic skipped:  A={a.get('socratic_skipped', '-')}  B={b.get('socratic_skipped', '-')}")
+    print(f"  socratic errors:   A={a.get('socratic_errors', '-')}  B={b.get('socratic_errors', '-')}")
 
     map_a = {r["scenario_id"]: r for r in a.get("rows", [])}
     map_b = {r["scenario_id"]: r for r in b.get("rows", [])}
     coach_map_a = {r["scenario_id"]: r for r in a.get("coach_rows", [])}
     coach_map_b = {r["scenario_id"]: r for r in b.get("coach_rows", [])}
+    socratic_map_a = {r["scenario_id"]: r for r in a.get("socratic_rows", [])}
+    socratic_map_b = {r["scenario_id"]: r for r in b.get("socratic_rows", [])}
 
     n_diff = 0
     samples: List[str] = []
@@ -475,10 +644,12 @@ def _diff(tag_a: str, tag_b: str, output_dir: Path) -> int:
 
     user_diffs = _walk(map_a, map_b, "user")
     coach_diffs = _walk(coach_map_a, coach_map_b, "coach")
+    socratic_diffs = _walk(socratic_map_a, socratic_map_b, "socratic")
 
     print(f"=== per-scenario ===")
-    print(f"  user scenarios:  {len(set(map_a) | set(map_b))}  with diffs: {user_diffs}")
-    print(f"  coach scenarios: {len(set(coach_map_a) | set(coach_map_b))}  with diffs: {coach_diffs}")
+    print(f"  user scenarios:     {len(set(map_a) | set(map_b))}  with diffs: {user_diffs}")
+    print(f"  coach scenarios:    {len(set(coach_map_a) | set(coach_map_b))}  with diffs: {coach_diffs}")
+    print(f"  socratic scenarios: {len(set(socratic_map_a) | set(socratic_map_b))}  with diffs: {socratic_diffs}")
 
     if n_diff == 0:
         print("CLEAN — no PWC regressions detected.")

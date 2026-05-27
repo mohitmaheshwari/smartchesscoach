@@ -1221,3 +1221,129 @@ def coach_move_narration_for_live_move(
         "v2_intent": extras.v2_intent,
         "v2_label": extras.v2_label,
     }
+
+
+# ────────────────────────────────────────────────────────────────────
+# User-mistake Socratic narration via central layer (PR-6, 2026-05-27).
+# Migration off smart_coaching.generate_smart_user_feedback. Mirrors
+# the coach_move_narration_for_live_move pattern. Per
+# [[one-source-of-truth-for-coaching]].
+# ────────────────────────────────────────────────────────────────────
+
+
+def socratic_feedback_for_live_move(
+    *,
+    fen_before: str,
+    played_san: str,
+    user_color: str,
+    severity: str,
+    fundamental_violated: Optional[str],
+    coach_intent: Optional[str],
+    phase: str,
+    cp_loss: int,
+    user_rating: int,
+    pv_after_played: Optional[List[str]] = None,
+    move_history_san: Optional[List[str]] = None,
+    best_move_san: Optional[str] = None,
+    eval_before_cp: Optional[int] = None,
+    eval_after_cp: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    """Produce the structured Socratic user-feedback payload
+    deterministically via the central caption pipeline. Replacement
+    for smart_coaching.generate_smart_user_feedback per Mohit
+    2026-05-27 ("use same direction").
+
+    Returns a dict in the shape PWC's coach_play route consumes today
+    (routes/coach_play.py:2734-2762):
+        {
+            "narrative": str,
+            "plan": str,
+            "question": str,
+            "hint": str,
+        }
+
+    Returns None when:
+      - severity is not "mistake" / "blunder"
+      - input validation fails (bad FEN / SAN)
+      - any of the three suppression gates fires (cp_loss<80,
+        user-addresses-threat, known opening theory). This matches
+        smart_coaching's "return None" behaviour exactly so callers
+        treat the absence of feedback identically.
+
+    NOT gated by any feature flag — this is the always-on
+    user-mistake narration surface. PR-6D will introduce
+    pwc_socratic_central_layer flag for staged rollout, and PR-6E
+    deletes smart_coaching and the flag together.
+    """
+    if not played_san or not fen_before:
+        return None
+    if severity not in ("mistake", "blunder"):
+        return None
+
+    try:
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+    except Exception as exc:
+        logger.warning(f"[socratic_narration] caption_pipeline import failed: {exc}")
+        return None
+
+    user_color_norm = (user_color or "white").lower()
+    user_is_white = user_color_norm == "white"
+    # User played the move; mover_is_user=True. mover_is_white follows.
+    mover_is_white = user_is_white
+
+    socratic_ctx = {
+        "severity": severity,
+        "fundamental_violated": fundamental_violated,
+        "coach_intent": coach_intent,
+        "phase": phase,
+    }
+
+    try:
+        inputs = MoveInputs(
+            fen_before=fen_before,
+            played_san=played_san,
+            mover_is_user=True,
+            mover_is_white=mover_is_white,
+            user_color=user_color_norm,
+            full_move_number=1,  # not used by socratic path
+            move_history_san=list(move_history_san or []),
+            prev_move_san=(move_history_san[-1] if move_history_san else None),
+            best_move_san=best_move_san,
+            eval_before_cp=eval_before_cp,
+            eval_after_cp=eval_after_cp,
+            cp_loss=int(cp_loss or 0),
+            pv_after_played=list(pv_after_played or []),
+            pv_after_best=[],
+            user_rating=int(user_rating or 1200),
+            socratic_context=socratic_ctx,
+        )
+    except Exception as exc:
+        logger.warning(f"[socratic_narration] MoveInputs build failed: {exc}")
+        return None
+
+    try:
+        decision = build_move_teaching_decision(inputs, CrossMoveState())
+    except Exception as exc:
+        logger.warning(
+            f"[socratic_narration] build_move_teaching_decision failed for "
+            f"{played_san!r}: {exc}"
+        )
+        return None
+
+    extras = decision.socratic_extras
+    if extras is None:
+        # Either severity wasn't a mistake/blunder (should be caught
+        # above) or one of the three gates suppressed. Either way: no
+        # feedback. Caller falls through identically to smart_coaching.
+        return None
+
+    return {
+        "narrative": extras.narrative,
+        "plan": extras.plan,
+        "question": extras.question,
+        "hint": extras.hint,
+    }

@@ -2717,6 +2717,50 @@ async def get_interactive_coaching(
                         m = entry.get("move") if isinstance(entry, dict) else None
                         if m:
                             _mh_san.append(m)
+
+                    # ─── Central-layer Socratic (double-write, PR-6 of 5,
+                    # 2026-05-27). Per Mohit: "the coach move should also
+                    # come from the central layer, i can't afford to have
+                    # 2 sources" applies to user-side Socratic too. PR-6C
+                    # computes central output in parallel with smart_
+                    # coaching; smart_coaching stays primary. PR-6D flips
+                    # source via pwc_socratic_central_layer flag. PR-6E
+                    # deletes smart_coaching entirely.
+                    try:
+                        from services.live_v5_teaching import socratic_feedback_for_live_move
+                        central_socratic = socratic_feedback_for_live_move(
+                            fen_before=board.fen(),
+                            played_san=move_san,
+                            user_color=user_color,
+                            severity=coaching.severity,
+                            fundamental_violated=coaching_dict.get("fundamental_violated"),
+                            coach_intent=_coach_intent,
+                            phase=phase_str,
+                            cp_loss=cp_loss,
+                            user_rating=session_doc.get("user_rating", 1200),
+                            pv_after_played=pv_after_played,
+                            move_history_san=_mh_san,
+                            best_move_san=best_move,
+                        )
+                        if central_socratic:
+                            logger.info(
+                                f"[SOCRATIC-CENTRAL] Central layer produced output for "
+                                f"{move_san!r} (severity={coaching.severity}): "
+                                f"narrative={central_socratic.get('narrative', '')[:60]!r}, "
+                                f"question={central_socratic.get('question', '')[:60]!r}"
+                            )
+                        else:
+                            logger.info(
+                                f"[SOCRATIC-CENTRAL] Central layer suppressed for "
+                                f"{move_san!r} (gate fired or severity skip)"
+                            )
+                    except Exception as central_err:
+                        logger.warning(
+                            f"[SOCRATIC-CENTRAL] Central-layer call failed (non-fatal "
+                            f"during double-write): {central_err}",
+                            exc_info=False,
+                        )
+
                     smart_fb = await generate_smart_user_feedback(
                         board_before=board,
                         user_move=move,

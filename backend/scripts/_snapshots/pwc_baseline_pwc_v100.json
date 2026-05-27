@@ -1,5 +1,5 @@
 {
-  "tag": "pr5_check",
+  "tag": "pr6c_check",
   "n_scenarios": 7,
   "surfaced": 4,
   "suppressed": 3,
@@ -158,6 +158,60 @@
       "hint_for_user_hash": "338f6d12b8cf",
       "threats_count": 0,
       "has_opponent_opportunity": false
+    }
+  ],
+  "n_socratic_scenarios": 7,
+  "socratic_produced": 5,
+  "socratic_skipped": 2,
+  "socratic_errors": 0,
+  "socratic_rows": [
+    {
+      "scenario_id": "S01_mistake_calculate_renders",
+      "produced": true,
+      "narrative_hash": "1c78d5f220b4",
+      "plan_hash": "c9974cdb5762",
+      "question_hash": "2b7736d3d46c",
+      "hint_hash": "e03eff8cc25e"
+    },
+    {
+      "scenario_id": "S02_blunder_hanging_pieces",
+      "produced": true,
+      "narrative_hash": "24c01cba25d4",
+      "plan_hash": "0b059a630fcb",
+      "question_hash": "3bdc054e87f3",
+      "hint_hash": "8afa23f5a1a2"
+    },
+    {
+      "scenario_id": "S03_gate_a_cp_loss_under_80_suppresses",
+      "produced": false
+    },
+    {
+      "scenario_id": "S04_severity_inaccuracy_skipped",
+      "produced": false
+    },
+    {
+      "scenario_id": "S05_mistake_generic_fallback",
+      "produced": true,
+      "narrative_hash": "50d08556dc80",
+      "plan_hash": "1c9421840421",
+      "question_hash": "fdccf83d3256",
+      "hint_hash": "25dde2213d3f"
+    },
+    {
+      "scenario_id": "S06_blunder_calculate",
+      "produced": true,
+      "narrative_hash": "a75364c7968b",
+      "plan_hash": "3ab9610bb1ff",
+      "question_hash": "30032450e734",
+      "hint_hash": "075cab62e6df"
+    },
+    {
+      "scenario_id": "S07_mistake_development",
+      "produced": true,
+      "narrative_hash": "9f4351859e89",
+      "plan_hash": "a03d18de9e44",
+      "question_hash": "60e5d990dc3b",
+      "hint_hash": "78f068ac82d8"
     }
   ]
 }
