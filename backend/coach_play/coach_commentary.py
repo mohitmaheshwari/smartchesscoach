@@ -341,153 +341,140 @@ class CoachCommentary:
         move_number: int
     ) -> CoachFeedback:
         """
-        Generate Socratic coaching feedback.
-        
-        This is the heart of the coaching system - comparing
-        user's reasoning to position reality and providing
-        targeted, educational feedback.
+        Generate Socratic coaching feedback DETERMINISTICALLY.
+
+        Mohit 2026-05-27 ("use same direction" / "no compromises"):
+        per [[one-source-of-truth-for-coaching]], this surface must
+        not call the LLM for chess claims. The previous LLM-driven
+        path produced structured JSON {main_message, reasoning_feedback,
+        position_insight, improvement_tip, encouragement} but lived
+        in the same hallucination class as the deleted smart_coaching
+        functions — the LLM was asked "was the user's thinking right?"
+        without any grounding constraint.
+
+        The new path composes the same shape from position_analysis +
+        move_analysis (both already deterministic — Stockfish + python-
+        chess + Lichess opening explorer). user_reasoning is echoed
+        back in a non-judgmental way; the LLM is no longer the brain.
         """
-        # Build context for LLM
-        prompt = self._build_feedback_prompt(
+        return self._compose_deterministic_feedback(
             position_analysis,
             move_analysis,
             user_reasoning,
             user_color,
-            move_number
+            move_number,
         )
-        
-        # Generate feedback using LLM
-        feedback_text = await self._call_llm(prompt)
-        
-        # Parse LLM response into structured feedback
-        feedback = self._parse_llm_feedback(
-            feedback_text,
-            move_analysis,
-            position_analysis
-        )
-        
-        return feedback
-    
-    def _build_feedback_prompt(
+
+    def _compose_deterministic_feedback(
         self,
         position: PositionAnalysis,
         move: MoveAnalysis,
         user_reasoning: str,
         user_color: str,
-        move_number: int
-    ) -> str:
-        """Build the prompt for LLM feedback generation."""
-        
-        # Determine the coaching context
-        if move.is_best_move:
-            move_assessment = "EXCELLENT - This was the best move!"
-        elif move.is_candidate:
-            move_assessment = f"GOOD - This was a strong candidate move (top 3). Best was {move.best_move_san}."
-        elif move.quality in [MoveQuality.OKAY, MoveQuality.INACCURACY]:
-            move_assessment = f"OKAY - Reasonable but not optimal. Better was {move.best_move_san}."
-        elif move.quality == MoveQuality.MISTAKE:
-            move_assessment = f"MISTAKE - This loses advantage. Much better was {move.best_move_san}."
-        else:
-            move_assessment = f"BLUNDER - This is a serious error. {move.best_move_san} was needed."
-        
-        opening_context = ""
-        if position.opening_name:
-            opening_context = f"\nOpening: {position.opening_name}"
-        
-        prompt = f"""Chess coach giving quick feedback. Student played {move.move_san} and said: "{user_reasoning}"
-
-POSITION (FEN: {position.fen}):
-Phase: {position.phase}{opening_context} | Eval: {position.evaluation:+.2f} → {move.eval_after:+.2f}
-Move quality: {move_assessment}
-Best was: {', '.join(move.best_continuation[:2])}
-
-Return JSON only:
-{{
-  "main_message": "1 sentence - was move good/bad and why",
-  "reasoning_feedback": "1 sentence - was their thinking right?",
-  "position_insight": "1 sentence - key thing in position",
-  "improvement_tip": "1 sentence tip or null if good",
-  "encouragement": true/false
-}}
-
-Keep each field SHORT (max 15 words). No fluff."""
-
-        return prompt
-    
-    async def _call_llm(self, prompt: str) -> str:
-        """Call the LLM to generate feedback using the app's LLM service."""
-        try:
-            # Use the app's centralized LLM service
-            import sys
-            sys.path.insert(0, '/app/backend')
-            from llm_service import call_llm
-            
-            response = await call_llm(
-                system_message="You are a helpful chess coach providing Socratic feedback.",
-                user_message=prompt,
-                model="gpt-4o-mini"
-            )
-            
-            return response
-            
-        except Exception as e:
-            print(f"LLM call failed: {e}")
-            # Fallback to deterministic response
-            return self._generate_fallback_feedback()
-    
-    def _generate_fallback_feedback(self) -> str:
-        """Generate fallback feedback if LLM fails."""
-        return '''{
-  "main_message": "That's a real move. Let's break it down.",
-  "reasoning_feedback": "Good thinking process.",
-  "position_insight": "Several pieces matter in this position.",
-  "improvement_tip": "Always check for checks, captures, and threats first.",
-  "encouragement": true
-}'''
-    
-    def _parse_llm_feedback(
-        self,
-        llm_response: str,
-        move: MoveAnalysis,
-        position: PositionAnalysis
+        move_number: int,
     ) -> CoachFeedback:
-        """Parse LLM response into structured feedback."""
-        import json
-        
-        try:
-            # Clean up response (remove markdown if present)
-            response = llm_response.strip()
-            if response.startswith("```"):
-                response = response.split("```")[1]
-                if response.startswith("json"):
-                    response = response[4:]
-            response = response.strip()
-            
-            data = json.loads(response)
-            
-            return CoachFeedback(
-                main_message=data.get("main_message", "Good effort!"),
-                reasoning_feedback=data.get("reasoning_feedback", ""),
-                position_insight=data.get("position_insight", ""),
-                improvement_tip=data.get("improvement_tip"),
-                opening_comment=None,  # Set separately if in opening
-                move_quality=move.quality,
-                encouragement=data.get("encouragement", True)
+        """Build CoachFeedback from deterministic analysis only — no
+        LLM, no chess claims that aren't grounded in the analysis data.
+
+        Field semantics:
+          - main_message: derived from move.quality (deterministic
+            mapping below).
+          - reasoning_feedback: acknowledges the user's stated reasoning
+            without overclaiming about its correctness. The LLM-based
+            "was their thinking right?" check is dropped per the
+            one-source rule; a Socratic echo replaces it.
+          - position_insight: 1-line statement from position phase,
+            key_features, or move-quality fallback.
+          - improvement_tip: rating-band tip tied to move quality.
+          - opening_comment: opening name when known (Lichess
+            explorer-derived).
+          - move_quality: pass-through.
+          - encouragement: True iff move is brilliant/great/good/okay.
+        """
+        quality = move.quality
+
+        main_message = self._get_quality_message(quality)
+        # Append the best-move detail to mistakes / blunders so the user
+        # sees the concrete recommendation. Best_move_san is engine-truth.
+        if (quality in (MoveQuality.MISTAKE, MoveQuality.BLUNDER)
+                and move.best_move_san
+                and not move.is_best_move):
+            main_message = f"{main_message} {move.best_move_san} was the engine's pick."
+        elif quality == MoveQuality.INACCURACY and move.best_move_san and not move.is_best_move:
+            main_message = f"{main_message} {move.best_move_san} was a touch sharper."
+
+        # reasoning_feedback — acknowledge without judging the chess
+        # correctness of the reasoning (that would require LLM and
+        # invite hallucination). A Socratic mirror: thank the user
+        # for explaining, prompt them to compare to the position.
+        reasoning_feedback = ""
+        if user_reasoning and user_reasoning.strip():
+            reasoning_feedback = (
+                "You explained your thinking — now compare it to what "
+                "the position actually shows."
             )
-            
-        except (json.JSONDecodeError, KeyError) as e:
-            print(f"Failed to parse LLM response: {e}")
-            # Return basic feedback
-            return CoachFeedback(
-                main_message=self._get_quality_message(move.quality),
-                reasoning_feedback="Real thinking — keep going.",
-                position_insight="Look at every check and capture before quiet moves.",
-                improvement_tip="Check for forcing moves first." if move.quality.value in ["mistake", "blunder"] else None,
-                opening_comment=f"We're in the {position.opening_name}." if position.opening_name else None,
-                move_quality=move.quality,
-                encouragement=move.quality.value in ["brilliant", "great", "good", "okay"]
+        else:
+            reasoning_feedback = "Walk through your reasoning before each move."
+
+        # position_insight — pick from key_features (deterministic
+        # phase / threat / structural facts already computed by
+        # analyze_position). Fall back to phase-specific generic line.
+        key_features = position.key_features or []
+        if key_features:
+            position_insight = key_features[0]
+        else:
+            phase_insights = {
+                "opening": "Focus on developing pieces, controlling the centre, and king safety.",
+                "middlegame": "Look at every check, capture, and threat each side has right now.",
+                "endgame": "Activate your king and push passed pawns when safe.",
+            }
+            position_insight = phase_insights.get(
+                position.phase, "Look at the whole board before each move."
             )
+
+        # improvement_tip — quality-tied template.
+        improvement_tip: Optional[str] = None
+        if quality in (MoveQuality.MISTAKE, MoveQuality.BLUNDER):
+            improvement_tip = (
+                "Before each move, scan: checks, captures, and threats — "
+                "for both sides."
+            )
+        elif quality == MoveQuality.INACCURACY:
+            improvement_tip = (
+                "When you have a clear plan, look one move deeper to "
+                "see if there's something even stronger."
+            )
+        # brilliant / great / good / okay → no tip (encouragement only)
+
+        # opening_comment — Lichess-derived name when present.
+        opening_comment: Optional[str] = None
+        if position.opening_name:
+            opening_comment = f"We're in the {position.opening_name}."
+
+        encouragement = quality in (
+            MoveQuality.BRILLIANT, MoveQuality.GREAT,
+            MoveQuality.GOOD, MoveQuality.OKAY,
+        )
+
+        return CoachFeedback(
+            main_message=main_message,
+            reasoning_feedback=reasoning_feedback,
+            position_insight=position_insight,
+            improvement_tip=improvement_tip,
+            opening_comment=opening_comment,
+            move_quality=quality,
+            encouragement=encouragement,
+        )
     
+    # _build_feedback_prompt / _call_llm / _generate_fallback_feedback /
+    # _parse_llm_feedback REMOVED 2026-05-27 (Mohit "no compromises").
+    # The LLM-driven feedback path violated [[one-source-of-truth-for-
+    # coaching]] — it asked the LLM for chess claims ("was their thinking
+    # right?") without grounding constraints. _compose_deterministic_
+    # feedback above is the single path now: structured CoachFeedback
+    # composed from position_analysis + move_analysis (Stockfish +
+    # python-chess + Lichess opening explorer — all deterministic).
+
     def _get_quality_message(self, quality: MoveQuality) -> str:
         """Get a basic message for move quality."""
         messages = {
@@ -818,14 +805,16 @@ async def generate_coach_chat_message(
 ) -> str:
     """
     Generate a natural chat message from the coach.
-    
-    Based on trigger type, generates appropriate message.
-    Uses LLM for complex messages, templates for simple ones.
+
+    Mohit 2026-05-27 ("no compromises"): trigger-driven coach messages
+    are templated deterministically per [[one-source-of-truth-for-
+    coaching]]. The "opening" branch previously used an LLM call to
+    describe each opening; now it pulls from the deterministic opening
+    curriculum data + an inline template. The "warning" / "teaching" /
+    "reflection" branches already used deterministic position-strategy
+    analysis (no LLM) — those are unchanged.
     """
-    import sys
-    sys.path.insert(0, '/app/backend')
-    from llm_service import call_llm
-    
+
     # Simple encouragement - use templates
     if trigger_type == "encouragement":
         from .coaching_triggers import CoachingTriggers
@@ -834,23 +823,44 @@ async def generate_coach_chat_message(
             context.get("message_type", "good_move"),
             context.get("streak", 0)
         )
-    
-    # Opening guidance - use LLM
+
+    # Opening guidance — templated (no LLM). PR-7 (2026-05-27) per
+    # Mohit's one-source rule. Each opening gets a short, deterministic
+    # one-liner. Generic fallback for anything not in the curated map.
     if trigger_type == "opening":
         opening_name = context.get("opening_name", "this opening")
-        prompt = f"""You are a chess coach. The student just entered the {opening_name}. 
-Give a brief, friendly one-sentence comment about this opening (what it's known for, typical plans).
-Keep it under 20 words. Be conversational, not formal."""
-        
-        try:
-            response = await call_llm(
-                system_message="You are a friendly chess coach giving brief tips.",
-                user_message=prompt,
-                model="gpt-4o-mini"
-            )
-            return response.strip()
-        except Exception:
-            return f"We're in the {opening_name}. Solid choice!"
+        # Curated short ideas — hand-authored, no chess claims that
+        # need verification beyond "this opening tends to lead to X."
+        # Keys match Lichess opening_explorer names (substring match
+        # so variations of the same opening hit the same entry).
+        opening_ideas = {
+            "Italian": "open positions with quick development on the c4–f7 diagonal.",
+            "Spanish": "long-term pressure on Black's centre and queenside.",
+            "Ruy Lopez": "long-term pressure on Black's centre and queenside.",
+            "Vienna": "fast attack with f4 against an early Black centre.",
+            "Scotch": "open the centre quickly with d4.",
+            "King's Pawn": "claim the centre — develop knights next.",
+            "Queen's Pawn": "claim the d4 square — flexible piece play.",
+            "London": "solid setup with Bf4 + e3 + Nf3 — fewer surprises.",
+            "Sicilian": "asymmetric play — Black aims for queenside counter-attack.",
+            "French": "Black accepts a cramped centre for solid structure.",
+            "Caro-Kann": "Black builds a solid pawn structure before counter-attacking.",
+            "Pirc": "Black lets White claim space then counter-attacks the centre.",
+            "Modern": "Black lets White claim space then counter-attacks the centre.",
+            "King's Indian": "Black plans a king-side attack while White expands queenside.",
+            "Nimzo-Indian": "Black trades the dark-squared bishop for the c3 knight to weaken White's pawns.",
+            "Queen's Gambit": "fight for the centre with c4 — typical pressure on d5.",
+            "English": "flexible flank opening — c4 + Nf3 with reversed openings.",
+            "Reti": "fianchetto setup — long diagonal play.",
+        }
+        idea = None
+        for key, val in opening_ideas.items():
+            if key.lower() in opening_name.lower():
+                idea = val
+                break
+        if idea:
+            return f"We're in the {opening_name} — {idea}"
+        return f"We're in the {opening_name}. Stay focused on development and king safety."
     
     # Warning/Teaching - use LLM for explanation with REAL position data
     if trigger_type in ["warning", "teaching", "reflection"]:
@@ -1244,7 +1254,45 @@ BAD: Long explanations about strategy..."""
             user_message=prompt,
             model="gpt-4o-mini"
         )
-        result["response"] = response.strip()
+        response_text = response.strip()
+
+        # PR-7 (2026-05-27): chat is a genuine free-text interface
+        # (user types arbitrary question, coach responds). LLM must
+        # stay, but we verify any chess claims in the response against
+        # the actual board state per [[one-source-of-truth-for-coaching]].
+        # Pieces hallucinated ("your knight on f6") or illegal
+        # continuation chains ("after Nf3 Nxe5") trigger wipe-back to
+        # a safe non-claim response.
+        try:
+            from services.coaching_text_guard import (
+                verify_coaching_text, verify_chain_claims,
+            )
+            piece_issues = verify_coaching_text(
+                response_text, current_fen, user_color=user_color,
+            )
+            chain_issues = verify_chain_claims(response_text, current_fen)
+            if piece_issues or chain_issues:
+                logger.warning(
+                    f"[chat-guard] LLM response wiped for hallucinated chess claims: "
+                    f"piece_issues={[i.detail for i in piece_issues]} "
+                    f"chain_issues={[i.detail for i in chain_issues]}"
+                )
+                # Safe fallback — describe intent without making
+                # chess claims that didn't pass the guard.
+                if position_plan:
+                    response_text = (
+                        f"Look at the position carefully. "
+                        f"{position_plan.get('main_idea', 'develop pieces and control the centre.')}"
+                    )
+                else:
+                    response_text = (
+                        "Tell me more about what you're considering — "
+                        "there are a few ideas worth exploring here."
+                    )
+        except Exception as guard_err:
+            logger.debug(f"[chat-guard] verification failed non-fatally: {guard_err}")
+
+        result["response"] = response_text
     except Exception:
         if personal_context and personal_context.get("similar_mistake"):
             sm = personal_context["similar_mistake"]
@@ -1253,5 +1301,5 @@ BAD: Long explanations about strategy..."""
             result["response"] = f"Plan: {position_plan.get('main_idea', 'develop and control center')}."
         else:
             result["response"] = "Let me check..."
-    
+
     return result
