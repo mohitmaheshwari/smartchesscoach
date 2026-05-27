@@ -1180,8 +1180,16 @@ def inject_coach_move_facts(
         caption_facts["student_can_exploit"] = {}
         return
 
+    # Piece values for the "is this a REAL threat?" filter below.
+    _PIECE_VAL = {
+        chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+        chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100,
+    }
     coach_attack_targets: List[Dict[str, Any]] = []
     if coach_color is not None:
+        moved_piece_after = board_after.piece_at(move.to_square)
+        moved_val = _PIECE_VAL.get(
+            moved_piece_after.piece_type, 0) if moved_piece_after else 0
         moved_attacks = board_after.attacks(move.to_square)
         for target_sq in moved_attacks:
             target_piece = board_after.piece_at(target_sq)
@@ -1191,6 +1199,19 @@ def inject_coach_move_facts(
                 continue
             defenders = board_after.attackers(student_color, target_sq)
             attackers = board_after.attackers(coach_color, target_sq)
+            target_val = _PIECE_VAL.get(target_piece.piece_type, 0)
+            # Only narrate a REAL threat. A target is genuinely threatened
+            # iff it is undefended (can simply be taken) OR the attacking
+            # piece is worth <= the target (a lower/equal-value attacker
+            # forces the target to move or be lost in the trade). A more-
+            # valuable piece "attacking" a DEFENDED lesser piece wins
+            # nothing — e.g. a queen attacking a thrice-defended pawn is
+            # NOT a threat, just geometry. Stamping it as an "attack"
+            # produced false coach captions ("Qg5 — attacks your pawn on
+            # d2") that students correctly reject. fb_fa7db491c527.
+            is_real_threat = (len(defenders) == 0) or (moved_val <= target_val)
+            if not is_real_threat:
+                continue
             coach_attack_targets.append({
                 "piece": chess.piece_name(target_piece.piece_type),
                 "square": chess.square_name(target_sq),
