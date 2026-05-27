@@ -406,59 +406,32 @@ async def _batch_generate_game_stories(games: list) -> dict:
             f"Draft: {det_story}"
         )
 
-    user_msg = "Write a unique 1-2 sentence story for each game below. Return as:\nGAME_ID: story\n\n" + "\n".join(game_contexts)
-
-    system = """You write chess game summaries. Short. Unique. Coach voice.
-
-STRICT RULES:
-- MAX 20 words per game. Two sentences maximum.
-- About BEHAVIOR (why they lost), not moves or squares.
-- NO advice. NO "focus on" or "try to" or "in future games."
-- NO scores, percentages, or ratings.
-- Each story MUST sound different from the others.
-- Won cleanly → brief praise. Lost → what went wrong (behavior, not move).
-
-FORMAT: Each line starts with the 8-character game ID, then colon, then the story. One line per game. Nothing else."""
-
-    try:
-        response = await call_llm(with_coach_voice(system), user_msg, model="gpt-4o-mini")
-
-        # Parse response into {game_id: story}
-        result = {}
-        for line in response.strip().split("\n"):
-            line = line.strip()
-            if not line or ":" not in line:
-                continue
-            # Find the game ID prefix
-            parts = line.split(":", 1)
-            if len(parts) != 2:
-                continue
-            gid_prefix = parts[0].strip().replace("GAME ", "").replace("GAME_", "").replace("**", "").strip()
-            story = parts[1].strip().strip('"').strip("'").strip("*")
-
-            if not story or len(story) < 5:
-                continue
-
-            # Match to actual game_id (flexible — prefix match)
-            for g in games:
-                if g["game_id"][:8] == gid_prefix or g["game_id"].startswith(gid_prefix) or gid_prefix in g["game_id"]:
-                    # Enforce strict word limit
-                    words = story.split()
-                    if len(words) > 25:
-                        story = " ".join(words[:20])
-                        last_period = story.rfind(".")
-                        if last_period > 10:
-                            story = story[:last_period + 1]
-                        elif not story.endswith("."):
-                            story += "."
-                    result[g["game_id"]] = story
-                    break
-
-        logger.info(f"[LAB] Batch LLM generated {len(result)} stories from {len(games)} games")
-        return result
-    except Exception as e:
-        logger.warning(f"Batch LLM game stories failed: {e}")
-        return {}
+    # PR-9 (Mohit 2026-05-27, "all of them"): replaced LLM batch
+    # call with the deterministic behavior_story drafts directly.
+    # The `det_story` field is already authored from
+    # behavioral_missions (deterministic). Per
+    # [[one-source-of-truth-for-coaching]]. The LLM was used to add
+    # variety; we trade variety for grounding (no hallucination of
+    # moves / squares / claims).
+    result = {}
+    for g in games:
+        gid = g.get("game_id", "")
+        det_story = g.get("behavior", "")
+        result_word = "won" if g.get("result") == "W" else (
+            "drew" if g.get("result") == "D" else "lost"
+        )
+        if det_story:
+            result[gid] = det_story
+        else:
+            # Minimal deterministic fallback when no behavior_story
+            # was authored. No LLM, no chess-specific claims.
+            opp = g.get("opponent", "your opponent")
+            opening = g.get("opening", "")
+            if opening:
+                result[gid] = f"You {result_word} the {opening} against {opp}."
+            else:
+                result[gid] = f"You {result_word} this game against {opp}."
+    return result
 
 
 # =============================================================================
@@ -2127,27 +2100,27 @@ async def explain_milestone(
 
     explanation = await generate_position_explanation(db, milestone_data, use_llm=True)
 
-    # If LLM humanization needed, call the LLM
+    # PR-9 (Mohit 2026-05-27, "all of them"): replaced LLM
+    # humanization with deterministic composition from stockfish_
+    # analysis fields. The fallback path below was already
+    # deterministic — it's now the primary path. Per
+    # [[one-source-of-truth-for-coaching]].
     if explanation.get("needs_llm_humanization"):
-        try:
-            from llm_service import call_llm
-            from services.coach_voice_prompt import with_coach_voice
-            from config import LLM_MODEL
-
-            response = await call_llm(
-                system_message=with_coach_voice(
-                    "Explain a move to an amateur player. Concrete and simple. Focus on what happens, not abstract strategy."
-                ),
-                user_message=explanation["llm_prompt"],
-                model=LLM_MODEL,
-                max_tokens=512,
-            )
-
-            explanation["human_explanation"] = response
-        except Exception as e:
-            logger.error(f"Error generating explanation: {e}")
-            sf_analysis = explanation.get("stockfish_analysis", {})
-            explanation["human_explanation"] = f"{sf_analysis.get('position_context', 'In this position')}, you played {explanation['move_played']} but {explanation['best_move']} was better. {sf_analysis.get('threat_missed', '')} {sf_analysis.get('cp_lost', '')}."
+        sf_analysis = explanation.get("stockfish_analysis", {})
+        parts = []
+        ctx = sf_analysis.get("position_context", "")
+        if ctx:
+            parts.append(ctx.rstrip("."))
+        move_played = explanation.get("move_played", "")
+        best_move = explanation.get("best_move", "")
+        if move_played and best_move and move_played != best_move:
+            parts.append(f"You played {move_played}; {best_move} was better")
+        elif best_move:
+            parts.append(f"The engine's pick: {best_move}")
+        threat = sf_analysis.get("threat_missed", "")
+        if threat:
+            parts.append(threat.rstrip("."))
+        explanation["human_explanation"] = ". ".join(parts) + "." if parts else "Compare your move to the engine's pick."
 
     return explanation
 
