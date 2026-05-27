@@ -7158,36 +7158,14 @@ async def _process_move_and_respond(
                     f"recall={bool(_recall_block)}"
                 )
 
-                # Phase 1.4 — guarded async polish task. Runs OFF the move
-                # response (which has already been sent). Updates the
-                # coach_messages doc to polish_status="polished" when all
-                # four guards pass (same principle/target, no contradiction,
-                # ≤1.4x draft length, ≤3s). Otherwise stays at "draft".
-                try:
-                    from services.live_v5_teaching import polish_v5_block_async
-                    asyncio.create_task(
-                        polish_v5_block_async(
-                            db=db,
-                            message_id=_insert_result.inserted_id,
-                            v5_block=_v5_block,
-                            fen_before=fen_before,
-                            played_san=user_move,
-                            best_move_san=analysis.get("best_move"),
-                            eval_before_cp=_eval_before_cp,
-                            eval_after_cp=_eval_after_cp,
-                            cp_loss=int(analysis.get("cp_loss", 0) or 0),
-                            pv_after_played=analysis.get("pv_after_played") or [],
-                            pv_after_best=analysis.get("pv_after_best") or [],
-                            move_history_san=[
-                                m.get("move", "") for m in (session_doc.get("move_history") or [])
-                                if m.get("move")
-                            ],
-                            full_move_number=move_number,
-                            mover_is_user=True,
-                        )
-                    )
-                except Exception:
-                    logger.exception(f"[live_v5] failed to schedule polish task")
+                # Phase 1.4 LLM polish task REMOVED 2026-05-27 (Mohit:
+                # "no LLM in coaching"). This was the last live LLM path
+                # in PWC — an async task that rewrote the V5 teaching
+                # block via llm_caption_generator. The deterministic V5
+                # draft (build_move_teaching_decision output) is the
+                # ground truth and the only text shown now. Per
+                # [[one-source-of-truth-for-coaching]]; proven clean by
+                # scripts/coaching_census.py.
         except Exception:
             # V5 teaching is additive — never fail the move response.
             logger.exception(f"[live_v5] error surfacing teaching for session={session_id}")
