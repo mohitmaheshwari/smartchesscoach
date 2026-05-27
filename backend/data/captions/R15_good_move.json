@@ -1,9 +1,12 @@
 {
   "rule_name": "R15_good_move",
-  "description": "Plain acknowledgment for user moves that match the engine with cp_loss == 0 and no higher-priority celebratory rule fired. Sub-1400 players need positive reinforcement.",
+  "description": "Acknowledgment for user moves that match the engine with cp_loss == 0 and no higher-priority celebratory rule fired. Sub-1400 players need positive reinforcement AND a reason when one is unambiguous (Parth fb_ba9db31ae393: 'Best move. but why?'). good_move_reason is stamped by inject_good_move_reason_facts ONLY when the why is deterministically safe; otherwise it stays unset and we fall back to the terse default — never an invented reason.",
   "fact_glossary": {
     "played_san": "SAN of the move",
-    "phase": "Game phase — opening / middlegame / endgame (currently unused but available for future variants)"
+    "phase": "Game phase — opening / middlegame / endgame",
+    "good_move_reason": "capture | central_break | develop | (unset). Set by inject_good_move_reason_facts.",
+    "good_move_captured_piece": "piece-name taken, when good_move_reason == capture",
+    "good_move_captured_square": "square of the capture, when good_move_reason == capture"
   },
   "requires": ["played_san"],
   "trigger": {
@@ -13,7 +16,15 @@
       "mover_is_user": true
     }
   },
+  "select_variant": [
+    {"when": {"good_move_reason": "capture"}, "variant": "capture"},
+    {"when": {"good_move_reason": "central_break"}, "variant": "central_break"},
+    {"when": {"good_move_reason": "develop"}, "variant": "develop"}
+  ],
   "variants": {
+    "capture": "{played_san} — takes the {good_move_captured_piece} on {good_move_captured_square}.",
+    "central_break": "{played_san} — fights for the center. Control the center and your pieces get the best squares.",
+    "develop": "{played_san} — develops a piece. Get every piece into the game before you attack.",
     "default": "{played_san} — strongest move here."
   }
 }

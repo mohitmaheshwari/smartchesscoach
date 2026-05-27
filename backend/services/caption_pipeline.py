@@ -1256,6 +1256,100 @@ def inject_coach_move_facts(
     caption_facts["student_can_exploit"] = student_opportunities
 
 
+def inject_good_move_reason_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    board_before: chess.Board,
+    move: chess.Move,
+    move_san: str,
+    mover_is_user: bool,
+    cp_loss: int,
+    best_move_san: Optional[str],
+    phase: str,
+) -> None:
+    """Stamp a SAFE, deterministic 'why' for a user move that equals the
+    engine's best (cp_loss == 0) so R15_good_move can teach instead of just
+    asserting "strongest move here." Parth fb_ba9db31ae393: "Best move. but
+    why?"
+
+    Cardinal rule (a wrong reason is worse than a terse one): only stamp a
+    reason when it is UNAMBIGUOUS from the board. Categories, first match:
+      - capture       : names the piece taken (always literally true)
+      - central_break : a pawn pushed to a central square that attacks an
+                        enemy pawn — contesting the center
+      - develop       : opening only, a minor piece leaving its back rank
+      - (none)        : leave unset → R15 falls back to "strongest move here"
+
+    Leaves `good_move_reason` unset for everything else (quiet maneuvers,
+    king walks, prophylaxis, rook lifts) — those have no safe one-line why.
+    """
+    caption_facts.setdefault("good_move_reason", None)
+    if not mover_is_user:
+        return
+    # R15 territory only: the played move IS the engine's best, no cp lost.
+    _played = (move_san or "").strip().rstrip("!?+#")
+    _best = (best_move_san or "").strip().rstrip("!?+#")
+    if not _best or _played != _best or int(cp_loss or 0) != 0:
+        return
+
+    mover_color = board_before.turn
+
+    # 1) Capture — name what was taken. Literally true even for trades/sacs;
+    #    we only claim "takes", never "wins material".
+    try:
+        if board_before.is_en_passant(move):
+            caption_facts["good_move_reason"] = "capture"
+            caption_facts["good_move_captured_piece"] = "pawn"
+            caption_facts["good_move_captured_square"] = chess.square_name(move.to_square)
+            return
+        if board_before.is_capture(move):
+            cap = board_before.piece_at(move.to_square)
+            if cap is not None:
+                caption_facts["good_move_reason"] = "capture"
+                caption_facts["good_move_captured_piece"] = chess.piece_name(cap.piece_type)
+                caption_facts["good_move_captured_square"] = chess.square_name(move.to_square)
+                return
+    except Exception:
+        pass
+
+    moved = board_before.piece_at(move.from_square)
+    if moved is None:
+        return
+
+    # 2) Central pawn break — a pawn pushed to a central file (c-f) on the
+    #    4th+ rank that attacks an enemy pawn. Contests the center.
+    if moved.piece_type == chess.PAWN:
+        to_file = chess.square_file(move.to_square)   # 0=a .. 7=h
+        to_rank = chess.square_rank(move.to_square)   # 0=rank1 .. 7=rank8
+        central_file = to_file in (2, 3, 4, 5)        # c, d, e, f
+        advanced = (
+            (mover_color == chess.WHITE and to_rank >= 3)  # rank 4+
+            or (mover_color == chess.BLACK and to_rank <= 4)  # rank 5-
+        )
+        if central_file and advanced:
+            try:
+                after = board_before.copy()
+                after.push(move)
+                hits_enemy_pawn = any(
+                    (p := after.piece_at(sq)) is not None
+                    and p.color != mover_color and p.piece_type == chess.PAWN
+                    for sq in after.attacks(move.to_square)
+                )
+            except Exception:
+                hits_enemy_pawn = False
+            if hits_enemy_pawn:
+                caption_facts["good_move_reason"] = "central_break"
+                return
+
+    # 3) Development in the opening — a minor piece leaving its back rank.
+    if phase == "opening" and moved.piece_type in (chess.KNIGHT, chess.BISHOP):
+        back_rank = 0 if mover_color == chess.WHITE else 7
+        if (chess.square_rank(move.from_square) == back_rank
+                and chess.square_rank(move.to_square) != back_rank):
+            caption_facts["good_move_reason"] = "develop"
+            return
+
+
 def inject_socratic_user_facts(
     caption_facts: Dict[str, Any],
     *,
@@ -2898,6 +2992,20 @@ def build_move_teaching_decision(
         opening_name=inputs.opening_name,
         user_color=inputs.user_color,
         prev_move_san=inputs.prev_move_san,
+    )
+
+    # ─── 4c. Good-move "why" (R15) — safe deterministic reason for a
+    # user best move so it teaches instead of "strongest move here".
+    # fb_ba9db31ae393. No-op unless cp_loss==0 and the move IS best.
+    inject_good_move_reason_facts(
+        caption_facts,
+        board_before=board_before,
+        move=played_move,
+        move_san=inputs.played_san,
+        mover_is_user=bool(inputs.mover_is_user),
+        cp_loss=int(inputs.cp_loss or 0),
+        best_move_san=inputs.best_move_san,
+        phase=_phase,
     )
 
     # ─── 4b. EARLY pre-move shape pass (V5 lines 3391-3408 of orig).

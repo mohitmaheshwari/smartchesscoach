@@ -634,6 +634,11 @@ def _r15_render(f):
     cap = render_rule("R15_good_move", {
         "played_san": _played(f),
         "phase": f.get("phase") or "middlegame",
+        # Safe deterministic "why" (fb_ba9db31ae393) — stamped by
+        # inject_good_move_reason_facts; drives R15 select_variant.
+        "good_move_reason": f.get("good_move_reason"),
+        "good_move_captured_piece": f.get("good_move_captured_piece"),
+        "good_move_captured_square": f.get("good_move_captured_square"),
     }) or ""
     return CaptionOutput(
         caption=cap,
