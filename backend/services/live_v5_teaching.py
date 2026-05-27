@@ -273,37 +273,9 @@ def _is_user_flag_enabled(user_doc: Dict[str, Any], session_doc: Dict[str, Any])
 # no fallback, no toggle. Per [[one-source-of-truth-for-coaching]].
 
 
-def is_pwc_socratic_central_layer_enabled(
-    user_doc: Optional[Dict[str, Any]],
-    session_doc: Optional[Dict[str, Any]],
-) -> bool:
-    """PR-6D (2026-05-27): authoritative-source flag for PWC user-
-    mistake Socratic narration. Same pattern as the coach-move flag
-    used during PR-4 of that migration.
-
-    When True, routes/coach_play.py:2713 uses the central-layer
-    socratic_feedback_for_live_move output as the response payload
-    instead of smart_coaching.generate_smart_user_feedback. Smart_
-    coaching becomes the safety fallback only.
-
-    Per [[one-source-of-truth-for-coaching]] — eventually the flag is
-    flipped on globally, smart_coaching is deleted (PR-6E), and this
-    helper goes away.
-
-    Priority (mirrors _is_user_flag_enabled):
-      1. session feature_overrides.pwc_socratic_central_layer (if set, wins)
-      2. user feature_flags.pwc_socratic_central_layer.enabled
-      3. default: False (smart_coaching primary during rollout)
-    """
-    if not session_doc:
-        session_doc = {}
-    if not user_doc:
-        user_doc = {}
-    override = (session_doc.get("feature_overrides") or {}).get("pwc_socratic_central_layer")
-    if override is not None:
-        return bool(override)
-    flag = (user_doc.get("feature_flags") or {}).get("pwc_socratic_central_layer") or {}
-    return bool(flag.get("enabled"))
+# is_pwc_socratic_central_layer_enabled REMOVED 2026-05-27 (PR-6E).
+# The central layer is now the only PWC Socratic-narration path — no
+# flag, no fallback, no toggle. Per [[one-source-of-truth-for-coaching]].
 
 
 def _passes_suppression(

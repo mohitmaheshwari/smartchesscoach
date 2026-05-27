@@ -2707,10 +2707,15 @@ async def get_interactive_coaching(
                 except Exception:
                     pass
 
-            # Enhance Socratic question with LLM for mistakes/blunders
+            # Enhance Socratic question for mistakes/blunders via the
+            # central caption pipeline (PR-6E of 5, 2026-05-27). Single
+            # source of truth per Mohit ("can't afford 2 sources" —
+            # memory/feedback_one_source_of_truth). socratic_feedback_
+            # for_live_move is the only path; smart_coaching.generate_
+            # smart_user_feedback has been deleted along with
+            # services/smart_coaching.py entirely.
             if coaching.severity in ("mistake", "blunder"):
                 try:
-                    from services.smart_coaching import generate_smart_user_feedback
                     # Build SAN history from session for opening-theory gate
                     _mh_san = []
                     for entry in (session_doc.get("move_history") or []):
@@ -2718,91 +2723,32 @@ async def get_interactive_coaching(
                         if m:
                             _mh_san.append(m)
 
-                    # ─── Feature flag: pwc_socratic_central_layer
-                    # (PR-6D, 2026-05-27). When ON: central layer is
-                    # authoritative; smart_coaching becomes the safety
-                    # fallback if central returns None. When OFF
-                    # (default): smart_coaching stays primary; central
-                    # layer still runs in parallel for comparison logging
-                    # (PR-6C double-write semantics). Per
-                    # memory/feedback_one_source_of_truth.
-                    try:
-                        from services.live_v5_teaching import (
-                            is_pwc_socratic_central_layer_enabled,
-                        )
-                        _soc_user_doc = await db.users.find_one(
-                            {"user_id": session_doc.get("user_id")}
-                        ) or {}
-                        _socratic_central_authoritative = (
-                            is_pwc_socratic_central_layer_enabled(
-                                _soc_user_doc, session_doc,
-                            )
-                        )
-                    except Exception:
-                        _socratic_central_authoritative = False
-
-                    # ─── Central-layer Socratic ──────────────────
-                    central_socratic = None
-                    try:
-                        from services.live_v5_teaching import socratic_feedback_for_live_move
-                        central_socratic = socratic_feedback_for_live_move(
-                            fen_before=board.fen(),
-                            played_san=move_san,
-                            user_color=user_color,
-                            severity=coaching.severity,
-                            fundamental_violated=coaching_dict.get("fundamental_violated"),
-                            coach_intent=_coach_intent,
-                            phase=phase_str,
-                            cp_loss=cp_loss,
-                            user_rating=session_doc.get("user_rating", 1200),
-                            pv_after_played=pv_after_played,
-                            move_history_san=_mh_san,
-                            best_move_san=best_move,
-                        )
-                        if central_socratic:
-                            logger.info(
-                                f"[SOCRATIC-CENTRAL] Central layer produced output for "
-                                f"{move_san!r} (severity={coaching.severity}): "
-                                f"narrative={central_socratic.get('narrative', '')[:60]!r}, "
-                                f"authoritative={_socratic_central_authoritative}"
-                            )
-                        else:
-                            logger.info(
-                                f"[SOCRATIC-CENTRAL] Central layer suppressed for "
-                                f"{move_san!r} (gate fired or severity skip)"
-                            )
-                    except Exception as central_err:
-                        logger.warning(
-                            f"[SOCRATIC-CENTRAL] Central-layer call failed (non-fatal): "
-                            f"{central_err}",
-                            exc_info=False,
-                        )
-
-                    # ─── Source selection ───
-                    if _socratic_central_authoritative and central_socratic:
-                        # Flag ON + central produced output → use it as
-                        # primary. Skip the smart_coaching LLM call entirely.
-                        smart_fb = central_socratic
+                    from services.live_v5_teaching import socratic_feedback_for_live_move
+                    smart_fb = socratic_feedback_for_live_move(
+                        fen_before=board.fen(),
+                        played_san=move_san,
+                        user_color=user_color,
+                        severity=coaching.severity,
+                        fundamental_violated=coaching_dict.get("fundamental_violated"),
+                        coach_intent=_coach_intent,
+                        phase=phase_str,
+                        cp_loss=cp_loss,
+                        user_rating=session_doc.get("user_rating", 1200),
+                        pv_after_played=pv_after_played,
+                        move_history_san=_mh_san,
+                        best_move_san=best_move,
+                    )
+                    if smart_fb:
                         logger.info(
-                            f"[SOCRATIC-CENTRAL] Using CENTRAL LAYER as source of "
-                            f"truth for {move_san!r}"
+                            f"[SOCRATIC] Central layer produced output for "
+                            f"{move_san!r} (severity={coaching.severity}): "
+                            f"narrative={smart_fb.get('narrative', '')[:60]!r}"
                         )
                     else:
-                        # Flag OFF, or central returned None (gate fired):
-                        # smart_coaching primary, as before.
-                        smart_fb = await generate_smart_user_feedback(
-                            board_before=board,
-                            user_move=move,
-                            best_move_san=best_move,
-                            cp_loss=cp_loss,
-                            severity=coaching.severity,
-                            fundamental_violated=coaching_dict.get("fundamental_violated"),
-                            coach_intent=_coach_intent,
-                            user_rating=session_doc.get("user_rating", 1200),
-                            phase=phase_str,
-                            db=db,
-                            pv_after_played=pv_after_played,
-                            move_history_san=_mh_san,
+                        logger.info(
+                            f"[SOCRATIC] Central layer suppressed for "
+                            f"{move_san!r} (gate fired or severity skip — "
+                            f"matches prior smart_coaching None semantics)"
                         )
                     if smart_fb:
                         if smart_fb.get("question"):
@@ -2823,18 +2769,19 @@ async def get_interactive_coaching(
                                 coaching_dict["comparison_reasons"] = comparison["reasons"][:3]
                         except Exception:
                             pass
-                        if smart_fb.get("narrative"):
-                            coaching_dict["narrative"] = smart_fb["narrative"]
-                        if smart_fb.get("plan"):
-                            coaching_dict["focus_plan"] = smart_fb["plan"]
-                            # Store the plan on the session so we can check if student follows it
-                            try:
-                                await db.coach_sessions.update_one(
-                                    {"session_id": session_id},
-                                    {"$set": {"active_coach_plan": smart_fb["plan"]}}
-                                )
-                            except Exception:
-                                pass
+                        if smart_fb:
+                            if smart_fb.get("narrative"):
+                                coaching_dict["narrative"] = smart_fb["narrative"]
+                            if smart_fb.get("plan"):
+                                coaching_dict["focus_plan"] = smart_fb["plan"]
+                                # Store the plan on the session so we can check if student follows it
+                                try:
+                                    await db.coach_sessions.update_one(
+                                        {"session_id": session_id},
+                                        {"$set": {"active_coach_plan": smart_fb["plan"]}}
+                                    )
+                                except Exception:
+                                    pass
                 except Exception as smart_err:
                     logger.debug(f"Smart user feedback failed (using template): {smart_err}")
 
