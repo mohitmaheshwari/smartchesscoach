@@ -14,61 +14,18 @@ Routes through llm_service.call_llm. Defaults to gpt-4o-mini (cheapest);
 swap to Claude by setting V5_NARRATOR_MODEL=claude-sonnet-4-6.
 """
 
-import json
-import os
 import logging
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
-from llm_service import call_llm
-from services.coach_voice_prompt import with_coach_voice
+# Mohit 2026-05-27: ZERO LLM in coaching (review included). This module
+# no longer imports call_llm — every function is deterministic. The
+# `narrative` field is composed verbatim from the V5 plan's
+# coach-authored strings (current_problem / better_approach). Per
+# [[one-source-of-truth-for-coaching]].
 
 load_dotenv()
 logger = logging.getLogger(__name__)
-
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-NARRATOR_MODEL = os.environ.get("V5_NARRATOR_MODEL", "gpt-4o-mini")
-
-
-def _llm_available() -> bool:
-    """True if the API key for the configured NARRATOR_MODEL is present."""
-    if NARRATOR_MODEL.startswith("claude"):
-        return bool(ANTHROPIC_API_KEY)
-    return bool(OPENAI_API_KEY)
-
-# System prompt for concise narrative generation.
-#
-# Role: LLM is a REWRITER, not an author. It receives a grounded plan
-# (what went wrong + better move, both derived from Stockfish upstream)
-# and outputs the same truth in warmer coach voice. It does not invent.
-NARRATOR_SYSTEM_PROMPT = """You are a patient, direct chess coach rewriting a short critique in plain coach voice.
-
-Voice target: patient academic trainer (Mihail Marin, Jacob Aagaard, Daniel King).
-NOT streamer/entertainer. NOT chatbot-friendly. Observational, concrete, opinion-laden
-but humble. Trust the student. No theatrics. No exclamation marks. No "great!"
-
-You will be given:
-- The move the player made (in chess notation)
-- The problem with that move (one sentence of ground truth)
-- What they should have played instead (often names a specific move)
-
-Your job: REWRITE this in plain coach voice, as one short sentence.
-
-HARD RULES — violating these fails the task:
-1. MAX 15 words total.
-2. DO NOT introduce any move, piece, square, tactic, or chess concept that is NOT in the input.
-   If the input doesn't name Bxb5, you MUST NOT name Bxb5.
-   If the input doesn't say "fork", you MUST NOT say "fork".
-   Invent nothing.
-3. Keep the exact move names and ideas from the input — just rephrase the WORDS.
-4. No engine language (eval, centipawns, accuracy).
-5. No exclamation marks. No "great!" / "nice!" / "amazing!" / "perfect!" — patient academic, not hype.
-6. No catchy rhymes or invented hooks ("Knights on the rim are dim" etc.) unless
-   the input literally already makes that point.
-7. If the input is already natural, output it essentially unchanged.
-
-Output ONLY the rewritten sentence. No quotes, no labels, no JSON."""
 
 
 async def generate_concise_narrative(
@@ -96,111 +53,16 @@ async def generate_concise_narrative(
     Returns:
         Concise narrative string (under 20 words)
     """
-    if not _llm_available():
-        return _generate_fallback_narrative(move_san, plan_data, severity)
-
-    # Build the grounded context. Only pass what the upstream plan
-    # actually contains — no invented fields, no assumptions. If plan_data
-    # is empty, the LLM has nothing to rewrite; we go straight to fallback.
-    if not plan_data:
-        return _generate_fallback_narrative(move_san, plan_data, severity)
-
-    problem = (plan_data.get("current_problem") or "").strip()
-    better = (plan_data.get("better_approach") or "").strip()
-
-    if not problem and not better:
-        return _generate_fallback_narrative(move_san, plan_data, severity)
-
-    lines = [f"Move played: {move_san}"]
-    if problem:
-        lines.append(f"Problem: {problem}")
-    if better:
-        lines.append(f"What was better: {better}")
-
-    user_prompt = (
-        "\n".join(lines)
-        + "\n\nRewrite the critique above as one short coach-voice sentence. "
-        "Use only the moves and ideas already named. Do not add anything."
-    )
-
-    try:
-        response = await call_llm(
-            system_message=with_coach_voice(NARRATOR_SYSTEM_PROMPT),
-            user_message=user_prompt,
-            model=NARRATOR_MODEL,
-            max_tokens=120,
-        )
-
-        narrative = response.strip().strip('"').strip("'")
-
-        # Hard length cap — anything over 25 words means the LLM ignored the
-        # constraint and probably invented something. Drop to fallback in
-        # that case; don't try to truncate a paragraph-hallucination.
-        words = narrative.split()
-        if len(words) > 25:
-            logger.debug(f"LLM narrator output too long ({len(words)} words) — using fallback")
-            return _generate_fallback_narrative(move_san, plan_data, severity)
-
-        # PR-10 (Mohit 2026-05-27): controlled-narrator verifier.
-        # Mirror v5_llm_polish._verify_no_new_chess — the narrator is
-        # ALSO an LLM-as-copywriter surface, so it must obey the same
-        # grounding constraint: every chess token (SAN move / square /
-        # piece) in the output must already appear in the input
-        # (move_san + plan_data problem/better strings). Without this,
-        # the narrator could invent a fork/pin/square that isn't real.
-        # Per [[one-source-of-truth-for-coaching]] +
-        # [[llm-as-controlled-narrator]]. Falls back to the deterministic
-        # narrative on any ungrounded chess noun.
-        if not _verify_narrative_grounded(narrative, move_san, problem, better):
-            logger.info(
-                "[narrator] reject: ungrounded chess token in LLM output — "
-                "falling back to deterministic narrative"
-            )
-            return _generate_fallback_narrative(move_san, plan_data, severity)
-
-        return narrative
-
-    except Exception as e:
-        logger.error(f"LLM narrator error: {e}")
-        return _generate_fallback_narrative(move_san, plan_data, severity)
-
-
-def _verify_narrative_grounded(
-    narrative: str, move_san: str, problem: str, better: str
-) -> bool:
-    """Reject the LLM narrative if it mentions a chess move / square /
-    piece not present in the grounded input (move_san + plan problem +
-    plan better). Returns True when safe to use.
-
-    Reuses v5_llm_polish._collect_chess_tokens so the token-extraction
-    rules stay identical across both controlled-narrator surfaces.
-    """
-    try:
-        from services.v5_llm_polish import _collect_chess_tokens
-    except Exception:
-        # If the shared extractor isn't importable, fail safe: accept
-        # only when narrative adds no obviously-new SAN/square. Without
-        # the extractor we can't verify, so be conservative and reject
-        # (caller falls back to the deterministic narrative).
-        return False
-
-    whitelist_text = " ".join([move_san or "", problem or "", better or ""])
-    allowed = _collect_chess_tokens(whitelist_text)
-    out = _collect_chess_tokens(narrative)
-
-    for san in out["san"]:
-        if san in allowed["san"]:
-            continue
-        if san.lower() in allowed["squares"]:
-            continue
-        return False
-    for sq in out["squares"]:
-        if sq not in allowed["squares"]:
-            return False
-    for piece in out["pieces"]:
-        if piece not in allowed["pieces"]:
-            return False
-    return True
+    # Mohit 2026-05-27: ZERO LLM in coaching, review included. The
+    # narrator is now deterministic-only — it returns the plan_data
+    # strings (current_problem / better_approach) verbatim via
+    # _generate_fallback_narrative. Those strings are already
+    # coach-authored by the deterministic V5 plan generator, so no LLM
+    # rewrite is needed. Per [[one-source-of-truth-for-coaching]].
+    #
+    # (The function stays async + keeps its signature so the V5 service
+    # call site at game_decryption_v5_service.py:3790 is unchanged.)
+    return _generate_fallback_narrative(move_san, plan_data, severity)
 
 
 async def generate_opponent_narrative(
@@ -209,50 +71,10 @@ async def generate_opponent_narrative(
     user_color: str,
     weak_squares: List[str]
 ) -> tuple:
-    """
-    Generate narrative for opponent's move from user's perspective.
-
-    Returns:
-        (narrative, your_plan_now)
-    """
-    if not _llm_available():
-        return _fallback_opponent_narrative(move_san, eval_swing, weak_squares)
-
-    if eval_swing > 150:
-        situation = "Opponent blundered"
-    elif eval_swing > 50:
-        situation = "Opponent made a small mistake"
-    else:
-        situation = "Normal move"
-
-    user_prompt = f"""Opponent played: {move_san}
-Situation: {situation}
-User plays: {user_color}
-{f'Weak squares created: {", ".join(weak_squares)}' if weak_squares else ''}
-
-Generate TWO things (each under 15 words):
-1. What this move did (from user's perspective)
-2. What user's plan should be now
-
-Format: Line 1 = observation, Line 2 = plan"""
-
-    try:
-        response = await call_llm(
-            system_message=with_coach_voice("Be concise and actionable. Max 15 words per line."),
-            user_message=user_prompt,
-            model=NARRATOR_MODEL,
-            max_tokens=120,
-        )
-
-        lines = response.strip().split("\n")
-        narrative = lines[0].strip() if lines else f"Opponent played {move_san}."
-        plan = lines[1].strip() if len(lines) > 1 else None
-
-        return narrative, plan
-
-    except Exception as e:
-        logger.error(f"LLM opponent narrator error: {e}")
-        return _fallback_opponent_narrative(move_san, eval_swing, weak_squares)
+    """Opponent-move narrative — DETERMINISTIC (Mohit 2026-05-27, zero
+    LLM in coaching). Delegates to _fallback_opponent_narrative.
+    (No production callers today; kept for signature stability.)"""
+    return _fallback_opponent_narrative(move_san, eval_swing, weak_squares)
 
 
 async def generate_good_move_praise(
@@ -261,35 +83,9 @@ async def generate_good_move_praise(
     is_best_move: bool,
     phase: str
 ) -> str:
-    """
-    Generate praise for a good move. Keep it short and genuine.
-    """
-    if not _llm_available():
-        return _fallback_good_move(move_san, concept_applied, is_best_move)
-
-    context = f"Move: {move_san}\nPhase: {phase}\n"
-    if is_best_move:
-        context += "This was the BEST move in the position!\n"
-    if concept_applied:
-        context += f"User demonstrated understanding of: {concept_applied.replace('_', ' ')}"
-
-    user_prompt = f"""{context}
-
-Generate a SHORT (max 10 words) genuine praise that feels human, not robotic.
-Don't say "great move" or "well done" - be more specific."""
-
-    try:
-        response = await call_llm(
-            system_message=with_coach_voice("Praise for a good move. Max 10 words. Be specific, not robotic."),
-            user_message=user_prompt,
-            model=NARRATOR_MODEL,
-            max_tokens=80,
-        )
-        return response.strip().strip('"').strip("'")
-
-    except Exception as e:
-        logger.error(f"LLM good move error: {e}")
-        return _fallback_good_move(move_san, concept_applied, is_best_move)
+    """Good-move praise — DETERMINISTIC (Mohit 2026-05-27, zero LLM).
+    Delegates to _fallback_good_move. (No production callers today.)"""
+    return _fallback_good_move(move_san, concept_applied, is_best_move)
 
 
 def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) -> str:
@@ -367,69 +163,14 @@ def _fallback_good_move(move_san: str, concept_applied: Optional[str], is_best_m
 
 
 async def generate_narratives_batch(moves_data: List[Dict]) -> Dict[int, str]:
-    """
-    Generate narratives for multiple moves in a single batch.
-
-    Returns: Dict mapping move_index to narrative
-    """
-    if not _llm_available():
-        return {
-            i: _generate_fallback_narrative(
-                m.get("move_san", ""),
-                m.get("plan"),
-                m.get("severity", "good")
-            )
-            for i, m in enumerate(moves_data)
-        }
-
-    moves_context = []
-    for i, m in enumerate(moves_data):
-        plan = m.get("plan", {}) or {}
-        moves_context.append(f"""
-Move {i+1}: {m.get('move_san', '')}
-Severity: {m.get('severity', 'good')}
-Problem: {plan.get('current_problem', 'N/A')}
-Consequence: {plan.get('consequence', 'N/A')}
-Better: {plan.get('better_approach', 'N/A')}
-Learning: {plan.get('transferable_learning', 'N/A')}
-""")
-
-    user_prompt = f"""Generate a MEMORABLE coaching sentence for each move below.
-CRITICAL: Maximum 20 words each. Make each one stick in memory.
-
-{chr(10).join(moves_context)}
-
-Return as JSON: {{"1": "narrative for move 1", "2": "narrative for move 2", ...}}"""
-
-    try:
-        response = await call_llm(
-            system_message=with_coach_voice(NARRATOR_SYSTEM_PROMPT + "\n\nReturn ONLY valid JSON."),
-            user_message=user_prompt,
-            model=NARRATOR_MODEL,
-            max_tokens=1024,
+    """Batch narratives — DETERMINISTIC (Mohit 2026-05-27, zero LLM).
+    Each narrative is the deterministic _generate_fallback_narrative
+    output. (No production callers today.)"""
+    return {
+        i: _generate_fallback_narrative(
+            m.get("move_san", ""),
+            m.get("plan"),
+            m.get("severity", "good"),
         )
-
-        try:
-            narratives = json.loads(response.strip())
-            return {int(k) - 1: v for k, v in narratives.items()}
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse batch response, falling back")
-            return {
-                i: _generate_fallback_narrative(
-                    m.get("move_san", ""),
-                    m.get("plan"),
-                    m.get("severity", "good")
-                )
-                for i, m in enumerate(moves_data)
-            }
-
-    except Exception as e:
-        logger.error(f"Batch narrative error: {e}")
-        return {
-            i: _generate_fallback_narrative(
-                m.get("move_san", ""),
-                m.get("plan"),
-                m.get("severity", "good")
-            )
-            for i, m in enumerate(moves_data)
-        }
+        for i, m in enumerate(moves_data)
+    }

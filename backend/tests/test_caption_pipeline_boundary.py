@@ -1053,10 +1053,20 @@ class TestCoachExtras:
         state = CrossMoveState()
         return build_move_teaching_decision(inputs, state)
 
-    def test_no_coach_context_returns_none(self):
-        """When coach_move_context is None (V5 review, PWC user side),
-        coach_extras stays None on the decision."""
-        d = self._build()
+    def test_opponent_move_auto_narrates_in_review(self):
+        """Mohit 2026-05-27 data-richness: an opponent move with NO
+        explicit coach_move_context now AUTO-derives coach narration,
+        so review narrates opponent moves like coach moves. (Was
+        previously gated to PWC-only.)"""
+        d = self._build()  # mover_is_user=False, no explicit context
+        assert d.coach_extras is not None
+        assert d.coach_extras.explanation != ""
+
+    def test_user_move_gets_no_coach_extras(self):
+        """coach_extras is for OPPONENT/coach moves only. A user's own
+        move must not auto-derive coach narration (it would derive
+        Socratic instead, if it's a mistake)."""
+        d = self._build(mover_is_user=True, user_color="white")
         assert d.coach_extras is None
 
     def test_empty_coach_context_still_fires_terminal_variant(self):
@@ -1394,10 +1404,26 @@ class TestSocraticExtras:
         inputs = MoveInputs(**defaults)
         return build_move_teaching_decision(inputs, CrossMoveState())
 
-    def test_no_socratic_context_returns_none(self):
-        """When socratic_context is None (V5 review, PWC user moves
-        that aren't mistakes), socratic_extras stays None."""
-        d = self._build()
+    def test_user_mistake_auto_derives_socratic_in_review(self):
+        """Mohit 2026-05-27 data-richness: a user mistake with NO
+        explicit socratic_context now AUTO-derives Socratic teaching,
+        so review shows narrative + question + hint on every user
+        mistake. (Was previously gated to PWC-only.) The _build default
+        is a cp_loss=200 user mistake."""
+        d = self._build()  # mover_is_user=True, cp_loss=200, no context
+        assert d.socratic_extras is not None
+        assert d.socratic_extras.narrative != ""
+        assert d.socratic_extras.question != ""
+
+    def test_clean_user_move_no_socratic(self):
+        """A clean user move (cp_loss=0, severity good) must NOT
+        auto-derive Socratic — it isn't a mistake."""
+        d = self._build(
+            cp_loss=0, eval_before_cp=20, eval_after_cp=18,
+            played_san="Nf6",
+            fen_before="rnbqkb1r/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+            best_move_san="Nf6",
+        )
         assert d.socratic_extras is None
 
     def test_severity_not_mistake_or_blunder_returns_none(self):
@@ -1479,13 +1505,15 @@ class TestSocraticExtras:
         assert extras.narrative != ""
         assert extras.question != ""
 
-    def test_v5_review_path_unaffected(self):
-        """User-side V5 review call without socratic_context — coach_
-        extras AND socratic_extras both stay None. Anchors no-regression
-        invariant: PR-6 changes only PWC user-mistake renders."""
-        d = self._build()
-        assert d.coach_extras is None
-        assert d.socratic_extras is None
+    def test_v5_review_user_mistake_is_data_rich(self):
+        """Mohit 2026-05-27: review is now AS data-rich as PWC. A user
+        mistake in review (no explicit context) gets socratic_extras
+        auto-derived; coach_extras stays None (user move, not opponent).
+        This REPLACES the old 'review path unaffected' invariant —
+        review is deliberately enriched now."""
+        d = self._build()  # user mistake, cp_loss=200
+        assert d.socratic_extras is not None   # review now gets Socratic
+        assert d.coach_extras is None          # user move → no coach narration
 
 
 if __name__ == "__main__":

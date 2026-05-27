@@ -1248,58 +1248,56 @@ MAX 1-2 SENTENCES. No fluff. Say the specific move/tactic.
 GOOD: "Develop Nf3 attacking center. Then Bc4 eyes f7."  
 BAD: Long explanations about strategy..."""
     
-    try:
-        response = await call_llm(
-            system_message="Chess coach. Max 20 words. Direct.",
-            user_message=prompt,
-            model="gpt-4o-mini"
-        )
-        response_text = response.strip()
+    # Mohit 2026-05-27: ZERO LLM in coaching. The chat response is now
+    # composed DETERMINISTICALLY from the data already gathered above
+    # (move_analysis result fields, Stockfish best-move suggestion,
+    # position plan). All chess claims are grounded — they come from
+    # Stockfish + python-chess, never invented. Per
+    # [[one-source-of-truth-for-coaching]].
+    parts: List[str] = []
 
-        # PR-7 (2026-05-27): chat is a genuine free-text interface
-        # (user types arbitrary question, coach responds). LLM must
-        # stay, but we verify any chess claims in the response against
-        # the actual board state per [[one-source-of-truth-for-coaching]].
-        # Pieces hallucinated ("your knight on f6") or illegal
-        # continuation chains ("after Nf3 Nxe5") trigger wipe-back to
-        # a safe non-claim response.
-        try:
-            from services.coaching_text_guard import (
-                verify_coaching_text, verify_chain_claims,
-            )
-            piece_issues = verify_coaching_text(
-                response_text, current_fen, user_color=user_color,
-            )
-            chain_issues = verify_chain_claims(response_text, current_fen)
-            if piece_issues or chain_issues:
-                logger.warning(
-                    f"[chat-guard] LLM response wiped for hallucinated chess claims: "
-                    f"piece_issues={[i.detail for i in piece_issues]} "
-                    f"chain_issues={[i.detail for i in chain_issues]}"
-                )
-                # Safe fallback — describe intent without making
-                # chess claims that didn't pass the guard.
-                if position_plan:
-                    response_text = (
-                        f"Look at the position carefully. "
-                        f"{position_plan.get('main_idea', 'develop pieces and control the centre.')}"
-                    )
-                else:
-                    response_text = (
-                        "Tell me more about what you're considering — "
-                        "there are a few ideas worth exploring here."
-                    )
-        except Exception as guard_err:
-            logger.debug(f"[chat-guard] verification failed non-fatally: {guard_err}")
+    # 1. If they asked about their last move, lead with its quality +
+    #    the engine's pick (both deterministic from move_analysis).
+    if asking_about_last_move and result.get("move_quality"):
+        q = result["move_quality"]
+        bm = result.get("best_move")
+        if q in ("brilliant", "great"):
+            parts.append("That was a strong move.")
+        elif q in ("good", "okay"):
+            parts.append("Solid move.")
+        elif q == "inaccuracy":
+            parts.append(f"Slightly inaccurate — {bm} was a touch sharper." if bm else "Slightly inaccurate.")
+        elif q in ("mistake", "blunder"):
+            parts.append(f"That one was off — {bm} was stronger." if bm else "That one was off.")
 
-        result["response"] = response_text
-    except Exception:
+    # 2. If they asked for a plan / suggestion, give the engine move
+    #    (deterministic) without inventing reasons.
+    if asking_about_plan and result.get("best_move"):
+        parts.append(f"Consider {result['best_move']}.")
+    elif asking_about_plan and position_plan and position_plan.get("main_idea"):
+        parts.append(position_plan["main_idea"].rstrip("."))
+
+    # 3. If they asked about the coach's move, name it (no invented
+    #    rationale — the deterministic coach-move narration surface
+    #    handles the "why" elsewhere).
+    if asking_about_coach_move and asked_about_move:
+        parts.append(f"I played {asked_about_move} to improve my position.")
+
+    # 4. Fallbacks — personal context, plan, or a neutral prompt.
+    if not parts:
         if personal_context and personal_context.get("similar_mistake"):
             sm = personal_context["similar_mistake"]
-            result["response"] = f"Similar to your game vs {sm.get('opponent', 'before')} - don't repeat it!"
-        elif position_plan:
-            result["response"] = f"Plan: {position_plan.get('main_idea', 'develop and control center')}."
+            parts.append(
+                f"This is similar to your game vs {sm.get('opponent', 'before')} — "
+                "watch for the same idea."
+            )
+        elif position_plan and position_plan.get("main_idea"):
+            parts.append(position_plan["main_idea"])
         else:
-            result["response"] = "Let me check..."
+            parts.append(
+                "Look at every check, capture, and threat for both sides, "
+                "then pick the move that improves your worst-placed piece."
+            )
 
+    result["response"] = " ".join(p for p in parts if p).strip()
     return result

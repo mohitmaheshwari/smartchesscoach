@@ -118,6 +118,25 @@ def _snapshot_move(game_id: str, move: Dict[str, Any]) -> Dict[str, Any]:
         )
     else:
         out["principles_fired_ids"] = []
+
+    # Data-richness extras (Mohit 2026-05-27): coach_move_coaching +
+    # socratic_coaching now populate on review moves (opponent moves
+    # and user mistakes respectively). Track PRESENCE + a stable hash
+    # of the key text so regression catches drift, without making the
+    # diff brittle to cosmetic template edits.
+    import hashlib as _hl
+
+    def _h(s):
+        if not s:
+            return "none"
+        return _hl.sha1(str(s).encode("utf-8")).hexdigest()[:12]
+
+    _cmc = move.get("coach_move_coaching") or {}
+    out["coach_move_coaching_present"] = bool(_cmc)
+    out["coach_move_coaching_explanation_hash"] = _h(_cmc.get("explanation") if isinstance(_cmc, dict) else None)
+    _soc = move.get("socratic_coaching") or {}
+    out["socratic_coaching_present"] = bool(_soc)
+    out["socratic_coaching_question_hash"] = _h(_soc.get("question") if isinstance(_soc, dict) else None)
     return out
 
 

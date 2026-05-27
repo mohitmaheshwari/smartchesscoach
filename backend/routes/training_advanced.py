@@ -2281,33 +2281,70 @@ async def get_ai_insights(user: User = Depends(get_current_user)):
     if not suggestion_data.get("ready_for_ai"):
         return suggestion_data
 
-    # Generate AI insights
-    try:
-        from llm_service import call_llm
-        from services.coach_voice_prompt import with_coach_voice
-        from config import LLM_MODEL
+    # Mohit 2026-05-27: ZERO LLM in coaching. Compose the insight
+    # DETERMINISTICALLY from the user's own reflection tags (top_tags
+    # are the patterns THEY identified — already grounded in their
+    # words). Per [[one-source-of-truth-for-coaching]]. Each tag maps
+    # to a concrete habit prompt; no LLM, no invented patterns.
+    ctx = suggestion_data.get("context", {}) or {}
+    top_tags = ctx.get("top_tags") or []
+    total = ctx.get("total_reflections", 0)
 
-        response = await call_llm(
-            system_message=with_coach_voice(
-                "Analyze the player's thinking patterns. Be specific, reference their actual words, give one actionable observation."
-            ),
-            user_message=suggestion_data["prompt"],
-            model=LLM_MODEL,
-            max_tokens=1024,
+    # tag → actionable habit (deterministic table).
+    _tag_habit = {
+        "hanging_piece": "before every move, count attackers vs defenders on each of your pieces",
+        "missed_tactic": "scan for checks, captures, and threats — for both sides — before deciding",
+        "calculation": "when the position is forcing, calculate at least two moves deep",
+        "time_pressure": "budget your time — don't spend it all on one early decision",
+        "king_safety": "castle early and keep pawns in front of your king",
+        "opening": "develop minors, control the centre, castle — in that order",
+        "endgame": "activate your king and push passed pawns when it's safe",
+        "pawn_structure": "before pawn moves, ask: does this create a weakness I can't defend?",
+        "overextension": "don't push pawns or pieces forward without support behind them",
+        "passive": "each move should improve a piece — find your worst-placed one",
+    }
+
+    def _tag_name(t):
+        return t[0] if isinstance(t, (list, tuple)) else (t.get("tag") if isinstance(t, dict) else str(t))
+
+    def _tag_count(t):
+        if isinstance(t, (list, tuple)) and len(t) > 1:
+            return t[1]
+        if isinstance(t, dict):
+            return t.get("count")
+        return None
+
+    lines = []
+    if top_tags:
+        names = []
+        for t in top_tags[:3]:
+            nm = _tag_name(t)
+            cnt = _tag_count(t)
+            names.append(f"{nm.replace('_', ' ')}" + (f" ({cnt}×)" if cnt else ""))
+        lines.append(
+            "Across your reflections, the patterns you flagged most: "
+            + ", ".join(names) + "."
+        )
+        # Actionable habit for the dominant tag.
+        dom = _tag_name(top_tags[0])
+        habit = None
+        for key, val in _tag_habit.items():
+            if key in (dom or "").lower():
+                habit = val
+                break
+        if habit:
+            lines.append(f"Focus next on this habit: {habit}.")
+    else:
+        lines.append(
+            "Keep reflecting after games — once a few patterns repeat, "
+            "we'll zero in on the habit to fix first."
         )
 
-        return {
-            "has_insights": True,
-            "ai_analysis": response,
-            "context": suggestion_data["context"],
-        }
-    except Exception as e:
-        logger.error(f"Error generating AI insights: {e}")
-        return {
-            "has_insights": False,
-            "error": "Could not generate AI insights",
-            "context": suggestion_data.get("context", {}),
-        }
+    return {
+        "has_insights": True,
+        "ai_analysis": " ".join(lines),
+        "context": suggestion_data["context"],
+    }
 
 
 # =============================================================================

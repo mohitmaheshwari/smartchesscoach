@@ -3383,6 +3383,36 @@ async def generate_game_decryption_v5(
                     _caption_tier = _decision.teaching_meta.caption_tier
                     principles_fired_last_move = set(_decision.state_mutations.fired_principles_added)
 
+                    # ─── DATA-RICHNESS (Mohit 2026-05-27) ──────────────
+                    # Persist the coach-move + Socratic teaching that the
+                    # central layer auto-derives for EVERY move, so the
+                    # review surface is as data-rich as PWC. coach_extras
+                    # fires on opponent moves (narrate them like coach
+                    # moves); socratic_extras fires on user mistakes
+                    # (narrative + question + hint). Both are None on
+                    # moves that don't qualify — stored only when present.
+                    _coach_extras = _decision.coach_extras
+                    if _coach_extras is not None:
+                        caption_facts["coach_move_coaching"] = {
+                            "move_san": _coach_extras.move_san,
+                            "explanation": _coach_extras.explanation,
+                            "plan": _coach_extras.plan,
+                            "threats": list(_coach_extras.threats or []),
+                            "teaching_point": _coach_extras.teaching_point,
+                            "hint_for_user": _coach_extras.hint_for_user,
+                            "opponent_opportunity": _coach_extras.opponent_opportunity,
+                            "v2_intent": _coach_extras.v2_intent,
+                            "v2_label": _coach_extras.v2_label,
+                        }
+                    _socratic_extras = _decision.socratic_extras
+                    if _socratic_extras is not None:
+                        caption_facts["socratic_coaching"] = {
+                            "narrative": _socratic_extras.narrative,
+                            "plan": _socratic_extras.plan,
+                            "question": _socratic_extras.question,
+                            "hint": _socratic_extras.hint,
+                        }
+
                     # Apply state mutations to V5 game-state vars.
                     principles_fired_this_game.update(_decision.state_mutations.fired_principles_added)
                     state_keys_fired_this_game.update(_decision.state_mutations.fired_state_keys_added)
@@ -3708,6 +3738,17 @@ async def generate_game_decryption_v5(
                 # Set when the mover's played-move prefix matches an opening's
                 # setup_order ≥ 3 steps. Carries name, summary, golden_rules.
                 "opening": opening_record,
+
+                # ── DATA-RICHNESS coaching extras (Mohit 2026-05-27) ─
+                # Same teaching the live PWC surface shows, now available
+                # in review too (the central layer auto-derives both for
+                # every qualifying move). coach_move_coaching fires on
+                # opponent moves (narrate them like coach moves);
+                # socratic_coaching fires on user mistakes (narrative +
+                # Socratic question + hint). None on moves that don't
+                # qualify. Per [[one-source-of-truth-for-coaching]].
+                "coach_move_coaching": caption_facts.get("coach_move_coaching"),
+                "socratic_coaching": caption_facts.get("socratic_coaching"),
             }
 
             decryption_data.append(move_output)

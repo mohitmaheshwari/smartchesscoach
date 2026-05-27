@@ -2781,24 +2781,74 @@ def build_move_teaching_decision(
 
     # ─── 3b. PWC coach-move narration facts (2026-05-26 migration off
     # smart_coaching.py per [[one-source-of-truth-for-coaching]]).
-    # No-op when coach_move_context is None (V5 review, PWC user-side).
-    # Stamps coach_intent / coach_attack_targets / student_can_exploit
-    # for the R17_coach_move templates and the CoachExtras populator.
+    # ─── DATA-RICHNESS AUTO-DERIVATION (Mohit 2026-05-27) ──────────
+    # "the things we expose to PWC should be available for review too…
+    # so both layers can be data rich." The central layer is the single
+    # source: it auto-derives the coach-move + Socratic teaching from
+    # each move's INTRINSIC properties, so BOTH review and PWC get the
+    # rich output without the caller having to hand in a context flag.
+    # PWC can still pass an EXPLICIT context (with v2 intent) to enrich
+    # further; when present it wins.
+    #
+    # coach_move_context: explicit (PWC) OR auto for ANY opponent move
+    #   (review narrates opponent's moves like coach moves — Mohit
+    #   "treat opponent moves in ALL reviews like coach moves").
+    # socratic_context: explicit (PWC) OR auto for user mistakes/blunders
+    #   (review shows Socratic teaching on every user mistake).
+    _phase_for_ctx = (
+        "opening"
+        if (max(0, (inputs.full_move_number or 1) - 1) * 2
+            + (0 if inputs.mover_is_white else 1)) < 12
+        else "middlegame"
+    )
+
+    _effective_coach_ctx = inputs.coach_move_context
+    if _effective_coach_ctx is None and not inputs.mover_is_user:
+        # Opponent move with no explicit PWC context → narrate it.
+        # Empty dict signals "narrate, no v2 intent" (R17 terminal
+        # variant handles the no-intent case).
+        _effective_coach_ctx = {}
+
+    _effective_socratic_ctx = inputs.socratic_context
+    if _effective_socratic_ctx is None and inputs.mover_is_user:
+        # Respect a caller-downgraded severity (book move / forced
+        # recapture → "good") so we don't fire Socratic on non-mistakes.
+        # severity_override is a str (V5 passes its downgraded tier);
+        # canonical is a SeverityClassification — use its .tier string.
+        _canonical_tier = getattr(canonical, "tier", None) or ""
+        _eff_sev = (severity_override or _canonical_tier or "").lower()
+        if _eff_sev in ("mistake", "blunder"):
+            # Derive fundamental_violated from facts already computed
+            # by extract_facts (step 1). hanging > missed-tactic > none.
+            _fundamental = None
+            if caption_facts.get("pieces_now_undefended"):
+                _fundamental = "hanging_pieces"
+            elif caption_facts.get("missed_tactic_kind"):
+                _fundamental = "calculate"
+            _effective_socratic_ctx = {
+                "severity": _eff_sev,
+                "fundamental_violated": _fundamental,
+                "coach_intent": None,
+                "phase": _phase_for_ctx,
+            }
+
+    # No-op when context (effective) is None. Stamps coach_intent /
+    # coach_attack_targets / student_can_exploit for the R17_coach_move
+    # templates and the CoachExtras populator.
     inject_coach_move_facts(
         caption_facts,
         board_before=board_before,
         move=played_move,
         user_color=inputs.user_color,
-        coach_move_context=inputs.coach_move_context,
+        coach_move_context=_effective_coach_ctx,
     )
 
-    # ─── 3c. PWC user-mistake Socratic facts (PR-6 of 5, 2026-05-27
-    # migration off smart_coaching.generate_smart_user_feedback per
-    # [[one-source-of-truth-for-coaching]]). No-op when socratic_context
-    # is None or severity isn't a mistake/blunder. When active, applies
-    # the same three pre-routing gates smart_coaching uses today
-    # (cp_loss<80, user-addresses-threat, opening theory) and stamps
-    # facts for R18_socratic_user_mistake templates.
+    # ─── 3c. User-mistake Socratic facts (migration off smart_coaching.
+    # generate_smart_user_feedback per [[one-source-of-truth-for-
+    # coaching]]). No-op when effective socratic_context is None or
+    # severity isn't a mistake/blunder. When active, applies the three
+    # pre-routing gates (cp_loss<80, user-addresses-threat, opening
+    # theory) and stamps facts for R18_socratic_user_mistake templates.
     inject_socratic_user_facts(
         caption_facts,
         board_before=board_before,
@@ -2808,7 +2858,7 @@ def build_move_teaching_decision(
         pv_after_played=list(inputs.pv_after_played or []),
         move_history_san=list(inputs.move_history_san or []),
         user_rating=int(inputs.user_rating or 1200),
-        socratic_context=inputs.socratic_context,
+        socratic_context=_effective_socratic_ctx,
     )
 
     # ─── 4. A4 opening context (gates on idx<6 + opening phase) ──

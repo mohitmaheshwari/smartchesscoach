@@ -47,7 +47,14 @@ logger = logging.getLogger(__name__)
 # instruction-following (esp. "do not invent X" constraints) and only
 # marginally more expensive. Configurable via env if needed.
 POLISH_MODEL = os.environ.get("V5_POLISH_MODEL", "gpt-4.1-mini")
-POLISH_ENABLED = os.environ.get("V5_POLISH_ENABLED", "true").lower() in ("true", "1", "yes")
+# Mohit 2026-05-27: "we don't want to use LLM at this stage right now,
+# in review as well … i don't want to use LLM." The LLM polish layer
+# is DISABLED by default. The deterministic R12/R17/R18 caption from
+# build_move_teaching_decision is the only text the user sees.
+# polish_caption_async now returns None unless someone explicitly sets
+# V5_POLISH_ENABLED=true (kept as an escape hatch, not a default).
+# Per [[one-source-of-truth-for-coaching]] + [[llm-as-controlled-narrator]].
+POLISH_ENABLED = os.environ.get("V5_POLISH_ENABLED", "false").lower() in ("true", "1", "yes")
 
 
 SYSTEM_PROMPT = """You are polishing a chess coaching caption for a 600-1500 rated player.
