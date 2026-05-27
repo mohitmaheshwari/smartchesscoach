@@ -660,6 +660,37 @@ def inject_user_blunder_detector_facts(
     except Exception:
         pass
 
+    # 6b. Missed capture (Mohit fb_ee2ec3abeffd 2026-05-27).
+    # When best_move is a CAPTURE that didn't trigger missed_tactic_kind=
+    # piece_capture (i.e. small material gain like a pawn), stamp the
+    # captured piece + square so why_user_missed_capture can render the
+    # real teaching ("Bxc5 wins the pawn on c5") instead of letting
+    # positional detectors like defensive_pawn_push fire generic advice.
+    # Skipped when missed_tactic_kind already produced piece-level
+    # detail — those higher-priority variants render finer-grained
+    # captions ("wins the queen on d8").
+    if (best_move and "x" in best_move
+            and not caption_facts.get("missed_tactic_target_piece")):
+        try:
+            _board_cap = chess.Board(fen_before)
+            _best_mv = _board_cap.parse_san(best_move)
+            if _board_cap.is_capture(_best_mv):
+                # En-passant: captured pawn isn't on the destination
+                # square — locate it one rank behind.
+                if _board_cap.is_en_passant(_best_mv):
+                    _captured = chess.Piece(chess.PAWN, not _board_cap.turn)
+                else:
+                    _captured = _board_cap.piece_at(_best_mv.to_square)
+                if _captured is not None:
+                    caption_facts["missed_capture_target_piece"] = (
+                        chess.piece_name(_captured.piece_type)
+                    )
+                    caption_facts["missed_capture_target_square"] = (
+                        chess.square_name(_best_mv.to_square)
+                    )
+        except Exception:
+            pass
+
     # 7. Defensive pawn push (v63 #7).
     try:
         _dp_evs = simulate_defensive_pawn_push(
@@ -823,6 +854,7 @@ def inject_em_dash_and_trap_context_facts(
         "attack_with_tempo_piece",
         "queen_fork_sub_kind",
         "endgame_loose_pawn_sub_kind",
+        "missed_capture_target_piece",  # Mohit fb_ee2ec3abeffd (2026-05-27)
         "discovered_vac_exposed_square",
         "active_defense_defended_square",
         "same_piece_better_extra_square",

@@ -1213,6 +1213,146 @@ class TestCoachExtras:
 
 
 # ────────────────────────────────────────────────────────────────────
+# R12 why_user_missed_capture variant — Mohit fb_ee2ec3abeffd
+# 2026-05-27. When engine's best_move is a CAPTURE that didn't trigger
+# missed_tactic_kind=piece_capture (small material gain like a pawn),
+# the new missed_capture_target_piece/_square facts surface concrete
+# teaching ("Bxc5 captures the pawn on c5") instead of letting
+# positional detectors like defensive_pawn_push claim "passive pawn
+# move." Defensive_pawn_push is now ALSO gated to skip when best_move
+# is a capture, so both fixes are belt-and-suspenders.
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestMissedCaptureVariant:
+    """The missed_capture_target_piece / why_user_missed_capture path."""
+
+    def test_defensive_pawn_push_gated_off_when_best_is_capture(self):
+        """simulate_defensive_pawn_push must NOT fire when the engine's
+        best_move is a capture. Game_692ab776c5b1 m7 a6 prompted this
+        — engine wanted Bxc5 (a capture), defensive_pawn_push used to
+        claim 'passive pawn move' as the teaching."""
+        from services.shape_detectors import simulate_defensive_pawn_push
+        # m7 fen approximately — black has a piece on c5, white can
+        # play Bxc5 (capturing it).
+        # Use the actual fen from game_692ab776c5b1 m7 (black's 7th move,
+        # so white-to-move position from which black would respond).
+        # Simpler: rig a position where Bxc5 is a capture.
+        pre_fen = "r1bqk1nr/ppp2ppp/2n5/2bpp3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1"
+        # Black played a6 (passive pawn push). White's best is Bxc5
+        # (capture). Detector should return [] because best is a capture.
+        result = simulate_defensive_pawn_push(
+            pre_fen=pre_fen,
+            user_move_san="a6",  # hypothetical user pawn push
+            best_move_san="Bxc5",
+            move_number=7,
+        )
+        # Position above has white to move, so a6 isn't legal for white.
+        # The detector should bail on the parse — that's fine; the
+        # contract is "returns [] when something doesn't fit." We're
+        # really testing the is_capture gate on a recognised position.
+        # Build a cleaner test:
+        pre_fen_clean = "rnbqkbnr/ppp1pppp/8/3p4/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1"
+        # Black to play. Imagine black's best is a capture (dxc4) and
+        # student played a passive wing move (a6).
+        result = simulate_defensive_pawn_push(
+            pre_fen=pre_fen_clean,
+            user_move_san="a6",
+            best_move_san="dxc4",  # capture
+            move_number=2,
+        )
+        assert result == [], (
+            "defensive_pawn_push must skip captures (Mohit fb_ee2ec3abeffd). "
+            f"Got: {result}"
+        )
+
+    def test_defensive_pawn_push_fires_when_best_is_development(self):
+        """Sanity: the detector STILL fires when engine wanted a
+        non-capture developing move. Anchors that the capture gate
+        doesn't accidentally break the existing-and-correct path."""
+        from services.shape_detectors import simulate_defensive_pawn_push
+        # Black to play. Black's best is Nf6 (development); student
+        # played a6 (passive wing pawn).
+        pre_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+        result = simulate_defensive_pawn_push(
+            pre_fen=pre_fen,
+            user_move_san="a6",
+            best_move_san="Nf6",  # development, NOT a capture
+            move_number=1,
+        )
+        # Should fire (positional teaching applies).
+        assert result != [], (
+            "defensive_pawn_push must still fire for non-capture engine moves"
+        )
+        assert result[0]["user_pawn_san"] == "a6"
+        assert result[0]["best_dev_san"] == "Nf6"
+
+    def test_missed_capture_facts_stamped_on_blunder_with_best_capture(self):
+        """The new missed_capture detector should stamp
+        missed_capture_target_piece + missed_capture_target_square
+        when best_move is a capture (and missed_tactic_kind didn't
+        already produce piece-level detail). Uses the real
+        game_692ab776c5b1 m7 a6 position — the case Mohit flagged in
+        fb_ee2ec3abeffd."""
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+        # Real position: black to play, a6 is the user's actual move,
+        # Bxc5 (capturing the white c5 pawn) is the engine's best.
+        fen = "r2qkb1r/ppp2ppp/2n2n2/2Pp1b2/3P4/P1N5/1P3PPP/R1BQKBNR b KQkq - 0 7"
+        inputs = MoveInputs(
+            fen_before=fen,
+            played_san="a6",
+            mover_is_user=True,
+            mover_is_white=False,  # black plays a6 here (user is black)
+            user_color="black",
+            full_move_number=7,
+            move_history_san=[],
+            best_move_san="Bxc5",
+            cp_loss=146,
+            eval_before_cp=-10,
+            eval_after_cp=-156,
+        )
+        d = build_move_teaching_decision(inputs, CrossMoveState())
+        # missed_capture facts must be set; Bxc5 captures the white pawn.
+        assert d.debug_facts.get("missed_capture_target_piece") == "pawn"
+        assert d.debug_facts.get("missed_capture_target_square") == "c5"
+        # The em-dash voice-match should also fire (so the parent
+        # variant uses "X was better — reason" rather than two-sentence).
+        assert d.debug_facts.get("why_clause_em_dash") is True
+        # Caption should contain the new template content.
+        assert "captures the pawn" in d.text.caption.lower()
+
+    def test_missed_capture_silent_when_best_is_not_capture(self):
+        """When engine's best move is a developing move (no 'x' in SAN),
+        the missed_capture detector must not stamp anything."""
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+        fen = chess.STARTING_FEN
+        inputs = MoveInputs(
+            fen_before=fen,
+            played_san="a3",
+            mover_is_user=True,
+            mover_is_white=True,
+            user_color="white",
+            full_move_number=1,
+            move_history_san=[],
+            best_move_san="Nf3",  # development, not a capture
+            cp_loss=120,
+            eval_before_cp=20,
+            eval_after_cp=-100,
+        )
+        d = build_move_teaching_decision(inputs, CrossMoveState())
+        assert d.debug_facts.get("missed_capture_target_piece") is None
+        assert d.debug_facts.get("missed_capture_target_square") is None
+
+
+# ────────────────────────────────────────────────────────────────────
 # R18 socratic user-mistake narration — central-layer replacement for
 # services/smart_coaching.generate_smart_user_feedback per Mohit
 # 2026-05-27 "use same direction." See memory/feedback_one_source_of_

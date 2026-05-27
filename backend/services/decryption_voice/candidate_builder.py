@@ -154,18 +154,41 @@ def _pick_distractor(fen: str, exclude_ucis: List[str]) -> Optional[Dict]:
 
 def _outcome_caption_for_user_move(v5_user_record: Dict, severity: str) -> str:
     """One-line caption for the user's actual (wrong) move.
-    Uses V5 plan.consequence when available — that's already in voice."""
+
+    Source-of-truth order (Mohit 2026-05-27, [[one-source-of-truth-for-
+    coaching]]):
+      1. v5_user_record.plan.consequence — already in coach voice from
+         the central caption pipeline. Trimmed to first sentence.
+      2. v5_user_record.caption — the full R12/R_PROMOTED caption from
+         build_move_teaching_decision. First sentence captures "what
+         happened" without overclaim.
+      3. Silence (empty string) — better than a hardcoded python-literal
+         fallback that overclaims (see fb_1305644d72e9: "Your move lost
+         the game from here" overclaimed for a single blunder).
+
+    The third branch fires only when the V5 pipeline produced no caption
+    — should not happen in practice after the central-layer migration
+    (PR-1 → PR-5 / commit abbd7f88, PR-6 / commit aa474534). Returning
+    "" lets the caller decide UX (typically: omit the outcome line).
+    """
     plan = v5_user_record.get("plan") or {}
     if isinstance(plan, dict):
         consequence = plan.get("consequence")
         if consequence and isinstance(consequence, str):
-            # Trim to first sentence for brevity
             first = consequence.split(".")[0].strip()
             if first and len(first) > 5:
                 return first + "."
-    if severity == "blunder":
-        return "Your move lost the game from here."
-    return "The position got worse after this."
+
+    # Fall through to the V5 caption itself — already deterministic,
+    # already in voice, already severity-aware (its severity_phrase
+    # carries "is a mistake" / "is a major blunder" etc.).
+    v5_caption = (v5_user_record.get("caption") or "").strip()
+    if v5_caption:
+        first = v5_caption.split(".")[0].strip()
+        if first and len(first) > 5:
+            return first + "."
+
+    return ""
 
 
 def _find_equivalent_alternatives(

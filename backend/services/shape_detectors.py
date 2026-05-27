@@ -2379,6 +2379,16 @@ def simulate_defensive_pawn_push(
     if not (is_castle or is_piece_move):
         return []
 
+    # Mohit fb_ee2ec3abeffd (2026-05-27): the "passive pawn move"
+    # teaching is misleading when the engine actually wanted a CAPTURE.
+    # On game_692ab776c5b1 m7 a6, engine wanted Bxc5 (winning a pawn),
+    # but the defensive_pawn_push detector framed the teaching as
+    # "develop a piece toward the center instead." The real teaching
+    # is the missed capture — let the why_user_missed_capture variant
+    # (R12_blunder.json) take it instead.
+    if board.is_capture(best_mv):
+        return []
+
     ev = _ev(
         "defensive_pawn_push",
         mover=user_mv.from_square,
