@@ -2718,14 +2718,31 @@ async def get_interactive_coaching(
                         if m:
                             _mh_san.append(m)
 
-                    # ─── Central-layer Socratic (double-write, PR-6 of 5,
-                    # 2026-05-27). Per Mohit: "the coach move should also
-                    # come from the central layer, i can't afford to have
-                    # 2 sources" applies to user-side Socratic too. PR-6C
-                    # computes central output in parallel with smart_
-                    # coaching; smart_coaching stays primary. PR-6D flips
-                    # source via pwc_socratic_central_layer flag. PR-6E
-                    # deletes smart_coaching entirely.
+                    # ─── Feature flag: pwc_socratic_central_layer
+                    # (PR-6D, 2026-05-27). When ON: central layer is
+                    # authoritative; smart_coaching becomes the safety
+                    # fallback if central returns None. When OFF
+                    # (default): smart_coaching stays primary; central
+                    # layer still runs in parallel for comparison logging
+                    # (PR-6C double-write semantics). Per
+                    # memory/feedback_one_source_of_truth.
+                    try:
+                        from services.live_v5_teaching import (
+                            is_pwc_socratic_central_layer_enabled,
+                        )
+                        _soc_user_doc = await db.users.find_one(
+                            {"user_id": session_doc.get("user_id")}
+                        ) or {}
+                        _socratic_central_authoritative = (
+                            is_pwc_socratic_central_layer_enabled(
+                                _soc_user_doc, session_doc,
+                            )
+                        )
+                    except Exception:
+                        _socratic_central_authoritative = False
+
+                    # ─── Central-layer Socratic ──────────────────
+                    central_socratic = None
                     try:
                         from services.live_v5_teaching import socratic_feedback_for_live_move
                         central_socratic = socratic_feedback_for_live_move(
@@ -2747,7 +2764,7 @@ async def get_interactive_coaching(
                                 f"[SOCRATIC-CENTRAL] Central layer produced output for "
                                 f"{move_san!r} (severity={coaching.severity}): "
                                 f"narrative={central_socratic.get('narrative', '')[:60]!r}, "
-                                f"question={central_socratic.get('question', '')[:60]!r}"
+                                f"authoritative={_socratic_central_authoritative}"
                             )
                         else:
                             logger.info(
@@ -2756,25 +2773,37 @@ async def get_interactive_coaching(
                             )
                     except Exception as central_err:
                         logger.warning(
-                            f"[SOCRATIC-CENTRAL] Central-layer call failed (non-fatal "
-                            f"during double-write): {central_err}",
+                            f"[SOCRATIC-CENTRAL] Central-layer call failed (non-fatal): "
+                            f"{central_err}",
                             exc_info=False,
                         )
 
-                    smart_fb = await generate_smart_user_feedback(
-                        board_before=board,
-                        user_move=move,
-                        best_move_san=best_move,
-                        cp_loss=cp_loss,
-                        severity=coaching.severity,
-                        fundamental_violated=coaching_dict.get("fundamental_violated"),
-                        coach_intent=_coach_intent,
-                        user_rating=session_doc.get("user_rating", 1200),
-                        phase=phase_str,
-                        db=db,
-                        pv_after_played=pv_after_played,
-                        move_history_san=_mh_san,
-                    )
+                    # ─── Source selection ───
+                    if _socratic_central_authoritative and central_socratic:
+                        # Flag ON + central produced output → use it as
+                        # primary. Skip the smart_coaching LLM call entirely.
+                        smart_fb = central_socratic
+                        logger.info(
+                            f"[SOCRATIC-CENTRAL] Using CENTRAL LAYER as source of "
+                            f"truth for {move_san!r}"
+                        )
+                    else:
+                        # Flag OFF, or central returned None (gate fired):
+                        # smart_coaching primary, as before.
+                        smart_fb = await generate_smart_user_feedback(
+                            board_before=board,
+                            user_move=move,
+                            best_move_san=best_move,
+                            cp_loss=cp_loss,
+                            severity=coaching.severity,
+                            fundamental_violated=coaching_dict.get("fundamental_violated"),
+                            coach_intent=_coach_intent,
+                            user_rating=session_doc.get("user_rating", 1200),
+                            phase=phase_str,
+                            db=db,
+                            pv_after_played=pv_after_played,
+                            move_history_san=_mh_san,
+                        )
                     if smart_fb:
                         if smart_fb.get("question"):
                             coaching_dict["socratic_question"] = smart_fb["question"]
