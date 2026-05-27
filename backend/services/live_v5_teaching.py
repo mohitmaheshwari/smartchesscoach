@@ -1352,3 +1352,13 @@ def socratic_feedback_for_live_move(
         "question": extras.question,
         "hint": extras.hint,
     }
+
+
+# (central_caption_for_live_move was prototyped here 2026-05-27 and
+# REMOVED the same day: an empirical probe on game_692ab776c5b1 proved a
+# bare central call diverges from review on ~50% of user moves -- review
+# and shared_coaching_v5 classify severity differently, and the central
+# layer needs review's full eval/trap/opening context (unavailable live)
+# to reproduce review captions. True PWC one-source is a scoped
+# shared_coaching_v5 refactor, not a thin wrapper. See the consolidation
+# findings report. Per [[one-source-of-truth-for-coaching]].)

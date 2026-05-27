@@ -1,0 +1,681 @@
+=== surface1 diff baseline_critique -> post_central ===
+user moves compared: 602
+  severity changed : 0
+  suppress changed : 0
+  narrative changed: 169
+
+game_692ab776c5b1 m3 exd4  sev inaccuracy->inaccuracy  supp False->False
+    A: 'The position calls for development — not what exd4 gives.'
+    B: 'This is a development moment.'
+
+game_692ab776c5b1 m10 h6  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'h6 threatens the bishop on g5.'
+
+game_692ab776c5b1 m14 Rac8  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Rac8 is an inaccuracy. Rad8 was better — it attacks more — also targets the knight on d5. Pick the square that attacks more.'
+
+game_692ab776c5b1 m16 Qd8  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'Qd8 threatens the knight on d5.'
+
+game_692ab776c5b1 m22 Qe7  sev mistake->mistake  supp False->False
+    A: 'Qe7 allows undefended piece on c5.'
+    B: "Qe7 is an inaccuracy. Qe8 was better. The d-file is open and opponent's rook controls it. Your rook on f8 has only 2 legal moves. 5 of your pieces are still on your side of the board."
+
+game_692ab776c5b1 m24 Neg4  sev mistake->mistake  supp False->False
+    A: 'Neg4 allows undefended piece on f5.'
+    B: 'Neg4 is a major blunder. Qc6+ was better — Opponent plays Qxc5 winning your queen.'
+
+game_692ab776c5b1 m27 Nd5  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: "Nd5 is an inaccuracy. g5 was better. Your knight on d5 can't be defended."
+
+game_692ab776c5b1 m29 Rc2  sev mistake->mistake  supp False->False
+    A: 'Rc2 allows undefended piece on b2.'
+    B: 'Rc2 — Aligned Pieces. Two of your pieces on the same line — coordinate them for shared pressure on an open file or diagonal.'
+
+game_692ab776c5b1 m30 Rfc8  sev mistake->mistake  supp False->False
+    A: 'Rfc8 allows opponent skewer.'
+    B: 'Rfc8 is a mistake. Rcc8 was better — After Rxc2, your rook on c8 is under attack.'
+
+game_692ab776c5b1 m31 Rxc2  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Rxc2 — the position now turns against you. Opponent has a winning attack here.'
+
+game_85bd0169aa4f m1 d5  sev mistake->mistake  supp False->False
+    A: 'd5 allows undefended piece on e4.'
+    B: 'd5 — Scandinavian Defense. White should capture on d5 — exd5 is the main line: Take the pawn - the only principled response.'
+
+game_85bd0169aa4f m2 Qxd5  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qxd5 — takes the pawn.'
+
+game_85bd0169aa4f m5 Qd8  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Qd8. Re-moving the same piece costs tempo. As a default: a fresh piece each turn keeps the opening flowing.'
+
+game_85bd0169aa4f m9 Be7  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Be7. Re-moving the same piece costs tempo. As a default: a fresh piece each turn keeps the opening flowing.'
+
+game_85bd0169aa4f m11 Nd4  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Nd4 is an inaccuracy — you moved your knight away from defending e5. e4 was better — it attacks the knight on f3, forcing it to move. Pawn pushes that attack enemy pieces gain tempo — the opponent has to react.'
+
+game_85bd0169aa4f m12 Qxd4  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qxd4 — takes the knight.'
+
+game_85bd0169aa4f m14 Qd7  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Qd7 is an inaccuracy — you moved your queen away from defending e5. Qxc4 was better — it grabs the undefended pawn on c4. In the endgame, hunt undefended pawns with your active pieces.'
+
+game_85bd0169aa4f m20 Bb2  sev mistake->mistake  supp False->False
+    A: 'Bb2 allows undefended piece on a3.'
+    B: 'Bb2 is a mistake. h4 was better — it attacks the bishop on g3, forcing it to move. Pawn pushes that attack enemy pieces gain tempo — the opponent has to react.'
+
+game_85bd0169aa4f m21 Bxa3  sev mistake->mistake  supp False->False
+    A: 'You missed pin opportunity.'
+    B: 'Bxa3 — takes the pawn.'
+
+game_85bd0169aa4f m23 axb4  sev mistake->mistake  supp False->False
+    A: 'axb4 allows undefended piece on a3.'
+    B: 'axb4 — takes the pawn.'
+
+game_85bd0169aa4f m24 Qb8  sev mistake->mistake  supp False->False
+    A: 'Qb8 allows opponent pin.'
+    B: 'Qb8 is a mistake. h4 was better — it attacks the bishop on g3, forcing it to move. Pawn pushes that attack enemy pieces gain tempo — the opponent has to react.'
+
+game_b5d23694a803 m6 d6  sev inaccuracy->inaccuracy  supp False->False
+    A: 'This is a king safety moment.'
+    B: 'The position calls for king safety — not what d6 gives.'
+
+game_b5d23694a803 m13 Nxe5  sev mistake->mistake  supp False->False
+    A: 'Nxe5 allows undefended piece on c4.'
+    B: 'Nxe5 is an inaccuracy. dxe5 was better. Opponent plays Nxe5 winning your knight.'
+
+game_b5d23694a803 m15 Bc6  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Bc6 — Aligned Pieces. Two of your pieces on the same line — coordinate them for shared pressure on an open file or diagonal.'
+
+game_f2c022e03856 m4 d3  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'd3. Take the centre with a pawn — central pawns open lines for every piece.'
+
+game_f2c022e03856 m7 Bxf7+  sev mistake->mistake  supp False->False
+    A: 'Bxf7+ allows hanging piece on f7.'
+    B: 'Bxf7+. Your bishop on f7 is alone in opponent territory with no defender. 6 of your pieces are still on your side of the board.'
+
+game_f2c022e03856 m8 Nxe5+  sev mistake->mistake  supp False->False
+    A: 'Nxe5+ allows hanging piece on e5.'
+    B: 'Nxe5+. Your knight on e5 is alone in opponent territory with no defender.'
+
+game_f2c022e03856 m10 Kf1  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Kf1 is a mistake. Ke2 was better — After Qxd3+, your king on f1 is under attack.'
+
+game_f2c022e03856 m11 Qf5+  sev mistake->mistake  supp False->False
+    A: 'Qf5+ allows opponent skewer.'
+    B: 'Qf5+. Your queen on f5 is the only piece doing anything.'
+
+game_f2c022e03856 m12 Qd7+  sev mistake->mistake  supp False->False
+    A: 'Qd7+ allows opponent skewer.'
+    B: 'Qd7+. Your queen on d7 is the only piece doing anything.'
+
+game_f2c022e03856 m13 Qd5+  sev mistake->mistake  supp False->False
+    A: 'Qd5+ allows opponent skewer.'
+    B: 'Qd5+ — check, and attacks the pawn on b7 too.'
+
+game_f2c022e03856 m20 Qxa7  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Qxa7 — takes the pawn.'
+
+game_f2c022e03856 m21 Rg3+  sev mistake->mistake  supp False->False
+    A: 'Rg3+ allows opponent pin.'
+    B: "Rg3+. Your queen on a7 is the only piece doing anything. Opponent's rooks are connected; yours aren't yet."
+
+game_f2c022e03856 m24 Qe2  sev mistake->mistake  supp False->False
+    A: 'Qe2 allows undefended piece on c2.'
+    B: 'Qe2 threatens the knight on c2.'
+
+game_f2c022e03856 m25 Qxc2  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qxc2 is a mistake. Rh3 was better — Opponent plays Bxg3 winning your rook.'
+
+game_f2c022e03856 m26 dxe4  sev mistake->mistake  supp False->False
+    A: 'dxe4 allows opponent pin.'
+    B: 'dxe4 — the position now turns against you. Opponent has a winning attack here.'
+
+game_f2c022e03856 m28 Qd2  sev mistake->mistake  supp False->False
+    A: 'Qd2 allows opponent pin.'
+    B: 'Qd2 — the position now turns against you. Opponent has a winning attack here.'
+
+game_ef9f422a062d m1 d5  sev mistake->mistake  supp False->False
+    A: 'd5 allows undefended piece on e4.'
+    B: 'd5 — Scandinavian Defense. White should capture on d5 — exd5 is the main line: Take the pawn - the only principled response.'
+
+game_ef9f422a062d m2 Qxd5  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qxd5 — takes the pawn.'
+
+game_ef9f422a062d m13 Bxf3  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'Bxf3 is an inaccuracy. Nxf3+ was better — it grabs material with check AND clears the way for your queen to take the rook on a1.'
+
+game_ef9f422a062d m15 Qxf3  sev mistake->mistake  supp False->False
+    A: 'Qxf3 allows hanging piece on f3.'
+    B: 'Qxf3 is a major blunder. Qxa1 was better — it attacks more — also targets the bishop on c1. Pick the square that attacks more.'
+
+game_ef9f422a062d m23 hxg4  sev mistake->mistake  supp False->False
+    A: 'You missed pin opportunity.'
+    B: 'hxg4 is an inaccuracy. Rg8 was better. Opponent plays hxg4 winning your pawn.'
+
+game_74fdbd74c468 m6 Ng4  sev inaccuracy->inaccuracy  supp False->False
+    A: 'This is a king safety moment.'
+    B: 'Ng4 is an inaccuracy. O-O was better. Opponent attacks the center 6 times; you attack it 4 times.'
+
+game_74fdbd74c468 m7 O-O  sev mistake->mistake  supp False->False
+    A: 'O-O allows opponent pin.'
+    B: 'O-O. King is safe; rook joins the game.'
+
+game_74fdbd74c468 m9 Nxf2  sev mistake->mistake  supp False->False
+    A: 'You missed pin opportunity.'
+    B: 'Nxf2 threatens the queen on d1.'
+
+game_74fdbd74c468 m11 h6  sev mistake->mistake  supp False->False
+    A: 'h6 allows opponent pin.'
+    B: 'h6 threatens the bishop on g5.'
+
+game_74fdbd74c468 m19 d5  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'd5 is a serious mistake — you moved your pawn away from defending e5. Nxh3+ was better — it captures the pawn on h3. Before every move, scan for free captures — material won is leverage you keep.'
+
+game_74fdbd74c468 m20 dxe4  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'dxe4 is an inaccuracy. Nxh3+ was better. Opponent plays dxe4 winning your pawn.'
+
+game_74fdbd74c468 m21 Ra6  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'Ra6 is a serious mistake. Nxh3+ was better — it captures the pawn on h3. Before every move, scan for free captures — material won is leverage you keep.'
+
+game_74fdbd74c468 m24 Nxh3+  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Nxh3+. Your king on g8 has lost 2 of its pawn shelter.'
+
+game_74fdbd74c468 m32 Qxb2  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Qxb2 — takes the pawn.'
+
+game_74fdbd74c468 m34 Kf7  sev mistake->mistake  supp False->False
+    A: 'Kf7 allows undefended piece on e7.'
+    B: 'Kf7. Activate the king — the centre is where it fights in the endgame.'
+
+game_74fdbd74c468 m38 Kc8  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Kc8 is an inaccuracy — you moved your king away from defending e6. Kd8 was better — it keeps the pressure on g2.'
+
+game_4177951c757f m13 Nxh8  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'Nxh8 — takes the rook.'
+
+game_4177951c757f m17 b5  sev mistake->mistake  supp False->False
+    A: 'b5 allows undefended piece on c6.'
+    B: 'b5 is an inaccuracy. Ng6 was better — Your knight on h8 has only 2 legal moves.'
+
+game_4177951c757f m19 O-O-O  sev mistake->mistake  supp False->False
+    A: 'O-O-O allows hanging piece on d4.'
+    B: 'O-O-O. King is safe; rook joins the game.'
+
+game_4177951c757f m23 Ne7+  sev mistake->mistake  supp False->False
+    A: 'Ne7+ allows undefended piece on c8.'
+    B: 'Ne7+. Your king on d2 has lost 2 of its pawn shelter. 3 opponent pieces are aimed at your king on d2.'
+
+game_4177951c757f m28 Qa8+  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: "Qa8+. Your king on g2 has lost 3 of its pawn shelter. The c-file is open and opponent's rook controls it."
+
+game_4177951c757f m29 Qxa7  sev mistake->mistake  supp False->False
+    A: 'Qxa7 allows undefended piece on b6.'
+    B: 'Qxa7 — the position now turns against you. Opponent has a winning attack here.'
+
+game_bc41022831e0 m15 Rxf8+  sev mistake->mistake  supp False->False
+    A: 'Rxf8+ allows hanging piece on d5.'
+    B: 'Rxf8+. Your knight on d5 is alone in opponent territory with no defender. Opponent attacks the center 5 times; you attack it 3 times.'
+
+game_bc41022831e0 m16 Qd2  sev mistake->mistake  supp False->False
+    A: 'Qd2 allows opponent pin.'
+    B: 'Qd2 is an inaccuracy. Bf1 was better. Opponent plays Bxd4 winning your pawn.'
+
+game_bc41022831e0 m18 axb6  sev mistake->mistake  supp False->False
+    A: 'axb6 allows undefended piece on a7.'
+    B: 'axb6 is an inaccuracy. gxh3 was better. Opponent plays Qxb6 winning your pawn.'
+
+game_bc41022831e0 m22 Qe7  sev mistake->mistake  supp False->False
+    A: 'Qe7 allows opponent skewer.'
+    B: 'Qe7 threatens the bishop on e6.'
+
+game_bc41022831e0 m28 Qf5+  sev mistake->mistake  supp False->False
+    A: 'You missed pin opportunity.'
+    B: 'Qf5+. Your queen on f5 is the only piece doing anything. Your king on g1 has lost 2 of its pawn shelter.'
+
+game_bc41022831e0 m29 Qd7  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Qd7 is an inaccuracy. Qe5 was better. Your queen on d7 is the only piece doing anything. Your king on g1 has lost 2 of its pawn shelter.'
+
+game_bc41022831e0 m30 Rf1  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Rf1 is a serious mistake. Rc6 was better — it attacks more — also targets the pawn on b6. Pick the square that attacks more.'
+
+game_4c0f48f6cc0a m4 d3  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'd3 is an inaccuracy. d4 was better. 7 of your pieces are still on your side of the board.'
+
+game_4c0f48f6cc0a m5 Bg5  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Bg5. Pins the knight on f6 against the queen on d8.'
+
+game_4c0f48f6cc0a m14 Rxd4  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Rxd4 — takes the pawn.'
+
+game_8efcc1db5aa4 m4 d6  sev mistake->mistake  supp False->False
+    A: 'd6 allows opponent skewer.'
+    B: 'd6 is an inaccuracy. Bxe3 was better. Opponent plays Bxc5 winning your bishop.'
+
+game_8efcc1db5aa4 m13 fxe4  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'fxe4 uncovers the bishop hitting the pawn on h3.'
+
+game_8efcc1db5aa4 m16 Qf7  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'Qf7. Forcing move available — check, capture, or threat.'
+
+game_8efcc1db5aa4 m22 Qxf5  sev mistake->mistake  supp False->False
+    A: 'Qxf5 allows opponent skewer.'
+    B: 'Qxf5 — takes the rook.'
+
+game_8efcc1db5aa4 m23 Nd4  sev mistake->mistake  supp False->False
+    A: 'Nd4 allows undefended piece on c2.'
+    B: 'Nd4 — Open Long Line. Enemy has no bishop of this colour. The long diagonal has open squares for your queen or bishop to use.'
+
+game_8efcc1db5aa4 m24 Qxh3  sev mistake->mistake  supp False->False
+    A: 'Qxh3 allows hanging piece on h3.'
+    B: 'Qxh3 is a serious mistake. Qg6 was better — it opens the line, and your rook can then play Rf1+ to chase the king on g1.'
+
+game_8efcc1db5aa4 m36 Rg5  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Rg5 is a serious mistake. Re5 was better — it attacks more — also targets the knight on e6. Pick the square that attacks more.'
+
+game_94ea9cf7bc33 m1 d5  sev mistake->mistake  supp False->False
+    A: 'd5 allows undefended piece on e4.'
+    B: 'd5 — Scandinavian Defense. White should capture on d5 — exd5 is the main line: Take the pawn - the only principled response.'
+
+game_94ea9cf7bc33 m2 Qxd5  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qxd5 — takes the pawn.'
+
+game_94ea9cf7bc33 m3 c6  sev mistake->mistake  supp False->False
+    A: 'You missed pin opportunity.'
+    B: 'c6 is an inaccuracy. Bg4 was better. You still have 4 minor pieces on the back rank.'
+
+game_94ea9cf7bc33 m14 Qe5  sev mistake->mistake  supp False->False
+    A: 'Qe5 allows undefended piece on b2.'
+    B: 'Qe5 forks the bishop on g5 and the pawn on b2.'
+
+game_94ea9cf7bc33 m15 Qxb2  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: "Qxb2. Your queen on b2 is the only piece doing anything. The d-file is open and opponent's queen controls it."
+
+game_94ea9cf7bc33 m16 Bc5+  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Bc5+ — check. King must move or block.'
+
+game_94ea9cf7bc33 m17 Qa3  sev mistake->mistake  supp False->False
+    A: 'You missed skewer opportunity.'
+    B: "Qa3 is an inaccuracy — you moved your queen away from defending b7. Qd4 was better. Your queen on a3 is the only piece doing anything. The d-file is open and opponent's queen controls it."
+
+game_94ea9cf7bc33 m18 Rfd8  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: "Rfd8 is an inaccuracy. h6 was better. Your queen on a3 is the only piece doing anything. The b-file is open and opponent's rook controls it. 5 of your pieces are still on your side of the board."
+
+game_94ea9cf7bc33 m19 Nb6  sev mistake->mistake  supp False->False
+    A: 'You missed skewer opportunity.'
+    B: "Nb6 is an inaccuracy. Bf8 was better — Your queen on a3 is the only piece doing anything. The b-file is open and opponent's rook controls it. 5 of your pieces are still on your side of the board."
+
+game_94ea9cf7bc33 m20 Be7  sev mistake->mistake  supp False->False
+    A: 'Be7 allows opponent fork.'
+    B: 'Be7 is a mistake. Qxa4 was better — it captures the pawn on a4. Before every move, scan for free captures — material won is leverage you keep.'
+
+game_94ea9cf7bc33 m22 Qd7  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qd7 is an inaccuracy. h6 was better. 5 of your pieces are still on your side of the board.'
+
+game_94ea9cf7bc33 m24 Re8  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: "Re8 doesn't change much — you were already losing. Qd2 would have made the loss slower."
+
+game_94ea9cf7bc33 m25 Qe6  sev mistake->mistake  supp False->False
+    A: 'Qe6 allows undefended piece on f6.'
+    B: 'Qe6 threatens the bishop on f6.'
+
+game_94ea9cf7bc33 m34 Kc8  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: "Kc8 is a mistake. Ke7 was better — Your king on c8 has lost 3 of its pawn shelter. The d-file is open and opponent's rook controls it. Opponent attacks the center 5 times; you attack it 2 times."
+
+game_94ea9cf7bc33 m36 Ra7  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: "Ra7 is an inaccuracy. Rd8 was better. Your king on c8 has lost 3 of its pawn shelter. The d-file is open and opponent's rook controls it. Opponent attacks the center 5 times; you attack it 2 times."
+
+game_ec4ba8b79b91 m4 O-O  sev mistake->mistake  supp False->False
+    A: 'O-O allows opponent pin.'
+    B: 'O-O. King is safe; rook joins the game.'
+
+game_ec4ba8b79b91 m6 h3  sev mistake->mistake  supp False->False
+    A: 'h3 allows undefended piece on g4.'
+    B: 'h3 threatens the bishop on g4.'
+
+game_ec4ba8b79b91 m9 Qb3  sev mistake->mistake  supp False->False
+    A: 'Qb3 allows undefended piece on b7.'
+    B: 'Qb3 is an inaccuracy. Bd5 was better. Your knight on d2 has only 1 legal move.'
+
+game_ec4ba8b79b91 m10 Qb5+  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Qb5+ — check, and attacks the knight on a5 too.'
+
+game_ec4ba8b79b91 m14 Bd5  sev mistake->mistake  supp False->False
+    A: 'Bd5 allows opponent pin.'
+    B: "Bd5 is an inaccuracy. d4 was better. Your rook on f1 has only 2 legal moves. Opponent's rooks are connected; yours aren't yet."
+
+game_ec4ba8b79b91 m23 Nb7  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Nb7 is an inaccuracy. Nac6 was better. Your rook on f1 has only 2 legal moves.'
+
+game_ec4ba8b79b91 m25 Ne6  sev mistake->mistake  supp False->False
+    A: 'Ne6 allows undefended piece on c5.'
+    B: 'Ne6 is an inaccuracy. Nf5 was better. Your rook on f1 has only 2 legal moves.'
+
+game_ec4ba8b79b91 m27 Nf4  sev mistake->mistake  supp False->False
+    A: 'Nf4 allows undefended piece on h5.'
+    B: 'Nf4 is an inaccuracy. h4 was better — Your rook on f1 has only 2 legal moves.'
+
+game_ec4ba8b79b91 m28 Nxg6+  sev mistake->mistake  supp False->False
+    A: 'Nxg6+ allows hanging piece on g6.'
+    B: 'Nxg6+ — check. King must move or block.'
+
+game_665fd66c997a m5 Bg5  sev mistake->mistake  supp False->False
+    A: 'Bg5 allows opponent fork.'
+    B: 'Bg5 threatens the queen on f6.'
+
+game_665fd66c997a m6 Qd2  sev mistake->mistake  supp False->False
+    A: 'Qd2 allows opponent skewer.'
+    B: 'Qd2 is a serious mistake. Bxe6 was better — it captures the bishop on e6. Before every move, scan for free captures — material won is leverage you keep.'
+
+game_665fd66c997a m7 Nh4  sev mistake->mistake  supp False->False
+    A: 'You missed free piece on c4.'
+    B: 'Nh4 threatens the queen on g6.'
+
+game_665fd66c997a m10 b3  sev mistake->mistake  supp False->False
+    A: 'b3 allows undefended piece on c4.'
+    B: 'b3 threatens the queen on c4.'
+
+game_665fd66c997a m14 Qc3  sev inaccuracy->inaccuracy  supp False->False
+    A: 'The position calls for king safety — not what Qc3 gives.'
+    B: 'Qc3. Re-moving the same piece costs tempo. As a default: a fresh piece each turn keeps the opening flowing.'
+
+game_665fd66c997a m17 Qxe5  sev inaccuracy->inaccuracy  supp False->False
+    A: 'This is a king safety moment.'
+    B: "Qxe5. The d-file is open and opponent's rook controls it."
+
+game_665fd66c997a m19 O-O  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'O-O. King is safe; rook joins the game.'
+
+game_665fd66c997a m20 Qc4  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: "Qc4 is an inaccuracy. Qxc8+ was better. The d-file is open and opponent's rook controls it."
+
+game_5e161a7440aa m1 d5  sev mistake->mistake  supp False->False
+    A: 'd5 allows undefended piece on c4.'
+    B: 'd5 — Closed Game. Solid central control. Strategic middlegames.'
+
+game_5e161a7440aa m2 dxc4  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'dxc4 — takes the pawn.'
+
+game_5e161a7440aa m8 Be6  sev mistake->mistake  supp False->False
+    A: 'Be6 allows opponent fork.'
+    B: 'Be6 threatens the queen on b3.'
+
+game_5e161a7440aa m9 Nd3+  sev mistake->mistake  supp False->False
+    A: 'You missed pin opportunity.'
+    B: "Nd3+ is fine — you're still winning. Qd3 would have kept the pressure on."
+
+game_5e161a7440aa m12 Bf5  sev mistake->mistake  supp False->False
+    A: 'Bf5 allows opponent fork.'
+    B: 'Bf5 is a major blunder. Nxh1 was better — it captures the rook on h1. Before every move, scan for free captures — material won is leverage you keep.'
+
+game_5e161a7440aa m16 Bc5  sev inaccuracy->inaccuracy  supp False->False
+    A: 'This is a king safety moment.'
+    B: 'Bc5 is an inaccuracy. O-O-O was better — it keeps the pressure on f2.'
+
+game_5e161a7440aa m23 Rd7  sev mistake->mistake  supp False->False
+    A: 'Rd7 allows opponent pin.'
+    B: "Rd7 is an inaccuracy. Kc8 was better. Your king on c7 has lost 2 of its pawn shelter. The f-file is open and opponent's rook controls it. Your rook on d7 has only 2 legal moves."
+
+game_5e161a7440aa m24 Qg6  sev mistake->mistake  supp False->False
+    A: 'Qg6 allows undefended piece on g4.'
+    B: 'Qg6 forks the rook on f7 and the pawn on g4.'
+
+game_5e161a7440aa m26 Qxg4  sev mistake->mistake  supp False->False
+    A: 'Qxg4 allows opponent skewer.'
+    B: 'Qxg4 threatens the knight on e2.'
+
+game_5e161a7440aa m28 Qc4  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Qc4 threatens the knight on e2.'
+
+game_5e161a7440aa m43 Rg1  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Rg1 is an inaccuracy — you moved your rook away from defending h4. Rg3 was better. Opponent plays Nxh4 winning your pawn.'
+
+game_5e161a7440aa m45 Kd6  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Kd6 is a mistake. Kb6 was better — Your king on d6 has lost 3 of its pawn shelter. 3 opponent pieces are aimed at your king on d6.'
+
+game_5e161a7440aa m48 Rg3  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Rg3 is a mistake. Ra2 was better — it attacks the undefended pawn on a3, and your rook can grab it next move. In the endgame, hunt undefended pawns with your active pieces.'
+
+game_5e161a7440aa m51 Kf5  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Kf5 is an inaccuracy. Kd6 was better. Your king on f5 has lost 3 of its pawn shelter. 3 opponent pieces are aimed at your king on f5. Opponent attacks the center 5 times; you attack it 2 times.'
+
+game_5e161a7440aa m52 Rg1  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Rg1 is an inaccuracy. Rg6 was better. Your king on f5 has lost 3 of its pawn shelter.'
+
+game_5e161a7440aa m56 Ra2+  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Ra2+ — check. King must move or block.'
+
+game_e9120f8eaa1d m4 h6  sev inaccuracy->inaccuracy  supp False->False
+    A: 'The position calls for development — not what h6 gives.'
+    B: 'h6 is an inaccuracy. Bc5 was better. Opponent plays Nxd4 winning your pawn.'
+
+game_e9120f8eaa1d m6 Nf6  sev mistake->mistake  supp False->False
+    A: 'Nf6 allows undefended piece on e4.'
+    B: 'Nf6 is a mistake. Bb6 was better. Opponent plays cxd4 winning your pawn.'
+
+game_e9120f8eaa1d m7 Ng4  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Ng4 is a mistake. Nh7 was better. Opponent plays cxd4 winning your pawn.'
+
+game_e9120f8eaa1d m8 Bb4  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: "Bb4 is a mistake. d5 was better — it blocks the opponent's pawn before it advances further. When your opponent threatens a pawn push, blocking it is often more important than developing."
+
+game_e9120f8eaa1d m10 h5  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'h5 is an inaccuracy. d5 was better. Opponent attacks the center 5 times; you attack it 3 times.'
+
+game_b19b724011a2 m12 O-O  sev mistake->mistake  supp False->False
+    A: 'You missed fork opportunity.'
+    B: 'O-O. King is safe; rook joins the game.'
+
+game_b19b724011a2 m15 c4  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'c4 is an inaccuracy. c3 was better. After dxe4, your pawn on c4 falls.'
+
+game_efa6a7a5d0bf m3 Nc3  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Nc3. Develops naturally, prepares e4 or supports d5.'
+
+game_efa6a7a5d0bf m4 Nf3  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Nf3 is an inaccuracy. e5 was better — it attacks the knight on f6, forcing it to move. Pawn pushes that attack enemy pieces gain tempo — the opponent has to react.'
+
+game_efa6a7a5d0bf m5 Bd3  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Bd3 is an inaccuracy. e5 was better — it attacks the knight on f6, forcing it to move. Pawn pushes that attack enemy pieces gain tempo — the opponent has to react.'
+
+game_efa6a7a5d0bf m8 Qd2  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qd2. Bringing the queen out early — develop a minor piece (knight or bishop) first. Queens out early get chased and lose tempo.'
+
+game_efa6a7a5d0bf m13 Nb5  sev mistake->mistake  supp False->False
+    A: 'Nb5 allows undefended piece on c7.'
+    B: 'Nb5 threatens the queen on c7.'
+
+game_efa6a7a5d0bf m15 Nd6  sev mistake->mistake  supp False->False
+    A: 'Nd6 allows opponent pin.'
+    B: 'Nd6 is a mistake. Be3 was better. Opponent plays Nxe5 winning your pawn.'
+
+game_efa6a7a5d0bf m16 Rfb1  sev mistake->mistake  supp False->False
+    A: 'Rfb1 allows opponent fork.'
+    B: 'Rfb1 is an inaccuracy. Rab1 was better. Opponent plays Nxe5 winning your pawn.'
+
+game_efa6a7a5d0bf m20 Rb6  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Rb6 threatens the bishop on c6.'
+
+game_efa6a7a5d0bf m24 Ng5  sev mistake->mistake  supp False->False
+    A: 'You missed skewer opportunity.'
+    B: "Ng5 is fine — you're still winning. Bf6 would have kept the pressure on."
+
+game_efa6a7a5d0bf m27 g3  sev mistake->mistake  supp False->False
+    A: 'g3 allows undefended piece on f4.'
+    B: 'g3 threatens the bishop on f4.'
+
+game_5da7dc72d514 m1 d5  sev mistake->mistake  supp False->False
+    A: 'd5 allows undefended piece on e4.'
+    B: 'd5 — Scandinavian Defense. White should capture on d5 — exd5 is the main line: Take the pawn - the only principled response.'
+
+game_5da7dc72d514 m2 Qxd5  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qxd5 — takes the pawn.'
+
+game_5da7dc72d514 m9 Bxc3  sev mistake->mistake  supp False->False
+    A: 'Bxc3 allows opponent pin.'
+    B: 'Bxc3 is an inaccuracy. Be7 was better. Opponent plays Bxc3 winning your bishop.'
+
+game_5da7dc72d514 m10 Qb6  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Qb6. Re-moving the same piece costs tempo. As a default: a fresh piece each turn keeps the opening flowing.'
+
+game_5da7dc72d514 m12 Nxd7  sev mistake->mistake  supp False->False
+    A: 'You missed skewer opportunity.'
+    B: 'Nxd7 — takes the knight.'
+
+game_5da7dc72d514 m13 O-O-O  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'O-O-O. King is safe; rook joins the game.'
+
+game_5da7dc72d514 m15 Ne5  sev mistake->mistake  supp False->False
+    A: 'Ne5 allows hanging piece on e5.'
+    B: 'Ne5 is a mistake. Nf6 was better — it puts your knight on a strong outpost: defended by your pawn on g7, safe from any enemy pawn.'
+
+game_5da7dc72d514 m19 Re8  sev mistake->mistake  supp False->False
+    A: 'You missed skewer opportunity.'
+    B: 'Re8 is a mistake. Nd5 was better — it puts your knight on a strong outpost: defended by your pawn on c6, safe from any enemy pawn.'
+
+game_5da7dc72d514 m21 Kb8  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Kb8 is an inaccuracy. Kd8 was better. After Qf4+, your king on b8 is under attack.'
+
+game_5da7dc72d514 m23 Rc7  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Rc7 is a serious mistake. Qc7 was better — Your rook on c7 has only 0 legal moves. Opponent attacks the center 4 times; you attack it 2 times.'
+
+game_5da7dc72d514 m29 Ke8  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Ke8 allows mate next move.'
+
+game_214f16ba655d m2 d4  sev mistake->mistake  supp False->False
+    A: 'd4 allows undefended piece on c5.'
+    B: 'd4. Develops a piece toward the center. Knights before bishops, control the center.'
+
+game_214f16ba655d m3 Qxd4  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qxd4 — takes the pawn.'
+
+game_214f16ba655d m15 Bh6  sev mistake->mistake  supp False->False
+    A: 'Bh6 allows hanging piece on h6.'
+    B: 'Bh6 is an inaccuracy. b3 was better. Your bishop on h6 is alone in opponent territory with no defender.'
+
+game_214f16ba655d m21 Qg4+  sev mistake->mistake  supp False->False
+    A: 'Qg4+ allows opponent skewer.'
+    B: 'Qg4+. Skewers the king on d7 — when it moves, the queen on c8 is exposed.'
+
+game_214f16ba655d m22 Qa4+  sev mistake->mistake  supp False->False
+    A: 'You missed pin opportunity.'
+    B: 'Qa4+ — check. King must move or block.'
+
+game_214f16ba655d m23 Qa3  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Qa3 is an inaccuracy. Rxc2 was better — it captures the rook on c2. Before every move, scan for free captures — material won is leverage you keep.'
+
+game_214f16ba655d m25 Re1  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Re1 is a serious mistake. Rxc2 was better — it attacks more — also targets the queen on c8. Pick the square that attacks more.'
+
+game_8e1294767490 m9 Ne2  sev mistake->mistake  supp False->False
+    A: 'You missed skewer opportunity.'
+    B: 'Ne2 is an inaccuracy. Nxe4 was better — it attacks more — also targets the pawn on c5. Pick the square that attacks more.'
+
+game_8e1294767490 m12 Bg3  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Bg3 is an inaccuracy. Ng3 was better. 7 of your pieces are still on your side of the board.'
+
+game_8e1294767490 m13 Nf4  sev inaccuracy->inaccuracy  supp False->False
+    A: 'Right piece, different square would be sharper.'
+    B: 'Nf4 is a mistake. Nc3 was better. Your bishop on g3 has only 2 legal moves. Opponent attacks the center 6 times; you attack it 3 times. 7 of your pieces are still on your side of the board.'
+
+game_8e1294767490 m14 Nxd4  sev mistake->mistake  supp False->False
+    A: 'Nxd4 allows hanging piece on d4.'
+    B: 'Nxd4 is an inaccuracy. Nd5 was better. Opponent plays cxd4 winning your knight.'
+
+game_8e1294767490 m16 Nc7+  sev mistake->mistake  supp False->False
+    A: 'You missed free material.'
+    B: 'Nc7+. Tactics this move. Either way — castle as soon as you can. King safety saves games.'
+
+game_8e1294767490 m18 Qf3  sev mistake->mistake  supp False->False
+    A: 'Qf3 allows opponent skewer.'
+    B: 'Qf3 is a major blunder — you moved your queen away from defending c2. Bxd6 was better — it captures the bishop on d6. Before every move, scan for free captures — material won is leverage you keep.'
+
+game_8e1294767490 m19 hxg3  sev mistake->mistake  supp False->False
+    A: 'hxg3 allows opponent skewer.'
+    B: 'hxg3. Your knight on a8 has only 2 legal moves. 4 of your pieces are still on your side of the board.'
+
+game_8e1294767490 m20 Qxb7  sev mistake->mistake  supp False->False
+    A: 'Qxb7 allows undefended piece on f7.'
+    B: 'Qxb7 — takes the pawn.'
+
+game_8e1294767490 m21 Qd5+  sev mistake->mistake  supp False->False
+    A: 'Qd5+ allows undefended piece on d4.'
+    B: 'Qd5+ attacks the pawns on d4 and f7 — likely wins one.'
+
+game_8e1294767490 m22 Qxd4  sev mistake->mistake  supp False->False
+    A: 'Qxd4 allows undefended piece on e3.'
+    B: 'Qxd4 allows mate next move.'

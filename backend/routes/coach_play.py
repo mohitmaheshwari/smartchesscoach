@@ -2489,6 +2489,11 @@ async def get_v5_coaching_feedback(
             move_history_san=_move_history_san,
             strong_openings=_strong,
             player_style=_style,
+            # Single-source narrative inputs — eval (white-POV pawns) from
+            # the request when the client supplies it; absent → central
+            # falls back to cp_loss-only severity.
+            eval_before_cp=(int(round(request["eval_before"] * 100)) if request.get("eval_before") is not None else None),
+            eval_after_cp=(int(round(request["eval_after"] * 100)) if request.get("eval_after") is not None else None),
         )
 
         return coaching.to_dict()
@@ -2673,6 +2678,12 @@ async def get_interactive_coaching(
                 move_history_san=_mhist_v5,
                 strong_openings=_strong_v5,
                 player_style=_style_v5,
+                # Single-source narrative inputs (Mohit "full replacement"
+                # 2026-05-27): evals (white-POV centipawns) + session move
+                # evals let the central caption reach review parity.
+                eval_before_cp=int(round((eval_before or 0) * 100)),
+                eval_after_cp=int(round((eval_after or 0) * 100)),
+                move_evaluations=session_doc.get("move_evaluations") or None,
             )
 
             coaching_dict = coaching.to_dict()
@@ -3491,6 +3502,11 @@ async def get_v5_session_moves_coaching(
                         move_history_san=list(replay_history_san),
                         strong_openings=_strong_replay,
                         player_style=_style_replay,
+                        # Single-source narrative inputs (evals are white-POV
+                        # pawns in session move_evaluations → ×100 to cp).
+                        eval_before_cp=int(round((eval_data.get("eval_before") or 0) * 100)),
+                        eval_after_cp=int(round((eval_data.get("eval_after") or 0) * 100)),
+                        move_evaluations=move_evals or None,
                     )
 
                     board.push(move)

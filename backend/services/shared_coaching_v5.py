@@ -655,6 +655,92 @@ def _enrich_with_fundamentals(
 
 # ─── MAIN COACHING GENERATION ──────────────────────────────────────
 
+def _central_narrative_for_move(
+    *,
+    board_before: chess.Board,
+    move_san: str,
+    mover_is_user: bool,
+    user_color: str,
+    full_move_number: int,
+    move_history_san: Optional[List[str]],
+    best_move_san: Optional[str],
+    eval_before_cp: Optional[int],
+    eval_after_cp: Optional[int],
+    cp_loss: int,
+    pv_after_played: Optional[List[str]],
+    pv_after_best: Optional[List[str]],
+    severity_override: Optional[str] = None,
+    move_evaluations: Optional[List[Dict[str, Any]]] = None,
+    session_fired_principles: Optional[set] = None,
+    session_fired_state_keys: Optional[set] = None,
+) -> "tuple[str, Optional[str]]":
+    """Return (caption, severity_practical) from the central caption
+    pipeline for this move — the SAME text + severity the review surface
+    produces — or ("", None) if the central layer is deliberately silent /
+    fails.
+
+    severity_practical is the eval-adjusted tier the caption's
+    "is an inaccuracy / mistake / major blunder" wording is derived from
+    (v99 R12 wiring). The caller aligns its severity field to it so the
+    badge and the caption agree — except it preserves its own "good"
+    downgrades (book move / best-equals-played), which the central layer
+    doesn't know about.
+
+    This is the single-source narrative for PWC's base coaching (Mohit
+    "full replacement" 2026-05-27): the critique/policy/voice engine no
+    longer authors PWC's narrative; build_move_teaching_decision does, so
+    a change to review's caption logic propagates to PWC automatically.
+    Per [[feedback_one_source_of_truth]] / [[project_pwc_runs_second_coaching_engine]].
+
+    Empirically reproduces review captions on ~90% of user moves stateless
+    and ~100% when the caller threads session anti-repeat state (the 3
+    stateless misses are once-per-game shape/clause suppression).
+    """
+    try:
+        from services.caption_pipeline import (
+            build_move_teaching_decision, MoveInputs, CrossMoveState,
+        )
+    except Exception as exc:
+        logger.info(f"[central_narrative] import failed: {exc}")
+        return "", None
+    try:
+        user_color_norm = (user_color or "white").lower()
+        user_is_white = user_color_norm == "white"
+        mover_is_white = user_is_white == bool(mover_is_user)
+        inputs = MoveInputs(
+            fen_before=board_before.fen(),
+            played_san=move_san,
+            mover_is_user=bool(mover_is_user),
+            mover_is_white=mover_is_white,
+            user_color=user_color_norm,
+            full_move_number=int(full_move_number or 1),
+            move_history_san=list(move_history_san or []),
+            prev_move_san=(move_history_san[-1] if move_history_san else None),
+            best_move_san=best_move_san,
+            eval_before_cp=eval_before_cp,
+            eval_after_cp=eval_after_cp,
+            cp_loss=int(cp_loss or 0),
+            pv_after_played=list(pv_after_played or []),
+            pv_after_best=list(pv_after_best or []),
+        )
+        state = CrossMoveState(
+            fired_principles=set(session_fired_principles or set()),
+            fired_state_keys=set(session_fired_state_keys or set()),
+        )
+        kwargs: Dict[str, Any] = {}
+        if severity_override in ("good", "inaccuracy", "mistake", "blunder"):
+            kwargs["severity_override"] = severity_override
+        if move_evaluations is not None:
+            kwargs["move_evaluations"] = move_evaluations
+        decision = build_move_teaching_decision(inputs, state, **kwargs)
+        caption = (decision.text.caption or "").strip()
+        sev_practical = getattr(decision.teaching_meta, "severity_practical", None)
+        return caption, sev_practical
+    except Exception as exc:
+        logger.info(f"[central_narrative] failed for {move_san!r}: {exc}")
+        return "", None
+
+
 async def generate_move_coaching(
     board_before: chess.Board,
     move: chess.Move,
@@ -675,16 +761,29 @@ async def generate_move_coaching(
     move_history_san: Optional[List[str]] = None,
     strong_openings: Optional[set] = None,
     player_style: Optional[dict] = None,
+    eval_before_cp: Optional[int] = None,
+    eval_after_cp: Optional[int] = None,
+    move_evaluations: Optional[List[Dict[str, Any]]] = None,
+    session_fired_principles: Optional[set] = None,
+    session_fired_state_keys: Optional[set] = None,
 ) -> V5Coaching:
     """
     Generate V5 coaching for a move.
-    
-    This is the MAIN ENTRY POINT used by both Lab and Play with Coach.
+
+    This is the MAIN ENTRY POINT for Play with Coach live coaching.
+
+    The per-move NARRATIVE is authored by the central caption pipeline
+    (build_move_teaching_decision) via _central_narrative_for_move — the
+    same engine the review surface uses — so PWC and review stay one
+    source. The structural fields (candidate_moves, future_moves,
+    fundamentals/Socratic, best_move) are still produced here. Callers
+    thread eval_before_cp/eval_after_cp (+ optional move_evaluations and
+    session anti-repeat state) so the central captions reach review parity.
     """
     move_san = board_before.san(move)
     board_after = board_before.copy()
     board_after.push(move)
-    
+
     # Determine severity
     if not is_user_move:
         severity = "context"
@@ -696,12 +795,48 @@ async def generate_move_coaching(
         severity = "mistake"
     else:
         severity = "blunder"
-    
+
     # Override: known opening book moves should not be flagged
     if is_user_move and severity in ("inaccuracy", "mistake") and phase == "opening":
         move_index = (board_before.fullmove_number - 1) * 2 + (0 if board_before.turn == chess.WHITE else 1)
         if _is_book_opening_move(board_before, move_san, move_index, cp_loss):
             severity = "good"
+
+    # ─── CENTRAL-LAYER NARRATIVE (single source) ───
+    # Computed once here; the user-move narrative branches below prefer it
+    # over their legacy critique/template text. "" means the central layer
+    # is silent → fall back to legacy. Brilliant + verified-mate branches
+    # keep their specialised text (high-value, low-frequency, separately
+    # tuned). Mohit "full replacement" 2026-05-27.
+    _central_caption = ""
+    _central_sev = None
+    if is_user_move:
+        _central_caption, _central_sev = _central_narrative_for_move(
+            board_before=board_before,
+            move_san=move_san,
+            mover_is_user=True,
+            user_color=user_color,
+            full_move_number=board_before.fullmove_number,
+            move_history_san=move_history_san,
+            best_move_san=best_move_san,
+            eval_before_cp=eval_before_cp,
+            eval_after_cp=eval_after_cp,
+            cp_loss=cp_loss,
+            pv_after_played=pv_after_played,
+            pv_after_best=pv_after_best,
+            severity_override=severity,
+            move_evaluations=move_evaluations,
+            session_fired_principles=session_fired_principles,
+            session_fired_state_keys=session_fired_state_keys,
+        )
+        # NOTE: we deliberately do NOT overwrite `severity` with the central
+        # layer's tier. Empirically (2026-05-27) no single central severity
+        # field matches the caption's "is an inaccuracy/mistake/blunder"
+        # wording across moves — the word is rule-dependent (m14 matches
+        # practical, m22 matches user_facing while practical='good'). Aligning
+        # to practical produced a green "good" badge under negative caption
+        # text. The badge stays the familiar cp_loss tier; the caption carries
+        # the central layer's nuanced wording. _central_sev kept for diagnostics.
     
     # Get piece info
     piece = board_before.piece_at(move.from_square)
@@ -795,7 +930,7 @@ async def generate_move_coaching(
                         }
                         _sev = _severity_map.get(_critique.deviation_type, "inaccuracy")
                         return V5Coaching(
-                            narrative=rendered["narrative"],
+                            narrative=(_central_caption or rendered["narrative"]),
                             severity=_sev,
                             socratic_question=rendered.get("question"),
                             socratic_hint=rendered.get("hint"),
@@ -889,7 +1024,7 @@ async def generate_move_coaching(
         if is_best and cp_loss <= 5:
             narrative = f"Yes! {move_san} — that's the best move! Well played."
             return V5Coaching(
-                narrative=narrative,
+                narrative=(_central_caption or narrative),
                 severity="good",
                 is_user_move=True,
                 best_move=best_move_san,
@@ -897,7 +1032,7 @@ async def generate_move_coaching(
 
         narrative = generate_good_move_narrative(board_before, move, best_move_san, piece_name)
         return V5Coaching(
-            narrative=narrative,
+            narrative=(_central_caption or narrative),
             severity="good",
             is_user_move=True,
             best_move=best_move_san
@@ -921,7 +1056,7 @@ async def generate_move_coaching(
         # Frontend also renders `best_move` as a header line, so three restatements
         # of the same SAN is the triple-redundancy bug. Keep the narrative only.
         return V5Coaching(
-            narrative=f"{user_san} is playable, but {common_move} was sharper.",
+            narrative=(_central_caption or f"{user_san} is playable, but {common_move} was sharper."),
             severity="inaccuracy",
             better_approach=None,
             candidate_moves=None,
@@ -1014,7 +1149,7 @@ async def generate_move_coaching(
     
     if fork_info:
         fork_coaching = V5Coaching(
-            narrative=f"Uh oh! {move_san} allows a knight fork!",
+            narrative=(_central_caption or f"Uh oh! {move_san} allows a knight fork!"),
             severity=severity,
             goal="Avoid tactical vulnerabilities",
             current_problem=f"{move_san} allows a fork!",
@@ -1036,10 +1171,15 @@ async def generate_move_coaching(
     
     # Generate coaching based on piece type and position
     coaching = generate_piece_specific_coaching(
-        board_before, move, piece_type, consequence, 
+        board_before, move, piece_type, consequence,
         candidate_moves, best_move_san, severity
     )
-    
+
+    # Single-source narrative: prefer the central caption over the legacy
+    # piece-specific prose (keeps candidate_moves + structural fields).
+    if _central_caption:
+        coaching.narrative = _central_caption
+
     coaching.future_moves = pv_after_played[:4] if pv_after_played else None
     coaching.is_user_move = True
     coaching.best_move = best_move_san
