@@ -1,0 +1,160 @@
+{
+  "rule_name": "R18_socratic_user_mistake",
+  "description": "PWC user-mistake Socratic-coaching surface (2026-05-27). Fires when caption_pipeline.inject_socratic_user_facts stamped socratic_is_active=True (severity in {mistake,blunder} AND none of the three suppression gates fired: cp_loss<80, user-addresses-threat, known opening theory). Produces the multi-field SocraticExtras shape that smart_coaching.generate_smart_user_feedback produces today via an LLM call — but deterministically, from caption_facts.\n\nUnlike R01-R15 (single-caption rules), R18 variants are OBJECTS with narrative / plan / question / hint fields. Rendered by populate_socratic_extras in caption_pipeline.py — NOT through the generic render_rule path. Variant selection still uses select_variant predicates against caption_facts.\n\nPer Mohit 2026-05-27 (\"use same direction\") — mirror the coach-move migration (PR-1 through PR-5, R17_coach_move). See [[one-source-of-truth-for-coaching]].",
+  "fact_glossary": {
+    "played_san": "SAN of the user's move",
+    "best_move_san": "Engine's preferred move (when different)",
+    "socratic_is_active": "Gate flag — true when inject_socratic_user_facts stamped it AND none of the three suppression gates fired",
+    "socratic_severity": "'mistake' | 'blunder'",
+    "socratic_fundamental_violated": "hanging_pieces | check_opponents_move | calculate | king_safety | development | center_control | have_a_plan | None",
+    "socratic_opponent_threat_type": "'fork' | 'mate' | 'capture' | None (set only for blunders when post-move position exposes a concrete threat)",
+    "socratic_opponent_threat_text": "Raw threat phrase from move_comparison._find_opponent_threats",
+    "socratic_hanging_piece": "Piece-name of the user's hanging piece on post-move board (when fundamental_violated=hanging_pieces)",
+    "socratic_hanging_square": "Square of the hanging piece (when fundamental_violated=hanging_pieces)",
+    "socratic_problem_facts_joined": "Computed by renderer: socratic_problem_facts list joined with semicolons for embedding into narrative",
+    "socratic_recovery_facts_joined": "Computed by renderer: socratic_recovery_facts list joined with semicolons for the plan field",
+    "socratic_phase": "Game phase",
+    "socratic_user_rating": "Rating bucket for variant selection if needed"
+  },
+  "requires": ["played_san"],
+  "trigger": {
+    "when": {"socratic_is_active": true}
+  },
+  "select_variant": [
+    {"when": {"socratic_severity": "blunder", "socratic_fundamental_violated": "hanging_pieces", "socratic_opponent_threat_type": "mate"}, "variant": "blunder_hanging_with_mate"},
+    {"when": {"socratic_severity": "blunder", "socratic_fundamental_violated": "hanging_pieces", "socratic_opponent_threat_type": "fork"}, "variant": "blunder_hanging_with_fork"},
+    {"when": {"socratic_severity": "blunder", "socratic_fundamental_violated": "hanging_pieces", "socratic_opponent_threat_type": "capture"}, "variant": "blunder_hanging_with_capture"},
+    {"when": {"socratic_severity": "blunder", "socratic_fundamental_violated": "hanging_pieces"}, "variant": "blunder_hanging"},
+    {"when": {"socratic_severity": "blunder", "socratic_opponent_threat_type": "mate"}, "variant": "blunder_threat_mate"},
+    {"when": {"socratic_severity": "blunder", "socratic_opponent_threat_type": "fork"}, "variant": "blunder_threat_fork"},
+    {"when": {"socratic_severity": "blunder", "socratic_opponent_threat_type": "capture"}, "variant": "blunder_threat_capture"},
+    {"when": {"socratic_severity": "blunder", "socratic_fundamental_violated": "calculate"}, "variant": "blunder_calculate"},
+    {"when": {"socratic_severity": "blunder", "socratic_fundamental_violated": "king_safety"}, "variant": "blunder_king_safety"},
+    {"when": {"socratic_severity": "blunder", "socratic_fundamental_violated": "check_opponents_move"}, "variant": "blunder_missed_threat"},
+    {"when": {"socratic_severity": "blunder"}, "variant": "blunder_generic"},
+    {"when": {"socratic_severity": "mistake", "socratic_fundamental_violated": "hanging_pieces"}, "variant": "mistake_hanging"},
+    {"when": {"socratic_severity": "mistake", "socratic_fundamental_violated": "check_opponents_move"}, "variant": "mistake_missed_threat"},
+    {"when": {"socratic_severity": "mistake", "socratic_fundamental_violated": "calculate"}, "variant": "mistake_calculate"},
+    {"when": {"socratic_severity": "mistake", "socratic_fundamental_violated": "king_safety"}, "variant": "mistake_king_safety"},
+    {"when": {"socratic_severity": "mistake", "socratic_fundamental_violated": "development"}, "variant": "mistake_development"},
+    {"when": {"socratic_severity": "mistake", "socratic_fundamental_violated": "center_control"}, "variant": "mistake_center_control"},
+    {"when": {"socratic_severity": "mistake", "socratic_fundamental_violated": "have_a_plan"}, "variant": "mistake_have_a_plan"},
+    {"when": {"socratic_severity": "mistake"}, "variant": "mistake_generic"}
+  ],
+  "variants": {
+    "blunder_hanging_with_mate": {
+      "narrative": "Wait — your {socratic_hanging_piece} on {socratic_hanging_square} is hanging AND the opponent has a mate threat: {socratic_opponent_threat_text}.",
+      "plan": "Step one is mate. Address it first. {socratic_recovery_facts_joined}",
+      "question": "Which is the bigger problem right now — your hanging {socratic_hanging_piece} or the mate?",
+      "hint": "Mate threats trump everything. Find the only legal way out of the mate first."
+    },
+    "blunder_hanging_with_fork": {
+      "narrative": "Wait — your {socratic_hanging_piece} on {socratic_hanging_square} is hanging AND the opponent now has a fork: {socratic_opponent_threat_text}.",
+      "plan": "Two attacks at once means you have to pick. Save the most valuable piece. {socratic_recovery_facts_joined}",
+      "question": "If you only get to save one of these pieces, which one matters more?",
+      "hint": "Count piece values. Forks force you to give up the lower-value target unless a counter-threat exists."
+    },
+    "blunder_hanging_with_capture": {
+      "narrative": "Your {socratic_hanging_piece} on {socratic_hanging_square} is hanging — and the opponent can take it next move.",
+      "plan": "Move the piece, defend it, or find a counter-threat. {socratic_recovery_facts_joined}",
+      "question": "What are the three ways to save an attacked piece?",
+      "hint": "Defend it, move it, or create a bigger threat. Pick whichever holds up best after their reply."
+    },
+    "blunder_hanging": {
+      "narrative": "Your {socratic_hanging_piece} on {socratic_hanging_square} is now undefended.",
+      "plan": "Before every move, count attackers vs defenders on every piece you own. {socratic_recovery_facts_joined}",
+      "question": "After your move, what piece of yours has no defender?",
+      "hint": "Scan each of your pieces — attackers minus defenders. Anything negative means trouble."
+    },
+    "blunder_threat_mate": {
+      "narrative": "The opponent now has a mate threat: {socratic_opponent_threat_text}.",
+      "plan": "Forced moves first. Resolve the mate threat before anything else. {socratic_recovery_facts_joined}",
+      "question": "What are your three ways to stop a mate threat?",
+      "hint": "Block the line, capture the mating piece, or move your king. Calculate each."
+    },
+    "blunder_threat_fork": {
+      "narrative": "The opponent now has a double attack: {socratic_opponent_threat_text}.",
+      "plan": "Pick the more valuable target. Accept losing the other, or find a counter-tempo move. {socratic_recovery_facts_joined}",
+      "question": "Which of the forked pieces is more valuable to save?",
+      "hint": "If both are similar value, look for a check or capture that saves one while attacking back."
+    },
+    "blunder_threat_capture": {
+      "narrative": "The opponent now has a free capture: {socratic_opponent_threat_text}.",
+      "plan": "Defend the piece, move it, or trade it. {socratic_recovery_facts_joined}",
+      "question": "Which piece of yours is the opponent threatening to win?",
+      "hint": "Look at each opponent piece — does it attack one of your pieces with no defender?"
+    },
+    "blunder_calculate": {
+      "narrative": "You didn't calculate the opponent's response. {socratic_problem_facts_joined}",
+      "plan": "Before each move, ask: what's their best reply? {socratic_recovery_facts_joined}",
+      "question": "What's the strongest move your opponent has now?",
+      "hint": "Look for checks, captures, and threats — in that order — for the opponent before you decide."
+    },
+    "blunder_king_safety": {
+      "narrative": "Your king is in danger now. {socratic_problem_facts_joined}",
+      "plan": "King safety beats material. Get the king to a safer square. {socratic_recovery_facts_joined}",
+      "question": "Which squares are still safe for your king?",
+      "hint": "A safe king has pawns in front and no open files pointing at it."
+    },
+    "blunder_missed_threat": {
+      "narrative": "You didn't respond to the opponent's last move. {socratic_problem_facts_joined}",
+      "plan": "Always pause after the opponent moves: what did they just do? {socratic_recovery_facts_joined}",
+      "question": "What did the opponent's last move attack or threaten?",
+      "hint": "Re-scan: which of your pieces does the opponent's last move now attack?"
+    },
+    "blunder_generic": {
+      "narrative": "This was a major mistake — the position got significantly worse.",
+      "plan": "Slow down. Check what changed on the board before each move. {socratic_recovery_facts_joined}",
+      "question": "What's the worst thing the opponent can do after your move?",
+      "hint": "Walk through opponent's checks, captures, and threats one by one."
+    },
+    "mistake_hanging": {
+      "narrative": "Good idea, but your {socratic_hanging_piece} on {socratic_hanging_square} is now undefended.",
+      "plan": "Always count defenders vs attackers before each move. {socratic_recovery_facts_joined}",
+      "question": "Is there a defender for your {socratic_hanging_piece} after your move?",
+      "hint": "If a piece has no defender and is attacked, it's lost."
+    },
+    "mistake_missed_threat": {
+      "narrative": "You didn't address the opponent's last move. {socratic_problem_facts_joined}",
+      "plan": "Pause after each opponent move — what new threat appeared? {socratic_recovery_facts_joined}",
+      "question": "What was the opponent's last move trying to do?",
+      "hint": "Check each piece the opponent attacks after their last move."
+    },
+    "mistake_calculate": {
+      "narrative": "You didn't fully calculate the opponent's response. {socratic_problem_facts_joined}",
+      "plan": "Try to see one or two moves ahead before committing. {socratic_recovery_facts_joined}",
+      "question": "What's the opponent's strongest reply to your move?",
+      "hint": "Look for forcing moves first: checks, captures, threats."
+    },
+    "mistake_king_safety": {
+      "narrative": "Your king position got weaker. {socratic_problem_facts_joined}",
+      "plan": "Keep pawns in front of your king and watch for open lines. {socratic_recovery_facts_joined}",
+      "question": "How does your king position compare before and after this move?",
+      "hint": "A weak king has missing shield pawns or open files near it."
+    },
+    "mistake_development": {
+      "narrative": "You moved a developed piece instead of bringing a new one out.",
+      "plan": "Develop knights and bishops first. Don't move the same piece twice in the opening. {socratic_recovery_facts_joined}",
+      "question": "How many of your minor pieces are still on the back rank?",
+      "hint": "Develop each minor piece once before moving anything a second time."
+    },
+    "mistake_center_control": {
+      "narrative": "You lost some control of the center. {socratic_problem_facts_joined}",
+      "plan": "Pieces and pawns in the center give you the most options. {socratic_recovery_facts_joined}",
+      "question": "Who controls the four central squares now — you or the opponent?",
+      "hint": "Count pieces aimed at e4/d4/e5/d5 for each side."
+    },
+    "mistake_have_a_plan": {
+      "narrative": "Your move doesn't have a clear purpose — it didn't develop, attack, defend, or improve king safety.",
+      "plan": "Each move should do one of: develop, attack, defend, or improve king safety. {socratic_recovery_facts_joined}",
+      "question": "What did this move accomplish?",
+      "hint": "If the answer is 'nothing specific,' pick a piece that needs improving and find a better square for it."
+    },
+    "mistake_generic": {
+      "narrative": "This was a mistake — there was a stronger move available.",
+      "plan": "Before each move, list 2-3 candidate moves and compare them. {socratic_recovery_facts_joined}",
+      "question": "What were your other options here?",
+      "hint": "Look at every piece that could move. Compare what each candidate accomplishes."
+    }
+  }
+}

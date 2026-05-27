@@ -1212,5 +1212,141 @@ class TestCoachExtras:
         assert d.coach_extras is None
 
 
+# ────────────────────────────────────────────────────────────────────
+# R18 socratic user-mistake narration — central-layer replacement for
+# services/smart_coaching.generate_smart_user_feedback per Mohit
+# 2026-05-27 "use same direction." See memory/feedback_one_source_of_
+# truth. Same migration pattern as TestCoachExtras (PR-1 through PR-5).
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestSocraticExtras:
+    """build_move_teaching_decision.socratic_extras population from R18."""
+
+    def _build(self, **overrides):
+        from services.caption_pipeline import (
+            build_move_teaching_decision,
+            MoveInputs,
+            CrossMoveState,
+        )
+        # Default to a position where white (user) just played a real
+        # blunder: knight-takes-pawn but knight is now hanging on a
+        # mid-board square with defenders missing. Cp_loss=200 clears
+        # gate A. move_history empty avoids opening-theory gate.
+        # Position chosen so user_move_addresses_threat is False.
+        defaults = dict(
+            fen_before="r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 1",
+            played_san="Nxe5",
+            mover_is_user=True,
+            mover_is_white=True,
+            user_color="white",
+            full_move_number=4,
+            move_history_san=["e4", "e5", "Bc4", "Nc6"],
+            cp_loss=200,
+            eval_before_cp=20,
+            eval_after_cp=-180,
+            best_move_san="d3",
+            pv_after_played=[],
+            pv_after_best=[],
+            user_rating=1200,
+        )
+        defaults.update(overrides)
+        inputs = MoveInputs(**defaults)
+        return build_move_teaching_decision(inputs, CrossMoveState())
+
+    def test_no_socratic_context_returns_none(self):
+        """When socratic_context is None (V5 review, PWC user moves
+        that aren't mistakes), socratic_extras stays None."""
+        d = self._build()
+        assert d.socratic_extras is None
+
+    def test_severity_not_mistake_or_blunder_returns_none(self):
+        """severity 'good' / 'inaccuracy' don't trip socratic — the
+        gate inside inject_socratic_user_facts catches them."""
+        d = self._build(socratic_context={
+            "severity": "good", "fundamental_violated": None,
+            "phase": "middlegame",
+        })
+        assert d.socratic_extras is None
+
+    def test_gate_a_cp_loss_under_80_suppresses(self):
+        """Gate A: cp_loss<80 → suppression. The
+        socratic_should_suppress flag gets set; socratic_is_active does
+        NOT. R18 trigger fails → socratic_extras stays None."""
+        d = self._build(
+            cp_loss=50,
+            socratic_context={
+                "severity": "mistake", "fundamental_violated": "calculate",
+                "phase": "middlegame",
+            },
+        )
+        assert d.socratic_extras is None
+        # The fact is set for downstream observability / audit:
+        assert d.debug_facts.get("socratic_should_suppress") is True
+
+    def test_mistake_calculate_renders(self):
+        """A real mistake with calculate fundamental fires the
+        mistake_calculate variant."""
+        d = self._build(
+            cp_loss=150,
+            socratic_context={
+                "severity": "mistake", "fundamental_violated": "calculate",
+                "phase": "middlegame",
+            },
+        )
+        extras = d.socratic_extras
+        assert extras is not None
+        assert extras.narrative != ""
+        assert extras.plan != ""
+        assert extras.question != ""
+        assert extras.hint != ""
+        # The mistake_calculate template mentions "calculate" semantics.
+        assert "calculate" in extras.narrative.lower() or "calculate" in extras.hint.lower()
+
+    def test_blunder_hanging_picks_specific_variant(self):
+        """Blunder + hanging_pieces fundamental: when an opp threat is
+        also detected, the more-specific variant fires. Without explicit
+        threat detection (no engine in test env), falls to blunder_
+        hanging — still concrete about the hanging piece."""
+        d = self._build(
+            cp_loss=400,
+            socratic_context={
+                "severity": "blunder", "fundamental_violated": "hanging_pieces",
+                "phase": "middlegame",
+            },
+        )
+        extras = d.socratic_extras
+        assert extras is not None
+        # The hanging variants reference "undefended" or "hanging".
+        assert (
+            "undefended" in extras.narrative.lower()
+            or "hanging" in extras.narrative.lower()
+        )
+
+    def test_mistake_generic_fallback(self):
+        """No fundamental_violated → mistake_generic terminal variant
+        fires. Anchors the terminal-catcher behaviour."""
+        d = self._build(
+            cp_loss=130,
+            socratic_context={
+                "severity": "mistake", "fundamental_violated": None,
+                "phase": "middlegame",
+            },
+        )
+        extras = d.socratic_extras
+        assert extras is not None
+        # Generic narrative is the catchall about "stronger move".
+        assert extras.narrative != ""
+        assert extras.question != ""
+
+    def test_v5_review_path_unaffected(self):
+        """User-side V5 review call without socratic_context — coach_
+        extras AND socratic_extras both stay None. Anchors no-regression
+        invariant: PR-6 changes only PWC user-mistake renders."""
+        d = self._build()
+        assert d.coach_extras is None
+        assert d.socratic_extras is None
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

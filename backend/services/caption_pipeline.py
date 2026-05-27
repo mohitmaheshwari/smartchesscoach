@@ -140,6 +140,25 @@ class MoveInputs:
     #   }
     coach_move_context: Optional[Dict[str, Any]] = None
 
+    # ─── PWC user-mistake Socratic context (2026-05-27 migration off
+    # smart_coaching.generate_smart_user_feedback per
+    # [[one-source-of-truth-for-coaching]]). Set ONLY by
+    # routes/coach_play.py:2713 when the USER played a move and
+    # we want the central layer to produce the structured PWC
+    # `socratic_question` / `socratic_hint` / `narrative` /
+    # `focus_plan` payload that drives the post-mistake coaching panel.
+    # None for V5 review, PWC coach moves, and PWC user moves that
+    # aren't mistakes — those don't need Socratic semantics.
+    #
+    # Expected shape (mirrors generate_smart_user_feedback's inputs):
+    #   {
+    #     "severity": "mistake" | "blunder",  # gate flag
+    #     "fundamental_violated": str | None,  # hanging_pieces, ...
+    #     "coach_intent": str | None,          # hanging_piece_punishment,...
+    #     "phase": "opening" | "middlegame" | "endgame",
+    #   }
+    socratic_context: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class CrossMoveState:
@@ -267,6 +286,38 @@ class CoachExtras:
 
 
 @dataclass
+class SocraticExtras:
+    """Structured multi-field payload for PWC user-mistake coaching.
+    Mirrors the dict shape that smart_coaching.generate_smart_user_
+    feedback returns today (consumed by routes/coach_play.py:2734-
+    2762 as socratic_question / socratic_hint / narrative / focus_plan).
+
+    Populated ONLY when MoveInputs.socratic_context is set AND the
+    R18_socratic_user_mistake.json suppression gates don't fire
+    (cp_loss<80, user-addresses-threat, known opening theory). When
+    populated, frontend renders the post-mistake coaching panel.
+
+    Architectural note (2026-05-27): this exists so the central layer
+    can produce the user-mistake Socratic shape deterministically,
+    matching the migration pattern of CoachExtras (PR-1 through PR-5,
+    commits c226d142 → abbd7f88). Per [[one-source-of-truth-for-
+    coaching]] the goal is to delete smart_coaching.py entirely once
+    this path is wired and verified.
+
+    Field semantics:
+      - narrative: 1-2 sentences naming what went wrong + habit to build
+      - plan: what to focus on for the next 2-3 moves (drives the UI's
+              "active coach plan" persistence in coach_sessions)
+      - question: one Socratic question (< 20 words)
+      - hint: one-sentence hint when the student can't answer
+    """
+    narrative: str = ""
+    plan: str = ""
+    question: str = ""
+    hint: str = ""
+
+
+@dataclass
 class MoveTeachingDecision:
     """The complete teaching product for one move.
 
@@ -307,6 +358,11 @@ class MoveTeachingDecision:
     # ONLY when MoveInputs.coach_move_context is set; None otherwise.
     # See CoachExtras docstring for field semantics.
     coach_extras: Optional[CoachExtras] = None
+    # PWC user-mistake Socratic payload (2026-05-27 migration). Populated
+    # ONLY when MoveInputs.socratic_context is set AND the R18 gates
+    # don't suppress (cp_loss<80, threat-handling, opening theory).
+    # See SocraticExtras docstring for field semantics.
+    socratic_extras: Optional[SocraticExtras] = None
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -1147,6 +1203,302 @@ def inject_coach_move_facts(
     caption_facts["student_can_exploit"] = student_opportunities
 
 
+def inject_socratic_user_facts(
+    caption_facts: Dict[str, Any],
+    *,
+    board_before: chess.Board,
+    move: chess.Move,
+    user_color: str,
+    cp_loss: int,
+    pv_after_played: Optional[List[str]],
+    move_history_san: Optional[List[str]],
+    user_rating: int,
+    socratic_context: Optional[Dict[str, Any]],
+) -> None:
+    """Stamp the deterministic facts the central layer needs to produce
+    the PWC socratic_question / socratic_hint / narrative / focus_plan
+    payload — the structured shape that smart_coaching.generate_smart_
+    user_feedback produces today via an LLM call.
+
+    Mohit 2026-05-27: "use same direction" — same migration pattern
+    as the coach-move surface (PR-1 through PR-5, commits c226d142 →
+    abbd7f88). See [[one-source-of-truth-for-coaching]].
+
+    No-op when socratic_context is None OR severity is not in
+    ("mistake", "blunder"). Otherwise applies the three pre-routing
+    gates from smart_coaching lines 105-160:
+
+      Gate A: cp_loss < 80 → suppress (too small for "stronger move"
+              framing — Parth bugs fb_3c558315d3c7 family).
+      Gate B: user's move addresses an immediate forcing threat
+              (tactical_safety.user_move_addresses_threat).
+      Gate C: position is in known opening theory
+              (decryption_voice.opening_book.recognize_opening_from_history).
+
+    When ANY gate fires, the helper sets socratic_should_suppress=True
+    and does NOT stamp socratic_is_active. The R18 trigger gates on
+    socratic_is_active so suppression = no narration. Matches the
+    smart_coaching "return None" behaviour exactly.
+
+    When NO gate fires:
+      - socratic_is_active: True (R18 trigger flag)
+      - socratic_severity: "mistake" | "blunder"
+      - socratic_fundamental_violated: pass-through label
+      - socratic_coach_intent: pass-through label
+      - socratic_phase: pass-through opening/middlegame/endgame
+      - socratic_user_rating: pass-through
+      - socratic_problem_facts: list of human-readable problem phrases
+        (one per fundamental_violated category)
+      - socratic_hanging_piece + socratic_hanging_square: when
+        fundamental_violated == "hanging_pieces" and a hanging piece
+        is found on the post-move board
+      - socratic_recovery_facts: list of 1-3 rating-aware phrases
+        derived from pv_after_played themes (castle/capture/develop)
+      - socratic_opponent_threat_type: "fork" | "mate" | "capture"
+        when severity=="blunder" and post-move position exposes a
+        concrete threat from move_comparison._find_opponent_threats.
+      - socratic_opponent_threat_text: the raw threat phrase
+      - socratic_pv_themes: dict {castle, capture, develop, defend}
+      - socratic_pv_capture_target: piece-name of the first capture
+        target in pv_after_played, if any.
+
+    Pure function. Mutates caption_facts in place. Best-effort gates —
+    if a gate detector crashes, the gate is skipped (defensive).
+    """
+    if socratic_context is None:
+        return
+
+    severity = (socratic_context.get("severity") or "").strip().lower()
+    if severity not in ("mistake", "blunder"):
+        return
+
+    # ─── PRE-ROUTING GATES (mirror smart_coaching 105-160) ────────
+    suppress = False
+    suppress_reason = ""
+
+    # Gate A: cp_loss too small for "stronger move" framing.
+    if cp_loss is not None and cp_loss < 80:
+        suppress = True
+        suppress_reason = f"cp_loss={cp_loss} below 'stronger move' threshold"
+
+    # Gate B: user's move addresses an immediate forcing threat.
+    if not suppress:
+        try:
+            from services.tactical_safety import user_move_addresses_threat
+            if user_move_addresses_threat(board_before, move):
+                suppress = True
+                suppress_reason = "user move addresses an attacked own piece"
+        except Exception:
+            pass  # gate detector unavailable; skip
+
+    # Gate C: position is in known opening theory.
+    if not suppress and move_history_san is not None:
+        try:
+            from services.decryption_voice.opening_book import (
+                recognize_opening_from_history,
+            )
+            move_san_check = board_before.san(move)
+            full_history = list(move_history_san) + [move_san_check]
+            if recognize_opening_from_history(full_history):
+                suppress = True
+                suppress_reason = "move is part of known opening theory"
+        except Exception:
+            pass  # gate detector unavailable; skip
+
+    if suppress:
+        caption_facts["socratic_should_suppress"] = True
+        caption_facts["socratic_suppress_reason"] = suppress_reason
+        return
+
+    # ─── PROCEED — stamp facts for R18 rendering ─────────────────
+    caption_facts["socratic_is_active"] = True
+    caption_facts["socratic_severity"] = severity
+    fundamental = socratic_context.get("fundamental_violated") or None
+    caption_facts["socratic_fundamental_violated"] = fundamental
+    caption_facts["socratic_coach_intent"] = socratic_context.get("coach_intent") or None
+    caption_facts["socratic_phase"] = socratic_context.get("phase") or "middlegame"
+    caption_facts["socratic_user_rating"] = int(user_rating or 1200)
+
+    # Build problem_facts based on fundamental_violated (mirrors
+    # smart_coaching 179-213).
+    problem_facts: List[str] = []
+    hanging_piece_name: Optional[str] = None
+    hanging_square_name: Optional[str] = None
+
+    if fundamental == "check_opponents_move":
+        problem_facts.append("Student did not respond to the opponent's threat from the previous move")
+    elif fundamental == "hanging_pieces":
+        # Look for the user's hanging piece on the POST-move board.
+        try:
+            user_color_bool = chess.WHITE if user_color == "white" else chess.BLACK
+            post = board_before.copy()
+            post.push(move)
+            for sq in chess.SQUARES:
+                p = post.piece_at(sq)
+                if (p and p.color == user_color_bool
+                        and p.piece_type not in (chess.KING, chess.PAWN)):
+                    attackers = list(post.attackers(not user_color_bool, sq))
+                    defenders = list(post.attackers(user_color_bool, sq))
+                    if attackers and not defenders:
+                        hanging_piece_name = chess.piece_name(p.piece_type)
+                        hanging_square_name = chess.square_name(sq)
+                        problem_facts.append(
+                            f"Student's {hanging_piece_name} on "
+                            f"{hanging_square_name} is now undefended and attacked"
+                        )
+                        break
+        except Exception:
+            pass
+        if not problem_facts:
+            problem_facts.append("Student left a piece undefended")
+    elif fundamental == "calculate":
+        problem_facts.append("Student didn't calculate the opponent's response")
+    elif fundamental == "king_safety":
+        problem_facts.append("Student's king is in danger")
+    elif fundamental == "development":
+        problem_facts.append("Student moved an already-developed piece instead of developing a new one")
+    elif fundamental == "center_control":
+        problem_facts.append("Student lost control of the center")
+    elif fundamental == "have_a_plan":
+        problem_facts.append("Student's move doesn't serve a clear purpose")
+
+    # Coach intent context (when set by the v2 selector).
+    coach_intent = caption_facts["socratic_coach_intent"]
+    if coach_intent:
+        intent_map = {
+            "hanging_piece_punishment": "The coach created a position to test piece safety awareness",
+            "fork_opportunity": "The coach set up a double attack the student needed to handle",
+            "threat_awareness": "The coach created a threat the student needed to notice",
+        }
+        if coach_intent in intent_map:
+            problem_facts.append(intent_map[coach_intent])
+
+    caption_facts["socratic_problem_facts"] = problem_facts
+    caption_facts["socratic_hanging_piece"] = hanging_piece_name
+    caption_facts["socratic_hanging_square"] = hanging_square_name
+
+    # Recovery plan from PV themes (mirrors smart_coaching 215-298).
+    recovery_facts: List[str] = []
+    pv_themes = {"castle": False, "capture": False, "develop": False, "defend": False}
+    capture_target: Optional[str] = None
+    if pv_after_played and len(pv_after_played) >= 2:
+        try:
+            post = board_before.copy()
+            post.push(move)
+            sim = post.copy()
+            user_color_bool = chess.WHITE if user_color == "white" else chess.BLACK
+            for pv_move_san in pv_after_played[:4]:
+                try:
+                    pv_move = sim.parse_san(pv_move_san)
+                    piece = sim.piece_at(pv_move.from_square)
+                    is_user_move = (sim.turn == user_color_bool)
+                    if is_user_move and piece:
+                        if sim.is_castling(pv_move):
+                            pv_themes["castle"] = True
+                        elif sim.is_capture(pv_move):
+                            pv_themes["capture"] = True
+                            cap_piece = sim.piece_at(pv_move.to_square)
+                            if cap_piece:
+                                capture_target = chess.piece_name(cap_piece.piece_type)
+                        elif piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+                            back_rank = 0 if piece.color == chess.WHITE else 7
+                            if chess.square_rank(pv_move.from_square) == back_rank:
+                                pv_themes["develop"] = True
+                    sim.push(pv_move)
+                except Exception:
+                    break
+        except Exception:
+            pass
+
+        # Rating-aware recovery phrasing (matches smart_coaching 250-278).
+        if user_rating < 1000:
+            if pv_themes["capture"]:
+                recovery_facts.append("Look for pieces you can take safely")
+            elif pv_themes["castle"]:
+                recovery_facts.append("Your king needs to be safe first")
+            elif pv_themes["develop"]:
+                recovery_facts.append("Bring your pieces into the game")
+            else:
+                recovery_facts.append("Take a breath and look at the whole board")
+        elif user_rating < 1400:
+            if pv_themes["capture"] and capture_target:
+                recovery_facts.append(f"There's a {capture_target} you can win back")
+            if pv_themes["castle"]:
+                recovery_facts.append("Get your king safe")
+            if pv_themes["develop"]:
+                recovery_facts.append("Finish developing your pieces")
+            if not recovery_facts:
+                recovery_facts.append("Think about what your pieces need right now")
+        else:
+            if pv_themes["capture"]:
+                recovery_facts.append("Can you find a way to win material back?")
+            if pv_themes["castle"]:
+                recovery_facts.append("Think about king safety")
+            if not recovery_facts:
+                recovery_facts.append("Calculate the next 2-3 moves carefully")
+
+    # Fallback when no PV: basic position checks (smart_coaching 280-298).
+    if not recovery_facts:
+        try:
+            user_color_bool = chess.WHITE if user_color == "white" else chess.BLACK
+            post = board_before.copy()
+            post.push(move)
+            king_sq = post.king(user_color_bool)
+            if king_sq is not None:
+                back_rank = 0 if user_color_bool == chess.WHITE else 7
+                if (chess.square_rank(king_sq) == back_rank
+                        and chess.square_file(king_sq) == 4):
+                    recovery_facts.append("Get your king safe — castle")
+                undeveloped = 0
+                for sq in chess.SQUARES:
+                    p = post.piece_at(sq)
+                    if (p and p.color == user_color_bool
+                            and p.piece_type in (chess.KNIGHT, chess.BISHOP)):
+                        if chess.square_rank(sq) == back_rank:
+                            undeveloped += 1
+                if undeveloped >= 2:
+                    recovery_facts.append(
+                        f"Develop your {undeveloped} pieces still on the back row"
+                    )
+        except Exception:
+            pass
+
+    caption_facts["socratic_recovery_facts"] = recovery_facts
+    caption_facts["socratic_pv_themes"] = pv_themes
+    caption_facts["socratic_pv_capture_target"] = capture_target
+
+    # Opponent-threat detection for blunders (mirrors smart_coaching 299-333).
+    opp_threat_type: Optional[str] = None
+    opp_threat_text: str = ""
+    if severity == "blunder":
+        try:
+            from services.move_comparison import _find_opponent_threats
+            try:
+                from services.threat_verifier import _get_singleton_engine
+                verify_engine = _get_singleton_engine()
+            except Exception:
+                verify_engine = None
+            post = board_before.copy()
+            post.push(move)
+            user_color_bool = chess.WHITE if user_color == "white" else chess.BLACK
+            threats = _find_opponent_threats(
+                post, not user_color_bool, engine=verify_engine,
+            )
+            if threats:
+                opp_threat_text = threats[0]
+                threat_low = threats[0].lower()
+                if "fork" in threat_low:
+                    opp_threat_type = "fork"
+                elif "checkmate" in threat_low or "mate" in threat_low:
+                    opp_threat_type = "mate"
+                elif "taken for free" in threat_low or "can be taken" in threat_low:
+                    opp_threat_type = "capture"
+        except Exception:
+            pass
+    caption_facts["socratic_opponent_threat_type"] = opp_threat_type
+    caption_facts["socratic_opponent_threat_text"] = opp_threat_text
+
+
 _R17_TEMPLATE: Optional[Dict[str, Any]] = None
 
 
@@ -1331,6 +1683,145 @@ def populate_coach_extras(caption_facts: Dict[str, Any]) -> Optional["CoachExtra
         opponent_opportunity=opponent_opportunity,
         v2_intent=caption_facts.get("coach_intent"),
         v2_label=caption_facts.get("coach_v2_label"),
+    )
+
+
+_R18_TEMPLATE: Optional[Dict[str, Any]] = None
+
+
+def _load_r18_template() -> Dict[str, Any]:
+    """Lazy-load R18_socratic_user_mistake.json, cached process-wide.
+    Returns the parsed dict, or empty {} when file missing / invalid."""
+    global _R18_TEMPLATE
+    if _R18_TEMPLATE is not None:
+        return _R18_TEMPLATE
+    import json
+    import os
+    _path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "captions", "R18_socratic_user_mistake.json",
+    )
+    try:
+        with open(_path, encoding="utf-8") as f:
+            _R18_TEMPLATE = json.load(f)
+    except Exception as exc:
+        logger.warning(f"[caption_pipeline] R18 load failed: {exc}; socratic disabled")
+        _R18_TEMPLATE = {}
+    return _R18_TEMPLATE
+
+
+def _compute_r18_derived_facts(caption_facts: Dict[str, Any]) -> None:
+    """R18 variant templates reference two joined-string fields that
+    aren't directly in the base facts dict — derive them here so the
+    template renderer's format_map sees them. Pure helper, mutates
+    caption_facts in place.
+
+    The list-to-string join is a defensive separation: variants embed
+    the COMPOSED text directly via {socratic_problem_facts_joined},
+    avoiding any need for list-rendering inside the JSON template.
+    """
+    problem_facts = caption_facts.get("socratic_problem_facts") or []
+    if isinstance(problem_facts, list):
+        caption_facts["socratic_problem_facts_joined"] = "; ".join(
+            str(p) for p in problem_facts if p
+        )
+    else:
+        caption_facts["socratic_problem_facts_joined"] = ""
+
+    recovery_facts = caption_facts.get("socratic_recovery_facts") or []
+    if isinstance(recovery_facts, list) and recovery_facts:
+        # Cap at 3 per smart_coaching's slicing semantics.
+        caption_facts["socratic_recovery_facts_joined"] = "; ".join(
+            str(p) for p in recovery_facts[:3] if p
+        )
+    else:
+        caption_facts["socratic_recovery_facts_joined"] = ""
+
+
+def _format_r18_field(template_str: str, facts: Dict[str, Any]) -> str:
+    """Format an R18 template string. Tolerates missing keys (matches
+    _format_r17_field behaviour) and trims trailing whitespace +
+    semicolons that arise when a joined-list slot was empty."""
+    if not template_str:
+        return ""
+    try:
+        class _SafeDict(dict):
+            def __missing__(self, key):
+                return ""
+        out = template_str.format_map(_SafeDict(facts))
+        # Clean up dangling joiners when a placeholder rendered empty.
+        # e.g. "Step one is mate. Address it first. " → strip.
+        # Or "...{recovery}." when recovery=="" → trim the trailing dot
+        # the joiner left.
+        out = out.replace("  ", " ").rstrip()
+        # Drop trailing semicolons + spaces from join slot exhaustion.
+        while out.endswith((";", " ", ".")) and out.endswith(" ."):
+            out = out[:-2].rstrip()
+        return out
+    except Exception:
+        return template_str
+
+
+def populate_socratic_extras(caption_facts: Dict[str, Any]) -> Optional["SocraticExtras"]:
+    """Render the R18_socratic_user_mistake template into a
+    SocraticExtras instance.
+
+    Gate: returns None when socratic_is_active is not True (i.e., the
+    caller did not pass socratic_context, severity wasn't a
+    mistake/blunder, or one of the three pre-routing suppression gates
+    fired). Mirrors the "return None" semantics of smart_coaching.
+    generate_smart_user_feedback exactly.
+
+    Variant selection uses the same evaluate_when predicate the rest
+    of the JSON-driven rule engine uses (caption_templates.select_
+    first_match). Builds the four narrative fields (narrative, plan,
+    question, hint) from the matched variant's template strings.
+
+    Per [[one-source-of-truth-for-coaching]] this is the deterministic
+    replacement for the LLM call in generate_smart_user_feedback.
+    """
+    if not caption_facts.get("socratic_is_active"):
+        return None
+
+    cfg = _load_r18_template()
+    if not cfg:
+        return None
+
+    # Derive the joined fields that variant templates reference.
+    _compute_r18_derived_facts(caption_facts)
+
+    try:
+        from services.caption_templates import select_first_match
+    except Exception:
+        logger.exception("[caption_pipeline] caption_templates import failed; R18 disabled")
+        return None
+
+    rules = cfg.get("select_variant") or []
+    match = select_first_match(rules, caption_facts)
+    variant_name = (match or {}).get("variant") if match else None
+    if not variant_name:
+        # All R18 select_variant branches have terminal generic catchers
+        # (blunder_generic / mistake_generic). If we land here, something
+        # structurally surprising happened — pick the safest generic.
+        variant_name = (
+            "blunder_generic"
+            if caption_facts.get("socratic_severity") == "blunder"
+            else "mistake_generic"
+        )
+
+    variant_body = (cfg.get("variants") or {}).get(variant_name) or {}
+    if not isinstance(variant_body, dict):
+        logger.warning(
+            f"[caption_pipeline] R18 variant {variant_name!r} is not a dict; "
+            f"check R18_socratic_user_mistake.json schema"
+        )
+        return None
+
+    return SocraticExtras(
+        narrative=_format_r18_field(variant_body.get("narrative", ""), caption_facts),
+        plan=_format_r18_field(variant_body.get("plan", ""), caption_facts),
+        question=_format_r18_field(variant_body.get("question", ""), caption_facts),
+        hint=_format_r18_field(variant_body.get("hint", ""), caption_facts),
     )
 
 
@@ -2269,6 +2760,25 @@ def build_move_teaching_decision(
         coach_move_context=inputs.coach_move_context,
     )
 
+    # ─── 3c. PWC user-mistake Socratic facts (PR-6 of 5, 2026-05-27
+    # migration off smart_coaching.generate_smart_user_feedback per
+    # [[one-source-of-truth-for-coaching]]). No-op when socratic_context
+    # is None or severity isn't a mistake/blunder. When active, applies
+    # the same three pre-routing gates smart_coaching uses today
+    # (cp_loss<80, user-addresses-threat, opening theory) and stamps
+    # facts for R18_socratic_user_mistake templates.
+    inject_socratic_user_facts(
+        caption_facts,
+        board_before=board_before,
+        move=played_move,
+        user_color=inputs.user_color,
+        cp_loss=int(inputs.cp_loss or 0),
+        pv_after_played=list(inputs.pv_after_played or []),
+        move_history_san=list(inputs.move_history_san or []),
+        user_rating=int(inputs.user_rating or 1200),
+        socratic_context=inputs.socratic_context,
+    )
+
     # ─── 4. A4 opening context (gates on idx<6 + opening phase) ──
     _ply_idx = max(0, (inputs.full_move_number or 1) - 1) * 2
     if not inputs.mover_is_white:
@@ -2599,6 +3109,13 @@ def build_move_teaching_decision(
     # this is the central-layer replacement for smart_coaching.py.
     coach_extras = populate_coach_extras(caption_facts)
 
+    # ─── 14. R18 socratic user-mistake narration (PWC only — populated
+    # when socratic_context was passed AND inject_socratic_user_facts
+    # didn't suppress via cp_loss/threat/opening gates). Per
+    # [[one-source-of-truth-for-coaching]] this is the central-layer
+    # replacement for smart_coaching.generate_smart_user_feedback.
+    socratic_extras = populate_socratic_extras(caption_facts)
+
     return MoveTeachingDecision(
         text=text,
         visual=visual,
@@ -2610,4 +3127,5 @@ def build_move_teaching_decision(
         should_skip=False,
         skip_reason="",
         coach_extras=coach_extras,
+        socratic_extras=socratic_extras,
     )
