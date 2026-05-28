@@ -3420,7 +3420,24 @@ def build_move_teaching_decision(
         and _bs_cp_loss >= 30
     ):
         _bs_text = caption_facts["board_state_clause"].strip()
-        caption_payload["caption"] = f"{inputs.played_san}. {_bs_text}"
+        # Mohit 2026-05-28 (game 2d7ade57 m31 Rxf4 cp_loss=8774): when R12
+        # can't render (e.g. no best_move available — last move of game)
+        # this fallback used to produce "Rxf4. Your queen on c7 is the only
+        # piece doing anything." with zero severity framing — a blunder
+        # rendered like a neutral observation. Prefix with the same
+        # severity_phrase R12 would have used when severity is mistake or
+        # worse, so the gravity isn't swallowed by the bs commentary.
+        _bs_severity = (caption_facts.get("severity_practical") or "").lower()
+        _bs_severity_phrases = {
+            "blunder": "is a major blunder",
+            "serious": "is a serious mistake",
+            "mistake": "is a mistake",
+        }
+        _bs_severity_phrase = _bs_severity_phrases.get(_bs_severity, "")
+        if inputs.mover_is_user and _bs_severity_phrase:
+            caption_payload["caption"] = f"{inputs.played_san} {_bs_severity_phrase}. {_bs_text}"
+        else:
+            caption_payload["caption"] = f"{inputs.played_san}. {_bs_text}"
         caption_payload["rule_name"] = "R16_board_state_fallback"
 
     # ─── 9c. Principle suppression + cue-pick ────────────────────

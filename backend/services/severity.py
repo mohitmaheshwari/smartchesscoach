@@ -65,6 +65,10 @@ SEVERITY_THRESHOLDS = {
 # of the nominal cp_loss number.
 MATE_SENTINEL_CP = 3000
 
+# Catastrophic cp_loss floor — practical-severity softening is disabled
+# above this threshold. See classify_severity_practical() docstring.
+CATASTROPHIC_CP_LOSS_FLOOR = 1000
+
 # Canonical tier list (lowest severity → highest).
 TIER_ORDER = ["good", "inaccuracy", "mistake", "serious", "blunder"]
 
@@ -356,6 +360,22 @@ def classify_severity_practical(
     max_allowed_idx = min(max_allowed_idx, len(TIER_ORDER) - 1)
     if prac_idx > max_allowed_idx:
         practical = TIER_ORDER[max_allowed_idx]
+
+    # Catastrophic-cpl floor (Mohit 2026-05-28, game 2d7ade57 m31 Rxf4
+    # cp_loss=8774): when you're winning so heavily that any move keeps
+    # the win-prob near 1.0, the Δwp is tiny even for absurd cp_loss
+    # values. The stayed-winning logic above softens practical to 'good'
+    # in that case, and the cap above caps it at canonical = 'blunder'
+    # but doesn't raise it from 'good'. Result: a near-mate move is
+    # framed as "fine, still winning". Honest framing requires that
+    # cp_loss this large CANNOT be softened below canonical.
+    # Threshold = 1000cp (10 pawns of evaluation lost) — well above the
+    # canonical blunder threshold of 400, conservative enough that
+    # normal "stayed winning" softening (cp_loss 100-500 cases) is
+    # unaffected.
+    if cp_loss >= CATASTROPHIC_CP_LOSS_FLOOR:
+        if TIER_ORDER.index(practical) < TIER_ORDER.index(canonical):
+            practical = canonical
 
     return PracticalSeverity(
         practical_tier=practical,
