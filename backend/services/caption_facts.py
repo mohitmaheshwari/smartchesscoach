@@ -1545,10 +1545,21 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # category so R12 produces "Opponent's Be6 is a mistake. You
     # can play X to punish it."
     _dev_ok = _move_cpl < 30
+    # Parth fb_bdff53b7e4d9: when the move IS the user's engine-best
+    # (cp_loss==0, played_is_best, mover_is_user), don't claim it under
+    # "development" — R11 silences that category and we'd swallow a
+    # caption R15 could teach (e.g. bishop-pair-trade-offer). Let it
+    # fall through to the good_move check below.
+    _is_user_best = (
+        facts.get("played_is_best")
+        and (_move_cpl == 0)
+        and facts.get("mover_is_user") is True
+    )
     if (
         _dev_ok
         and facts.get("phase") == "opening"
         and facts.get("moving_piece_type") in ("knight", "bishop")
+        and not _is_user_best
     ):
         # Phase 1: very permissive — any minor-piece move in opening
         # counts as a development reason. Concept refinements (named

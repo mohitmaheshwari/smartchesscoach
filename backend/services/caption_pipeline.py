@@ -1341,7 +1341,43 @@ def inject_good_move_reason_facts(
                 caption_facts["good_move_reason"] = "central_break"
                 return
 
-    # 3) Development in the opening — a minor piece leaving its back rank.
+    # 3) Bishop-pair trade offer (Parth fb_bdff53b7e4d9). A bishop moves
+    # to attack an enemy bishop AND opponent has the bishop pair (one
+    # bishop on each square colour). Trading removes that advantage —
+    # a concrete principle a 600-1500 player can apply going forward.
+    if moved.piece_type == chess.BISHOP:
+        enemy_color = not mover_color
+        enemy_bishops = list(board_before.pieces(chess.BISHOP, enemy_color))
+        if len(enemy_bishops) >= 2:
+            # Square colour parity: a1=(0,0)=0=dark; odd sum = light.
+            has_light = any(
+                (chess.square_file(s) + chess.square_rank(s)) % 2 == 1
+                for s in enemy_bishops
+            )
+            has_dark = any(
+                (chess.square_file(s) + chess.square_rank(s)) % 2 == 0
+                for s in enemy_bishops
+            )
+            if has_light and has_dark:
+                # Does the moved bishop now attack one of those bishops?
+                try:
+                    after = board_before.copy()
+                    after.push(move)
+                except Exception:
+                    after = None
+                if after is not None:
+                    for sq in after.attacks(move.to_square):
+                        target = after.piece_at(sq)
+                        if (target is not None
+                                and target.color == enemy_color
+                                and target.piece_type == chess.BISHOP):
+                            sq_parity = (chess.square_file(sq) + chess.square_rank(sq)) % 2
+                            color_name = "light" if sq_parity == 1 else "dark"
+                            caption_facts["good_move_reason"] = "bishop_pair_trade"
+                            caption_facts["good_move_trade_target_color"] = color_name
+                            return
+
+    # 4) Development in the opening — a minor piece leaving its back rank.
     if phase == "opening" and moved.piece_type in (chess.KNIGHT, chess.BISHOP):
         back_rank = 0 if mover_color == chess.WHITE else 7
         if (chess.square_rank(move.from_square) == back_rank

@@ -4,9 +4,10 @@
   "fact_glossary": {
     "played_san": "SAN of the move",
     "phase": "Game phase — opening / middlegame / endgame",
-    "good_move_reason": "capture | central_break | develop | (unset). Set by inject_good_move_reason_facts.",
+    "good_move_reason": "capture | central_break | bishop_pair_trade | develop | (unset). Set by inject_good_move_reason_facts.",
     "good_move_captured_piece": "piece-name taken, when good_move_reason == capture",
-    "good_move_captured_square": "square of the capture, when good_move_reason == capture"
+    "good_move_captured_square": "square of the capture, when good_move_reason == capture",
+    "good_move_trade_target_color": "'light' | 'dark' — square colour of the enemy bishop the trade offer targets. Set with bishop_pair_trade. Parth fb_bdff53b7e4d9."
   },
   "requires": ["played_san"],
   "trigger": {
@@ -19,11 +20,13 @@
   "select_variant": [
     {"when": {"good_move_reason": "capture"}, "variant": "capture"},
     {"when": {"good_move_reason": "central_break"}, "variant": "central_break"},
+    {"when": {"good_move_reason": "bishop_pair_trade"}, "variant": "bishop_pair_trade"},
     {"when": {"good_move_reason": "develop"}, "variant": "develop"}
   ],
   "variants": {
     "capture": "{played_san} — takes the {good_move_captured_piece} on {good_move_captured_square}.",
     "central_break": "{played_san} — fights for the center. Control the center and your pieces get the best squares.",
+    "bishop_pair_trade": "{played_san} — offers to trade {good_move_trade_target_color}-square bishops. Opponent has the bishop pair; trading one removes that advantage.",
     "develop": "{played_san} — develops a piece. Get every piece into the game before you attack.",
     "default": "{played_san} — strongest move here."
   }
