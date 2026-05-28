@@ -1332,8 +1332,17 @@ class TestMissedCaptureVariant:
         # The em-dash voice-match should also fire (so the parent
         # variant uses "X was better — reason" rather than two-sentence).
         assert d.debug_facts.get("why_clause_em_dash") is True
-        # Caption should contain the new template content.
-        assert "captures the pawn" in d.text.caption.lower()
+        # Bxc5 is STRUCTURALLY a sacrifice (bishop=3 attacker, pawn=1
+        # target, d4 pawn defends c5 — bishop is lost to dxc5 recapture).
+        # Engine evaluates it best (cp_loss=0) because of compensation,
+        # so the sac-aware variant fires (Parth fb_6f2a5ba1f626 reuse
+        # for R12 why-clauses, 2026-05-28). Caption now says
+        # "sacrifices your bishop for compensation" instead of the
+        # misleading "captures the pawn... material won is leverage".
+        assert d.debug_facts.get("best_move_is_sacrifice") is True
+        cap = d.text.caption.lower()
+        assert "sacrifice" in cap, f"sac variant should fire on Bxc5 (bishop > pawn, defended): {cap!r}"
+        assert "the pawn" in cap, f"caption should still name the captured pawn: {cap!r}"
 
     def test_missed_capture_silent_when_best_is_not_capture(self):
         """When engine's best move is a developing move (no 'x' in SAN),

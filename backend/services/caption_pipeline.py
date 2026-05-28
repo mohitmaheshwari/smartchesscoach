@@ -688,6 +688,37 @@ def inject_user_blunder_detector_facts(
                     caption_facts["missed_capture_target_square"] = (
                         chess.square_name(_best_mv.to_square)
                     )
+                    # Sac-awareness (fb_6f2a5ba1f626 reused for R12 why-
+                    # clauses): when the BEST move is a capture whose
+                    # attacker is worth MORE than the target AND the
+                    # destination is defended after the capture, the
+                    # best move is a SACRIFICE, not a 'wins the piece'
+                    # win. R12 needs this so 'Nxh3+ was better — captures
+                    # the pawn on h3. Material won is leverage…' stops
+                    # firing on knight sacrifices.
+                    _PIECE_VAL = {
+                        chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+                        chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100,
+                    }
+                    _attacker_piece = _board_cap.piece_at(_best_mv.from_square)
+                    _att_val = _PIECE_VAL.get(_attacker_piece.piece_type, 0) if _attacker_piece else 0
+                    _tgt_val = _PIECE_VAL.get(_captured.piece_type, 0)
+                    if _att_val > _tgt_val:
+                        _board_post = _board_cap.copy()
+                        _board_post.push(_best_mv)
+                        _opp = not _board_cap.turn
+                        if _board_post.attackers(_opp, _best_mv.to_square):
+                            caption_facts["best_move_is_sacrifice"] = True
+                            caption_facts["best_move_sac_attacker_piece"] = (
+                                chess.piece_name(_attacker_piece.piece_type)
+                                if _attacker_piece else "piece"
+                            )
+                            # Near-king sac: target within 2 squares of enemy king.
+                            _enemy_king = _board_cap.king(_opp)
+                            if _enemy_king is not None:
+                                _dist = chess.square_distance(_best_mv.to_square, _enemy_king)
+                                if _dist <= 2 and _captured.piece_type == chess.PAWN:
+                                    caption_facts["best_move_sac_near_king"] = True
         except Exception:
             pass
 
