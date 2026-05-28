@@ -1379,7 +1379,69 @@ def inject_good_move_reason_facts(
                             caption_facts["good_move_trade_target_color"] = color_name
                             return
 
-    # 4) Development in the opening — a minor piece leaving its back rank.
+    # 4) Controls key squares (Parth fb_b250249f7724 / fb_fa464cae3b84):
+    # the move puts a piece on a square that attacks one or more KEY
+    # central / semi-central squares. Captures Parth's "c6 controls b5
+    # and d5" pattern. Two safety thresholds:
+    #   PAWN: attacks >= 1 KEY square — pawn structure is permanent, so
+    #     "controls X" is meaningful even if another piece also covers
+    #     X (the pawn locks the square in).
+    #   PIECE (knight/bishop/rook/queen): attacks >= 2 KEY squares
+    #     NEWLY (not already covered by the user before the move) — for
+    #     mobile pieces, "controls" only teaches when it's a NEW
+    #     positional gain. Avoids the queen-moves-but-still-attacks-its-
+    #     own-old-square artifact.
+    # Skip captures and checks (those moves have their own stories).
+    try:
+        if board_before.is_capture(move) or board_before.gives_check(move):
+            pass  # skip — capture/check have their own caption stories
+        else:
+            # Central + semi-central squares (rank 4-5, files c-f).
+            _KEY_SQUARES = [
+                chess.square(f, r) for f in (2, 3, 4, 5) for r in (3, 4)
+            ]
+            after = board_before.copy()
+            after.push(move)
+            now_attacks = set(after.attacks(move.to_square))
+            controlled: List[str] = []
+            if moved.piece_type == chess.PAWN:
+                # Pawn rule: just attack >= 1 key square (no "newly" filter).
+                for ksq in _KEY_SQUARES:
+                    if ksq not in now_attacks:
+                        continue
+                    occupant = after.piece_at(ksq)
+                    if occupant is not None and occupant.color == mover_color:
+                        continue  # we already own that square
+                    controlled.append(chess.square_name(ksq))
+                _min_required = 1
+            else:
+                # Piece rule: >= 2 NEWLY attacked key squares.
+                before_user_attacks = set()
+                for sq in chess.SQUARES:
+                    p = board_before.piece_at(sq)
+                    if p is not None and p.color == mover_color:
+                        before_user_attacks |= set(board_before.attacks(sq))
+                for ksq in _KEY_SQUARES:
+                    if ksq not in now_attacks:
+                        continue
+                    if ksq in before_user_attacks:
+                        continue  # already controlled
+                    occupant = after.piece_at(ksq)
+                    if occupant is not None and occupant.color == mover_color:
+                        continue
+                    controlled.append(chess.square_name(ksq))
+                _min_required = 2
+            if len(controlled) >= _min_required:
+                caption_facts["good_move_reason"] = "controls_key_squares"
+                caption_facts["good_move_controlled_squares"] = ", ".join(controlled)
+                return
+    except Exception:
+        pass
+
+    # 5) Development in the opening — a minor piece leaving its back rank.
+    # Falls through here only when the controls-key-squares branch above
+    # didn't produce a 2+-key-square hit, so develop stays as the generic
+    # fallback for opening minor-piece moves.
     if phase == "opening" and moved.piece_type in (chess.KNIGHT, chess.BISHOP):
         back_rank = 0 if mover_color == chess.WHITE else 7
         if (chess.square_rank(move.from_square) == back_rank

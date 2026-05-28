@@ -644,6 +644,8 @@ def _r15_render(f):
         "good_move_captured_square": f.get("good_move_captured_square"),
         # fb_bdff53b7e4d9 — bishop-pair-trade-offer category.
         "good_move_trade_target_color": f.get("good_move_trade_target_color"),
+        # fb_b250249f7724 / fb_fa464cae3b84 — controls-key-squares category.
+        "good_move_controlled_squares": f.get("good_move_controlled_squares"),
     }) or ""
     return CaptionOutput(
         caption=cap,
