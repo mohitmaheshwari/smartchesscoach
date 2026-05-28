@@ -112,16 +112,23 @@ def _progress_hint(skill, kind: str) -> str:
             return "Recent stumble — clean attempt needed."
         return "Lesson cleared."
     if kind == "opening":
+        # Mohit 2026-05-28: the old "Played {seen}/5 times" / "{correct}/3
+        # correct" phrasings read as ratios (2 out of 3) when they actually
+        # meant "current vs. graduation goal." Rewritten to make the goal
+        # explicit and stop misleading the user.
         if seen < 5:
-            return f"Played {seen}/5 times."
+            remaining = 5 - seen
+            return f"{seen} games so far. {remaining} more to reach the {seen + remaining}-game baseline."
         if correct < 3:
-            return f"Played {seen} times, {correct}/3 correct."
+            need = 3 - correct
+            return f"{seen} games played. Need {need} more accurate game{'s' if need != 1 else ''} to graduate."
         if "wrong" in last_two:
             return "Last two attempts had a slip — clean games needed."
         return "Played enough to count as studied."
     if kind == "coached_play":
         if correct < 3:
-            return f"{correct}/3 correct sessions."
+            need = 3 - correct
+            return f"{correct} of 3 graduating sessions complete. {need} more to go."
         if "wrong" in last_three:
             return "Recent fail — 3 clean in a row needed."
         return "Habit established."
