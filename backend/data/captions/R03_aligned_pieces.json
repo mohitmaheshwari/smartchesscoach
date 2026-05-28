@@ -10,18 +10,21 @@
     "rear_is_king": "true when the rear piece is the king (absolute pin)",
     "front_is_king": "true when the front piece is the king (skewer — king must move, exposing rear)",
     "front_lower": "true when front piece value < rear piece value (relative pin)",
+    "front_higher": "true when front piece value > rear piece value (relative skewer — the more valuable front piece must move, exposing the less valuable rear). Mohit 2026-05-28 (game 2d7ade57 m13 Bg4): bishop attacking Q with R behind — Q must flee, then Bxrook wins.",
     "front_can_move_along_line": "true when the front piece's movement pattern includes the pin axis — i.e. the pin actually restricts mobility. A bishop pinned along a rank can't move on ranks anyway, so the pin is geometric-only. When false AND rear isn't king, the renderer falls through to xray_default (geometric alignment without claiming restriction). Mohit 2026-05-28 (game 65650b2b m21 Rb8)."
   },
   "requires": ["played_san", "front_piece_type", "rear_piece_type", "front_square", "rear_square"],
   "select_variant": [
     {"when": {"rear_is_king": true}, "variant": "pin_to_king"},
     {"when": {"front_is_king": true}, "variant": "skewer_king"},
+    {"when": {"front_higher": true}, "variant": "skewer_default"},
     {"when": {"front_lower": true, "front_can_move_along_line": true}, "variant": "pin_front_lower"},
     {"variant": "xray_default"}
   ],
   "variants": {
     "pin_to_king": "{played_san}. Pins the {front_piece_type} on {front_square} to the king.",
     "skewer_king": "{played_san}. Skewers the king on {front_square} — when it moves, the {rear_piece_type} on {rear_square} is exposed.",
+    "skewer_default": "{played_san}. Skewers the {front_piece_type} on {front_square} — when it moves, the {rear_piece_type} on {rear_square} is exposed.",
     "pin_front_lower": "{played_san}. Pins the {front_piece_type} on {front_square} against the {rear_piece_type} on {rear_square}.",
     "xray_default": "{played_san}. Lines up the {front_piece_type} on {front_square} in front of the {rear_piece_type}."
   }

@@ -183,6 +183,13 @@ def _r03_render(f):
         "rear_is_king": shape.get("rear_is_king", False),
         "front_is_king": shape.get("front_is_king", False),
         "front_lower": shape["front_value_vs_rear"] == "lower",
+        # Mohit 2026-05-28 (game 2d7ade57 m13 Bg4): skewer between two
+        # non-king pieces (Bg4 attacking white Qf3 with white Rd1 behind
+        # on the same diagonal). Queen MUST move (more valuable than the
+        # attacking bishop), and once it does, Bxd1 wins the rook. Before
+        # this fact, the renderer fell through to xray_default ("lines up
+        # the queen in front of the rook") which understates the threat.
+        "front_higher": shape["front_value_vs_rear"] == "higher",
         # Mohit 2026-05-28 (game 65650b2b m21 Rb8): a rook pinning a bishop
         # against a rook along rank 8 is geometrically a "pin" but
         # pedagogically useless — bishops don't move on ranks, so the
