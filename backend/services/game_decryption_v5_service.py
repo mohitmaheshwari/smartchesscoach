@@ -413,11 +413,22 @@ def get_opening_introduction(
                     }
                 # v74: Nf3/Nc3/etc. at idx > 0 — return generic
                 # development idea instead of misnaming as Réti.
-                return {
-                    "name": None,
-                    "idea": "Develops a piece toward the center. Knights before bishops, control the center.",
-                    "hint": None,
-                }
+                # Mohit 2026-05-28 (game 2d7ade57 m2 d4): the fallback
+                # idea ('Develops a piece... Knights before bishops')
+                # was firing on PAWN MOVES like d4 because
+                # _WHITE_FIRST_MOVE_OPENINGS includes d4/c4/e4 as
+                # legitimate first moves. Gate the develop-piece prose
+                # to actual knight/bishop SAN (move_san starts with
+                # 'N' or 'B'). Pawn moves at idx>0 fall through —
+                # other detectors (R15 central_break, opening curriculum)
+                # handle them; silent is fine when none fire.
+                if move_san and move_san[0] in ("N", "B"):
+                    return {
+                        "name": None,
+                        "idea": "Develops a piece toward the center. Knights before bishops, control the center.",
+                        "hint": None,
+                    }
+                return None
             if move_san in _BLACK_FIRST_RESPONSES and move_index != 1:
                 # Not black's first response — same reasoning.
                 return None
