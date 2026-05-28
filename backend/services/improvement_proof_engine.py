@@ -46,9 +46,27 @@ ROOT_PATTERNS = {
     },
     "endgame": {
         "label": "Endgame Play",
-        "description": "Converting advantages and finishing games",
-        "gaps": ["endgame_collapse", "endgame_technique", "threw_winning",
-                 "conversion", "missed_win"],
+        "description": "Endgame technique under pressure",
+        "gaps": ["endgame_collapse", "endgame_technique"],
+    },
+    # Mohit 2026-05-28: conversion split out of endgame so it can be
+    # detected from eval trajectory (was winning → no longer winning)
+    # not just by phase. The Progress page's "Conversion technique"
+    # weakness (problem_lifecycle category=threw_winning) maps here.
+    "conversion": {
+        "label": "Conversion",
+        "description": "Closing out games you have winning",
+        "gaps": ["threw_winning", "conversion", "missed_win",
+                 "complacent_in_winning", "failed_to_simplify"],
+    },
+    # New bucket. No inference path yet — added so the frontend's
+    # time_collapse → time_management mapping has somewhere to land
+    # (returns 0% / "no signal yet" until a real classifier ships).
+    "time_management": {
+        "label": "Time Management",
+        "description": "Spending clock on the right moves",
+        "gaps": ["time_collapse", "time_pressure", "low_time_blunder",
+                 "time_management"],
     },
 }
 
@@ -99,9 +117,14 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
         older_ids = game_ids[5:10]
         recent_ids = game_ids[:5]
 
+    # Build user_color lookup so per-move evals can be sign-flipped to
+    # the user's POV when inferring conversion (was-winning → no-longer-
+    # winning). Mohit 2026-05-28.
+    user_color_by_game = {g["game_id"]: (g.get("user_color") or "white").lower() for g in games}
+
     # ─── 1. COUNT PATTERNS PER ROOT ───
-    recent_counts = _count_patterns(recent_ids, analyses)
-    older_counts = _count_patterns(older_ids, analyses)
+    recent_counts = _count_patterns(recent_ids, analyses, user_color_by_game)
+    older_counts = _count_patterns(older_ids, analyses, user_color_by_game)
 
     # Minimum events before we'll claim improvement. Going from 3 mistakes
     # to 2 across 10 games is -33% on paper but well within random noise.
@@ -195,46 +218,82 @@ async def compute_improvement_proof(db, user_id: str) -> Dict:
     }
 
 
-def _count_patterns(game_ids: List[str], analyses: Dict) -> Dict[str, int]:
+def _classify_move_into_root(ev: Dict, user_is_white: bool) -> str:
+    """Classify a single move-evaluation into a ROOT_PATTERNS bucket.
+
+    Centralised so _count_patterns and _find_before_after_moments stay
+    in sync (Mohit 2026-05-28 split — both used to inline the same
+    if/elif chain and silently drifted as new buckets like 'conversion'
+    were added in one place but not the other).
+
+    Order matters:
+      1. threat_awareness   — threat present + significant cp_loss
+      2. conversion         — was winning, no longer winning (eval-based)
+      3. endgame            — late-phase mistake
+      4. coordination       — opening-phase blunder
+      5. calculation        — big cp_loss with no other home
+      6. cognitive_gap fallback (then calculation default)
     """
-    Count root pattern occurrences across a set of games.
-    Uses cognitive_gap when available, but ALSO infers from move context:
-    - threat field populated + high cp_loss → threat_awareness
-    - high cp_loss with no threat → calculation
-    - eval was winning then collapsed → endgame (if late) or coordination (if mid)
-    """
+    cp = ev.get("cp_loss", 0) or 0
+    gap = ev.get("cognitive_gap", "")
+    move_num = ev.get("move_number", 0) or 0
+    has_threat = bool(ev.get("threat"))
+
+    # Was-winning detection: sign-flip move_evaluations.eval_* (which are
+    # stored white-POV cp) into user POV. If user had >= +200cp and the
+    # move dropped them to <= +50cp (with a swing of 250+), that's a
+    # textbook "throw the win" regardless of phase.
+    eval_before = ev.get("eval_before")
+    eval_after = ev.get("eval_after")
+    user_was_winning_then_lost_it = False
+    if (
+        isinstance(eval_before, (int, float))
+        and isinstance(eval_after, (int, float))
+    ):
+        sign = 1 if user_is_white else -1
+        user_before_cp = sign * eval_before
+        user_after_cp = sign * eval_after
+        if (
+            user_before_cp >= 200
+            and user_after_cp <= 50
+            and (user_before_cp - user_after_cp) >= 250
+        ):
+            user_was_winning_then_lost_it = True
+
+    if has_threat and cp >= 150:
+        return "threat_awareness"
+    if user_was_winning_then_lost_it:
+        return "conversion"
+    if move_num > 30:
+        return "endgame"
+    if move_num <= 10 and cp >= 150:
+        return "coordination"
+    if cp >= 300:
+        return "calculation"
+    if gap:
+        return _classify_gap(gap)
+    return "calculation"
+
+
+def _count_patterns(
+    game_ids: List[str],
+    analyses: Dict,
+    user_color_by_game: Optional[Dict[str, str]] = None,
+) -> Dict[str, int]:
+    """Count root pattern occurrences across a set of games."""
+    user_color_by_game = user_color_by_game or {}
     counts = {}
     for gid in game_ids:
         a = analyses.get(gid, {})
         evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        user_is_white = (user_color_by_game.get(gid, "white") == "white")
 
         for ev in evals:
             cp = ev.get("cp_loss", 0) or 0
             if cp < 100:
                 continue  # Only count real mistakes
 
-            gap = ev.get("cognitive_gap", "")
-            move_num = ev.get("move_number", 0) or 0
-            has_threat = bool(ev.get("threat"))
-
-            # Classify into root pattern — ORDER MATTERS
-            # 1. Threat present + big loss = missed threat (most specific)
-            # 2. Endgame phase = endgame issue
-            # 3. Opening phase = coordination issue
-            # 4. Cognitive gap or default = calculation
-            if has_threat and cp >= 150:
-                root = "threat_awareness"
-            elif move_num > 30:
-                root = "endgame"
-            elif move_num <= 10 and cp >= 150:
-                root = "coordination"
-            elif cp >= 300:
-                root = "calculation"
-            elif gap:
-                root = _classify_gap(gap)
-            else:
-                root = "calculation"
-
+            root = _classify_move_into_root(ev, user_is_white)
             counts[root] = counts.get(root, 0) + 1
     return counts
 
@@ -254,34 +313,25 @@ def _find_before_after_moments(
 
     Returns [{old_fen, new_fen, old_game_id, new_game_id, old_move, new_move, message}]
     """
+    # Build user_color lookup so the shared classifier can sign-flip
+    # eval data for conversion detection.
+    user_color_by_game = {g["game_id"]: (g.get("user_color") or "white").lower() for g in games}
+
     # Collect OLD mistakes (high cp_loss, matching root pattern by inference)
     old_mistakes = []
     for gid in older_ids:
         a = analyses.get(gid, {})
         evals = a.get("stockfish_analysis", {}).get("move_evaluations", [])
+        user_is_white = (user_color_by_game.get(gid, "white") == "white")
         for ev in evals:
             cp = ev.get("cp_loss", 0) or 0
             fen = ev.get("fen_before", "")
             if cp < 150 or not fen:
                 continue
 
-            # Classify this mistake — same logic as _count_patterns
             gap = ev.get("cognitive_gap", "")
-            has_threat = bool(ev.get("threat"))
             move_num = ev.get("move_number", 0) or 0
-
-            if has_threat and cp >= 150:
-                root = "threat_awareness"
-            elif move_num > 30:
-                root = "endgame"
-            elif move_num <= 10 and cp >= 150:
-                root = "coordination"
-            elif cp >= 300:
-                root = "calculation"
-            elif gap:
-                root = _classify_gap(gap)
-            else:
-                root = "calculation"
+            root = _classify_move_into_root(ev, user_is_white)
 
             if root == pattern_key:
                 old_mistakes.append({
