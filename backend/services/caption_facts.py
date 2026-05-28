@@ -5249,22 +5249,30 @@ def extract_facts(
     # better-move why_clause. For a 1200 the act of removing the
     # defender IS the teachable mistake; the caption must say WHY the
     # move was wrong, not just what was better.
+    #
+    # Parth fb_e98ce18cc5a8: DO NOT emit this clause when the user was IN
+    # CHECK before the move. The phrasing "you moved your king away from
+    # defending X" implies the user had a choice; for a forced check
+    # escape, the user had no choice — and the caption was wrong on its
+    # face. Suppress the lead clause so the caption falls through to the
+    # plain "X is a mistake. Y was better. {why_clause}" form.
     facts["lost_defender_lead_clause"] = ""
-    for ev in facts["principles_violated"]:
-        if ev.get("principle_id") != "TAC_HANGING_PIECE":
-            continue
-        e = ev.get("evidence") or {}
-        if e.get("trigger") != "lost_defender":
-            continue
-        if not e.get("mover_is_user"):
-            continue
-        moved_piece = e.get("lost_defender_piece")
-        hanging_sq = e.get("hanging_piece_square")
-        if moved_piece and hanging_sq:
-            facts["lost_defender_lead_clause"] = (
-                f"you moved your {moved_piece} away from defending {hanging_sq}"
-            )
-        break
+    if not board_before.is_check():
+        for ev in facts["principles_violated"]:
+            if ev.get("principle_id") != "TAC_HANGING_PIECE":
+                continue
+            e = ev.get("evidence") or {}
+            if e.get("trigger") != "lost_defender":
+                continue
+            if not e.get("mover_is_user"):
+                continue
+            moved_piece = e.get("lost_defender_piece")
+            hanging_sq = e.get("hanging_piece_square")
+            if moved_piece and hanging_sq:
+                facts["lost_defender_lead_clause"] = (
+                    f"you moved your {moved_piece} away from defending {hanging_sq}"
+                )
+            break
 
     return facts
 
