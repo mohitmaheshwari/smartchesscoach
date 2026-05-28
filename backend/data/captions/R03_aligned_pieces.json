@@ -9,13 +9,14 @@
     "rear_square": "Rear piece's square",
     "rear_is_king": "true when the rear piece is the king (absolute pin)",
     "front_is_king": "true when the front piece is the king (skewer — king must move, exposing rear)",
-    "front_lower": "true when front piece value < rear piece value (relative pin)"
+    "front_lower": "true when front piece value < rear piece value (relative pin)",
+    "front_can_move_along_line": "true when the front piece's movement pattern includes the pin axis — i.e. the pin actually restricts mobility. A bishop pinned along a rank can't move on ranks anyway, so the pin is geometric-only. When false AND rear isn't king, the renderer falls through to xray_default (geometric alignment without claiming restriction). Mohit 2026-05-28 (game 65650b2b m21 Rb8)."
   },
   "requires": ["played_san", "front_piece_type", "rear_piece_type", "front_square", "rear_square"],
   "select_variant": [
     {"when": {"rear_is_king": true}, "variant": "pin_to_king"},
     {"when": {"front_is_king": true}, "variant": "skewer_king"},
-    {"when": {"front_lower": true}, "variant": "pin_front_lower"},
+    {"when": {"front_lower": true, "front_can_move_along_line": true}, "variant": "pin_front_lower"},
     {"variant": "xray_default"}
   ],
   "variants": {

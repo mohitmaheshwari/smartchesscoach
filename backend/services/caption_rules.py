@@ -183,6 +183,14 @@ def _r03_render(f):
         "rear_is_king": shape.get("rear_is_king", False),
         "front_is_king": shape.get("front_is_king", False),
         "front_lower": shape["front_value_vs_rear"] == "lower",
+        # Mohit 2026-05-28 (game 65650b2b m21 Rb8): a rook pinning a bishop
+        # against a rook along rank 8 is geometrically a "pin" but
+        # pedagogically useless — bishops don't move on ranks, so the
+        # bishop loses zero mobility from this pin. When the front piece
+        # can't move along the pin axis AND the rear isn't the king, fall
+        # through to the milder xray_default phrasing instead of claiming
+        # a meaningful pin.
+        "front_can_move_along_line": bool(shape.get("front_can_move_along_line", False)),
     }
     cap = render_rule("R03_aligned_pieces", facts) or ""
     return CaptionOutput(
