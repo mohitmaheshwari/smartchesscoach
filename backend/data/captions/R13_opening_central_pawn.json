@@ -12,6 +12,7 @@
     "when": {
       "phase": "opening",
       "is_pawn_move": true,
+      "is_capture": false,
       "full_move_number": {"lte": 2},
       "target_square": {"in": ["d4", "d5", "e4", "e5"]}
     }

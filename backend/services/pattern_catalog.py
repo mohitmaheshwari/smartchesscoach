@@ -241,13 +241,23 @@ def detect_opp_move_punishments(
     pv = post_opp_pv_after_best or []
 
     # 1. pawn_kicks_piece — user's reply is a pawn push that kicks
-    #    an opp piece (Parth's m4 Be6 → d5 kicks the bishop).
+    #    an opp piece (Parth's m4 Be6 → d5 kicks the bishop). When the
+    #    same push ALSO delivers check, it's a fork of king + piece —
+    #    Parth fb_e0ac58846b5f: 'pawn forks the king and rook' was
+    #    flagged because the framing said only 'kicks the rook' and
+    #    missed the king attack on the same move.
     try:
         from services.shape_detectors import simulate_pawn_kicks_piece
         evs = simulate_pawn_kicks_piece(post_opp_fen, user_best_reply_san)
         if evs:
             facts["opp_user_reply_kicks_piece_type"] = evs[0].get("kicked_piece_type")
             facts["opp_user_reply_kicks_piece_square"] = evs[0].get("kicked_square")
+            # SAN ending in '+' / '#' is a deliver-check / deliver-mate
+            # signal already present at the caller. Combined with a
+            # kicks-non-king-piece hit, that's a king+piece fork.
+            _r = (user_best_reply_san or "").strip()
+            if _r.endswith("+") or _r.endswith("#"):
+                facts["opp_user_reply_kicks_with_check"] = True
     except Exception:
         pass
 

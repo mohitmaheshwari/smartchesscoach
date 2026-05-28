@@ -178,6 +178,7 @@
     {"when": {"opp_user_reply_clearance_follow_up_san": "present"}, "variant": "why_opp_user_clearance_then_check"},
     {"when": {"opp_user_reply_clearance_attack_square": "present"}, "variant": "why_opp_user_clearance_attack"},
     {"when": {"opp_user_reply_attack_piece": "present"}, "variant": "why_opp_user_attack_with_tempo"},
+    {"when": {"opp_user_reply_kicks_with_check": true, "opp_user_reply_kicks_piece_type": "present"}, "variant": "why_opp_user_kicks_piece_with_check"},
     {"when": {"opp_user_reply_kicks_piece_type": "present"}, "variant": "why_opp_user_kicks_piece"},
     {"when": {"opp_user_reply_endgame_pawn_sub_kind": "direct_capture"}, "variant": "why_opp_user_endgame_pawn_grab"},
     {"when": {"opp_user_reply_endgame_pawn_sub_kind": "attack"}, "variant": "why_opp_user_endgame_pawn_attack"},
@@ -288,6 +289,7 @@
     "why_opp_user_clearance_attack": "Play {user_best_reply_san} — clears the line so your {opp_user_reply_clearance_attacker_piece} attacks {opp_user_reply_clearance_attack_square}.",
     "why_opp_user_attack_with_tempo": "Play {user_best_reply_san} — hits their {opp_user_reply_attack_piece} on {opp_user_reply_attack_square} with tempo.",
     "why_opp_user_kicks_piece": "Play {user_best_reply_san} — your pawn kicks their {opp_user_reply_kicks_piece_type} on {opp_user_reply_kicks_piece_square}.",
+    "why_opp_user_kicks_piece_with_check": "Play {user_best_reply_san} — your pawn forks their king and {opp_user_reply_kicks_piece_type} on {opp_user_reply_kicks_piece_square}.",
     "why_opp_user_endgame_pawn_grab": "Play {user_best_reply_san} — grabs their undefended pawn on {opp_user_reply_endgame_pawn_square}.",
     "why_opp_user_endgame_pawn_attack": "Play {user_best_reply_san} — attacks their undefended pawn on {opp_user_reply_endgame_pawn_square}.",
 
