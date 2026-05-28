@@ -261,7 +261,16 @@ def _metric_king_shield_broken(
     """User's king has lost shelter pawns from the original castled
     formation. We check the 3 squares directly in front of the king
     on the rank it occupies — if pawns are missing from there (and
-    king has castled, i.e. not on e1/e8), call it shield-broken."""
+    king has castled, i.e. not on e1/e8), call it shield-broken.
+
+    Parth fb_a81663d410b6: gate on king being on its STARTING BACK
+    RANK. The "front rank pawns are the shelter" geometry assumes the
+    king is castled on rank 1 (white) / rank 8 (black). If the king
+    has walked further (e.g. Kc7 from Kc8, or Kg2 from Kg1), the
+    shelter calculation looks at the wrong squares — and saying "lost
+    N of its pawn shelter" misrepresents a position where the king is
+    actively out of shelter altogether.
+    """
     if move_number < 10:
         return None
     king_sq = board.king(user_color)
@@ -270,6 +279,12 @@ def _metric_king_shield_broken(
     starting_king_sq = chess.E1 if user_color == chess.WHITE else chess.E8
     if king_sq == starting_king_sq:
         return None  # uncastled — the shield idea doesn't apply yet
+    # King must still be on its back rank for the shelter geometry to
+    # make sense. Walked-off kings have left the shelter — don't claim
+    # "lost N pawn shelter" when the structure no longer applies.
+    back_rank = 0 if user_color == chess.WHITE else 7
+    if chess.square_rank(king_sq) != back_rank:
+        return None
     kf = chess.square_file(king_sq)
     # Front rank from king's POV
     front_rank = chess.square_rank(king_sq) + (1 if user_color == chess.WHITE else -1)

@@ -2434,6 +2434,27 @@ def inject_board_state_describer_clause(
             move_number=full_move_number or 0,
         )
         _top = select_top_facts(_bs_facts, n=3, max_per_category=2)
+        # Parth fb_57d99cb6de27 / fb_fc5fe6cd1c30: suppress
+        # bs_king_shield_broken when the user's move was a CAPTURE.
+        # "Your king has lost N shelter pawns" is a permanent state
+        # fact; on an offensive user-capture (Nxh3+, Qxd6, ...) the
+        # mention is irrelevant noise — the move story is about the
+        # capture, not the user's own king. We keep the fact on
+        # defensive / quiet user moves and on all opponent moves
+        # (where shelter context amplifies the threat narrative).
+        try:
+            _b_before = chess.Board(fen_before)
+            _move_obj = _b_before.parse_san(move_san)
+            _played_was_capture = _b_before.is_capture(_move_obj)
+            _mover_color = _b_before.turn
+            _uc_norm = (user_color or "").lower()
+            _user_is_white = _uc_norm == "white"
+            _mover_is_user = (_mover_color == chess.WHITE) == _user_is_white
+        except Exception:
+            _played_was_capture = False
+            _mover_is_user = True
+        if _played_was_capture and _mover_is_user:
+            _top = [_bf for _bf in _top if _bf.fact_id != "bs_king_shield_broken"]
         # v78 — filter out fact_ids already fired in the last N moves.
         if _top and bs_recent_window:
             _recent_ids: set = set()
