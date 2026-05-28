@@ -731,48 +731,6 @@
       "result_type": "wins_queen",
       "difficulty": "beginner",
       "trap_color": "white"
-    },
-    {
-      "name": "London Move Order",
-      "description": "Playing e3 before Bf4 traps the dark-squared bishop behind the pawn chain forever. This is the #1 London System mistake. ALWAYS play Bf4 before e3. The bishop must get out first.",
-      "setup_moves": [
-        "d4",
-        "d5"
-      ],
-      "trap_line": [
-        {
-          "move": "e3",
-          "explanation": ""
-        },
-        {
-          "move": "Nf6",
-          "explanation": ""
-        },
-        {
-          "move": "Bd3",
-          "explanation": ""
-        },
-        {
-          "move": "c5",
-          "explanation": ""
-        },
-        {
-          "move": "c3",
-          "explanation": ""
-        },
-        {
-          "move": "Nc6",
-          "explanation": ""
-        },
-        {
-          "move": "Nd2",
-          "explanation": ""
-        }
-      ],
-      "success_message": "London Move Order — the punishment lands. Playing e3 before Bf4 traps the dark-squared bishop behind the pawn chain foreve...",
-      "result_type": "mate",
-      "difficulty": "beginner",
-      "trap_color": "white"
     }
   ],
   "caro-kann": [

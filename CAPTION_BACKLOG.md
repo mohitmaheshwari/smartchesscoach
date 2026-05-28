@@ -60,4 +60,14 @@ See also: [CLAUDE.md](CLAUDE.md), `backend/services/caption_pipeline.py` (centra
 
 ---
 
+## 5. London System Bf4-before-e3 position detector
+
+**Status:** Removed the misclassified `London Move Order` entry from `traps.json` 2026-05-28 (it had `setup_moves: ["d4", "d5"]` and was firing on every d4-d5 opening, including Queen's Gambit / Slav / QGD where the London advice doesn't apply).
+
+**Real teaching to preserve:** in the London System, playing e3 with the c1 bishop still on c1 traps the dark-squared bishop behind the pawn chain. The chess principle is right; it just isn't a "trap" in the move-sequence sense.
+
+**Future design sketch:** position-based detector in `opening_curriculum_engine` — fires when (a) white has played d4 + at least one queenside-system marker (Nf3 / Bf4 / c4), (b) white is about to play e3 OR just played e3, and (c) the c1 bishop is still on c1. Lives in curriculum, not traps. Renders as a curriculum tip, not a `trap_setup` caption.
+
+---
+
 *Last updated: 2026-05-28*
