@@ -177,16 +177,21 @@ def _verify_open_line_move_uses_diagonal(
     board: chess.Board,
     played_move: Optional[chess.Move],
 ) -> bool:
-    """Suppress open_long_line when the played move's to_square does NOT land
-    on one of the long diagonal squares listed in targets.
+    """Suppress open_long_line when the played move does not actually USE
+    the open diagonal.
 
-    Root cause (2026-05-19): the pattern's targets list is all 8 squares of a
-    long diagonal.  _is_relevant_to_move passes when the FROM square is on the
-    diagonal — i.e., a queen departs from b2 (on the a1-h8 diagonal) to
-    capture on a2.  The pattern is geometrically valid (the diagonal is open,
-    their bishop is gone) but the coaching is dishonest: the player did not USE
-    the diagonal.  Suppress unless the move lands on the diagonal (teaches
-    "you planted a piece on the open line").
+    Two gates layered:
+      1. to_square must land on the diagonal (introduced 2026-05-19 for
+         Mohit's Qxa2 case — queen departed b2 on the a1-h8 diagonal to
+         capture on a2; teaching was dishonest).
+      2. The moving piece must be a slider that uses diagonals — queen
+         or bishop. A knight landing on d4 happens to sit on the
+         a1-h8 diagonal but doesn't USE it (Mohit 2026-05-28, game
+         65650b2b m20 Nd4: knight to a central square got captioned
+         'long diagonal has open squares for your queen or bishop to
+         use' — the moved piece can't use it). Same for a rook landing
+         on a long-diagonal square: it's not the rook's line. The
+         teaching is for sliders, not knights/rooks/kings.
     """
     if played_move is None:
         return True
@@ -198,8 +203,15 @@ def _verify_open_line_move_uses_diagonal(
         sq = _coerce_square(t)
         if sq is not None:
             diag_squares.add(sq)
-    # Pass only when the piece LANDS on the diagonal.
-    return played_move.to_square in diag_squares
+    # Gate 1: must land on the diagonal.
+    if played_move.to_square not in diag_squares:
+        return False
+    # Gate 2: must be a diagonal-using slider. Look at the from-square
+    # piece (pre-push), since board is the position before played_move.
+    moving_piece = board.piece_at(played_move.from_square)
+    if moving_piece is None:
+        return True  # defensive; can't tell — let geometry decide
+    return moving_piece.piece_type in (chess.QUEEN, chess.BISHOP)
 
 
 def _verify_skewer_front_defended(
