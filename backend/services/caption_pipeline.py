@@ -722,6 +722,27 @@ def inject_user_blunder_detector_facts(
         except Exception:
             pass
 
+    # 6c. "Played took the same piece without check" (Parth fb_0900360fd0e4:
+    # 'also explain why bxf3 doesn't work'). Stamped UNCONDITIONALLY when
+    # the played move and the engine's best move both capture the SAME
+    # square AND best delivers check while played doesn't — even when a
+    # higher-priority capture-family fact already fired (missed_tactic,
+    # discovered_vac, etc.). Surfaced as a trailing clause appended by
+    # build_move_teaching_decision so the existing rich why-clauses keep
+    # their main content.
+    if best_move and move_san and "x" in best_move and "x" in move_san:
+        try:
+            _board_pwc = chess.Board(fen_before)
+            _b_mv = _board_pwc.parse_san(best_move)
+            _p_mv = _board_pwc.parse_san(move_san)
+            if (_b_mv.to_square == _p_mv.to_square
+                    and (best_move.endswith("+") or best_move.endswith("#"))
+                    and not move_san.endswith("+")
+                    and not move_san.endswith("#")):
+                caption_facts["played_capture_misses_check"] = True
+        except Exception:
+            pass
+
     # 7. Defensive pawn push (v63 #7).
     try:
         _dp_evs = simulate_defensive_pawn_push(
@@ -3355,6 +3376,25 @@ def build_move_teaching_decision(
                 caption_payload = rendered
         except Exception:
             logger.exception("[caption_pipeline] render_caption_dict failed; using fallback")
+
+    # ─── 9a. Played-took-without-check postfix (Parth fb_0900360fd0e4).
+    # When the played move and the best move BOTH capture the same square
+    # AND best gives check while played doesn't, the existing why-clause
+    # explains why BEST is better; this appends a single sentence
+    # explaining what the PLAYED move missed. Keeps the existing rich
+    # variants intact (discovered_vac, missed_piece, etc.) and just adds
+    # the "why played wrong" tail.
+    if (caption_facts.get("played_capture_misses_check")
+            and caption_payload.get("caption")
+            and inputs.played_san):
+        _cap = (caption_payload.get("caption") or "").rstrip()
+        if _cap and "took without the check" not in _cap:
+            if not _cap.endswith("."):
+                _cap += "."
+            caption_payload["caption"] = (
+                f"{_cap} {inputs.played_san} took without the check, "
+                f"so the opponent has time to organise."
+            )
 
     # ─── 9b. v78 universal describer fallback ────────────────────
     # When rendered caption is empty AND board_state_clause was set

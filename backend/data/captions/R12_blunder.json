@@ -37,6 +37,7 @@
     "best_move_is_sacrifice": "True when the engine's best move is a capture whose ATTACKER is worth more than the captured target AND the destination is defended after the capture (= the attacker is lost to recapture). Drives why_user_missed_capture_sacrifice variants — stops 'wins the pawn' framing on knight sacrifices (Parth fb_6f2a5ba1f626 / Nxh3+ pattern).",
     "best_move_sac_attacker_piece": "Piece name of the sacrificed piece (the moving piece in the sacrifice). Used in sac variant text.",
     "best_move_sac_near_king": "True when the sacrificed-on square is within 2 squares of the enemy king AND the captured piece is a pawn — king-shred sacrifice pattern.",
+    "played_capture_misses_check": "True when the played move and the engine's best move BOTH capture the same square AND best delivers check while played doesn't. Drives a post-render append in build_move_teaching_decision that adds ' {played_san} took without the check, so the opponent has time to organise.' to the caption — leaves the existing rich why-clause (discovered_vacating_check, missed_piece, etc.) intact. Parth fb_0900360fd0e4.",
     "missed_capture_target_square": "Destination square of the engine's missed capture (e.g. 'c5').",
     "un_developing_piece": "v63 — Mohit approval #4 (Bf1 retreated to home). Lowercase piece type the user retreated to its starting home square.",
     "un_developing_from": "Square where the developed piece was sitting before the retreat (e.g. 'e2').",
