@@ -189,48 +189,19 @@ const UnifiedProgress = ({ user }) => {
     const strengths = narrative?.strengths || [];
     const primary = proof?.primary_pattern;
     const streaks = proof?.streaks || {};
-    const reductionPct = primary?.reduction_pct || 0;
-
-    // Active pattern — the coach's current focus
-    const activeWeakness = weaknesses[0];
-    const active = activeWeakness
-      ? {
-          name: humanize(activeWeakness.category),
-          desc: activeWeakness.description || "",
-          category: activeWeakness.category,
-          pattern:
-            PATTERN_MAP[activeWeakness.category] ||
-            activeWeakness.category ||
-            "current",
-          streak: Math.min(
-            streaks.no_big_mistake_games || streaks.no_blunder_games || 0,
-            5
-          ),
-          target: 5,
-          // Decay % — render the improvement-proof reduction_pct when present,
-          // otherwise a conservative fallback tied to the clean streak.
-          decay:
-            reductionPct > 0
-              ? Math.min(reductionPct, 95) / 100
-              : Math.min(
-                  (streaks.no_big_mistake_games || 0) * 0.15,
-                  0.6
-                ),
-          coachLine:
-            streaks.no_big_mistake_games >= 3
-              ? `${streaks.no_big_mistake_games} clean games — one more and we move on.`
-              : primary?.message ||
-                "We'll close this chapter once the pattern stays quiet for 5 games.",
-        }
-      : null;
 
     // Map a narrative category to the root bucket the backend's
     // improvement_proof_engine groups it under. ONLY entries that map
     // to a real bucket on the backend (see ROOT_PATTERNS in
     // improvement_proof_engine.py). Categories without a real backend
-    // home — time_collapse, positional, opening_disaster — are
-    // intentionally absent so the row shows "no signal yet" instead
-    // of borrowing an unrelated bucket's reduction_pct.
+    // home are intentionally absent so the row shows "no signal yet"
+    // instead of borrowing an unrelated bucket's reduction_pct.
+    //
+    // Mohit 2026-05-28: time_collapse, threw_winning, tactical_miss
+    // had no matching backend bucket — fixed by extending
+    // improvement_proof_engine ROOT_PATTERNS with conversion +
+    // time_management buckets and rerouting tactical_miss to a real
+    // bucket. Mappings below mirror that backend change.
     const CATEGORY_TO_ROOT = {
       // calculation bucket — gaps backend lists explicitly
       tactical_miss: "calculation",
@@ -249,8 +220,11 @@ const UnifiedProgress = ({ user }) => {
       // endgame bucket
       endgame_collapse: "endgame",
       endgame_technique: "endgame",
-      threw_winning: "endgame",
-      conversion: "endgame",
+      // conversion bucket (new — backed by improvement_proof_engine)
+      threw_winning: "conversion",
+      conversion: "conversion",
+      // time_management bucket (new)
+      time_collapse: "time_management",
     };
 
     // Build root → reduction_pct lookup from proof.all_patterns.
@@ -261,6 +235,61 @@ const UnifiedProgress = ({ user }) => {
         reductionByRoot[p.pattern] = p.reduction_pct;
       }
     }
+
+    // Active pattern — the coach's current focus.
+    //
+    // Bug fix Mohit 2026-05-28: the active card used to render
+    // `proof.primary_pattern.reduction_pct` regardless of whether the
+    // active weakness's category matched primary_pattern.pattern. On
+    // Mohit's data, active=threw_winning (Conversion technique) but
+    // primary=threat_awareness — so the card showed "Decay 44%" for
+    // Conversion when 44% belonged to a category that wasn't even in
+    // the visible weakness list. Same misattribution drove the
+    // subhead "Already 44% fewer mistakes" text.
+    //
+    // Fix: look up the active weakness's OWN root bucket via
+    // CATEGORY_TO_ROOT (same lookup the Tracked rows already use).
+    // When no match, fall back to the clean-streak heuristic.
+    const activeWeakness = weaknesses[0];
+    const activeRoot = activeWeakness
+      ? CATEGORY_TO_ROOT[activeWeakness.category]
+      : undefined;
+    const activeReductionPct =
+      activeRoot && typeof reductionByRoot[activeRoot] === "number"
+        ? reductionByRoot[activeRoot]
+        : 0;
+
+    const active = activeWeakness
+      ? {
+          name: humanize(activeWeakness.category),
+          desc: activeWeakness.description || "",
+          category: activeWeakness.category,
+          pattern:
+            PATTERN_MAP[activeWeakness.category] ||
+            activeWeakness.category ||
+            "current",
+          streak: Math.min(
+            streaks.no_big_mistake_games || streaks.no_blunder_games || 0,
+            5
+          ),
+          target: 5,
+          // Decay % — render the category-matched reduction_pct when
+          // present, otherwise a conservative fallback tied to the
+          // clean streak.
+          decay:
+            activeReductionPct > 0
+              ? Math.min(activeReductionPct, 95) / 100
+              : Math.min(
+                  (streaks.no_big_mistake_games || 0) * 0.15,
+                  0.6
+                ),
+          coachLine:
+            streaks.no_big_mistake_games >= 3
+              ? `${streaks.no_big_mistake_games} clean games — one more and we move on.`
+              : primary?.message ||
+                "We'll close this chapter once the pattern stays quiet for 5 games.",
+        }
+      : null;
 
     // Tracked patterns — remaining weaknesses. Each one gets a real
     // decay value from the matching root pattern's reduction_pct, OR
@@ -300,19 +329,22 @@ const UnifiedProgress = ({ user }) => {
       stale: 0.9 - i * 0.08,
     }));
 
-    // Headline — synthesize from active state
+    // Headline — synthesize from active state.
+    // Reads the category-matched activeReductionPct so the message
+    // text tracks the actual bucket, not whichever bucket happens to
+    // be the global primary.
     let headline = "You're building your pattern library.";
     let subhead =
       "The coach is watching for consistency. When a weakness stays quiet for 5 games, we archive it and move on.";
     if (active && active.streak >= 3) {
       headline = `You've had ${active.streak} clean games of ${active.name.toLowerCase()} — ${5 - active.streak} more and we close the chapter.`;
-      if (reductionPct > 0) {
-        subhead = `Your ${active.name.toLowerCase()} mistakes are down ${reductionPct}% from 90 days ago. The coach is watching for a 5-game streak before archiving this weakness and moving to the next.`;
+      if (activeReductionPct > 0) {
+        subhead = `Your ${active.name.toLowerCase()} mistakes are down ${activeReductionPct}% from 90 days ago. The coach is watching for a 5-game streak before archiving this weakness and moving to the next.`;
       }
     } else if (active) {
       headline = `${active.name} is the pattern we're breaking right now.`;
-      if (reductionPct > 0) {
-        subhead = `Already ${reductionPct}% fewer mistakes than 90 days ago. Stay on it — consistency is what closes the chapter.`;
+      if (activeReductionPct > 0) {
+        subhead = `Already ${activeReductionPct}% fewer mistakes than 90 days ago. Stay on it — consistency is what closes the chapter.`;
       } else {
         subhead = active.desc || subhead;
       }
