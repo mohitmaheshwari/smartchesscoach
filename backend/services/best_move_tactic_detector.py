@@ -80,6 +80,17 @@ def detect_missed_tactic(
 
     try:
         board = chess.Board(fen_before)
+        # Snapshot of the position BEFORE best_move was pushed. Used to
+        # check whether a piece captured later in the PV was already
+        # sitting on the captured square at the moment the user could
+        # have played best_move. If yes, "wins the queen on e5" is a
+        # landmark the user can see on the board. If no (piece was
+        # chased to e5 inside the PV), naming the square misleads the
+        # reader — the queen is currently on e2 in this case.
+        # Bug found by Mohit 2026-05-28 on game 65650b2b m23 Ba3: black
+        # queen on e2, PV after Bh6 forced Qe5 dxe5; detector said
+        # "wins the queen on e5" but reader sees queen on e2.
+        original_board = board.copy()
         best_move_obj = board.parse_san(best_move_san)
         board.push(best_move_obj)
     except Exception as exc:
@@ -122,11 +133,23 @@ def detect_missed_tactic(
         if is_capture and captured_piece_type:
             if is_user_move:
                 if captured_piece_type >= 2:
+                    # Was this exact piece (same type + opposite color)
+                    # already standing on captured_square at fen_before?
+                    # If yes, the square is a useful landmark for the
+                    # reader. If no, the PV chased it there — naming the
+                    # square misleads.
+                    orig_piece = original_board.piece_at(move.to_square)
+                    square_immediate = bool(
+                        orig_piece is not None
+                        and orig_piece.piece_type == captured_piece_type
+                        and orig_piece.color != original_board.turn  # enemy of mover
+                    )
                     user_piece_captures.append({
                         "kind": "piece_capture",
                         "piece_type": _PIECE_NAME.get(captured_piece_type, "piece"),
                         "piece_value": _PIECE_VALUE.get(captured_piece_type, 0),
                         "square": captured_square,
+                        "square_immediate": square_immediate,
                         "capturing_move": san,
                         "ply": ply_index + 1,
                     })
@@ -184,6 +207,10 @@ def detect_missed_tactic(
                 "kind": "piece_capture",
                 "piece_type": best_capture["piece_type"],
                 "square": best_capture["square"],
+                # square_immediate=False → R12 picks the no-square variant
+                # so the user is not told "wins the queen on e5" when the
+                # queen is currently sitting on e2.
+                "square_immediate": bool(best_capture.get("square_immediate", False)),
                 "capturing_move": best_capture["capturing_move"],
                 "ply": best_capture["ply"],
             }

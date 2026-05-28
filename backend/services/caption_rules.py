@@ -424,6 +424,7 @@ def _r12_render(f):
     missed_tactic_kind = None
     missed_tactic_target_piece = None
     missed_tactic_target_square = None
+    missed_tactic_target_square_immediate = False
     missed_tactic_ply = None
     if best and best != played and f.get("mover_is_user") is not False:
         try:
@@ -443,6 +444,14 @@ def _r12_render(f):
                 missed_tactic_kind = tactic.get("kind")
                 missed_tactic_target_piece = tactic.get("piece_type")
                 missed_tactic_target_square = tactic.get("square")
+                # Mohit 2026-05-28: only render "wins the X on {square}"
+                # when the captured piece was ALREADY sitting on that
+                # square at fen_before. Otherwise the PV chased the
+                # piece there and the square misleads the reader.
+                # Game 65650b2b m23: queen on e2, caption said "e5".
+                missed_tactic_target_square_immediate = bool(
+                    tactic.get("square_immediate", False)
+                )
                 missed_tactic_ply = tactic.get("ply")
         except Exception:  # pragma: no cover — defensive
             pass
@@ -473,6 +482,7 @@ def _r12_render(f):
         "missed_tactic_kind": missed_tactic_kind,
         "missed_tactic_target_piece": missed_tactic_target_piece,
         "missed_tactic_target_square": missed_tactic_target_square,
+        "missed_tactic_target_square_immediate": missed_tactic_target_square_immediate,
         "missed_tactic_ply": missed_tactic_ply,
         # v71 (2026-05-23): Mohit caught that the old template
         # "mate in {missed_tactic_ply} moves." rendered "mate in 3
