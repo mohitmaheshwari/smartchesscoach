@@ -64,8 +64,14 @@ def detect_blocked_pawn(
       {"pawn_file": "c",
        "blocked_square": "c3",
        "pawn_san": "c3",
-       "would_support": ["d4"]}
+       "would_support": ["d4"],   # existing user pawns the block would defend
+       "would_prepare": ["d4"]}   # user pawns positioned to push to that square next
       or None when no blocked-pawn pattern detected.
+
+    `would_prepare` is the Parth fb_6e38c6a6f53e fix: when the d-pawn is
+    still on d3 (not d4), the c3 pawn push isn't "supporting d4" — it's
+    PREPARING the d4 break. That is the actual teaching for the most
+    common case in Italian/Pirc-family centers.
     """
     if move_number > _MAX_MOVE_NUMBER:
         return None
@@ -139,12 +145,51 @@ def detect_blocked_pawn(
             if p and p.piece_type == chess.PAWN and p.color == user_color:
                 would_support.append(chess.square_name(sq))
 
-    # Filter: require the pawn to either be supporting a central pawn
-    # OR be itself a central-file pawn (c/d/e/f) advancing into rank
-    # 3 / 4 (white) or 6 / 5 (black). Otherwise the teaching is too
-    # niche.
+    # ── would_prepare: the d4-break case (Parth fb_6e38c6a6f53e). When
+    # the diagonal-forward central square is EMPTY but a user pawn on
+    # the same file is one push away from reaching it, the blocked push
+    # was PREPARING that future break (c3 prepares d4, e3 prepares d4
+    # or f4, etc.). One-step push from rank target-1, OR two-step from
+    # the starting rank when the intermediate square is clear.
+    would_prepare: List[str] = []
+    if 0 <= forward_rank < 8 and forward_rank in central_ranks:
+        for df in (-1, 1):
+            f = target_file_idx + df
+            if not (0 <= f < 8) or f not in central_files:
+                continue
+            cand_sq = chess.square(f, forward_rank)
+            if board.piece_at(cand_sq) is not None:
+                continue  # already a piece there — would_support handles it
+            if user_color == chess.WHITE:
+                one_step_rank = forward_rank - 1
+                two_step_rank = 1                       # rank 2 (0-indexed)
+                two_step_valid = forward_rank == 3      # target = rank 4
+            else:
+                one_step_rank = forward_rank + 1
+                two_step_rank = 6                       # rank 7 (0-indexed)
+                two_step_valid = forward_rank == 4      # target = rank 5
+            check_ranks = [one_step_rank]
+            if two_step_valid:
+                check_ranks.append(two_step_rank)
+            for r in check_ranks:
+                if not (0 <= r < 8):
+                    continue
+                p = board.piece_at(chess.square(f, r))
+                if p is None or p.piece_type != chess.PAWN or p.color != user_color:
+                    continue
+                # Two-step from starting rank requires the intermediate
+                # square to be empty (otherwise the pawn can't double-push).
+                if r == two_step_rank and two_step_valid:
+                    if board.piece_at(chess.square(f, one_step_rank)) is not None:
+                        continue
+                would_prepare.append(chess.square_name(cand_sq))
+                break  # one match per file is enough
+
+    # Filter: require the pawn to either be supporting a central pawn,
+    # preparing one, OR be itself a central-file pawn (c/d/e/f). Otherwise
+    # the teaching is too niche.
     pawn_is_central_file = pawn_file_idx in central_files
-    if not would_support and not pawn_is_central_file:
+    if not would_support and not would_prepare and not pawn_is_central_file:
         return None
 
     return {
@@ -152,4 +197,5 @@ def detect_blocked_pawn(
         "blocked_square": chess.square_name(target_sq),
         "pawn_san": best_move_san,
         "would_support": would_support,
+        "would_prepare": would_prepare,
     }

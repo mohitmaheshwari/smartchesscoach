@@ -522,6 +522,9 @@ def _r12_render(f):
         "blocked_pawn_file": f.get("blocked_pawn_file"),
         "blocked_pawn_square": f.get("blocked_pawn_square"),
         "blocked_pawn_would_support": f.get("blocked_pawn_would_support"),
+        # Parth fb_6e38c6a6f53e: the d4-break-prep case (user pawn one
+        # push away from the supported central square).
+        "blocked_pawn_would_prepare": f.get("blocked_pawn_would_prepare"),
 
         # Curriculum deviation (Mohit 2026-05-21) — user deviated
         # from a curated opening tree's expected move. The clause

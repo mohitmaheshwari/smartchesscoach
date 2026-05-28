@@ -88,6 +88,7 @@
     "blocked_pawn_file": "File letter ('a'..'h') of a user pawn whose advance was blocked by the played piece move. Set by principle_blocked_pawn detector when the engine's best move was a pawn move to square X and the user played a non-pawn piece to X. Fires the why_user_blocks_own_pawn variant — names the opening principle the user just violated (don't block your own central pawn support).",
     "blocked_pawn_square": "The target square (e.g. 'c3') the user's pawn would have moved to.",
     "blocked_pawn_would_support": "The first central-pawn square (e.g. 'd4') the user's pawn would have supported diagonally. Only set when the pawn would have supported a real central pawn — gives the why-clause its specific teaching value.",
+    "blocked_pawn_would_prepare": "Central square (e.g. 'd4') the blocked pawn push would have PREPARED — a user pawn on the file behind it is one push away. Parth fb_6e38c6a6f53e: distinguishes 'c3 prepares the d4 break' (d-pawn still on d3) from 'c3 supports an existing d4 pawn'. Drives why_user_blocks_pawn_prepares.",
     "board_state_clause": "Pre-rendered 1-3 sentence string describing the post-move board state from user's POV (Mohit 2026-05-21). Composed in Python by board_state_describer: pick top 3 facts (with diversity across categories), render each from a bs_* template, join with '. '. Fires as why-clause when nothing more specific did — universal fallback that stays in coach voice rather than engine-speak.",
     "bs_piece": "Piece type placeholder for individual bs_* templates (e.g. 'knight')",
     "bs_square": "Square placeholder for individual bs_* templates (e.g. 'e5')",
@@ -163,6 +164,7 @@
     {"when": {"opp_reply_san_is_check": true}, "variant": "why_user_check"},
     {"when": {"curriculum_deviation_clause": "present"}, "variant": "why_user_curriculum_deviation"},
     {"when": {"blocked_pawn_would_support": "present"}, "variant": "why_user_blocks_pawn_supports"},
+    {"when": {"blocked_pawn_would_prepare": "present"}, "variant": "why_user_blocks_pawn_prepares"},
     {"when": {"blocked_pawn_file": "present"}, "variant": "why_user_blocks_pawn"},
     {"when": {"board_state_clause": "present"}, "variant": "why_user_board_state"}
   ],
@@ -249,6 +251,7 @@
     "why_user_position_already_losing": "You were already in trouble before this move. {best_move_san} only slows the loss.",
     "why_user_curriculum_deviation": "{curriculum_deviation_clause}",
     "why_user_blocks_pawn_supports": "{played_san} blocks your {blocked_pawn_file}-pawn — {best_move_san} would have supported your {blocked_pawn_would_support} pawn.",
+    "why_user_blocks_pawn_prepares": "{played_san} blocks your {blocked_pawn_file}-pawn — the pawn push to {blocked_pawn_square} was preparing your {blocked_pawn_would_prepare} break, the central plan in this structure.",
     "why_user_blocks_pawn": "{played_san} blocks your {blocked_pawn_file}-pawn from advancing to {blocked_pawn_square}.",
 
     "why_user_attacks_played": "After {opp_reply_san}, your {moving_piece_type} on {target_square} is under attack.",

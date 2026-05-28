@@ -2729,6 +2729,9 @@ def inject_blocked_pawn_facts(
             _ws = _bp.get("would_support") or []
             if _ws:
                 caption_facts["blocked_pawn_would_support"] = _ws[0]
+            _wp = _bp.get("would_prepare") or []
+            if _wp:
+                caption_facts["blocked_pawn_would_prepare"] = _wp[0]
     except Exception:
         pass
 
