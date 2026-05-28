@@ -667,8 +667,25 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
         logger.warning(f"Opening awareness failed: {e}")
 
     # ─── 3. KEY MOMENTS WITH POSITION COMMENTARY ───
+    # Parth Class C (fb_084c6728ed5d / fb_91a855d418d3 / fb_aa48a8d97066 /
+    # fb_892d5ac51199): the previous flow called read_board_like_a_coach
+    # from position_intelligence, which produced GENERIC position cues
+    # ("It's move 8 and your king is still in the center. Castle soon...")
+    # that didn't address the actual move's story. Replaced with the
+    # CENTRAL CAPTION LAYER (build_move_teaching_decision) so each key
+    # moment inherits the SAME caption the V5 review surface produces —
+    # including all the recent fixes (R15 why-detector, blocked_pawn
+    # would_prepare, sac detection, in-check gate on lost-defender,
+    # bishop-pair-trade, etc.). One central layer per Mohit's vision.
     try:
-        from services.position_intelligence import read_board_like_a_coach
+        from services.caption_pipeline import (
+            build_move_teaching_decision, MoveInputs, CrossMoveState,
+        )
+        from services.position_strategy_analyzer import generate_move_specific_insight
+        import chess as _ch
+
+        user_color_norm = (user_color or "white").lower()
+        user_is_white = user_color_norm == "white"
 
         key_moments = []
         for e in evals:
@@ -680,18 +697,61 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
             if not fen:
                 continue
 
-            # Position commentary for this moment. Pass best_move_san so
-            # the commentary can't advertise a capture the best move
-            # never makes (Mohit's h2-pawn misfire across Qf3+, Qxd1+,
-            # Qxh2 — 2026-05-19).
-            commentary = None
+            # Try the central caption layer first — same engine the V5
+            # review surface uses.
+            summary = ""
             try:
-                commentary = read_board_like_a_coach(
-                    fen, user_color, 1200,
+                _board = _ch.Board(fen)
+                _mover_is_white = _board.turn == _ch.WHITE
+                _mover_is_user = (_mover_is_white == user_is_white)
+                inputs = MoveInputs(
+                    fen_before=fen,
+                    played_san=e.get("move", ""),
+                    mover_is_user=_mover_is_user,
+                    mover_is_white=_mover_is_white,
+                    user_color=user_color_norm,
+                    full_move_number=int(e.get("move_number") or 1),
+                    move_history_san=[],
                     best_move_san=e.get("best_move") or None,
+                    eval_before_cp=e.get("eval_before"),
+                    eval_after_cp=e.get("eval_after"),
+                    cp_loss=int(cp_loss or 0),
+                    pv_after_played=e.get("pv_after_played") or [],
+                    pv_after_best=e.get("pv_after_best") or [],
                 )
-            except Exception:
-                pass
+                decision = build_move_teaching_decision(inputs, CrossMoveState())
+                summary = (decision.text.caption or "").strip()
+            except Exception as _exc:
+                logger.debug(f"central caption failed for key_moment: {_exc}")
+
+            # Fallback: deterministic composition from
+            # generate_move_specific_insight (the same approach PR-8
+            # uses in lab.py). This still references the move
+            # explicitly, unlike the old generic position cues.
+            if not summary:
+                try:
+                    insight = generate_move_specific_insight(
+                        fen_before=fen,
+                        user_move=e.get("move", ""),
+                        best_move=e.get("best_move") or "",
+                        pv_after_best=e.get("pv_after_best") or [],
+                        cp_loss=cp_loss,
+                        user_color=user_color,
+                        threat=e.get("threat") or "",
+                    )
+                    user_move = e.get("move", "")
+                    best_move = e.get("best_move", "")
+                    what_best = insight.get("what_best_move_achieves", "")
+                    parts = []
+                    if best_move and user_move and best_move != user_move:
+                        parts.append(f"You played {user_move}; the engine's pick was {best_move}.")
+                    elif user_move:
+                        parts.append(f"You played {user_move}.")
+                    if what_best:
+                        parts.append(f"{best_move or 'The engine'} {what_best.rstrip('.')}.")
+                    summary = " ".join(p for p in parts if p)
+                except Exception as _exc:
+                    logger.debug(f"insight fallback failed for key_moment: {_exc}")
 
             moment = {
                 "move_number": e.get("move_number"),
@@ -708,11 +768,11 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
                     else "endgame" if (e.get("move_number", 0) or 0) > 30
                     else "middlegame",
                 "cognitive_gap": e.get("cognitive_gap", ""),
-                "commentary": {
-                    "summary": commentary.get("summary", "") if commentary else "",
-                    "plan": commentary.get("plan", "") if commentary else "",
-                    "observations": commentary.get("observations", [])[:3] if commentary else [],
-                } if commentary else None,
+                # commentary.plan / observations dropped here — the central
+                # layer's caption already carries the full lesson, and the
+                # old plan/observations fields came from position_intelligence
+                # (the source of the bug). Frontend only consumes .summary.
+                "commentary": {"summary": summary, "plan": "", "observations": []} if summary else None,
             }
             key_moments.append(moment)
 
