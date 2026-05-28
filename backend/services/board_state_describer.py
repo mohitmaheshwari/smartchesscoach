@@ -205,15 +205,22 @@ def _metric_worst_placed_piece(
 def _metric_development_gap(
     board: chess.Board, user_color: chess.Color, move_number: int
 ) -> Optional[BoardStateFact]:
-    """User vs opp minor-piece development count. Opening-phase only."""
+    """User vs opp minor-piece development count. Opening-phase only.
+
+    Parth Class B (fb_7bba7f53f347 / fb_2be92824826e): require gap >= 3
+    (was >= 2). A 2-piece development gap is borderline and produces a
+    stat-dump caption ("Opp developed 5; you developed 3") without
+    teaching anything actionable. At gap >= 3 the deficit is large
+    enough that the user is meaningfully behind.
+    """
     if move_number > 20:
         return None
     user_dev = _is_developed(board, user_color)
     opp_dev = _is_developed(board, not user_color)
     gap = opp_dev - user_dev
-    if gap < 2:
+    if gap < 3:
         return None
-    severity = 20 if gap >= 3 else 15
+    severity = 20 if gap >= 4 else 15
     return BoardStateFact(
         fact_id="bs_development_gap",
         category="development",
@@ -341,14 +348,21 @@ def _metric_king_attackers(
 def _metric_central_control_gap(
     board: chess.Board, user_color: chess.Color, move_number: int
 ) -> Optional[BoardStateFact]:
-    """User vs opp attacker count on e4/d4/e5/d5. Gap ≥ 2 fires."""
+    """User vs opp attacker count on e4/d4/e5/d5. Gap ≥ 3 fires.
+
+    Parth Class B (fb_7bba7f53f347 / fb_2be92824826e): require gap >= 3
+    (was >= 2). Stat-dump captions ('Opp attacks center 6 times; you
+    attack it 4 times') with a 2-gap are borderline noise — the user
+    can't act on a 2-attacker difference. At gap >= 3 the deficit is
+    structurally meaningful.
+    """
     opp_color = not user_color
     user_attacks = sum(len(board.attackers(user_color, sq)) for sq in _CENTRAL_SQUARES)
     opp_attacks = sum(len(board.attackers(opp_color, sq)) for sq in _CENTRAL_SQUARES)
     gap = opp_attacks - user_attacks
-    if gap < 2:
+    if gap < 3:
         return None
-    severity = 12 if gap >= 3 else 8
+    severity = 12 if gap >= 4 else 8
     return BoardStateFact(
         fact_id="bs_central_control_gap",
         category="central",

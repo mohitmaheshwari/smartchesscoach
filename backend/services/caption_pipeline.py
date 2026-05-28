@@ -2428,6 +2428,25 @@ def inject_board_state_describer_clause(
         _b = chess.Board(fen_before)
         _b.push_san(move_san)
         _fen_after = _b.fen()
+        # Parth Class B (fb_04395de2ad67): suppress all bs_* state clauses
+        # on OPPONENT moves. The bs_* facts describe the USER's permanent
+        # board state — they are useful as fallback context on USER moves
+        # when no concrete why-clause fires, but on opp moves (e.g. opp_
+        # inaccuracy where the bishop just slid away to escape attack)
+        # they pile on as a 3-fact stat dump ("Opponent has developed N
+        # pieces; you've developed 0. Your rook has only 0 legal moves.
+        # Opp attacks center 6 times…"), which adds noise without teaching
+        # anything about the move that just happened. Opp moves get their
+        # own narration via R12 opp variants — keep those clean.
+        try:
+            _uc_norm = (user_color or "").lower()
+            _user_is_white = _uc_norm == "white"
+            _mover_color = chess.Board(fen_before).turn
+            _mover_is_user = (_mover_color == chess.WHITE) == _user_is_white
+        except Exception:
+            _mover_is_user = True
+        if not _mover_is_user:
+            return
         _bs_facts = describe_board_state(
             fen_after=_fen_after,
             user_color=(user_color or ""),
