@@ -1545,25 +1545,23 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # category so R12 produces "Opponent's Be6 is a mistake. You
     # can play X to punish it."
     _dev_ok = _move_cpl < 30
-    # Parth fb_bdff53b7e4d9: when the move IS the user's engine-best
-    # (cp_loss==0, played_is_best, mover_is_user), don't claim it under
-    # "development" — R11 silences that category and we'd swallow a
-    # caption R15 could teach (e.g. bishop-pair-trade-offer). Let it
-    # fall through to the good_move check below.
-    _is_user_best = (
-        facts.get("played_is_best")
-        and (_move_cpl == 0)
-        and facts.get("mover_is_user") is True
-    )
+    # Parth yellow-bucket (cp_loss 1-29 near-best gap): when the move is
+    # a USER move with cp_loss < 30, route it to "good_move" so R15 can
+    # produce a specific caption (develop / capture / central_break /
+    # bishop_pair_trade) or fall through silent. The previous _is_user_best
+    # gate (cp_loss==0 + played_is_best) covered only exact-best moves;
+    # this extends positive-reinforcement coverage to near-best moves
+    # (Nf6 cpl=6, c6 cpl=2, Qa5 cpl=5, Qd8 cpl=27 all fell into the
+    # silent gap before — fb_deed013c3f35 / fb_b250249f7724 / fb_dc63587ede08
+    # / fb_fa464cae3b84).
     if (
         _dev_ok
         and facts.get("phase") == "opening"
         and facts.get("moving_piece_type") in ("knight", "bishop")
-        and not _is_user_best
+        and facts.get("mover_is_user") is not True
     ):
-        # Phase 1: very permissive — any minor-piece move in opening
-        # counts as a development reason. Concept refinements (named
-        # next-step like "supports d4 break") arrive later.
+        # Opp minor-piece development in opening with cpl < 30 -> R11 silent.
+        # User moves with cpl < 30 fall through to good_move below.
         return {
             "category": "development",
             "ref_field": "moving_piece_type",
@@ -1603,27 +1601,25 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "priority_level": 11,
         }
 
-    # Priority 12: good_move — user played the engine's pick in a
-    # not-already-lost position, AND no other celebratory category
-    # claimed this move. Mohit signoff 2026-05-19 after the 800-1400
-    # band review: criticism-heavy tone was the gap. Even a quiet
-    # best-move needs a small "nice" so the user gets reinforcement,
-    # not just blame. Sub-1400 players especially need this.
-    #
-    # Gated tight to avoid celebrating every move:
-    #   - played_is_best must be True
-    #   - cp_loss must be 0 (no eval-loss whatsoever)
-    #   - mover must be the user (not the opponent — we don't
-    #     compliment the opponent's good moves at them)
+    # Priority 12: good_move — user played a NEAR-BEST move in a
+    # not-already-lost position. Originally gated tight (played_is_best
+    # AND cp_loss==0 AND mover_is_user) — Mohit 2026-05-19. Yellow-
+    # bucket re-probe 2026-05-28 found user moves with cp_loss 1-29 fell
+    # in a silent gap (good_move requires ==0; blunder requires >=30).
+    # Loosened to cp_loss < 30 + mover_is_user so R15 can fire its
+    # SPECIFIC variants (develop / capture / central_break /
+    # bishop_pair_trade) on near-best moves; R15's default "strongest
+    # move here" still only renders when cp_loss == 0 (no overclaim on
+    # non-exact-best). Per Parth fb_deed013c3f35 / fb_b250249f7724 /
+    # fb_dc63587ede08 / fb_fa464cae3b84.
     if (
         _tactic_ok
-        and facts.get("played_is_best")
-        and (_move_cpl == 0)
+        and (_move_cpl < 30)
         and facts.get("mover_is_user") is True
     ):
         return {
             "category": "good_move",
-            "ref_field": "played_is_best",
+            "ref_field": "cp_loss",
             "priority_level": 12,
         }
 

@@ -1286,10 +1286,12 @@ def inject_good_move_reason_facts(
     caption_facts.setdefault("good_move_reason", None)
     if not mover_is_user:
         return
-    # R15 territory only: the played move IS the engine's best, no cp lost.
-    _played = (move_san or "").strip().rstrip("!?+#")
-    _best = (best_move_san or "").strip().rstrip("!?+#")
-    if not _best or _played != _best or int(cp_loss or 0) != 0:
+    # R15 territory: user move with cp_loss < 30 (near-best). Yellow-
+    # bucket extension 2026-05-28: was previously gated on
+    # 'played == best AND cp_loss == 0', which left near-best moves
+    # (cpl 1-29) silent. Now fires for any near-best user move; R15's
+    # default still only renders 'strongest move here' when cpl == 0.
+    if int(cp_loss or 0) >= 30:
         return
 
     mover_color = board_before.turn
