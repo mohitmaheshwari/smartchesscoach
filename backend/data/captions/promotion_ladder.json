@@ -29,6 +29,25 @@
       "source_template": "R_PROMOTED_trap_defense:{trap_name_slug}"
     },
     {
+      "rule": "R_PROMOTED_trap_punisher",
+      "when": {
+        "trap_record.step_label": "trap_player_punishes",
+        "trap_record.name": "present",
+        "trap_record.this_move_by_user": true,
+        "is_user": true
+      },
+      "source_template": "R_PROMOTED_trap_punisher:{trap_name_slug}"
+    },
+    {
+      "rule": "R_PROMOTED_trap_punisher",
+      "when": {
+        "trap_record.step_label": "victim_falls",
+        "trap_record.name": "present",
+        "trap_record.this_move_by_user": false
+      },
+      "source_template": "R_PROMOTED_trap_punisher:{trap_name_slug}_victim"
+    },
+    {
       "rule": "R_PROMOTED_opening",
       "when": {"opening_record.name": "present", "opening_record.summary": "present"},
       "source_template": "R_PROMOTED_opening:{opening_name_slug}"

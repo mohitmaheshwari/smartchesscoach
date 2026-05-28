@@ -2779,6 +2779,15 @@ def apply_promotion_ladder_dispatch(
             "trap_user_is_victim": bool((trap_record or {}).get("user_is_victim")),
             "trap_next_expected_move": (trap_record or {}).get("next_expected_move") or "",
             "trap_color": (trap_record or {}).get("trap_color") or "",
+            # Mohit 2026-05-28: per-step trap teaching. The trap_line_steps
+            # in traps.json carry an `explanation` per move; this surfaces
+            # the explanation for the current step so the punisher steps
+            # (axb5, Qf3, etc.) celebrate the trap completion instead of
+            # falling back to a generic 'takes the pawn' / 'threatens the
+            # rook' caption. Game 65650b2b m6 Qf3: trap state active but
+            # the winning move taught nothing.
+            "trap_step_label": (trap_record or {}).get("step_label") or "",
+            "trap_step_explanation": (trap_record or {}).get("step_explanation") or "",
 
             "opening_name": on,
             "opening_summary": (opening_record or {}).get("summary") or "",

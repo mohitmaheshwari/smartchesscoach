@@ -682,7 +682,7 @@
         },
         {
           "move": "Qf3",
-          "explanation": "Qf3 wins the rook on a8 along the open diagonal. The c4 gambit pawn was never worth the structural damage."
+          "explanation": "Wins the rook on a8 along the open diagonal. The c4 gambit pawn was never worth the structural damage."
         }
       ],
       "success_message": "QGA Greedy ...b5 Trap. axb5 cxb5 opens the a8-h1 diagonal; Qf3 wins the rook on a8.",

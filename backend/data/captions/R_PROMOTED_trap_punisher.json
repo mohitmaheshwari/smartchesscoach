@@ -1,0 +1,28 @@
+{
+  "rule_name": "R_PROMOTED_trap_punisher",
+  "description": "Fires on user moves that execute a step of a known trap line as the SETTER/PUNISHER side (trap_record.step_label='trap_player_punishes' AND this_move_by_user=true). The trap-setup celebration on the setup-complete move (a4 in the QGA Greedy ...b5 Trap) plants the lesson; this rule keeps the lesson visible on every subsequent punisher move (axb5, Qf3) so the user knows *why* their move was strong — it's part of the named trap they set up. Without this, the punisher moves get a generic R15 capture / R03 threat caption and the per-step teaching authored in traps.json never reaches the screen. Mohit 2026-05-28 (game 65650b2b m6 Qf3).",
+  "fact_glossary": {
+    "move_san": "SAN of the trap-line move",
+    "trap_name": "Authored trap name from data/traps.json",
+    "trap_step_explanation": "Authored explanation for THIS step from trap_line_steps in data/traps.json",
+    "trap_next_expected_move": "Next move the trap line expects (empty when this move completes the line)",
+    "trap_step_label": "'trap_player_punishes' when the setter is winning material/position this move; 'victim_falls' when the victim's move is in the trap line (typically forced)"
+  },
+  "requires": ["move_san", "trap_name"],
+  "select_variant": [
+    {"when": {"trap_step_label": "victim_falls", "trap_step_explanation": "present"}, "variant": "victim_in_line_with_expl"},
+    {"when": {"trap_step_label": "victim_falls"}, "variant": "victim_in_line"},
+    {"when": {"trap_step_explanation": "present", "trap_next_expected_move": "present"}, "variant": "step_with_continuation"},
+    {"when": {"trap_step_explanation": "present"}, "variant": "step_completion"},
+    {"when": {"trap_next_expected_move": "present"}, "variant": "generic_with_continuation"},
+    {"variant": "generic_completion"}
+  ],
+  "variants": {
+    "step_with_continuation": "{move_san} — {trap_step_explanation} The line continues with {trap_next_expected_move}.",
+    "step_completion": "{move_san} — {trap_step_explanation} The {trap_name} pays off.",
+    "generic_with_continuation": "{move_san} — executing the {trap_name}. Next: {trap_next_expected_move}.",
+    "generic_completion": "{move_san} — the {trap_name} pays off.",
+    "victim_in_line_with_expl": "{move_san} — {trap_step_explanation}",
+    "victim_in_line": "{move_san} — falling deeper into the {trap_name}."
+  }
+}
