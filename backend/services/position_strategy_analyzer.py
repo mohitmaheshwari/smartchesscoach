@@ -181,13 +181,76 @@ def generate_move_specific_insight(
         if captured_piece:
             piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
             value = piece_values.get(captured_piece.piece_type, 0)
+            attacker_value = piece_values.get(moving_piece.piece_type, 0) if moving_piece else 0
             piece_name = chess.piece_name(captured_piece.piece_type).title()
-            
-            insight["what_best_move_achieves"] = f"Wins the {piece_name} on {chess.square_name(to_sq)} (worth {value} points)"
-            insight["what_you_missed"] = f"The {piece_name} on {chess.square_name(to_sq)} was undefended or poorly defended"
-            insight["the_idea_you_should_learn"] = "Before making any move, scan the board for undefended opponent pieces"
-            insight["how_to_spot_this"] = "Ask yourself: 'Can any of my pieces capture something valuable right now?'"
-            
+            moving_piece_name = chess.piece_name(moving_piece.piece_type) if moving_piece else "piece"
+
+            # ── SAC GATE (Parth fb_6f2a5ba1f626) ──
+            # When attacker is worth MORE than the target AND the
+            # destination is defended (we get recaptured), it's a
+            # sacrifice — saying "wins the pawn" is the opposite of
+            # what's actually happening (we LOSE material on its face
+            # for an attacking compensation). Surface that.
+            is_sacrifice = False
+            captured_near_king = False
+            if attacker_value > value:
+                board_after = board.copy()
+                board_after.push(best_move_obj)
+                opponent_color = not board.turn
+                if board_after.attackers(opponent_color, to_sq):
+                    is_sacrifice = True
+                    enemy_king_sq = board.king(opponent_color)
+                    if enemy_king_sq is not None:
+                        # Distance from the sacrificed-on square to the
+                        # enemy king. <= 2 means we are tearing at the
+                        # pawn shield / king cover.
+                        captured_near_king = chess.square_distance(to_sq, enemy_king_sq) <= 2
+
+            if is_sacrifice and captured_near_king and captured_piece.piece_type == chess.PAWN:
+                # King-shred sacrifice — the engine's pick rips open the
+                # pawn shield in front of the enemy king. Honest, accurate,
+                # and tells the user WHAT to look for.
+                insight["what_best_move_achieves"] = (
+                    f"is a sacrifice. After the recapture your {moving_piece_name} is gone, "
+                    f"but the pawn shield in front of their king is destroyed — that's the attack the engine sees."
+                )
+                insight["what_you_missed"] = (
+                    f"a sacrifice on {chess.square_name(to_sq)} that opens the pawn shield around the enemy king"
+                )
+                insight["the_idea_you_should_learn"] = (
+                    "When the opponent's king has a thin pawn shield, scan for piece sacrifices that "
+                    "blow it open — the attacking lines that follow matter more than the material."
+                )
+                insight["how_to_spot_this"] = (
+                    "Look at the pawns directly in front of the enemy king. If one of your pieces can capture one "
+                    "of those pawns, count the attackers you'd swarm in with after the recapture."
+                )
+            elif is_sacrifice:
+                # Sac for non-king-shred compensation (deflection, fork,
+                # discovered, clearance, etc.). We don't know which, so
+                # name it as a sacrifice without inventing the motif.
+                insight["what_best_move_achieves"] = (
+                    f"is a sacrifice — the engine sees compensation (an attack or tactic) worth more than the {piece_name.lower()}."
+                )
+                insight["what_you_missed"] = (
+                    f"a tactical sacrifice of your {moving_piece_name}"
+                )
+                insight["the_idea_you_should_learn"] = (
+                    "Best moves aren't always material gains. When the engine prefers a capture that "
+                    "loses material on its face, look for the tactic or attack that pays for it."
+                )
+                insight["how_to_spot_this"] = (
+                    "Ask: 'If I make this capture and they recapture, what threat or follow-up do I have next?'"
+                )
+            else:
+                # Non-sac capture: cheaper-or-equal attacker, or undefended
+                # target. Honest "wins material" framing. Lowercase verb so
+                # it composes cleanly after a SAN prefix ("Nxh3+ wins...").
+                insight["what_best_move_achieves"] = f"wins the {piece_name} on {chess.square_name(to_sq)} (worth {value} points)"
+                insight["what_you_missed"] = f"The {piece_name} on {chess.square_name(to_sq)} was undefended or poorly defended"
+                insight["the_idea_you_should_learn"] = "Before making any move, scan the board for undefended opponent pieces"
+                insight["how_to_spot_this"] = "Ask yourself: 'Can any of my pieces capture something valuable right now?'"
+
         else:
             # Best move doesn't capture - it's positional
             board_after = board.copy()
