@@ -654,6 +654,41 @@
       "result_type": "wins_material",
       "difficulty": "beginner",
       "trap_color": "black"
+    },
+    {
+      "name": "QGA Greedy ...b5 Trap (Qf3)",
+      "description": "When Black tries to hold the c4 gambit pawn with ...b5, the central diagonal becomes vulnerable. White invites with a4; if Black defends with ...c6 instead of ...a6, the axb5 cxb5 sequence opens the a8-h1 diagonal and Qf3 wins the rook on a8. The reason White plays the Queen's Gambit: Black usually shouldn't try to hold the pawn — and when they do, tactics like this punish it.",
+      "setup_moves": [
+        "d4",
+        "d5",
+        "c4",
+        "dxc4",
+        "e3",
+        "b5",
+        "a4"
+      ],
+      "trap_line": [
+        {
+          "move": "c6",
+          "explanation": "The greedy defense. Black tries to hold b5 with the c-pawn, but this opens the a8-h1 diagonal. ...a6 was the safer try."
+        },
+        {
+          "move": "axb5",
+          "explanation": "White captures, threatening b5 again — Black has no choice but to recapture."
+        },
+        {
+          "move": "cxb5",
+          "explanation": "Forced recapture. Now the a8-h1 diagonal is wide open and the rook on a8 has no defender."
+        },
+        {
+          "move": "Qf3",
+          "explanation": "Qf3 wins the rook on a8 along the open diagonal. The c4 gambit pawn was never worth the structural damage."
+        }
+      ],
+      "success_message": "QGA Greedy ...b5 Trap. axb5 cxb5 opens the a8-h1 diagonal; Qf3 wins the rook on a8.",
+      "result_type": "wins_material",
+      "difficulty": "intermediate",
+      "trap_color": "white"
     }
   ],
   "london-system": [
