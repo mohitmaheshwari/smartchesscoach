@@ -646,6 +646,8 @@ def _r15_render(f):
         "good_move_trade_target_color": f.get("good_move_trade_target_color"),
         # fb_b250249f7724 / fb_fa464cae3b84 — controls-key-squares category.
         "good_move_controlled_squares": f.get("good_move_controlled_squares"),
+        # supports_central_pawn category (newly-defended central pawn).
+        "good_move_supported_pawn_square": f.get("good_move_supported_pawn_square"),
     }) or ""
     return CaptionOutput(
         caption=cap,

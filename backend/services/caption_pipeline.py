@@ -1438,7 +1438,83 @@ def inject_good_move_reason_facts(
     except Exception:
         pass
 
-    # 5) Development in the opening — a minor piece leaving its back rank.
+    # 5) Supports own central pawn (Parth fb_dc63587ede08-class). Move
+    # adds a defender to a CENTRAL user pawn (d4/e4 for white,
+    # d5/e5 for black) that was previously UNDEFENDED. Conservative:
+    # only fires when defender count goes 0 -> 1, so we celebrate the
+    # FIRST defender (real teaching) and not over-protection 1->2 or
+    # queen relocations that just shuffle which piece defends.
+    try:
+        if not (board_before.is_capture(move) or board_before.gives_check(move)):
+            central_pawn_squares = (
+                (chess.D4, chess.E4) if mover_color == chess.WHITE
+                else (chess.D5, chess.E5)
+            )
+            after = board_before.copy()
+            after.push(move)
+            for pawn_sq in central_pawn_squares:
+                p = after.piece_at(pawn_sq)
+                if (p is None or p.piece_type != chess.PAWN
+                        or p.color != mover_color):
+                    continue
+                before_defenders = board_before.attackers(mover_color, pawn_sq)
+                # The pawn itself doesn't count as its own defender.
+                before_defenders.discard(pawn_sq)
+                after_defenders = after.attackers(mover_color, pawn_sq)
+                after_defenders.discard(pawn_sq)
+                if len(before_defenders) == 0 and len(after_defenders) >= 1:
+                    # Newly defended. Confirm the played move IS the new
+                    # defender (avoid edge cases where some other piece
+                    # happened to start defending — unlikely but defensive).
+                    if move.to_square in after_defenders:
+                        caption_facts["good_move_reason"] = "supports_central_pawn"
+                        caption_facts["good_move_supported_pawn_square"] = chess.square_name(pawn_sq)
+                        return
+    except Exception:
+        pass
+
+    # 6) Connects rooks. Move clears the user's back rank between two
+    # rooks: before the move there WAS at least one user piece on the
+    # back rank between the two rooks; after, the squares are clear and
+    # the rooks see each other. Edge case but cleanly verifiable.
+    try:
+        if not board_before.is_capture(move):
+            back_rank = 0 if mover_color == chess.WHITE else 7
+            # Move's from-square must be on the back rank (otherwise
+            # clearing it isn't possible).
+            if chess.square_rank(move.from_square) == back_rank:
+                after = board_before.copy()
+                after.push(move)
+                rooks_before = [
+                    sq for sq in board_before.pieces(chess.ROOK, mover_color)
+                    if chess.square_rank(sq) == back_rank
+                ]
+                rooks_after = [
+                    sq for sq in after.pieces(chess.ROOK, mover_color)
+                    if chess.square_rank(sq) == back_rank
+                ]
+                # Need exactly 2 rooks on the back rank both before and
+                # after — moving one of the rooks itself breaks the
+                # connection rather than enabling it.
+                if len(rooks_before) == 2 and len(rooks_after) == 2 and rooks_before == rooks_after:
+                    lo, hi = sorted(rooks_before)
+                    files_between = range(
+                        chess.square_file(lo) + 1, chess.square_file(hi)
+                    )
+                    def _any_user_piece_between(b):
+                        for f in files_between:
+                            sq = chess.square(f, back_rank)
+                            p = b.piece_at(sq)
+                            if p is not None and p.color == mover_color:
+                                return True
+                        return False
+                    if _any_user_piece_between(board_before) and not _any_user_piece_between(after):
+                        caption_facts["good_move_reason"] = "connects_rooks"
+                        return
+    except Exception:
+        pass
+
+    # 7) Development in the opening — a minor piece leaving its back rank.
     # Falls through here only when the controls-key-squares branch above
     # didn't produce a 2+-key-square hit, so develop stays as the generic
     # fallback for opening minor-piece moves.
