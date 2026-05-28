@@ -242,7 +242,7 @@
     "why_user_missed_knight_outpost": "it puts your knight on a strong outpost: defended by your {knight_outpost_defender_piece} on {knight_outpost_defender_square}, safe from any enemy pawn.",
     "why_user_missed_stop_opp_pawn": "it blocks the opponent's pawn before it advances further. When your opponent threatens a pawn push, blocking it is often more important than developing.",
     "why_user_missed_active_defense": "it defends your {active_defense_defended_piece} on {active_defense_defended_square} AND attacks the undefended {active_defense_attacked_piece} on {active_defense_attacked_square}. Active defense — defending while creating your own threat — beats passive defense.",
-    "why_user_missed_same_piece_better_square": "it attacks more — also targets the {same_piece_better_extra_piece} on {same_piece_better_extra_square}. Pick the square that attacks more.",
+    "why_user_missed_same_piece_better_square": "it also hits the {same_piece_better_extra_piece} on {same_piece_better_extra_square}. The same piece on a square that attacks more targets is the stronger move.",
     "why_user_missed_discovered_vacating_check": "it grabs material with check AND clears the way for your {discovered_vac_slider_piece} to take the {discovered_vac_exposed_piece} on {discovered_vac_exposed_square}.",
     "why_user_knight_on_rim": "Knights on the rim are weak — in the opening, knights belong near the center, not the edge.",
     "why_user_missed_pawn_kicks_piece": "it attacks the {pawn_kicks_piece_type} on {pawn_kicks_piece_square}, forcing it to move. Pawn pushes that attack enemy pieces gain tempo — the opponent has to react.",
