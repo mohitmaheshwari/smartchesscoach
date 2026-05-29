@@ -8273,7 +8273,16 @@ async def _process_move_and_respond(
                         opening_played=session_doc.get("detected_opening"),
                         endgame_reached=session_doc.get("endgame_offer_shown", False),
                         performance_rating=session_doc.get("user_rating", 1200),
-                        loss_phase=loss_phase
+                        loss_phase=loss_phase,
+                        # Mohit 2026-05-29: thread move_history + user
+                        # color so concept detectors can grade in-game
+                        # application. PWC move_history shape matches
+                        # what record_concept_applications_from_game
+                        # expects (each entry has fen_before + move
+                        # SAN). The function filters opponent moves
+                        # via board.turn so coach moves don't grade.
+                        move_evaluations=session_doc.get("move_history") or [],
+                        user_color=session_doc.get("user_color") or "white",
                     )
                     logger.info(f"Updated coach memory after game {session_id}")
 

@@ -75,7 +75,15 @@ class SkillProgress:
     seen: int = 0
     correct: int = 0
     wrong: int = 0
-    outcomes: List[str] = field(default_factory=list)  # Last 10: "correct"|"wrong"|"seen"
+    # Mohit 2026-05-29: in-game concept application count, separate from
+    # lesson `correct`. An `applied` outcome is recorded when an in-game
+    # detector (services/concept_detectors/*) confirms the user
+    # demonstrated the concept in unprompted gameplay. Used to lift the
+    # graduation bar from "completed a lesson" to "completed a lesson +
+    # applied it in a game" — the honest "learned" claim per the
+    # concept_detectors docstring design note.
+    applied: int = 0
+    outcomes: List[str] = field(default_factory=list)  # Last 10: "correct"|"wrong"|"seen"|"applied"
     first_seen: Optional[str] = None
     last_seen: Optional[str] = None
     learned_at: Optional[str] = None   # When promoted to learned (if ever)
@@ -85,13 +93,23 @@ class SkillProgress:
         last_two = self.outcomes[-2:] if len(self.outcomes) >= 2 else self.outcomes
         last_three = self.outcomes[-3:] if len(self.outcomes) >= 3 else self.outcomes
 
-        # ── Knowledge concepts — one correct demonstration is enough.
-        # A "wrong" outcome ever recorded means user stumbled; require them
-        # to redo and get it right with no wrong in the last 2 attempts.
+        # ── Knowledge concepts — one correct demonstration is enough,
+        # BUT if a real in-game detector ever fired for this skill (the
+        # `applied` counter > 0 OR an in-game "wrong" outcome from a
+        # detector was recorded), lift the bar to "lesson correct AND
+        # applied in real play." This keeps the rule lenient for skills
+        # without detectors yet (back-compat) but rigorous where the
+        # infrastructure exists. See concept_detectors/__init__.py.
         if self.skill_type in ("mate_pattern", "endgame", "concept"):
             if self.correct < 1:
                 return False
             if self.wrong > 0 and "wrong" in last_two:
+                return False
+            # When a detector has ever graded this skill, require an
+            # `applied` to graduate. Detector grades show up as either
+            # `applied` outcome or `wrong` outcome from in-game play.
+            detector_engaged = (self.applied > 0) or ("applied" in self.outcomes)
+            if detector_engaged and self.applied < 1:
                 return False
             return True
 
@@ -255,7 +273,16 @@ def _doc_to_memory(doc: Dict) -> CoachMemory:
     valid_fields = {f.name for f in _dc.fields(LearningProgress)}
     learning_doc = {k: v for k, v in learning_doc.items() if k in valid_fields}
     learning = LearningProgress(**learning_doc)
-    learning.skills = [SkillProgress(**s) for s in skills_raw if isinstance(s, dict)]
+    # Filter each skill dict to known SkillProgress fields. Forward-
+    # compat: if older docs grew stray keys, or newer docs have fields
+    # that this server doesn't know about, we skip the unknowns rather
+    # than crashing on TypeError.
+    _valid_skill_fields = {f.name for f in _dc.fields(SkillProgress)}
+    learning.skills = [
+        SkillProgress(**{k: v for k, v in s.items() if k in _valid_skill_fields})
+        for s in skills_raw
+        if isinstance(s, dict)
+    ]
     performance = PerformanceTrend(**doc.get("performance", {}))
     
     return CoachMemory(
@@ -305,6 +332,8 @@ async def update_memory_after_game(
     prescription_type: Optional[str] = None,  # "habit", "endgame_lesson", "pattern_drill"
     mistake_types: Optional[List[str]] = None,  # Engine 2: list of MistakeType.value strings from this game
     was_winning: bool = False,  # Engine 2: did the user have a winning position at some point?
+    move_evaluations: Optional[List[Dict[str, Any]]] = None,  # Per-move records for concept-detector replay
+    user_color: Optional[str] = None,  # "white" | "black" — needed when move_evaluations is supplied
 ) -> CoachMemory:
     """
     Update coach memory after a game.
@@ -406,6 +435,25 @@ async def update_memory_after_game(
     except Exception as e:
         logger.debug(f"[ENGINE2] skill-attempt recording failed (non-fatal): {e}")
 
+    # === CONCEPT DETECTORS: in-game application grading ===
+    # Mohit 2026-05-29: walk USER moves through every registered
+    # concept detector. Each "applied" grade lifts the skill from
+    # "studied" (lesson done) to "learned" (also demonstrated in real
+    # play); each "missed" grade demotes it. Detectors are scope-gated
+    # — they return None when the position isn't a clean test — so
+    # most moves contribute nothing. See concept_detectors/registry.py
+    # for the live list; today only endgame_rule_of_square is wired.
+    if move_evaluations and user_color:
+        try:
+            record_concept_applications_from_game(
+                memory=memory,
+                move_evaluations=move_evaluations,
+                user_color=user_color,
+                timestamp=now,
+            )
+        except Exception as e:
+            logger.debug(f"[CONCEPT_DETECTORS] failed (non-fatal): {e}")
+
     # === CURRICULUM BRAIN: Store the coach's prescription ===
     if coach_prescription:
         old_focus = memory.learning.current_focus
@@ -467,7 +515,11 @@ def record_skill_attempt(
     learned list (openings_learned / traps_learned / endgames_learned /
     concepts_mastered) based on skill_type.
     """
-    if outcome not in ("correct", "wrong", "seen"):
+    # Mohit 2026-05-29: 'applied' is the new outcome type for in-game
+    # detector confirmations. Treated like 'correct' for graduation but
+    # tracked separately so is_learned() can require BOTH a lesson
+    # correct AND a real in-game application.
+    if outcome not in ("correct", "wrong", "seen", "applied"):
         outcome = "seen"
 
     if timestamp is None:
@@ -491,6 +543,13 @@ def record_skill_attempt(
         skill.correct += 1
     elif outcome == "wrong":
         skill.wrong += 1
+    elif outcome == "applied":
+        # Counts toward graduation but is a different signal than
+        # lesson-correct. Bump both `applied` and `correct` so callers
+        # that read `correct` (e.g. the progress hint generator) still
+        # see the user made forward progress.
+        skill.applied += 1
+        skill.correct += 1
     skill.outcomes.append(outcome)
     # Keep only last 10 outcomes for the rule check
     skill.outcomes = skill.outcomes[-10:]
@@ -591,6 +650,74 @@ def record_engine2_skills_from_game(
             record_skill_attempt(memory, sid, "opening", outcome, timestamp)
             recorded.append(sid)
 
+    return recorded
+
+
+def record_concept_applications_from_game(
+    memory: CoachMemory,
+    move_evaluations: List[Dict[str, Any]],
+    user_color: str,
+    timestamp: Optional[str] = None,
+) -> List[tuple]:
+    """Run every registered concept detector against this game's USER
+    moves. Each `applied` / `missed` grade is persisted via
+    record_skill_attempt (outcome = 'applied' or 'wrong'). Returns the
+    list of (skill_id, outcome) tuples recorded.
+
+    Mohit 2026-05-29: this is the integration point promised in the
+    concept_detectors __init__ docstring ("not wired yet — design
+    only"). The detector module already shipped; this function ties it
+    to coach_memory.
+
+    move_evaluations must contain per-move dicts with at least
+    `fen_before` + `move` (SAN). Empty list / missing fields are
+    skipped silently — detector bugs and bad data must not poison the
+    memory-update pipeline.
+    """
+    if timestamp is None:
+        timestamp = datetime.now(timezone.utc).isoformat()
+    if not move_evaluations:
+        return []
+
+    try:
+        import chess
+        from services.concept_detectors._runner import run_detectors_for_game
+        from services.engine2_skill_builder import get_skill_node
+    except Exception as e:
+        logger.debug(f"[CONCEPT_DETECTORS] import failed: {e}")
+        return []
+
+    user_is_white = (user_color or "white").lower() == "white"
+    uc = chess.WHITE if user_is_white else chess.BLACK
+
+    moves_iter = []
+    for me in move_evaluations:
+        fen_before = me.get("fen_before")
+        san = me.get("move") or me.get("move_san")
+        if not fen_before or not san:
+            continue
+        try:
+            board = chess.Board(fen_before)
+            # Skip opponent moves — detectors are USER-only grades.
+            if board.turn != uc:
+                continue
+            move = board.parse_san(san)
+            moves_iter.append((board, move, uc))
+        except Exception:
+            continue
+
+    grades = run_detectors_for_game(iter(moves_iter))
+
+    recorded = []
+    for skill_id, outcome in grades:
+        node = get_skill_node(skill_id) or {}
+        skill_type = node.get("kind", "concept")
+        record_skill_attempt(memory, skill_id, skill_type, outcome, timestamp)
+        recorded.append((skill_id, outcome))
+        logger.info(
+            f"[CONCEPT_DETECTORS] {skill_id} ({skill_type}) -> "
+            f"{outcome} for {memory.user_id}"
+        )
     return recorded
 
 

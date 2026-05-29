@@ -1389,7 +1389,11 @@ def process_job(db, job):
                             (mv.get("evaluation_score", 0) or 0) > 150
                             for mv in move_evaluations
                         )
-                        # Persist via update_memory_after_game
+                        # Persist via update_memory_after_game.
+                        # Mohit 2026-05-29: thread move_evaluations +
+                        # user_color through so concept detectors can
+                        # grade in-game application of each registered
+                        # skill (see services/concept_detectors/).
                         await update_memory_after_game(
                             db=async_db,
                             user_id=user_id,
@@ -1406,6 +1410,8 @@ def process_job(db, job):
                             prescription_type=ptype,
                             mistake_types=mt_list,
                             was_winning=was_winning_flag,
+                            move_evaluations=move_evaluations,
+                            user_color=game.get("user_color"),
                         )
                         # Bust the Lab cache so the new focus shows immediately
                         try:
