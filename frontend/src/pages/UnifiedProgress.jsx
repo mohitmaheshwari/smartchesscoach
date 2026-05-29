@@ -296,6 +296,23 @@ const UnifiedProgress = ({ user }) => {
     // null when we have nothing meaningful to show (no match, or
     // non-positive reduction). Showing "0%" implied no progress —
     // we'd rather hide the field than mislead.
+    // Mohit 2026-05-29: when improvement_proof has no reduction% for
+    // a tracked weakness's bucket, fall back to the recency signal
+    // from problem_lifecycle.updated_at (days_since_last_seen). The
+    // old behaviour rendered "no signal yet" right next to the
+    // description "It's happened 13 times in recent games" — a flat
+    // contradiction. The recency label answers a real question users
+    // are actually asking ("when did this last bite me?") instead of
+    // confessing absence of a metric.
+    const recencyLabel = (daysSince) => {
+      if (typeof daysSince !== "number") return null;
+      if (daysSince <= 1) return "active today";
+      if (daysSince <= 3) return `${daysSince}d since last`;
+      if (daysSince <= 13) return `quiet · ${daysSince}d`;
+      if (daysSince <= 30) return `quiet · ${daysSince}d since last`;
+      return `dormant · ${daysSince}d`;
+    };
+
     const tracked = weaknesses.slice(1).map((w) => {
       const root = CATEGORY_TO_ROOT[w.category];
       const rPct = root ? reductionByRoot[root] : undefined;
@@ -312,6 +329,9 @@ const UnifiedProgress = ({ user }) => {
         streak: 0,
         target: 5,
         decay: decayValue,
+        // Recency / activity signal used when decay is null.
+        recency: recencyLabel(w.days_since_last_seen),
+        count: typeof w.count === "number" ? w.count : null,
         last: w.last_seen || null,
       };
     });
@@ -566,9 +586,18 @@ const UnifiedProgress = ({ user }) => {
                           {Math.round(p.decay * 100)}%
                         </div>
                       </>
+                    ) : p.recency ? (
+                      <>
+                        <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground/70 font-semibold">
+                          recency
+                        </div>
+                        <div className="text-[12px] tabular-nums text-muted-foreground leading-snug mt-1">
+                          {p.recency}
+                        </div>
+                      </>
                     ) : (
                       <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground/50">
-                        no signal yet
+                        tracking
                       </div>
                     )}
                   </div>
