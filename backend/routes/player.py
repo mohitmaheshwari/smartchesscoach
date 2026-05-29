@@ -1657,15 +1657,39 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
             anger = p.get("anger", "first_time")
             updated_at = p.get("updated_at")
             days_since_last_seen = None
+            _ua_dt = None  # kept for the clean-streak query below
             if updated_at:
                 try:
                     if isinstance(updated_at, str):
                         _ua = _dt.fromisoformat(updated_at.replace("Z", "+00:00"))
                     else:
                         _ua = updated_at if updated_at.tzinfo else updated_at.replace(tzinfo=_tz.utc)
+                    _ua_dt = _ua
                     days_since_last_seen = max((_now - _ua).days, 0)
                 except Exception:
                     days_since_last_seen = None
+
+            # Mohit 2026-05-29: per-pattern clean-game streak. Frontend
+            # used to hardcode tracked-row streaks to 0, which read as
+            # "you've never had a clean game of this pattern" even when
+            # the row said "quiet · 24d since last." Count analyzed
+            # games imported AFTER updated_at — each represents a game
+            # the user played without this pattern firing. Cap at 5 (the
+            # graduation target). Falls back to 0 when we have no
+            # last-seen timestamp.
+            clean_games_since = 0
+            if _ua_dt is not None:
+                try:
+                    # imported_at is stored as ISO string in this collection.
+                    _ua_str = _ua_dt.isoformat()
+                    clean_count = await db.games.count_documents({
+                        "user_id": user_id,
+                        "is_analyzed": True,
+                        "imported_at": {"$gt": _ua_str},
+                    })
+                    clean_games_since = min(clean_count, 5)
+                except Exception:
+                    clean_games_since = 0
 
             desc = PROBLEM_DESCRIPTIONS.get(cat, f"Your {cat.replace('_', ' ')} needs improvement.")
 
@@ -1681,6 +1705,7 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
                 "description": desc,
                 "count": count,
                 "days_since_last_seen": days_since_last_seen,
+                "clean_games_since": clean_games_since,
                 "anger": anger,
             })
 

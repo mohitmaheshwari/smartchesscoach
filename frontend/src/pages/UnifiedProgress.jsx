@@ -325,8 +325,16 @@ const UnifiedProgress = ({ user }) => {
         desc: w.description || "",
         category: w.category,
         pattern: PATTERN_MAP[w.category] || w.category || "current",
-        // We don't have per-pattern streaks for non-primary — leave at 0.
-        streak: 0,
+        // Per-pattern clean streak — count of analyzed games imported
+        // since the pattern last fired (capped at 5 by the backend).
+        // Falls back to 0 when the backend can't compute it (no
+        // updated_at on the underlying problem_lifecycle doc). Mohit
+        // 2026-05-29: time_collapse showed '0 / 5 clean' alongside
+        // 'quiet · 24d since last' — flat contradiction. The clean
+        // streak is now per-pattern instead of a single global value.
+        streak: typeof w.clean_games_since === "number"
+          ? Math.min(w.clean_games_since, 5)
+          : 0,
         target: 5,
         decay: decayValue,
         // Recency / activity signal used when decay is null.
