@@ -37,6 +37,9 @@ from services.concept_detectors.rule_of_the_square import (
 from services.concept_detectors.defend_scholars_mate import (
     detect_defend_scholars_mate_application,
 )
+from services.concept_detectors.mate_kq_vs_k import (
+    detect_mate_kq_vs_k_application,
+)
 
 
 # Type alias for clarity.
@@ -47,6 +50,7 @@ DetectorFn = Callable[[chess.Board, chess.Move, chess.Color], Optional[str]]
 DETECTORS: Dict[str, DetectorFn] = {
     "endgame_rule_of_square": detect_rule_of_the_square_application,
     "defend_scholars_mate":   detect_defend_scholars_mate_application,
+    "mate_kq_vs_k":           detect_mate_kq_vs_k_application,
 }
 
 

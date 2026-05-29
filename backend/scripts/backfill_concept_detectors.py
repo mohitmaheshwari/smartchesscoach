@@ -27,6 +27,7 @@ import argparse
 import asyncio
 import os
 import sys
+from typing import Optional
 
 sys.path.insert(0, "/app/backend")
 
@@ -42,8 +43,20 @@ MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
 
 
-async def backfill_for_user(db, user_id: str, dry_run: bool = False) -> dict:
-    """Run every registered detector across user's analyzed games."""
+async def backfill_for_user(
+    db,
+    user_id: str,
+    dry_run: bool = False,
+    only_skills: Optional[set] = None,
+) -> dict:
+    """Run every registered detector across user's analyzed games.
+
+    only_skills: if provided, restrict recording to those skill_ids.
+    Used after shipping a NEW detector so a re-run doesn't double-count
+    grades already saved for previously-shipped detectors. The script
+    isn't idempotent on its own — filtering here is the operator's
+    safety net.
+    """
     games = await db.games.find(
         {"user_id": user_id, "is_analyzed": True},
         {"_id": 0, "game_id": 1, "user_color": 1}
@@ -68,11 +81,53 @@ async def backfill_for_user(db, user_id: str, dry_run: bool = False) -> dict:
         mes = a.get("stockfish_analysis", {}).get("move_evaluations", [])
         if not mes:
             continue
-        recorded = record_concept_applications_from_game(
-            memory=memory,
-            move_evaluations=mes,
-            user_color=user_color,
-        )
+
+        if only_skills:
+            # Pre-filter: temporarily strip the registry down to the
+            # requested subset so the runner ignores other detectors.
+            # We do this by running the registry runner once but with
+            # a filtered view (cheaper than building a parallel runner).
+            from services.concept_detectors._runner import run_detectors_for_game
+            from services.concept_detectors.registry import all_detectors
+            import chess as _chess
+            uc = _chess.WHITE if user_color == "white" else _chess.BLACK
+            moves_iter = []
+            for me in mes:
+                fen = me.get("fen_before"); san = me.get("move") or me.get("move_san")
+                if not fen or not san: continue
+                try:
+                    b = _chess.Board(fen)
+                    if b.turn != uc: continue
+                    mv = b.parse_san(san)
+                    moves_iter.append((b, mv, uc))
+                except Exception:
+                    continue
+            # Build a per-skill filtered list of grades.
+            from services.concept_detectors._runner import run_detectors_for_move
+            filtered = []
+            for b, mv, uc2 in moves_iter:
+                for skill_id, outcome in run_detectors_for_move(b, mv, uc2):
+                    if skill_id in only_skills:
+                        filtered.append((skill_id, outcome))
+            # Apply via record_skill_attempt directly.
+            from services.coach_memory import record_skill_attempt
+            from services.engine2_skill_builder import get_skill_node
+            recorded = []
+            # Take latest grade per skill (matches non-filtered behaviour).
+            latest = {}
+            for sid, oc in filtered:
+                latest[sid] = oc
+            for sid, oc in latest.items():
+                node = get_skill_node(sid) or {}
+                stype = node.get("kind", "concept")
+                record_skill_attempt(memory, sid, stype, oc)
+                recorded.append((sid, oc))
+        else:
+            recorded = record_concept_applications_from_game(
+                memory=memory,
+                move_evaluations=mes,
+                user_color=user_color,
+            )
         if recorded:
             games_with_grades += 1
             for skill_id, outcome in recorded:
@@ -105,6 +160,10 @@ async def main():
                     help="Backfill every user with at least one analyzed game")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print results without saving")
+    ap.add_argument("--skill", action="append", default=None,
+                    help="Restrict to this skill_id. Repeat for multiple. "
+                         "Use after shipping a new detector to avoid "
+                         "double-recording grades for already-backfilled skills.")
     args = ap.parse_args()
 
     db = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=8000)[DB_NAME]
@@ -120,10 +179,13 @@ async def main():
         ap.print_help()
         return
 
+    only_skills = set(args.skill) if args.skill else None
     for uid in user_ids:
         if not uid:
             continue
-        report = await backfill_for_user(db, uid, dry_run=args.dry_run)
+        report = await backfill_for_user(
+            db, uid, dry_run=args.dry_run, only_skills=only_skills,
+        )
         n_grades = len(report["grades"])
         print(f"[{uid}] games={report['games']} "
               f"games_with_grades={report['games_with_grades']} "
