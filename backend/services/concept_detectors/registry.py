@@ -40,6 +40,21 @@ from services.concept_detectors.defend_scholars_mate import (
 from services.concept_detectors.mate_kq_vs_k import (
     detect_mate_kq_vs_k_application,
 )
+from services.concept_detectors.mate_kr_vs_k import (
+    detect_mate_kr_vs_k_application,
+)
+from services.concept_detectors.defend_fried_liver import (
+    detect_defend_fried_liver_application,
+)
+from services.concept_detectors.endgame_opposition import (
+    detect_endgame_opposition_application,
+)
+from services.concept_detectors.endgame_lucena import (
+    detect_endgame_lucena_application,
+)
+from services.concept_detectors.endgame_philidor import (
+    detect_endgame_philidor_application,
+)
 
 
 # Type alias for clarity.
@@ -51,6 +66,11 @@ DETECTORS: Dict[str, DetectorFn] = {
     "endgame_rule_of_square": detect_rule_of_the_square_application,
     "defend_scholars_mate":   detect_defend_scholars_mate_application,
     "mate_kq_vs_k":           detect_mate_kq_vs_k_application,
+    "mate_kr_vs_k":           detect_mate_kr_vs_k_application,
+    "defend_fried_liver":     detect_defend_fried_liver_application,
+    "endgame_opposition":     detect_endgame_opposition_application,
+    "endgame_lucena":         detect_endgame_lucena_application,
+    "endgame_philidor":       detect_endgame_philidor_application,
 }
 
 

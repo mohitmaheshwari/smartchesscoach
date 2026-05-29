@@ -34,4 +34,47 @@ Integration point (NOT wired yet — design only):
     Once we wire >=2 detectors, lift the graduation threshold for the
     affected skills from "1 correct (lesson)" to "1 correct (lesson) +
     1 applied (in-game)" — that's the honest "learned" bar.
+
+Status (Mohit 2026-05-29):
+  Wiring shipped — see registry.py + _runner.py + record_concept_
+  applications_from_game in coach_memory.py. Graduation lift is live
+  via SkillProgress.is_learned() (detector_engaged check).
+
+  Detectors shipped:
+    - endgame_rule_of_square      (pure K+P vs K)
+    - defend_scholars_mate        (4-move attack with Bc4 + queen on f7)
+    - mate_kq_vs_k                (K+Q vs lone K — mate or mate-in-1)
+    - mate_kr_vs_k                (K+R vs lone K — mate or mate-in-1)
+    - defend_fried_liver          (5.exd5 Nxd5?? trap defence)
+    - endgame_opposition          (K+P opposition geometry)
+    - endgame_lucena              (winning R+P bridge technique)
+    - endgame_philidor            (drawing R+P rear-guard drop)
+
+  Filed for product discussion (not yet shipped):
+    - concept_iqp                 — middlegame IQP play. Needs an
+                                    engine-light way to score "healthy
+                                    IQP moves." False positives risky.
+    - concept_minority_attack     — specific QGD-Exchange b4-b5 pawn
+                                    break. Pattern-based detector
+                                    possible; deferred until we have
+                                    clearer "good vs bad" criteria.
+    - concept_prophylaxis         — abstract: detect moves that
+                                    prevent a future opponent tempo
+                                    gain. Requires engine reasoning
+                                    on "what would the opponent's
+                                    best move have been." Hard to
+                                    detect cleanly without false
+                                    positives.
+    - trap_set_italian /
+      trap_set_caro_kann /
+      trap_set_london             — existing PWC trap-teaching path
+                                    already credits these. In-game
+                                    auto-detection would credit users
+                                    who "happened to avoid" traps
+                                    they didn't know existed —
+                                    product call needed.
+    - coached_development         — needs a "focus skill" flow in PWC
+                                    (start a coached game with focus=
+                                    coached_development). Product
+                                    decision.
 """
