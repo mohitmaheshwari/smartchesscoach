@@ -1616,7 +1616,13 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
     try:
         problems = await db.problem_lifecycle.find(
             {"user_id": user_id, "state": "active"},
-            {"_id": 0, "category": 1, "count": 1, "anger": 1}
+            # updated_at + last_seen included so the recency stamp at
+            # the bottom of this block has source data to work with.
+            # Without these in the projection, days_since_last_seen
+            # always read None on the response (Mohit caught this
+            # one — recency labels never reached the UI).
+            {"_id": 0, "category": 1, "count": 1, "anger": 1,
+             "updated_at": 1, "last_seen": 1}
         ).sort("count", -1).to_list(5)
 
         # Also check thinking habits for weak areas
