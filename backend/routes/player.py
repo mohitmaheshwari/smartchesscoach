@@ -1636,10 +1636,31 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
             "ignore_threat": "You don't always check what your opponent is threatening before moving.",
         }
 
+        # Mohit 2026-05-29: the narrative used to carry only category +
+        # description, leaving the Progress page with nothing to fall
+        # back on when improvement_proof had no reduction% for the
+        # bucket. Result: a weakness with 13 recent occurrences read
+        # "no signal yet" in the decay column — a contradiction. Stamp
+        # count + days_since_last_seen so the frontend can show a real
+        # activity / recency label instead of empty signal.
+        from datetime import datetime as _dt, timezone as _tz
+        _now = _dt.now(_tz.utc)
         for p in problems[:3]:
             cat = p.get("category", "")
             count = p.get("count", 0)
             anger = p.get("anger", "first_time")
+            updated_at = p.get("updated_at")
+            days_since_last_seen = None
+            if updated_at:
+                try:
+                    if isinstance(updated_at, str):
+                        _ua = _dt.fromisoformat(updated_at.replace("Z", "+00:00"))
+                    else:
+                        _ua = updated_at if updated_at.tzinfo else updated_at.replace(tzinfo=_tz.utc)
+                    days_since_last_seen = max((_now - _ua).days, 0)
+                except Exception:
+                    days_since_last_seen = None
+
             desc = PROBLEM_DESCRIPTIONS.get(cat, f"Your {cat.replace('_', ' ')} needs improvement.")
 
             if anger == "chronic":
@@ -1649,7 +1670,13 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
             elif count >= 5:
                 desc += f" It's happened {count} times in recent games."
 
-            weaknesses.append({"category": cat, "description": desc})
+            weaknesses.append({
+                "category": cat,
+                "description": desc,
+                "count": count,
+                "days_since_last_seen": days_since_last_seen,
+                "anger": anger,
+            })
 
         # Add from thinking habits (weak areas)
         if thinking_docs:
