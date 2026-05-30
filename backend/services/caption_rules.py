@@ -471,6 +471,68 @@ def _r12_render(f):
         except Exception:  # pragma: no cover — defensive
             pass
 
+    # Mohit 2026-05-30 (Parth fb_b318a8af5519): smaller-win detection.
+    # Played AND best are both real captures of pieces ≥ knight, AND
+    # opp_reply recaptures on the played-move's destination, AND the
+    # best move's captured piece has NO defender — i.e. the played move
+    # still wins a piece but trades a pawn back, while the best move
+    # would have won the same value cleanly. Current caption renders
+    # "Black wins your pawn" which sounds like net loss; the truth is
+    # "you took the smaller win." This detector stamps the facts a new
+    # R12 variant uses to explain that comparison clearly.
+    played_smaller_win = False
+    played_smaller_win_captured_piece = None
+    smaller_win_best_target_piece = None
+    smaller_win_best_target_square = None
+    try:
+        if (
+            played
+            and best
+            and best != played
+            and f.get("opp_reply_san")
+            and f.get("fen_before")
+        ):
+            import chess as _chess
+            _PIECE_NAME = {
+                _chess.KNIGHT: "knight", _chess.BISHOP: "bishop",
+                _chess.ROOK: "rook", _chess.QUEEN: "queen",
+            }
+            _board = _chess.Board(f["fen_before"])
+            _played_mv = _board.parse_san(played)
+            _best_mv = _board.parse_san(best)
+            # Both must be captures of >= knight value.
+            if (
+                _board.is_capture(_played_mv)
+                and _board.is_capture(_best_mv)
+            ):
+                _p_captured = _board.piece_at(_played_mv.to_square)
+                _b_captured = _board.piece_at(_best_mv.to_square)
+                if (
+                    _p_captured is not None and _p_captured.piece_type in _PIECE_NAME
+                    and _b_captured is not None and _b_captured.piece_type in _PIECE_NAME
+                ):
+                    # Best move's captured piece must be UNDEFENDED so
+                    # the best line really is "free." If defenders
+                    # exist, gxh3 wouldn't be a "free win" and the
+                    # smaller_win framing doesn't hold.
+                    _opp_color = _b_captured.color
+                    _best_target_defenders = _board.attackers(_opp_color, _best_mv.to_square)
+                    if len(_best_target_defenders) == 0:
+                        # Apply played; check opp reply lands on the same square.
+                        _board2 = _board.copy()
+                        _board2.push(_played_mv)
+                        try:
+                            _opp_mv = _board2.parse_san(f["opp_reply_san"])
+                            if _opp_mv.to_square == _played_mv.to_square:
+                                played_smaller_win = True
+                                played_smaller_win_captured_piece = _PIECE_NAME[_p_captured.piece_type]
+                                smaller_win_best_target_piece = _PIECE_NAME[_b_captured.piece_type]
+                                smaller_win_best_target_square = _chess.square_name(_best_mv.to_square)
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+
     # v68 (2026-05-22): start from the full caption_facts dict and
     # add R12-computed extras on top. Previously this was an EXPLICIT
     # subset which made every new detector require a parallel edit
@@ -499,6 +561,11 @@ def _r12_render(f):
         "missed_tactic_target_square": missed_tactic_target_square,
         "missed_tactic_target_square_immediate": missed_tactic_target_square_immediate,
         "missed_tactic_ply": missed_tactic_ply,
+        # Smaller-win facts (Parth fb_b318a8af5519).
+        "played_smaller_win": played_smaller_win,
+        "played_smaller_win_captured_piece": played_smaller_win_captured_piece,
+        "smaller_win_best_target_piece": smaller_win_best_target_piece,
+        "smaller_win_best_target_square": smaller_win_best_target_square,
         # v71 (2026-05-23): Mohit caught that the old template
         # "mate in {missed_tactic_ply} moves." rendered "mate in 3
         # moves" when chess natural-language said mate-in-2 (3 plies =
