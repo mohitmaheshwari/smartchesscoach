@@ -127,6 +127,59 @@ def _ev(pattern_id: str, mover: Optional[int], targets: List[int],
     }
 
 
+def _mover_dies_on_destination(
+    board_after_move: chess.Board,
+    dest_sq: int,
+) -> bool:
+    """Post-move survival check for "best move attacks X" detectors.
+
+    Returns True when the piece on dest_sq cannot survive natural enemy
+    attacks: a lower-value enemy attacker with no equal-value defender
+    (or equal-value attackers outnumbering defenders). When True, any
+    "best move attacks Y from dest_sq" claim is illusory — the mover
+    is captured before that attack materializes.
+
+    The canonical regression (game_bc41022831e0, fb_80c1ea9555cb): Bxc6
+    from b5 puts the bishop on c6, which diagonally attacks b7 — but
+    the b7 pawn recaptures (bxc6) and the bishop dies. The "attacks b7"
+    claim never materializes.
+
+    Mohit "Day 1 — apply across detector family" 2026-05-30: extracted
+    from inline simulate_active_defense check (commit fca6ecf1) so it
+    can be applied to simulate_same_piece_better_square and any future
+    "best move puts piece on square X and X attacks Y" detector.
+
+    board_after_move : board state AFTER best_move has been pushed.
+                       Side-to-move is the OPPONENT (the "them" side).
+    dest_sq          : the square the moved piece now occupies.
+    """
+    mover_piece = board_after_move.piece_at(dest_sq)
+    if mover_piece is None:
+        return False
+    mover_val = PIECE_VALUE_CP.get(mover_piece.piece_type, 0)
+    if mover_val <= 0:
+        return False  # king / unknown — don't gate
+    # After pushing best_move, board.turn = them. Use that consistently.
+    them = board_after_move.turn
+    us = not them
+    dest_attackers = list(board_after_move.attackers(them, dest_sq))
+    if not dest_attackers:
+        return False
+    dest_defenders = list(board_after_move.attackers(us, dest_sq))
+    cheapest_atk_val = min(
+        PIECE_VALUE_CP.get(board_after_move.piece_at(a).piece_type, 99)
+        for a in dest_attackers
+        if board_after_move.piece_at(a) is not None
+    )
+    # Outright hang: lower-value attacker with no defender.
+    if cheapest_atk_val < mover_val and not dest_defenders:
+        return True
+    # Losing exchange: equal-or-lower attackers outnumber defenders.
+    if cheapest_atk_val <= mover_val and len(dest_attackers) > len(dest_defenders):
+        return True
+    return False
+
+
 # ────────────────────────────────────────────────────────────────────
 # BATCH 1 — Free Piece / Free Pawn (defender-count + SEE)
 # ────────────────────────────────────────────────────────────────────
@@ -1896,6 +1949,13 @@ def simulate_pawn_kicks_piece(
     # Apply move and check attacked squares
     board.push(best_mv)
 
+    # Survival check: pushed pawn must survive on its destination for the
+    # "kicks" claim to materialize. Same family as simulate_active_defense.
+    # Rare for pawns (only another pawn or en-passant attacks them) but
+    # consistent with the family fix.
+    if _mover_dies_on_destination(board, best_mv.to_square):
+        return []
+
     kicked: Optional[Tuple[int, int]] = None  # (square, piece_type)
     for df in (-1, 1):
         af = file + df
@@ -1978,28 +2038,11 @@ def simulate_active_defense(
     except Exception:
         return []
 
-    # Survival check: the moved piece must SURVIVE on its destination for the
-    # "attacks X" claim to be meaningful. Example regression (game_bc41022831e0,
-    # fb_80c1ea9555cb): Bxc6 from b5 puts the bishop on c6 where it diagonally
-    # attacks b7, but the b7 pawn recaptures (bxc6) and the bishop dies — the
-    # "attacks b7" claim is illusory. If a lower-value enemy can capture the
-    # mover with no equal-value defender, suppress the pattern.
-    mover_piece = board.piece_at(best_mv.to_square)
-    if mover_piece is not None:
-        mover_val = PIECE_VALUE_CP.get(mover_piece.piece_type, 0)
-        dest_attackers = list(board.attackers(them, best_mv.to_square))
-        dest_defenders = list(board.attackers(us, best_mv.to_square))
-        if dest_attackers and mover_val > 0:
-            cheapest_atk_val = min(
-                PIECE_VALUE_CP.get(board.piece_at(a).piece_type, 99)
-                for a in dest_attackers if board.piece_at(a) is not None
-            )
-            # Lower-value attacker + no defender → mover hangs outright.
-            if cheapest_atk_val < mover_val and not dest_defenders:
-                return []
-            # Equal-or-lower attackers outnumber defenders → losing exchange.
-            if cheapest_atk_val <= mover_val and len(dest_attackers) > len(dest_defenders):
-                return []
+    # Survival check: the moved piece must SURVIVE on its destination for
+    # the "attacks X" claim to be meaningful. See _mover_dies_on_destination
+    # docstring + commit fca6ecf1 for the canonical regression.
+    if _mover_dies_on_destination(board, best_mv.to_square):
+        return []
 
     # For each previously-threatened piece, is it now better-defended?
     saved: Optional[Tuple[int, int]] = None  # (defended_square, piece_type)
@@ -2105,6 +2148,11 @@ def simulate_same_piece_better_square(
     # Simulate engine's destination
     bd_engine = board.copy()
     bd_engine.push(best_mv)
+    # Survival check: the moved piece must SURVIVE on engine's destination
+    # for the "extra targets" claim to materialize. Same Bxc6/b7 class as
+    # simulate_active_defense (see _mover_dies_on_destination docstring).
+    if _mover_dies_on_destination(bd_engine, best_mv.to_square):
+        return []
     engine_targets = attacks_from(bd_engine, best_mv.to_square)
 
     # Simulate user's destination

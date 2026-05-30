@@ -2716,6 +2716,95 @@ def classify_caption_tier(
         return "NONE"
 
 
+_PHASE2_ATTACKS_RE = __import__("re").compile(
+    r"\battacks?\s+(?:the\s+)?(?:undefended\s+)?"
+    r"(king|queen|rook|bishop|knight|pawn)"
+    r"\s+on\s+([a-h][1-8])\b",
+    flags=__import__("re").IGNORECASE,
+)
+
+
+def _verify_phase2_attack_claims(
+    *,
+    caption_text: str,
+    fen_before: str,
+    best_move_san: Optional[str],
+    pv_after_best: List[str],
+) -> Optional[Tuple[str, str]]:
+    """Phase 2 semantic check: when the caption claims that best_move
+    attacks the {piece} on {square}, verify the claim survives the
+    natural opp reply (PV[1] of pv_after_best). Returns (claim_text,
+    fail_reason) on the first failed claim, or None when all claims
+    pass / no claims found.
+
+    No engine spawn — uses pv_after_best already on MoveInputs (computed
+    at analysis time at higher depth). When PV is empty / best_move is
+    None, returns None (cannot verify -> trust the detector).
+
+    Catches the Bxc6/b7 class at the CAPTION layer as a backstop: if a
+    detector misses the survival check (today: active_defense /
+    same_piece_better_square / pawn_kicks_piece all have it; future
+    detectors may not), this still catches the illusory claim.
+    """
+    if not caption_text or not best_move_san or not pv_after_best:
+        return None
+    if len(pv_after_best) < 2:
+        return None  # need opp's reply to verify
+
+    matches = list(_PHASE2_ATTACKS_RE.finditer(caption_text))
+    if not matches:
+        return None
+
+    try:
+        board = chess.Board(fen_before)
+        bm = board.parse_san(best_move_san)
+        board.push(bm)
+        opp_reply = board.parse_san(pv_after_best[1])
+        board.push(opp_reply)
+    except Exception:
+        return None  # PV parse failure — trust the detector
+
+    bm_to_sq = bm.to_square
+
+    for m in matches:
+        piece_name = m.group(1).lower()
+        sq_name = m.group(2).lower()
+        try:
+            claimed_sq = chess.parse_square(sq_name)
+        except Exception:
+            continue
+
+        # 1. Is the mover (best_move's piece) still on the board after
+        #    opp's PV[1] reply? If not, "X attacks Y" is illusory.
+        piece_at_dest = board.piece_at(bm_to_sq)
+        if piece_at_dest is None:
+            return (
+                m.group(0),
+                f"best_move's piece doesn't survive opp's {pv_after_best[1]} "
+                f"(captured) — 'attacks the {piece_name} on {sq_name}' is illusory",
+            )
+
+        # 2. Does the mover still ATTACK the claimed square?
+        attacks_now = board.attacks(bm_to_sq)
+        if claimed_sq not in attacks_now:
+            return (
+                m.group(0),
+                f"best_move's piece on {chess.square_name(bm_to_sq)} no longer "
+                f"attacks {sq_name} after opp's {pv_after_best[1]}",
+            )
+
+        # 3. Is the target piece still on the claimed square?
+        target_piece = board.piece_at(claimed_sq)
+        if target_piece is None:
+            return (
+                m.group(0),
+                f"no piece on {sq_name} after opp's {pv_after_best[1]} — "
+                f"'attacks the {piece_name} on {sq_name}' is illusory",
+            )
+
+    return None
+
+
 def _verify_and_recover_caption(
     *,
     caption_payload: Dict[str, Any],
@@ -2724,6 +2813,7 @@ def _verify_and_recover_caption(
     user_color: str,
     played_san: str,
     best_move_san: Optional[str],
+    pv_after_best: List[str],
     severity_practical: str,
     mover_is_user: bool,
 ) -> Optional[Dict[str, Any]]:
@@ -2773,13 +2863,33 @@ def _verify_and_recover_caption(
             text=text_in,
             fen=fen_after,
             user_color=user_color or "white",
-            engine=None,  # Phase 1 only; Phase 2 needs Stockfish in process
+            engine=None,  # Phase 1 (piece-on-square) only
         )
     except Exception:
         return None
 
-    if audit.overall != "fail":
-        return None  # pass / partial / no_claims_found — all OK
+    phase1_failed = (audit.overall == "fail")
+
+    # Phase 2 (semantic): check "best_move attacks X on Y" survives opp PV[1].
+    # No engine spawn — uses cached pv_after_best from MoveInputs (computed
+    # at analysis-time depth in analysis_worker, OR by PWC's coach_opponent
+    # which was about to run engine anyway). Render cost stays at ~50ms.
+    phase2_fail: Optional[Tuple[str, str]] = None
+    if not phase1_failed:
+        # Only check Phase 2 when Phase 1 passed — if Phase 1 already failed
+        # we'll recover anyway; no point doing more work.
+        try:
+            phase2_fail = _verify_phase2_attack_claims(
+                caption_text=text_in,
+                fen_before=fen_before,
+                best_move_san=best_move_san,
+                pv_after_best=pv_after_best or [],
+            )
+        except Exception:
+            phase2_fail = None  # verifier crash — leave caption alone
+
+    if not phase1_failed and phase2_fail is None:
+        return None  # both layers passed — caption ships unchanged
 
     # Build the recovery caption — bare severity, no piece claims.
     _severity_phrases = {
@@ -2804,6 +2914,8 @@ def _verify_and_recover_caption(
         f"[{c.kind}] {c.text!r}: {c.detail}"
         for c in audit.claims if c.verdict == "fail"
     ]
+    if phase2_fail is not None:
+        failed_claims.append(f"[phase2_attack] {phase2_fail[0]!r}: {phase2_fail[1]}")
     logger.info(
         f"[caption_verifier] FAIL on '{text_in[:80]}' "
         f"(rule={prev_rule}): {'; '.join(failed_claims[:3])} "
@@ -3707,6 +3819,7 @@ def build_move_teaching_decision(
             user_color=inputs.user_color,
             played_san=inputs.played_san,
             best_move_san=inputs.best_move_san,
+            pv_after_best=list(inputs.pv_after_best or []),
             severity_practical=practical.practical_tier,
             mover_is_user=bool(inputs.mover_is_user),
         )
