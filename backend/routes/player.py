@@ -1640,6 +1640,17 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
             "positional": "You make positional mistakes — bad piece placement, weak pawns, passive positions.",
             "endgame_collapse": "Your endgames need work. You struggle to convert advantages.",
             "ignore_threat": "You don't always check what your opponent is threatening before moving.",
+            # Mohit 2026-05-30: descriptions for cognitive_gap-derived
+            # weaknesses (see Source-2 aggregation block below). These
+            # categories ride in from move_evaluations and don't have
+            # problem_lifecycle entries today.
+            "missed_tactic": "You miss tactics — forks, pins, skewers that win material.",
+            "tactical_oversight": "You see one move ahead but miss what comes after — opponent's reply turns the position.",
+            "piece_activity": "Your pieces sit on passive squares. They're not contributing to the plan.",
+            "opening_knowledge": "Early-game moves wander off-book. The position drifts before you've finished developing.",
+            "pawn_structure": "Pawn-break choices hurt you — weak squares, isolated or doubled pawns from the trade.",
+            "endgame_technique": "The endgame technique slips. Positions you should hold or convert escape.",
+            "calculation_depth": "When the position gets sharp, your calculation breaks down before the line resolves.",
         }
 
         # Mohit 2026-05-29: the narrative used to carry only category +
@@ -1709,6 +1720,109 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
                 "anger": anger,
             })
 
+        # Mohit 2026-05-30: supplement with move-level cognitive_gap
+        # aggregation. The audit on his data showed problem_lifecycle
+        # had 3 categories (43+13+9 occurrences), but move_evaluations
+        # had piece_safety=522 / king_safety=311 / piece_activity=196 /
+        # missed_tactic=157 sitting unused. We aggregate the gap
+        # column from the last 50 analyzed games and surface any gap
+        # NOT already in problem_lifecycle. Active card stays on
+        # problem_lifecycle (the curated coaching focus); gap entries
+        # join the tracked list ranked by occurrence count.
+        try:
+            GAP_LOOKBACK_GAMES = 50
+            GAP_MIN_COUNT = 10  # below this, not worth surfacing
+            existing_categories = {w["category"] for w in weaknesses}
+            recent_games = await db.games.find(
+                {"user_id": user_id, "is_analyzed": True},
+                {"_id": 0, "game_id": 1, "imported_at": 1}
+            ).sort("imported_at", -1).to_list(GAP_LOOKBACK_GAMES)
+            gid_imported = {g["game_id"]: g.get("imported_at") for g in recent_games}
+
+            gap_data: Dict[str, Dict] = {}
+            for g in recent_games:
+                gid = g["game_id"]
+                ga = await db.game_analyses.find_one(
+                    {"game_id": gid},
+                    {"_id": 0,
+                     "stockfish_analysis.move_evaluations.cognitive_gap": 1,
+                     "stockfish_analysis.move_evaluations.cp_loss": 1}
+                )
+                if not ga: continue
+                for ev in (ga.get("stockfish_analysis") or {}).get("move_evaluations") or []:
+                    gap = ev.get("cognitive_gap")
+                    cp = ev.get("cp_loss", 0) or 0
+                    if not gap or cp < 100: continue
+                    if gap not in gap_data:
+                        gap_data[gap] = {
+                            "count": 0, "severe": 0,
+                            "last_imported_at": gid_imported.get(gid),
+                        }
+                    gap_data[gap]["count"] += 1
+                    if cp >= 300:
+                        gap_data[gap]["severe"] += 1
+                    # Games are iterated newest-first; first hit IS
+                    # the most recent occurrence, so don't overwrite.
+                    if gap_data[gap].get("last_imported_at") is None:
+                        gap_data[gap]["last_imported_at"] = gid_imported.get(gid)
+
+            # Sort gap entries by count desc, take top 5 to consider.
+            ranked_gaps = sorted(
+                gap_data.items(),
+                key=lambda kv: kv[1]["count"],
+                reverse=True,
+            )
+
+            for gap_cat, d in ranked_gaps:
+                if gap_cat in existing_categories:
+                    continue
+                if d["count"] < GAP_MIN_COUNT:
+                    continue
+
+                days = None
+                _imp = d.get("last_imported_at")
+                if _imp:
+                    try:
+                        if isinstance(_imp, str):
+                            _ua = _dt.fromisoformat(_imp.replace("Z", "+00:00"))
+                        else:
+                            _ua = _imp if _imp.tzinfo else _imp.replace(tzinfo=_tz.utc)
+                        days = max((_now - _ua).days, 0)
+                    except Exception:
+                        pass
+
+                clean = 0
+                if _imp:
+                    try:
+                        clean_count = await db.games.count_documents({
+                            "user_id": user_id,
+                            "is_analyzed": True,
+                            "imported_at": {
+                                "$gt": _imp if isinstance(_imp, str) else _imp.isoformat()
+                            },
+                        })
+                        clean = min(clean_count, 5)
+                    except Exception:
+                        clean = 0
+
+                desc = PROBLEM_DESCRIPTIONS.get(
+                    gap_cat,
+                    f"Your {gap_cat.replace('_', ' ')} drops the score.",
+                )
+                desc += f" It's happened {d['count']} times in recent games."
+
+                weaknesses.append({
+                    "category": gap_cat,
+                    "description": desc,
+                    "count": d["count"],
+                    "days_since_last_seen": days,
+                    "clean_games_since": clean,
+                    "anger": "recurring",
+                    "source": "cognitive_gap",
+                })
+        except Exception as gap_err:
+            logger.debug(f"[narrative] cognitive_gap supplement failed: {gap_err}")
+
         # Mohit 2026-05-30: auto-archive. The active card's own copy
         # said "We'll close this chapter once the pattern stays quiet
         # for 5 games," but we kept tracked weaknesses on the page
@@ -1753,6 +1867,23 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
                     desc = HABIT_WEAKNESS.get(habit, f"Your {habit.replace('_', ' ')} needs work.")
                     weaknesses.append({"category": habit, "description": desc})
 
+        # Cap at top 5 active by count. The active card is rank-0,
+        # tracked rows are rank 1-4. Beyond that the page drowns the
+        # user. problem_lifecycle items keep their rank (curated
+        # coaching focus); gap items rank by raw count among the
+        # remaining slots. Mohit 2026-05-30.
+        weaknesses.sort(
+            key=lambda w: (
+                0 if w.get("source") != "cognitive_gap" else 1,
+                -(w.get("count") or 0),
+            )
+        )
+        # Within each source-bucket items already sorted by count desc
+        # (problem_lifecycle came pre-sorted; gap items appended in
+        # ranked order). The two-level key above just keeps
+        # problem_lifecycle in front, then gap items.
+        WEAKNESS_DISPLAY_CAP = 5
+        weaknesses = weaknesses[:WEAKNESS_DISPLAY_CAP]
         sections["weaknesses"] = weaknesses
         sections["archived_weaknesses"] = archived_weaknesses
     except Exception:
