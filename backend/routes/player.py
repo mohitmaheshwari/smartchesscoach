@@ -1709,6 +1709,37 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
                 "anger": anger,
             })
 
+        # Mohit 2026-05-30: auto-archive. The active card's own copy
+        # said "We'll close this chapter once the pattern stays quiet
+        # for 5 games," but we kept tracked weaknesses on the page
+        # forever even after they hit 5/5 clean and 25d quiet
+        # (literally his Time discipline row).
+        #
+        # Rule (BOTH must hold to archive — not either-or):
+        #   clean_games_since >= 5  AND  days_since_last_seen >= 14
+        #
+        # The AND matters. A weakness with count=43 + clean=5 +
+        # days=1 means the user played 5+ games today without it
+        # firing — that's NOT a recovered chronic pattern, it's just
+        # a lucky session. We require BOTH "enough clean games" and
+        # "enough quiet time" so genuinely recovered patterns
+        # (time_collapse 9× / 25d quiet) archive but the active
+        # weakness (threw_winning 43× / 1d quiet) stays in focus.
+        ARCHIVE_CLEAN_THRESHOLD = 5
+        ARCHIVE_QUIET_DAYS = 14
+        archived_weaknesses = []
+        still_active = []
+        for w in weaknesses:
+            quiet_enough = (
+                (w.get("days_since_last_seen") or 0) >= ARCHIVE_QUIET_DAYS
+            )
+            clean_enough = w.get("clean_games_since", 0) >= ARCHIVE_CLEAN_THRESHOLD
+            if quiet_enough and clean_enough:
+                archived_weaknesses.append(w)
+            else:
+                still_active.append(w)
+        weaknesses = still_active
+
         # Add from thinking habits (weak areas)
         if thinking_docs:
             for habit, avg in sorted(habit_avgs.items(), key=lambda x: x[1]):
@@ -1723,8 +1754,10 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
                     weaknesses.append({"category": habit, "description": desc})
 
         sections["weaknesses"] = weaknesses
+        sections["archived_weaknesses"] = archived_weaknesses
     except Exception:
         sections["weaknesses"] = []
+        sections["archived_weaknesses"] = []
 
     # ─── 4. YOUR OPENINGS ───
     try:

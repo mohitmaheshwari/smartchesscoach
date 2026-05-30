@@ -344,8 +344,29 @@ const UnifiedProgress = ({ user }) => {
       };
     });
 
-    // Archived — strengths read as patterns the user has beaten
-    const archived = strengths.slice(0, 4).map((s, i) => ({
+    // Archived — strengths read as patterns the user has beaten,
+    // PLUS weaknesses that hit the graduation contract (5 clean
+    // games or 21+ days quiet). Mohit 2026-05-30: Time discipline
+    // was still on "Also tracking" at 5/5 clean + 25d quiet, which
+    // contradicted the active card's "we'll close this chapter once
+    // it stays quiet for 5 games" copy.
+    const archivedWeaknesses = (narrative?.archived_weaknesses || []).map((w) => {
+      const days = w.days_since_last_seen;
+      const recency = typeof days === "number"
+        ? (days <= 1
+            ? "quiet — looking solid"
+            : days <= 13
+              ? `clean for ${days} days`
+              : `clean for ${days} days`)
+        : "clean streak";
+      return {
+        name: humanize(w.category),
+        meta: `${recency} · was ${w.count} misses before you beat it`,
+        stale: 0.95,
+        beaten: true,
+      };
+    });
+    const strengthCards = strengths.slice(0, 4).map((s, i) => ({
       name:
         typeof s === "string"
           ? s
@@ -355,7 +376,10 @@ const UnifiedProgress = ({ user }) => {
           ? "Clean — keep it that way"
           : s.detail || s.record || "Clean — keep it that way",
       stale: 0.9 - i * 0.08,
+      beaten: false,
     }));
+    // Beaten weaknesses lead — they're the more recent victories.
+    const archived = [...archivedWeaknesses, ...strengthCards];
 
     // Headline — synthesize from active state.
     // Reads the category-matched activeReductionPct so the message
@@ -650,7 +674,7 @@ const UnifiedProgress = ({ user }) => {
                     </div>
                   </div>
                   <span className="text-[10.5px] text-muted-foreground/60 font-mono tabular-nums">
-                    stable
+                    {a.beaten ? "beaten" : "stable"}
                   </span>
                 </div>
               ))}
