@@ -288,11 +288,11 @@
     "bs_king_attackers": "{bs_attacker_count} opponent pieces are aimed at your king on {bs_king_square}.",
     "bs_central_control_gap": "Opponent attacks the center {bs_opp_central} {bs_opp_central_word}; you attack it {bs_user_central} {bs_user_central_word}.",
     "bs_open_file_owned_by_opp": "The {bs_file_letter}-file is open and opponent's {bs_opp_major_piece} controls it.",
-    "bs_queen_alone_active": "Your queen on {bs_queen_square} is the only piece doing anything.",
+    "bs_queen_alone_active": "Your queen on {bs_queen_square} is out alone — your other pieces haven't joined the fight.",
     "bs_connected_rooks_only_opp": "Opponent's rooks are connected; yours aren't yet.",
     "bs_passive_pieces_count": "{bs_passive_count} of your pieces are still on your side of the board.",
 
-    "why_opp_punish_capture": "Play {user_best_reply_san} winning the {captured_piece_type}.",
+    "why_opp_punish_capture": "They drop the {captured_piece_type} — play {user_best_reply_san} to take it.",
     "why_opp_punish_check": "Play {user_best_reply_san} — it forces a reply.",
     "why_opp_punish_default": "Play {user_best_reply_san}.",
     "why_opp_hanging": "Their {piece_type} on {square} is now undefended — take it.",

@@ -1485,8 +1485,13 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "priority_level": 6,
         }
 
-    # Priority 7: king safety
-    if facts.get("is_castling"):
+    # Priority 7: king safety. Gated by _tactic_ok — celebrating
+    # "King is safe; rook joins the game" on a castling blunder
+    # (fb_f35ee12cdd51 O-O-O cpl=698 left a piece hanging;
+    #  fb_5efd285edc07 O-O cpl=112) buries the actual problem. When
+    # the engine flags this castle as a mistake or worse, fall through
+    # to the blunder/mistake category so R12 renders the real cost.
+    if _tactic_ok and facts.get("is_castling"):
         return {
             "category": "king_safety",
             "ref_field": "is_castling",

@@ -356,7 +356,18 @@ def classify_severity_practical(
     lost_winning = (
         decisiveness_changed and state_before == "winning"
     )
-    max_allowed_idx = can_idx + 1 if lost_winning else can_idx
+    # Substantial-loss gate (fb_bb0d3c83911e, 2026-05-30): a 71-cp
+    # opp inaccuracy that crossed the winning boundary (+2.17 → +1.46)
+    # was being bumped from "inaccuracy" to "mistake" via the
+    # lost_winning cap. Engine still calls it ~best; Parth flagged
+    # "is a mistake" framing as wrong. Require canonical ≥ mistake
+    # (cp_loss ≥ 100) before the lost_winning cap raises practical
+    # above canonical. Tiny cp_loss crossing a boundary stays at
+    # canonical — keeps the "+2.0 → +0.2 = serious mistake" case
+    # (cp_loss=180, canonical=mistake) working while suppressing the
+    # cpl=71 false bump.
+    lost_winning_substantial = lost_winning and cp_loss >= SEVERITY_THRESHOLDS["mistake"]
+    max_allowed_idx = can_idx + 1 if lost_winning_substantial else can_idx
     max_allowed_idx = min(max_allowed_idx, len(TIER_ORDER) - 1)
     if prac_idx > max_allowed_idx:
         practical = TIER_ORDER[max_allowed_idx]

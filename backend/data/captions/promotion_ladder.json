@@ -68,6 +68,16 @@
       "source_template": "R_PROMOTED_shape:{shape_pattern_id}"
     },
     {
+      "rule": "R_PROMOTED_basic_mistake",
+      "when": {
+        "caption_empty": true,
+        "is_user": true,
+        "cp_loss": {"gte": 100},
+        "best_move_differs": true
+      },
+      "source_template": "R_PROMOTED_basic_mistake"
+    },
+    {
       "rule": "R_PROMOTED_principle",
       "when": {"caption_empty": true, "principle_cue": "present"},
       "source_template": "R_PROMOTED_principle:{principle_id_used}"

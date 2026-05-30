@@ -343,7 +343,10 @@ def get_opening_introduction(
         # opening_name when both are available.
         "d6": {
             "name": "Philidor-style setup",
-            "idea": "Defends e5 with the d-pawn. Solid but passive — your dark-squared bishop stays blocked behind d6 and e5.",
+            # fb_d098b736e25c: "your dark-squared bishop" was ambiguous —
+            # Mohit asked "your or their." Name the square (f8) and skip
+            # the dark-squared label so the reference is unambiguous.
+            "idea": "Defends e5 with the d-pawn. Solid but passive — Black's f8-bishop stays blocked behind the d6 and e5 pawns.",
         },
         "Be7": {
             "idea": "Passive bishop development. Safe but doesn't create pressure — Bc5 or Bb4 are usually more active.",

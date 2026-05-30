@@ -1978,6 +1978,29 @@ def simulate_active_defense(
     except Exception:
         return []
 
+    # Survival check: the moved piece must SURVIVE on its destination for the
+    # "attacks X" claim to be meaningful. Example regression (game_bc41022831e0,
+    # fb_80c1ea9555cb): Bxc6 from b5 puts the bishop on c6 where it diagonally
+    # attacks b7, but the b7 pawn recaptures (bxc6) and the bishop dies — the
+    # "attacks b7" claim is illusory. If a lower-value enemy can capture the
+    # mover with no equal-value defender, suppress the pattern.
+    mover_piece = board.piece_at(best_mv.to_square)
+    if mover_piece is not None:
+        mover_val = PIECE_VALUE_CP.get(mover_piece.piece_type, 0)
+        dest_attackers = list(board.attackers(them, best_mv.to_square))
+        dest_defenders = list(board.attackers(us, best_mv.to_square))
+        if dest_attackers and mover_val > 0:
+            cheapest_atk_val = min(
+                PIECE_VALUE_CP.get(board.piece_at(a).piece_type, 99)
+                for a in dest_attackers if board.piece_at(a) is not None
+            )
+            # Lower-value attacker + no defender → mover hangs outright.
+            if cheapest_atk_val < mover_val and not dest_defenders:
+                return []
+            # Equal-or-lower attackers outnumber defenders → losing exchange.
+            if cheapest_atk_val <= mover_val and len(dest_attackers) > len(dest_defenders):
+                return []
+
     # For each previously-threatened piece, is it now better-defended?
     saved: Optional[Tuple[int, int]] = None  # (defended_square, piece_type)
     for sq in threatened:
