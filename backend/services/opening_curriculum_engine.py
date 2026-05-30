@@ -224,7 +224,15 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
                 hint = node.get("hint", "What's the best move here?")
                 plan = node.get("plan", "")
                 right_feedback = node.get("right_feedback", f"Good — {next_move} was the right move.")
-                wrong_feedback = node.get("wrong_feedback", f"The curriculum move was {next_move}.")
+                # Mohit Day 3 Issue D (2026-05-30): drop the generic
+                # "The curriculum move was X" default. When the tree
+                # author didn't write wrong_feedback, silence is better
+                # than a generic tail that doesn't explain why the played
+                # move was wrong. Per [[no-hollow-coverage]]. Empty here
+                # means caption_pipeline won't set curriculum_deviation_clause,
+                # and R12 falls through to other why-clauses or to bare
+                # severity ("{played_san} is a mistake. {best} was better.").
+                wrong_feedback = node.get("wrong_feedback", "")
             else:
                 # User plays opposite (Black) — our move = pick from responses
                 responses = node.get("responses", {})
@@ -243,7 +251,9 @@ def get_opening_guidance(opening_key: str, moves_played: List[str], user_color: 
                     hint = resp_node.get("hint", node.get("hint", f"What's the best response here?"))
                     plan = resp_node.get("plan", node.get("plan", ""))
                     right_feedback = resp_node.get("right_feedback", f"Good — {main_response} is solid.")
-                    wrong_feedback = resp_node.get("wrong_feedback", f"The best response here is {main_response}.")
+                    # Mohit Day 3 Issue D (2026-05-30): drop generic
+                    # default — see line 235 note. Silence > weak tail.
+                    wrong_feedback = resp_node.get("wrong_feedback", "")
 
             # Adapt based on assessment — if user already knows this move, lighten the hint
             mastered_moves = set(assessment.get("moves_mastered", [])) if assessment else set()

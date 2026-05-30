@@ -2644,7 +2644,16 @@ def inject_board_state_describer_clause(
             user_color=(user_color or ""),
             move_number=full_move_number or 0,
         )
-        _top = select_top_facts(_bs_facts, n=3, max_per_category=2)
+        # Mohit Day 3 Issue A (2026-05-30): cut to TOP-1 fact only. The
+        # board_state_clause appears either (a) as a why-clause tail after
+        # "X is a mistake. Y was better." or (b) as the standalone
+        # caption when nothing else fires. In case (a), multiple bs
+        # facts read as a stat dump ("Your bishop on h6 is alone in
+        # opponent territory. Opponent attacks the center 4 times; you
+        # attack it 1 time.") that doesn't explain the actual mistake.
+        # In case (b), one strong fact is more readable than three weak
+        # ones concatenated. Was n=3, max_per_category=2.
+        _top = select_top_facts(_bs_facts, n=1, max_per_category=1)
         # Parth fb_57d99cb6de27 / fb_fc5fe6cd1c30: suppress
         # bs_king_shield_broken when the user's move was a CAPTURE.
         # "Your king has lost N shelter pawns" is a permanent state

@@ -135,7 +135,16 @@ SHAPE_PATTERNS = [
     {
         "id": "double_attack_line",
         "name": "Aligned Pieces",
-        "description": "Two of your pieces on the same line — coordinate them for shared pressure on an open file or diagonal.",
+        # Mohit Day 3 Issue B (2026-05-30): the previous description
+        # ("Two of your pieces on the same line — coordinate them for
+        # shared pressure on an open file or diagonal.") fired on 131
+        # of 5,264 audited moves (2.5%) as the ENTIRE caption — generic
+        # without naming the file or the specific pieces. Authored
+        # silence per [[no-hollow-coverage]]. R_PROMOTED_shape requires
+        # shape_pattern_desc; empty means the rule renders nothing and
+        # falls through. Replace when a richer file+pieces template is
+        # authored that names what to coordinate.
+        "description": "",
         "phase_in_scope": "middlegame",
         "priority": 70,
         "geometry_hint": "two own sliders of compatible movement (R+R, R+Q, B+B, B+Q) stacked on same file/rank/diagonal aimed at enemy territory",
@@ -181,7 +190,13 @@ SHAPE_PATTERNS = [
     {
         "id": "weak_squares",
         "name": "Weak Squares",
-        "description": "Squares near their king that no enemy pawn can defend — your pieces can land there safely.",
+        # Mohit Day 3 Issue B (2026-05-30): fired 35 times in 200-game
+        # audit, frequently on positions unrelated to king-zone weakness
+        # (winning checks, captures). The heuristic_only verifier_policy
+        # means there's no engine verification. Authored silence until
+        # the detector is tightened to require named weak squares
+        # involved in the played move.
+        "description": "",
         "phase_in_scope": "middlegame",
         "priority": 55,
         "geometry_hint": "enemy king zone (3x3 around king) — >=3 squares are one colour and enemy has no bishop of that colour; own pieces can access those squares",
@@ -236,7 +251,12 @@ SHAPE_PATTERNS = [
     {
         "id": "tired_defender",
         "name": "Tired Defender",
-        "description": "One of their pieces is defending two things. Force it to choose.",
+        # Mohit Day 3 Issue B (2026-05-30): fired 25 times in 200-game
+        # audit; generic "force it to choose" without naming WHICH piece
+        # or WHICH targets. Authored silence until detector enriches
+        # the template with the defender's piece+square and the two
+        # targets it's stretched between.
+        "description": "",
         "phase_in_scope": "any",
         "priority": 78,
         "geometry_hint": "enemy piece is the sole defender of >=2 own targets (pieces or critical squares); removing/distracting it loses one target",
