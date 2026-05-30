@@ -83,15 +83,17 @@ async def backfill_for_user(
             continue
 
         if only_skills:
-            # Pre-filter: temporarily strip the registry down to the
-            # requested subset so the runner ignores other detectors.
-            # We do this by running the registry runner once but with
-            # a filtered view (cheaper than building a parallel runner).
-            from services.concept_detectors._runner import run_detectors_for_game
-            from services.concept_detectors.registry import all_detectors
+            # Pre-filter: replay per-move with the same logic
+            # record_concept_applications_from_game uses, but skip
+            # skill_ids not in only_skills. Evidence is stamped with
+            # game_id + move_number so the modal can audit the grade
+            # later (Mohit 2026-05-30).
+            from services.concept_detectors._runner import run_detectors_for_move
+            from services.coach_memory import record_skill_attempt
+            from services.engine2_skill_builder import get_skill_node
             import chess as _chess
             uc = _chess.WHITE if user_color == "white" else _chess.BLACK
-            moves_iter = []
+            latest = {}  # skill_id -> (outcome, evidence)
             for me in mes:
                 fen = me.get("fen_before"); san = me.get("move") or me.get("move_san")
                 if not fen or not san: continue
@@ -99,34 +101,30 @@ async def backfill_for_user(
                     b = _chess.Board(fen)
                     if b.turn != uc: continue
                     mv = b.parse_san(san)
-                    moves_iter.append((b, mv, uc))
+                    for sid, outcome in run_detectors_for_move(b, mv, uc):
+                        if sid not in only_skills:
+                            continue
+                        latest[sid] = (outcome, {
+                            "game_id": gid,
+                            "move_number": me.get("move_number"),
+                            "fen_before": fen,
+                            "move_san": san,
+                            "source": "detector_backfill",
+                        })
                 except Exception:
                     continue
-            # Build a per-skill filtered list of grades.
-            from services.concept_detectors._runner import run_detectors_for_move
-            filtered = []
-            for b, mv, uc2 in moves_iter:
-                for skill_id, outcome in run_detectors_for_move(b, mv, uc2):
-                    if skill_id in only_skills:
-                        filtered.append((skill_id, outcome))
-            # Apply via record_skill_attempt directly.
-            from services.coach_memory import record_skill_attempt
-            from services.engine2_skill_builder import get_skill_node
             recorded = []
-            # Take latest grade per skill (matches non-filtered behaviour).
-            latest = {}
-            for sid, oc in filtered:
-                latest[sid] = oc
-            for sid, oc in latest.items():
+            for sid, (outcome, ev) in latest.items():
                 node = get_skill_node(sid) or {}
                 stype = node.get("kind", "concept")
-                record_skill_attempt(memory, sid, stype, oc)
-                recorded.append((sid, oc))
+                record_skill_attempt(memory, sid, stype, outcome, evidence=ev)
+                recorded.append((sid, outcome))
         else:
             recorded = record_concept_applications_from_game(
                 memory=memory,
                 move_evaluations=mes,
                 user_color=user_color,
+                game_id=gid,
             )
         if recorded:
             games_with_grades += 1

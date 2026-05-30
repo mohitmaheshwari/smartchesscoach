@@ -175,6 +175,40 @@ def _state_for_skill(skill, kind: str, *, now: Optional[datetime] = None) -> Tup
     return "learning", None
 
 
+def _compute_lesson_url(skill_id: str, node: Dict) -> Optional[str]:
+    """Map a skill_id + tree node to the user-facing lesson URL.
+
+    Returns None when no lesson page is wired for this skill kind yet.
+    The Progress page renders a 'Study →' link only when this field
+    is present, so missing entries fall through silently instead of
+    rendering broken links.
+    """
+    kind = node.get("kind", "")
+    ref = node.get("content_ref", "")
+    if kind == "opening":
+        return f"/openings/{ref}" if ref else None
+    if kind == "coached_play":
+        return f"/play-with-coach?focus={skill_id}"
+    if kind == "endgame":
+        # content_ref doesn't always match endgame_theory_tree.json
+        # lesson keys directly (e.g. 'lucena_position' vs 'lucena').
+        # Hard-coded mapping for the 4 endgame skills currently
+        # in the tree.
+        ENDGAME_MAP = {
+            "opposition":      ("king_and_pawn", "opposition"),
+            "rule_of_square":  ("king_and_pawn", "square_rule"),
+            "lucena_position": ("rook_endgames", "lucena"),
+            "philidor_position": ("rook_endgames", "philidor"),
+        }
+        cat_lesson = ENDGAME_MAP.get(ref)
+        if cat_lesson:
+            return f"/endgames/{cat_lesson[0]}/{cat_lesson[1]}"
+        return None
+    # concept / trap_set / mate_pattern — no lesson page yet. When one
+    # ships, register the mapping here.
+    return None
+
+
 def summarize_mastery(memory) -> Dict:
     """Build the user-facing mastery summary across the full skill tree.
 
@@ -224,6 +258,11 @@ def summarize_mastery(memory) -> Dict:
             "kind": kind,
             "tier": node.get("tier", 0),
             "fixes": node.get("fixes", ""),
+            # Mohit 2026-05-30: lesson_url makes each skill clickable on
+            # the Progress page Skills section. None when no lesson page
+            # exists yet (concepts, trap sets, mates without a lesson).
+            # See _compute_lesson_url() below for the kind->URL mapping.
+            "lesson_url": _compute_lesson_url(skill_id, node),
         }
 
         progress = user_skills_by_id.get(skill_id)

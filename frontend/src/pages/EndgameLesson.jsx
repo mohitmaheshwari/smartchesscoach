@@ -116,9 +116,37 @@ export default function EndgameLesson({ user }) {
     } catch (e) { console.error("Check move failed:", e); }
   }, [phase, currentPos, categoryKey, lessonKey, posIndex]);
 
+  // Mohit 2026-05-30: map endgame lesson keys -> engine2 skill ids so
+  // we can record completion. Each entry corresponds to a node in
+  // backend/data/coaching/skill_tree.json. content_ref doesn't always
+  // match the lesson key 1:1 (e.g. 'rule_of_square' content_ref ->
+  // 'square_rule' lesson key), so this is the canonical mapping.
+  const LESSON_TO_SKILL_ID = {
+    opposition: "endgame_opposition",
+    square_rule: "endgame_rule_of_square",
+    lucena: "endgame_lucena",
+    philidor: "endgame_philidor",
+  };
+
   const goNext = useCallback(() => {
     if (posIndex + 1 >= (lesson?.total_positions || 0)) {
       setPhase(PHASE.COMPLETE);
+      // Fire-and-forget skill-completed grade. We only mark it
+      // 'correct' when the user solved every position cleanly (score
+      // == total). Anything less stays uncredited — they can re-do
+      // the lesson, OR an in-game detector will eventually grade them.
+      const skillId = LESSON_TO_SKILL_ID[lessonKey];
+      if (skillId) {
+        const cleanFinish = score === (lesson?.total_positions || 0);
+        if (cleanFinish) {
+          fetch(`${API}/engine2/skill-completed`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ skill_id: skillId, outcome: "correct" }),
+          }).catch(() => {});
+        }
+      }
     } else {
       const nextIdx = posIndex + 1;
       const nextPos = lesson.positions[nextIdx];

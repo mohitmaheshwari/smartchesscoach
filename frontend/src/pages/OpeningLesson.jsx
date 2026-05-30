@@ -330,9 +330,29 @@ const OpeningLesson = () => {
                 message: "Excellent! You've completed the main line!"
               });
               setIsPracticing(false);
-              
+
               // Update progress
               updateProgress(lesson.opening.main_line.length);
+
+              // Mohit 2026-05-30: clean main-line completion grades the
+              // engine2 opening skill. We try multiple candidate skill
+              // ids because the URL openingKey doesn't always include
+              // the colour suffix (e.g. 'london_system' vs
+              // 'opening_london_white'). Whichever one exists in the
+              // tree gets recorded; the rest return 404 silently.
+              const candidates = [
+                `opening_${openingKey}_white`,
+                `opening_${openingKey}_black`,
+                `opening_${openingKey}`,
+              ];
+              for (const skillId of candidates) {
+                fetch(`${API}/engine2/skill-completed`, {
+                  method: "POST",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ skill_id: skillId, outcome: "correct" }),
+                }).catch(() => {});
+              }
             }
           }
         }, 1000);

@@ -1412,6 +1412,7 @@ def process_job(db, job):
                             was_winning=was_winning_flag,
                             move_evaluations=move_evaluations,
                             user_color=game.get("user_color"),
+                            game_id=game.get("game_id"),
                         )
                         # Bust the Lab cache so the new focus shows immediately
                         try:

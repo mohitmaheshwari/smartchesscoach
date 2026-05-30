@@ -84,6 +84,13 @@ class SkillProgress:
     # concept_detectors docstring design note.
     applied: int = 0
     outcomes: List[str] = field(default_factory=list)  # Last 10: "correct"|"wrong"|"seen"|"applied"
+    # Mohit 2026-05-30: per-grade evidence. Each entry pins the credit
+    # to a concrete artefact the user can audit — game_id + move_number
+    # + fen_before + move_san for in-game grades; lesson_key for
+    # lesson-completion grades. Surfaced via /api/engine2/skill-
+    # evidence/{skill_id}. Capped at 20 entries (latest wins) to keep
+    # the document size bounded.
+    evidence: List[Dict] = field(default_factory=list)
     first_seen: Optional[str] = None
     last_seen: Optional[str] = None
     learned_at: Optional[str] = None   # When promoted to learned (if ever)
@@ -334,6 +341,7 @@ async def update_memory_after_game(
     was_winning: bool = False,  # Engine 2: did the user have a winning position at some point?
     move_evaluations: Optional[List[Dict[str, Any]]] = None,  # Per-move records for concept-detector replay
     user_color: Optional[str] = None,  # "white" | "black" — needed when move_evaluations is supplied
+    game_id: Optional[str] = None,     # Stamped on per-move evidence so users can audit the credit
 ) -> CoachMemory:
     """
     Update coach memory after a game.
@@ -450,6 +458,7 @@ async def update_memory_after_game(
                 move_evaluations=move_evaluations,
                 user_color=user_color,
                 timestamp=now,
+                game_id=game_id,
             )
         except Exception as e:
             logger.debug(f"[CONCEPT_DETECTORS] failed (non-fatal): {e}")
@@ -504,8 +513,9 @@ def record_skill_attempt(
     memory: CoachMemory,
     skill_id: str,
     skill_type: str,
-    outcome: str,  # "correct", "wrong", or "seen"
+    outcome: str,  # "correct", "wrong", "seen", or "applied"
     timestamp: Optional[str] = None,
+    evidence: Optional[Dict] = None,
 ) -> SkillProgress:
     """
     Record one attempt at a skill. Applies the learned rule:
@@ -553,6 +563,18 @@ def record_skill_attempt(
     skill.outcomes.append(outcome)
     # Keep only last 10 outcomes for the rule check
     skill.outcomes = skill.outcomes[-10:]
+
+    # Append the evidence record if the caller supplied one. Capped at
+    # 20 entries (latest wins) so the document size stays bounded even
+    # for users who play hundreds of games.
+    if evidence:
+        ev_entry = {
+            "outcome": outcome,
+            "timestamp": timestamp,
+            **{k: v for k, v in evidence.items() if v is not None},
+        }
+        skill.evidence.append(ev_entry)
+        skill.evidence = skill.evidence[-20:]
 
     # Promotion / demotion check — apply the 5/3/no-recent-fail rule.
     # "Learned" is not a badge — it's the current state of demonstrated
@@ -658,6 +680,7 @@ def record_concept_applications_from_game(
     move_evaluations: List[Dict[str, Any]],
     user_color: str,
     timestamp: Optional[str] = None,
+    game_id: Optional[str] = None,
 ) -> List[tuple]:
     """Run every registered concept detector against this game's USER
     moves. Each `applied` / `missed` grade is persisted via
@@ -681,7 +704,7 @@ def record_concept_applications_from_game(
 
     try:
         import chess
-        from services.concept_detectors._runner import run_detectors_for_game
+        from services.concept_detectors._runner import run_detectors_for_move
         from services.engine2_skill_builder import get_skill_node
     except Exception as e:
         logger.debug(f"[CONCEPT_DETECTORS] import failed: {e}")
@@ -690,7 +713,16 @@ def record_concept_applications_from_game(
     user_is_white = (user_color or "white").lower() == "white"
     uc = chess.WHITE if user_is_white else chess.BLACK
 
-    moves_iter = []
+    # Mohit 2026-05-30: run detectors PER MOVE so we can capture the
+    # specific (game_id, move_number, fen_before, move_san) tuple as
+    # evidence for each grade. The older approach (run_detectors_for_game)
+    # aggregated grades into one (skill_id, outcome) pair per game,
+    # losing the move-level provenance the user needs to audit.
+    #
+    # If multiple moves in the same game grade the same skill, the LAST
+    # grade wins (matches the original aggregation semantics) and its
+    # evidence is the one we keep.
+    latest_grade = {}   # skill_id -> (outcome, evidence_dict)
     for me in move_evaluations:
         fen_before = me.get("fen_before")
         san = me.get("move") or me.get("move_san")
@@ -698,21 +730,31 @@ def record_concept_applications_from_game(
             continue
         try:
             board = chess.Board(fen_before)
-            # Skip opponent moves — detectors are USER-only grades.
             if board.turn != uc:
                 continue
             move = board.parse_san(san)
-            moves_iter.append((board, move, uc))
+            for skill_id, outcome in run_detectors_for_move(board, move, uc):
+                latest_grade[skill_id] = (
+                    outcome,
+                    {
+                        "game_id": game_id,
+                        "move_number": me.get("move_number"),
+                        "fen_before": fen_before,
+                        "move_san": san,
+                        "source": "detector",
+                    },
+                )
         except Exception:
             continue
 
-    grades = run_detectors_for_game(iter(moves_iter))
-
     recorded = []
-    for skill_id, outcome in grades:
+    for skill_id, (outcome, evidence) in latest_grade.items():
         node = get_skill_node(skill_id) or {}
         skill_type = node.get("kind", "concept")
-        record_skill_attempt(memory, skill_id, skill_type, outcome, timestamp)
+        record_skill_attempt(
+            memory, skill_id, skill_type, outcome, timestamp,
+            evidence=evidence,
+        )
         recorded.append((skill_id, outcome))
         logger.info(
             f"[CONCEPT_DETECTORS] {skill_id} ({skill_type}) -> "

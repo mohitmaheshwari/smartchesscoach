@@ -3463,7 +3463,20 @@ async def _record_engine2_skill(user_id: str, skill_id: str, outcome: str) -> di
         + memory.learning.concepts_mastered
     )
 
-    record_skill_attempt(memory, skill_id, kind, outcome)
+    # Stamp a "lesson_completion" evidence entry on lesson-driven
+    # grades so the evidence modal can distinguish "credited because
+    # they finished the lesson" from "credited because they applied
+    # it in a game." Skill demote (separate endpoint) writes its own
+    # source marker.
+    lesson_evidence = (
+        {"source": "lesson_completion", "lesson_ref": node.get("content_ref")}
+        if outcome in ("correct", "wrong")
+        else None
+    )
+    record_skill_attempt(
+        memory, skill_id, kind, outcome,
+        evidence=lesson_evidence,
+    )
 
     await db.coach_memory.update_one(
         {"user_id": user_id},
@@ -3532,3 +3545,124 @@ async def engine2_mastery_summary(user: User = Depends(get_current_user)):
 
     memory = await get_or_create_memory(db, user.user_id)
     return summarize_mastery(memory)
+
+
+@router.get("/engine2/skill-evidence/{skill_id}")
+async def engine2_skill_evidence(
+    skill_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Audit trail for a single skill.
+
+    Returns every concrete (game_id, move_number, fen, move_san)
+    record that contributed to this skill's grade — both detector
+    grades from games AND lesson-completion grades. Lets the UI show
+    'we credited you because of THIS move in THIS game' so the user
+    can verify they actually understand the concept, not just that
+    they happened to make the right move.
+
+    Mohit 2026-05-30 ("how do we know they didn't get lucky?"). Pairs
+    with POST /engine2/skill-demote for the user-facing 'not really —
+    re-teach me' button.
+    """
+    from services.coach_memory import get_or_create_memory
+    from services.engine2_skill_builder import get_skill_node
+
+    memory = await get_or_create_memory(db, user.user_id)
+    skill = next(
+        (s for s in memory.learning.skills if s.skill_id == skill_id),
+        None,
+    )
+    node = get_skill_node(skill_id) or {}
+
+    if skill is None:
+        return {
+            "skill_id": skill_id,
+            "label": node.get("label", skill_id.replace("_", " ").title()),
+            "kind": node.get("kind"),
+            "evidence": [],
+            "counts": {"seen": 0, "correct": 0, "applied": 0, "wrong": 0},
+        }
+
+    # Enrich with game metadata where evidence references a game_id.
+    enriched = []
+    for ev in skill.evidence:
+        e = dict(ev)
+        gid = e.get("game_id")
+        if gid:
+            g = await db.games.find_one(
+                {"game_id": gid},
+                {"_id": 0, "date_played": 1, "platform": 1, "result": 1,
+                 "user_color": 1, "white_name": 1, "black_name": 1,
+                 "opening_name": 1, "imported_at": 1}
+            )
+            if g:
+                e["game"] = g
+        enriched.append(e)
+
+    return {
+        "skill_id": skill_id,
+        "label": node.get("label", skill_id.replace("_", " ").title()),
+        "kind": node.get("kind"),
+        "evidence": enriched,
+        "counts": {
+            "seen": skill.seen,
+            "correct": skill.correct,
+            "applied": skill.applied,
+            "wrong": skill.wrong,
+        },
+        "learned_at": skill.learned_at,
+        "is_learned": skill.is_learned(),
+    }
+
+
+@router.post("/engine2/skill-demote")
+async def engine2_skill_demote(
+    req: Engine2SkillRequest,
+    user: User = Depends(get_current_user),
+):
+    """User-triggered honest demotion.
+
+    Surfaced behind the 'Actually, I don't really get this' button in
+    the evidence modal. Records a `wrong` outcome so is_learned()
+    drops the skill out of `studied` and back into `learning`, and
+    the lesson resurfaces as the next-action.
+
+    Mohit 2026-05-30. NOT a destructive operation: the previous
+    `correct` / `applied` history stays, the user just registered an
+    explicit 'not me yet' which the rule respects via 'wrong in last
+    2 outcomes' = True.
+    """
+    from services.engine2_skill_builder import get_skill_node
+    from services.coach_memory import (
+        get_or_create_memory, record_skill_attempt, _memory_to_doc
+    )
+
+    node = get_skill_node(req.skill_id)
+    if not node:
+        raise HTTPException(status_code=404, detail=f"Skill '{req.skill_id}' not in tree")
+
+    kind = node.get("kind", "concept")
+    memory = await get_or_create_memory(db, user.user_id)
+    record_skill_attempt(
+        memory, req.skill_id, kind, "wrong",
+        evidence={"source": "user_demotion"},
+    )
+    await db.coach_memory.update_one(
+        {"user_id": user.user_id},
+        {"$set": _memory_to_doc(memory)},
+        upsert=True,
+    )
+
+    skill = next((s for s in memory.learning.skills if s.skill_id == req.skill_id), None)
+    return {
+        "skill_id": req.skill_id,
+        "demoted": True,
+        "is_learned": bool(skill and skill.is_learned()),
+        "stats": {
+            "seen": (skill.seen if skill else 0),
+            "correct": (skill.correct if skill else 0),
+            "applied": (skill.applied if skill else 0),
+            "wrong": (skill.wrong if skill else 0),
+        },
+    }

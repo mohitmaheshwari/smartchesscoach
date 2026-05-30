@@ -8283,6 +8283,7 @@ async def _process_move_and_respond(
                         # via board.turn so coach moves don't grade.
                         move_evaluations=session_doc.get("move_history") or [],
                         user_color=session_doc.get("user_color") or "white",
+                        game_id=session_id,
                     )
                     logger.info(f"Updated coach memory after game {session_id}")
 
