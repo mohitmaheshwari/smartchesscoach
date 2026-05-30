@@ -2716,6 +2716,109 @@ def classify_caption_tier(
         return "NONE"
 
 
+def _verify_and_recover_caption(
+    *,
+    caption_payload: Dict[str, Any],
+    fen_before: str,
+    played_move: chess.Move,
+    user_color: str,
+    played_san: str,
+    best_move_san: Optional[str],
+    severity_practical: str,
+    mover_is_user: bool,
+) -> Optional[Dict[str, Any]]:
+    """Post-render board-grounding check.
+
+    Mohit 2026-05-30 "wire it in": every rendered caption gets a Phase 1
+    audit against the post-played-move FEN. If a piece-on-square claim
+    is hallucinated (or wrong piece type / wrong color), the variant is
+    REPLACED — not silenced — by a bare severity caption that makes
+    only the irreducibly-true claims (the SAN that was played, the
+    severity tier, optionally the best move SAN).
+
+    Recovery chain when verify fails:
+      1. Bare R12-style severity caption — never references squares or
+         piece counts, so it cannot hallucinate.
+      2. If no severity / no best move (clean move): "{played_san}." —
+         factual mention only.
+
+    Returns a telemetry dict {original_text, verdict, recovery_text} or
+    None when the caption passed (most common case).
+
+    The verifier itself is the one from scripts/content_correctness_audit.
+    Mutates caption_payload in place; raising is OK (the caller has a
+    try/except that preserves the original on crash).
+    """
+    text_in = (caption_payload.get("caption") or "").strip()
+    if not text_in:
+        return None  # nothing to verify
+
+    # Build the post-played-move board (Phase 1 claims like "your queen
+    # on a7" reference the position AFTER the played move, which is what
+    # the player sees in the UI).
+    try:
+        post_board = chess.Board(fen_before)
+        post_board.push(played_move)
+        fen_after = post_board.fen()
+    except Exception:
+        return None  # bad FEN/move — skip verify, leave caption alone
+
+    try:
+        from scripts.content_correctness_audit import audit_text_against_fen
+    except Exception:
+        return None  # audit module unavailable — skip silently
+
+    try:
+        audit = audit_text_against_fen(
+            text=text_in,
+            fen=fen_after,
+            user_color=user_color or "white",
+            engine=None,  # Phase 1 only; Phase 2 needs Stockfish in process
+        )
+    except Exception:
+        return None
+
+    if audit.overall != "fail":
+        return None  # pass / partial / no_claims_found — all OK
+
+    # Build the recovery caption — bare severity, no piece claims.
+    _severity_phrases = {
+        "blunder": "is a major blunder",
+        "serious": "is a serious mistake",
+        "mistake": "is a mistake",
+        "inaccuracy": "is an inaccuracy",
+    }
+    sev_phrase = _severity_phrases.get((severity_practical or "").lower(), "")
+    if mover_is_user and sev_phrase and best_move_san and best_move_san != played_san:
+        recovery = f"{played_san} {sev_phrase}. {best_move_san} was better."
+    elif mover_is_user and sev_phrase:
+        recovery = f"{played_san} {sev_phrase}."
+    elif (not mover_is_user) and sev_phrase:
+        recovery = f"Opponent's {played_san} {sev_phrase}."
+    else:
+        # Clean move OR no severity — just acknowledge the SAN.
+        recovery = f"{played_san}."
+
+    prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
+    failed_claims = [
+        f"[{c.kind}] {c.text!r}: {c.detail}"
+        for c in audit.claims if c.verdict == "fail"
+    ]
+    logger.info(
+        f"[caption_verifier] FAIL on '{text_in[:80]}' "
+        f"(rule={prev_rule}): {'; '.join(failed_claims[:3])} "
+        f"-> '{recovery}'"
+    )
+    caption_payload["caption"] = recovery
+    caption_payload["rule_name"] = f"{prev_rule}→R_VERIFIER_RECOVERY"
+    return {
+        "original_text": text_in,
+        "verdict": "fail",
+        "recovery_text": recovery,
+        "failed_claims": failed_claims,
+    }
+
+
 def apply_promotion_ladder_dispatch(
     *,
     caption_payload: Dict[str, Any],
@@ -3579,6 +3682,41 @@ def build_move_teaching_decision(
         principle_id_used=caption_facts.get("principle_id_used"),
         full_move_number=inputs.full_move_number,
     )
+
+    # ─── 11b. Board-grounding verifier (Mohit 2026-05-30) ───────────
+    # Run Phase 1 of content_correctness_audit on the rendered caption
+    # against the post-played-move FEN. Catches:
+    #   • piece-on-square hallucinations ("your queen on a7" when queen
+    #     isn't on a7)
+    #   • wrong piece type at named square
+    #   • wrong-color attribution ("your" vs "their")
+    #   • illegal "Played X" SAN claims
+    # Does NOT catch semantic claims ("X attacks Y" / counterfactual
+    # framing) — Phase 2 with engine would be needed for those.
+    # On verify-fail: recover with a stripped severity caption rather
+    # than going silent ([[no-hollow-coverage]] is about avoiding fake
+    # explanations, not avoiding all output — Mohit 2026-05-30: "captions
+    # correct, not silent"). Telemetry: log the failed caption + reason
+    # so we can iterate on the templates that hallucinate.
+    _verifier_telemetry: Optional[Dict[str, Any]] = None
+    try:
+        _verifier_telemetry = _verify_and_recover_caption(
+            caption_payload=caption_payload,
+            fen_before=inputs.fen_before,
+            played_move=played_move,
+            user_color=inputs.user_color,
+            played_san=inputs.played_san,
+            best_move_san=inputs.best_move_san,
+            severity_practical=practical.practical_tier,
+            mover_is_user=bool(inputs.mover_is_user),
+        )
+    except Exception as _ver_exc:
+        # Defensive: verifier MUST NOT break caption rendering. Any
+        # exception logs + the original caption survives unchanged.
+        logger.warning(
+            f"[caption_verifier] crashed on move {inputs.full_move_number}: "
+            f"{_ver_exc!r} — leaving caption unchanged"
+        )
 
     # ─── 12. A8 caption tier classification ──────────────────────
     tier = classify_caption_tier(
