@@ -902,6 +902,27 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               const squares = getLastMoveSquares(currentMove);
               if (!squares) return null;
 
+              // Mohit 2026-05-31: badge-vs-caption alignment. The caption
+              // text is the authored severity-word ground-truth. When the
+              // narrative starts with a fixed R12 severity phrase, derive
+              // the badge from that phrase. Otherwise fall back to the
+              // legacy severity-or-cp_loss derivation. See the matching
+              // comment block in LabV2.jsx for the full rationale.
+              const narrative = (currentMove.narrative || "").toLowerCase();
+              let tierFromCaption = null;
+              if (narrative.includes("is a major blunder")) {
+                tierFromCaption = "blunder";
+              } else if (narrative.includes("is a serious mistake")) {
+                tierFromCaption = "mistake";
+              } else if (narrative.includes("is a mistake")) {
+                tierFromCaption = "mistake";
+              } else if (narrative.includes("is an inaccuracy")) {
+                tierFromCaption = "inaccuracy";
+              }
+              if (tierFromCaption) {
+                return { square: squares[1], type: tierFromCaption };
+              }
+
               let severity = currentMove.severity;
 
               // For opponent moves without severity, derive from cp_loss

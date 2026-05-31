@@ -1468,6 +1468,43 @@ const LabV2 = ({ user }) => {
                             e.move_number === moveNum && e.move === m.san
                           ) || evals.find(e => e.move === m.san);
 
+                          // Mohit 2026-05-31: badge-vs-caption divergence ("Good"
+                          // badge under an "is a mistake" caption). Root cause:
+                          //   - badge reads stored `classification` ← classify_move
+                          //     using chess.com-style grace (stayed_winning 500/300).
+                          //   - caption tier resolves via R12 severity_tiers using
+                          //     winprob-based grace (stayed_winning 200/200) AND my
+                          //     canonical-mistake bump (commit b6e89649).
+                          // Different stayed_winning thresholds + different fallback
+                          // ladders → the two surfaces disagree on the severity
+                          // WORD shown to the user.
+                          //
+                          // Single source of truth: the caption text is the authored
+                          // user-facing severity word. R12's severity_phrases are
+                          // fixed strings ("is a major blunder", "is a serious
+                          // mistake", "is a mistake", "is an inaccuracy"). Derive
+                          // the badge from those phrases when the caption is
+                          // present. Fall back to stored classification only when
+                          // the caption is silent / non-R12 (clean moves, openings).
+                          const narrative = (m.narrative || "").toLowerCase();
+                          let tierFromCaption = null;
+                          if (narrative.includes("is a major blunder")) {
+                            tierFromCaption = "blunder";
+                          } else if (narrative.includes("is a serious mistake")) {
+                            // R12 separates "serious" but the badge palette tops out
+                            // at mistake/blunder. "Serious mistake" maps to the
+                            // mistake badge (orange), not blunder (red), to keep
+                            // the gradient honest.
+                            tierFromCaption = "mistake";
+                          } else if (narrative.includes("is a mistake")) {
+                            tierFromCaption = "mistake";
+                          } else if (narrative.includes("is an inaccuracy")) {
+                            tierFromCaption = "inaccuracy";
+                          }
+                          if (tierFromCaption) {
+                            return { square: m.to, type: tierFromCaption };
+                          }
+
                           if (evalData) {
                             const c = (evalData.classification || evalData.evaluation || "").toLowerCase().replace(/[_\s]/g, "");
                             const severity = c.includes("brilliant") ? "brilliant"
