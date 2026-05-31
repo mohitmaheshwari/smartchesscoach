@@ -100,7 +100,7 @@ These are not detector bugs — they need new authored content. Filed in [[capti
 3. **What Parth will still find:**
    - **Authoring gaps** — the 3 items in his current dump that need new content. He'll find more like these as the corpus grows.
    - **Severity label issues** — separate from caption text; lives upstream in analysis pipeline.
-   - **PWC-specific bugs** — PWC runs a parallel coaching engine per [[pwc_runs_second_coaching_engine]]; today's verifier doesn't protect PWC. Migrating PWC to the central layer is the next big lever.
+   - **PWC residual surfaces** — PWC's user-move + coach-move + socratic narratives already route through the central layer (PR-14, commit `214b1f87`, 2026-05-27), so Days 1-3 fixes DO propagate to PWC there. The non-central surfaces that remain (severity badge from cp_loss tier; quiet-move good-move filler from the critique engine; structural fields `candidate_moves` / `fundamentals`) were explicitly kept by Mohit per [[project_pwc_runs_second_coaching_engine]] UPDATE block. Bugs in those surfaces don't auto-fix from caption_pipeline changes.
    - **Subjective phrasing** — "could be better" / "doesn't feel right" / "wrong narrative" issues that are taste-level.
 
 ## What changed for Parth's next batch
@@ -114,7 +114,11 @@ Expected: ~10-15 items in his next batch instead of 30, mostly in the residual c
 
 ## Next levers (not in this 5-day plan)
 
-1. **PWC migration to central layer** — biggest single fix for the residual bug surface.
-2. **Severity-label verifier** — extend Phase 2 to verify "is a mistake" vs engine eval delta.
-3. **Smarter counterfactual handling** — verify "Y was better — it does X" claims against FEN where Y was played, not where played-move was played. Lifts the 0.4% recovery rate to ~0.1%.
+1. **Smarter counterfactual handling** — verify "Y was better — it does X" claims against FEN where Y was played, not where played-move was played. Lifts the 0.4% recovery rate to ~0.1%. Highest mechanical leverage now that PWC narrative is covered.
+2. **Severity-label verifier** — extend Phase 2 to verify "is a mistake" vs engine eval delta. Catches the fb_bb0d3c83911e class (engine disagreement at depth) directly.
+3. **PWC residual surfaces** — the parts of PWC explicitly NOT routed through the central layer per [[project_pwc_runs_second_coaching_engine]] UPDATE: severity badge (cp_loss tier), quiet-move filler (critique engine), structural fields (candidate_moves, fundamentals). Mohit declined alignment of the badge; the filler is by-design (review is silent on those moves). If Parth's next batch surfaces bugs in those specific surfaces, address per-surface; otherwise leave.
 4. **Authoring pipeline** — turn the 3 authoring-needed items into a queue with template skeletons.
+
+## Memory correction
+
+The first draft of this report cited "PWC migration to central layer" as the biggest next lever. That was wrong — based on the stale lead of [[project_pwc_runs_second_coaching_engine]]. The UPDATE block in that memory (which I missed on first read) records that the migration shipped on 2026-05-27 in PR-14 (commit `214b1f87`). All three PWC narrative entry points in `live_v5_teaching.py` call `build_move_teaching_decision`. Days 1-3 fixes propagate to PWC at those entry points. Report corrected above.
