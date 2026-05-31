@@ -124,6 +124,8 @@
     {"when": {"severity_practical": "blunder"}, "tier": "blunder"},
     {"when": {"severity_practical": "serious"}, "tier": "serious"},
     {"when": {"severity_practical": "mistake"}, "tier": "mistake"},
+    {"when": {"played_smaller_win": true, "severity_practical": "inaccuracy"}, "tier": "mistake"},
+    {"when": {"played_smaller_win": true, "severity_practical": "good"}, "tier": "mistake"},
     {"when": {"severity_practical": "inaccuracy"}, "tier": "inaccuracy"},
     {"when": {"severity_practical": "good"}, "tier": "inaccuracy"},
     {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
@@ -131,6 +133,7 @@
     {"when": {"cp_loss": {"gte": 100}}, "tier": "mistake"},
     {"tier": "inaccuracy"}
   ],
+  "_smaller_win_bump_note": "Parth fb_b318a8af5519 (2026-05-31): when played_smaller_win fires (player captured a defended piece while a free piece of equal value sat undefended elsewhere), bump from inaccuracy/good to mistake. The numerical cp_loss often lands in inaccuracy tier because BOTH moves win material, but missing a free piece is structurally mistake-level teaching for the 600-1500 audience — 'you missed a free bishop' reads as a mistake, not an inaccuracy, even when net material is still in your favour.",
   "severity_phrases": {
     "blunder": "is a major blunder",
     "serious": "is a serious mistake",
