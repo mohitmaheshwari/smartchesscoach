@@ -3434,6 +3434,11 @@ async def generate_game_decryption_v5(
                     shape_pattern_record = _decision.shape_pattern_record
                     trap_record = _decision.trap_record
                     _caption_tier = _decision.teaching_meta.caption_tier
+                    # Mohit 2026-05-31: capture R12's chosen severity word
+                    # so the Lab board badge stays in sync with the
+                    # caption text. Field is None for non-R12 captions
+                    # (R15 good-move, opening intro, silent).
+                    _caption_severity_word = _decision.teaching_meta.caption_severity_word
                     principles_fired_last_move = set(_decision.state_mutations.fired_principles_added)
 
                     # ─── DATA-RICHNESS (Mohit 2026-05-27) ──────────────
@@ -3768,6 +3773,14 @@ async def generate_game_decryption_v5(
                 # local set just above the output dict.
                 "caption_tier": _caption_tier,
                 "has_teaching_content": _caption_tier == "HIGH",
+
+                # ── Caption severity word (Mohit 2026-05-31) ──────
+                # R12-chosen severity for the rendered caption text
+                # (blunder / mistake / inaccuracy / None). Frontend
+                # board badge derives from this so badge color +
+                # caption text always agree. None for non-R12
+                # captions (R15 good, opening intro, silent).
+                "caption_severity_word": _caption_severity_word,
 
                 # ── TIER 3 shape pattern (visual danger language) ─
                 # At most one pattern per move; once-per-game suppression.

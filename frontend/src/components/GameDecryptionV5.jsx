@@ -902,22 +902,34 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               const squares = getLastMoveSquares(currentMove);
               if (!squares) return null;
 
-              // Mohit 2026-05-31: badge-vs-caption alignment. The caption
-              // text is the authored severity-word ground-truth. When the
-              // narrative starts with a fixed R12 severity phrase, derive
-              // the badge from that phrase. Otherwise fall back to the
-              // legacy severity-or-cp_loss derivation. See the matching
-              // comment block in LabV2.jsx for the full rationale.
-              const narrative = (currentMove.narrative || "").toLowerCase();
-              let tierFromCaption = null;
-              if (narrative.includes("is a major blunder")) {
-                tierFromCaption = "blunder";
-              } else if (narrative.includes("is a serious mistake")) {
-                tierFromCaption = "mistake";
-              } else if (narrative.includes("is a mistake")) {
-                tierFromCaption = "mistake";
-              } else if (narrative.includes("is an inaccuracy")) {
-                tierFromCaption = "inaccuracy";
+              // Mohit 2026-05-31: badge-vs-caption alignment. R12 picks
+              // the severity word for the caption text via severity_tiers
+              // resolution (with bumps for played_smaller_win, canonical-
+              // mistake-stayed-balanced, etc.). The badge needs to match.
+              //
+              // PRIMARY source: currentMove.caption_severity_word - the
+              // canonical field written by the V5 caption pipeline
+              // (TeachingMeta.caption_severity_word). Set to one of
+              // {"blunder","mistake","inaccuracy"} when R12 produced a
+              // severity caption, null otherwise.
+              //
+              // FALLBACK: text-parse the rendered caption. Covers legacy
+              // game_analyses documents that were written before this
+              // field was added - those records will be backfilled on
+              // next V5 re-render, but until then the text parse keeps
+              // the badge correct.
+              let tierFromCaption = currentMove.caption_severity_word || null;
+              if (!tierFromCaption) {
+                const narrative = (currentMove.narrative || "").toLowerCase();
+                if (narrative.includes("is a major blunder")) {
+                  tierFromCaption = "blunder";
+                } else if (narrative.includes("is a serious mistake")) {
+                  tierFromCaption = "mistake";
+                } else if (narrative.includes("is a mistake")) {
+                  tierFromCaption = "mistake";
+                } else if (narrative.includes("is an inaccuracy")) {
+                  tierFromCaption = "inaccuracy";
+                }
               }
               if (tierFromCaption) {
                 return { square: squares[1], type: tierFromCaption };

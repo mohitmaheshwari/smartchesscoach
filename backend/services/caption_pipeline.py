@@ -225,6 +225,15 @@ class TeachingMeta:
     severity_canonical: str = "good"
     severity_practical: str = "good"
     caption_tier: str = "NONE"  # HIGH / MID / LOW / NONE per caption_classifier
+    # Mohit 2026-05-31: the actual severity WORD R12 chose for the
+    # rendered caption text (e.g. "is a mistake" -> "mistake"). Differs
+    # from `severity` (which is the cp_loss-based canonical) when R12
+    # tier resolution applies bumps/falls (played_smaller_win,
+    # canonical-mistake-stayed-balanced, etc.). Frontend badge derives
+    # from this field so the board badge and caption text always agree.
+    # None when the caption isn't an R12-severity caption (clean move,
+    # R15 good-move, opening intro, silent).
+    caption_severity_word: Optional[str] = None
     has_teaching_content: bool = False
     principle_id_used: Optional[str] = None
     principle_cue: str = ""
@@ -2733,6 +2742,46 @@ def inject_board_state_describer_clause(
         pass
 
 
+def _extract_caption_severity_word(caption_text: str) -> Optional[str]:
+    """Pull the severity WORD out of a rendered R12 caption.
+
+    Mohit 2026-05-31 (Lab board-badge alignment): R12 picks a tier via
+    severity_tiers rules (with bumps for played_smaller_win, canonical-
+    mistake-stayed-balanced, etc.) and renders one of the fixed
+    severity_phrases. The TIER itself isn't exposed as a structured
+    field anywhere — only the rendered text contains the verdict word.
+
+    Downstream surfaces (Lab badge, mastery cards) need that word to
+    keep their visual classification in sync with the caption text.
+    Easiest: parse the fixed phrases here, expose the result on
+    TeachingMeta.caption_severity_word.
+
+    Returns one of {"blunder", "mistake", "inaccuracy"} when R12
+    produced a severity caption, or None for clean / R15 / opening /
+    silent captions. "serious mistake" maps to "mistake" because the
+    consumers (badge palette, mastery filters) don't have a separate
+    "serious" bucket.
+
+    The phrases match R12_blunder.json severity_phrases:
+      blunder    -> "is a major blunder"
+      serious    -> "is a serious mistake"
+      mistake    -> "is a mistake"
+      inaccuracy -> "is an inaccuracy"
+    """
+    if not caption_text:
+        return None
+    t = caption_text.lower()
+    if "is a major blunder" in t:
+        return "blunder"
+    if "is a serious mistake" in t:
+        return "mistake"
+    if "is a mistake" in t:
+        return "mistake"
+    if "is an inaccuracy" in t:
+        return "inaccuracy"
+    return None
+
+
 def classify_caption_tier(
     *,
     caption_text: str,
@@ -3893,11 +3942,22 @@ def build_move_teaching_decision(
         arrows=caption_payload.get("arrows") or [],
         highlight_squares=caption_payload.get("highlight_squares") or [],
     )
+    # Mohit 2026-05-31: extract the severity WORD R12 chose for the
+    # rendered caption so downstream surfaces (Lab badge, mastery
+    # evidence cards, future home-intel) don't text-parse the caption
+    # themselves. R12's severity_phrases are fixed strings; matching
+    # them here is reliable. Returns None for non-R12 captions (R15
+    # good-move, opening intro, silent) so badge falls back to stored
+    # classification.
+    _caption_severity_word = _extract_caption_severity_word(
+        caption_payload.get("caption") or ""
+    )
     teaching_meta = TeachingMeta(
         severity=canonical.user_facing_tier,
         severity_canonical=practical.canonical_tier,
         severity_practical=practical.practical_tier,
         caption_tier=tier,
+        caption_severity_word=_caption_severity_word,
         has_teaching_content=(tier == "HIGH"),
         principle_id_used=caption_facts.get("principle_id_used"),
         principle_cue=caption_facts.get("principle_cue") or "",
