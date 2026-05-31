@@ -126,6 +126,8 @@
     {"when": {"severity_practical": "mistake"}, "tier": "mistake"},
     {"when": {"played_smaller_win": true, "severity_practical": "inaccuracy"}, "tier": "mistake"},
     {"when": {"played_smaller_win": true, "severity_practical": "good"}, "tier": "mistake"},
+    {"when": {"severity_canonical": "mistake", "severity_practical": "inaccuracy", "stayed_winning": false}, "tier": "mistake"},
+    {"when": {"severity_canonical": "mistake", "severity_practical": "good", "stayed_winning": false}, "tier": "mistake"},
     {"when": {"severity_practical": "inaccuracy"}, "tier": "inaccuracy"},
     {"when": {"severity_practical": "good"}, "tier": "inaccuracy"},
     {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
