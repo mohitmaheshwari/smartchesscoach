@@ -688,6 +688,25 @@ def inject_user_blunder_detector_facts(
                     caption_facts["missed_capture_target_square"] = (
                         chess.square_name(_best_mv.to_square)
                     )
+                    # fb_80c1ea9555cb (Parth, 2026-05-31): TRADE detection.
+                    # When best_move captures something BUT the capturer
+                    # dies to a recapture (e.g. Bxc6 followed by bxc6),
+                    # this is a TRADE, not a "free capture." The default
+                    # why_user_missed_capture template tail ("Before every
+                    # move, scan for free captures — material won is
+                    # leverage you keep") is misleading for trades: no
+                    # material is "won," the bishop dies. Detect the
+                    # trade via the same _mover_dies_on_destination helper
+                    # used by Day 1 detector-family fixes, then route to
+                    # the trade variant which drops the false claim.
+                    try:
+                        from services.shape_detectors import _mover_dies_on_destination
+                        _post = _board_cap.copy()
+                        _post.push(_best_mv)
+                        if _mover_dies_on_destination(_post, _best_mv.to_square):
+                            caption_facts["best_move_capture_is_trade"] = True
+                    except Exception:
+                        pass
                     # Sac-awareness (fb_6f2a5ba1f626 reused for R12 why-
                     # clauses): when the BEST move is a capture whose
                     # attacker is worth MORE than the target AND the
