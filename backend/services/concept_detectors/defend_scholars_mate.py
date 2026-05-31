@@ -18,7 +18,14 @@ Decision logic (Black to move; detector fires only when the user plays
 Black, since the SKILL is "defend against"):
 
     Pre-conditions ("clean test"):
-      - Early opening (full_move_number <= 8)
+      - Classical-window opening (full_move_number <= 5). Mohit
+        2026-05-31: a 1300 understands "Scholar's Mate" as the named
+        early pattern. Move-7 / move-8 setups where white delays the
+        queen sortie are geometrically the same Qxf7# threat but
+        pedagogically a different skill ("late queen attack").
+        Confirmed evidence from production: 4 different users had
+        move-7/8 entries credited that the user would NOT recognize
+        as Scholar's Mate. Tightened from <= 8.
       - White has exactly one queen, and that queen attacks f7
       - White bishop sits on c4 (the queen-defender for Qxf7+)
       - It IS currently mate-threat: if white were to play Qxf7 right
@@ -66,9 +73,11 @@ def detect_defend_scholars_mate_application(
         return None
     if board_before.turn != chess.BLACK:
         return None
-    # Scholar's Mate is an early-opening attack. Anything past move 8
-    # is well outside the canonical pattern.
-    if board_before.fullmove_number > 8:
+    # Scholar's Mate is the NAMED early-opening attack — the user must
+    # be able to recognise the pattern as "Scholar's Mate", not a generic
+    # f7 attack. Move 5+ is outside the named-pattern window for a
+    # 1300-rated audience. See module docstring (Mohit 2026-05-31).
+    if board_before.fullmove_number > 5:
         return None
 
     if not _has_scholars_mate_threat(board_before):
