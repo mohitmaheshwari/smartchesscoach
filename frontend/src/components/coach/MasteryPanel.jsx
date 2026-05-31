@@ -15,7 +15,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
-import { Check, RotateCcw, Circle, Loader2, ArrowRight, X } from "lucide-react";
+import { Check, RotateCcw, Circle, Loader2, ArrowRight, X, ExternalLink } from "lucide-react";
+import LichessBoard from "@/components/LichessBoard";
 
 const KIND_TITLE = {
   endgame: "Endgames",
@@ -132,6 +133,7 @@ function SkillRow({ record, onOpenEvidence }) {
 function EvidenceModal({ skill, onClose, onDemote }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!skill) return;
@@ -146,6 +148,16 @@ function EvidenceModal({ skill, onClose, onDemote }) {
   }, [skill]);
 
   if (!skill) return null;
+
+  // Mohit 2026-05-31 — "go to the game, see the chessboard, so the evidence
+  // makes complete sense, these guys are mostly 1300 max." Click navigates
+  // to the game-review page at the exact move the evidence references.
+  const openEvidenceInGame = (ev) => {
+    if (!ev?.game_id) return;
+    const moveQuery = ev.move_number != null ? `?move=${ev.move_number}` : "";
+    navigate(`/game/${ev.game_id}${moveQuery}`);
+    onClose();
+  };
 
   return (
     <div
@@ -188,47 +200,105 @@ function EvidenceModal({ skill, onClose, onDemote }) {
               </p>
             ) : (
               <ul className="space-y-3 mb-5">
-                {data.evidence.map((ev, i) => (
-                  <li
-                    key={i}
-                    className="rounded-lg border border-border/50 p-3 text-[12.5px]"
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className="font-mono text-foreground">
-                        {ev.move_san
-                          ? `${ev.move_san} on move ${ev.move_number ?? "?"}`
-                          : ev.source === "lesson_completion"
-                            ? `Lesson: ${ev.lesson_ref ?? "completed"}`
-                            : ev.source === "user_demotion"
-                              ? "You said: 'I don't get this yet'"
-                              : ev.source}
+                {data.evidence.map((ev, i) => {
+                  // In-game evidence (move_san + fen_before + game_id) gets a
+                  // visual board + click-to-game treatment. Lesson-completion
+                  // and user-demotion entries don't have a board to render.
+                  const isGameEvidence = Boolean(
+                    ev.move_san && ev.fen_before && ev.game_id
+                  );
+                  const headline = ev.move_san
+                    ? `${ev.move_san} on move ${ev.move_number ?? "?"}`
+                    : ev.source === "lesson_completion"
+                      ? `Lesson: ${ev.lesson_ref ?? "completed"}`
+                      : ev.source === "user_demotion"
+                        ? "You said: 'I don't get this yet'"
+                        : ev.source;
+
+                  return (
+                    <li
+                      key={i}
+                      className={`rounded-lg border border-border/50 p-3 text-[12.5px] ${
+                        isGameEvidence
+                          ? "cursor-pointer hover:border-primary/60 hover:bg-muted/40 transition-colors"
+                          : ""
+                      }`}
+                      onClick={
+                        isGameEvidence
+                          ? () => openEvidenceInGame(ev)
+                          : undefined
+                      }
+                      role={isGameEvidence ? "button" : undefined}
+                      tabIndex={isGameEvidence ? 0 : undefined}
+                      onKeyDown={
+                        isGameEvidence
+                          ? (e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openEvidenceInGame(ev);
+                              }
+                            }
+                          : undefined
+                      }
+                      title={
+                        isGameEvidence
+                          ? "Open this game at this move"
+                          : undefined
+                      }
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="font-mono text-foreground flex items-center gap-1.5">
+                          {headline}
+                          {isGameEvidence && (
+                            <ExternalLink className="h-3 w-3 text-muted-foreground/60" />
+                          )}
+                        </div>
+                        <span
+                          className={`text-[10.5px] font-semibold ${
+                            ev.outcome === "applied" || ev.outcome === "correct"
+                              ? "text-emerald-500"
+                              : ev.outcome === "wrong"
+                                ? "text-amber-500"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {ev.outcome}
+                        </span>
                       </div>
-                      <span
-                        className={`text-[10.5px] font-semibold ${
-                          ev.outcome === "applied" || ev.outcome === "correct"
-                            ? "text-emerald-500"
-                            : ev.outcome === "wrong"
-                              ? "text-amber-500"
-                              : "text-muted-foreground"
-                        }`}
-                      >
-                        {ev.outcome}
-                      </span>
-                    </div>
-                    {ev.game && (
-                      <div className="text-[11px] text-muted-foreground mt-1">
-                        {ev.game.opening_name || ev.game.platform || "Game"}
-                        {ev.game.date_played ? ` · ${ev.game.date_played}` : ""}
-                        {ev.game.result ? ` · ${ev.game.result}` : ""}
-                      </div>
-                    )}
-                    {ev.fen_before && (
-                      <div className="text-[10px] font-mono text-muted-foreground/70 mt-1 truncate">
-                        FEN: {ev.fen_before}
-                      </div>
-                    )}
-                  </li>
-                ))}
+                      {ev.game && (
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                          {ev.game.opening_name || ev.game.platform || "Game"}
+                          {ev.game.date_played ? ` · ${ev.game.date_played}` : ""}
+                          {ev.game.result ? ` · ${ev.game.result}` : ""}
+                        </div>
+                      )}
+                      {isGameEvidence && (
+                        <div className="mt-2 flex gap-3 items-start">
+                          {/* Inline mini-board — viewOnly, no interaction.
+                             Lets 1200-1500 users SEE the position they're
+                             being credited for instead of decoding a FEN. */}
+                          <div
+                            className="w-[120px] h-[120px] flex-none rounded overflow-hidden border border-border/40"
+                            // Stop click bubbling so users can scroll/tap
+                            // the board without accidentally triggering
+                            // the card navigation twice.
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <LichessBoard
+                              fen={ev.fen_before}
+                              viewOnly={true}
+                              interactive={false}
+                            />
+                          </div>
+                          <div className="flex-1 text-[11px] text-muted-foreground leading-snug">
+                            Tap to open this game and step through to this
+                            exact move.
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
 
