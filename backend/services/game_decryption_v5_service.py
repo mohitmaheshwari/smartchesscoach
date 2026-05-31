@@ -398,6 +398,33 @@ def get_opening_introduction(
             "name": "Bishop's Opening",
             "idea": "Aims at the f7 square. Not the Italian Game yet — it transposes there if Nf3 and Nc6 follow.",
         },
+        # Parth fb_541f1f71cbe2 (2026-05-31, authoring): after
+        # 1.e4 e5 2.Bc4 (Bishop's Opening), Black's Nf6 is principled:
+        # develops a piece + hits e4 + no Nf3 means e5 isn't actually
+        # under attack so Black can play centrally. Also covers
+        # important king-side squares against early queen tricks
+        # (Scholar's Mate ideas).
+        ("Nf6", "Bc4", 3): {
+            "name": None,
+            "idea": "Develops your knight and attacks e4. White hasn't played Nf3, so e5 is safe. Also defends against early queen attacks.",
+        },
+        # Parth fb_b0379bf528f0 (2026-05-31, authoring): after
+        # 1.e4 e5 2.Bc4 Nf6 3.d3 (Bishop's Opening, Berlin Defense
+        # style). d3 supports e4, strengthens Bc4, and opens the
+        # c1 bishop's diagonal. Black's main equalizing plan is
+        # ...c6 preparing the ...d5 break.
+        ("d3", "Nf6", 4): {
+            "name": "Bishop's Opening, Berlin Defense",
+            "idea": "Supports e4, strengthens the Bc4, and frees the dark-square bishop. Black's main plan is ...c6 preparing the ...d5 break.",
+        },
+        # Parth fb_b554778710ba (2026-05-31, authoring): after
+        # 1.e4 e5 2.Bc4 Nf6 3.d3 Bc5. Bishop sits outside the pawn
+        # chain (not blocked behind a future d6 push), so the bishop
+        # stays active. Black is ready to castle.
+        ("Bc5", "d3", 5): {
+            "name": None,
+            "idea": "Active bishop placement. It sits outside the pawn chain, so a later ...d6 won't lock it in. Castle next.",
+        },
     }
     if (
         prev_move_san
