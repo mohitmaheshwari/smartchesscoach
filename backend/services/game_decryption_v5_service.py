@@ -374,25 +374,37 @@ def get_opening_introduction(
     # `d5 → "Closed Game"` (correct for 1.d4 d5). Disambiguate by
     # looking at prev_move when it's an idx=1 black response.
     _CONTEXT_OVERRIDES = {
-        # (move_san, prev_move_san) → intro
+        # (move_san, prev_move_san, move_index) → intro
         # v91 (2026-05-25): Parth fb_9539edd1bfa1 — "not draws white
         # queen out. Black queen usually comes out early usually to
         # recapture on d4. White then develops Knight with tempo."
-        # Right — the previous text mixed up which queen comes out.
         # In the Scandinavian after 1.e4 d5 2.exd5, BLACK's queen
         # comes out to recapture on d5 (Qxd5), then white attacks
         # the black queen with Nc3, gaining tempo.
-        ("d5", "e4"): {
+        ("d5", "e4", 1): {
             "name": "Scandinavian Defense",
             "idea": "Black challenges the centre immediately. After 2.exd5 Qxd5, Black's queen comes out early to recapture — and White develops with tempo by Nc3.",
         },
+        # Parth fb_95ff0d1ec513 (2026-05-31): "it is not exactly
+        # Italian yet. It can transpose to italian though." The
+        # default "Bc4" entry in opening_intros labels every Bc4 as
+        # "Italian Game direction" — but 1.e4 e5 2.Bc4 is the
+        # BISHOP'S OPENING (ECO C23-C24), not Italian. The Italian
+        # Game proper requires 1.e4 e5 2.Nf3 Nc6 3.Bc4. This entry
+        # catches the 2.Bc4 case via (Bc4, e5, move_index=2) and
+        # leaves the default to fire on the 3.Bc4 (post-Nf3/Nc6)
+        # transposed case, where the label is correct.
+        ("Bc4", "e5", 2): {
+            "name": "Bishop's Opening",
+            "idea": "Aims at the f7 square. Not the Italian Game yet — it transposes there if Nf3 and Nc6 follow.",
+        },
     }
     if (
-        move_index == 1
-        and prev_move_san
-        and (move_san, prev_move_san) in _CONTEXT_OVERRIDES
+        prev_move_san
+        and move_index is not None
+        and (move_san, prev_move_san, move_index) in _CONTEXT_OVERRIDES
     ):
-        ctx = _CONTEXT_OVERRIDES[(move_san, prev_move_san)]
+        ctx = _CONTEXT_OVERRIDES[(move_san, prev_move_san, move_index)]
         return {
             "name": ctx.get("name"),
             "idea": ctx.get("idea"),
