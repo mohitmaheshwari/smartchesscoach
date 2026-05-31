@@ -1988,6 +1988,110 @@ def simulate_pawn_kicks_piece(
     return [ev]
 
 
+def simulate_capture_removes_attacker(
+    pre_fen: str,
+    best_move_san: str,
+) -> List[Dict]:
+    """Detect the "remove the attacker" tactic (Parth fb_80c1ea9555cb,
+    2026-05-31): engine's best move CAPTURES an opponent piece that was
+    attacking a user piece. The capture removes one attacker → the
+    user's piece is now better-defended (or safe).
+
+    Canonical regression: game_bc41022831e0 m11 Be3 cpl=325. Engine's
+    best Bxc6 captures the knight that was attacking white's d4 pawn.
+    After bxc6 (recapture), d4 attackers dropped from 2 (Nc6 + Bb6) to
+    1 (Bb6 only). The capture removed the attacker at the source —
+    that's the tactic. Active defense (Be3) only adds a defender.
+
+    Returns evidence:
+      - removed_attacker_target_piece:   user piece that's now safer
+      - removed_attacker_target_square:  its square
+      - removed_attacker_captured_piece: the piece captured (the attacker)
+      - removed_attacker_captured_square: where the captured piece sat
+
+    Distinct from simulate_active_defense (which needs the mover to also
+    threaten something new). This pattern fires on pure "remove the
+    attacker" trades where the only goal is reducing pressure on a
+    target square.
+    """
+    try:
+        board_before = chess.Board(pre_fen)
+        best_mv = board_before.parse_san(best_move_san)
+    except Exception:
+        return []
+
+    # Must be a capture.
+    if not board_before.is_capture(best_mv):
+        return []
+
+    us = board_before.turn
+    them = not us
+
+    # The captured piece must have been attacking at least one user piece
+    # of value >= pawn. Walk attacks from the captured square.
+    captured_sq = best_mv.to_square
+    if board_before.is_en_passant(best_mv):
+        return []  # en-passant — out of scope for this pattern
+    captured_piece = board_before.piece_at(captured_sq)
+    if captured_piece is None or captured_piece.color != them:
+        return []
+
+    # Find user pieces previously attacked by the captured piece.
+    attacked_user_squares: List[int] = []
+    for sq in board_before.attacks(captured_sq):
+        p = board_before.piece_at(sq)
+        if p is None or p.color != us:
+            continue
+        if p.piece_type == chess.KING:
+            continue  # check is its own framework
+        attacked_user_squares.append(sq)
+    if not attacked_user_squares:
+        return []
+
+    # Apply best move and check that the target now has fewer attackers
+    # (the captured piece is no longer threatening it).
+    board_after = board_before.copy()
+    try:
+        board_after.push(best_mv)
+    except Exception:
+        return []
+
+    saved: Optional[Tuple[int, int]] = None
+    for sq in attacked_user_squares:
+        attackers_before = list(board_before.attackers(them, sq))
+        # After the capture, simulate the natural recapture (if any) so
+        # the "remove the attacker" framing is honest even when the
+        # mover gets recaptured. We count attackers on the user square
+        # POST-best-move only — even if mover dies, the captured opp
+        # piece is gone for good.
+        attackers_after = list(board_after.attackers(them, sq))
+        if len(attackers_after) < len(attackers_before):
+            piece = board_after.piece_at(sq)
+            if piece is not None and piece.color == us:
+                saved = (sq, piece.piece_type)
+                break
+    if saved is None:
+        return []
+
+    saved_sq, saved_pt = saved
+    ev = _ev(
+        "capture_removes_attacker",
+        mover=best_mv.to_square,
+        targets=[saved_sq, captured_sq],
+        executing_move=None,
+        evidence=(
+            f"captures {chess.piece_name(captured_piece.piece_type)} on "
+            f"{chess.square_name(captured_sq)} — one of the attackers on "
+            f"own {chess.piece_name(saved_pt)} on {chess.square_name(saved_sq)}"
+        ),
+    )
+    ev["removed_attacker_target_piece"] = chess.piece_name(saved_pt)
+    ev["removed_attacker_target_square"] = chess.square_name(saved_sq)
+    ev["removed_attacker_captured_piece"] = chess.piece_name(captured_piece.piece_type)
+    ev["removed_attacker_captured_square"] = chess.square_name(captured_sq)
+    return [ev]
+
+
 def simulate_active_defense(
     pre_fen: str,
     best_move_san: str,

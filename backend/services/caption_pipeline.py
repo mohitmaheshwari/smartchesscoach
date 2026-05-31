@@ -810,6 +810,23 @@ def inject_user_blunder_detector_facts(
     except Exception:
         pass
 
+    # 10b. Capture-removes-attacker (Parth fb_80c1ea9555cb, 2026-05-31).
+    # Engine's best move captures an opp piece that was attacking a user
+    # piece. The capture removes the attacker at the source — distinct
+    # tactic from active defense (which adds a defender) or generic
+    # capture-the-knight framing (which misses the "why this capture").
+    try:
+        from services.shape_detectors import simulate_capture_removes_attacker
+        _rm_evs = simulate_capture_removes_attacker(fen_before, best_move)
+        if _rm_evs:
+            _e = _rm_evs[0]
+            caption_facts["removed_attacker_target_piece"] = _e.get("removed_attacker_target_piece")
+            caption_facts["removed_attacker_target_square"] = _e.get("removed_attacker_target_square")
+            caption_facts["removed_attacker_captured_piece"] = _e.get("removed_attacker_captured_piece")
+            caption_facts["removed_attacker_captured_square"] = _e.get("removed_attacker_captured_square")
+    except Exception:
+        pass
+
     # 11. Same-piece-better-square (v64 #8).
     try:
         _sb_evs = simulate_same_piece_better_square(
