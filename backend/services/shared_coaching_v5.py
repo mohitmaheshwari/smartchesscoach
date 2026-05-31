@@ -310,13 +310,24 @@ def explain_move_idea(board: chess.Board, move_san: str) -> tuple:
     
     # Check for different move ideas
     
-    # 1. COUNTER-ATTACK: Creates a threat
-    for sq in chess.SQUARES:
-        opp_piece = sim.piece_at(sq)
-        if opp_piece and opp_piece.color != user_color:
-            if sim.is_attacked_by(user_color, sq) and not board.is_attacked_by(user_color, sq):
-                target_name = get_fun_piece_name(opp_piece)
-                return (f"{move_san} attacks their {target_name} - forces them to respond!", "counter_attack")
+    # 1. COUNTER-ATTACK: Creates a threat on a previously-unattacked
+    # enemy piece. Survival-gated to avoid the Bxc6/b7 class — Bxc6
+    # puts the bishop on c6 attacking b7, but the b7 pawn recaptures
+    # and the bishop dies. The "attacks their pawn" claim never
+    # materializes. Survival check via _mover_dies_on_destination
+    # matches the central-layer fix (Day 1, commit 65cf735a).
+    try:
+        from services.shape_detectors import _mover_dies_on_destination
+        _mover_survives = not _mover_dies_on_destination(sim, to_sq)
+    except Exception:
+        _mover_survives = True
+    if _mover_survives:
+        for sq in chess.SQUARES:
+            opp_piece = sim.piece_at(sq)
+            if opp_piece and opp_piece.color != user_color:
+                if sim.is_attacked_by(user_color, sq) and not board.is_attacked_by(user_color, sq):
+                    target_name = get_fun_piece_name(opp_piece)
+                    return (f"{move_san} attacks their {target_name} - forces them to respond!", "counter_attack")
     
     # 2. CASTLING: King safety
     if board.is_castling(move):
@@ -326,12 +337,27 @@ def explain_move_idea(board: chess.Board, move_san: str) -> tuple:
     if sim.is_check():
         return (f"{move_san} gives check - forces their hand!", "tactical")
     
-    # 4. CAPTURE (winning material)
+    # 4. CAPTURE (material) — past-tense "takes" instead of "wins",
+    # plus survival check on the capturer's destination square. Same
+    # overclaim class as the R15 capture fix (Day 3, commit c0d75d25):
+    # "wins the {piece}" is wrong when the move is actually a trade
+    # (cheaper enemy recaptures) and the SAN already names the square
+    # and target. Mohit "go for the next not routed through central
+    # layer" 2026-05-31.
     if board.is_capture(move):
         captured = board.piece_at(move.to_square)
         if captured:
             captured_name = get_fun_piece_name(captured)
-            return (f"{move_san} wins the {captured_name}!", "tactical")
+            # Survival check — if the capturer can be recaptured by a
+            # cheaper enemy with insufficient defender support, frame
+            # as a trade rather than a clean material gain.
+            try:
+                from services.shape_detectors import _mover_dies_on_destination
+                if _mover_dies_on_destination(sim, move.to_square):
+                    return (f"{move_san} — trades for the {captured_name}.", "tactical")
+            except Exception:
+                pass
+            return (f"{move_san} — takes the {captured_name}.", "tactical")
     
     # 5. CENTRAL CONTROL
     center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
