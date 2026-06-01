@@ -1747,55 +1747,84 @@ const LabV2 = ({ user }) => {
                         {coachReview.story.opener}
                       </p>
 
-                      {/* Principles — numbered cards, each clickable to jump */}
+                      {/* Principles — numbered cards, each clickable to jump.
+                         "Try yourself" button ported from the (now removed)
+                         Key Moments section — drops the user into solve mode
+                         at the position before this move. */}
                       <div className="space-y-2.5 mb-4">
-                        {coachReview.story.principles.map((p) => (
-                          <div
-                            key={p.n}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => navigateToMoveNumber(p.move_number)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                navigateToMoveNumber(p.move_number);
-                              }
-                            }}
-                            className="rounded-lg border border-border/60 p-3 hover:border-primary/40 hover:bg-muted/30 cursor-pointer transition-colors"
-                          >
-                            <div className="flex items-baseline gap-2 mb-1 flex-wrap">
-                              <span className="text-[10px] font-bold text-muted-foreground tabular-nums">
-                                {p.n}.
-                              </span>
-                              <span className="text-[13px] font-semibold text-foreground">
-                                {p.title}
-                              </span>
-                              <span className="ml-auto inline-flex items-center gap-1.5">
-                                <span className="text-[10.5px] font-mono tabular-nums text-muted-foreground">
-                                  m{p.move_number}
-                                </span>
-                                <span className="font-mono text-[10.5px] tabular-nums">
-                                  <span className="text-rose-500/80">{p.san_played}</span>
-                                  <span className="text-muted-foreground/40 mx-1">→</span>
-                                  <span className="text-emerald-600/80 dark:text-emerald-300/80">{p.san_best}</span>
-                                </span>
-                                <span className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
-                                  p.cp_loss >= 1000
-                                    ? "bg-rose-500/15 text-rose-500"
-                                    : p.cp_loss >= 300
-                                      ? "bg-rose-500/10 text-rose-500/80"
-                                      : "bg-amber-500/10 text-amber-600 dark:text-amber-300/80"
-                                }`}>
-                                  {p.cp_loss_label}
-                                </span>
-                              </span>
+                        {coachReview.story.principles.map((p) => {
+                          const canSolve = !!p.fen_before && !!p.san_best;
+                          return (
+                            <div
+                              key={p.n}
+                              className="rounded-lg border border-border/60 hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                            >
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => navigateToMoveNumber(p.move_number)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    navigateToMoveNumber(p.move_number);
+                                  }
+                                }}
+                                className="p-3 cursor-pointer"
+                              >
+                                <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                                  <span className="text-[10px] font-bold text-muted-foreground tabular-nums">
+                                    {p.n}.
+                                  </span>
+                                  <span className="text-[13px] font-semibold text-foreground">
+                                    {p.title}
+                                  </span>
+                                  <span className="ml-auto inline-flex items-center gap-1.5">
+                                    <span className="text-[10.5px] font-mono tabular-nums text-muted-foreground">
+                                      m{p.move_number}
+                                    </span>
+                                    <span className="font-mono text-[10.5px] tabular-nums">
+                                      <span className="text-rose-500/80">{p.san_played}</span>
+                                      <span className="text-muted-foreground/40 mx-1">→</span>
+                                      <span className="text-emerald-600/80 dark:text-emerald-300/80">{p.san_best}</span>
+                                    </span>
+                                    <span className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                                      p.cp_loss >= 1000
+                                        ? "bg-rose-500/15 text-rose-500"
+                                        : p.cp_loss >= 300
+                                          ? "bg-rose-500/10 text-rose-500/80"
+                                          : "bg-amber-500/10 text-amber-600 dark:text-amber-300/80"
+                                    }`}>
+                                      {p.cp_loss_label}
+                                    </span>
+                                  </span>
+                                </div>
+                                <p className="text-[12.5px] text-muted-foreground leading-snug">
+                                  <span className="text-foreground/80">{p.diagnosis}</span>{" "}
+                                  {p.principle}
+                                </p>
+                              </div>
+                              {canSolve && (
+                                <div className="px-3 pb-3">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startInteractiveMoment({
+                                        fen: p.fen_before,
+                                        best_move: p.san_best,
+                                        move: p.san_played,
+                                        move_number: p.move_number,
+                                      });
+                                    }}
+                                    className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary hover:text-primary/80 transition-colors"
+                                    data-testid={`principle-try-${p.n}`}
+                                  >
+                                    Try yourself →
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                            <p className="text-[12.5px] text-muted-foreground leading-snug">
-                              <span className="text-foreground/80">{p.diagnosis}</span>{" "}
-                              {p.principle}
-                            </p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {/* Good moves credit */}
@@ -1975,158 +2004,14 @@ const LabV2 = ({ user }) => {
                     </div>
                   )}
 
-                  {/* Behavioral Summary */}
-                  {coachReview?.behaviors?.length > 0 && (
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest font-bold text-red-400/60 mb-2">What went wrong</p>
-                      {coachReview.behaviors.map((b, i) => (
-                        <div key={i} className="flex items-center justify-between py-1.5">
-                          <span className="text-sm text-foreground">{b.label}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono text-muted-foreground">{b.count}x</span>
-                            <button
-                              onClick={() => navigate(`/training/prescribed?weakness=${b.behavior}`)}
-                              className="text-[10px] text-primary hover:text-primary/80 transition-colors"
-                            >
-                              Practice
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* Behavioral Summary / Key Moments / Fundamentals all
+                     removed 2026-06-01 — folded into the Coach Review story
+                     section above. Behaviors are now per-move principles
+                     with diagnosis; key moments are now numbered cards with
+                     'Try yourself →' ported here; fundamentals progress
+                     was a separate angle Mohit chose to drop. Phase ribbon
+                     + Opening analysis remain above; they're orthogonal. */}
 
-                  {/* Key Moments — the centerpiece.
-                      Each moment is a full-width clickable block with serif
-                      commentary, the move comparison in mono, and a severity
-                      tag. Tap to jump the board to that ply. */}
-                  {coachReview?.key_moments?.length > 0 && (
-                    <div>
-                      <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-violet-500 dark:text-violet-300 mb-3">
-                        Key moments · tap to jump
-                      </p>
-                      <div className="space-y-3">
-                        {coachReview.key_moments.slice(0, 3).map((m, i) => {
-                          const isBlunder = m.severity === "blunder";
-                          // Card click jumps the board to that ply. The
-                          // "Try yourself" button drops the user into
-                          // interactive solve mode at the position before
-                          // the mistake — that's the highlight-then-quiz
-                          // flow the locked spec describes.
-                          const canSolve = !!m.fen && !!m.best_move;
-                          return (
-                            <div
-                              key={i}
-                              className={`w-full text-left rounded-xl border p-4 transition-colors ${
-                                isBlunder
-                                  ? "border-rose-400/25 bg-rose-500/[0.03] hover:bg-rose-500/[0.06]"
-                                  : "border-amber-400/25 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]"
-                              }`}
-                            >
-                              {/* The clickable region jumps the board on click,
-                                  but it's a div (not a button) so it can host
-                                  the InlineFlag button child without nesting
-                                  interactive controls. */}
-                              <div
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => navigateToMoveNumber(m.move_number)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    navigateToMoveNumber(m.move_number);
-                                  }
-                                }}
-                                className="w-full text-left cursor-pointer outline-none group"
-                                data-testid={`key-moment-jump-${i}`}
-                              >
-                                <div className="flex items-baseline gap-2.5 mb-2 flex-wrap">
-                                  <span
-                                    className={`text-[10.5px] uppercase tracking-[0.22em] font-semibold ${
-                                      isBlunder
-                                        ? "text-rose-500 dark:text-rose-300"
-                                        : "text-amber-600 dark:text-amber-300"
-                                    }`}
-                                  >
-                                    {m.severity} · move {m.move_number}
-                                  </span>
-                                  <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
-                                    <span className="text-rose-500/80 dark:text-rose-300/80">
-                                      {m.move}
-                                    </span>
-                                    <span className="text-muted-foreground/40 mx-1.5">→</span>
-                                    <span className="text-emerald-600/90 dark:text-emerald-300/80">
-                                      {m.best_move || "?"}
-                                    </span>
-                                  </span>
-                                </div>
-                                {m.commentary?.summary && (
-                                  <p className="font-serif text-[14.5px] leading-snug text-foreground/85">
-                                    {m.commentary.summary}
-                                    <InlineFlag
-                                      section="key_moment_commentary"
-                                      flaggedText={m.commentary.summary}
-                                      context={{
-                                        source: "lab_key_moments",
-                                        gameId,
-                                        fen: m.fen,
-                                        moveSan: m.move,
-                                        moveNumber: m.move_number,
-                                        side: userColor,
-                                        severity: m.severity,
-                                        cpLoss: m.cp_loss,
-                                        bestMove: m.best_move,
-                                        phase: m.phase,
-                                        component: "lab_key_moments",
-                                        rule_name: "position_intelligence_summary",
-                                      }}
-                                    />
-                                  </p>
-                                )}
-                              </div>
-                              {canSolve && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    startInteractiveMoment(m);
-                                  }}
-                                  className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary hover:text-primary/80 transition-colors"
-                                  data-testid={`key-moment-try-${i}`}
-                                >
-                                  Try yourself →
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Fundamentals */}
-                  {coachReview?.fundamentals && Object.keys(coachReview.fundamentals).length > 0 && (
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40 mb-2">Fundamentals</p>
-                      {Object.entries(coachReview.fundamentals).map(([phase, funds]) => (
-                        funds?.length > 0 && (
-                          <div key={phase} className="mb-2">
-                            <p className="text-[9px] uppercase tracking-widest text-muted-foreground/30 mb-1 capitalize">{phase}</p>
-                            {funds.map((f, i) => (
-                              <div key={i} className="flex items-center gap-2 py-0.5">
-                                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${f.progress >= 70 ? "bg-emerald-500" : f.progress >= 40 ? "bg-amber-400" : "bg-red-400"}`}
-                                    style={{ width: `${f.progress}%` }}
-                                  />
-                                </div>
-                                <span className="text-[10px] text-muted-foreground w-28 truncate">{f.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
