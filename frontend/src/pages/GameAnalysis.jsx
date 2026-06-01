@@ -330,19 +330,31 @@ const GameAnalysis = ({ user }) => {
     fetchDecryption();
   }, [analysis, gameId]);
 
-  // Jump to initial move from URL
+  // Jump to initial move from URL.
+  //
+  // Mohit 2026-06-01: '?move doesn't load that specific move'. Root
+  // cause: moveNum is a 1-indexed FULL MOVE NUMBER but goToMove takes
+  // a 0-indexed PLY INDEX (see ChessBoardViewer.jsx). The old
+  // 'goToMove(moveNum - 1)' for ?move=17 navigated to ply 16 = after
+  // move 8 black. Match the conversion the rest of this file already
+  // uses (line ~624): idx = (move_number - 1) * 2 + (1 if black else 0).
+  // The board then shows the position AFTER the user's Nth move has
+  // been played, which is what every URL emitter intends (evidence
+  // cards, mastery panel, lab/coach links).
   useEffect(() => {
     if (!initialMoveHandled && initialMove && boardRef.current && !loading && decryptionData) {
       const moveNum = parseInt(initialMove, 10);
       if (!isNaN(moveNum) && moveNum > 0) {
+        const userColor = (game?.user_color || "white").toLowerCase();
+        const targetPly = (moveNum - 1) * 2 + (userColor === "black" ? 1 : 0);
         setTimeout(() => {
-          boardRef.current.goToMove(moveNum - 1);
-          setCurrentMoveIndex(moveNum - 1);
+          boardRef.current.goToMove(targetPly);
+          setCurrentMoveIndex(targetPly);
           setInitialMoveHandled(true);
         }, 300);
       }
     }
-  }, [initialMove, loading, initialMoveHandled, decryptionData]);
+  }, [initialMove, loading, initialMoveHandled, decryptionData, game]);
 
   // Clear conversation when move changes
   useEffect(() => {
