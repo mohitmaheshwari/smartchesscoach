@@ -21,6 +21,7 @@ import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
 import TrainingNew from "@/pages/TrainingNew";  // Used by /coach and /focus routes (renamed from aliased `Training` for clarity)
 import PrescribedTraining from "@/pages/PrescribedTraining";  // Canonical training page (all /training/* routes)
+import SkillDrill from "@/pages/SkillDrill";  // Drill positions for an Engine 2 skill (detector-graded)
 import OpeningQuizPage from "@/pages/OpeningQuizPage";  // Opening mastery quiz
 import OpeningRepertoire from "@/pages/OpeningRepertoire";  // Opening Training Lab
 import OpeningLesson from "@/pages/OpeningLesson";  // Individual opening lessons
@@ -301,6 +302,11 @@ function AppRouter() {
       <Route path="/training/pattern/:pattern" element={
         <ProtectedRoute>
           {({ user }) => <PrescribedTraining user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/training/skill/:skillId" element={
+        <ProtectedRoute>
+          {({ user }) => <SkillDrill user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/training/quiz/:openingKey" element={

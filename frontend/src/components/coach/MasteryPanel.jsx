@@ -37,6 +37,23 @@ const KIND_ORDER = [
   "coached_play",
 ];
 
+// Skills with a detector registered in
+// backend/services/concept_detectors/registry.py — the ones whose
+// puzzle pool is populated by build_community_skill_pool.py and
+// whose attempts can be graded by /training/skill-puzzle-attempt.
+// Keep in sync with that registry. When a new detector ships, add
+// its skill_id here and the "Drill these positions" CTA lights up.
+const DRILLABLE_SKILLS = new Set([
+  "endgame_rule_of_square",
+  "defend_scholars_mate",
+  "mate_kq_vs_k",
+  "mate_kr_vs_k",
+  "defend_fried_liver",
+  "endgame_opposition",
+  "endgame_lucena",
+  "endgame_philidor",
+]);
+
 function StateIcon({ state }) {
   if (state === "studied") {
     return <Check className="h-3.5 w-3.5 text-emerald-500" strokeWidth={2.4} />;
@@ -300,6 +317,30 @@ function EvidenceModal({ skill, onClose, onDemote }) {
                   );
                 })}
               </ul>
+            )}
+
+            {/* "Drill this skill" CTA — only shown for skills with a
+                detector registered (the ones that can grade attempts
+                automatically). For other skills the puzzle pool is
+                empty and the drill page would say so. */}
+            {DRILLABLE_SKILLS.has(skill.skill_id) && (
+              <div className="border-t border-border/50 pt-4 mb-3">
+                <button
+                  onClick={() => {
+                    onClose();
+                    navigate(`/training/skill/${skill.skill_id}`);
+                  }}
+                  className="w-full h-10 rounded-lg bg-foreground/90 hover:bg-foreground text-background text-[13px] font-medium transition-colors inline-flex items-center justify-center gap-1.5"
+                >
+                  Drill these positions
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+                <p className="text-[11px] text-muted-foreground/80 mt-1.5 leading-snug">
+                  Same idea, more positions — your games plus community
+                  positions on the same theme. Graded by the rule, not by
+                  a single best move.
+                </p>
+              </div>
             )}
 
             <div className="border-t border-border/50 pt-4 flex flex-col gap-3">
