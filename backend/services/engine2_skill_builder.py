@@ -166,7 +166,14 @@ def pick_next_skill(memory, user_rating: int) -> Optional[Dict]:
     # Reason explains WHY this skill now — phrased for a beginner, not technical.
     failure_rate = failed / max(1, seen) if seen > 0 else 0
     if seen == 0:
-        reason = "You haven't learned this yet — you're ready."
+        # Mohit 2026-06-01 ("what makes you think I don't know this?"):
+        # When seen == 0 the system has NO evidence either way. Earlier
+        # copy ("You haven't learned this yet — you're ready") asserted
+        # absence of knowledge as a fact, which for a higher-rated user
+        # who happens to not have hit the in-game detector or the lesson
+        # page yet reads as presumptuous. Be honest about what the
+        # system actually knows: it hasn't observed you applying this.
+        reason = "Haven't seen you use this in a game yet — worth a quick check?"
     elif failure_rate >= 0.5:
         reason = "You've struggled with this — let's work on it."
     elif failure_rate >= 0.3:
