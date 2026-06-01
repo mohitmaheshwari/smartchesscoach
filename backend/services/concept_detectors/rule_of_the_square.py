@@ -125,13 +125,36 @@ def _path_to_promotion(sq: int, color: chess.Color):
     return [chess.square(f, rr) for rr in range(r + step, promo + step, step)]
 
 
+def _defender_has_only_king_and_pawns(board: chess.Board, defender_color: chess.Color) -> bool:
+    """Defender (the side NOT promoting) has no queens, rooks, bishops, or knights.
+
+    Mohit 2026-06-01: the previous "no non-king attacker on the path"
+    check was insufficient. Position `Q7/6p1/2K5/1B2p1p1/5k2/3P4/8/8 b`
+    falsely qualified because the white queen on a8 was blocked by its
+    own king on c6 in the CURRENT move — so it didn't attack the path
+    right now. But the queen exists on the board and dominates the
+    race in any future move. The rule of the square only meaningfully
+    applies when the king is genuinely the ONLY stopper. So defender
+    must have no non-pawn material besides the king.
+    """
+    for _, p in board.piece_map().items():
+        if p.color != defender_color:
+            continue
+        if p.piece_type in (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT):
+            return False
+    return True
+
+
 def is_pure_king_pawn_race(board: chess.Board, pawn_sq: int, pawn_color: chess.Color) -> bool:
     """Is the pawn on this square in a clean king-vs-pawn race?
 
-    Six conditions (see module docstring). Returns True only when the
-    geometric square calculation IS the decisive question for this
-    position.
+    Seven conditions now (see module docstring + the defender-material
+    check). Returns True only when the geometric square calculation
+    IS the decisive question for this position.
     """
+    enemy = not pawn_color
+    if not _defender_has_only_king_and_pawns(board, enemy):
+        return False
     if not _is_passed_pawn(board, pawn_sq, pawn_color):
         return False
     pawn_rank = chess.square_rank(pawn_sq)
@@ -142,7 +165,6 @@ def is_pure_king_pawn_race(board: chess.Board, pawn_sq: int, pawn_color: chess.C
     path = _path_to_promotion(pawn_sq, pawn_color)
     if not path:
         return False
-    enemy = not pawn_color
     for sq in path:
         if board.piece_at(sq):
             return False  # path blocked (could be own piece or enemy)
