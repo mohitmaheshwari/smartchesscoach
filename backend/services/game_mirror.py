@@ -27,19 +27,33 @@ logger = logging.getLogger(__name__)
 
 # Two voice forms per pattern.
 #   "verb"   — past-tense action ("hung a piece") for the repeated case.
-#   "noun"   — noun phrase ("hung pieces") for the broke-pattern case ("No X").
+#   "noun"   — noun phrase ("hanging pieces") for the broke-pattern case
+#              and for sentences like "Both came down to X."
 # Keeps grammar natural without template gymnastics.
+#
+# Mohit 2026-06-01: plain-English pass for 1200-rated audience.
+# Kept chess-canonical words a 1200 actually says ("hung a piece",
+# "missed a tactic", "passive pieces"). Replaced writer-jargon
+# ("opening drift", "pawn-structure damage", "endgame slips") with
+# what the user would type into chat ("shaky openings", "weak pawns",
+# "endgame mistakes").
 _PATTERN_VOICE: Dict[str, Dict[str, str]] = {
-    "piece_safety":       {"verb": "hung a piece",                "noun": "hung pieces"},
-    "king_safety":        {"verb": "exposed your king",           "noun": "king-safety slips"},
+    "piece_safety":       {"verb": "hung a piece",                "noun": "hanging pieces"},
+    "king_safety":        {"verb": "exposed your king",           "noun": "king-safety problems"},
     "tactical_oversight": {"verb": "missed a tactic",             "noun": "missed tactics"},
-    "calculation_depth":  {"verb": "stopped calculating early",   "noun": "shallow calculation"},
+    "calculation_depth":  {"verb": "didn't look far enough ahead", "noun": "shallow calculation"},
     "missed_tactic":      {"verb": "missed a tactic",             "noun": "missed tactics"},
-    "opening_knowledge":  {"verb": "drifted from opening theory", "noun": "opening drift"},
-    "pawn_structure":     {"verb": "damaged your pawn structure", "noun": "pawn-structure damage"},
+    "opening_knowledge":  {"verb": "stepped away from the opening", "noun": "shaky openings"},
+    "pawn_structure":     {"verb": "weakened your pawns",         "noun": "weak pawns"},
     "piece_activity":     {"verb": "left pieces passive",         "noun": "passive pieces"},
-    "endgame_technique":  {"verb": "slipped in the endgame",      "noun": "endgame slips"},
-    "time_pressure":      {"verb": "rushed under time pressure",  "noun": "time-pressure rushing"},
+    "endgame_technique":  {"verb": "made an endgame mistake",     "noun": "endgame mistakes"},
+    "time_pressure":      {"verb": "rushed under time pressure",  "noun": "rushing under time pressure"},
+    # Mohit 2026-06-01 — both gaps had teaching prompts + anchor phrases
+    # already but no voice entry, so _pattern_observation rendered the
+    # raw tag ("Both came down to conversion."). Adding voice entries
+    # so the home-page sentence reads as English.
+    "ignore_threat":      {"verb": "missed what they were threatening", "noun": "missed threats"},
+    "conversion":         {"verb": "let your winning advantage slip",   "noun": "wins that got away"},
 }
 
 # How many of the last N games must contain a pattern for it to count as
@@ -120,19 +134,23 @@ def _count_phrase(n: int, wins: int, losses: int, draws: int) -> str:
 
 def _pattern_observation(pattern: str, top_count: int, n: int) -> str:
     """Natural-prose observation about the top recurring pattern.
-    Returns something like 'Both turned on passive pieces.' rather than
-    'You left pieces passive in 2 of 2.'.
+    Returns something like 'Both came down to passive pieces.' rather
+    than 'You left pieces passive in 2 of 2.'.
+
+    Mohit 2026-06-01: "turned on" reads as chess-journalism for 1200s.
+    "Came down to" is plainer English with the same meaning (the game
+    was decided by this pattern).
     """
     noun = _pattern_voice(pattern, form="noun")
     if top_count == n:
         if n == 1:
-            return f"Turned on {noun}."
+            return f"Came down to {noun}."
         if n == 2:
-            return f"Both turned on {noun}."
-        return f"All {_num_word(n).lower()} turned on {noun}."
+            return f"Both came down to {noun}."
+        return f"All {_num_word(n).lower()} came down to {noun}."
     if top_count == 1:
-        return f"One slipped on {noun}."
-    return f"{_num_word(top_count)} of {_num_word(n).lower()} turned on {noun}."
+        return f"One came down to {noun}."
+    return f"{_num_word(top_count)} of {_num_word(n).lower()} came down to {noun}."
 
 
 # Teaching prompts the coach gives the player, gap-keyed. These replace
@@ -140,18 +158,21 @@ def _pattern_observation(pattern: str, top_count: int, n: int) -> str:
 # habit the player can carry into the next game — coach voice rule 6
 # ("end with one specific thing").
 _TEACHING_PROMPT_BY_GAP = {
+    # Mohit 2026-06-01: Plainer voice across the board for 1200-rated
+    # readers. Removed "sharpest line" (jargon), "consolidating"
+    # (jargon), kept the clean ones.
     "piece_activity":     "Before each move, pick one piece and ask: what is it doing right now?",
-    "piece_safety":       "Before any move, scan twice: any of yours undefended? Any of theirs hanging?",
-    "king_safety":        "If your king's still in the centre past move 10, castling jumps to first priority.",
+    "piece_safety":       "Before every move, check both sides: is any of MY pieces attacked more times than it's defended? Same question for theirs.",
+    "king_safety":        "If your king is still in the centre past move 10, castling jumps to first priority.",
     "missed_tactic":      "Look at forcing moves first — checks, captures, threats — before the quiet ones.",
-    "tactical_oversight": "After your move, ask their side: what does my opponent see for them now?",
-    "calculation_depth":  "Pick the sharpest line and follow it three moves deep before deciding.",
+    "tactical_oversight": "After picking your move, ask the other side: what does my opponent see for them now?",
+    "calculation_depth":  "Pick the most forcing move and look three moves ahead before you decide.",
     "opening_knowledge":  "Pick one opening for each colour and play only those for the next week.",
     "pawn_structure":     "Before pushing a pawn, ask: what square does this give them? You can't take it back.",
-    "endgame_technique":  "In the endgame the king is a fighter — bring it forward, don't hide it.",
-    "time_pressure":      "Use the clock between moves, not on the critical one. Slow down when stakes spike.",
-    "ignore_threat":      "Before your move, ask: what does the move I'm about to make let them do?",
-    "conversion":         "When you're winning, switch from attacking to consolidating — trade pieces, simplify.",
+    "endgame_technique":  "In the endgame the king is a fighter — walk it toward the centre, don't hide it.",
+    "time_pressure":      "Use the clock between moves, not on the critical one. Slow down when the position turns sharp.",
+    "ignore_threat":      "Before your move, ask: what does the move I'm about to make let them do next?",
+    "conversion":         "When you're winning, slow down and trade pieces. Simpler positions are easier to convert.",
 }
 
 
@@ -194,18 +215,20 @@ def _find_concrete_anchor(games_data: List[Dict], pattern: str) -> Optional[Dict
 # is teaching-flavoured so a 1200 reads it as a coach pointing at the
 # board, not an engine printing diff.
 _ANCHOR_PHRASE_BY_GAP = {
-    "piece_activity":     "{played} stayed home; {best} was the active move",
-    "piece_safety":       "{played} hung material that {best} would have kept",
-    "king_safety":        "{played} left the king exposed; {best} dealt with the threat",
-    "missed_tactic":      "{played} was quiet when {best} was the tactic",
-    "tactical_oversight": "{played} missed it; {best} stopped what was coming",
-    "calculation_depth":  "{played} stopped one move short; {best} kept the line going",
-    "opening_knowledge":  "{played} drifted; {best} was the book line",
-    "pawn_structure":     "{played} cracked the structure; {best} held it",
-    "endgame_technique":  "{played} let it slip; {best} converted",
-    "time_pressure":      "{played} was a rush; {best} was there if you'd looked",
-    "ignore_threat":      "{played} ignored the threat; {best} stopped it",
-    "conversion":         "{played} gave it back; {best} closed the game",
+    # Mohit 2026-06-01: drop chess-writer jargon for 1200 audience.
+    # Every phrase now reads as cause + fix in plain English.
+    "piece_activity":     "{played} didn't do much; {best} would have put a piece to work",
+    "piece_safety":       "{played} left a piece undefended; {best} would have kept it safe",
+    "king_safety":        "{played} left the king exposed; {best} would have kept the king safe",
+    "missed_tactic":      "{played} was a quiet move; {best} was a tactic that wins material",
+    "tactical_oversight": "{played} missed the threat; {best} would have defended it",
+    "calculation_depth":  "{played} was right for one move but missed what came next; {best} saw further",
+    "opening_knowledge":  "{played} stepped away from the standard opening; {best} was the main line",
+    "pawn_structure":     "{played} weakened your pawns; {best} would have kept them solid",
+    "endgame_technique":  "{played} gave up the advantage; {best} would have won the endgame",
+    "time_pressure":      "{played} was a rush; {best} was there if you'd had another second",
+    "ignore_threat":      "{played} ignored the threat; {best} would have stopped it",
+    "conversion":         "{played} let the advantage slip; {best} would have ended the game",
 }
 
 
