@@ -299,8 +299,8 @@ def grade_skill_puzzle_attempt(
         )
         verdict = detect_rule_of_the_square_application(board, mv, color)
     else:
-        from services.concept_detectors.registry import CONCEPT_DETECTORS
-        det = CONCEPT_DETECTORS.get(skill_id)
+        from services.concept_detectors.registry import DETECTORS
+        det = DETECTORS.get(skill_id)
         if det is None:
             return {"correct": False, "verdict": "none",
                     "detail": f"no detector registered for {skill_id}"}
