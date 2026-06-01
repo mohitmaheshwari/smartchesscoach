@@ -78,7 +78,7 @@ _PRINCIPLE_TABLE: Dict[tuple, Dict[str, str]] = {
     },
     ("piece_safety", "middlegame"): {
         "title": "Don't move the queen into the open",
-        "principle": "In the middlegame, never place your queen on a square where a knight or pawn can attack her with tempo.",
+        "principle": "In the middlegame, never place your queen on a square where a knight or pawn can attack her in one move.",
         "diagnosis": "{played} left material undefended — {best} kept the position together.",
         "homework": "Solve 5 puzzles tagged 'queen safety' — focus on knight forks on the queen.",
     },
@@ -94,11 +94,11 @@ _PRINCIPLE_TABLE: Dict[tuple, Dict[str, str]] = {
         "title": "Look for tactics before quiet moves",
         "principle": "Before any developing move, scan for checks, captures, and threats — yours AND opponent's.",
         "diagnosis": "You missed {best} here, which was the strongest move. {played} let the chance slip.",
-        "homework": "Solve 10 tactics puzzles daily — focus on knight forks and discovered attacks.",
+        "homework": "Solve 10 tactics puzzles daily — focus on knight forks and pins.",
     },
     ("missed_tactic", "endgame"): {
         "title": "Endgame tactics are real tactics",
-        "principle": "The endgame has tactics too — forks, skewers, deflections. Look for them before pushing pawns.",
+        "principle": "The endgame has tactics too — forks, skewers, and traps. Look for them before pushing pawns.",
         "diagnosis": "{best} was a forcing line; {played} let the position drift.",
         "homework": "Solve 5 endgame tactics puzzles this week.",
     },
@@ -118,9 +118,9 @@ _PRINCIPLE_TABLE: Dict[tuple, Dict[str, str]] = {
     # ── calculation_depth ──
     ("calculation_depth", "middlegame"): {
         "title": "Calculate two moves deeper",
-        "principle": "When a move 'looks good', calculate one move further. The hidden tactic is usually one ply past where you stopped.",
+        "principle": "When a move 'looks good', calculate one move further. The hidden tactic is usually one move past where you stopped.",
         "diagnosis": "{played} worked at the surface — {best} was what you'd find if you went one move deeper.",
-        "homework": "Practice calculation: pick 3 positions, calculate to 4 plies before moving.",
+        "homework": "Practice calculation: pick 3 positions, calculate 4 moves deep before playing.",
     },
     ("calculation_depth", "endgame"): {
         "title": "Count moves to promotion",
@@ -161,7 +161,7 @@ _PRINCIPLE_TABLE: Dict[tuple, Dict[str, str]] = {
     ("opening_knowledge", "opening"): {
         "title": "Know your opening 2 moves deeper",
         "principle": "Pick one opening for each color and learn the first 10 moves cold. Most plateau players stop at move 5.",
-        "diagnosis": "{played} left book early. {best} was the principled continuation.",
+        "diagnosis": "{played} stopped following the main opening line. {best} was the principled continuation.",
         "homework": "Spend 10 minutes reviewing your main opening's first 10 moves before your next session.",
     },
 
