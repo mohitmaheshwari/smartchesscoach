@@ -183,6 +183,49 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
   useEffect(() => { fetchDecryptionData(); }, [gameId]);
 
+  // Mohit 2026-06-01: `?move=N` URL on /game/:gameId should jump the
+  // walkthrough board to the user's move N.
+  //
+  // LabV2 (the parent) renders TWO different boards depending on
+  // viewMode. Earlier fixes wired the URL into LabV2's own
+  // currentMoveIndex, but in the "decrypt" view (the walkthrough
+  // shown in the screenshot) the board is owned by this component
+  // and has its own currentMoveIndex driven by decryptionData. So
+  // the param has to be honored here too.
+  //
+  // decryptionData entries carry both `move_number` (1-indexed full
+  // move) and `is_user_move`. To land on "the user's move 48", find
+  // the first entry matching both. If only opponent's ply 48 exists
+  // (e.g. game ended on the user's previous ply), fall back to the
+  // last entry with that move_number.
+  const [initialMoveHandled, setInitialMoveHandled] = useState(false);
+  useEffect(() => {
+    if (initialMoveHandled) return;
+    if (!decryptionData || decryptionData.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("move");
+    if (!raw) { setInitialMoveHandled(true); return; }
+    const target = parseInt(raw, 10);
+    if (isNaN(target) || target <= 0) { setInitialMoveHandled(true); return; }
+    let idx = decryptionData.findIndex(
+      (m) => m.move_number === target && m.is_user_move
+    );
+    if (idx === -1) {
+      // Fallback: any entry on that full move (covers games where the
+      // backend strips opponent plies or where is_user_move isn't set).
+      for (let i = decryptionData.length - 1; i >= 0; i--) {
+        if (decryptionData[i].move_number === target) { idx = i; break; }
+      }
+    }
+    if (idx === -1) { setInitialMoveHandled(true); return; }
+    setCurrentMoveIndex(idx);
+    setBoardFen(decryptionData[idx].fen_after);
+    if (decryptionData[idx].highlight_squares?.length) {
+      setHighlights(decryptionData[idx].highlight_squares);
+    }
+    setInitialMoveHandled(true);
+  }, [decryptionData, initialMoveHandled]);
+
   // v78.3 — cancel in-flight playback when the user navigates moves.
   useEffect(() => {
     if (coachLinePlaybackIdx !== -1 && coachLinePlaybackIdx !== currentMoveIndex) {
