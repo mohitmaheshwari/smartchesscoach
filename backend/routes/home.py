@@ -682,8 +682,21 @@ async def get_coach_home(user: User = Depends(get_current_user)):
                     story_parts.append(f"You played the {opening_name}.")
 
             if worst_blunder:
+                # Mohit 2026-06-01: home-page story should describe the
+                # SHAPE, not the SAN + move number. A 1200 doesn't anchor
+                # memory on "Rf1 on move 16" — that belongs on the game
+                # review page where the board is right there. Here we
+                # tell the macro story (when in the game it tilted) and
+                # leave the click-in to the user.
+                mv_n = worst_blunder["move_number"] or 0
+                if mv_n <= 10:
+                    when_phrase = "in the opening"
+                elif mv_n <= 25:
+                    when_phrase = "in the middlegame"
+                else:
+                    when_phrase = "in the endgame"
                 story_parts.append(
-                    f"Then blundered with {worst_blunder['move']} on move {worst_blunder['move_number']}."
+                    f"One move {when_phrase} dropped material."
                 )
             elif accuracy >= 80:
                 story_parts.append("You played accurately throughout.")
