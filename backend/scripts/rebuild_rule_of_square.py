@@ -45,7 +45,7 @@ from services.concept_detectors.rule_of_the_square import (
     detect_rule_of_the_square_application,
 )
 
-SKILL_ID = "rule_of_square"
+SKILL_ID = "endgame_rule_of_square"  # canonical skill_id; see backfill_rule_of_square.py note.
 OLD_SOURCE = "detector_backfill_2026_06_01"
 NEW_SOURCE = "detector_backfill_2026_06_01_v2"
 GAMES_PER_USER = 200
@@ -195,7 +195,7 @@ async def main_async(apply_changes: bool, user_id: Optional[str]):
         ).limit(10000):
             users.add(m["user_id"])
         users = sorted(users)
-        print(f"Found {len(users)} users with rule_of_square skill entries.")
+        print(f"Found {len(users)} users with endgame_rule_of_square skill entries.")
 
     totals = {"scanned": 0, "removed": 0, "added": 0}
     for uid in users:

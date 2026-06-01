@@ -40,7 +40,7 @@ from services.concept_detectors.rule_of_the_square import (
     detect_rule_of_the_square_application,
 )
 
-SKILL_ID = "rule_of_square"
+SKILL_ID = "endgame_rule_of_square"  # canonical skill_id (see skill_tree.json + concept_detectors/registry.py). "rule_of_square" is the content_ref, not the skill_id; using it here was the original bug — migrate-only script applied 2026-06-01.
 GAMES_PER_USER = 200  # cap to avoid runaway scans
 
 
