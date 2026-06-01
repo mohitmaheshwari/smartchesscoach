@@ -1729,6 +1729,142 @@ const LabV2 = ({ user }) => {
               {/* Insights panel — phases, behaviors, key moments, fundamentals */}
               {true && (
                 <div className="p-6 space-y-4">
+                  {/* ── COACH REVIEW (Mohit 2026-06-01) ───────────────────────
+                     Engine-grounded "coach voice" story of the game. Backed
+                     by services/game_coach_review.py — top 5 user moves by
+                     cp_loss, gated ≥100cp, with a small principle table for
+                     (gap, phase) → title/principle. The cp_loss badge is
+                     visible on every card so a 1200-rated user can spot
+                     check the reasoning. Mohit's audit of human coach
+                     reviews (3 games) showed ~28% false-positive rate from
+                     concept-first picking; this section flips that. */}
+                  {coachReview?.story?.principles?.length > 0 && (
+                    <div className="rounded-xl border border-border bg-card/30 p-5 mb-2">
+                      <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-amber-700 dark:text-amber-300/90 mb-2">
+                        Coach review
+                      </p>
+                      <p className="font-serif text-[15.5px] leading-snug text-foreground mb-4">
+                        {coachReview.story.opener}
+                      </p>
+
+                      {/* Principles — numbered cards, each clickable to jump */}
+                      <div className="space-y-2.5 mb-4">
+                        {coachReview.story.principles.map((p) => (
+                          <div
+                            key={p.n}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => navigateToMoveNumber(p.move_number)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                navigateToMoveNumber(p.move_number);
+                              }
+                            }}
+                            className="rounded-lg border border-border/60 p-3 hover:border-primary/40 hover:bg-muted/30 cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                              <span className="text-[10px] font-bold text-muted-foreground tabular-nums">
+                                {p.n}.
+                              </span>
+                              <span className="text-[13px] font-semibold text-foreground">
+                                {p.title}
+                              </span>
+                              <span className="ml-auto inline-flex items-center gap-1.5">
+                                <span className="text-[10.5px] font-mono tabular-nums text-muted-foreground">
+                                  m{p.move_number}
+                                </span>
+                                <span className="font-mono text-[10.5px] tabular-nums">
+                                  <span className="text-rose-500/80">{p.san_played}</span>
+                                  <span className="text-muted-foreground/40 mx-1">→</span>
+                                  <span className="text-emerald-600/80 dark:text-emerald-300/80">{p.san_best}</span>
+                                </span>
+                                <span className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                                  p.cp_loss >= 1000
+                                    ? "bg-rose-500/15 text-rose-500"
+                                    : p.cp_loss >= 300
+                                      ? "bg-rose-500/10 text-rose-500/80"
+                                      : "bg-amber-500/10 text-amber-600 dark:text-amber-300/80"
+                                }`}>
+                                  {p.cp_loss_label}
+                                </span>
+                              </span>
+                            </div>
+                            <p className="text-[12.5px] text-muted-foreground leading-snug">
+                              <span className="text-foreground/80">{p.diagnosis}</span>{" "}
+                              {p.principle}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Good moves credit */}
+                      {coachReview.story.good_moves?.length > 0 && (
+                        <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3 mb-4">
+                          <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-600 dark:text-emerald-400/80 mb-1">
+                            What you did well
+                          </p>
+                          <p className="text-[12.5px] text-foreground/85">
+                            {coachReview.story.good_moves.map((m, i) => (
+                              <span key={i}>
+                                <span className="font-mono">{m.san}</span> on move {m.move_number}
+                                {i < coachReview.story.good_moves.length - 1 ? ", " : ""}
+                              </span>
+                            ))}
+                            {" — keep playing those."}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Summary table */}
+                      {coachReview.story.summary_table?.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/70 mb-2">
+                            Recap
+                          </p>
+                          <div className="rounded-lg border border-border/40 overflow-hidden">
+                            <div className="grid grid-cols-[auto_1fr] text-[11.5px]">
+                              {coachReview.story.summary_table.map((row, i) => (
+                                <div key={i} className="contents">
+                                  <div className={`p-2 font-mono tabular-nums border-r border-border/40 ${i > 0 ? "border-t" : ""}`}>
+                                    {row.mistake}
+                                  </div>
+                                  <div className={`p-2 text-muted-foreground ${i > 0 ? "border-t border-border/40" : ""}`}>
+                                    {row.remedy}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Homework */}
+                      {coachReview.story.homework?.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/70 mb-2">
+                            This week
+                          </p>
+                          <ul className="space-y-1">
+                            {coachReview.story.homework.map((h, i) => (
+                              <li key={i} className="text-[12.5px] text-muted-foreground flex gap-2">
+                                <span className="text-muted-foreground/40">·</span>
+                                <span>{h}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Closing */}
+                      {coachReview.story.closing && (
+                        <p className="text-[12.5px] text-foreground/70 italic leading-snug border-t border-border/40 pt-3">
+                          {coachReview.story.closing}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Phase Analysis — narrative ribbon (not three stacked cards).
                       A single horizontal bar colored by per-phase accuracy, with
                       the phase name + accuracy under its segment. Verdict text

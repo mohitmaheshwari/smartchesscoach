@@ -822,6 +822,26 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
     except Exception as e:
         logger.warning(f"Fundamentals failed: {e}")
 
+    # ─── 4.5. STORY: coach-shape narrative (Mohit 2026-06-01) ───
+    # Composed deterministically from cp_loss-ordered moves. See
+    # services/game_coach_review.py and the 3-game audit findings:
+    # the human coach reviews picked moves by *concept*, not severity,
+    # and false-positived ~28% of the time. This composer inverts:
+    # severity-first, principle assigned after the fact. Engine-
+    # grounded → no confabulation.
+    try:
+        from services.game_coach_review import compose_story
+        story = compose_story(
+            evals=evals,
+            result_str=game.get("result", ""),
+            user_color=user_color,
+            opening_name=opening_name,
+        )
+        if story:
+            result["story"] = story
+    except Exception as e:
+        logger.warning(f"Story composition failed: {e}")
+
     # ─── 5. BEHAVIORAL SUMMARY ───
     try:
         # Count behavior patterns
