@@ -1851,6 +1851,94 @@ async def extract_puzzles_endpoint(user: User = Depends(get_current_user)):
     return {"puzzles_created": count, "message": f"Extracted {count} training positions from your games."}
 
 
+# ── Skill-puzzle endpoints (Mohit 2026-06-01) ──────────────────────────────
+# Drill positions backed by Engine 2 skill evidence. Lazy-extract on first
+# fetch (mirrors the auto-backfill behavior of /training/pattern-puzzles),
+# grade via the corresponding concept detector. See
+# services/skill_puzzle_extraction.py for the schema notes.
+
+
+@router.get("/training/skill-puzzles/{skill_id}")
+async def get_skill_puzzles_endpoint(
+    skill_id: str,
+    limit: int = 20,
+    user: User = Depends(get_current_user),
+):
+    from services.skill_puzzle_extraction import (
+        extract_skill_puzzles_for_user, get_skill_puzzles,
+    )
+    # Lazy extraction — if the user has missed-evidence entries on this
+    # skill but no puzzles yet, do the conversion before serving.
+    own_count = await db.community_puzzles.count_documents(
+        {"skill_id": skill_id, "shared_by": user.user_id}
+    )
+    if own_count == 0:
+        try:
+            await extract_skill_puzzles_for_user(db, user.user_id, skill_id)
+        except Exception as e:
+            logger.warning(f"skill-puzzle lazy extract failed: {e}")
+    return await get_skill_puzzles(db, user.user_id, skill_id, limit)
+
+
+@router.post("/training/skill-puzzle-attempt")
+async def record_skill_puzzle_attempt(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    """Grade a move against the skill's detector.
+
+    Body:
+      puzzle_id     : str
+      move_uci      : str   (e.g. "e2e4")
+      time_taken_ms : int   (optional)
+
+    Returns:
+      {correct, verdict, detail, puzzle_id}
+    """
+    from services.skill_puzzle_extraction import grade_skill_puzzle_attempt
+    from bson import ObjectId
+    from datetime import datetime, timezone
+
+    puzzle_id = request.get("puzzle_id")
+    move_uci  = request.get("move_uci")
+    if not puzzle_id or not move_uci:
+        raise HTTPException(status_code=400, detail="puzzle_id and move_uci required")
+
+    try:
+        oid = ObjectId(puzzle_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid puzzle_id")
+
+    puzzle = await db.community_puzzles.find_one({"_id": oid})
+    if puzzle is None:
+        raise HTTPException(status_code=404, detail="puzzle not found")
+
+    skill_id = puzzle.get("skill_id")
+    if not skill_id:
+        raise HTTPException(status_code=400, detail="not a skill puzzle")
+
+    result = grade_skill_puzzle_attempt(
+        fen_before=puzzle.get("fen"),
+        move_uci=move_uci,
+        skill_id=skill_id,
+        user_color_str=puzzle.get("user_color"),
+        engine_best_san=puzzle.get("best_move_san") or None,
+    )
+
+    await db.puzzle_attempts.insert_one({
+        "user_id":       user.user_id,
+        "puzzle_id":     puzzle_id,
+        "correct":       bool(result["correct"]),
+        "time_taken_ms": request.get("time_taken_ms"),
+        "moves_tried":   [move_uci],
+        "weakness_type": skill_id,
+        "verdict":       result["verdict"],
+        "created_at":    datetime.now(timezone.utc).isoformat(),
+    })
+    result["puzzle_id"] = puzzle_id
+    return result
+
+
 @router.post("/lab/{game_id}/complete-review")
 async def complete_game_review(game_id: str, request: Request, user: User = Depends(get_current_user)):
     """
