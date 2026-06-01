@@ -211,6 +211,34 @@ const HomePage = ({ user }) => {
   const lastMoves = lastSession?.total_moves;
   const hasEvidence = Boolean(lastStory || lastBoard);
 
+  // Mohit 2026-06-01: the story was rendered as one italic blob inside
+  // literal quote marks. For a 1200, that's a wall of text. Split into
+  // typographically distinct chunks: the lead headline gets prominent
+  // serif weight, observations and habit prompt get plainer treatment,
+  // the recurrence note gets a muted footer. Splits on sentence
+  // boundaries, then merges follow-on sentences that depend on the
+  // prior (e.g. "Same question for theirs" belongs with the question
+  // pair that precedes it).
+  const storyChunks = (() => {
+    if (!lastStory) return [];
+    const raw = lastStory.split(/(?<=[.!?])\s+(?=[A-Z"])/);
+    const merged = [];
+    for (const piece of raw) {
+      const trimmed = piece.trim();
+      if (!trimmed) continue;
+      // Sentences whose meaning depends on the prior one merge in.
+      if (
+        merged.length > 0 &&
+        /^(Same question|These are real|That's not|Same for theirs)/.test(trimmed)
+      ) {
+        merged[merged.length - 1] += " " + trimmed;
+      } else {
+        merged.push(trimmed);
+      }
+    }
+    return merged;
+  })();
+
   // Improvement trend — optional, and only shown when the backend says the
   // sample is big enough to make a claim (trend !== "insufficient_data").
   // Noise-gated: baseline window must have ≥5 events of the pattern.
@@ -317,10 +345,47 @@ const HomePage = ({ user }) => {
 
                 {/* Story + trend + link */}
                 <div className="pt-1 space-y-6">
-                  {lastStory && (
-                    <p className="font-serif italic text-[17px] md:text-[18px] text-foreground leading-snug max-w-[440px]">
-                      "{lastStory}"
-                    </p>
+                  {storyChunks.length > 0 && (
+                    <div className="space-y-3 max-w-[460px]">
+                      {storyChunks.map((chunk, i) => {
+                        // First chunk: the headline (game count + top
+                        // pattern). Biggest, serif, prominent.
+                        if (i === 0) {
+                          return (
+                            <p
+                              key={i}
+                              className="font-serif text-[17px] md:text-[19px] leading-snug tracking-[-0.01em] text-foreground"
+                            >
+                              {chunk}
+                            </p>
+                          );
+                        }
+                        // Last chunk in a multi-chunk story: usually the
+                        // recurrence / "second time this has shown up"
+                        // note. Quietest treatment — context, not lead.
+                        if (i === storyChunks.length - 1 && storyChunks.length > 2) {
+                          return (
+                            <p
+                              key={i}
+                              className="text-[12.5px] leading-relaxed text-muted-foreground"
+                            >
+                              {chunk}
+                            </p>
+                          );
+                        }
+                        // Middle chunks: observations + habit prompt.
+                        // Plain serif foreground, lighter than the
+                        // headline but still readable.
+                        return (
+                          <p
+                            key={i}
+                            className="text-[14.5px] md:text-[15px] leading-relaxed text-foreground/85"
+                          >
+                            {chunk}
+                          </p>
+                        );
+                      })}
+                    </div>
                   )}
 
                   {trendShowing && (
