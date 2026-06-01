@@ -332,15 +332,11 @@ const GameAnalysis = ({ user }) => {
 
   // Jump to initial move from URL.
   //
-  // Mohit 2026-06-01: '?move doesn't load that specific move'. Root
-  // cause: moveNum is a 1-indexed FULL MOVE NUMBER but goToMove takes
-  // a 0-indexed PLY INDEX (see ChessBoardViewer.jsx). The old
-  // 'goToMove(moveNum - 1)' for ?move=17 navigated to ply 16 = after
-  // move 8 black. Match the conversion the rest of this file already
-  // uses (line ~624): idx = (move_number - 1) * 2 + (1 if black else 0).
-  // The board then shows the position AFTER the user's Nth move has
-  // been played, which is what every URL emitter intends (evidence
-  // cards, mastery panel, lab/coach links).
+  // NOTE: GameAnalysis.jsx is the legacy game-review page; production
+  // /game/:gameId routes to LabV2 (see App.js). The real fix for the
+  // ?move=N URL lives in LabV2.jsx. This file is kept for legacy
+  // routes / admin tools but no production user lands here. Same
+  // ply conversion preserved here for parity if it ever does.
   useEffect(() => {
     if (!initialMoveHandled && initialMove && boardRef.current && !loading && decryptionData) {
       const moveNum = parseInt(initialMove, 10);
