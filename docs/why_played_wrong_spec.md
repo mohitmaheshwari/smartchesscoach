@@ -1,7 +1,7 @@
 # "Why Played Wrong" — Two-Clause Caption Spec
 
-**Status:** DRAFT v1 — awaiting Mohit sign-off before implementation.
-**Version:** v1 (2026-06-02).
+**Status:** SIGNED OFF 2026-06-02 (Mohit "go"). v2 incorporates the contextual-verb table + the teaching-principle fallback decision.
+**Version:** v2 (2026-06-02).
 **Supersedes:** the 2026-06-01 reorder attempt (commit `72f21dfe`, reverted in `b0694980`) which proved this needs more than predicate ordering.
 
 ---
@@ -23,35 +23,50 @@ The reorder was a band-aid. This spec replaces it.
 
 ---
 
-## 2. The shape
+## 2. The shape — four outcomes
 
-Every caption for a user mistake renders **two clauses, both grounded in concrete facts**:
+Decisions made 2026-06-02:
+- **Contextual verbs** per failure mode (not a single family).
+- **Teaching principle** replaces the alternative clause when no concrete alternative-promotion fact fires. No naked "X was better" sentences. No silence on user mistakes when we have a failure-mode fact.
 
-```
-{played} {failure_mode_clause}. {best} was better — {alternative_promotion_clause}.
-```
+| State | Caption shape |
+|---|---|
+| failure ✓ + alternative-fact ✓ | `{played} {failure_clause}. {best} was better — {alternative_clause}.` |
+| failure ✓ + alternative-fact ✗ | `{played} {failure_clause}. {teaching_principle_for_failure}.` |
+| failure ✗ + alternative-fact ✓ | `{played} is a mistake. {best} was better — {alternative_clause}.` (existing behaviour) |
+| failure ✗ + alternative-fact ✗ | silent (existing behaviour, unchanged) |
 
 Examples (target after this ships):
 
 - **m20 Bb2:** "Bb2 walks into Rb1 attacking the bishop. h4 was better — it attacks Bg3 with tempo."
-- **m24 Qb8:** "Qb8 allows Nb7 forking your queen and rook. Be7 was better — keeps the back rank defended."
-- **m16 Bf6:** "Bf6 hangs to Nxd5 capturing the bishop. f5 was better — locks the pawn structure."
+- **m24 Qb8:** "Qb8 allows Nb7 forking your queen and rook. Two of your pieces a knight's jump apart are fork targets — keep them spaced or defended."
+- **m16 Bf6:** "Bf6 hangs to Nxd5 winning the bishop. Count defenders before placing a piece on an undefended square."
 
-When **only** a failure-mode clause exists (no concrete alternative-promotion fact):
+### Contextual verb table (failure modes)
 
-```
-{played} {failure_mode_clause}. {best} was better.
-```
+| Fact | Failure clause template |
+|---|---|
+| `opp_reply_attacks_played_piece` | "walks into {opp_reply_san} attacking the {moving_piece_type} on {target_square}" |
+| `opp_reply_creates_fork` (NEW) | "allows {opp_reply_san} forking your {fork_target_1} and {fork_target_2}" |
+| `opp_reply` + `captured_piece_type` | "hangs to {opp_reply_san} winning your {captured_piece_type}" |
+| `opp_reply_san_is_check` | "loses to {opp_reply_san}" |
+| `is_exchange_losing` | "drops the exchange after {opp_reply_san}" |
+| `pieces_now_undefended_present` | "leaves your {piece_type} on {square} undefended" |
+| `opp_reply_removes_defender` (NEW) | "exposes your {exposed_piece} after {opp_reply_san} takes the defender" |
 
-When **only** an alternative-promotion clause exists (no concrete failure-mode fact — the played move was just suboptimal):
+### Teaching principles (failure-mode-keyed)
 
-```
-{played} is a mistake. {best} was better — {alternative_promotion_clause}.
-```
+Hand-authored; ~7 entries to start. Each is universal so it teaches the *next* position too.
 
-When **neither** exists (no concrete facts at all):
-
-- Stay **silent** in V5. Existing behaviour. Don't fall back to engine-speak ("the move loses material in the resulting line") — that was already removed in v94 per the memory note in R12_blunder.json.
+| Failure mode | Teaching principle |
+|---|---|
+| `failure_played_piece_attacked` | "Before every move, ask what your opponent's strongest reply does to your pieces." |
+| `failure_allows_fork` | "Two of your pieces a knight's jump apart are fork targets — keep them spaced or defended." |
+| `failure_allows_capture` | "Count defenders before placing a piece on an undefended square." |
+| `failure_walks_into_check` | "Check your king's escape squares before any move that opens lines toward it." |
+| `failure_exchange_losing` | "An exchange that loses material isn't 'trading' — count piece values first." |
+| `failure_hangs_piece` | "Every move, scan: is anything of mine left without a defender?" |
+| `failure_removes_defender` | "Before moving a defender, check what it was defending." |
 
 ---
 
@@ -88,14 +103,14 @@ facts["alternative_clause"] = resolve_clause("alternative_clauses_user",  facts)
 
 ### 3c. New variants in `select_variant`
 
-Three new variants drive the wrapping format:
+Three new variants drive the wrapping format (the second uses the teaching principle, not a naked "was better"):
 
 ```json
 "variants": {
   "user_with_failure_and_alternative":
     "{played_san} {failure_clause}. {best_move_san} was better — {alternative_clause}.",
-  "user_with_failure_only":
-    "{played_san} {failure_clause}. {best_move_san} was better.",
+  "user_with_failure_and_principle":
+    "{played_san} {failure_clause}. {teaching_principle}.",
   "user_with_alternative_only":
     "{played_san} {severity_phrase}. {best_move_san} was better — {alternative_clause}.",
   /* existing variants kept for opp-side + backwards compat */
@@ -107,11 +122,23 @@ Selector order (first match wins, as today):
 ```json
 "select_variant": [
   {"when": {"failure_clause": "present", "alternative_clause": "present"}, "variant": "user_with_failure_and_alternative"},
-  {"when": {"failure_clause": "present"},                                    "variant": "user_with_failure_only"},
+  {"when": {"failure_clause": "present", "teaching_principle": "present"}, "variant": "user_with_failure_and_principle"},
   {"when": {"alternative_clause": "present"},                                "variant": "user_with_alternative_only"},
   /* existing fallbacks (user_winning_position, user_losing_position, silent, etc.) */
 ]
 ```
+
+### 3d. Teaching principle resolution
+
+After `failure_clause` is computed, look up the principle for the failure variant that fired:
+
+```python
+if facts.get("failure_clause"):
+    failure_variant = ... # the variant name that produced the failure_clause
+    facts["teaching_principle"] = TEACHING_PRINCIPLES.get(failure_variant)
+```
+
+`TEACHING_PRINCIPLES` lives in R12_blunder.json as a dict keyed by failure variant name. Adding a new failure mode means adding both a `failure_X` variant AND a `TEACHING_PRINCIPLES["failure_X"]` entry — enforced by a unit test that loops the failure variants and checks every one has a principle.
 
 ---
 
@@ -223,8 +250,10 @@ Estimated effort: half-day for steps 1-7, half-day for snapshot review + iterati
 
 ---
 
-## 10. Open questions for Mohit
+## 10. Decisions (was: open questions)
 
-1. **Sentence flavour.** "walks into" vs "allows" vs "drops to" — current draft uses "walks into" for opponent-piece-attacks-played; "allows" for fork; "hangs to" for capture. Want a single verb family or contextual?
-2. **Engine-best-vs-alternative-promotion-fact divergence.** When the engine's best move is sometimes NOT one of the alternative-promotion-fact-emitting moves, do we still say "{best} was better"? Today's behavior: yes. Should we silence the alternative clause when the engine's best move is just "less bad" rather than "concretely better via fact X"?
-3. **Failure mode + alternative are inconsistent.** What if `failure_mode_clause` says "walks into Nb7 winning your rook" but the engine's best move is also a non-defending move (just a slightly-less-bad alternative)? The combined sentence reads as "X allows fork. Y was better." but the user might wonder why Y was better. Is silent on the alternative clause OK here?
+Decisions made by Mohit 2026-06-02, resolving all three of the original open questions:
+
+1. **Sentence flavour: contextual.** Different verb per failure fact. Table in §2.
+2. **No naked "{best} was better" sentences.** No silence on user mistakes when we have a failure-mode fact.
+3. **Contradiction case → teaching principle.** When the engine's best move doesn't match a concrete alternative-promotion fact, replace the alternative clause with a universal teaching principle keyed to the failure mode. Mohit's recommendation request answered with this design: always-something, always-grounded, always-teaches.
