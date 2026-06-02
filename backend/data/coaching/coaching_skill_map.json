@@ -1,0 +1,28 @@
+{
+  "_meta": {
+    "purpose": "Maps PWC coaching nudge IDs to the Engine 2 skill_ids they teach. Used by services/pwc_skill_gate.py to gate live coaching by user's mastery state — suppress nudges for mastered skills, escalate nudges for struggling skills.",
+    "added": "2026-06-02 — Mohit, spec docs/pwc_skills_aware_coaching.md",
+    "rules_for_adding": [
+      "Each nudge_id key MUST correspond to a real coaching candidate string used in realtime_coaching_feedback.py or the legacy coaching engine.",
+      "Each value MUST be a list of skill_ids from data/coaching/skill_tree.json. Most nudges map to ONE skill; some teach multiple.",
+      "When a new concept_detector ships, add the matching coaching nudge here so the gate can fire on it.",
+      "Nudges not in this map = ungated (default behaviour — no change from today)."
+    ]
+  },
+  "fried_liver_warning":              ["defend_fried_liver"],
+  "fried_liver_punishment":           ["defend_fried_liver"],
+  "scholars_mate_setup_warning":      ["defend_scholars_mate"],
+  "scholars_mate_punishment":         ["defend_scholars_mate"],
+  "kp_race_coaching":                 ["endgame_rule_of_square"],
+  "rule_of_square_pointer":           ["endgame_rule_of_square"],
+  "opposition_pointer":               ["endgame_opposition"],
+  "opposition_coaching":              ["endgame_opposition"],
+  "lucena_bridge_setup":              ["endgame_lucena"],
+  "lucena_coaching":                  ["endgame_lucena"],
+  "philidor_defensive_setup":         ["endgame_philidor"],
+  "philidor_coaching":                ["endgame_philidor"],
+  "mate_kq_vs_k_coaching":            ["mate_kq_vs_k"],
+  "mate_kq_vs_k_pointer":             ["mate_kq_vs_k"],
+  "mate_kr_vs_k_coaching":            ["mate_kr_vs_k"],
+  "mate_kr_vs_k_pointer":             ["mate_kr_vs_k"]
+}
