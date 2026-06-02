@@ -23,12 +23,36 @@ import chess
 import chess.engine
 import asyncio
 import logging
+import os
 from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 from concurrent.futures import ThreadPoolExecutor
 
 STOCKFISH_PATH = "/usr/games/stockfish"
+
+# Mohit 2026-06-03 — UCI_Elo migration. Stockfish 16+ supports
+# UCI_LimitStrength + UCI_Elo for human-calibrated strength. UCI_Elo
+# range is 1320-3190 (lower bound is Stockfish's calibration floor).
+# Below 1320 we fall back to Skill Level — UCI_Elo can't represent
+# weaker than that. The env flag below gates the migration so we can
+# A/B feel vs the existing Skill Level behaviour.
+PWC_COACH_USE_UCI_ELO_FLAG = "PWC_COACH_USE_UCI_ELO"
+UCI_ELO_MIN = 1320
+UCI_ELO_MAX = 3190
+
+
+def _pwc_coach_uci_elo_enabled() -> bool:
+    return os.environ.get(PWC_COACH_USE_UCI_ELO_FLAG, "false").lower() == "true"
+
+
+def rating_to_uci_elo(user_rating: int) -> Optional[int]:
+    """Map user rating to Stockfish UCI_Elo target, or None when the
+    rating is below UCI_Elo's calibration floor (caller should fall
+    back to Skill Level)."""
+    if user_rating < UCI_ELO_MIN:
+        return None
+    return max(UCI_ELO_MIN, min(UCI_ELO_MAX, int(user_rating)))
 
 # Thread pool for Stockfish calls (blocking)
 _executor = ThreadPoolExecutor(max_workers=2)
@@ -67,7 +91,7 @@ class CoachOpponent:
     def __init__(self, user_rating: int = 1200, depth: int = 10, time_limit: float = 0.5):
         """
         Initialize coach opponent.
-        
+
         Args:
             user_rating: User's rating to match difficulty
             depth: Search depth for Stockfish
@@ -77,6 +101,11 @@ class CoachOpponent:
         self.skill_level = rating_to_skill_level(user_rating)
         self.depth = depth
         self.time_limit = time_limit
+        # Mohit 2026-06-03 — when PWC_COACH_USE_UCI_ELO=true AND the
+        # user's rating is in UCI_Elo's range (1320+), prefer UCI_Elo
+        # over Skill Level. Below 1320 we leave self.uci_elo=None and
+        # fall back to Skill Level transparently.
+        self.uci_elo = rating_to_uci_elo(user_rating) if _pwc_coach_uci_elo_enabled() else None
     
     async def get_move(self, fen: str) -> Optional[str]:
         """
@@ -138,7 +167,7 @@ class CoachOpponent:
         # ─── WARM ENGINE PATH (fast — no process spawn) ───
         try:
             from services.engine_pool import warm_engine_scope
-            with warm_engine_scope(skill_level=self.skill_level) as engine:
+            with warm_engine_scope(skill_level=self.skill_level, uci_elo=self.uci_elo) as engine:
                 result = engine.play(
                     board,
                     chess.engine.Limit(time=self.time_limit, depth=self.depth),
@@ -155,7 +184,19 @@ class CoachOpponent:
         # ─── COLD FALLBACK (only if warm engine is broken) ───
         try:
             with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
-                engine.configure({"Skill Level": self.skill_level})
+                # Mohit 2026-06-03 — prefer UCI_Elo when the flag is on
+                # and rating is in range; else fall back to Skill Level.
+                if self.uci_elo is not None:
+                    try:
+                        engine.configure({
+                            "UCI_LimitStrength": True,
+                            "UCI_Elo": int(self.uci_elo),
+                        })
+                    except Exception as cfg_err:
+                        logger.debug(f"UCI_Elo configure failed in cold path, using Skill Level: {cfg_err}")
+                        engine.configure({"Skill Level": self.skill_level})
+                else:
+                    engine.configure({"Skill Level": self.skill_level})
                 result = engine.play(
                     board,
                     chess.engine.Limit(time=self.time_limit, depth=self.depth)
