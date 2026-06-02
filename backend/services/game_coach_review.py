@@ -265,6 +265,79 @@ def _format_cp(cp: int) -> str:
     return f"-{int(cp)}cp"
 
 
+# Map caption first-verb to a short card title. Keeps the principle
+# card header consistent with the failure-mode diagnosis instead of
+# leaving the (gap, phase) header ("Castle early") attached to a
+# different-shaped body ("walks into Nd4 attacking the queen").
+_CAPTION_VERB_TO_TITLE = [
+    ("walks into",        "Walks into the reply"),
+    ("allows",            "Allows a tactic"),
+    ("hangs to",          "Hanging piece"),
+    ("loses to",          "Walks into check"),
+    ("drops the exchange","Losing exchange"),
+    ("leaves your",       "Undefended piece"),
+]
+
+
+def _title_for_caption(caption: str, fallback: str) -> str:
+    """If the caption opens with a known failure-mode verb (per the
+    R12_blunder failure variants shipped 2026-06-02), pick the short
+    title matching that verb. Otherwise return the fallback (which is
+    the (gap, phase) template title — usually fine for older captions
+    or non-failure-mode shapes)."""
+    if not caption:
+        return fallback
+    # The caption starts with the move SAN, then the verb.
+    # Lowercase everything after the first word for matching.
+    parts = caption.split(maxsplit=1)
+    body = parts[1].lower() if len(parts) > 1 else ""
+    for verb, title in _CAPTION_VERB_TO_TITLE:
+        if body.startswith(verb):
+            return title
+    return fallback
+
+
+def _split_r12_caption(caption: str) -> tuple:
+    """Split a stored R12_blunder caption into (diagnosis, principle).
+
+    R12 captions (after 2026-06-02 failure-mode shipping) follow one
+    of these shapes:
+
+      (a) "{played} {failure_clause}. {best} was better — {alternative}."
+          → diagnosis = first sentence (failure clause).
+          → principle = second sentence (alternative recommendation).
+
+      (b) "{played} {failure_clause}. {teaching_principle}."
+          → diagnosis = first sentence (failure clause).
+          → principle = second sentence (teaching).
+
+      (c) "{played} {severity_phrase}. {best} was better — {why_clause}"
+          (older alternative-only variant)
+          → diagnosis = first sentence.
+          → principle = rest.
+
+      (d) "{played} {severity_phrase}. {best} was better."
+          (terse fallback when no why_clause)
+          → diagnosis = first sentence.
+          → principle = second sentence ("{best} was better.").
+
+    We split on the first ". " — works for all four shapes. When the
+    caption has only one sentence (unusual), return it as diagnosis
+    with empty principle.
+    """
+    caption = caption.strip()
+    if not caption:
+        return "", ""
+    # Prefer ". " split (matches all shapes above).
+    parts = caption.split(". ", 1)
+    if len(parts) == 2:
+        diagnosis = parts[0].rstrip(".") + "."
+        principle = parts[1].rstrip(".") + "." if not parts[1].endswith(("?", "!")) else parts[1]
+        return diagnosis, principle
+    # Single sentence — give it as diagnosis.
+    return caption, ""
+
+
 # ── core composer ───────────────────────────────────────────────────────
 
 
@@ -273,6 +346,7 @@ def compose_story(
     result_str: str,
     user_color: str,
     opening_name: str,
+    decryption_data: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Compose the structured coach-review story. Returns None if the
     game wasn't analyzed enough to produce a meaningful story."""
@@ -280,6 +354,24 @@ def compose_story(
     user_evals = [e for e in evals if _is_user_move(e)]
     if not user_evals:
         return None
+
+    # ── 0. Caption lookup from decryption_data ──
+    # decryption_data lives on game_analyses.decryption_data and is the
+    # V5 per-move narrative store. Each entry has caption (deterministic
+    # R12_blunder output) and caption_llm (LLM-polished version, may be
+    # None). We prefer caption_llm when present, fall back to caption.
+    # See services/game_decryption_v5_service.py for the writer.
+    caption_by_key: Dict[tuple, str] = {}
+    for d in (decryption_data or []):
+        if not isinstance(d, dict):
+            continue
+        mn = d.get("move_number")
+        san = d.get("move_san") or d.get("move")
+        if mn is None or not san:
+            continue
+        cap = (d.get("caption_llm") or d.get("caption") or "").strip()
+        if cap:
+            caption_by_key[(mn, san)] = cap
 
     # ── 1. Principles: top-N user moves by cp_loss, gated by floor ──
     scored = [
@@ -311,6 +403,32 @@ def compose_story(
         best = ev.get("best_move") or "?"
         cp_loss = int(ev.get("cp_loss") or 0)
 
+        # Mohit 2026-06-02 — wire the R12_blunder failure-mode captions
+        # (Phase 1/2 shipped earlier today) into Coach Review. When the
+        # eval has a stored caption from R12 (which now diagnoses the
+        # played move with concrete failure-mode wording — "walks into
+        # Nd4 attacking the queen on f3" instead of generic templating),
+        # prefer it over the (gap, phase) principle template.
+        #
+        # The (gap, phase) template fires generic developmental advice
+        # ("Castle early", "Slow down on developing moves") even on
+        # tactical opening collapses — Mohit's Italian Game/Nxf7 game
+        # was the smoking gun. The R12 caption is much closer to what
+        # the user actually needs to hear.
+        #
+        # Split the caption: first sentence = diagnosis (the failure
+        # clause), rest = principle (alternative move + teaching, or
+        # the universal teaching principle). Both are already grounded
+        # in concrete facts per the failure-mode work.
+        stored_caption = caption_by_key.get((mn, played), "").strip()
+        if stored_caption:
+            diagnosis_text, principle_text = _split_r12_caption(stored_caption)
+            title_text = _title_for_caption(stored_caption, tmpl["title"])
+        else:
+            diagnosis_text = tmpl["diagnosis"].format(played=played, best=best)
+            principle_text = tmpl["principle"]
+            title_text = tmpl["title"]
+
         principle = {
             "n": len(principles) + 1,
             "move_number": mn,
@@ -319,9 +437,9 @@ def compose_story(
             "san_best": best,
             "cp_loss": cp_loss,
             "cp_loss_label": _format_cp(cp_loss),
-            "title": tmpl["title"],
-            "diagnosis": tmpl["diagnosis"].format(played=played, best=best),
-            "principle": tmpl["principle"],
+            "title": title_text,
+            "diagnosis": diagnosis_text,
+            "principle": principle_text,
             "fen_before": ev.get("fen_before"),
             "gap": gap or None,
         }

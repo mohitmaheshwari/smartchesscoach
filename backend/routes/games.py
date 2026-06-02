@@ -831,11 +831,18 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
     # grounded → no confabulation.
     try:
         from services.game_coach_review import compose_story
+        # decryption_data is the V5 per-move narrative store with the
+        # R12_blunder captions; compose_story prefers it over the
+        # (gap, phase) principle template when available so the user
+        # sees "Qf3 walks into Nd4 attacking the queen" instead of the
+        # generic "Castle early" framing on tactical opening collapses.
+        # Mohit 2026-06-02 Italian-Game flag.
         story = compose_story(
             evals=evals,
             result_str=game.get("result", ""),
             user_color=user_color,
             opening_name=opening_name,
+            decryption_data=analysis.get("decryption_data") or [],
         )
         if story:
             result["story"] = story
