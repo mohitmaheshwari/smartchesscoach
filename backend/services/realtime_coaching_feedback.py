@@ -23,6 +23,7 @@ Author: Built for truly personalized real-time coaching
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 import logging
+import os
 import chess
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,14 @@ class MoveFeedback:
     
     # Trap suggestion
     trap_suggestion: Optional[Dict] = None  # If a trap is available from this position
+
+    # Mohit 2026-06-02 — live opening curriculum guidance (spec
+    # docs/pwc_realtime_opening_guidance.md). Populated per-move when
+    # PWC_LIVE_OPENING_NUDGE_ENABLED=true and the session has an
+    # opening_to_teach / detected_opening keyed into
+    # data/opening_curriculum.json. None outside the book or when
+    # disabled. Shape matches opening_curriculum_engine.get_opening_guidance.
+    live_opening_guidance: Optional[Dict] = None
     
     # NEW: Socratic mode - ask before telling
     socratic_question: Optional[str] = None  # Question to ask user before revealing answer
@@ -177,6 +186,8 @@ class MoveFeedback:
         }
         if self.trap_suggestion:
             result["trap_suggestion"] = self.trap_suggestion
+        if self.live_opening_guidance:
+            result["live_opening_guidance"] = self.live_opening_guidance
         return result
 
 
@@ -1455,6 +1466,45 @@ async def generate_move_feedback(
             # Gate failures must never break live coaching — degrade
             # silently to today's behaviour.
             logger.warning(f"[pwc_skill_gate] gate raised, falling through: {gate_err}")
+
+    # Mohit 2026-06-02 — live opening curriculum guidance (spec
+    # docs/pwc_realtime_opening_guidance.md). Default-off via
+    # PWC_LIVE_OPENING_NUDGE_ENABLED. When the session has an opening
+    # focus AND we're still in book, surface the curriculum's
+    # right_feedback / wrong_feedback / golden_rule on the response.
+    live_opening_guidance = None
+    if os.environ.get("PWC_LIVE_OPENING_NUDGE_ENABLED", "false").lower() == "true":
+        try:
+            opening_key_for_nudge = (
+                session.get("opening_to_teach")
+                or session.get("detected_opening")
+                or session.get("opening_key")
+            )
+            if opening_key_for_nudge:
+                from services.opening_curriculum_engine import get_opening_guidance
+                # Build SAN history from move_history (both sides).
+                san_history = [
+                    m.get("move") or m.get("san") for m in move_history
+                    if (m.get("move") or m.get("san"))
+                ]
+                _nudge = get_opening_guidance(
+                    opening_key=opening_key_for_nudge,
+                    moves_played=san_history,
+                    user_color=user_color,
+                )
+                if _nudge and _nudge.get("is_in_book"):
+                    # Strip noisy fields the frontend doesn't need every move.
+                    live_opening_guidance = {
+                        "position_name":   _nudge.get("position_name"),
+                        "suggested_move":  _nudge.get("suggested_move"),
+                        "idea":            _nudge.get("idea"),
+                        "right_feedback":  _nudge.get("right_feedback"),
+                        "wrong_feedback":  _nudge.get("wrong_feedback"),
+                        "golden_rule":     _nudge.get("golden_rule"),
+                        "is_in_book":      True,
+                    }
+        except Exception as nudge_err:
+            logger.warning(f"[live_opening_nudge] raised, falling through: {nudge_err}")
     
     # Build V5 candidate moves
     candidate_moves = []
@@ -1705,6 +1755,7 @@ async def generate_move_feedback(
         shape_pattern_desc=shape_pattern_desc_out,
         shape_pattern_targets=shape_pattern_targets_out,
         shape_pattern_executing_move=shape_pattern_executing_out,
+        live_opening_guidance=live_opening_guidance,
     )
 
 
