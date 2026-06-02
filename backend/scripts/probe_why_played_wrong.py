@@ -136,6 +136,51 @@ CASES = [
             "pawn_kicks_piece_type": "bishop",
         },
     },
+
+    # OUTCOME 7 — PHASE 2 NEW FACT: m24 Qb8 from the same bug batch.
+    # Black played Qb8 → white plays Nb7 forking queen on c8 and
+    # rook on a8. The played piece (queen) isn't directly attacked
+    # at b8, so opp_reply_attacks_played_piece=False. But fork
+    # detection should fire on (queen, rook) targets and produce
+    # the "allows Nb7 forking your queen on c8 and rook on a8"
+    # caption.
+    #
+    # No alternative-promotion fact (no easy pawn kick from this
+    # position) → teaching principle should fire.
+    {
+        "name": "7_fork_real_world_m24_Qb8",
+        "facts": {
+            "mover_is_user": True,
+            "played_san": "Qb8",
+            "best_move_san": "Be7",
+            "best_move_san_differs": True,
+            "cp_loss": 124,
+            # failure: Nb7 forks queen + rook
+            "opp_reply_san": "Nb7",
+            "opp_reply_creates_fork": True,
+            "fork_target_1": "queen",
+            "fork_target_1_square": "c8",
+            "fork_target_2": "rook",
+            "fork_target_2_square": "a8",
+        },
+    },
+
+    # OUTCOME 8 — fork ALONE (no alternative fact, teaching principle).
+    # Same as 7 but spelled out explicitly: failure ✓, alt ✗, principle ✓.
+    {
+        "name": "8_fork_only_principle",
+        "facts": {
+            **COMMON,
+            "played_san": "Qb8",
+            "best_move_san": "Be7",
+            "opp_reply_san": "Nb7",
+            "opp_reply_creates_fork": True,
+            "fork_target_1": "queen",
+            "fork_target_1_square": "c8",
+            "fork_target_2": "rook",
+            "fork_target_2_square": "a8",
+        },
+    },
 ]
 
 

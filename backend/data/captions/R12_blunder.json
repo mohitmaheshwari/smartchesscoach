@@ -184,6 +184,7 @@
   ],
   "failure_mode_clauses_user": [
     {"when": {"opp_reply_san_is_check": true}, "variant": "failure_walks_into_check"},
+    {"when": {"opp_reply_san": "present", "opp_reply_creates_fork": true, "fork_target_1": "present", "fork_target_2": "present", "fork_target_1_square": "present", "fork_target_2_square": "present"}, "variant": "failure_allows_fork"},
     {"when": {"opp_reply_san": "present", "captured_piece_type": "present"}, "variant": "failure_allows_capture"},
     {"when": {"is_exchange_losing": true, "target_square": "present", "opp_reply_san": "present"}, "variant": "failure_exchange_losing_with_reply"},
     {"when": {"is_exchange_losing": true, "target_square": "present"}, "variant": "failure_exchange_losing_no_reply"},
@@ -192,6 +193,7 @@
   ],
   "teaching_principles": {
     "failure_walks_into_check":           "Check your king's escape squares before any move that opens lines toward it",
+    "failure_allows_fork":                "When two of your pieces a knight's jump apart, check for forks before any move",
     "failure_allows_capture":             "Count defenders before placing a piece on an undefended square",
     "failure_exchange_losing_with_reply": "An exchange that loses material isn't 'trading' — count piece values first",
     "failure_exchange_losing_no_reply":   "An exchange that loses material isn't 'trading' — count piece values first",
@@ -264,6 +266,7 @@
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
 
     "failure_walks_into_check": "loses to {opp_reply_san}",
+    "failure_allows_fork": "allows {opp_reply_san} forking your {fork_target_1} on {fork_target_1_square} and {fork_target_2} on {fork_target_2_square}",
     "failure_allows_capture": "hangs to {opp_reply_san} winning your {captured_piece_type}",
     "failure_exchange_losing_with_reply": "drops the exchange after {opp_reply_san}",
     "failure_exchange_losing_no_reply": "drops the exchange",

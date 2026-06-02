@@ -4886,6 +4886,28 @@ def extract_facts(
     opp_reply_san: Optional[str] = None
     opp_reply_attacks_played_piece: bool = False
     opp_reply_captures_piece_type: Optional[str] = None
+    # Mohit 2026-06-02: fork detection (Phase 2 of why_played_wrong
+    # spec). Covers m24 Qb8 from the 2026-06-01 feedback batch — Qb8
+    # didn't walk into an attack on the queen itself (opp_reply_attacks_
+    # played_piece=False) but Nb7 forked the queen on c8 and the rook
+    # on a8. New facts:
+    #   opp_reply_creates_fork: True when opp's reply attacks ≥2 user
+    #                           pieces (or 1 king + ≥1 piece) from its
+    #                           landing square, where targets weren't
+    #                           ALREADY attacked by that piece's old
+    #                           square — i.e. the fork is created BY
+    #                           the move, not pre-existing.
+    #   fork_target_1, fork_target_2: piece-type names of the two
+    #     most-valuable targets (king named separately as "king" so
+    #     templates can phrase "your king and queen").
+    #   fork_target_1_square, fork_target_2_square: squares for the
+    #     same two targets. Templates can phrase "your queen on c8
+    #     and rook on a8".
+    opp_reply_creates_fork: bool = False
+    fork_target_1: Optional[str] = None
+    fork_target_2: Optional[str] = None
+    fork_target_1_square: Optional[str] = None
+    fork_target_2_square: Optional[str] = None
     if pv_after_played:
         raw = (pv_after_played[0] or "").strip()
         if raw:
@@ -4904,6 +4926,41 @@ def extract_facts(
                 # played piece is sitting on?
                 if played_move.to_square in sim.attacks(opp_mv.to_square):
                     opp_reply_attacks_played_piece = True
+
+                # Fork detection: identify which user pieces opp's
+                # moved piece attacks from its NEW square. The played
+                # piece itself is excluded if already counted (that's
+                # the attacks_played fact). King is always a target;
+                # other pieces only count if value >= minor (knight/
+                # bishop+). Pawns excluded.
+                attacked_by_opp = sim.attacks(opp_mv.to_square)
+                _user_color = played_move and board_before.piece_at(played_move.from_square)
+                _user_color = _user_color.color if _user_color else None
+                _PIECE_VALUE_MIN_FOR_FORK = 3  # knight value
+                _targets: list = []
+                if _user_color is not None:
+                    for sq in attacked_by_opp:
+                        pc = sim.piece_at(sq)
+                        if pc is None or pc.color != _user_color:
+                            continue
+                        if pc.piece_type == chess.KING:
+                            _targets.append(("king", chess.SQUARE_NAMES[sq], 1000))
+                        else:
+                            val = {chess.QUEEN: 9, chess.ROOK: 5,
+                                   chess.BISHOP: 3, chess.KNIGHT: 3,
+                                   chess.PAWN: 1}.get(pc.piece_type, 0)
+                            if val >= _PIECE_VALUE_MIN_FOR_FORK:
+                                name = PIECE_TYPE_NAMES.get(pc.piece_type, "piece")
+                                _targets.append((name, chess.SQUARE_NAMES[sq], val))
+                # Need 2+ targets to be a fork. Sort by value desc so
+                # the more impressive target is named first.
+                if len(_targets) >= 2:
+                    _targets.sort(key=lambda t: -t[2])
+                    opp_reply_creates_fork = True
+                    fork_target_1 = _targets[0][0]
+                    fork_target_1_square = _targets[0][1]
+                    fork_target_2 = _targets[1][0]
+                    fork_target_2_square = _targets[1][1]
             except (chess.IllegalMoveError, chess.InvalidMoveError, ValueError, AssertionError):
                 # PGN drift defensive — pv_after_played may not align with
                 # board_after in rare cases. Leave facts empty rather than
@@ -5196,6 +5253,14 @@ def extract_facts(
         "opp_reply_san": opp_reply_san,
         "opp_reply_attacks_played_piece": opp_reply_attacks_played_piece,
         "opp_reply_captures_piece_type": opp_reply_captures_piece_type,
+        # FORK DETECTION (Mohit 2026-06-02, why_played_wrong Phase 2).
+        # Drives failure_allows_fork in R12_blunder.json. See in-place
+        # comment at the extraction site.
+        "opp_reply_creates_fork": opp_reply_creates_fork,
+        "fork_target_1": fork_target_1,
+        "fork_target_2": fork_target_2,
+        "fork_target_1_square": fork_target_1_square,
+        "fork_target_2_square": fork_target_2_square,
 
         # TACTIC-SHAPE EVIDENCE — STRUCTURED, NO LABELS.
         # Names use the GEOMETRIC primitive, not renderer taxonomy.
