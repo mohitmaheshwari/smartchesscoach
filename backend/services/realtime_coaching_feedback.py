@@ -1282,6 +1282,75 @@ async def generate_move_feedback(
         socratic_question = coaching_result.get("socratic_question")
         expects_response = coaching_result.get("expects_response", False)
 
+        # Mohit 2026-06-02 — PWC central-caption migration phase 2
+        # (spec docs/pwc_central_caption_migration.md §5 phase 2).
+        # Default-off env flag PWC_USE_CENTRAL_CAPTION_PIPELINE.
+        # When on, override the legacy engine's coaching_message with
+        # the central pipeline's caption (build_move_teaching_decision).
+        # Diff baseline (commit 22eac125) showed: 100% content
+        # agreement on positions where both engines speak, 89% of
+        # one-silent cases are central enrichment (failure-mode +
+        # curriculum captions PWC misses), 38 PWC-only cases are
+        # overwhelmingly filler or cp=0 false positives. Migration is
+        # a clear win. socratic_question / encouragement / etc. stay
+        # on PWC's engine for this phase; those are separate surfaces
+        # and not in scope.
+        if os.environ.get("PWC_USE_CENTRAL_CAPTION_PIPELINE", "false").lower() == "true":
+            try:
+                from services.caption_pipeline import (
+                    build_move_teaching_decision, MoveInputs, CrossMoveState,
+                )
+                # Reconstruct what the central pipeline needs.
+                san_history_for_central = [
+                    m.get("move") or m.get("san") for m in (move_history or [])
+                    if (m.get("move") or m.get("san"))
+                ]
+                # Cap at moves PRIOR to the current user_move
+                if user_move and san_history_for_central and san_history_for_central[-1] == user_move:
+                    san_history_for_central = san_history_for_central[:-1]
+                mover_is_white_central = (user_color or "white").lower() == "white"
+                cp_loss_central = 0
+                try:
+                    if eval_before is not None and eval_after is not None:
+                        # cp loss from user's perspective
+                        delta = (eval_before - eval_after) if mover_is_white_central else (eval_after - eval_before)
+                        cp_loss_central = max(0, int(delta * 100)) if abs(delta) < 50 else 0
+                except Exception:
+                    pass
+                _inputs = MoveInputs(
+                    fen_before=fen_before or "",
+                    played_san=user_move or "",
+                    mover_is_user=True,
+                    mover_is_white=mover_is_white_central,
+                    user_color=(user_color or "white").lower(),
+                    full_move_number=move_number,
+                    move_history_san=san_history_for_central,
+                    best_move_san=best_move or None,
+                    eval_before_cp=int(eval_before * 100) if eval_before is not None else None,
+                    eval_after_cp=int(eval_after * 100) if eval_after is not None else None,
+                    cp_loss=cp_loss_central,
+                    pv_after_played=tactical.get("pv_after_played") or [],
+                    pv_after_best=tactical.get("pv_after_best") or [],
+                )
+                _state = CrossMoveState()
+                _decision = build_move_teaching_decision(_inputs, _state)
+                _central_caption = (
+                    getattr(getattr(_decision, "text", None), "caption", None) or ""
+                ).strip()
+                if _central_caption:
+                    logger.info(
+                        f"[pwc_central_migration] replacing PWC caption with central for "
+                        f"move {move_number} {user_move}"
+                    )
+                    coaching_message = _central_caption
+                # else: central had nothing to say → keep PWC's coaching_message
+                # (this matches the 38 PWC-only cases from the baseline, which
+                # were overwhelmingly filler — but we don't lose them yet, just
+                # let them through silently).
+            except Exception as central_err:
+                # Central pipeline failure must never break live coaching.
+                logger.warning(f"[pwc_central_migration] central call raised, keeping PWC: {central_err}")
+
         # Inject pattern memory into coaching message (the "I know you" layer)
         if pattern_reference and quality in ["mistake", "blunder"]:
             coaching_message = f"{pattern_reference} {coaching_message}"
