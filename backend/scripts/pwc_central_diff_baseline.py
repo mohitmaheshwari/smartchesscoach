@@ -153,18 +153,24 @@ def _render_central_caption(
     caption = ""
     severity = "silent"
     try:
-        # MoveTeachingDecision has a .text sub-object with the caption.
+        # caption lives on decision.text.caption
         text_obj = getattr(decision, "text", None)
         if text_obj is not None:
             caption = (getattr(text_obj, "caption", None) or "").strip()
-        # Severity lives on decision directly or under text.
-        for src in (decision, text_obj):
-            if src is None:
-                continue
-            sev = getattr(src, "severity", None)
-            if sev:
+        # severity lives on decision.teaching_meta.severity (the
+        # user-facing tier — "good"/"inaccuracy"/"mistake"/"blunder"/
+        # "opp_mistake"/"context"). Map "good"/"context" to "silent"
+        # when the caption is empty so the diff classifier doesn't
+        # over-count cosmetic ties as severity disagreements.
+        tm = getattr(decision, "teaching_meta", None)
+        if tm is not None:
+            sev = getattr(tm, "severity", None) or "context"
+            # Normalise: when no caption rendered, severity is "silent"
+            # for purposes of the diff (matches how PWC counts).
+            if not caption and sev in ("good", "context"):
+                severity = "silent"
+            else:
                 severity = sev
-                break
     except Exception:
         pass
 
