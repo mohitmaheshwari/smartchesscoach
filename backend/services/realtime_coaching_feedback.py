@@ -28,6 +28,27 @@ import chess
 logger = logging.getLogger(__name__)
 
 
+# Mohit 2026-06-02 — maps trap_library trap names to the coaching_skill_map
+# nudge_ids that pwc_skill_gate.gate_decision() uses. Trap library's `name`
+# field is human-facing ("Fried Liver Attack", "Scholar's Mate"); the
+# gate consumes machine-keyed nudge_ids. Only trap names that have a
+# corresponding entry in backend/data/coaching/coaching_skill_map.json
+# get mapped. Unknown traps → None (gate falls through as ungated).
+_TRAP_NAME_TO_NUDGE_ID = {
+    "fried liver attack":   "fried_liver_warning",
+    "fried liver":          "fried_liver_warning",
+    "scholar's mate":       "scholars_mate_setup_warning",
+    "scholars mate":        "scholars_mate_setup_warning",
+}
+
+
+def _trap_name_to_nudge_id(trap_name: str) -> Optional[str]:
+    """Lowercase + lookup. None when the trap isn't gated."""
+    if not trap_name:
+        return None
+    return _TRAP_NAME_TO_NUDGE_ID.get(trap_name.strip().lower())
+
+
 @dataclass
 class MoveFeedback:
     """Comprehensive feedback for a single move"""
@@ -1394,6 +1415,46 @@ async def generate_move_feedback(
             }
     except Exception as e:
         logger.warning(f"Error checking for traps: {e}")
+
+    # Mohit 2026-06-02 — PWC skill-mastery gate (spec docs/pwc_skills_aware_coaching.md).
+    # Env-gated and default-off. When enabled, suppresses trap_suggestion
+    # for users who have mastered the relevant defence skill (e.g. Mohit
+    # has defend_fried_liver applied=3/seen=4 → Fried Liver warnings
+    # would be noise). Other nudge surfaces (shape patterns, opening
+    # theory notes, weakness references) are out of scope for this commit
+    # and will be gated in follow-ups as they get tagged with nudge_ids.
+    if trap_suggestion is not None:
+        try:
+            from services.pwc_skill_gate import (
+                is_enabled as _pwc_gate_enabled,
+                gate_decision as _pwc_gate_decision,
+                GATE_SUPPRESS as _PWC_SUPPRESS,
+                GATE_ESCALATE as _PWC_ESCALATE,
+            )
+            if _pwc_gate_enabled():
+                nudge_id = _trap_name_to_nudge_id(trap_suggestion.get("name") or "")
+                if nudge_id:
+                    mem = await db.coach_memory.find_one({"user_id": user_id})
+                    skills = ((mem or {}).get("learning") or {}).get("skills") or []
+                    dec = _pwc_gate_decision(nudge_id, skills)
+                    if dec["decision"] == _PWC_SUPPRESS:
+                        logger.info(
+                            f"[pwc_skill_gate] suppressed trap '{trap_suggestion.get('name')}' "
+                            f"for user={user_id} reason={dec['reason']}"
+                        )
+                        trap_suggestion = None
+                    elif dec["decision"] == _PWC_ESCALATE:
+                        # ESCALATE wiring on trap_suggestion's coaching message
+                        # surface lives in a follow-up commit; log so we have
+                        # evidence of fires while we design the wording.
+                        logger.info(
+                            f"[pwc_skill_gate] escalation candidate trap='{trap_suggestion.get('name')}' "
+                            f"for user={user_id} reason={dec['reason']} prefix={dec['escalate_prefix']!r}"
+                        )
+        except Exception as gate_err:
+            # Gate failures must never break live coaching — degrade
+            # silently to today's behaviour.
+            logger.warning(f"[pwc_skill_gate] gate raised, falling through: {gate_err}")
     
     # Build V5 candidate moves
     candidate_moves = []
