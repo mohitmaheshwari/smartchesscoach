@@ -56,13 +56,18 @@ MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME", "chess_coach")
 
 
-# Mirror the snapshot_surface1 corpus.
+# Mirror the snapshot_surface1 corpus exactly so the diff is
+# apples-to-apples. Duplicated here so the script can run standalone
+# if a snapshot file is missing (e.g. after a container rebuild that
+# wipes /app/backend/scripts/_snapshots/).
 CORPUS: List[str] = [
     "game_692ab776c5b1", "game_85bd0169aa4f", "game_b5d23694a803",
-    # The remaining 17 game IDs match snapshot_surface1.py's CORPUS
-    # constant. To keep this script self-contained we read them from
-    # the existing snapshot file rather than duplicating the list —
-    # see _load_corpus() below.
+    "game_f2c022e03856", "game_ef9f422a062d", "game_74fdbd74c468",
+    "game_4177951c757f", "game_bc41022831e0", "game_4c0f48f6cc0a",
+    "game_8efcc1db5aa4", "game_94ea9cf7bc33", "game_ec4ba8b79b91",
+    "game_665fd66c997a", "game_5e161a7440aa", "game_e9120f8eaa1d",
+    "game_b19b724011a2", "game_efa6a7a5d0bf", "game_5da7dc72d514",
+    "game_214f16ba655d", "game_8e1294767490",
 ]
 
 
