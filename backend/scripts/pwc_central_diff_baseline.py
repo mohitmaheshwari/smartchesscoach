@@ -100,49 +100,66 @@ def _render_pwc_narrative(move_record: Dict[str, Any]) -> Dict[str, Any]:
 
 def _render_central_caption(
     fen_before: str,
-    fen_after: str,
     move_san: str,
     move_uci: str,
+    move_history_san: List[str],
     user_color: str,
+    full_move_number: int,
+    mover_is_user: bool,
+    mover_is_white: bool,
+    best_move_san: Optional[str],
     eval_before: Optional[int],
     eval_after: Optional[int],
     cp_loss: Optional[int],
+    pv_after_played: List[str],
+    pv_after_best: List[str],
 ) -> Dict[str, Any]:
     """Render what the central caption pipeline would emit at this
-    position. Calls build_move_teaching_decision the same way V5
-    review does (per memory/project_caption_pipeline_central_layer).
+    position via the actual MoveInputs/CrossMoveState contract.
     """
     try:
-        from services.caption_pipeline import build_move_teaching_decision
+        from services.caption_pipeline import (
+            build_move_teaching_decision, MoveInputs, CrossMoveState,
+        )
     except Exception as e:
         return {"narrative": f"<central import failed: {e}>", "severity": "error"}
 
     try:
-        decision = build_move_teaching_decision(
+        inputs = MoveInputs(
             fen_before=fen_before,
-            fen_after=fen_after,
-            move_san=move_san,
-            move_uci=move_uci,
-            mover_color=user_color,
-            eval_before=eval_before,
-            eval_after=eval_after,
-            cp_loss=cp_loss,
+            played_san=move_san,
+            mover_is_user=mover_is_user,
+            mover_is_white=mover_is_white,
+            user_color=user_color,
+            full_move_number=full_move_number,
+            move_history_san=move_history_san,
+            best_move_san=best_move_san,
+            eval_before_cp=eval_before,
+            eval_after_cp=eval_after,
+            cp_loss=int(cp_loss or 0),
+            pv_after_played=pv_after_played or [],
+            pv_after_best=pv_after_best or [],
         )
+        state = CrossMoveState()
+        decision = build_move_teaching_decision(inputs, state)
     except Exception as e:
-        return {"narrative": f"<central render failed: {e}>", "severity": "error"}
+        return {"narrative": f"<central render failed: {type(e).__name__}: {e}>", "severity": "error"}
 
     caption = ""
     severity = "silent"
     try:
-        # decision may be a dataclass or dict — handle both.
-        if hasattr(decision, "text"):
-            caption = (getattr(decision.text, "caption", None) or "").strip()
-        elif isinstance(decision, dict):
-            caption = (decision.get("caption") or decision.get("text", {}).get("caption") or "").strip()
-        if hasattr(decision, "severity"):
-            severity = getattr(decision, "severity", "silent") or "silent"
-        elif isinstance(decision, dict):
-            severity = decision.get("severity") or "silent"
+        # MoveTeachingDecision has a .text sub-object with the caption.
+        text_obj = getattr(decision, "text", None)
+        if text_obj is not None:
+            caption = (getattr(text_obj, "caption", None) or "").strip()
+        # Severity lives on decision directly or under text.
+        for src in (decision, text_obj):
+            if src is None:
+                continue
+            sev = getattr(src, "severity", None)
+            if sev:
+                severity = sev
+                break
     except Exception:
         pass
 
@@ -263,15 +280,31 @@ async def main_async(human: bool):
 
             # Render central
             ev = evals_by_san.get((mv_num, san)) or {}
+            # Build SAN history up to but not including this move.
+            san_history_so_far: List[str] = []
+            tmp_board = pgn.board()
+            for prior_mv in list(pgn.mainline_moves())[:ply]:
+                try:
+                    san_history_so_far.append(tmp_board.san(prior_mv))
+                except Exception:
+                    pass
+                tmp_board.push(prior_mv)
+            mover_is_white = (ply % 2 == 0)
             central_payload = _render_central_caption(
                 fen_before=fen_before,
-                fen_after=fen_after,
                 move_san=san,
                 move_uci=mv.uci(),
+                move_history_san=san_history_so_far,
                 user_color=user_color_str,
+                full_move_number=mv_num,
+                mover_is_user=True,  # we filter to user moves above
+                mover_is_white=mover_is_white,
+                best_move_san=ev.get("best_move"),
                 eval_before=ev.get("eval_before"),
                 eval_after=ev.get("eval_after"),
                 cp_loss=ev.get("cp_loss"),
+                pv_after_played=ev.get("pv_after_played") or [],
+                pv_after_best=ev.get("pv_after_best") or [],
             )
 
             label = _classify(pwc_payload, central_payload)
