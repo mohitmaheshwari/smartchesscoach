@@ -22,11 +22,13 @@ See also: [CLAUDE.md](CLAUDE.md), `backend/services/caption_pipeline.py` (centra
 
 ## 2. "Why played wrong" fact + variant
 
-**Status:** Not started. Default `silent_near_best` is the current (correct) behaviour.
+**Status:** Spec written 2026-06-02 → [docs/why_played_wrong_spec.md](docs/why_played_wrong_spec.md). Awaiting Mohit sign-off. Triggered by feedback batch fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67 (2026-06-01).
 
-**Scope:** when a near-best alternative exists and the user picked a same-piece-different-square move, surface the comparative why — e.g. "Nf6 develops *and* hits e4; Ne7 only develops."
+**Scope:** two-clause caption — "X walks-into-Y. Z was better — Z-does-W." Each clause grounded in a concrete fact (failure-mode for played, alternative-promotion for best). When only one side has a fact, render single-clause; when neither, stay silent.
 
 **Why filed:** the default direction (silent on near-best) is right per [[no-hollow-coverage]]. This is the opposite-direction addition that fires *only* when both moves are same-piece + same-category + one has a strictly-more-positive signal. Gating must be airtight or it degrades to "could be better" generic template noise. Needs ≥2 concrete approved rewrites to anchor the variant text.
+
+**Prior attempt:** the 2026-06-01 predicate reorder (commit `72f21dfe`, reverted in `b0694980`) showed why this needs the bigger system — reordering alone produces non-sequitur wrappings ("h4 was better — your bishop is under attack") and doesn't cover failure modes that aren't in the existing fact set (m24 Qb8 walking into Nb7 fork on the queen, not the played piece). See the spec doc for the full architecture.
 
 ---
 
