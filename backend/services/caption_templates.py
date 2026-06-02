@@ -311,6 +311,25 @@ def render_rule(rule_name: str, facts: Dict[str, Any]) -> Optional[str]:
         why = resolve_why_clause(rule_name, side_key, facts)
         facts["why_clause"] = why if why else None
 
+    # Mohit 2026-06-02 — "why played wrong" two-clause system.
+    # See docs/why_played_wrong_spec.md. failure_mode_clauses_user is
+    # a parallel predicate list (only user-side); when it produces a
+    # clause, look up the teaching_principle for that failure variant
+    # and inject both into facts. The user-side select_variant entries
+    # take priority over the existing alternative-promotion ones when
+    # failure_clause is present.
+    if cfg.get("failure_mode_clauses_user") and facts.get("mover_is_user") is not False:
+        fm_match = select_first_match(cfg["failure_mode_clauses_user"], facts)
+        if fm_match:
+            fm_variant = fm_match.get("variant")
+            if fm_variant:
+                rendered = render_template(rule_name, fm_variant, facts)
+                if rendered:
+                    facts["failure_clause"] = rendered
+                    principle = (cfg.get("teaching_principles") or {}).get(fm_variant)
+                    if principle:
+                        facts["teaching_principle"] = principle
+
     if is_suppressed(rule_name, facts):
         return None
 
