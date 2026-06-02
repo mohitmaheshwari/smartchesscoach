@@ -842,7 +842,7 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
             result_str=game.get("result", ""),
             user_color=user_color,
             opening_name=opening_name,
-            decryption_data=analysis.get("decryption_data") or [],
+            decryption_data=analysis.get("decryption_v5_data") or [],
         )
         if story:
             result["story"] = story
