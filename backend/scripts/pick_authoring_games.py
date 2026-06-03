@@ -114,10 +114,23 @@ async def main():
     ap.add_argument("--round-id", type=str, default=None,
                     help="Round identifier for persistence (default round_YYYYMMDD). "
                          "Re-running with the same round_id replaces that round's queue.")
+    ap.add_argument("--include-authored", action="store_true",
+                    help="Allow re-picking games Parth has already authored on. "
+                         "Default: exclude them so each round is fresh.")
     args = ap.parse_args()
 
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
+
+    # Default: skip games Parth has already authored on so each round is fresh.
+    already_authored: Set[str] = set()
+    if not args.include_authored:
+        already_authored = set(
+            await db.move_feedback.distinct(
+                "game_id", {"is_authoring_submission": True}
+            )
+        )
+        print(f"[picker] Excluding {len(already_authored)} already-authored games", file=sys.stderr)
 
     # Active games only — Parth shouldn't author against archived data.
     active_cursor = db.games.find(
@@ -128,7 +141,7 @@ async def main():
     active_games: Dict[str, Dict] = {}
     async for g in active_cursor:
         gid = g.get("game_id")
-        if gid:
+        if gid and gid not in already_authored:
             active_games[gid] = g
     print(f"[picker] Active games scanned: {len(active_games)}", file=sys.stderr)
 
