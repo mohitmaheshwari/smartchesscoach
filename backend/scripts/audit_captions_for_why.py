@@ -89,13 +89,32 @@ def has_causal_connector(caption: str) -> bool:
 
 
 def has_principle_ending(caption: str) -> bool:
-    """H3: closing sentence contains a generalization verb pattern."""
-    # Last sentence after the final period (or whole thing if no period).
-    sentences = re.split(r"(?<=[.!?])\s+", caption.strip())
+    """H3: closing sentence is a transferable rule.
+
+    Two acceptance paths:
+    1. Last sentence matches an explicit principle-verb pattern
+       (always/never/before X check/when X do Y/look for/count what/prefer/etc.).
+    2. Caption has ≥3 sentences AND the last sentence is ≥6 words AND
+       doesn't START with a SAN-like token — this catches the bank-style
+       trailing principles ("Between two reasonable moves, pick ...")
+       that don't fit the rigid verb patterns but ARE transferable rules
+       appended after the verdict.
+    """
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", caption.strip()) if s.strip()]
     if not sentences:
         return False
     last = sentences[-1]
-    return bool(PRINCIPLE_VERB_RE.search(last))
+    if PRINCIPLE_VERB_RE.search(last):
+        return True
+    # Path 2: 3+ sentences and a substantial trailing one
+    if len(sentences) >= 3:
+        words = last.split()
+        if len(words) >= 6:
+            first_token = words[0].rstrip(",;:.")
+            # SAN starts with a piece letter (KQRBN) or file letter (a-h) or O-O
+            if not re.match(r"^(O-O(-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8])", first_token):
+                return True
+    return False
 
 
 def caption_shape(caption: str) -> str:
