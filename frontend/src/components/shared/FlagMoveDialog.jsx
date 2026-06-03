@@ -44,6 +44,10 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
 
   const handleSubmit = async () => {
     if (!note.trim()) return;
+    if (!context.fen) {
+      alert("Can't flag this move — position (FEN) is missing. Please refresh and try again.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`${API}/feedback/flag`, {

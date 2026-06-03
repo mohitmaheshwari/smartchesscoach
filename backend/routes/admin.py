@@ -18,7 +18,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 from datetime import datetime, timezone, timedelta
 import os
@@ -92,7 +92,13 @@ class FlagMoveRequest(BaseModel):
     game_id: Optional[str] = None
     session_id: Optional[str] = None
     move_number: Optional[int] = None
-    fen: str
+    # Mohit 2026-06-03 — was `fen: str` which accepted empty strings.
+    # 7 historical authoring submissions slipped through with fen=""
+    # (single 35-min window 2026-05-15, same game). Field(min_length=1)
+    # makes Pydantic reject the request rather than persist a useless
+    # row. Frontend FlagMoveDialog.jsx also guards against empty
+    # submission at the source.
+    fen: str = Field(..., min_length=1)
     move_san: Optional[str] = None
     coaching_text: Optional[str] = None
     user_note: str
