@@ -13,8 +13,12 @@
  * from black's perspective.
  */
 
-const LIGHT_SQUARE = "#f0d9b5"; // cream — brown theme light
-const DARK_SQUARE = "#b58863";  // tan  — brown theme dark
+// High-contrast pair (Mohit picked 2026-06-03): black text on cream
+// light squares, white text on dark tan squares. Most legible across
+// fatigue + screen-quality differences. Previous opposite-square brown
+// pair (#f0d9b5 / #b58863) blended into the board.
+const LIGHT_SQUARE_TEXT = "#000000";  // black on cream
+const DARK_SQUARE_TEXT = "#ffffff";   // white on tan
 const FILES = "abcdefgh";
 
 const BoardCoordinates = ({ orientation = "white" }) => {
@@ -49,7 +53,7 @@ const BoardCoordinates = ({ orientation = "white" }) => {
             paddingTop: "2px",
             fontSize: "0.6rem",
             lineHeight: 1,
-            color: sq.isDark ? LIGHT_SQUARE : DARK_SQUARE,
+            color: sq.isDark ? DARK_SQUARE_TEXT : LIGHT_SQUARE_TEXT,
             fontVariantNumeric: "tabular-nums",
           }}
         >
