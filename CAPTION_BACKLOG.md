@@ -72,4 +72,30 @@ See also: [CLAUDE.md](CLAUDE.md), `backend/services/caption_pipeline.py` (centra
 
 ---
 
-*Last updated: 2026-05-28*
+## 6. Moved-piece-was-sole-defender → target now hangs
+
+**Status:** Example #1 anchored 2026-06-03 → `fb_ec0098264c8e` (game `1780f8bc-31c2-490b-a6f4-6bb62f4c8fff`, move 9 Qe2).
+
+**Flag:** White's Qd1 was the sole defender of d4. After 9.Qe2 the d4 pawn hangs to Qxd4 cleanly, and the centralized black queen also threatens the undefended Bf4. cp_loss=174 (mistake severity, eval +30 → -144). Caption rendered: *"Qe2 is a mistake. O-O was better."* User: "why??"
+
+**Approved override (~45 words, principle ending):**
+
+> Qe2 just leaves d4 hanging — your queen was the only piece defending it, so now Qxd4 grabs the pawn for free and also hits Bf4. O-O does the same king-safety job without abandoning d4. Before moving any defender, count what depends on it.
+
+**Predicate sketch (`played_piece_was_sole_defender_of_attacked_target`):**
+- Played piece X moves from origin square S₀ to S₁
+- There exists a square S_target attacked by ≥1 enemy piece BEFORE the move
+- Pre-move defenders of S_target = `{X}` (sole defender)
+- Post-move defenders of S_target = `{}` (empty)
+- S_target holds a piece/pawn of meaningful value (≥1 pawn)
+
+When fact fires → R12 failure_mode_clause: *"{played} just leaves {target_square} hanging — your {played_piece_type} was the only piece defending it."*
+
+**Why filed, not built today:**
+- This is example #1. Per the ≥2-before-designing rule, wait for a second instance.
+- Likely needs to fire on mistake severity (not just blunder); current R12 failure-mode clauses may be gated `severity=blunder` only — verify before promotion.
+- Suspect [feedback_fix_framing_not_detection.md] applies: the engine detection is fine (cp_loss=174 is correctly flagged), only the caption framing needs the explicit-why predicate.
+
+---
+
+*Last updated: 2026-06-03*
