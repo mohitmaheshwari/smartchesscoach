@@ -893,6 +893,18 @@ async def admin_export_feedback(
                 "better_approach": diag.get("better_approach"),
                 "your_plan_now": diag.get("your_plan_now"),
             },
+            # Mohit 2026-06-03 — Parth flagged that authoring fields
+            # (his suggested replacement caption + inaccuracy_reason)
+            # were missing from the export. They ARE saved on the
+            # feedback document but the export item builder above
+            # didn't carry them through. Adding them here so the
+            # JSON export, copy-for-Claude markdown, and admin UI
+            # all see the same data.
+            "authoring": {
+                "is_authoring_submission": bool(fb.get("is_authoring_submission")),
+                "suggested_caption": fb.get("suggested_caption"),
+                "inaccuracy_reason": fb.get("inaccuracy_reason"),
+            },
             "admin_notes": fb.get("admin_notes"),
             "reviewed_by": fb.get("reviewed_by"),
             "reviewed_at": fb.get("reviewed_at"),

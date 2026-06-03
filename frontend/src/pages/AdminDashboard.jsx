@@ -1058,6 +1058,17 @@ const FeedbackTab = () => {
       "## User's complaint",
       `> ${fb.user_note || "(no note)"}`,
       "",
+      // Mohit 2026-06-03 — Parth's authoring submissions (suggested
+      // caption + inaccuracy_reason) were dropped from the markdown.
+      // When is_authoring_submission is true, surface BOTH fields so
+      // the coach pasting into Claude has the full context. When
+      // false (regular user flag), this section is omitted.
+      fb.is_authoring_submission ? "## Authoring submission" : null,
+      fb.is_authoring_submission && fb.suggested_caption
+        ? `### Suggested caption\n> ${fb.suggested_caption}` : null,
+      fb.is_authoring_submission && fb.inaccuracy_reason
+        ? `### What went wrong\n> ${fb.inaccuracy_reason}` : null,
+      fb.is_authoring_submission ? "" : null,
       "## Stockfish diagnostics",
       d.severity ? `- **severity**: ${d.severity}` : null,
       d.cp_loss != null ? `- **cp_loss**: ${d.cp_loss}` : null,
@@ -1242,7 +1253,27 @@ const FeedbackTab = () => {
                     <span className="text-[10px] text-muted-foreground shrink-0 font-mono">{formatDate(fb.created_at)}</span>
                   </div>
 
-                  <p className="text-sm text-foreground/80 mt-2 font-light line-clamp-2">{fb.user_note}</p>
+                  {/* Mohit 2026-06-03 — when this is an authoring
+                     submission, the user_note is typically empty or
+                     just punctuation (the real content is in
+                     suggested_caption + inaccuracy_reason). Show the
+                     authoring flag prominently and surface the
+                     suggested caption preview instead. */}
+                  {fb.is_authoring_submission ? (
+                    <div className="mt-2">
+                      <span className="text-[10px] tracking-[0.15em] uppercase font-mono px-1.5 py-0.5 rounded-sm"
+                            style={{ color: "#b45309", background: "#fef3c750", border: "1px solid #f59e0b40" }}>
+                        Authoring
+                      </span>
+                      {fb.suggested_caption && (
+                        <p className="text-sm text-foreground/80 mt-1.5 font-light line-clamp-2 italic">
+                          “{fb.suggested_caption}”
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-foreground/80 mt-2 font-light line-clamp-2">{fb.user_note}</p>
+                  )}
 
                   {/* Expanded details */}
                   {isExpanded && (
@@ -1264,6 +1295,35 @@ const FeedbackTab = () => {
                         <div className="text-xs p-2 rounded-sm font-light" style={{ background: "rgba(0,0,0,0.02)" }}>
                           <span className="text-muted-foreground">Coaching said: </span>
                           <span className="text-foreground/80">{fb.coaching_text}</span>
+                        </div>
+                      )}
+
+                      {/* Mohit 2026-06-03 — Parth's authoring submissions
+                         (suggested caption + inaccuracy_reason) were
+                         dropped from the admin card. Surface both fields
+                         in an amber-highlighted box when the feedback
+                         was marked as an authoring submission, so the
+                         coach can see the rewrite proposal alongside
+                         what was originally shown. */}
+                      {fb.is_authoring_submission && (
+                        <div className="text-xs p-2.5 rounded-sm border space-y-1.5"
+                             style={{ borderColor: "#f59e0b40", background: "#fef3c720" }}>
+                          <span className="text-[9px] tracking-[0.15em] uppercase font-mono"
+                                style={{ color: "#b45309" }}>
+                            Authoring submission
+                          </span>
+                          {fb.suggested_caption && (
+                            <div className="mt-1">
+                              <span className="text-muted-foreground">Suggested caption: </span>
+                              <span className="text-foreground/85">{fb.suggested_caption}</span>
+                            </div>
+                          )}
+                          {fb.inaccuracy_reason && (
+                            <div>
+                              <span className="text-muted-foreground">What went wrong: </span>
+                              <span className="text-foreground/85">{fb.inaccuracy_reason}</span>
+                            </div>
+                          )}
                         </div>
                       )}
 
