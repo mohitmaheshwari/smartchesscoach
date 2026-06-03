@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from services.pwc_skill_gate import (
-    GATE_PASS, GATE_SUPPRESS, GATE_ESCALATE,
+    GATE_PASS, GATE_SUPPRESS, GATE_ESCALATE, GATE_DOWNGRADE,
     gate_decision, is_enabled, reload_skill_map,
     _is_mastered, _is_struggling,
 )
@@ -89,13 +89,16 @@ class TestGateDecision(unittest.TestCase):
         self.assertEqual(d["decision"], GATE_PASS)
         self.assertEqual(d["reason"], "no_skill_data")
 
-    def test_mastered_suppresses(self):
+    def test_mastered_downgrades(self):
+        """Mohit 2026-06-03 — full suppression replaced with downgrade
+        (prepend 'you've handled this before' to the warning)."""
         d = gate_decision("fried_liver_warning", [
             _skill("defend_fried_liver", seen=10, correct=5, wrong=0, applied=5),
         ])
-        self.assertEqual(d["decision"], GATE_SUPPRESS)
+        self.assertEqual(d["decision"], GATE_DOWNGRADE)
         self.assertIn("defend_fried_liver", d["reason"])
         self.assertIn("defend_fried_liver", d["matched_skills"])
+        self.assertIn("handled this before", d["downgrade_prefix"])
 
     def test_struggling_escalates(self):
         d = gate_decision("scholars_mate_setup_warning", [

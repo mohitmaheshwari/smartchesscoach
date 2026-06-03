@@ -119,8 +119,14 @@ def _is_struggling(skill_record: Dict[str, Any]) -> bool:
 # Gate outcomes. Strings (not enums) for log-friendliness and to keep
 # the consumer side simple — the field shows up directly in logs.
 GATE_PASS = "pass"
-GATE_SUPPRESS = "suppress"
+GATE_SUPPRESS = "suppress"   # retained for the API; not used by default
 GATE_ESCALATE = "escalate"
+# Mohit 2026-06-03 — replaces SUPPRESS as the mastered-skill outcome.
+# Reasoning: full suppression has an asymmetric downside (missing one
+# warning > redundant warning). DOWNGRADE prepends an "you've handled
+# this before" line, keeping the warning visible while signalling that
+# the coach is aware of the user's mastery.
+GATE_DOWNGRADE = "downgrade"
 
 
 def gate_decision(
@@ -140,22 +146,28 @@ def gate_decision(
 
     Returns:
         dict with keys:
-          decision         — one of GATE_PASS / GATE_SUPPRESS / GATE_ESCALATE
-          reason           — short tag for logging (e.g. "no_nudge_id",
-                             "unmapped", "mastered:defend_fried_liver",
-                             "struggling:endgame_opposition")
-          matched_skills   — list of skill_id strings that drove the
-                             decision (empty for PASS on unmapped)
-          escalate_prefix  — when decision == ESCALATE, a one-line
-                             cross-game framing string the caller
-                             prepends to the nudge. Empty otherwise.
+          decision          — GATE_PASS / GATE_DOWNGRADE / GATE_ESCALATE
+                              (SUPPRESS exists in the API but is no longer
+                              used as a default outcome — replaced by
+                              DOWNGRADE 2026-06-03)
+          reason            — short tag for logging (e.g. "no_nudge_id",
+                              "unmapped", "mastered:defend_fried_liver",
+                              "struggling:endgame_opposition")
+          matched_skills    — list of skill_id strings that drove the
+                              decision (empty for PASS on unmapped)
+          escalate_prefix   — when decision == ESCALATE, a one-line
+                              cross-game framing string the caller
+                              prepends to the nudge. Empty otherwise.
+          downgrade_prefix  — when decision == DOWNGRADE, a one-line
+                              "you've handled this before" reminder.
+                              Empty otherwise.
 
     No mutation, no logging side-effects (caller logs).
     """
     if not nudge_id:
         return {
             "decision": GATE_PASS, "reason": "no_nudge_id",
-            "matched_skills": [], "escalate_prefix": "",
+            "matched_skills": [], "escalate_prefix": "", "downgrade_prefix": "",
         }
 
     skill_map = _load_skill_map()
@@ -163,13 +175,13 @@ def gate_decision(
     if not target_skill_ids:
         return {
             "decision": GATE_PASS, "reason": "unmapped",
-            "matched_skills": [], "escalate_prefix": "",
+            "matched_skills": [], "escalate_prefix": "", "downgrade_prefix": "",
         }
 
     if not learning_skills:
         return {
             "decision": GATE_PASS, "reason": "no_skill_data",
-            "matched_skills": [], "escalate_prefix": "",
+            "matched_skills": [], "escalate_prefix": "", "downgrade_prefix": "",
         }
 
     # Index user's skills by id.
@@ -191,7 +203,8 @@ def gate_decision(
         elif _is_mastered(rec):
             mastered_hits.append(sid)
 
-    # ESCALATE wins over SUPPRESS (per spec §6 — mixed → escalate).
+    # ESCALATE wins over DOWNGRADE (mixed mastered/struggling → struggling
+    # is the more important signal to act on).
     if struggling_hits:
         sid = struggling_hits[0]
         wrong_count = int(by_id[sid].get("wrong", 0) or 0)
@@ -201,15 +214,22 @@ def gate_decision(
         )
         return {
             "decision": GATE_ESCALATE, "reason": f"struggling:{sid}",
-            "matched_skills": struggling_hits, "escalate_prefix": prefix,
+            "matched_skills": struggling_hits,
+            "escalate_prefix": prefix, "downgrade_prefix": "",
         }
 
     if mastered_hits and len(mastered_hits) == len(target_skill_ids):
-        # ALL mapped skills mastered. Suppress.
+        # ALL mapped skills mastered → DOWNGRADE the nudge instead of
+        # suppressing it. Mohit 2026-06-03: asymmetric cost analysis —
+        # missing one warning > redundant warning, so we keep the
+        # warning visible but signal that the coach knows you've
+        # handled this before.
+        prefix = "You've handled this before — quick reminder."
         return {
-            "decision": GATE_SUPPRESS,
+            "decision": GATE_DOWNGRADE,
             "reason": "mastered:" + ",".join(mastered_hits),
-            "matched_skills": mastered_hits, "escalate_prefix": "",
+            "matched_skills": mastered_hits,
+            "escalate_prefix": "", "downgrade_prefix": prefix,
         }
 
     # Default — at least one mapped skill exists in user data but isn't
@@ -217,7 +237,7 @@ def gate_decision(
     return {
         "decision": GATE_PASS, "reason": "default",
         "matched_skills": [s.get("skill_id") for s in learning_skills if s.get("skill_id") in target_skill_ids],
-        "escalate_prefix": "",
+        "escalate_prefix": "", "downgrade_prefix": "",
     }
 
 

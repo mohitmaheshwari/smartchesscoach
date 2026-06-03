@@ -1508,7 +1508,7 @@ async def generate_move_feedback(
             from services.pwc_skill_gate import (
                 is_enabled as _pwc_gate_enabled,
                 gate_decision as _pwc_gate_decision,
-                GATE_SUPPRESS as _PWC_SUPPRESS,
+                GATE_DOWNGRADE as _PWC_DOWNGRADE,
                 GATE_ESCALATE as _PWC_ESCALATE,
             )
             if _pwc_gate_enabled():
@@ -1517,12 +1517,21 @@ async def generate_move_feedback(
                     mem = await db.coach_memory.find_one({"user_id": user_id})
                     skills = ((mem or {}).get("learning") or {}).get("skills") or []
                     dec = _pwc_gate_decision(nudge_id, skills)
-                    if dec["decision"] == _PWC_SUPPRESS:
+                    if dec["decision"] == _PWC_DOWNGRADE:
+                        # Mohit 2026-06-03 — prepend the "you've handled
+                        # this before" reminder to the trap description.
+                        # Keeps the warning visible (asymmetric cost
+                        # protection) while signalling the coach knows
+                        # about the user's mastery. Replaces the prior
+                        # SUPPRESS outcome that hid the warning entirely.
+                        existing_desc = trap_suggestion.get("description") or ""
+                        trap_suggestion["description"] = (
+                            (dec.get("downgrade_prefix") or "") + " " + existing_desc
+                        ).strip()
                         logger.info(
-                            f"[pwc_skill_gate] suppressed trap '{trap_suggestion.get('name')}' "
+                            f"[pwc_skill_gate] downgraded trap '{trap_suggestion.get('name')}' "
                             f"for user={user_id} reason={dec['reason']}"
                         )
-                        trap_suggestion = None
                     elif dec["decision"] == _PWC_ESCALATE:
                         # ESCALATE wiring on trap_suggestion's coaching message
                         # surface lives in a follow-up commit; log so we have
