@@ -29,7 +29,7 @@ const BoardCoordinates = ({ orientation = "white" }) => {
   // render. Pointer-events disabled so it never blocks board interaction.
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-10 select-none"
+      className="pointer-events-none absolute inset-0 z-30 select-none"
       data-testid="board-coordinates"
     >
       {files.map((letter, i) => (
@@ -43,14 +43,18 @@ const BoardCoordinates = ({ orientation = "white" }) => {
             paddingRight: "3px",
             paddingBottom: "1px",
             textAlign: "right",
-            fontSize: "0.65rem",
+            fontSize: "0.78rem",
             lineHeight: 1,
             // Bottom-row squares alternate: file a is dark, b light, ...
             // (when white is on bottom). Light squares need dark text and
             // vice versa. The first bottom square is dark on white-orient
             // when i is even — keep a single readable mid-tone instead.
-            color: "rgba(255, 255, 255, 0.78)",
-            textShadow: "0 1px 1px rgba(0,0,0,0.55)",
+            // Two-pass contrast: very dark brown text (visible on cream
+            // squares) + bright white text-shadow halo (visible on dark
+            // tan squares). Same trick Lichess uses.
+            color: "#3d2817",
+            textShadow:
+              "0 0 2px rgba(255,255,255,0.95), 0 0 1px rgba(255,255,255,0.95)",
           }}
         >
           {letter}
@@ -66,10 +70,14 @@ const BoardCoordinates = ({ orientation = "white" }) => {
             height: "12.5%",
             paddingLeft: "3px",
             paddingTop: "1px",
-            fontSize: "0.65rem",
+            fontSize: "0.78rem",
             lineHeight: 1,
-            color: "rgba(255, 255, 255, 0.78)",
-            textShadow: "0 1px 1px rgba(0,0,0,0.55)",
+            // Two-pass contrast: very dark brown text (visible on cream
+            // squares) + bright white text-shadow halo (visible on dark
+            // tan squares). Same trick Lichess uses.
+            color: "#3d2817",
+            textShadow:
+              "0 0 2px rgba(255,255,255,0.95), 0 0 1px rgba(255,255,255,0.95)",
           }}
         >
           {number}
