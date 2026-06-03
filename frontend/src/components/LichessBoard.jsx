@@ -4,6 +4,7 @@ import { Chess } from "chess.js";
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
+import BoardCoordinates from "./BoardCoordinates";
 
 /**
  * Lichess Chessground Board Component
@@ -41,6 +42,7 @@ const LichessBoard = forwardRef(({
   planMode = false,
   movableColor = null,
   moveClassification = null, // { square: "e4", type: "blunder" | "best" | "mistake" | ... }
+  showCoordinates = true,    // file letters a-h + rank numbers 1-8 overlay (Parth req 2026-06-03)
 }, ref) => {
   // Ensure fen is never null/undefined
   const fen = fenProp || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -599,6 +601,7 @@ const LichessBoard = forwardRef(({
         ref={boardRef}
         className="w-full h-full rounded-lg overflow-hidden"
       />
+      {showCoordinates && <BoardCoordinates orientation={orientation} />}
       {classIcon && iconStyle && (
         <div
           className="absolute pointer-events-none"
