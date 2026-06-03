@@ -66,6 +66,72 @@ logger = logging.getLogger(__name__)
 
 
 # ────────────────────────────────────────────────────────────────────
+# v104 (Mohit 2026-06-03) — FLOOR TEACHING PRINCIPLE INJECTION
+# ────────────────────────────────────────────────────────────────────
+# When R12 falls through to the bare "{played_san} is a mistake. {best} was
+# better." shell (no failure_clause, no why_clause), append a transferable
+# principle from data/captions/principle_bank.json. Selection is by
+# (phase × severity bucket) and deterministic by FEN hash.
+
+import json as _json_pb
+import re as _re_pb
+import zlib as _zlib_pb
+from pathlib import Path as _Path_pb
+
+_PRINCIPLE_BANK_PATH = (
+    _Path_pb(__file__).resolve().parent.parent / "data" / "captions" / "principle_bank.json"
+)
+try:
+    with open(_PRINCIPLE_BANK_PATH) as _fpb:
+        _PRINCIPLE_BANK = _json_pb.load(_fpb).get("buckets", {})
+    logger.info(f"[principle_bank] loaded {len(_PRINCIPLE_BANK)} buckets")
+except Exception as _bank_exc:
+    logger.warning(f"[principle_bank] load failed: {_bank_exc}")
+    _PRINCIPLE_BANK = {}
+
+_SHELL_RE = _re_pb.compile(
+    r"^\S+\.?\s+is\s+an?\s+"
+    r"(?P<sev>mistake|serious mistake|major blunder|inaccuracy)\.\s+"
+    r"\S+\s+was\s+better\.?\s*$"
+)
+
+
+def _maybe_append_floor_principle(
+    caption: str, full_move_number: int, mover_is_user: bool, fen_before: str,
+) -> str:
+    """Append a floor teaching principle when caption is the bare shell shape.
+
+    Only fires on user moves (opp moves have their own variants).
+    Returns the caption unchanged if shell doesn't match or bank is empty.
+    """
+    if not caption or not mover_is_user or not _PRINCIPLE_BANK:
+        return caption
+    m = _SHELL_RE.match(caption.strip())
+    if not m:
+        return caption
+    sev = m.group("sev")
+    sev_bucket = "blunder" if sev in ("serious mistake", "major blunder") else "mistake"
+    mn = full_move_number or 1
+    if mn <= 12:
+        phase = "opening"
+    elif mn <= 40:
+        phase = "middlegame"
+    else:
+        phase = "endgame"
+    bucket_key = f"{phase}_{sev_bucket}"
+    bucket = _PRINCIPLE_BANK.get(bucket_key) or []
+    if not bucket:
+        return caption
+    idx = _zlib_pb.crc32((fen_before or "").encode("utf-8")) % len(bucket)
+    principle = bucket[idx]
+    if not caption.endswith("."):
+        caption = caption + "."
+    return f"{caption} {principle}."
+
+
+
+
+# ────────────────────────────────────────────────────────────────────
 # CONTRACT DATACLASSES
 # ────────────────────────────────────────────────────────────────────
 
@@ -3924,6 +3990,19 @@ def build_move_teaching_decision(
             f"[caption_verifier] crashed on move {inputs.full_move_number}: "
             f"{_ver_exc!r} — leaving caption unchanged"
         )
+
+    # v104 (Mohit 2026-06-03) — floor teaching principle for bare shell.
+    # Runs BEFORE tier classification so the enriched caption gets the
+    # right tier assignment.
+    try:
+        caption_payload["caption"] = _maybe_append_floor_principle(
+            caption_payload.get("caption") or "",
+            inputs.full_move_number,
+            inputs.mover_is_user,
+            inputs.fen_before,
+        )
+    except Exception as _pb_exc:
+        logger.warning(f"[principle_bank] inject failed m{inputs.full_move_number}: {_pb_exc!r}")
 
     # ─── 12. A8 caption tier classification ──────────────────────
     tier = classify_caption_tier(

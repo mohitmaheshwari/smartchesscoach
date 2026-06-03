@@ -58,6 +58,7 @@ async def main() -> int:
     all_gids = await db.game_analyses.distinct(
         "game_id", {"decryption_v5_data": {"$type": "array"}}
     )
+    all_gids.sort()  # stable ordering — must match audit_captions_for_why.py
     print(f"[regen] Pool with v5 data: {len(all_gids)}", file=sys.stderr)
     sample_gids = (
         random.sample(all_gids, args.n)

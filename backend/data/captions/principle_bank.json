@@ -1,0 +1,37 @@
+{
+  "_description": "Minimum-floor teaching principles appended to the bare 'X is a mistake. Y was better.' shell when no R12 failure_clause or why_clause fires. Selected by (phase, severity_bucket) and chosen deterministically by FEN hash so the same position always gets the same principle. Designed 2026-06-03 to fix the H3 (principle ending) gap surfaced by /audit-captions-for-why: only 0.1% of captions ended with a transferable rule despite the feedback_caption_keep_explicit_principle_ending memory rule requiring it. Each principle is short (≤16 words), jargon-free for the 600-1500 audience, and ends without a period (renderer adds one).",
+  "_voice_rules": "Per /check-voice memory: no jargon (no 'fianchetto', 'prophylaxis', 'outpost'). Name the square or describe geometry instead. cp_loss is not material — don't reference pawn counts.",
+  "_selection": "Bucket key = '{phase}_{severity_bucket}'. Phase: opening (full_move_number ≤ 12), middlegame (13-40), endgame (> 40). Severity bucket: blunder (severity in {blunder, serious}), mistake (severity in {mistake, inaccuracy}). Within bucket, pick by FEN hash mod len(bucket) so identical positions get identical principles on re-render.",
+  "buckets": {
+    "opening_mistake": [
+      "In the opening, develop with a follow-up — each piece should support the next move",
+      "When two opening moves look equal, prefer the one that keeps your worst-placed piece useful",
+      "Opening moves earn their keep by controlling the center, developing a piece, or improving king safety"
+    ],
+    "opening_blunder": [
+      "Before each opening move, scan every piece you own — a blunder usually hides as an unguarded piece",
+      "If you're moving the same piece twice in the opening, ask if there was a better square the first time",
+      "When the opponent attacks a piece, check whether your reply leaves another piece hanging"
+    ],
+    "middlegame_mistake": [
+      "When defending in the middlegame, fix your worst piece first — don't just react to the threat",
+      "Between two reasonable moves, pick the one your opponent has less time to deal with",
+      "Look for the move that creates two threats — pieces doing one job rarely make the position better"
+    ],
+    "middlegame_blunder": [
+      "Before any tactical move, count attackers and defenders on every key square",
+      "When you spot a forcing move, check your opponent's response three moves deep before playing",
+      "Before moving a piece, check that nothing else depended on it staying where it was"
+    ],
+    "endgame_mistake": [
+      "In endgames, activate your king — it's a fighting piece in the late game",
+      "Count tempi in close races — the side that moves first usually wins by one square",
+      "Before pushing a passed pawn, check that your king or pieces can shepherd it home"
+    ],
+    "endgame_blunder": [
+      "Before sacrificing in the endgame, check that the resulting position is actually winning",
+      "Stalemate is a real defensive resource — give your opponent moves only when you have to",
+      "In endgames, the active king beats the passive one — move yours forward when it's safe"
+    ]
+  }
+}

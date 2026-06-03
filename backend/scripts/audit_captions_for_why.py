@@ -122,6 +122,9 @@ async def main() -> int:
     ap.add_argument("--severities", type=str, default="mistake,blunder")
     ap.add_argument("--sample-fail-count", type=int, default=12,
                     help="how many failing captions to print as examples")
+    ap.add_argument("--min-version", type=int, default=None,
+                    help="Only audit games at this V5 version or newer. Use to compare "
+                         "current-pipeline output against historical stored captions.")
     args = ap.parse_args()
 
     severities = {s.strip() for s in args.severities.split(",") if s.strip()}
@@ -131,10 +134,17 @@ async def main() -> int:
     db = client[DB_NAME]
 
     # Sample N analyzed games with v5 data — random selection.
-    all_gids = await db.game_analyses.distinct(
-        "game_id",
-        {"decryption_v5_data": {"$type": "array"}},
-    )
+    pool_filter: dict = {"decryption_v5_data": {"$type": "array"}}
+    if args.min_version is not None:
+        pool_filter["decryption_v5_version"] = {"$gte": args.min_version}
+        print(f"[audit] Restricting pool to V5 v{args.min_version}+ "
+              "(current-pipeline output only)", file=sys.stderr)
+    all_gids = await db.game_analyses.distinct("game_id", pool_filter)
+    # Sort before sampling: distinct() order is engine-defined and not stable.
+    # Without this, seed=42 here vs in regen_v5_sample.py picks different
+    # 100 games — masquerading as "regen didn't help" when really regen ran
+    # on a different sample than audit.
+    all_gids.sort()
     print(f"[audit] Pool with v5 data: {len(all_gids)} games", file=sys.stderr)
     if len(all_gids) > args.n:
         sample_gids = random.sample(all_gids, args.n)
