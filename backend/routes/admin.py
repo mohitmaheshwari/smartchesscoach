@@ -947,6 +947,177 @@ async def admin_download_feedback_file(filename: str):
     )
 
 
+# ==================== AUTHORING REVIEW QUEUE ====================
+# Mohit + Parth review pending authoring submissions (Parth's caption
+# rewrites with is_authoring_submission=true) one-at-a-time via
+# /admin/authoring-review. Approve writes to authored_caption_overrides
+# (which the V5 service reads at render time). Reject marks dismissed.
+# Skip leaves it pending for a later pass. See docs/authoring_review_ui_spec.md.
+
+
+class AuthoringReviewRequest(BaseModel):
+    caption_override: Optional[str] = None  # populated by "Edit & Approve"
+    admin_note: Optional[str] = None
+
+
+@router.get("/admin/authoring/queue")
+async def admin_authoring_queue(
+    status: str = "pending",
+    skip: int = 0,
+    limit: int = 50,
+    user: User = Depends(require_admin),
+):
+    """Return paginated authoring submissions for review.
+
+    Each item carries the full feedback document fields (FEN, played
+    move, original caption, Parth's suggestion, diagnostics) plus a
+    derived `auto_gate_verdict` ('PASS' / 'REJECT') and reasons,
+    computed by re-running the strict gate from
+    authoring_safe_subset.py on the fly. Joining at read time
+    instead of from a snapshot file keeps the verdict fresh as the
+    gate rules evolve.
+    """
+    from scripts.authoring_safe_subset import _gate_item
+
+    query: Dict[str, Any] = {"is_authoring_submission": True}
+    if status and status != "all":
+        query["status"] = status
+
+    items: List[Dict[str, Any]] = []
+    async for fb in (
+        db.move_feedback.find(query, {"_id": 0})
+        .sort("created_at", 1)
+        .skip(skip)
+        .limit(limit)
+    ):
+        passed, reasons = _gate_item(fb)
+        fb["auto_gate_verdict"] = "PASS" if passed else "REJECT"
+        fb["auto_gate_reasons"] = reasons
+        items.append(fb)
+
+    total = await db.move_feedback.count_documents(query)
+    return {"items": items, "total": total, "skip": skip, "limit": limit}
+
+
+@router.post("/admin/authoring/{feedback_id}/approve")
+async def admin_authoring_approve(
+    feedback_id: str,
+    req: AuthoringReviewRequest,
+    user: User = Depends(require_admin),
+):
+    """Approve an authoring submission as a live caption override.
+
+    Body's `caption_override` is the EDITED text when the reviewer
+    used Edit & Approve; when None, the suggested_caption stored on
+    the feedback document is used verbatim.
+    """
+    fb = await db.move_feedback.find_one({"feedback_id": feedback_id})
+    if not fb:
+        raise HTTPException(status_code=404, detail="feedback not found")
+    if not fb.get("is_authoring_submission"):
+        raise HTTPException(
+            status_code=400, detail="not an authoring submission"
+        )
+
+    caption_text = (
+        (req.caption_override or "").strip()
+        or (fb.get("suggested_caption") or "").strip()
+    )
+    if not caption_text:
+        raise HTTPException(status_code=400, detail="empty caption text")
+
+    now = datetime.now(timezone.utc).isoformat()
+    override_doc = {
+        "game_id": fb.get("game_id"),
+        "move_number": fb.get("move_number"),
+        "move_san": fb.get("move_san"),
+        "fen": fb.get("fen"),
+        "caption": caption_text,
+        "source_feedback_id": feedback_id,
+        "source_user_id": fb.get("user_name"),
+        "severity": (fb.get("diagnostics") or {}).get("severity"),
+        "applied_at": now,
+        "apply_run": "admin_authoring_review_ui",
+        "reviewed_by": user.user_id,
+    }
+    await db.authored_caption_overrides.update_one(
+        {
+            "game_id": fb.get("game_id"),
+            "move_number": fb.get("move_number"),
+            "move_san": fb.get("move_san"),
+        },
+        {"$set": override_doc},
+        upsert=True,
+    )
+    await db.move_feedback.update_one(
+        {"feedback_id": feedback_id},
+        {
+            "$set": {
+                "status": "valid",
+                "reviewed_by": user.user_id,
+                "reviewed_at": now,
+                "admin_notes": (
+                    req.admin_note
+                    or "approved via /admin/authoring-review"
+                ),
+            }
+        },
+    )
+    return {"ok": True, "override_caption": caption_text}
+
+
+@router.post("/admin/authoring/{feedback_id}/reject")
+async def admin_authoring_reject(
+    feedback_id: str,
+    req: AuthoringReviewRequest,
+    user: User = Depends(require_admin),
+):
+    """Reject an authoring submission. Marks feedback dismissed and
+    records the reason on admin_notes."""
+    now = datetime.now(timezone.utc).isoformat()
+    r = await db.move_feedback.update_one(
+        {"feedback_id": feedback_id, "is_authoring_submission": True},
+        {
+            "$set": {
+                "status": "dismissed",
+                "reviewed_by": user.user_id,
+                "reviewed_at": now,
+                "admin_notes": (
+                    req.admin_note
+                    or "rejected via /admin/authoring-review"
+                ),
+            }
+        },
+    )
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="not found / not authoring")
+    return {"ok": True}
+
+
+@router.post("/admin/authoring/{feedback_id}/skip")
+async def admin_authoring_skip(
+    feedback_id: str,
+    user: User = Depends(require_admin),
+):
+    """Skip an authoring submission. Marks it acknowledged (not
+    actioned), so it leaves the default 'pending' queue but can be
+    re-surfaced in a later pass."""
+    now = datetime.now(timezone.utc).isoformat()
+    r = await db.move_feedback.update_one(
+        {"feedback_id": feedback_id, "is_authoring_submission": True},
+        {
+            "$set": {
+                "status": "acknowledged",
+                "reviewed_by": user.user_id,
+                "reviewed_at": now,
+            }
+        },
+    )
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="not found / not authoring")
+    return {"ok": True}
+
+
 # ==================== DECRYPTION REVIEW QUEUE ====================
 # Auto-flagged moments from game_analyses.decryption_block.moments[]
 # where confidence < 0.8. The coach reviews each, writes an override

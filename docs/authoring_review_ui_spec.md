@@ -1,7 +1,7 @@
 # Authoring Review UI — Spec
 
-**Status:** DRAFT v1 — awaiting Mohit sign-off.
-**Version:** v1 (2026-06-03).
+**Status:** SIGNED OFF v2 — Mohit 2026-06-03 answered all 5 open questions. Awaiting implementation.
+**Version:** v2 (2026-06-03). v1 was draft 2026-06-03 morning.
 **Scope:** medium frontend build, ~1 day to ship.
 
 ---
@@ -146,10 +146,12 @@ No "10% rollout" needed — this is an admin tool, not user-facing.
 
 ---
 
-## 10. Decisions / Open questions for Mohit
+## 10. Decisions (was: open questions)
 
-1. **Reviewer role.** Who's clicking through? Mohit alone, Mohit + Parth, or a broader admin group? If broader, do we need a "reviewed by user X" field separate from "submitted by"?
-2. **Diff display.** Show Parth's text as raw, OR with a word-level diff highlighting what changed vs original? Diff is more useful but takes UI work. My recommendation: raw for v1, diff for v2.
-3. **Mini-board orientation.** Always white-on-bottom, or oriented based on who's moving? Recommendation: oriented based on `user_color` from the feedback's game (matches how the user saw the position).
-4. **Hotkey set.** Approve/Reject/Skip/Edit only, or add "open game in Lab" to verify position? Recommendation: add `g` for "open game" — Parth will want to verify on the actual game viewer.
-5. **Cap on per-session work.** "After 30 approves in a row without a reject, ask if you're rubber-stamping" — is 30 the right cap? Or 50?
+All 5 resolved by Mohit 2026-06-03:
+
+1. **Reviewer role**: Mohit AND Parth. Both can approve/reject; the override record carries `reviewed_by` so we can audit who approved what.
+2. **Diff display**: Raw side-by-side (no word-level diff). Most of Parth's submissions are full rewrites, not edits — word-diff would highlight everything and add noise. Two columns, plain text, equal-width.
+3. **Mini-board orientation**: Oriented by `user_color` from the feedback's game. Matches how the user saw the position. Falls back to white-on-bottom if user_color is missing.
+4. **Hotkey set**: Minimal. `a` approve, `r` reject, `s` skip, `e` edit. Nothing else for v1. "Open game in Lab" is a v2 add if we miss it during review sessions.
+5. **Fatigue cap**: None. Mohit will trust his own attention; no UI-side warning after N approves.
